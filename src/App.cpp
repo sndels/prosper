@@ -43,12 +43,6 @@ namespace {
     }
 }
 
-App::App() :
-    _vkRenderPass(VK_NULL_HANDLE),
-    _vkGraphicsPipelineLayout(VK_NULL_HANDLE),
-    _vkGraphicsPipeline(VK_NULL_HANDLE)
-{}
-
 App::~App()
 {
     // Destroy vulkan stuff

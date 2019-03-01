@@ -19,7 +19,7 @@ struct QueueFamilies {
 
 class Device {
 public:
-    Device();
+    Device() = default;
     ~Device();
 
     Device(const Device& other) = delete;
@@ -46,18 +46,18 @@ private:
     void createLogicalDevice();
     void createCommandPool();
 
-    VkInstance _instance;
-    VkPhysicalDevice _physicalDevice;
-    VkDevice _device;
-    VkSurfaceKHR _surface;
+    VkInstance _instance = VK_NULL_HANDLE;
+    VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
+    VkDevice _device = VK_NULL_HANDLE;
+    VkSurfaceKHR _surface = VK_NULL_HANDLE;
 
-    QueueFamilies _queueFamilies;
-    VkQueue _graphicsQueue;
-    VkQueue _presentQueue;
+    QueueFamilies _queueFamilies = {std::nullopt, std::nullopt};
+    VkQueue _graphicsQueue = VK_NULL_HANDLE;
+    VkQueue _presentQueue = VK_NULL_HANDLE;
 
-    VkCommandPool _commandPool;
+    VkCommandPool _commandPool = VK_NULL_HANDLE;
 
-    VkDebugUtilsMessengerEXT _debugMessenger;
+    VkDebugUtilsMessengerEXT _debugMessenger = VK_NULL_HANDLE;
 };
 
 #endif // PROSPER_DEVICE_HPP

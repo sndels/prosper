@@ -145,17 +145,6 @@ namespace {
     }
 }
 
-Device::Device() :
-    _instance(VK_NULL_HANDLE),
-    _physicalDevice(VK_NULL_HANDLE),
-    _device(VK_NULL_HANDLE),
-    _surface(VK_NULL_HANDLE),
-    _queueFamilies({std::nullopt, std::nullopt}),
-    _graphicsQueue(VK_NULL_HANDLE),
-    _presentQueue(VK_NULL_HANDLE),
-    _commandPool(VK_NULL_HANDLE)
-{}
-
 Device::~Device()
 {
     // Also cleans up associated command buffers

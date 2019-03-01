@@ -12,7 +12,7 @@
 
 class App {
 public:
-    App();
+    App() = default;
     ~App();
 
     App(const App& other) = delete;
@@ -32,9 +32,9 @@ private:
 
     void drawFrame();
 
-    VkRenderPass _vkRenderPass;
-    VkPipelineLayout _vkGraphicsPipelineLayout;
-    VkPipeline _vkGraphicsPipeline;
+    VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
+    VkPipelineLayout _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
+    VkPipeline _vkGraphicsPipeline = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> _vkCommandBuffers;
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;

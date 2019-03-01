@@ -59,7 +59,6 @@ private:
     std::vector<VkFence> _inFlightFences;
     size_t _currentFrame = 0;
     uint32_t _nextImage = 0;
-
 };
 
 #endif // PROSPER_SWAPCHAIN_HPP
