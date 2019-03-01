@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 #include "App.hpp"
+#include "Swapchain.hpp"
 
 namespace {
     const std::vector<const char*> validationLayers = {
@@ -27,7 +28,7 @@ namespace {
         vkGetPhysicalDeviceQueueFamilyProperties(device, &familyCount, allFamilies.data());
 
         // Find needed queue support
-        for (uint32_t i = 0; i < familyCount; ++i) {
+        for (uint32_t i = 0; i < allFamilies.size(); ++i) {
             if (allFamilies[i].queueCount > 0) {
                 // Query present support
                 VkBool32 presentSupport = false;
@@ -225,8 +226,8 @@ bool Device::isDeviceSuitable(VkPhysicalDevice device)
 
     bool swapChainAdequate = false;
     if (extensionsSupported) {
-        SwapChainSupportDetails swapDetails = querySwapChainSupport(device, _surface);
-        swapChainAdequate = !swapDetails.formats.empty() && !swapDetails.presentModes.empty();
+        SwapchainSupport swapSupport = querySwapchainSupport(device, _surface);
+        swapChainAdequate = !swapSupport.formats.empty() && !swapSupport.presentModes.empty();
     }
 
     return families.isComplete() && extensionsSupported && swapChainAdequate;

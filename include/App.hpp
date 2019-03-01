@@ -8,13 +8,7 @@
 #include <vector>
 
 #include "Device.hpp"
-
-struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
-SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
+#include "Swapchain.hpp"
 
 class App {
 public:
@@ -28,25 +22,15 @@ public:
     void run();
 
 private:
-    void initWindow();
+    // After Device and before Swapchain
+    void createRenderPass(const SwapchainConfig& swapConfig);
+    void createGraphicsPipeline(const SwapchainConfig& swapConfig);
 
-    void initVulkan();
-    void createSwapChain();
-    void createImageViews();
-    void createRenderPass();
-    void createGraphicsPipeline();
-    void createFramebuffers();
+    // After Swapchain
     void createCommandBuffers();
-    void createSyncObjects();
-    void drawFrame();
-    VkShaderModule createShaderModule(const std::vector<char>& spv);
+    void createSemaphores();
 
-    VkSwapchainKHR _vkSwapchain;
-    std::vector<VkImage> _vkSwapchainImages;
-    VkFormat _vkSwapchainImageFormat;
-    VkExtent2D _vkSwapchainExtent;
-    std::vector<VkImageView> _vkSwapchainImageViews;
-    std::vector<VkFramebuffer> _vkSwapchainFramebuffers;
+    void drawFrame();
 
     VkRenderPass _vkRenderPass;
     VkPipelineLayout _vkGraphicsPipelineLayout;
@@ -54,9 +38,8 @@ private:
     std::vector<VkCommandBuffer> _vkCommandBuffers;
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
-    std::vector<VkFence> _inFlightFences;
-    size_t _currentFrame;
 
+    Swapchain _swapchain;
     // Destruct device after other potential vulkan-resources
     Device _device;
     GLFWwindow* _window;
