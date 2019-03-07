@@ -50,9 +50,7 @@ App::~App()
         vkDestroySemaphore(_device.handle(), _renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(_device.handle(), _imageAvailableSemaphores[i], nullptr);
     }
-    vkDestroyPipeline(_device.handle(), _vkGraphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(_device.handle(), _vkGraphicsPipelineLayout, nullptr);
-    vkDestroyRenderPass(_device.handle(), _vkRenderPass, nullptr);
+    destroySwapchainAndRelated();
 }
 
 void App::init()
@@ -62,14 +60,8 @@ void App::init()
     // Init vulkan
     _device.init(_window.ptr());
 
-    SwapchainConfig swapConfig = selectSwapchainConfig(&_device, {_window.width(), _window.height()});
+    createSwapchainAndRelated();
 
-    createRenderPass(swapConfig);
-    createGraphicsPipeline(swapConfig);
-
-    _swapchain.init(&_device, _vkRenderPass, swapConfig);
-
-    createCommandBuffers();
     createSemaphores();
 }
 
@@ -82,6 +74,49 @@ void App::run()
 
     // Wait for in flight rendering actions to finish
     vkDeviceWaitIdle(_device.handle());
+}
+
+void App::destroySwapchainAndRelated()
+{
+    // Destroy vulkan resources
+    vkFreeCommandBuffers(_device.handle(), _device.commandPool(), static_cast<uint32_t>(_vkCommandBuffers.size()), _vkCommandBuffers.data());
+    vkDestroyPipeline(_device.handle(), _vkGraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(_device.handle(), _vkGraphicsPipelineLayout, nullptr);
+    vkDestroyRenderPass(_device.handle(), _vkRenderPass, nullptr);
+
+    // Also clear the handles
+    _vkRenderPass = VK_NULL_HANDLE;
+    _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
+    _vkGraphicsPipeline = VK_NULL_HANDLE;
+    _vkCommandBuffers.clear();
+
+    // Don't forget the actual swapchain
+    _swapchain.destroy();
+}
+
+void App::createSwapchainAndRelated()
+{
+    SwapchainConfig swapConfig = selectSwapchainConfig(&_device, {_window.width(), _window.height()});
+
+    createRenderPass(swapConfig);
+    createGraphicsPipeline(swapConfig);
+
+    _swapchain.create(&_device, _vkRenderPass, swapConfig);
+
+    createCommandBuffers();
+}
+
+void App::recreateSwapchainAndRelated()
+{
+    while (_window.width() == 0 && _window.height() == 0) {
+        // Window is minimized so wait until its not
+        glfwWaitEvents();
+    }
+    // Wait for resources to be out of use
+    vkDeviceWaitIdle(_device.handle());
+
+    destroySwapchainAndRelated();
+    createSwapchainAndRelated();
 }
 
 void App::createRenderPass(const SwapchainConfig& swapConfig)
@@ -338,7 +373,13 @@ void App::createSemaphores()
 void App::drawFrame()
 {
     size_t currentFrame = _swapchain.currentFrame();
-    uint32_t nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+    auto nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+    while (!nextImage.has_value()) {
+        // Recreate the swap chain as necessary
+        recreateSwapchainAndRelated();
+        currentFrame = _swapchain.currentFrame();
+        nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+    }
 
     // Submit queue
     VkSemaphore waitSemaphores[] = {_imageAvailableSemaphores[currentFrame]};
@@ -350,12 +391,15 @@ void App::drawFrame()
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &_vkCommandBuffers[nextImage];
+    submitInfo.pCommandBuffers = &_vkCommandBuffers[nextImage.value()];
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     if (vkQueueSubmit(_device.graphicsQueue(), 1, &submitInfo, _swapchain.currentFence()) != VK_SUCCESS)
         throw std::runtime_error("Failed to submit draw command buffer");
 
-    _swapchain.present(1, signalSemaphores);
+    // Recreate swapchain if so indicated and explicitly handle resizes
+    if (!_swapchain.present(1, signalSemaphores) || _window.resized())
+        recreateSwapchainAndRelated();
+
 }

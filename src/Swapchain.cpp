@@ -97,16 +97,10 @@ SwapchainConfig selectSwapchainConfig(Device* device, const VkExtent2D& extent)
 
 Swapchain::~Swapchain()
 {
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        vkDestroyFence(_device->handle(), _inFlightFences[i], nullptr);
-    for (auto framebuffer : _fbos)
-        vkDestroyFramebuffer(_device->handle(), framebuffer, nullptr);
-    for (auto imageView : _imageViews)
-        vkDestroyImageView(_device->handle(), imageView, nullptr);
-    vkDestroySwapchainKHR(_device->handle(), _swapchain, nullptr);
+    destroy();
 }
 
-void Swapchain::init(Device* device, VkRenderPass renderPass, const SwapchainConfig& config)
+void Swapchain::create(Device* device, VkRenderPass renderPass, const SwapchainConfig& config)
 {
     _device = device;
     _config = config;
@@ -146,19 +140,25 @@ VkFence Swapchain::currentFence()
     return _inFlightFences[_currentFrame];
 }
 
-uint32_t Swapchain::acquireNextImage(VkSemaphore waitSemaphore)
+std::optional<uint32_t> Swapchain::acquireNextImage(VkSemaphore waitSemaphore)
 {
     // Wait for last frame on fence to finish
     vkWaitForFences(_device->handle(), 1, &_inFlightFences[_currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
     vkResetFences(_device->handle(), 1, &_inFlightFences[_currentFrame]);
 
     // Get index of the next swap image
-    vkAcquireNextImageKHR(_device->handle(), _swapchain, std::numeric_limits<uint64_t>::max(), waitSemaphore, VK_NULL_HANDLE, &_nextImage);
+    VkResult result = vkAcquireNextImageKHR(_device->handle(), _swapchain, std::numeric_limits<uint64_t>::max(), waitSemaphore, VK_NULL_HANDLE, &_nextImage);
+
+    // Signal to recreate swap chain if out of date or suboptimal
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        return std::nullopt;
+    else if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to acquire swapchain image");
 
     return _nextImage;
 }
 
-void Swapchain::present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores)
+bool Swapchain::present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores)
 {
     VkSwapchainKHR swapchains[] = {_swapchain};
     VkPresentInfoKHR presentInfo = {};
@@ -170,9 +170,17 @@ void Swapchain::present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores
     presentInfo.pImageIndices = &_nextImage;
     presentInfo.pResults = nullptr; // optional
 
-    vkQueuePresentKHR(_device->presentQueue(), &presentInfo);
+    VkResult result = vkQueuePresentKHR(_device->presentQueue(), &presentInfo);
+
+    // Signal to recreate swap chain if out of date or suboptimal
+    bool good_swap = true;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        good_swap = false;
+    else if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to present swapchain image");
 
     _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    return good_swap;
 }
 
 void Swapchain::createSwapchain()
@@ -278,4 +286,26 @@ void Swapchain::createFences()
         if (vkCreateFence(_device->handle(), &fenceInfo, nullptr, &_inFlightFences[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create semaphores");
     }
+}
+
+void Swapchain::destroy()
+{
+    // Destroy vulkan resources
+    for (auto fence : _inFlightFences)
+        vkDestroyFence(_device->handle(), fence, nullptr);
+    for (auto framebuffer : _fbos)
+        vkDestroyFramebuffer(_device->handle(), framebuffer, nullptr);
+    for (auto imageView : _imageViews)
+        vkDestroyImageView(_device->handle(), imageView, nullptr);
+    if (_swapchain != VK_NULL_HANDLE) // How is this not a nop?
+        vkDestroySwapchainKHR(_device->handle(), _swapchain, nullptr);
+
+    // Also clear the handles
+    _swapchain = VK_NULL_HANDLE;
+    _images.clear();
+    _imageViews.clear();
+    _fbos.clear();
+    _inFlightFences.clear();
+    _currentFrame = 0;
+    _nextImage = 0;
 }

@@ -20,18 +20,22 @@ public:
     void run();
 
 private:
+    // These don't touch semaphores as they can be reused with a new swapchain
+    void destroySwapchainAndRelated();
+    void createSwapchainAndRelated();
+    void recreateSwapchainAndRelated();
+
     // After Device and before Swapchain
     void createRenderPass(const SwapchainConfig& swapConfig);
     void createGraphicsPipeline(const SwapchainConfig& swapConfig);
-
     // After Swapchain
     void createCommandBuffers();
     void createSemaphores();
 
     void drawFrame();
 
-    Window _window;
-    Device _device;
+    Window _window; // Needs to be valid before and after everything else
+    Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
 
     VkRenderPass _vkRenderPass = VK_NULL_HANDLE;

@@ -32,7 +32,8 @@ public:
     Swapchain(const Swapchain& other) = delete;
     Swapchain operator=(const Swapchain& other) = delete;
 
-    void init(Device* device, VkRenderPass renderPass, const SwapchainConfig& config);
+    void create(Device* device, VkRenderPass renderPass, const SwapchainConfig& config);
+    void destroy();
 
     VkFormat format() const;
     const VkExtent2D& extent() const;
@@ -40,8 +41,10 @@ public:
     VkFramebuffer fbo(size_t i);
     size_t currentFrame() const;
     VkFence currentFence();
-    uint32_t acquireNextImage(VkSemaphore waitSemaphore);
-    void present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores);
+    // nullopt tells to recreate swapchain
+    std::optional<uint32_t> acquireNextImage(VkSemaphore waitSemaphore);
+    // false if swapchain should be recerated
+    bool present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores);
 
 private:
     void createSwapchain();
