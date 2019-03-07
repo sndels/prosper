@@ -53,9 +53,6 @@ App::~App()
     vkDestroyPipeline(_device.handle(), _vkGraphicsPipeline, nullptr);
     vkDestroyPipelineLayout(_device.handle(), _vkGraphicsPipelineLayout, nullptr);
     vkDestroyRenderPass(_device.handle(), _vkRenderPass, nullptr);
-
-    // Swapchain has to be destroyed before glfw
-    _swapchain.cleanup();
 }
 
 void App::init()

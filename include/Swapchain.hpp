@@ -27,12 +27,12 @@ SwapchainConfig selectSwapchainConfig(Device* device, const VkExtent2D& extent);
 class Swapchain {
 public:
     Swapchain() = default;
+    ~Swapchain();
+
     Swapchain(const Swapchain& other) = delete;
     Swapchain operator=(const Swapchain& other) = delete;
 
     void init(Device* device, VkRenderPass renderPass, const SwapchainConfig& config);
-    // Cleanup has to happen before destroying glfw
-    void cleanup();
 
     VkFormat format() const;
     const VkExtent2D& extent() const;

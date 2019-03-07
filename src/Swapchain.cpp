@@ -95,7 +95,7 @@ SwapchainConfig selectSwapchainConfig(Device* device, const VkExtent2D& extent)
     return config;
 }
 
-void Swapchain::cleanup()
+Swapchain::~Swapchain()
 {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         vkDestroyFence(_device->handle(), _inFlightFences[i], nullptr);

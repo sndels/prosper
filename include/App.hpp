@@ -30,17 +30,16 @@ private:
 
     void drawFrame();
 
+    Window _window;
+    Device _device;
+    Swapchain _swapchain;
+
     VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
     VkPipelineLayout _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
     VkPipeline _vkGraphicsPipeline = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> _vkCommandBuffers;
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
-
-    Swapchain _swapchain;
-    // Destruct device and window after vulkan-resources
-    Device _device;
-    Window _window;
 };
 
 #endif // PROSPER_APP_HPP
