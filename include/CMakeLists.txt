@@ -7,5 +7,6 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/App.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Window.hpp
     PARENT_SCOPE
 )

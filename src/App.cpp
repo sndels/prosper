@@ -56,28 +56,16 @@ App::~App()
 
     // Swapchain has to be destroyed before glfw
     _swapchain.cleanup();
-
-    // Destroy glfw
-    glfwDestroyWindow(_window);
-    glfwTerminate();
 }
 
 void App::init()
 {
-    // Init window
-    glfwInit();
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    _window = glfwCreateWindow(WIDTH, HEIGHT, "prosper", nullptr, nullptr);
+    _window.init(WIDTH, HEIGHT, "prosper");
 
     // Init vulkan
-    _device.init(_window);
+    _device.init(_window.ptr());
 
-    int w, h;
-    glfwGetFramebufferSize(_window, &w, &h);
-    SwapchainConfig swapConfig = selectSwapchainConfig(&_device, {(uint32_t)w, (uint32_t)h});
+    SwapchainConfig swapConfig = selectSwapchainConfig(&_device, {_window.width(), _window.height()});
 
     createRenderPass(swapConfig);
     createGraphicsPipeline(swapConfig);
@@ -90,8 +78,8 @@ void App::init()
 
 void App::run() 
 {
-    while (!glfwWindowShouldClose(_window)) {
-        glfwPollEvents();
+    while (_window.open()) {
+        _window.startFrame();
         drawFrame();
     }
 

@@ -1,14 +1,12 @@
 #ifndef PROSPER_APP_HPP
 #define PROSPER_APP_HPP
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #include <optional>
 #include <vector>
 
 #include "Device.hpp"
 #include "Swapchain.hpp"
+#include "Window.hpp"
 
 class App {
 public:
@@ -40,9 +38,9 @@ private:
     std::vector<VkSemaphore> _renderFinishedSemaphores;
 
     Swapchain _swapchain;
-    // Destruct device after other potential vulkan-resources
+    // Destruct device and window after vulkan-resources
     Device _device;
-    GLFWwindow* _window;
+    Window _window;
 };
 
 #endif // PROSPER_APP_HPP
