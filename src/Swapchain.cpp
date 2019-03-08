@@ -165,7 +165,7 @@ bool Swapchain::present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = waitSemaphoreCount;
     presentInfo.pWaitSemaphores = waitSemaphores;
-    presentInfo.swapchainCount = 1;
+    presentInfo.swapchainCount = sizeof(swapchains) / sizeof(VkSwapchainKHR);
     presentInfo.pSwapchains = swapchains;
     presentInfo.pImageIndices = &_nextImage;
     presentInfo.pResults = nullptr; // optional
@@ -203,7 +203,7 @@ void Swapchain::createSwapchain()
     if (indices.graphicsFamily != indices.presentFamily) {
         // Pick concurrent to skip in-depth ownership jazz for now
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        createInfo.queueFamilyIndexCount = 2;
+        createInfo.queueFamilyIndexCount = sizeof(queueFamilyIndices) / sizeof(uint32_t);
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
     } else {
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -263,7 +263,7 @@ void Swapchain::createFramebuffers(VkRenderPass renderPass)
         VkFramebufferCreateInfo  framebufferInfo = {};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.attachmentCount = sizeof(attachments) / sizeof(VkImageView);
         framebufferInfo.pAttachments = attachments;
         framebufferInfo.width = _config.extent.width;
         framebufferInfo.height = _config.extent.height;

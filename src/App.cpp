@@ -285,7 +285,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     // Create pipeline
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
+    pipelineInfo.stageCount = sizeof(shaderStages) / sizeof(VkPipelineShaderStageCreateInfo);
     pipelineInfo.pStages = shaderStages;
     pipelineInfo.pVertexInputState = &vertInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
@@ -387,12 +387,12 @@ void App::drawFrame()
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.waitSemaphoreCount = sizeof(waitSemaphores) / sizeof(VkSemaphore);
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &_vkCommandBuffers[nextImage.value()];
-    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.signalSemaphoreCount = sizeof(signalSemaphores) / sizeof(VkSemaphore);
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     if (vkQueueSubmit(_device.graphicsQueue(), 1, &submitInfo, _swapchain.currentFence()) != VK_SUCCESS)
