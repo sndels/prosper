@@ -5,10 +5,21 @@
 #include <stdexcept>
 
 #include "Constants.hpp"
+#include "Vertex.hpp"
 
 namespace {
     const uint32_t WIDTH = 1280;
     const uint32_t HEIGHT = 720;
+
+    const std::vector<Vertex> vertices = {
+        {{-0.5f, -0.5f, 0.f}, {1.f, 0.f, 0.f}},
+        {{ 0.5f, -0.5f, 0.f}, {0.f, 1.f, 0.f}},
+        {{ 0.5f,  0.5f, 0.f}, {0.f, 0.f, 1.f}},
+        {{-0.5f,  0.5f, 0.f}, {1.f, 1.f, 1.f}}
+    };
+    const std::vector<uint32_t> indices = {
+        0, 1, 2, 2, 3, 0
+    };
 
     static std::vector<char> readFile(const std::string& filename)
     {
@@ -50,6 +61,7 @@ App::~App()
         vkDestroySemaphore(_device.handle(), _renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(_device.handle(), _imageAvailableSemaphores[i], nullptr);
     }
+
     destroySwapchainAndRelated();
 }
 
@@ -59,6 +71,8 @@ void App::init()
 
     // Init vulkan
     _device.init(_window.ptr());
+
+    _meshes.emplace_back(vertices, indices, &_device);
 
     createSwapchainAndRelated();
 
@@ -191,12 +205,14 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
 
     // Fill out shader stage inputs
+    auto vertexBindingDescription = Vertex::bindingDescription();
+    auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
     VkPipelineVertexInputStateCreateInfo vertInputInfo = {};
     vertInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertInputInfo.vertexBindingDescriptionCount = 0;
-    vertInputInfo.pVertexBindingDescriptions = nullptr;
-    vertInputInfo.vertexAttributeDescriptionCount = 0;
-    vertInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertInputInfo.vertexBindingDescriptionCount = 1;
+    vertInputInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+    vertInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexAttributeDescriptions.size());
+    vertInputInfo.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
 
     // Fill out input topology
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -342,12 +358,17 @@ void App::createCommandBuffers()
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
 
+        // Begin
         vkCmdBeginRenderPass(_vkCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+        // Bind pipeline
         vkCmdBindPipeline(_vkCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline);
 
-        vkCmdDraw(_vkCommandBuffers[i], 3, 1, 0, 0);
+        // Draw meshes
+        for (auto& mesh : _meshes)
+            mesh.draw(_vkCommandBuffers[i]);
 
+        // End
         vkCmdEndRenderPass(_vkCommandBuffers[i]);
 
         if (vkEndCommandBuffer(_vkCommandBuffers[i]) != VK_SUCCESS)

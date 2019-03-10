@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Device.hpp"
+#include "Mesh.hpp"
 #include "Swapchain.hpp"
 #include "Window.hpp"
 
@@ -37,13 +38,17 @@ private:
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
+    std::vector<Mesh> _meshes;
 
     VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
     VkPipelineLayout _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
     VkPipeline _vkGraphicsPipeline = VK_NULL_HANDLE;
+
     std::vector<VkCommandBuffer> _vkCommandBuffers;
+
     std::vector<VkSemaphore> _imageAvailableSemaphores;
     std::vector<VkSemaphore> _renderFinishedSemaphores;
+
 };
 
 #endif // PROSPER_APP_HPP
