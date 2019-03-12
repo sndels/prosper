@@ -336,44 +336,6 @@ void App::createCommandBuffers()
 
     if (vkAllocateCommandBuffers(_device.handle(), &allocInfo, _vkCommandBuffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers");
-
-    for (size_t i = 0; i < _vkCommandBuffers.size(); ++i) {
-        // Begin command buffer
-        VkCommandBufferBeginInfo beginInfo = {};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; // Might be scheduling next frame while last is rendering
-        beginInfo.pInheritanceInfo = nullptr;
-
-        if (vkBeginCommandBuffer(_vkCommandBuffers[i], &beginInfo) != VK_SUCCESS)
-            throw std::runtime_error("Failed to begin recording command buffer");
-
-        // Record renderpass
-        VkClearValue clearColor = {0.f, 0.f, 0.f, 0.f};
-        VkRenderPassBeginInfo renderPassInfo = {};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        renderPassInfo.renderPass = _vkRenderPass;
-        renderPassInfo.framebuffer = _swapchain.fbo(i);
-        renderPassInfo.renderArea.offset = {0, 0};
-        renderPassInfo.renderArea.extent = _swapchain.extent();
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
-
-        // Begin
-        vkCmdBeginRenderPass(_vkCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        // Bind pipeline
-        vkCmdBindPipeline(_vkCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline);
-
-        // Draw meshes
-        for (auto& mesh : _meshes)
-            mesh.draw(_vkCommandBuffers[i]);
-
-        // End
-        vkCmdEndRenderPass(_vkCommandBuffers[i]);
-
-        if (vkEndCommandBuffer(_vkCommandBuffers[i]) != VK_SUCCESS)
-            throw std::runtime_error("Failed to record command buffer");
-    }
 }
 
 void App::createSemaphores()
@@ -402,6 +364,9 @@ void App::drawFrame()
         nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
     }
 
+    // Record frame
+    recordCommandBuffer(nextImage.value());
+
     // Submit queue
     VkSemaphore waitSemaphores[] = {_imageAvailableSemaphores[currentFrame]};
     VkSemaphore signalSemaphores[] = {_renderFinishedSemaphores[currentFrame]};
@@ -423,4 +388,47 @@ void App::drawFrame()
     if (!_swapchain.present(1, signalSemaphores) || _window.resized())
         recreateSwapchainAndRelated();
 
+}
+
+void App::recordCommandBuffer(uint32_t nextImage)
+{
+    VkCommandBuffer buffer = _vkCommandBuffers[nextImage];
+    // Reset command buffer
+    vkResetCommandBuffer(buffer, 0);
+
+    // Begin command buffer
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; // Might be scheduling next frame while last is rendering
+    beginInfo.pInheritanceInfo = nullptr;
+
+    if (vkBeginCommandBuffer(buffer, &beginInfo) != VK_SUCCESS)
+        throw std::runtime_error("Failed to begin recording command buffer");
+
+    // Record renderpass
+    VkClearValue clearColor = {0.f, 0.f, 0.f, 0.f};
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = _vkRenderPass;
+    renderPassInfo.framebuffer = _swapchain.fbo(nextImage);
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = _swapchain.extent();
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    // Begin
+    vkCmdBeginRenderPass(buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Bind pipeline
+    vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline);
+
+    // Draw meshes
+    for (auto& mesh : _meshes)
+        mesh.draw(buffer);
+
+    // End
+    vkCmdEndRenderPass(buffer);
+
+    if (vkEndCommandBuffer(buffer) != VK_SUCCESS)
+        throw std::runtime_error("Failed to record command buffer");
 }

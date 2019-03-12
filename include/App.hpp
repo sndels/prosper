@@ -34,6 +34,7 @@ private:
     void createSemaphores();
 
     void drawFrame();
+    void recordCommandBuffer(uint32_t nextImage);
 
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
