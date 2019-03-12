@@ -17,6 +17,11 @@ struct QueueFamilies {
     }
 };
 
+struct Buffer {
+    VkBuffer handle;
+    VkDeviceMemory memory;
+};
+
 class Device {
 public:
     Device() = default;
@@ -35,6 +40,9 @@ public:
     VkQueue graphicsQueue();
     VkQueue presentQueue();
     const QueueFamilies& queueFamilies() const;
+
+    void createBuffer(VkBuffer* buffer, VkDeviceMemory* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+    void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
 private:
     bool isDeviceSuitable(VkPhysicalDevice device);
