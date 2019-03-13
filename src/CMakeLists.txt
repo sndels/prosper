@@ -1,5 +1,6 @@
 set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/App.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
     ${CMAKE_CURRENT_LIST_DIR}/main.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.cpp

@@ -4,6 +4,7 @@
 #include <optional>
 #include <vector>
 
+#include "Camera.hpp"
 #include "Device.hpp"
 #include "Mesh.hpp"
 #include "Swapchain.hpp"
@@ -53,6 +54,7 @@ private:
     Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
     std::vector<Mesh> _meshes;
+    Camera _cam;
 
     VkDescriptorSetLayout _vkDescriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout _vkGraphicsPipelineLayout = VK_NULL_HANDLE;

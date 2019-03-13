@@ -102,6 +102,9 @@ void App::init()
     createCommandBuffers();
 
     createSemaphores();
+
+    _cam.lookAt(glm::vec3(0.f, -2.f, -2.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.f));
+    _cam.perspective(glm::radians(45.f), _window.width() / (float) _window.height(), 0.1f, 100.f);
 }
 
 void App::run() 
@@ -139,6 +142,9 @@ void App::recreateSwapchainAndRelated()
     _swapchain.create(&_device, _vkRenderPass, swapConfig);
 
     createCommandBuffers();
+
+    // Update camera
+    _cam.perspective(glm::radians(45.f), _window.width() / (float) _window.height(), 0.1f, 100.f);
 }
 
 void App::destroySwapchainRelated()
@@ -500,13 +506,8 @@ void App::updateUniformBuffer(uint32_t nextImage)
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     Transforms transforms;
-    transforms.modelToClip = glm::mat4(1.f,  0.f, 0.f, 0.f,
-                                       0.f, -1.f, 0.f, 0.f,
-                                       0.f,  0.f, 1.f, 0.f,
-                                       0.f,  0.f, 0.f, 1.f) *
-                             glm::perspective(glm::radians(45.f), _window.width() / (float) _window.height(), 0.1f, 100.f) *
-                             glm::lookAt(glm::vec3(0.f, -2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.f)) *
-                             glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+    transforms.modelToClip = _cam.worldToClip() *
+                             glm::rotate(glm::mat4(1.f), time * glm::radians(360.f), glm::vec3(0.f, 0.f, 1.f));
 
     void* data;
     vkMapMemory(_device.handle(), _transformBuffers[nextImage].memory, 0, sizeof(Transforms), 0, &data);

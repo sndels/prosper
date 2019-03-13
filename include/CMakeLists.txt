@@ -5,6 +5,7 @@ set(PROSPER_INCLUDE_DIR
 
 set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/App.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Camera.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
