@@ -1,8 +1,11 @@
 #include "App.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
+#include <iostream>
 #include <stdexcept>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Constants.hpp"
 #include "Vertex.hpp"
@@ -62,7 +65,16 @@ App::~App()
         vkDestroySemaphore(_device.handle(), _imageAvailableSemaphores[i], nullptr);
     }
 
-    destroySwapchainAndRelated();
+    destroySwapchainRelated();
+
+    vkDestroyDescriptorPool(_device.handle(), _vkDescriptorPool, nullptr);
+
+    for (size_t i = 0; i < _transformBuffers.size(); ++i) {
+        vkDestroyBuffer(_device.handle(), _transformBuffers[i].handle, nullptr);
+        vkFreeMemory(_device.handle(), _transformBuffers[i].memory, nullptr);
+    }
+
+    vkDestroyDescriptorSetLayout(_device.handle(), _vkDescriptorSetLayout, nullptr);
 }
 
 void App::init()
@@ -74,7 +86,20 @@ void App::init()
 
     _meshes.emplace_back(vertices, indices, &_device);
 
-    createSwapchainAndRelated();
+    SwapchainConfig swapConfig = selectSwapchainConfig(&_device, {_window.width(), _window.height()});
+
+    createRenderPass(swapConfig);
+
+    createDescriptorSetLayout();
+    createGraphicsPipeline(swapConfig);
+
+    _swapchain.create(&_device, _vkRenderPass, swapConfig);
+
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+
+    createCommandBuffers();
 
     createSemaphores();
 }
@@ -90,26 +115,22 @@ void App::run()
     vkDeviceWaitIdle(_device.handle());
 }
 
-void App::destroySwapchainAndRelated()
+void App::recreateSwapchainAndRelated()
 {
-    // Destroy vulkan resources
-    vkFreeCommandBuffers(_device.handle(), _device.commandPool(), static_cast<uint32_t>(_vkCommandBuffers.size()), _vkCommandBuffers.data());
-    vkDestroyPipeline(_device.handle(), _vkGraphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(_device.handle(), _vkGraphicsPipelineLayout, nullptr);
-    vkDestroyRenderPass(_device.handle(), _vkRenderPass, nullptr);
+    while (_window.width() == 0 && _window.height() == 0) {
+        // Window is minimized so wait until its not
+        glfwWaitEvents();
+    }
+    // Wait for resources to be out of use
+    vkDeviceWaitIdle(_device.handle());
 
-    // Also clear the handles
-    _vkRenderPass = VK_NULL_HANDLE;
-    _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
-    _vkGraphicsPipeline = VK_NULL_HANDLE;
-    _vkCommandBuffers.clear();
+    // Destroy resources tied to current swapchain
+    destroySwapchainRelated();
 
     // Don't forget the actual swapchain
     _swapchain.destroy();
-}
 
-void App::createSwapchainAndRelated()
-{
+    // Create new swapchain and tied resources
     SwapchainConfig swapConfig = selectSwapchainConfig(&_device, {_window.width(), _window.height()});
 
     createRenderPass(swapConfig);
@@ -120,17 +141,95 @@ void App::createSwapchainAndRelated()
     createCommandBuffers();
 }
 
-void App::recreateSwapchainAndRelated()
+void App::destroySwapchainRelated()
 {
-    while (_window.width() == 0 && _window.height() == 0) {
-        // Window is minimized so wait until its not
-        glfwWaitEvents();
-    }
-    // Wait for resources to be out of use
-    vkDeviceWaitIdle(_device.handle());
+    // Destroy related vulkan resources
+    vkFreeCommandBuffers(_device.handle(), _device.commandPool(), static_cast<uint32_t>(_vkCommandBuffers.size()), _vkCommandBuffers.data());
+    vkDestroyPipeline(_device.handle(), _vkGraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(_device.handle(), _vkGraphicsPipelineLayout, nullptr);
+    vkDestroyRenderPass(_device.handle(), _vkRenderPass, nullptr);
+}
 
-    destroySwapchainAndRelated();
-    createSwapchainAndRelated();
+void App::createDescriptorSetLayout()
+{
+    // Create binding for Transform
+    VkDescriptorSetLayoutBinding transformLayoutBinding = {};
+    transformLayoutBinding.binding = 0;
+    transformLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    transformLayoutBinding.descriptorCount = 1;
+    transformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    transformLayoutBinding.pImmutableSamplers = nullptr; // optional
+
+    // Create descriptor set layout
+    VkDescriptorSetLayoutCreateInfo dsLayoutInfo = {};
+    dsLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    dsLayoutInfo.bindingCount = 1;
+    dsLayoutInfo.pBindings = &transformLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(_device.handle(), &dsLayoutInfo, nullptr, &_vkDescriptorSetLayout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor set layout");
+}
+
+void App::createUniformBuffers()
+{
+    VkDeviceSize bufferSize = sizeof(Transforms);
+
+    _transformBuffers.resize(_swapchain.imageCount());
+
+    for (size_t i = 0; i < _transformBuffers.size(); ++i)
+        _device.createBuffer(&_transformBuffers[i], bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+}
+
+void App::createDescriptorPool()
+{
+    VkDescriptorPoolSize poolSize = {};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(_swapchain.imageCount());
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(_swapchain.imageCount());
+
+    if (vkCreateDescriptorPool(_device.handle(), &poolInfo, nullptr, &_vkDescriptorPool) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor pool");
+}
+
+void App::createDescriptorSets()
+{ 
+    // Allocate descriptor sets
+    std::vector<VkDescriptorSetLayout> layouts(_swapchain.imageCount(), _vkDescriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = _vkDescriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(_swapchain.imageCount());
+    allocInfo.pSetLayouts = layouts.data();
+
+    _vkDescriptorSets.resize(_swapchain.imageCount());
+    if (vkAllocateDescriptorSets(_device.handle(), &allocInfo, _vkDescriptorSets.data()) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate descriptor sets");
+
+    // Update them with buffers
+    for (size_t i = 0; i < _vkDescriptorSets.size(); ++i) {
+        VkDescriptorBufferInfo bufferInfo = {};
+        bufferInfo.buffer = _transformBuffers[i].handle;
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(Transforms);
+
+        VkWriteDescriptorSet descriptorWrite = {};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = _vkDescriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrite.pImageInfo = nullptr; // optional
+        descriptorWrite.pTexelBufferView = nullptr; // optional
+
+        vkUpdateDescriptorSets(_device.handle(), 1, &descriptorWrite, 0, nullptr);
+    }
 }
 
 void App::createRenderPass(const SwapchainConfig& swapConfig)
@@ -248,7 +347,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     rasterizerState.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizerState.lineWidth = 1.f;
     rasterizerState.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizerState.frontFace = VK_FRONT_FACE_CLOCKWISE; // Clockwise in _screenspace_ with y down
+    rasterizerState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
     rasterizerState.depthBiasEnable = VK_FALSE;
     rasterizerState.depthBiasConstantFactor = 0.f; // optional
     rasterizerState.depthBiasClamp = 0.f; // optional
@@ -290,8 +390,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     // Create pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0; // optional
-    pipelineLayoutInfo.pSetLayouts = nullptr; // optional
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &_vkDescriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount = 0; // optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // optional
 
@@ -364,6 +464,9 @@ void App::drawFrame()
         nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
     }
 
+    // Update uniform buffers
+    updateUniformBuffer(nextImage.value());
+
     // Record frame
     recordCommandBuffer(nextImage.value());
 
@@ -388,6 +491,27 @@ void App::drawFrame()
     if (!_swapchain.present(1, signalSemaphores) || _window.resized())
         recreateSwapchainAndRelated();
 
+}
+
+void App::updateUniformBuffer(uint32_t nextImage)
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    Transforms transforms;
+    transforms.modelToClip = glm::mat4(1.f,  0.f, 0.f, 0.f,
+                                       0.f, -1.f, 0.f, 0.f,
+                                       0.f,  0.f, 1.f, 0.f,
+                                       0.f,  0.f, 0.f, 1.f) *
+                             glm::perspective(glm::radians(45.f), _window.width() / (float) _window.height(), 0.1f, 100.f) *
+                             glm::lookAt(glm::vec3(0.f, -2.f, 2.f), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.f)) *
+                             glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+
+    void* data;
+    vkMapMemory(_device.handle(), _transformBuffers[nextImage].memory, 0, sizeof(Transforms), 0, &data);
+    memcpy(data, &transforms, sizeof(Transforms));
+    vkUnmapMemory(_device.handle(), _transformBuffers[nextImage].memory);
 }
 
 void App::recordCommandBuffer(uint32_t nextImage)
@@ -421,6 +545,8 @@ void App::recordCommandBuffer(uint32_t nextImage)
 
     // Bind pipeline
     vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipeline);
+
+    vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _vkGraphicsPipelineLayout, 0, 1, &_vkDescriptorSets[nextImage], 0, nullptr);
 
     // Draw meshes
     for (auto& mesh : _meshes)

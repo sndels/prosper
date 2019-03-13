@@ -9,6 +9,10 @@
 #include "Swapchain.hpp"
 #include "Window.hpp"
 
+struct Transforms {
+    glm::mat4 modelToClip;
+};
+
 class App {
 public:
     App() = default;
@@ -21,19 +25,28 @@ public:
     void run();
 
 private:
-    // These don't touch semaphores as they can be reused with a new swapchain
-    void destroySwapchainAndRelated();
-    void createSwapchainAndRelated();
+    // Recreates swapchain and resources tied to it
     void recreateSwapchainAndRelated();
+    // Destroys resources dependent on current swapchain
+    void destroySwapchainRelated();
 
-    // After Device and before Swapchain
+    // Before pipeline
+    void createDescriptorSetLayout();
+    void createUniformBuffers();
+    void createDescriptorPool();
+    void createDescriptorSets();
+
+    // These need to be recreated with Swapchain
+    // Before swapchain
     void createRenderPass(const SwapchainConfig& swapConfig);
     void createGraphicsPipeline(const SwapchainConfig& swapConfig);
-    // After Swapchain
+    // After swapchain
     void createCommandBuffers();
+
     void createSemaphores();
 
     void drawFrame();
+    void updateUniformBuffer(uint32_t nextImage);
     void recordCommandBuffer(uint32_t nextImage);
 
     Window _window; // Needs to be valid before and after everything else
@@ -41,8 +54,15 @@ private:
     Swapchain _swapchain;
     std::vector<Mesh> _meshes;
 
-    VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
+    VkDescriptorSetLayout _vkDescriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
+
+    VkDescriptorPool _vkDescriptorPool = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSet> _vkDescriptorSets;
+
+    std::vector<Buffer> _transformBuffers;
+
+    VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
     VkPipeline _vkGraphicsPipeline = VK_NULL_HANDLE;
 
     std::vector<VkCommandBuffer> _vkCommandBuffers;
