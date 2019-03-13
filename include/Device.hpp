@@ -41,8 +41,8 @@ public:
     VkQueue presentQueue();
     const QueueFamilies& queueFamilies() const;
 
-    void createBuffer(VkBuffer* buffer, VkDeviceMemory* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-    void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
+    void createBuffer(Buffer* buffer, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+    void copyBuffer(const Buffer& src, const Buffer& dst, VkDeviceSize size);
 
 private:
     bool isDeviceSuitable(VkPhysicalDevice device);

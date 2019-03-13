@@ -222,7 +222,7 @@ const QueueFamilies& Device::queueFamilies() const
     return _queueFamilies;
 }
 
-void Device::createBuffer(VkBuffer* buffer, VkDeviceMemory* bufferMemory, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
+void Device::createBuffer(Buffer* buffer, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties)
 {
     // Create the buffer
     VkBufferCreateInfo bufferInfo = {};
@@ -231,26 +231,26 @@ void Device::createBuffer(VkBuffer* buffer, VkDeviceMemory* bufferMemory, VkDevi
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(_device, &bufferInfo, nullptr, buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(_device, &bufferInfo, nullptr, &buffer->handle) != VK_SUCCESS)
         throw std::runtime_error("Failed to create vertex buffer");
 
     // Allocate memory for it
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(_device, *buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(_device, buffer->handle, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize =  memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(_physicalDevice, memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(_device, &allocInfo, nullptr, bufferMemory) != VK_SUCCESS)
+    if (vkAllocateMemory(_device, &allocInfo, nullptr, &buffer->memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate vertex buffer memory");
 
     // Bind memory to buffer
-    vkBindBufferMemory(_device, *buffer, *bufferMemory, 0);
+    vkBindBufferMemory(_device, buffer->handle, buffer->memory, 0);
 }
 
-void Device::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
+void Device::copyBuffer(const Buffer& src, const Buffer& dst, VkDeviceSize size)
 {
     // Allocate command buffer for copy operation
     VkCommandBufferAllocateInfo allocInfo = {};
@@ -273,7 +273,7 @@ void Device::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
     copyRegion.srcOffset = 0; // optional
     copyRegion.dstOffset = 0; // optional
     copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer, src.handle, dst.handle, 1, &copyRegion);
 
     vkEndCommandBuffer(commandBuffer);
 
