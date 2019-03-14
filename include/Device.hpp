@@ -1,6 +1,7 @@
 #ifndef PROSPER_DEVICE_HPP
 #define PROSPER_DEVICE_HPP
 
+#include <vulkan/vulkan.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -11,15 +12,15 @@ struct QueueFamilies {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
-    bool isComplete()
+    bool isComplete() const
     {
         return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
 
 struct Buffer {
-    VkBuffer handle;
-    VkDeviceMemory memory;
+    vk::Buffer handle;
+    vk::DeviceMemory memory;
 };
 
 class Device {
@@ -32,20 +33,20 @@ public:
 
     void init(GLFWwindow* window);
 
-    VkInstance instance();
-    VkPhysicalDevice physicalDevice();
-    VkDevice handle();
-    VkSurfaceKHR surface();
-    VkCommandPool commandPool();
-    VkQueue graphicsQueue();
-    VkQueue presentQueue();
+    vk::Instance instance();
+    vk::PhysicalDevice physical();
+    vk::Device logical();
+    vk::SurfaceKHR surface();
+    vk::CommandPool commandPool();
+    vk::Queue graphicsQueue();
+    vk::Queue presentQueue();
     const QueueFamilies& queueFamilies() const;
 
-    void createBuffer(Buffer* buffer, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-    void copyBuffer(const Buffer& src, const Buffer& dst, VkDeviceSize size);
+    Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+    void copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize size);
 
 private:
-    bool isDeviceSuitable(VkPhysicalDevice device);
+    bool isDeviceSuitable(vk::PhysicalDevice device);
 
     void createInstance();
     void createDebugMessenger();
@@ -54,18 +55,18 @@ private:
     void createLogicalDevice();
     void createCommandPool();
 
-    VkInstance _instance = VK_NULL_HANDLE;
-    VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
-    VkDevice _device = VK_NULL_HANDLE;
-    VkSurfaceKHR _surface = VK_NULL_HANDLE;
+    vk::Instance _instance;
+    vk::PhysicalDevice _physical;
+    vk::Device _logical;
+    vk::SurfaceKHR _surface;
 
     QueueFamilies _queueFamilies = {std::nullopt, std::nullopt};
-    VkQueue _graphicsQueue = VK_NULL_HANDLE;
-    VkQueue _presentQueue = VK_NULL_HANDLE;
+    vk::Queue _graphicsQueue;
+    vk::Queue _presentQueue;
 
-    VkCommandPool _commandPool = VK_NULL_HANDLE;
+    vk::CommandPool _commandPool;
 
-    VkDebugUtilsMessengerEXT _debugMessenger = VK_NULL_HANDLE;
+    vk::DebugUtilsMessengerEXT _debugMessenger;
 };
 
 #endif // PROSPER_DEVICE_HPP

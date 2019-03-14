@@ -79,9 +79,11 @@ void Window::keyCallback(GLFWwindow* window, int32_t key, int32_t scancode, int3
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
     Window* thisPtr = (Window*)glfwGetWindowUserPointer(window);
-    if (thisPtr->_width != (uint32_t) width || thisPtr->_height != (uint32_t) height) {
-        thisPtr->_width = (uint32_t) width;
-        thisPtr->_height = (uint32_t) height;
+    auto uw = static_cast<uint32_t>(width);
+    auto uh = static_cast<uint32_t>(height);
+    if (thisPtr->_width != uw || thisPtr->_height != uh) {
+        thisPtr->_width = uw;
+        thisPtr->_height = uh;
         thisPtr->_resized = true;
     }
 }

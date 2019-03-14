@@ -56,21 +56,21 @@ private:
     std::vector<Mesh> _meshes;
     Camera _cam;
 
-    VkDescriptorSetLayout _vkDescriptorSetLayout = VK_NULL_HANDLE;
-    VkPipelineLayout _vkGraphicsPipelineLayout = VK_NULL_HANDLE;
+    vk::DescriptorSetLayout _vkDescriptorSetLayout;
+    vk::PipelineLayout _vkGraphicsPipelineLayout;
 
-    VkDescriptorPool _vkDescriptorPool = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSet> _vkDescriptorSets;
+    vk::DescriptorPool _vkDescriptorPool;
+    std::vector<vk::DescriptorSet> _vkDescriptorSets;
 
     std::vector<Buffer> _transformBuffers;
 
-    VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
-    VkPipeline _vkGraphicsPipeline = VK_NULL_HANDLE;
+    vk::RenderPass _vkRenderPass;
+    vk::Pipeline _vkGraphicsPipeline;
 
-    std::vector<VkCommandBuffer> _vkCommandBuffers;
+    std::vector<vk::CommandBuffer> _vkCommandBuffers;
 
-    std::vector<VkSemaphore> _imageAvailableSemaphores;
-    std::vector<VkSemaphore> _renderFinishedSemaphores;
+    std::vector<vk::Semaphore> _imageAvailableSemaphores;
+    std::vector<vk::Semaphore> _renderFinishedSemaphores;
 
 };
 

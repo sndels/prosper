@@ -15,7 +15,7 @@ public:
     Mesh(Mesh&& other);
     Mesh operator=(const Mesh& other) = delete;
 
-    void draw(VkCommandBuffer commandBuffer);
+    void draw(vk::CommandBuffer commandBuffer);
 
 private:
     void createVertexBuffer(const std::vector<Vertex>& vertices);

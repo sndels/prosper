@@ -1,7 +1,7 @@
 #ifndef PROSPER_SWAPCHAIN_HPP
 #define PROSPER_SWAPCHAIN_HPP
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 
 #include <optional>
 #include <vector>
@@ -9,20 +9,20 @@
 #include "Device.hpp"
 
 struct SwapchainSupport {
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
+    vk::SurfaceCapabilitiesKHR capabilities;
+    std::vector<vk::SurfaceFormatKHR> formats;
+    std::vector<vk::PresentModeKHR> presentModes;
 };
-SwapchainSupport querySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
+SwapchainSupport querySwapchainSupport(vk::PhysicalDevice device, vk::SurfaceKHR surface);
 
 struct SwapchainConfig {
-    VkSurfaceTransformFlagBitsKHR transform;
-    VkSurfaceFormatKHR surfaceFormat;
-    VkPresentModeKHR presentMode;
-    VkExtent2D extent;
+    vk::SurfaceTransformFlagBitsKHR transform;
+    vk::SurfaceFormatKHR surfaceFormat;
+    vk::PresentModeKHR presentMode;
+    vk::Extent2D extent;
     uint32_t imageCount;
 };
-SwapchainConfig selectSwapchainConfig(Device* device, const VkExtent2D& extent);
+SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent);
 
 class Swapchain {
 public:
@@ -32,34 +32,34 @@ public:
     Swapchain(const Swapchain& other) = delete;
     Swapchain operator=(const Swapchain& other) = delete;
 
-    void create(Device* device, VkRenderPass renderPass, const SwapchainConfig& config);
+    void create(Device* device, vk::RenderPass renderPass, const SwapchainConfig& config);
     void destroy();
 
-    VkFormat format() const;
-    const VkExtent2D& extent() const;
-    size_t imageCount() const;
-    VkFramebuffer fbo(size_t i);
+    vk::Format format() const;
+    const vk::Extent2D& extent() const;
+    uint32_t imageCount() const;
+    vk::Framebuffer fbo(size_t i);
     size_t currentFrame() const;
-    VkFence currentFence();
+    vk::Fence currentFence();
     // nullopt tells to recreate swapchain
-    std::optional<uint32_t> acquireNextImage(VkSemaphore waitSemaphore);
+    std::optional<uint32_t> acquireNextImage(const vk::Semaphore waitSemaphore);
     // false if swapchain should be recerated
-    bool present(uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphores);
+    bool present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSemaphores);
 
 private:
     void createSwapchain();
     void createImageViews();
-    void createFramebuffers(VkRenderPass renderPass);
+    void createFramebuffers(vk::RenderPass renderPass);
     void createFences();
 
     Device* _device = nullptr;
     SwapchainConfig _config = {};
 
-    VkSwapchainKHR _swapchain = VK_NULL_HANDLE;
-    std::vector<VkImage> _images;
-    std::vector<VkImageView> _imageViews;
-    std::vector<VkFramebuffer> _fbos;
-    std::vector<VkFence> _inFlightFences;
+    vk::SwapchainKHR _swapchain;
+    std::vector<vk::Image> _images;
+    std::vector<vk::ImageView> _imageViews;
+    std::vector<vk::Framebuffer> _fbos;
+    std::vector<vk::Fence> _inFlightFences;
     size_t _currentFrame = 0;
     uint32_t _nextImage = 0;
 };
