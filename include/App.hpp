@@ -56,12 +56,13 @@ private:
     std::vector<Mesh> _meshes;
     Camera _cam;
 
-    vk::DescriptorSetLayout _vkDescriptorSetLayout;
+    vk::DescriptorSetLayout _vkCameraDescriptorSetLayout;
     vk::PipelineLayout _vkGraphicsPipelineLayout;
 
     vk::DescriptorPool _vkDescriptorPool;
-    std::vector<vk::DescriptorSet> _vkDescriptorSets;
+    std::vector<vk::DescriptorSet> _vkCameraDescriptorSets;
 
+    // TODO: Make these dynamic
     std::vector<Buffer> _transformBuffers;
 
     vk::RenderPass _vkRenderPass;

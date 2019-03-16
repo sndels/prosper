@@ -70,7 +70,7 @@ App::~App()
         _device.logical().freeMemory(buffer.memory);
     }
 
-    _device.logical().destroyDescriptorSetLayout(_vkDescriptorSetLayout);
+    _device.logical().destroyDescriptorSetLayout(_vkCameraDescriptorSetLayout);
 }
 
 void App::init()
@@ -94,8 +94,10 @@ void App::init()
 
     _swapchain.create(&_device, _vkRenderPass, swapConfig);
 
+    _cam.createUniformBuffers(&_device, _swapchain.imageCount());
     createUniformBuffers();
     createDescriptorPool();
+
     createDescriptorSets();
 
     createCommandBuffers();
@@ -179,8 +181,8 @@ void App::destroySwapchainRelated()
 
 void App::createDescriptorSetLayout()
 {
-    // Create binding for Transform
-    const vk::DescriptorSetLayoutBinding transformLayoutBinding(
+    // Create binding for Camera
+    const vk::DescriptorSetLayoutBinding cameraLayoutBinding(
         0, // binding
         vk::DescriptorType::eUniformBuffer,
         1, // descriptor count
@@ -188,12 +190,14 @@ void App::createDescriptorSetLayout()
     );
 
     // Create descriptor set layout
-    const vk::DescriptorSetLayoutCreateInfo dsLayoutInfo(
+    const vk::DescriptorSetLayoutCreateInfo layoutInfo(
         {}, // flags
         1, // binding count
-        &transformLayoutBinding
+        &cameraLayoutBinding
     );
-    _vkDescriptorSetLayout = _device.logical().createDescriptorSetLayout(dsLayoutInfo);
+    _vkCameraDescriptorSetLayout = _device.logical().createDescriptorSetLayout(layoutInfo);
+
+    // TODO: Object descriptor set layout
 }
 
 void App::createUniformBuffers()
@@ -231,33 +235,30 @@ void App::createDescriptorSets()
     // Allocate descriptor sets
     const std::vector<vk::DescriptorSetLayout> layouts(
         _swapchain.imageCount(),
-        _vkDescriptorSetLayout
+        _vkCameraDescriptorSetLayout
     );
     const vk::DescriptorSetAllocateInfo allocInfo(
         _vkDescriptorPool,
         layouts.size(),
         layouts.data()
     );
-    _vkDescriptorSets = _device.logical().allocateDescriptorSets(allocInfo);
+    _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets(allocInfo);
+    // TODO: Object descriptor sets
 
     // Update them with buffers
-    for (size_t i = 0; i < _vkDescriptorSets.size(); ++i) {
-        const vk::DescriptorBufferInfo bufferInfo(
-            _transformBuffers[i].handle,
-            0, // offset
-            sizeof(Transforms) // range
-        );
-
+    auto cameraBufferInfos = _cam.bufferInfos();
+    for (size_t i = 0; i < _vkCameraDescriptorSets.size(); ++i) {
         const vk::WriteDescriptorSet descriptorWrite(
-            _vkDescriptorSets[i],
+            _vkCameraDescriptorSets[i],
             0, // dstBinding,
             0, // dstArrayElement
             1, // descriptorCount
             vk::DescriptorType::eUniformBuffer,
             nullptr, // pImageInfo
-            &bufferInfo
+            &cameraBufferInfos[i]
         );
         _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+        // TODO: Object descriptor sets
     }
 }
 
@@ -425,7 +426,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     const vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
         {}, // flags
         1, // setLayoutCount
-        &_vkDescriptorSetLayout
+        &_vkCameraDescriptorSetLayout
     );
     _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout(pipelineLayoutInfo);
 
@@ -485,6 +486,7 @@ void App::drawFrame()
     }
 
     // Update uniform buffers
+    _cam.updateBuffer(nextImage.value());
     updateUniformBuffer(nextImage.value());
 
     // Record frame
@@ -513,13 +515,14 @@ void App::drawFrame()
 
 void App::updateUniformBuffer(uint32_t nextImage)
 {
+    // TODO: object uniform buffers
+    /*
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     Transforms transforms;
-    transforms.modelToClip = _cam.worldToClip() *
-                             glm::rotate(
+    transforms.modelToClip = glm::rotate(
                                  glm::mat4(1.f),
                                  time * glm::radians(360.f),
                                  glm::vec3(0.f, 0.f, 1.f)
@@ -529,6 +532,7 @@ void App::updateUniformBuffer(uint32_t nextImage)
     _device.logical().mapMemory(_transformBuffers[nextImage].memory, 0, sizeof(Transforms), {}, &data);
     memcpy(data, &transforms, sizeof(Transforms));
     _device.logical().unmapMemory(_transformBuffers[nextImage].memory);
+    */
 }
 
 void App::recordCommandBuffer(uint32_t nextImage)
@@ -567,12 +571,13 @@ void App::recordCommandBuffer(uint32_t nextImage)
         _vkGraphicsPipelineLayout,
         0, // firstSet
         1, // descriptorSetCount
-        &_vkDescriptorSets[nextImage],
+        &_vkCameraDescriptorSets[nextImage],
         0, // dynamicOffsetCount
         nullptr // pDynamicOffsets
     );
 
     // Draw meshes
+    // TODO: Object descriptor sets
     for (auto& mesh : _meshes)
         mesh.draw(buffer);
 
