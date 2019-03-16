@@ -10,8 +10,35 @@
 #include "Swapchain.hpp"
 #include "Window.hpp"
 
-struct Transforms {
-    glm::mat4 modelToClip;
+struct MeshInstanceUniforms {
+    glm::mat4 modelToWorld;
+};
+
+struct MeshInstance {
+    std::shared_ptr<Mesh> mesh;
+    std::vector<Buffer> uniformBuffers;
+    std::vector<vk::DescriptorSet> descriptorSets;
+    glm::mat4 modelToWorld;
+
+    std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+    {
+        std::vector<vk::DescriptorBufferInfo> infos;
+        for (auto& buffer : uniformBuffers)
+            infos.emplace_back(buffer.handle, 0, sizeof(MeshInstanceUniforms));
+
+        return infos;
+    }
+
+    void updateBuffer(Device* device, uint32_t index)
+    {
+        MeshInstanceUniforms uniforms;
+        uniforms.modelToWorld = modelToWorld;
+
+        void* data;
+        device->logical().mapMemory(uniformBuffers[index].memory, 0, sizeof(MeshInstanceUniforms), {}, &data);
+        memcpy(data, &uniforms, sizeof(MeshInstanceUniforms));
+        device->logical().unmapMemory(uniformBuffers[index].memory);
+    }
 };
 
 class App {
@@ -32,7 +59,7 @@ private:
     void destroySwapchainRelated();
 
     // Before pipeline
-    void createDescriptorSetLayout();
+    void createDescriptorSetLayouts();
     void createUniformBuffers();
     void createDescriptorPool();
     void createDescriptorSets();
@@ -47,23 +74,22 @@ private:
     void createSemaphores();
 
     void drawFrame();
-    void updateUniformBuffer(uint32_t nextImage);
+    void updateUniformBuffers(uint32_t nextImage);
     void recordCommandBuffer(uint32_t nextImage);
 
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
-    std::vector<Mesh> _meshes;
+    std::vector<std::shared_ptr<Mesh>> _meshes;
+    std::vector<MeshInstance> _scene;
     Camera _cam;
 
     vk::DescriptorSetLayout _vkCameraDescriptorSetLayout;
+    vk::DescriptorSetLayout _vkMeshInstanceDescriptorSetLayout;
     vk::PipelineLayout _vkGraphicsPipelineLayout;
 
     vk::DescriptorPool _vkDescriptorPool;
     std::vector<vk::DescriptorSet> _vkCameraDescriptorSets;
-
-    // TODO: Make these dynamic
-    std::vector<Buffer> _transformBuffers;
 
     vk::RenderPass _vkRenderPass;
     vk::Pipeline _vkGraphicsPipeline;

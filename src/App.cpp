@@ -65,12 +65,15 @@ App::~App()
 
     _device.logical().destroyDescriptorPool(_vkDescriptorPool);
 
-    for (auto& buffer : _transformBuffers) {
-        _device.logical().destroyBuffer(buffer.handle);
-        _device.logical().freeMemory(buffer.memory);
+    for (auto& instance : _scene) {
+        for (auto& buffer : instance.uniformBuffers) {
+            _device.logical().destroyBuffer(buffer.handle);
+            _device.logical().freeMemory(buffer.memory);
+        }
     }
 
     _device.logical().destroyDescriptorSetLayout(_vkCameraDescriptorSetLayout);
+    _device.logical().destroyDescriptorSetLayout(_vkMeshInstanceDescriptorSetLayout);
 }
 
 void App::init()
@@ -80,7 +83,10 @@ void App::init()
     // Init vulkan
     _device.init(_window.ptr());
 
-    _meshes.emplace_back(vertices, indices, &_device);
+    _meshes.push_back(std::make_shared<Mesh>(vertices, indices, &_device));
+    // TODO: Actual abstraction
+    _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
+    _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
 
     SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
@@ -89,15 +95,15 @@ void App::init()
 
     createRenderPass(swapConfig);
 
-    createDescriptorSetLayout();
+    createDescriptorSetLayouts();
     createGraphicsPipeline(swapConfig);
 
     _swapchain.create(&_device, _vkRenderPass, swapConfig);
 
     _cam.createUniformBuffers(&_device, _swapchain.imageCount());
     createUniformBuffers();
-    createDescriptorPool();
 
+    createDescriptorPool();
     createDescriptorSets();
 
     createCommandBuffers();
@@ -179,50 +185,62 @@ void App::destroySwapchainRelated()
     _device.logical().destroyRenderPass(_vkRenderPass);
 }
 
-void App::createDescriptorSetLayout()
+void App::createDescriptorSetLayouts()
 {
-    // Create binding for Camera
+    // Separate bindings for camera and mesh instance to avoid having camera bound to all mesh instance sets
     const vk::DescriptorSetLayoutBinding cameraLayoutBinding(
         0, // binding
         vk::DescriptorType::eUniformBuffer,
-        1, // descriptor count
+        1, // descriptorCount
         vk::ShaderStageFlagBits::eVertex
     );
-
-    // Create descriptor set layout
-    const vk::DescriptorSetLayoutCreateInfo layoutInfo(
+    const vk::DescriptorSetLayoutCreateInfo cameraLayoutInfo(
         {}, // flags
-        1, // binding count
+        1, // bindingCount
         &cameraLayoutBinding
     );
-    _vkCameraDescriptorSetLayout = _device.logical().createDescriptorSetLayout(layoutInfo);
+    _vkCameraDescriptorSetLayout = _device.logical().createDescriptorSetLayout(cameraLayoutInfo);
 
-    // TODO: Object descriptor set layout
+    const vk::DescriptorSetLayoutBinding meshInstanceLayoutBinding(
+        0, // binding
+        vk::DescriptorType::eUniformBuffer,
+        1, // descriptorCount
+        vk::ShaderStageFlagBits::eVertex
+    );
+    const vk::DescriptorSetLayoutCreateInfo meshInstanceLayoutInfo(
+        {}, // flags
+        1, // bindingCount
+        &meshInstanceLayoutBinding
+    );
+    _vkMeshInstanceDescriptorSetLayout = _device.logical().createDescriptorSetLayout(meshInstanceLayoutInfo);
 }
 
 void App::createUniformBuffers()
 {
-    const vk::DeviceSize bufferSize = sizeof(Transforms);
+    // TODO: Abstract mesh instances
+    const vk::DeviceSize bufferSize = sizeof(MeshInstanceUniforms);
 
-    for (size_t i = 0; i < _swapchain.imageCount(); ++i)
-        _transformBuffers.push_back(_device.createBuffer(
-            bufferSize,
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent
-        ));
+    for (auto& meshInstance : _scene) {
+        for (size_t i = 0; i < _swapchain.imageCount(); ++i)
+            meshInstance.uniformBuffers.push_back(_device.createBuffer(
+                bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                vk::MemoryPropertyFlagBits::eHostCoherent
+            ));
+    }
 }
 
 void App::createDescriptorPool()
 {
     const vk::DescriptorPoolSize poolSize(
         vk::DescriptorType::eUniformBuffer,
-        _swapchain.imageCount() // descriptor count
+        _swapchain.imageCount() * (1 + _scene.size()) // descriptor count, camera and mesh instances
     );
 
     const vk::DescriptorPoolCreateInfo poolInfo(
         {}, // flags
-        _swapchain.imageCount(), // max sets
+        _swapchain.imageCount() * (1 + _scene.size()), // max sets, camera and mesh instance sets
         1, // poolsize count
         &poolSize
     );
@@ -233,17 +251,28 @@ void App::createDescriptorPool()
 void App::createDescriptorSets()
 { 
     // Allocate descriptor sets
-    const std::vector<vk::DescriptorSetLayout> layouts(
+    const std::vector<vk::DescriptorSetLayout> cameraLayouts(
         _swapchain.imageCount(),
         _vkCameraDescriptorSetLayout
     );
-    const vk::DescriptorSetAllocateInfo allocInfo(
+    const vk::DescriptorSetAllocateInfo cameraAllocInfo(
         _vkDescriptorPool,
-        layouts.size(),
-        layouts.data()
+        cameraLayouts.size(),
+        cameraLayouts.data()
     );
-    _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets(allocInfo);
-    // TODO: Object descriptor sets
+    _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets(cameraAllocInfo);
+
+    const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
+        _swapchain.imageCount(),
+        _vkMeshInstanceDescriptorSetLayout
+    );
+    const vk::DescriptorSetAllocateInfo meshInstanceAllocInfo(
+        _vkDescriptorPool,
+        meshInstanceLayouts.size(),
+        meshInstanceLayouts.data()
+    );
+    for (auto& meshInstance : _scene)
+        meshInstance.descriptorSets = _device.logical().allocateDescriptorSets(meshInstanceAllocInfo);
 
     // Update them with buffers
     auto cameraBufferInfos = _cam.bufferInfos();
@@ -258,7 +287,22 @@ void App::createDescriptorSets()
             &cameraBufferInfos[i]
         );
         _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
-        // TODO: Object descriptor sets
+    }
+
+    for (auto& meshInstance : _scene) {
+        auto meshInstanceBufferInfos = meshInstance.bufferInfos();
+        for (size_t i = 0; i < meshInstance.descriptorSets.size(); ++i) {
+            const vk::WriteDescriptorSet descriptorWrite(
+                meshInstance.descriptorSets[i],
+                0, // dstBinding,
+                0, // dstArrayElement
+                1, // descriptorCount
+                vk::DescriptorType::eUniformBuffer,
+                nullptr, // pImageInfo
+                &meshInstanceBufferInfos[i]
+            );
+            _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+        }
     }
 }
 
@@ -423,10 +467,14 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     );
 
     // Create pipeline layout
+    vk::DescriptorSetLayout setLayouts[] = {
+        _vkCameraDescriptorSetLayout,
+        _vkMeshInstanceDescriptorSetLayout
+    };
     const vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
         {}, // flags
-        1, // setLayoutCount
-        &_vkCameraDescriptorSetLayout
+        sizeof(setLayouts) / sizeof(vk::DescriptorSetLayout),
+        setLayouts
     );
     _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout(pipelineLayoutInfo);
 
@@ -486,8 +534,7 @@ void App::drawFrame()
     }
 
     // Update uniform buffers
-    _cam.updateBuffer(nextImage.value());
-    updateUniformBuffer(nextImage.value());
+    updateUniformBuffers(nextImage.value());
 
     // Record frame
     recordCommandBuffer(nextImage.value());
@@ -513,26 +560,25 @@ void App::drawFrame()
 
 }
 
-void App::updateUniformBuffer(uint32_t nextImage)
+void App::updateUniformBuffers(uint32_t nextImage)
 {
-    // TODO: object uniform buffers
-    /*
+    _cam.updateBuffer(nextImage);
+
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    Transforms transforms;
-    transforms.modelToClip = glm::rotate(
-                                 glm::mat4(1.f),
-                                 time * glm::radians(360.f),
-                                 glm::vec3(0.f, 0.f, 1.f)
-                             );
-
-    void* data;
-    _device.logical().mapMemory(_transformBuffers[nextImage].memory, 0, sizeof(Transforms), {}, &data);
-    memcpy(data, &transforms, sizeof(Transforms));
-    _device.logical().unmapMemory(_transformBuffers[nextImage].memory);
-    */
+    for (size_t i = 0; i < _scene.size(); ++i) {
+        _scene[i].modelToWorld = glm::rotate(
+                                      glm::translate(
+                                          glm::mat4(1.f),
+                                          glm::vec3(-1.f + 2.f * i, 0.f, 0.f)
+                                      ),
+                                      (-1.f + 2.f * i) * time * glm::radians(360.f),
+                                      glm::vec3(0.f, 0.f, 1.f)
+                                  );
+        _scene[i].updateBuffer(&_device, nextImage);
+    }
 }
 
 void App::recordCommandBuffer(uint32_t nextImage)
@@ -576,10 +622,19 @@ void App::recordCommandBuffer(uint32_t nextImage)
         nullptr // pDynamicOffsets
     );
 
-    // Draw meshes
-    // TODO: Object descriptor sets
-    for (auto& mesh : _meshes)
-        mesh.draw(buffer);
+    // Draw scene
+    for (auto& meshInstance : _scene) {
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            _vkGraphicsPipelineLayout,
+            1, // firstSet
+            1, // descriptorSetCount
+            &meshInstance.descriptorSets[nextImage],
+            0, // dynamicOffsetCount
+            nullptr // pDynamicOffsets
+        );
+        meshInstance.mesh->draw(buffer);
+    }
 
     // End
     buffer.endRenderPass();
