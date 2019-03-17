@@ -257,6 +257,109 @@ void Device::copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize siz
     endGraphicsCommands(commandBuffer);
 }
 
+void Device::copyBufferToImage(const Buffer& src, const Image& dst, vk::Extent2D extent)
+{
+    auto commandBuffer = beginGraphicsCommands();
+
+    const vk::BufferImageCopy region(
+        0, // bufferOffset
+        0, // bufferRowLength
+        0, // bufferImageHeight
+        vk::ImageSubresourceLayers(
+            vk::ImageAspectFlagBits::eColor,
+            0, // mipLevel
+            0, // arrayLayer
+            1 // layerCount
+        ),
+        vk::Offset3D(0, 0, 0),
+        vk::Extent3D(extent, 1)
+    );
+    commandBuffer.copyBufferToImage(
+        src.handle,
+        dst.handle,
+        vk::ImageLayout::eTransferDstOptimal,
+        1, // regionCount
+        &region
+    );
+
+    endGraphicsCommands(commandBuffer);
+}
+
+Image Device::createImage(vk::Extent2D extent, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties)
+{
+    Image image;
+
+    // Create handle
+    const vk::ImageCreateInfo imageInfo(
+        {}, // flags
+        vk::ImageType::e2D,
+        vk::Format::eR8G8B8A8Unorm,
+        vk::Extent3D(extent, 1),
+        1, // mipLevels
+        1, // arrayLayers
+        vk::SampleCountFlagBits::e1,
+        tiling,
+        usage,
+        vk::SharingMode::eExclusive
+    );
+    image.handle = _logical.createImage(imageInfo);
+
+    // Allocate and bind memory
+    const auto memRequirements = _logical.getImageMemoryRequirements(image.handle);
+    const vk::MemoryAllocateInfo allocInfo(
+        memRequirements.size,
+        findMemoryType(_physical, memRequirements.memoryTypeBits, properties)
+    );
+    image.memory = _logical.allocateMemory(allocInfo);
+    _logical.bindImageMemory(image.handle, image.memory, 0);
+
+    return image;
+}
+
+void Device::transitionImageLayout(const Image& image, vk::Format format, const vk::ImageSubresourceRange& subresourceRange, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+{
+    auto commandBuffer = beginGraphicsCommands();
+
+    // Define masks based on layouts
+    vk::AccessFlags srcAccessMask, dstAccessMask;
+    vk::PipelineStageFlags srcStageMask, dstStageMask;
+    if (oldLayout == vk::ImageLayout::eUndefined &&
+        newLayout == vk::ImageLayout::eTransferDstOptimal) {
+        srcAccessMask = {};
+        dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+        srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe;
+        dstStageMask = vk::PipelineStageFlagBits::eTransfer;
+    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
+               newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+        srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        dstAccessMask = vk::AccessFlagBits::eShaderRead;
+        srcStageMask = vk::PipelineStageFlagBits::eTransfer;
+        dstStageMask = vk::PipelineStageFlagBits::eFragmentShader;
+    } else
+        throw std::runtime_error("Unsupported layout transition");
+
+    const vk::ImageMemoryBarrier barrier(
+        srcAccessMask,
+        dstAccessMask,
+        oldLayout,
+        newLayout,
+        VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
+        image.handle,
+        subresourceRange
+    );
+    commandBuffer.pipelineBarrier(
+        srcStageMask,
+        dstStageMask,
+        {}, // dependencyFlags
+        0, nullptr, // memoryBarriers
+        0, nullptr, // bufferMemoryBarriers
+        1, &barrier
+    );
+
+    endGraphicsCommands(commandBuffer);
+}
+
 vk::CommandBuffer Device::beginGraphicsCommands()
 {
     // Allocate and begin a command buffer

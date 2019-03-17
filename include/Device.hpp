@@ -23,6 +23,11 @@ struct Buffer {
     vk::DeviceMemory memory;
 };
 
+struct Image {
+    vk::Image handle;
+    vk::DeviceMemory memory;
+};
+
 class Device {
 public:
     Device() = default;
@@ -44,6 +49,10 @@ public:
 
     Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
     void copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize size);
+    void copyBufferToImage(const Buffer& src, const Image& dst, vk::Extent2D extent);
+
+    Image createImage(vk::Extent2D extent, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
+    void transitionImageLayout(const Image& image, vk::Format format, const vk::ImageSubresourceRange& subresourceRange, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
 
     vk::CommandBuffer beginGraphicsCommands();
     void endGraphicsCommands(vk::CommandBuffer buffer);
