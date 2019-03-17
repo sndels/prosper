@@ -401,6 +401,7 @@ bool Device::isDeviceSuitable(vk::PhysicalDevice device)
     const auto families = findQueueFamilies(device, _surface);
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
+    const auto supportedFeatures = device.getFeatures();
 
     bool swapChainAdequate = false;
     if (extensionsSupported) {
@@ -408,7 +409,10 @@ bool Device::isDeviceSuitable(vk::PhysicalDevice device)
         swapChainAdequate = !swapSupport.formats.empty() && !swapSupport.presentModes.empty();
     }
 
-    return families.isComplete() && extensionsSupported && swapChainAdequate;
+    return families.isComplete() &&
+           extensionsSupported &&
+           swapChainAdequate &&
+           supportedFeatures.samplerAnisotropy;
 }
 
 void Device::createInstance()
@@ -500,7 +504,8 @@ void Device::createLogicalDevice()
     }
 
     // Set up features
-    const vk::PhysicalDeviceFeatures deviceFeatures;
+    vk::PhysicalDeviceFeatures deviceFeatures;
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
 
     // Create logical device
     const vk::DeviceCreateInfo createInfo(
