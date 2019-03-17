@@ -245,20 +245,7 @@ Buffer Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk:
 
 void Device::copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize size)
 {
-    // Allocate command buffer for copy operation
-    const vk::CommandBufferAllocateInfo allocInfo(
-        _commandPool,
-        vk::CommandBufferLevel::ePrimary,
-        1 // commandBufferCount
-    );
-    auto commandBuffers = _logical.allocateCommandBuffers(allocInfo);
-    auto commandBuffer = commandBuffers[0];
-
-    // Record copy
-    const vk::CommandBufferBeginInfo beginInfo(
-        vk::CommandBufferUsageFlagBits::eOneTimeSubmit
-    );
-    commandBuffer.begin(beginInfo);
+    auto commandBuffer = beginGraphicsCommands();
 
     const vk::BufferCopy copyRegion(
         0, // srcOffset
@@ -267,21 +254,43 @@ void Device::copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize siz
     );
     commandBuffer.copyBuffer(src.handle, dst.handle, 1, &copyRegion);
 
-    commandBuffer.end();
+    endGraphicsCommands(commandBuffer);
+}
 
-    // Execute copy and wait for completion
+vk::CommandBuffer Device::beginGraphicsCommands()
+{
+    // Allocate and begin a command buffer
+    const vk::CommandBufferAllocateInfo allocInfo(
+        _commandPool,
+        vk::CommandBufferLevel::ePrimary,
+        1 // commandBufferCount
+    );
+    auto buffer = _logical.allocateCommandBuffers(allocInfo)[0];
+
+    const vk::CommandBufferBeginInfo beginInfo(
+        vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+    );
+    buffer.begin(beginInfo);
+
+    return buffer;
+}
+
+void Device::endGraphicsCommands(vk::CommandBuffer buffer)
+{
+    // End and submit on graphics queue
+    buffer.end();
+
     const vk::SubmitInfo submitInfo(
         0, // waitSemaphoreCount
         nullptr, // pWaitSemaphores
         nullptr, // pWaitDstStageMask
         1, // commandBufferCount
-        &commandBuffer
+        &buffer
     );
     _graphicsQueue.submit(1, &submitInfo, {});
-    _graphicsQueue.waitIdle();
+    _graphicsQueue.waitIdle(); // TODO: Collect setup commands and execute at once
 
-    // Clean up
-    _logical.freeCommandBuffers(_commandPool, 1, &commandBuffer);
+    _logical.freeCommandBuffers(_commandPool, 1, &buffer);
 }
 
 bool Device::isDeviceSuitable(vk::PhysicalDevice device)

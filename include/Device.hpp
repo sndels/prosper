@@ -45,6 +45,9 @@ public:
     Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
     void copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize size);
 
+    vk::CommandBuffer beginGraphicsCommands();
+    void endGraphicsCommands(vk::CommandBuffer buffer);
+
 private:
     bool isDeviceSuitable(vk::PhysicalDevice device);
 
