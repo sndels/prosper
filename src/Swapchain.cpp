@@ -200,21 +200,21 @@ bool Swapchain::present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSe
 void Swapchain::createSwapchain()
 {
     QueueFamilies indices = _device->queueFamilies();
-    uint32_t queueFamilyIndices[] = {
+    const std::array<uint32_t, 2> queueFamilyIndices = {{
         indices.graphicsFamily.value(),
         indices.presentFamily.value()
-    };
+    }};
 
     // Conditional info
     // Handle ownership of images
     vk::SharingMode imageSharingMode;
     uint32_t queueFamilyIndexCount;
-    uint32_t* pQueueFamilyIndices;
+    const uint32_t* pQueueFamilyIndices;
     if (indices.graphicsFamily != indices.presentFamily) {
         // Pick concurrent to skip in-depth ownership jazz for now
         imageSharingMode = vk::SharingMode::eConcurrent;
-        queueFamilyIndexCount = sizeof(queueFamilyIndices) / sizeof(uint32_t);
-        pQueueFamilyIndices = queueFamilyIndices;
+        queueFamilyIndexCount = queueFamilyIndices.size();
+        pQueueFamilyIndices = queueFamilyIndices.data();
     } else {
         imageSharingMode = vk::SharingMode::eExclusive;
         queueFamilyIndexCount = 0; // optional
@@ -273,15 +273,15 @@ void Swapchain::createFramebuffers(vk::RenderPass renderPass)
 {
     // Create framebuffers for image views
     for (auto& view : _imageViews) {
-        vk::ImageView attachments[] = {
+        const std::array<vk::ImageView, 1> attachments = {{
             view
-        };
+        }};
 
         vk::FramebufferCreateInfo framebufferInfo(
             {}, // flags
             renderPass,
-            sizeof(attachments) / sizeof(vk::ImageView),
-            attachments,
+            attachments.size(),
+            attachments.data(),
             _config.extent.width,
             _config.extent.height,
             1 // layers

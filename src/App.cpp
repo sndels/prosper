@@ -433,7 +433,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         fragShaderModule,
         "main"
     );
-    const vk::PipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
+    const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{vertStageInfo, fragStageInfo}};
 
     // Config shader stage inputs
     const auto vertexBindingDescription = Vertex::bindingDescription();
@@ -520,23 +520,23 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     );
 
     // Create pipeline layout
-    vk::DescriptorSetLayout setLayouts[] = {
+    const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _vkCameraDescriptorSetLayout,
         _vkMeshInstanceDescriptorSetLayout,
         _vkSamplerDescriptorSetLayout
-    };
+    }};
     const vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
         {}, // flags
-        sizeof(setLayouts) / sizeof(vk::DescriptorSetLayout),
-        setLayouts
+        setLayouts.size(),
+        setLayouts.data()
     );
     _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout(pipelineLayoutInfo);
 
     // Create pipeline
     const vk::GraphicsPipelineCreateInfo pipelineInfo(
         {}, // flags
-        sizeof(shaderStages) / sizeof(vk::PipelineShaderStageCreateInfo), // stageCount
-        shaderStages,
+        shaderStages.size(),
+        shaderStages.data(),
         &vertInputInfo,
         &inputAssembly,
         nullptr, // tessellation
@@ -594,22 +594,29 @@ void App::drawFrame()
     recordCommandBuffer(nextImage.value());
 
     // Submit queue
-    const vk::Semaphore waitSemaphores[] = {_imageAvailableSemaphores[currentFrame]};
-    const vk::Semaphore signalSemaphores[] = {_renderFinishedSemaphores[currentFrame]};
-    const vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    const std::array<vk::Semaphore, 1> waitSemaphores = {{
+        _imageAvailableSemaphores[currentFrame]
+    }};
+    const std::array<vk::PipelineStageFlags, 1> waitStages = {{
+        vk::PipelineStageFlagBits::eColorAttachmentOutput
+    }};
+    const std::array<vk::Semaphore, 1> signalSemaphores = {{
+        _renderFinishedSemaphores[currentFrame]
+    }};
     const vk::SubmitInfo submitInfo(
-        sizeof(waitSemaphores) / sizeof(vk::Semaphore), // waitSemaphoreCount
-        waitSemaphores,
-        waitStages,
+        waitSemaphores.size(),
+        waitSemaphores.data(),
+        waitStages.data(),
         1, // commandBufferCount
         &_vkCommandBuffers[nextImage.value()],
-        sizeof(signalSemaphores) / sizeof(vk::Semaphore), // signalSemaphoreCount
-        signalSemaphores
+        signalSemaphores.size(),
+        signalSemaphores.data()
     );
     _device.graphicsQueue().submit(1, &submitInfo, _swapchain.currentFence());
 
     // Recreate swapchain if so indicated and explicitly handle resizes
-    if (!_swapchain.present(1, signalSemaphores) || _window.resized())
+    if (!_swapchain.present(signalSemaphores.size(), signalSemaphores.data()) ||
+        _window.resized())
         recreateSwapchainAndRelated();
 
 }
