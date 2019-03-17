@@ -14,9 +14,9 @@ public:
     Window(const Window& other) = delete;
     Window operator=(const Window& other) = delete;
 
-    void init(uint32_t width, uint32_t height, const std::string& title);
+    void init(const uint32_t width, const uint32_t height, const std::string& title);
 
-    GLFWwindow* ptr();
+    GLFWwindow* ptr() const;
     bool open() const;
     uint32_t width() const;
     uint32_t height() const;

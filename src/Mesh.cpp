@@ -32,7 +32,7 @@ Mesh::Mesh(Mesh&& other) :
     other._indexCount = 0;
 }
 
-void Mesh::draw(vk::CommandBuffer commandBuffer)
+void Mesh::draw(vk::CommandBuffer commandBuffer) const
 {
     // Bind
     const vk::DeviceSize offset = 0;
@@ -45,10 +45,10 @@ void Mesh::draw(vk::CommandBuffer commandBuffer)
 
 void Mesh::createVertexBuffer(const std::vector<Vertex>& vertices)
 {
-    vk::DeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+    const vk::DeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
     // Create staging buffer
-    Buffer stagingBuffer = _device->createBuffer(
+    const Buffer stagingBuffer = _device->createBuffer(
         bufferSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
@@ -77,10 +77,10 @@ void Mesh::createVertexBuffer(const std::vector<Vertex>& vertices)
 
 void Mesh::createIndexBuffer(const std::vector<uint32_t>& indices)
 {
-    vk::DeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+    const vk::DeviceSize bufferSize = sizeof(uint32_t) * indices.size();
 
     // Create staging buffer
-    Buffer stagingBuffer = _device->createBuffer(
+    const Buffer stagingBuffer = _device->createBuffer(
         bufferSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |

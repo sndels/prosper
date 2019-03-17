@@ -30,7 +30,7 @@ struct MeshInstance {
         return infos;
     }
 
-    void updateBuffer(Device* device, uint32_t index)
+    void updateBuffer(const Device* device, const uint32_t index) const
     {
         MeshInstanceUniforms uniforms;
         uniforms.modelToWorld = modelToWorld;
@@ -75,8 +75,8 @@ private:
     void createSemaphores();
 
     void drawFrame();
-    void updateUniformBuffers(uint32_t nextImage);
-    void recordCommandBuffer(uint32_t nextImage);
+    void updateUniformBuffers(const uint32_t nextImage);
+    void recordCommandBuffer(const uint32_t nextImage);
 
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources

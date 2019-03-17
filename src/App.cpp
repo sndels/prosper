@@ -42,7 +42,7 @@ namespace {
         return buffer;
     }
 
-    vk::ShaderModule createShaderModule(vk::Device device, const std::vector<char>& spv)
+    vk::ShaderModule createShaderModule(const vk::Device device, const std::vector<char>& spv)
     {
         const vk::ShaderModuleCreateInfo createInfo(
             {},
@@ -96,7 +96,7 @@ void App::init()
     _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
     _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
 
-    SwapchainConfig swapConfig = selectSwapchainConfig(
+    const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
         {_window.width(), _window.height()}
     );
@@ -158,7 +158,7 @@ void App::recreateSwapchainAndRelated()
     _swapchain.destroy();
 
     // Create new swapchain and tied resources
-    SwapchainConfig swapConfig = selectSwapchainConfig(
+    const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
         {_window.width(),
         _window.height()}
@@ -265,9 +265,13 @@ void App::createDescriptorPool()
             _swapchain.imageCount() // descriptor count
         }
     }};
-    uint32_t setCount = 0;
-    for (auto& size : poolSizes)
-        setCount += size.descriptorCount;
+    const uint32_t setCount = [&]{
+        uint32_t setCount = 0;
+        for (auto& size : poolSizes)
+            setCount += size.descriptorCount;
+
+        return setCount;
+    }();
 
     const vk::DescriptorPoolCreateInfo poolInfo(
         {}, // flags
@@ -314,7 +318,7 @@ void App::createDescriptorSets()
 
 
     // Update them with buffers
-    auto cameraBufferInfos = _cam.bufferInfos();
+    const auto cameraBufferInfos = _cam.bufferInfos();
     for (size_t i = 0; i < _vkCameraDescriptorSets.size(); ++i) {
         const vk::WriteDescriptorSet descriptorWrite(
             _vkCameraDescriptorSets[i],
@@ -329,7 +333,7 @@ void App::createDescriptorSets()
     }
 
     for (auto& meshInstance : _scene) {
-        auto meshInstanceBufferInfos = meshInstance.bufferInfos();
+        const auto meshInstanceBufferInfos = meshInstance.bufferInfos();
         for (size_t i = 0; i < meshInstance.descriptorSets.size(); ++i) {
             const vk::WriteDescriptorSet descriptorWrite(
                 meshInstance.descriptorSets[i],
@@ -417,8 +421,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     // Create modules for shaders
     const auto vertSPV = readFile("shader/shader.vert.spv");
     const auto fragSPV = readFile("shader/shader.frag.spv");
-    vk::ShaderModule vertShaderModule = createShaderModule(_device.logical(), vertSPV);
-    vk::ShaderModule fragShaderModule = createShaderModule(_device.logical(), fragSPV);
+    const vk::ShaderModule vertShaderModule = createShaderModule(_device.logical(), vertSPV);
+    const vk::ShaderModule fragShaderModule = createShaderModule(_device.logical(), fragSPV);
 
     // Fill out create infos for the shader stages
     const vk::PipelineShaderStageCreateInfo vertStageInfo(
@@ -578,20 +582,26 @@ void App::createSemaphores()
 
 void App::drawFrame()
 {
-    size_t currentFrame = _swapchain.currentFrame();
-    auto nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
-    while (!nextImage.has_value()) {
-        // Recreate the swap chain as necessary
-        recreateSwapchainAndRelated();
-        currentFrame = _swapchain.currentFrame();
-        nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
-    }
+    // currentFrame corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
+    // nexttImage corresponds to the swapchain image
+    const auto [currentFrame, nextImage] = [&]{
+        size_t currentFrame = _swapchain.currentFrame();
+        auto nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+        while (!nextImage.has_value()) {
+            // Recreate the swap chain as necessary
+            recreateSwapchainAndRelated();
+            currentFrame = _swapchain.currentFrame();
+            nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+        }
+
+        return std::pair(currentFrame, nextImage.value());
+    }();
 
     // Update uniform buffers
-    updateUniformBuffers(nextImage.value());
+    updateUniformBuffers(nextImage);
 
     // Record frame
-    recordCommandBuffer(nextImage.value());
+    recordCommandBuffer(nextImage);
 
     // Submit queue
     const std::array<vk::Semaphore, 1> waitSemaphores = {{
@@ -608,7 +618,7 @@ void App::drawFrame()
         waitSemaphores.data(),
         waitStages.data(),
         1, // commandBufferCount
-        &_vkCommandBuffers[nextImage.value()],
+        &_vkCommandBuffers[nextImage],
         signalSemaphores.size(),
         signalSemaphores.data()
     );
@@ -621,12 +631,12 @@ void App::drawFrame()
 
 }
 
-void App::updateUniformBuffers(uint32_t nextImage)
+void App::updateUniformBuffers(const uint32_t nextImage)
 {
     _cam.updateBuffer(nextImage);
 
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currentTime = std::chrono::high_resolution_clock::now();
+    static const auto startTime = std::chrono::high_resolution_clock::now();
+    const auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     for (size_t i = 0; i < _scene.size(); ++i) {
@@ -642,21 +652,21 @@ void App::updateUniformBuffers(uint32_t nextImage)
     }
 }
 
-void App::recordCommandBuffer(uint32_t nextImage)
+void App::recordCommandBuffer(const uint32_t nextImage)
 {
-    vk::CommandBuffer buffer = _vkCommandBuffers[nextImage];
+    const vk::CommandBuffer buffer = _vkCommandBuffers[nextImage];
     // Reset command buffer
     buffer.reset({});
 
     // Begin command buffer
-    vk::CommandBufferBeginInfo beginInfo(
+    const vk::CommandBufferBeginInfo beginInfo(
         vk::CommandBufferUsageFlagBits::eSimultaneousUse
     );
     buffer.begin(beginInfo);
 
     // Record renderpass
-    vk::ClearValue clearColor(std::array<float, 4>{0.f, 0.f, 0.f, 0.f});
-    vk::RenderPassBeginInfo renderPassInfo(
+    const vk::ClearValue clearColor(std::array<float, 4>{0.f, 0.f, 0.f, 0.f});
+    const vk::RenderPassBeginInfo renderPassInfo(
         _vkRenderPass,
         _swapchain.fbo(nextImage),
         vk::Rect2D(

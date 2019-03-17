@@ -8,7 +8,7 @@ Window::~Window()
     glfwTerminate();
 }
 
-void Window::init(uint32_t width, uint32_t height, const std::string& title)
+void Window::init(const uint32_t width, const uint32_t height, const std::string& title)
 {
     _width = width;
     _height = height;
@@ -26,7 +26,7 @@ void Window::init(uint32_t width, uint32_t height, const std::string& title)
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
 }
 
-GLFWwindow* Window::ptr()
+GLFWwindow* Window::ptr() const
 {
     return _window;
 }

@@ -38,27 +38,27 @@ public:
 
     void init(GLFWwindow* window);
 
-    vk::Instance instance();
-    vk::PhysicalDevice physical();
-    vk::Device logical();
-    vk::SurfaceKHR surface();
-    vk::CommandPool commandPool();
-    vk::Queue graphicsQueue();
-    vk::Queue presentQueue();
+    vk::Instance instance() const;
+    vk::PhysicalDevice physical() const;
+    vk::Device logical() const;
+    vk::SurfaceKHR surface() const;
+    vk::CommandPool commandPool() const;
+    vk::Queue graphicsQueue() const;
+    vk::Queue presentQueue() const;
     const QueueFamilies& queueFamilies() const;
 
-    Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
-    void copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize size);
-    void copyBufferToImage(const Buffer& src, const Image& dst, vk::Extent2D extent);
+    Buffer createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties) const;
+    void copyBuffer(const Buffer& src, const Buffer& dst, const vk::DeviceSize size) const;
+    void copyBufferToImage(const Buffer& src, const Image& dst, const vk::Extent2D extent) const;
 
-    Image createImage(vk::Extent2D extent, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties);
-    void transitionImageLayout(const Image& image, vk::Format format, const vk::ImageSubresourceRange& subresourceRange, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+    Image createImage(const vk::Extent2D extent, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties) const;
+    void transitionImageLayout(const Image& image, const vk::Format format, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const;
 
-    vk::CommandBuffer beginGraphicsCommands();
-    void endGraphicsCommands(vk::CommandBuffer buffer);
+    vk::CommandBuffer beginGraphicsCommands() const;
+    void endGraphicsCommands(const vk::CommandBuffer buffer) const;
 
 private:
-    bool isDeviceSuitable(vk::PhysicalDevice device);
+    bool isDeviceSuitable(const vk::PhysicalDevice device) const;
 
     void createInstance();
     void createDebugMessenger();

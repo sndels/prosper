@@ -6,10 +6,10 @@
 Texture::Texture(Device* device, const std::string& path) :
     _device(device)
 {
-    auto [pixels, extent] = loadFromFile(path);
-    auto stagingBuffer = stagePixels(pixels, extent);
+    const auto [pixels, extent] = loadFromFile(path);
+    const auto stagingBuffer = stagePixels(pixels, extent);
 
-    vk::ImageSubresourceRange subresourceRange(
+    const vk::ImageSubresourceRange subresourceRange(
             vk::ImageAspectFlagBits::eColor,
             0, // baseMipLevel
             1, // levelCount
@@ -54,7 +54,7 @@ std::pair<uint8_t*, vk::Extent2D> Texture::loadFromFile(const std::string& path)
     return std::pair(pixels, vk::Extent2D(w, h));
 }
 
-Buffer Texture::stagePixels(const uint8_t* pixels, vk::Extent2D extent)
+Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
 {
     // Upload to staging buffer
     const vk::DeviceSize imageSize = extent.width * extent.height * 4;
@@ -73,7 +73,7 @@ Buffer Texture::stagePixels(const uint8_t* pixels, vk::Extent2D extent)
     return buffer;
 }
 
-void Texture::createImage(const Buffer& stagingBuffer, vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange)
+void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange)
 {
     _image = _device->createImage(
         extent,
@@ -103,7 +103,7 @@ void Texture::createImage(const Buffer& stagingBuffer, vk::Extent2D extent, cons
 
 void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
 {
-    vk::ImageViewCreateInfo imageViewCreateInfo(
+    const vk::ImageViewCreateInfo imageViewCreateInfo(
         {}, // flags
         _image.handle,
         vk::ImageViewType::e2D,
@@ -116,7 +116,7 @@ void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
 
 void Texture::createSampler()
 {
-    vk::SamplerCreateInfo samplerCreateInfo(
+    const vk::SamplerCreateInfo samplerCreateInfo(
         {}, // flags
         vk::Filter::eLinear, // magFilter
         vk::Filter::eLinear, // minFilter

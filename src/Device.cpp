@@ -17,7 +17,7 @@ namespace {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-    QueueFamilies findQueueFamilies(vk::PhysicalDevice device, vk::SurfaceKHR surface)
+    QueueFamilies findQueueFamilies(const vk::PhysicalDevice device, const vk::SurfaceKHR surface)
     {
         QueueFamilies families;
 
@@ -44,7 +44,7 @@ namespace {
         return families;
     }
 
-    bool checkDeviceExtensionSupport(vk::PhysicalDevice device)
+    bool checkDeviceExtensionSupport(const vk::PhysicalDevice device)
     {
         // Find out available extensions
         const auto availableExtensions = device.enumerateDeviceExtensionProperties(nullptr);
@@ -95,8 +95,8 @@ namespace {
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        const VkDebugUtilsMessageTypeFlagsEXT messageType,
         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData)
     {
@@ -108,7 +108,7 @@ namespace {
         return VK_FALSE; // Don't fail the causing command
     }
 
-    uint32_t findMemoryType(vk::PhysicalDevice physical, uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+    uint32_t findMemoryType(const vk::PhysicalDevice physical, const uint32_t typeFilter, const vk::MemoryPropertyFlags properties)
     {
         const auto memProperties = physical.getMemoryProperties();
 
@@ -123,7 +123,7 @@ namespace {
     }
 
     void CreateDebugUtilsMessengerEXT(
-        vk::Instance instance,
+        const vk::Instance instance,
         const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
         const vk::AllocationCallbacks* pAllocator,
         vk::DebugUtilsMessengerEXT* pDebugMessenger)
@@ -139,8 +139,8 @@ namespace {
     }
 
     void DestroyDebugUtilsMessengerEXT(
-        vk::Instance instance,
-        vk::DebugUtilsMessengerEXT debugMessenger,
+        const vk::Instance instance,
+        const vk::DebugUtilsMessengerEXT debugMessenger,
         const vk::AllocationCallbacks* pAllocator)
      {
         auto vkpAllocator = reinterpret_cast<const VkAllocationCallbacks*>(pAllocator);
@@ -150,6 +150,41 @@ namespace {
             func(instance, debugMessenger, vkpAllocator);
     }
 
+    std::pair<vk::AccessFlags, vk::AccessFlags> accessMasks(const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout)
+    {
+        if (oldLayout == vk::ImageLayout::eUndefined &&
+            newLayout == vk::ImageLayout::eTransferDstOptimal) {
+            return std::pair(
+                vk::AccessFlags(),
+                vk::AccessFlagBits::eTransferWrite
+            );
+        } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
+                   newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+            return std::pair(
+                vk::AccessFlagBits::eTransferWrite,
+                vk::AccessFlagBits::eShaderRead
+            );
+        } else
+            throw std::runtime_error("Unsupported layout transition");
+    }
+
+    std::pair<vk::PipelineStageFlags, vk::PipelineStageFlags> stageMasks(const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout)
+    {
+        if (oldLayout == vk::ImageLayout::eUndefined &&
+            newLayout == vk::ImageLayout::eTransferDstOptimal) {
+            return std::pair(
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eTransfer
+            );
+        } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
+                   newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+            return std::pair(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eFragmentShader
+            );
+        } else
+            throw std::runtime_error("Unsupported layout transition");
+    }
 }
 
 Device::~Device()
@@ -174,37 +209,37 @@ void Device::init(GLFWwindow* window)
     createCommandPool();
 }
 
-vk::Instance Device::instance()
+vk::Instance Device::instance() const
 {
     return _instance;
 }
 
-vk::PhysicalDevice Device::physical()
+vk::PhysicalDevice Device::physical() const
 {
     return _physical;
 }
 
-vk::Device Device::logical()
+vk::Device Device::logical() const
 {
     return _logical;
 }
 
-vk::SurfaceKHR Device::surface()
+vk::SurfaceKHR Device::surface() const
 {
     return _surface;
 }
 
-vk::CommandPool Device::commandPool()
+vk::CommandPool Device::commandPool() const
 {
     return _commandPool;
 }
 
-vk::Queue Device::graphicsQueue()
+vk::Queue Device::graphicsQueue() const
 {
     return _graphicsQueue;
 }
 
-vk::Queue Device::presentQueue()
+vk::Queue Device::presentQueue() const
 {
     return _presentQueue;
 }
@@ -214,7 +249,7 @@ const QueueFamilies& Device::queueFamilies() const
     return _queueFamilies;
 }
 
-Buffer Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
+Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties) const
 {
     Buffer buffer;
 
@@ -243,9 +278,9 @@ Buffer Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk:
     return buffer;
 }
 
-void Device::copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize size)
+void Device::copyBuffer(const Buffer& src, const Buffer& dst, const vk::DeviceSize size) const
 {
-    auto commandBuffer = beginGraphicsCommands();
+    const auto commandBuffer = beginGraphicsCommands();
 
     const vk::BufferCopy copyRegion(
         0, // srcOffset
@@ -257,9 +292,9 @@ void Device::copyBuffer(const Buffer& src, const Buffer& dst, vk::DeviceSize siz
     endGraphicsCommands(commandBuffer);
 }
 
-void Device::copyBufferToImage(const Buffer& src, const Image& dst, vk::Extent2D extent)
+void Device::copyBufferToImage(const Buffer& src, const Image& dst, const vk::Extent2D extent) const
 {
-    auto commandBuffer = beginGraphicsCommands();
+    const auto commandBuffer = beginGraphicsCommands();
 
     const vk::BufferImageCopy region(
         0, // bufferOffset
@@ -285,7 +320,7 @@ void Device::copyBufferToImage(const Buffer& src, const Image& dst, vk::Extent2D
     endGraphicsCommands(commandBuffer);
 }
 
-Image Device::createImage(vk::Extent2D extent, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties)
+Image Device::createImage(const vk::Extent2D extent, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties) const
 {
     Image image;
 
@@ -316,27 +351,12 @@ Image Device::createImage(vk::Extent2D extent, vk::Format format, vk::ImageTilin
     return image;
 }
 
-void Device::transitionImageLayout(const Image& image, vk::Format format, const vk::ImageSubresourceRange& subresourceRange, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+void Device::transitionImageLayout(const Image& image, const vk::Format format, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const
 {
-    auto commandBuffer = beginGraphicsCommands();
+    const auto commandBuffer = beginGraphicsCommands();
 
-    // Define masks based on layouts
-    vk::AccessFlags srcAccessMask, dstAccessMask;
-    vk::PipelineStageFlags srcStageMask, dstStageMask;
-    if (oldLayout == vk::ImageLayout::eUndefined &&
-        newLayout == vk::ImageLayout::eTransferDstOptimal) {
-        srcAccessMask = {};
-        dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-        srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe;
-        dstStageMask = vk::PipelineStageFlagBits::eTransfer;
-    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
-               newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-        srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        dstAccessMask = vk::AccessFlagBits::eShaderRead;
-        srcStageMask = vk::PipelineStageFlagBits::eTransfer;
-        dstStageMask = vk::PipelineStageFlagBits::eFragmentShader;
-    } else
-        throw std::runtime_error("Unsupported layout transition");
+    const auto [srcAccessMask, dstAccessMask] = accessMasks(oldLayout, newLayout);
+    const auto [srcStageMask, dstStageMask] = stageMasks(oldLayout, newLayout);
 
     const vk::ImageMemoryBarrier barrier(
         srcAccessMask,
@@ -360,7 +380,7 @@ void Device::transitionImageLayout(const Image& image, vk::Format format, const 
     endGraphicsCommands(commandBuffer);
 }
 
-vk::CommandBuffer Device::beginGraphicsCommands()
+vk::CommandBuffer Device::beginGraphicsCommands() const
 {
     // Allocate and begin a command buffer
     const vk::CommandBufferAllocateInfo allocInfo(
@@ -368,7 +388,7 @@ vk::CommandBuffer Device::beginGraphicsCommands()
         vk::CommandBufferLevel::ePrimary,
         1 // commandBufferCount
     );
-    auto buffer = _logical.allocateCommandBuffers(allocInfo)[0];
+    const auto buffer = _logical.allocateCommandBuffers(allocInfo)[0];
 
     const vk::CommandBufferBeginInfo beginInfo(
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit
@@ -378,7 +398,7 @@ vk::CommandBuffer Device::beginGraphicsCommands()
     return buffer;
 }
 
-void Device::endGraphicsCommands(vk::CommandBuffer buffer)
+void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
 {
     // End and submit on graphics queue
     buffer.end();
@@ -396,18 +416,22 @@ void Device::endGraphicsCommands(vk::CommandBuffer buffer)
     _logical.freeCommandBuffers(_commandPool, 1, &buffer);
 }
 
-bool Device::isDeviceSuitable(vk::PhysicalDevice device)
+bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 {
     const auto families = findQueueFamilies(device, _surface);
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
     const auto supportedFeatures = device.getFeatures();
 
-    bool swapChainAdequate = false;
-    if (extensionsSupported) {
-        SwapchainSupport swapSupport = querySwapchainSupport(device, _surface);
-        swapChainAdequate = !swapSupport.formats.empty() && !swapSupport.presentModes.empty();
-    }
+    const bool swapChainAdequate = [&]{
+        bool adequate = false;
+        if (extensionsSupported) {
+            SwapchainSupport swapSupport = querySwapchainSupport(device, _surface);
+            adequate = !swapSupport.formats.empty() && !swapSupport.presentModes.empty();
+        }
+
+        return adequate;
+    }();
 
     return families.isComplete() &&
            extensionsSupported &&
@@ -490,22 +514,32 @@ void Device::createLogicalDevice()
     const uint32_t presentFamily = _queueFamilies.presentFamily.value();
 
     // Config queues, concatenating duplicate families
-    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
-    const std::set<uint32_t> uniqueQueueFamilies = {graphicsFamily, presentFamily};
-    float queuePriority = 1;
-    for (uint32_t family : uniqueQueueFamilies) {
-        const vk::DeviceQueueCreateInfo queueCreateInfo(
-            {}, //flags
-            family,
-            1, // queueCount
-            &queuePriority
-        );
-        queueCreateInfos.push_back(queueCreateInfo);
-    }
+    const float queuePriority = 1;
+    const std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]{
+        std::vector<vk::DeviceQueueCreateInfo> cis;
+        const std::set<uint32_t> uniqueQueueFamilies = {
+            graphicsFamily,
+            presentFamily
+        };
+        for (uint32_t family : uniqueQueueFamilies) {
+            const vk::DeviceQueueCreateInfo queueCreateInfo(
+                {}, //flags
+                family,
+                1, // queueCount
+                &queuePriority
+            );
+            cis.push_back(queueCreateInfo);
+        }
+        return cis;
+    }();
 
     // Set up features
-    vk::PhysicalDeviceFeatures deviceFeatures;
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
+    const vk::PhysicalDeviceFeatures deviceFeatures = [&]{
+        vk::PhysicalDeviceFeatures features;
+        features.samplerAnisotropy = VK_TRUE;
+
+        return features;
+    }();
 
     // Create logical device
     const vk::DeviceCreateInfo createInfo(
@@ -527,7 +561,7 @@ void Device::createLogicalDevice()
 
 void Device::createCommandPool()
 {
-    vk::CommandPoolCreateInfo poolInfo(
+    const vk::CommandPoolCreateInfo poolInfo(
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         _queueFamilies.graphicsFamily.value()
     );

@@ -2,7 +2,7 @@
 
 using namespace glm;
 
-Camera::Camera(Device* device, uint32_t bufferCount, const vec3& eye, const vec3& target, const vec3& up, float fov, float ar, float zN, float zF)
+Camera::Camera(Device* device, const uint32_t bufferCount, const vec3& eye, const vec3& target, const vec3& up, const float fov, const float ar, const float zN, const float zF)
 {
     lookAt(eye, target, up);
     perspective(fov, ar, zN, zF);
@@ -14,7 +14,7 @@ Camera::~Camera()
     destroyUniformBuffers();
 }
 
-void Camera::createUniformBuffers(Device* device, uint32_t bufferCount)
+void Camera::createUniformBuffers(Device* device, const uint32_t bufferCount)
 {
     destroyUniformBuffers();
 
@@ -51,9 +51,9 @@ void Camera::orient(const vec3& eye, const vec3& fwd, const vec3& up)
     _worldToClip = _cameraToClip * _worldToCamera;
 }
 
-void Camera::perspective(float fov, float ar, float zN, float zF)
+void Camera::perspective(const float fov, const float ar, const float zN, const float zF)
 {
-    float tf = 1.f / tanf(fov * 0.5);
+    const float tf = 1.f / tanf(fov * 0.5);
 
     // "DX" projection matrix with flipped y to match Vulkan clip space
     _cameraToClip = mat4(tf / ar, 0.f,                  0.f, 0.f,
@@ -64,7 +64,7 @@ void Camera::perspective(float fov, float ar, float zN, float zF)
     _worldToClip = _cameraToClip * _worldToCamera;
 }
 
-void Camera::updateBuffer(uint32_t index)
+void Camera::updateBuffer(const uint32_t index) const
 {
     CameraUniforms uniforms;
     uniforms.worldToCamera = _worldToCamera;
