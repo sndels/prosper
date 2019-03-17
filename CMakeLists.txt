@@ -46,6 +46,7 @@ target_link_libraries(prosper
     PRIVATE
     glfw
     glm
+    stb_image
     ${Vulkan_LIBRARY}
 )
 add_dependencies(prosper spirv-shaders)
