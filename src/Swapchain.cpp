@@ -303,12 +303,12 @@ void Swapchain::destroy()
 {
     // Destroy vulkan resources
     for (auto fence : _inFlightFences)
-        _device->logical().destroyFence(fence);
+        _device->logical().destroy(fence);
     for (auto framebuffer : _fbos)
-        _device->logical().destroyFramebuffer(framebuffer);
+        _device->logical().destroy(framebuffer);
     for (auto imageView : _imageViews)
-        _device->logical().destroyImageView(imageView);
-    _device->logical().destroySwapchainKHR(_swapchain);
+        _device->logical().destroy(imageView);
+    _device->logical().destroy(_swapchain);
 
     // Also clear the handles
     _swapchain = vk::SwapchainKHR();

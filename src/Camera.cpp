@@ -89,8 +89,8 @@ void Camera::destroyUniformBuffers()
 {
     if (_device != nullptr) {
         for (auto& buffer : _uniformBuffers) {
-            _device->logical().destroyBuffer(buffer.handle);
-            _device->logical().freeMemory(buffer.memory);
+            _device->logical().destroy(buffer.handle);
+            _device->logical().free(buffer.memory);
         }
     }
     _uniformBuffers.clear();

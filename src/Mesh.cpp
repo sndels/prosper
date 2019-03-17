@@ -12,11 +12,11 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& ind
 Mesh::~Mesh()
 {
     if (_device != nullptr) {
-        _device->logical().destroyBuffer(_indexBuffer.handle);
-        _device->logical().freeMemory(_indexBuffer.memory);
+        _device->logical().destroy(_indexBuffer.handle);
+        _device->logical().free(_indexBuffer.memory);
 
-        _device->logical().destroyBuffer(_vertexBuffer.handle);
-        _device->logical().freeMemory(_vertexBuffer.memory);
+        _device->logical().destroy(_vertexBuffer.handle);
+        _device->logical().free(_vertexBuffer.memory);
     }
 }
 
@@ -72,8 +72,8 @@ void Mesh::createVertexBuffer(const std::vector<Vertex>& vertices)
     _device->copyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
 
     // Clean up
-    _device->logical().destroyBuffer(stagingBuffer.handle);
-    _device->logical().freeMemory(stagingBuffer.memory);
+    _device->logical().destroy(stagingBuffer.handle);
+    _device->logical().free(stagingBuffer.memory);
 }
 
 void Mesh::createIndexBuffer(const std::vector<uint32_t>& indices)
@@ -104,6 +104,6 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t>& indices)
     _device->copyBuffer(stagingBuffer, _indexBuffer, bufferSize);
 
     // Clean up
-    _device->logical().destroyBuffer(stagingBuffer.handle, nullptr);
-    _device->logical().freeMemory(stagingBuffer.memory, nullptr);
+    _device->logical().destroy(stagingBuffer.handle);
+    _device->logical().free(stagingBuffer.memory);
 }

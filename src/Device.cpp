@@ -155,10 +155,10 @@ namespace {
 Device::~Device()
 {
     // Also cleans up associated command buffers
-    _logical.destroyCommandPool(_commandPool);
+    _logical.destroy(_commandPool);
     // Implicitly cleans up associated queues as well
     _logical.destroy();
-    _instance.destroySurfaceKHR(_surface);
+    _instance.destroy(_surface);
     DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
     _instance.destroy();
 }

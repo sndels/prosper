@@ -57,23 +57,23 @@ App::~App()
 {
     // Destroy vulkan stuff
     for (auto& semaphore : _renderFinishedSemaphores)
-        _device.logical().destroySemaphore(semaphore);
+        _device.logical().destroy(semaphore);
     for (auto& semaphore : _imageAvailableSemaphores)
-        _device.logical().destroySemaphore(semaphore);
+        _device.logical().destroy(semaphore);
 
     destroySwapchainRelated();
 
-    _device.logical().destroyDescriptorPool(_vkDescriptorPool);
+    _device.logical().destroy(_vkDescriptorPool);
 
     for (auto& instance : _scene) {
         for (auto& buffer : instance.uniformBuffers) {
-            _device.logical().destroyBuffer(buffer.handle);
-            _device.logical().freeMemory(buffer.memory);
+            _device.logical().destroy(buffer.handle);
+            _device.logical().free(buffer.memory);
         }
     }
 
-    _device.logical().destroyDescriptorSetLayout(_vkCameraDescriptorSetLayout);
-    _device.logical().destroyDescriptorSetLayout(_vkMeshInstanceDescriptorSetLayout);
+    _device.logical().destroy(_vkCameraDescriptorSetLayout);
+    _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
 }
 
 void App::init()
@@ -180,9 +180,9 @@ void App::destroySwapchainRelated()
         _vkCommandBuffers.size(),
         _vkCommandBuffers.data()
     );
-    _device.logical().destroyPipeline(_vkGraphicsPipeline);
-    _device.logical().destroyPipelineLayout(_vkGraphicsPipelineLayout);
-    _device.logical().destroyRenderPass(_vkRenderPass);
+    _device.logical().destroy(_vkGraphicsPipeline);
+    _device.logical().destroy(_vkGraphicsPipelineLayout);
+    _device.logical().destroy(_vkRenderPass);
 }
 
 void App::createDescriptorSetLayouts()
