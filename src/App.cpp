@@ -15,10 +15,10 @@ namespace {
     const uint32_t HEIGHT = 720;
 
     const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.f}, {1.f, 0.f, 0.f}},
-        {{ 0.5f, -0.5f, 0.f}, {0.f, 1.f, 0.f}},
-        {{ 0.5f,  0.5f, 0.f}, {0.f, 0.f, 1.f}},
-        {{-0.5f,  0.5f, 0.f}, {1.f, 1.f, 1.f}}
+        {{-0.5f, -0.5f, 0.f}, {0.f, 1.f}, {1.f, 0.f, 0.f}},
+        {{ 0.5f, -0.5f, 0.f}, {1.f, 1.f}, {0.f, 1.f, 0.f}},
+        {{ 0.5f,  0.5f, 0.f}, {1.f, 0.f}, {0.f, 0.f, 1.f}},
+        {{-0.5f,  0.5f, 0.f}, {0.f, 0.f}, {1.f, 1.f, 1.f}}
     };
     const std::vector<uint32_t> indices = {
         0, 1, 2, 2, 3, 0
@@ -51,6 +51,11 @@ namespace {
         );
         return device.createShaderModule(createInfo);
     }
+
+    std::string resPath(const std::string& res)
+    {
+        return std::string(RES_PATH) + res;
+    }
 }
 
 App::~App()
@@ -74,6 +79,7 @@ App::~App()
 
     _device.logical().destroy(_vkCameraDescriptorSetLayout);
     _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
+    _device.logical().destroy(_vkSamplerDescriptorSetLayout);
 }
 
 void App::init()
@@ -84,6 +90,8 @@ void App::init()
     _device.init(_window.ptr());
 
     _meshes.push_back(std::make_shared<Mesh>(vertices, indices, &_device));
+    _textures.push_back(std::make_shared<Texture>(&_device, resPath("texture/statue.jpg")));
+
     // TODO: Actual abstraction
     _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
     _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
@@ -213,6 +221,20 @@ void App::createDescriptorSetLayouts()
         &meshInstanceLayoutBinding
     );
     _vkMeshInstanceDescriptorSetLayout = _device.logical().createDescriptorSetLayout(meshInstanceLayoutInfo);
+
+    // Samplers get a separate layout for simplicity
+    const vk::DescriptorSetLayoutBinding samplerLayoutBinding(
+        0, // binding
+        vk::DescriptorType::eCombinedImageSampler,
+        1, // descriptorCount
+        vk::ShaderStageFlagBits::eFragment
+    );
+    const vk::DescriptorSetLayoutCreateInfo samplerLayoutInfo (
+        {}, // flags
+        1, // bindingCount
+        &samplerLayoutBinding
+    );
+    _vkSamplerDescriptorSetLayout = _device.logical().createDescriptorSetLayout(samplerLayoutInfo);
 }
 
 void App::createUniformBuffers()
@@ -233,16 +255,25 @@ void App::createUniformBuffers()
 
 void App::createDescriptorPool()
 {
-    const vk::DescriptorPoolSize poolSize(
-        vk::DescriptorType::eUniformBuffer,
-        _swapchain.imageCount() * (1 + _scene.size()) // descriptor count, camera and mesh instances
-    );
+    const std::array<vk::DescriptorPoolSize, 2> poolSizes = {{
+        {
+            vk::DescriptorType::eUniformBuffer,
+            _swapchain.imageCount() * (1 + static_cast<uint32_t>(_scene.size())) // descriptor count, camera and mesh instances
+        },
+        {
+            vk::DescriptorType::eCombinedImageSampler,
+            _swapchain.imageCount() // descriptor count
+        }
+    }};
+    uint32_t setCount = 0;
+    for (auto& size : poolSizes)
+        setCount += size.descriptorCount;
 
     const vk::DescriptorPoolCreateInfo poolInfo(
         {}, // flags
-        _swapchain.imageCount() * (1 + _scene.size()), // max sets, camera and mesh instance sets
-        1, // poolsize count
-        &poolSize
+        setCount, // max sets
+        poolSizes.size(),
+        poolSizes.data()
     );
 
     _vkDescriptorPool = _device.logical().createDescriptorPool(poolInfo);
@@ -274,6 +305,14 @@ void App::createDescriptorSets()
     for (auto& meshInstance : _scene)
         meshInstance.descriptorSets = _device.logical().allocateDescriptorSets(meshInstanceAllocInfo);
 
+    const vk::DescriptorSetAllocateInfo samplerAllocInfo(
+        _vkDescriptorPool,
+        1,
+        &_vkSamplerDescriptorSetLayout
+    );
+    _vkSamplerDescriptorSet = _device.logical().allocateDescriptorSets(samplerAllocInfo)[0];
+
+
     // Update them with buffers
     auto cameraBufferInfos = _cam.bufferInfos();
     for (size_t i = 0; i < _vkCameraDescriptorSets.size(); ++i) {
@@ -304,6 +343,20 @@ void App::createDescriptorSets()
             _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
         }
     }
+
+    {
+        const auto imageInfo = _textures[0]->imageInfo();
+        const vk::WriteDescriptorSet descriptorWrite(
+            _vkSamplerDescriptorSet,
+            0, // dstBinding,
+            0, // dstArrayElement
+            1, // descriptorCount
+            vk::DescriptorType::eCombinedImageSampler,
+            &imageInfo
+        );
+        _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+    }
+
 }
 
 void App::createRenderPass(const SwapchainConfig& swapConfig)
@@ -469,7 +522,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     // Create pipeline layout
     vk::DescriptorSetLayout setLayouts[] = {
         _vkCameraDescriptorSetLayout,
-        _vkMeshInstanceDescriptorSetLayout
+        _vkMeshInstanceDescriptorSetLayout,
+        _vkSamplerDescriptorSetLayout
     };
     const vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
         {}, // flags
@@ -624,12 +678,16 @@ void App::recordCommandBuffer(uint32_t nextImage)
 
     // Draw scene
     for (auto& meshInstance : _scene) {
+        const std::array<vk::DescriptorSet, 2> sets = {{
+            meshInstance.descriptorSets[nextImage],
+            _vkSamplerDescriptorSet
+        }};
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             _vkGraphicsPipelineLayout,
             1, // firstSet
-            1, // descriptorSetCount
-            &meshInstance.descriptorSets[nextImage],
+            sets.size(),
+            sets.data(),
             0, // dynamicOffsetCount
             nullptr // pDynamicOffsets
         );

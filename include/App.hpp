@@ -8,6 +8,7 @@
 #include "Device.hpp"
 #include "Mesh.hpp"
 #include "Swapchain.hpp"
+#include "Texture.hpp"
 #include "Window.hpp"
 
 struct MeshInstanceUniforms {
@@ -81,15 +82,18 @@ private:
     Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
     std::vector<std::shared_ptr<Mesh>> _meshes;
+    std::vector<std::shared_ptr<Texture>> _textures;
     std::vector<MeshInstance> _scene;
     Camera _cam;
 
     vk::DescriptorSetLayout _vkCameraDescriptorSetLayout;
     vk::DescriptorSetLayout _vkMeshInstanceDescriptorSetLayout;
+    vk::DescriptorSetLayout _vkSamplerDescriptorSetLayout;
     vk::PipelineLayout _vkGraphicsPipelineLayout;
 
     vk::DescriptorPool _vkDescriptorPool;
     std::vector<vk::DescriptorSet> _vkCameraDescriptorSets;
+    vk::DescriptorSet _vkSamplerDescriptorSet;
 
     vk::RenderPass _vkRenderPass;
     vk::Pipeline _vkGraphicsPipeline;
