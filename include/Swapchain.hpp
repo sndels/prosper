@@ -18,6 +18,7 @@ SwapchainSupport querySwapchainSupport(vk::PhysicalDevice device, const vk::Surf
 struct SwapchainConfig {
     vk::SurfaceTransformFlagBitsKHR transform;
     vk::SurfaceFormatKHR surfaceFormat;
+    vk::Format depthFormat;
     vk::PresentModeKHR presentMode;
     vk::Extent2D extent;
     uint32_t imageCount;
@@ -54,7 +55,9 @@ public:
 
 private:
     void createSwapchain();
-    void createImages(const vk::RenderPass renderPass);
+    void createImages();
+    void createDepthResources();
+    void createFramebuffers(const vk::RenderPass renderPass);
     void createFences();
 
     Device* _device = nullptr;
@@ -63,6 +66,8 @@ private:
     vk::SwapchainKHR _swapchain;
     std::vector<SwapchainImage> _images;
     uint32_t _nextImage = 0;
+    Image _depthImage;
+    vk::ImageView _depthView;
     std::vector<vk::Fence> _inFlightFences;
     size_t _currentFrame = 0;
 };

@@ -87,6 +87,7 @@ SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent
     SwapchainConfig config = {
         swapchainSupport.capabilities.currentTransform,
         selectSwapSurfaceFormat(swapchainSupport.formats),
+        vk::Format::eD32Sfloat,
         selectSwapPresentMode(swapchainSupport.presentModes),
         selectSwapExtent(extent, swapchainSupport.capabilities),
         swapchainSupport.capabilities.minImageCount + 1 // Prefer one extra image to limit waiting on internal operations
@@ -108,7 +109,9 @@ void Swapchain::create(Device* device, const vk::RenderPass renderPass, const Sw
     _device = device;
     _config = config;
     createSwapchain();
-    createImages(renderPass);
+    createImages();
+    createDepthResources();
+    createFramebuffers(renderPass);
     createFences();
 }
 
@@ -249,7 +252,7 @@ void Swapchain::createSwapchain()
     });
 }
 
-void Swapchain::createImages(vk::RenderPass renderPass)
+void Swapchain::createImages()
 {
     auto images =_device->logical().getSwapchainImagesKHR(_swapchain);
     for (auto& image : images) {
@@ -268,11 +271,62 @@ void Swapchain::createImages(vk::RenderPass renderPass)
                 1  // layer count
             }
         });
-        _images.back().fbo = _device->logical().createFramebuffer({
+    }
+}
+
+void Swapchain::createDepthResources()
+{
+    // Check depth buffer without stencil is supported
+    const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+    const auto properties = _device->physical().getFormatProperties(_config.depthFormat);
+    if ((properties.optimalTilingFeatures & features) != features)
+        throw std::runtime_error("Depth format unsupported");
+
+    _depthImage = _device->createImage(
+        _config.extent,
+        _config.depthFormat,
+        vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        vk::MemoryPropertyFlagBits::eDeviceLocal
+    );
+
+    const vk::ImageSubresourceRange subresourceRange{
+        vk::ImageAspectFlagBits::eDepth,
+        0, // baseMipLevel
+        1, // levelCount
+        0, // baseArrayLayer
+        1 // layerCount
+    };
+
+    _depthView = _device->logical().createImageView({
+        {}, // flags
+        _depthImage.handle,
+        vk::ImageViewType::e2D,
+        _config.depthFormat,
+        vk::ComponentMapping{},
+        subresourceRange
+    });
+
+    _device->transitionImageLayout(
+        _depthImage,
+        subresourceRange,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal
+    );
+}
+
+void Swapchain::createFramebuffers(const vk::RenderPass renderPass)
+{
+    for (auto& image : _images) {
+        const std::array<vk::ImageView, 2> attachments = {{
+            image.view,
+            _depthView
+        }};
+        image.fbo = _device->logical().createFramebuffer({
             {}, // flags
             renderPass,
-            1, // attachmentCount
-            &_images.back().view,
+            attachments.size(),
+            attachments.data(),
             _config.extent.width,
             _config.extent.height,
             1 // layers
@@ -293,6 +347,9 @@ void Swapchain::destroy()
 {
     for (auto fence : _inFlightFences)
         _device->logical().destroy(fence);
+    _device->logical().destroy(_depthView);
+    _device->logical().destroy(_depthImage.handle);
+    _device->logical().free(_depthImage.memory);
     for (auto& image : _images) {
         _device->logical().destroy(image.fbo);
         _device->logical().destroy(image.view);

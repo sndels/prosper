@@ -154,6 +154,13 @@ namespace {
                 vk::AccessFlags{},
                 vk::AccessFlagBits::eTransferWrite
             };
+        } else if (oldLayout == vk::ImageLayout::eUndefined &&
+                   newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+            return std::pair{
+                vk::AccessFlags{},
+                vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                vk::AccessFlagBits::eDepthStencilAttachmentWrite
+            };
         } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
                    newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
             return std::pair{
@@ -171,6 +178,12 @@ namespace {
             return std::pair{
                 vk::PipelineStageFlagBits::eTopOfPipe,
                 vk::PipelineStageFlagBits::eTransfer
+            };
+        } else if (oldLayout == vk::ImageLayout::eUndefined &&
+                   newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+            return std::pair{
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eEarlyFragmentTests
             };
         } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
                    newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {

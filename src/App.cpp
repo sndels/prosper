@@ -90,9 +90,16 @@ void App::init()
     _meshes.push_back(std::make_shared<Mesh>(vertices, indices, &_device));
     _textures.push_back(std::make_shared<Texture>(&_device, resPath("texture/statue.jpg")));
 
-    // TODO: Actual abstraction
+    // TODO: Actual abstraction for drawables/meshinstances and scene
     _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
     _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
+    _scene.push_back({
+        _meshes[0], {}, {},
+        scale(
+            translate(mat4(1.f), vec3(0.f, 0.f, 1.f)),
+            vec3(10.f)
+        )
+    });
 
     const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
@@ -348,20 +355,38 @@ void App::createDescriptorSets()
 
 void App::createRenderPass(const SwapchainConfig& swapConfig)
 {
-    const vk::AttachmentDescription swapAttachment{
-        {}, // flags
-        swapConfig.surfaceFormat.format,
-        vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eClear, // loadOp
-        vk::AttachmentStoreOp::eStore, // storeOp
-        vk::AttachmentLoadOp::eDontCare, // stencilLoadOp
-        vk::AttachmentStoreOp::eDontCare, // stencilStoreOp
-        vk::ImageLayout::eUndefined, // initialLayout
-        vk::ImageLayout::ePresentSrcKHR // finalLayout
-    };
+
+    const std::array<vk::AttachmentDescription, 2> attachments = {{
+        { // swap color
+            {}, // flags
+            swapConfig.surfaceFormat.format,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eClear, // loadOp
+            vk::AttachmentStoreOp::eStore, // storeOp
+            vk::AttachmentLoadOp::eDontCare, // stencilLoadOp
+            vk::AttachmentStoreOp::eDontCare, // stencilStoreOp
+            vk::ImageLayout::eUndefined, // initialLayout
+            vk::ImageLayout::ePresentSrcKHR // finalLayout
+        },
+        { // depth
+            {}, // flags
+            swapConfig.depthFormat,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eClear, // loadOp
+            vk::AttachmentStoreOp::eDontCare, // storeOp
+            vk::AttachmentLoadOp::eDontCare, // stencilLoadOp
+            vk::AttachmentStoreOp::eDontCare, // stencilStoreOp
+            vk::ImageLayout::eUndefined, // initialLayout
+            vk::ImageLayout::eDepthStencilAttachmentOptimal // finalLayout
+        }
+    }};
     const vk::AttachmentReference swapAttachmentRef{
         0, // attachment
         vk::ImageLayout::eColorAttachmentOptimal
+    };
+    const vk::AttachmentReference depthAttachmentRef{
+        1, // attachment
+        vk::ImageLayout::eDepthStencilAttachmentOptimal
     };
 
     // Output
@@ -371,7 +396,9 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
         0, // inputAttachmentCount
         nullptr, // pInputAttachments
         1, // colorAttachmentCount
-        &swapAttachmentRef
+        &swapAttachmentRef,
+        nullptr, // pResolveAttachments
+        &depthAttachmentRef
     };
 
     // Synchronize
@@ -387,8 +414,8 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
 
     _vkRenderPass = _device.logical().createRenderPass({
         {}, // flags
-        1, // attachmentCount
-        &swapAttachment,
+        attachments.size(),
+        attachments.data(),
         1, // subpassCount
         &subpass,
         1, // dependencyCount
@@ -473,6 +500,13 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     };
     // TODO: sampleshading now 0, verify it doesn't matter if not enabled
 
+    const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
+        {}, // flags
+        VK_TRUE, // depthTestEnable
+        VK_TRUE, // depthWriteEnable
+        vk::CompareOp::eLess
+    };
+
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         VK_FALSE, // blendEnable
         vk::BlendFactor::eOne, // srcColorBlendFactor
@@ -515,7 +549,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         &viewportState,
         &rasterizerState,
         &multisampleState,
-        nullptr, // depth stencil
+        &depthStencilState,
         &colorBlendState,
         nullptr, // dynamic
         _vkGraphicsPipelineLayout,
@@ -600,17 +634,24 @@ void App::updateUniformBuffers(const uint32_t nextImage)
     const auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    for (size_t i = 0; i < _scene.size(); ++i) {
-        _scene[i].modelToWorld = rotate(
-                                   translate(
-                                       mat4(1.f),
-                                       vec3(-1.f + 2.f * i, 0.f, 0.f)
-                                   ),
-                                   (-1.f + 2.f * i) * time * radians(360.f),
-                                   vec3(0.f, 0.f, 1.f)
-                                 );
-        _scene[i].updateBuffer(&_device, nextImage);
-    }
+    _scene[0].modelToWorld = rotate(
+                                translate(
+                                    mat4(1.f),
+                                    vec3(-1.f, 0.f, 0.f)
+                                ),
+                                time * radians(-360.f),
+                                vec3(0.f, 0.f, 1.f)
+                             );
+    _scene[1].modelToWorld = rotate(
+                                translate(
+                                    mat4(1.f),
+                                    vec3(1.f, 0.f, 0.f)
+                                ),
+                                time * radians(360.f),
+                                vec3(0.f, 0.f, 1.f)
+                             );
+    for (auto& instance : _scene)
+        instance.updateBuffer(&_device, nextImage);
 }
 
 void App::recordCommandBuffer(const uint32_t nextImage)
@@ -622,7 +663,10 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         vk::CommandBufferUsageFlagBits::eSimultaneousUse
     });
 
-    const vk::ClearValue clearColor(std::array<float, 4>{0.f, 0.f, 0.f, 0.f});
+    const std::array<vk::ClearValue, 2> clearColors = {{
+        {std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // swap color
+        {std::array<float, 4>{1.f, 0.f, 0.f, 0.f}} // depth
+    }};
     buffer.beginRenderPass(
         {
             _vkRenderPass,
@@ -631,8 +675,8 @@ void App::recordCommandBuffer(const uint32_t nextImage)
                 {0, 0}, // offset
                 _swapchain.extent()
             },
-            1, // clearValueCount
-            &clearColor
+            clearColors.size(),
+            clearColors.data()
         },
         vk::SubpassContents::eInline
     );
