@@ -10,6 +10,8 @@
 #include "Constants.hpp"
 #include "Vertex.hpp"
 
+using namespace glm;
+
 namespace {
     const uint32_t WIDTH = 1280;
     const uint32_t HEIGHT = 720;
@@ -89,8 +91,8 @@ void App::init()
     _textures.push_back(std::make_shared<Texture>(&_device, resPath("texture/statue.jpg")));
 
     // TODO: Actual abstraction
-    _scene.push_back({_meshes[0], {}, {}, glm::mat4(1.f)});
-    _scene.push_back({_meshes[0], {}, {}, glm::mat4(1.f)});
+    _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
+    _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
 
     const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
@@ -115,12 +117,12 @@ void App::init()
     createSemaphores();
 
     _cam.lookAt(
-        glm::vec3(0.f, -2.f, -2.f),
-        glm::vec3(0.f),
-        glm::vec3(0.f, 1.f, 0.f)
+        vec3(0.f, -2.f, -2.f),
+        vec3(0.f),
+        vec3(0.f, 1.f, 0.f)
     );
     _cam.perspective(
-        glm::radians(45.f),
+        radians(45.f),
         _window.width() / static_cast<float>(_window.height()),
         0.1f,
         100.f
@@ -164,7 +166,7 @@ void App::recreateSwapchainAndRelated()
     createCommandBuffers();
 
     _cam.perspective(
-        glm::radians(45.f),
+        radians(45.f),
         _window.width() / static_cast<float>(_window.height()),
         0.1f,
         100.f
@@ -599,14 +601,14 @@ void App::updateUniformBuffers(const uint32_t nextImage)
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     for (size_t i = 0; i < _scene.size(); ++i) {
-        _scene[i].modelToWorld = glm::rotate(
-                                      glm::translate(
-                                          glm::mat4(1.f),
-                                          glm::vec3(-1.f + 2.f * i, 0.f, 0.f)
-                                      ),
-                                      (-1.f + 2.f * i) * time * glm::radians(360.f),
-                                      glm::vec3(0.f, 0.f, 1.f)
-                                  );
+        _scene[i].modelToWorld = rotate(
+                                   translate(
+                                       mat4(1.f),
+                                       vec3(-1.f + 2.f * i, 0.f, 0.f)
+                                   ),
+                                   (-1.f + 2.f * i) * time * radians(360.f),
+                                   vec3(0.f, 0.f, 1.f)
+                                 );
         _scene[i].updateBuffer(&_device, nextImage);
     }
 }
