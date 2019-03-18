@@ -108,8 +108,7 @@ void Swapchain::create(Device* device, const vk::RenderPass renderPass, const Sw
     _device = device;
     _config = config;
     createSwapchain();
-    createImageViews();
-    createFramebuffers(renderPass);
+    createImages(renderPass);
     createFences();
 }
 
@@ -130,7 +129,9 @@ uint32_t Swapchain::imageCount() const
 
 vk::Framebuffer Swapchain::fbo(size_t i)
 {
-    return i < _fbos.size() ? _fbos[i] : vk::Framebuffer();
+    if (i < _images.size())
+        return _images[i].fbo;
+    throw std::runtime_error("Tried to index past swap image count");
 }
 
 size_t Swapchain::currentFrame() const
@@ -246,16 +247,14 @@ void Swapchain::createSwapchain()
         _config.presentMode,
         VK_TRUE // Don't care about pixels covered by other windows
     });
-
-    _images = _device->logical().getSwapchainImagesKHR(_swapchain);
-
 }
 
-void Swapchain::createImageViews()
+void Swapchain::createImages(vk::RenderPass renderPass)
 {
-    // Create image views to treat swap chain images as color targets
-    for (auto& image : _images) {
-        _imageViews.push_back(_device->logical().createImageView({
+    auto images =_device->logical().getSwapchainImagesKHR(_swapchain);
+    for (auto& image : images) {
+        _images.push_back({image, {}, {}});
+        _images.back().view = _device->logical().createImageView({
             {}, // flags
             image,
             vk::ImageViewType::e2D,
@@ -268,25 +267,16 @@ void Swapchain::createImageViews()
                 0, // base array layer
                 1  // layer count
             }
-        }));
-    }
-}
-
-void Swapchain::createFramebuffers(vk::RenderPass renderPass)
-{
-    for (auto& view : _imageViews) {
-        const std::array<vk::ImageView, 1> attachments = {{
-            view
-        }};
-        _fbos.push_back(_device->logical().createFramebuffer({
+        });
+        _images.back().fbo = _device->logical().createFramebuffer({
             {}, // flags
             renderPass,
-            attachments.size(),
-            attachments.data(),
+            1, // attachmentCount
+            &_images.back().view,
             _config.extent.width,
             _config.extent.height,
             1 // layers
-        }));
+        });
     }
 }
 
@@ -303,16 +293,14 @@ void Swapchain::destroy()
 {
     for (auto fence : _inFlightFences)
         _device->logical().destroy(fence);
-    for (auto framebuffer : _fbos)
-        _device->logical().destroy(framebuffer);
-    for (auto imageView : _imageViews)
-        _device->logical().destroy(imageView);
+    for (auto& image : _images) {
+        _device->logical().destroy(image.fbo);
+        _device->logical().destroy(image.view);
+    }
     _device->logical().destroy(_swapchain);
 
     _swapchain = vk::SwapchainKHR();
     _images.clear();
-    _imageViews.clear();
-    _fbos.clear();
     _inFlightFences.clear();
     _currentFrame = 0;
     _nextImage = 0;

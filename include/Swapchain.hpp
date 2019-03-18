@@ -24,6 +24,12 @@ struct SwapchainConfig {
 };
 SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent);
 
+struct SwapchainImage {
+    vk::Image handle;
+    vk::ImageView view;
+    vk::Framebuffer fbo;
+};
+
 class Swapchain {
 public:
     Swapchain() = default;
@@ -48,20 +54,17 @@ public:
 
 private:
     void createSwapchain();
-    void createImageViews();
-    void createFramebuffers(const vk::RenderPass renderPass);
+    void createImages(const vk::RenderPass renderPass);
     void createFences();
 
     Device* _device = nullptr;
     SwapchainConfig _config = {};
 
     vk::SwapchainKHR _swapchain;
-    std::vector<vk::Image> _images;
-    std::vector<vk::ImageView> _imageViews;
-    std::vector<vk::Framebuffer> _fbos;
+    std::vector<SwapchainImage> _images;
+    uint32_t _nextImage = 0;
     std::vector<vk::Fence> _inFlightFences;
     size_t _currentFrame = 0;
-    uint32_t _nextImage = 0;
 };
 
 #endif // PROSPER_SWAPCHAIN_HPP
