@@ -91,7 +91,6 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
 
     _device->transitionImageLayout(
         _image,
-        vk::Format::eR8G8B8A8Unorm,
         subresourceRange,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal
@@ -99,7 +98,6 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
     _device->copyBufferToImage(stagingBuffer, _image, extent);
     _device->transitionImageLayout(
         _image,
-        vk::Format::eR8G8B8A8Unorm,
         subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal

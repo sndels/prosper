@@ -65,6 +65,9 @@ void Window::errorCallback(int error, const char* description)
 
 void Window::keyCallback(GLFWwindow* window, int32_t key, int32_t scancode, int32_t action, int32_t mods)
 {
+    (void) scancode;
+    (void) mods;
+
     if (action == GLFW_PRESS) {
         switch (key) {
         case GLFW_KEY_ESCAPE:

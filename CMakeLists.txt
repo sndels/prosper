@@ -33,6 +33,7 @@ else()
 target_compile_options(prosper
     PRIVATE
     -Wall
+    -Wunused-parameter
     -Wno-gnu-anonymous-struct
     -Wno-nested-anon-types
     -Wno-missing-braces

@@ -317,7 +317,7 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format, co
     image.handle = _logical.createImage({
         {}, // flags
         vk::ImageType::e2D,
-        vk::Format::eR8G8B8A8Unorm,
+        format,
         vk::Extent3D{extent, 1},
         1, // mipLevels
         1, // arrayLayers
@@ -339,7 +339,7 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format, co
     return image;
 }
 
-void Device::transitionImageLayout(const Image& image, const vk::Format format, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const
+void Device::transitionImageLayout(const Image& image, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const
 {
     const auto commandBuffer = beginGraphicsCommands();
 
