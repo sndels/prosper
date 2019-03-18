@@ -145,7 +145,6 @@ vk::Fence Swapchain::currentFence() const
 
 std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore waitSemaphore)
 {
-    // Wait for last frame on fence to finish
     _device->logical().waitForFences(
         1, // fenceCount
         &_inFlightFences[_currentFrame],
@@ -166,7 +165,7 @@ std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore waitSemaphore)
         &_nextImage
     );
 
-    // Signal to recreate swap chain if out of date or suboptimal
+    // Swapchain should be recreated if out of date or suboptimal
     if (result == vk::Result::eErrorOutOfDateKHR ||
         result == vk::Result::eSuboptimalKHR)
         return std::nullopt;
@@ -188,7 +187,7 @@ bool Swapchain::present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSe
     };
     const vk::Result result = _device->presentQueue().presentKHR(&presentInfo);
 
-    // Signal to recreate swap chain if out of date or suboptimal
+    // Swapchain should be recreated if out of date or suboptimal
     const bool good_swap = [&]{
         bool good_swap = true;
         if (result == vk::Result::eErrorOutOfDateKHR ||
@@ -248,14 +247,13 @@ void Swapchain::createSwapchain()
         VK_TRUE // Don't care about pixels covered by other windows
     });
 
-    // Get swapchain images
     _images = _device->logical().getSwapchainImagesKHR(_swapchain);
 
 }
 
 void Swapchain::createImageViews()
 {
-    // Create simple image views to treat swap chain images as color targets
+    // Create image views to treat swap chain images as color targets
     for (auto& image : _images) {
         _imageViews.push_back(_device->logical().createImageView({
             {}, // flags
@@ -276,12 +274,10 @@ void Swapchain::createImageViews()
 
 void Swapchain::createFramebuffers(vk::RenderPass renderPass)
 {
-    // Create framebuffers for image views
     for (auto& view : _imageViews) {
         const std::array<vk::ImageView, 1> attachments = {{
             view
         }};
-
         _fbos.push_back(_device->logical().createFramebuffer({
             {}, // flags
             renderPass,
@@ -305,7 +301,6 @@ void Swapchain::createFences()
 
 void Swapchain::destroy()
 {
-    // Destroy vulkan resources
     for (auto fence : _inFlightFences)
         _device->logical().destroy(fence);
     for (auto framebuffer : _fbos)
@@ -314,7 +309,6 @@ void Swapchain::destroy()
         _device->logical().destroy(imageView);
     _device->logical().destroy(_swapchain);
 
-    // Also clear the handles
     _swapchain = vk::SwapchainKHR();
     _images.clear();
     _imageViews.clear();

@@ -54,9 +54,7 @@ public:
     void run();
 
 private:
-    // Recreates swapchain and resources tied to it
     void recreateSwapchainAndRelated();
-    // Destroys resources dependent on current swapchain
     void destroySwapchainRelated();
 
     // Before pipeline

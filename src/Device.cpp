@@ -19,15 +19,12 @@ namespace {
 
     QueueFamilies findQueueFamilies(const vk::PhysicalDevice device, const vk::SurfaceKHR surface)
     {
-        QueueFamilies families;
-
-        // Get supported queue families
         const auto allFamilies = device.getQueueFamilyProperties();
 
         // Find needed queue support
+        QueueFamilies families;
         for (uint32_t i = 0; i < allFamilies.size(); ++i) {
             if (allFamilies[i].queueCount > 0) {
-                // Query present support
                 const vk::Bool32 presentSupport = device.getSurfaceSupportKHR(i, surface);
 
                 // Set index to matching families 
@@ -46,7 +43,6 @@ namespace {
 
     bool checkDeviceExtensionSupport(const vk::PhysicalDevice device)
     {
-        // Find out available extensions
         const auto availableExtensions = device.enumerateDeviceExtensionProperties(nullptr);
 
         // Check that all needed extensions are present
@@ -260,7 +256,6 @@ Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlag
         vk::SharingMode::eExclusive
     });
 
-    // Check memory requirements
     const auto memRequirements = _logical.getBufferMemoryRequirements(buffer.handle);
 
     buffer.memory = _logical.allocateMemory({
@@ -268,7 +263,6 @@ Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlag
         findMemoryType(_physical, memRequirements.memoryTypeBits, properties)
     });
 
-    // Bind memory to buffer
     _logical.bindBufferMemory(buffer.handle, buffer.memory, 0);
 
     return buffer;
@@ -333,7 +327,6 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format, co
         vk::SharingMode::eExclusive
     });
 
-    // Allocate and bind memory
     const auto memRequirements = _logical.getImageMemoryRequirements(image.handle);
 
     image.memory = _logical.allocateMemory({
@@ -393,7 +386,6 @@ vk::CommandBuffer Device::beginGraphicsCommands() const
 
 void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
 {
-    // End and submit on graphics queue
     buffer.end();
 
     const vk::SubmitInfo submitInfo{
@@ -437,7 +429,6 @@ void Device::createInstance()
     if (!checkValidationLayerSupport())
         throw std::runtime_error("Validation layers not available");
 
-    // Setup app info
     const vk::ApplicationInfo appInfo{
         "prosper",
         VK_MAKE_VERSION(1, 0, 0),
@@ -446,7 +437,6 @@ void Device::createInstance()
         VK_API_VERSION_1_0
     };
 
-    // Gather required extensions
     const auto extensions = getRequiredExtensions();
 
     _instance = vk::createInstance({
@@ -461,7 +451,6 @@ void Device::createInstance()
 
 void Device::createDebugMessenger()
 {
-    // Create debug messenger with everything except info
     const vk::DebugUtilsMessengerCreateInfoEXT createInfo{
         {},
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
@@ -477,7 +466,6 @@ void Device::createDebugMessenger()
 
 void Device::createSurface(GLFWwindow* window)
 {
-    // TODO: Seems legit cast?
     auto vkpSurface = reinterpret_cast<VkSurfaceKHR*>(&_surface);
     if (glfwCreateWindowSurface(_instance, window, nullptr, vkpSurface) != VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface");
@@ -485,10 +473,8 @@ void Device::createSurface(GLFWwindow* window)
 
 void Device::selectPhysicalDevice()
 {
-    // Find physical devices
     const auto devices = _instance.enumeratePhysicalDevices();
 
-    // Select a suitable one
     for (const auto& device : devices) {
         if (isDeviceSuitable(device)) {
             _physical = device;
@@ -504,7 +490,7 @@ void Device::createLogicalDevice()
     const uint32_t graphicsFamily = _queueFamilies.graphicsFamily.value();
     const uint32_t presentFamily = _queueFamilies.presentFamily.value();
 
-    // Config queues, concatenating duplicate families
+    // Config queues, concat duplicate families
     const float queuePriority = 1;
     const std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]{
         std::vector<vk::DeviceQueueCreateInfo> cis;
@@ -523,7 +509,6 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
-    // Set up features
     const vk::PhysicalDeviceFeatures deviceFeatures = [&]{
         vk::PhysicalDeviceFeatures features;
         features.samplerAnisotropy = VK_TRUE;

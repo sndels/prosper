@@ -59,7 +59,6 @@ namespace {
 
 App::~App()
 {
-    // Destroy vulkan stuff
     for (auto& semaphore : _renderFinishedSemaphores)
         _device.logical().destroy(semaphore);
     for (auto& semaphore : _imageAvailableSemaphores)
@@ -84,8 +83,6 @@ App::~App()
 void App::init()
 {
     _window.init(WIDTH, HEIGHT, "prosper");
-
-    // Init vulkan
     _device.init(_window.ptr());
 
     _meshes.push_back(std::make_shared<Mesh>(vertices, indices, &_device));
@@ -150,13 +147,9 @@ void App::recreateSwapchainAndRelated()
     // Wait for resources to be out of use
     _device.logical().waitIdle();
 
-    // Destroy resources tied to current swapchain
     destroySwapchainRelated();
-
-    // Don't forget the actual swapchain
     _swapchain.destroy();
 
-    // Create new swapchain and tied resources
     const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
         {_window.width(),
@@ -170,7 +163,6 @@ void App::recreateSwapchainAndRelated()
 
     createCommandBuffers();
 
-    // Update camera
     _cam.perspective(
         glm::radians(45.f),
         _window.width() / static_cast<float>(_window.height()),
@@ -181,7 +173,6 @@ void App::recreateSwapchainAndRelated()
 
 void App::destroySwapchainRelated()
 {
-    // Destroy related vulkan resources
     _device.logical().freeCommandBuffers(
         _device.commandPool(),
         _vkCommandBuffers.size(),
@@ -307,7 +298,6 @@ void App::createDescriptorSets()
         &_vkSamplerDescriptorSetLayout
     })[0];
 
-
     // Update them with buffers
     const auto cameraBufferInfos = _cam.bufferInfos();
     for (size_t i = 0; i < _vkCameraDescriptorSets.size(); ++i) {
@@ -356,8 +346,7 @@ void App::createDescriptorSets()
 
 void App::createRenderPass(const SwapchainConfig& swapConfig)
 {
-    // Fill color attachment data for the swap buffer
-    const vk::AttachmentDescription colorAttachment{
+    const vk::AttachmentDescription swapAttachment{
         {}, // flags
         swapConfig.surfaceFormat.format,
         vk::SampleCountFlagBits::e1,
@@ -368,22 +357,22 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
         vk::ImageLayout::eUndefined, // initialLayout
         vk::ImageLayout::ePresentSrcKHR // finalLayout
     };
-    const vk::AttachmentReference colorAttachmentRef{
+    const vk::AttachmentReference swapAttachmentRef{
         0, // attachment
         vk::ImageLayout::eColorAttachmentOptimal
     };
 
-    // Create subpass for output
+    // Output
     const vk::SubpassDescription subpass{
         {}, // flags
         vk::PipelineBindPoint::eGraphics,
         0, // inputAttachmentCount
         nullptr, // pInputAttachments
         1, // colorAttachmentCount
-        &colorAttachmentRef
+        &swapAttachmentRef
     };
 
-    // Create subpass dependency to synchronize
+    // Synchronize
     const vk::SubpassDependency dependency{
         VK_SUBPASS_EXTERNAL, // srcSubpass
         0, // dstSubpass
@@ -397,7 +386,7 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
     _vkRenderPass = _device.logical().createRenderPass({
         {}, // flags
         1, // attachmentCount
-        &colorAttachment,
+        &swapAttachment,
         1, // subpassCount
         &subpass,
         1, // dependencyCount
@@ -407,12 +396,10 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
 
 void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 {
-    // Create modules for shaders
     const auto vertSPV = readFile("shader/shader.vert.spv");
     const auto fragSPV = readFile("shader/shader.frag.spv");
     const vk::ShaderModule vertShaderModule = createShaderModule(_device.logical(), vertSPV);
     const vk::ShaderModule fragShaderModule = createShaderModule(_device.logical(), fragSPV);
-
     const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
         {
             {}, // flags
@@ -428,7 +415,6 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         }
     }};
 
-    // Config shader stage inputs
     const auto vertexBindingDescription = Vertex::bindingDescription();
     const auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
@@ -439,14 +425,12 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         vertexAttributeDescriptions.data()
     };
 
-    // Config input topology
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         {}, // flags
         vk::PrimitiveTopology::eTriangleList,
         VK_FALSE // primitiveRestartEnable
     };
 
-    // Set up viewport
     const vk::Viewport viewport{
         0.f, // x
         0.f, // y
@@ -467,7 +451,6 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         &scissor
     };
 
-    // Config rasterizer
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         {}, // flags
         VK_FALSE, // depthClampEnable
@@ -482,14 +465,12 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         1.f // lineWidth
     };
 
-    // Config multisampling
     const vk::PipelineMultisampleStateCreateInfo multisampleState{
         {}, //flags
         vk::SampleCountFlagBits::e1 // rasterationSamples
     };
     // TODO: sampleshading now 0, verify it doesn't matter if not enabled
 
-    // Config blending
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         VK_FALSE, // blendEnable
         vk::BlendFactor::eOne, // srcColorBlendFactor
@@ -511,7 +492,6 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         &colorBlendAttachment
     };
 
-    // Create pipeline layout
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _vkCameraDescriptorSetLayout,
         _vkMeshInstanceDescriptorSetLayout,
@@ -541,7 +521,6 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         0 // subpass
     });
 
-    // Clean up shaders
     _device.logical().destroyShaderModule(vertShaderModule);
     _device.logical().destroyShaderModule(fragShaderModule);
 }
@@ -579,10 +558,8 @@ void App::drawFrame()
         return nextImage.value();
     }();
 
-    // Update uniform buffers
     updateUniformBuffers(nextImage);
 
-    // Record frame
     recordCommandBuffer(nextImage);
 
     // Submit queue
@@ -637,7 +614,6 @@ void App::updateUniformBuffers(const uint32_t nextImage)
 void App::recordCommandBuffer(const uint32_t nextImage)
 {
     const vk::CommandBuffer buffer = _vkCommandBuffers[nextImage];
-    // Reset command buffer
     buffer.reset({});
 
     buffer.begin({
@@ -659,7 +635,6 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         vk::SubpassContents::eInline
     );
 
-    // Bind pipeline
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _vkGraphicsPipeline);
 
     buffer.bindDescriptorSets(
@@ -690,7 +665,6 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         meshInstance.mesh->draw(buffer);
     }
 
-    // End
     buffer.endRenderPass();
     buffer.end();
 }

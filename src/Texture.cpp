@@ -45,7 +45,6 @@ vk::DescriptorImageInfo Texture::imageInfo() const
 
 std::pair<uint8_t*, vk::Extent2D> Texture::loadFromFile(const std::string& path)
 {
-    // Load from file
     int w, h, channels;
     stbi_uc* pixels = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
     if (pixels == nullptr)
@@ -62,9 +61,9 @@ std::pair<uint8_t*, vk::Extent2D> Texture::loadFromFile(const std::string& path)
 
 Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
 {
-    // Upload to staging buffer
     const vk::DeviceSize imageSize = extent.width * extent.height * 4;
-    const Buffer buffer = _device->createBuffer(
+
+    const Buffer stagingBuffer = _device->createBuffer(
         imageSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
@@ -72,11 +71,11 @@ Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
     );
 
     void* data;
-    _device->logical().mapMemory(buffer.memory, 0, imageSize, {}, &data);
+    _device->logical().mapMemory(stagingBuffer.memory, 0, imageSize, {}, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    _device->logical().unmapMemory(buffer.memory);
+    _device->logical().unmapMemory(stagingBuffer.memory);
 
-    return buffer;
+    return stagingBuffer;
 }
 
 void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange)
