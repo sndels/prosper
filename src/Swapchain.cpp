@@ -49,7 +49,7 @@ namespace {
             return capabilities.currentExtent;
 
         // Pick best resolution from given bounds
-        const vk::Extent2D actualExtent(
+        const vk::Extent2D actualExtent{
             std::clamp(
                 extent.width,
                 capabilities.minImageExtent.width,
@@ -60,7 +60,7 @@ namespace {
                 capabilities.minImageExtent.height,
                 capabilities.maxImageExtent.height
             )
-        );
+        };
 
         return actualExtent;
     }
@@ -68,10 +68,11 @@ namespace {
 
 SwapchainSupport querySwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface)
 {
-    SwapchainSupport details;
-    details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
-    details.formats = device.getSurfaceFormatsKHR(surface);
-    details.presentModes = device.getSurfacePresentModesKHR(surface);
+    const SwapchainSupport details = {
+        device.getSurfaceCapabilitiesKHR(surface),
+        device.getSurfaceFormatsKHR(surface),
+        device.getSurfacePresentModesKHR(surface)
+    };
 
     return details;
 }
@@ -83,17 +84,17 @@ SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent
         device->surface()
     );
 
-    SwapchainConfig config;
-    config.transform = swapchainSupport.capabilities.currentTransform;
-    // Prefer one extra image to limit waiting on internal operations
-    config.imageCount = swapchainSupport.capabilities.minImageCount + 1;
+    SwapchainConfig config = {
+        swapchainSupport.capabilities.currentTransform,
+        selectSwapSurfaceFormat(swapchainSupport.formats),
+        selectSwapPresentMode(swapchainSupport.presentModes),
+        selectSwapExtent(extent, swapchainSupport.capabilities),
+        swapchainSupport.capabilities.minImageCount + 1 // Prefer one extra image to limit waiting on internal operations
+    };
     if (swapchainSupport.capabilities.maxImageCount > 0 &&
         config.imageCount > swapchainSupport.capabilities.maxImageCount)
         config.imageCount = swapchainSupport.capabilities.maxImageCount;
 
-    config.surfaceFormat = selectSwapSurfaceFormat(swapchainSupport.formats);
-    config.presentMode = selectSwapPresentMode(swapchainSupport.presentModes);
-    config.extent = selectSwapExtent(extent, swapchainSupport.capabilities);
     return config;
 }
 
@@ -177,13 +178,14 @@ std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore waitSemaphore)
 
 bool Swapchain::present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSemaphores)
 {
-    const vk::PresentInfoKHR presentInfo(
+    // TODO: noexcept, modern interface would throw on ErrorOutOfDate
+    const vk::PresentInfoKHR presentInfo{
         waitSemaphoreCount,
         waitSemaphores,
         1, // swapchainCount
         &_swapchain,
         &_nextImage
-    );
+    };
     const vk::Result result = _device->presentQueue().presentKHR(&presentInfo);
 
     // Signal to recreate swap chain if out of date or suboptimal
@@ -228,8 +230,7 @@ void Swapchain::createSwapchain()
         }
     }();
 
-    // Create swapchain
-    const vk::SwapchainCreateInfoKHR createInfo(
+    _swapchain = _device->logical().createSwapchainKHR({
         {}, // flags
         _device->surface(),
         _config.imageCount,
@@ -245,9 +246,7 @@ void Swapchain::createSwapchain()
         vk::CompositeAlphaFlagBitsKHR::eOpaque,
         _config.presentMode,
         VK_TRUE // Don't care about pixels covered by other windows
-    );
-
-    _swapchain = _device->logical().createSwapchainKHR(createInfo);
+    });
 
     // Get swapchain images
     _images = _device->logical().getSwapchainImagesKHR(_swapchain);
@@ -258,21 +257,20 @@ void Swapchain::createImageViews()
 {
     // Create simple image views to treat swap chain images as color targets
     for (auto& image : _images) {
-        const vk::ImageViewCreateInfo createInfo(
+        _imageViews.push_back(_device->logical().createImageView({
             {}, // flags
             image,
             vk::ImageViewType::e2D,
             _config.surfaceFormat.format,
-            vk::ComponentMapping(), // Identity swizzles
-            vk::ImageSubresourceRange(
+            {}, // Identity swizzles
+            vk::ImageSubresourceRange{
                 vk::ImageAspectFlagBits::eColor,
                 0, // base mip
                 1, // level count
                 0, // base array layer
                 1  // layer count
-            )
-        );
-        _imageViews.push_back(_device->logical().createImageView(createInfo));
+            }
+        }));
     }
 }
 
@@ -284,7 +282,7 @@ void Swapchain::createFramebuffers(vk::RenderPass renderPass)
             view
         }};
 
-        const vk::FramebufferCreateInfo framebufferInfo(
+        _fbos.push_back(_device->logical().createFramebuffer({
             {}, // flags
             renderPass,
             attachments.size(),
@@ -292,8 +290,7 @@ void Swapchain::createFramebuffers(vk::RenderPass renderPass)
             _config.extent.width,
             _config.extent.height,
             1 // layers
-        );
-        _fbos.push_back(_device->logical().createFramebuffer(framebufferInfo));
+        }));
     }
 }
 

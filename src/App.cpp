@@ -29,7 +29,7 @@ namespace {
         // Open from end to find size from initial position
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
         if (!file.is_open())
-            throw  std::runtime_error(std::string("Failed to open file '") + filename + "'");
+            throw  std::runtime_error(std::string{"Failed to open file '"} + filename + "'");
 
         const auto fileSize = static_cast<size_t>(file.tellg());
         std::vector<char> buffer(fileSize);
@@ -44,17 +44,16 @@ namespace {
 
     vk::ShaderModule createShaderModule(const vk::Device device, const std::vector<char>& spv)
     {
-        const vk::ShaderModuleCreateInfo createInfo(
+        return device.createShaderModule({
             {},
             spv.size(),
             reinterpret_cast<const uint32_t*>(spv.data())
-        );
-        return device.createShaderModule(createInfo);
+        });
     }
 
     std::string resPath(const std::string& res)
     {
-        return std::string(RES_PATH) + res;
+        return std::string{RES_PATH} + res;
     }
 }
 
@@ -93,8 +92,8 @@ void App::init()
     _textures.push_back(std::make_shared<Texture>(&_device, resPath("texture/statue.jpg")));
 
     // TODO: Actual abstraction
-    _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
-    _scene.push_back(MeshInstance{_meshes[0], {}, {}, glm::mat4(1.f)});
+    _scene.push_back({_meshes[0], {}, {}, glm::mat4(1.f)});
+    _scene.push_back({_meshes[0], {}, {}, glm::mat4(1.f)});
 
     const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
@@ -196,45 +195,42 @@ void App::destroySwapchainRelated()
 void App::createDescriptorSetLayouts()
 {
     // Separate bindings for camera and mesh instance to avoid having camera bound to all mesh instance sets
-    const vk::DescriptorSetLayoutBinding cameraLayoutBinding(
+    const vk::DescriptorSetLayoutBinding cameraLayoutBinding{
         0, // binding
         vk::DescriptorType::eUniformBuffer,
         1, // descriptorCount
         vk::ShaderStageFlagBits::eVertex
-    );
-    const vk::DescriptorSetLayoutCreateInfo cameraLayoutInfo(
+    };
+    _vkCameraDescriptorSetLayout = _device.logical().createDescriptorSetLayout({
         {}, // flags
         1, // bindingCount
         &cameraLayoutBinding
-    );
-    _vkCameraDescriptorSetLayout = _device.logical().createDescriptorSetLayout(cameraLayoutInfo);
+    });
 
-    const vk::DescriptorSetLayoutBinding meshInstanceLayoutBinding(
+    const vk::DescriptorSetLayoutBinding meshInstanceLayoutBinding{
         0, // binding
         vk::DescriptorType::eUniformBuffer,
         1, // descriptorCount
         vk::ShaderStageFlagBits::eVertex
-    );
-    const vk::DescriptorSetLayoutCreateInfo meshInstanceLayoutInfo(
+    };
+    _vkMeshInstanceDescriptorSetLayout = _device.logical().createDescriptorSetLayout({
         {}, // flags
         1, // bindingCount
         &meshInstanceLayoutBinding
-    );
-    _vkMeshInstanceDescriptorSetLayout = _device.logical().createDescriptorSetLayout(meshInstanceLayoutInfo);
+    });
 
     // Samplers get a separate layout for simplicity
-    const vk::DescriptorSetLayoutBinding samplerLayoutBinding(
+    const vk::DescriptorSetLayoutBinding samplerLayoutBinding{
         0, // binding
         vk::DescriptorType::eCombinedImageSampler,
         1, // descriptorCount
         vk::ShaderStageFlagBits::eFragment
-    );
-    const vk::DescriptorSetLayoutCreateInfo samplerLayoutInfo (
+    };
+    _vkSamplerDescriptorSetLayout = _device.logical().createDescriptorSetLayout({
         {}, // flags
         1, // bindingCount
         &samplerLayoutBinding
-    );
-    _vkSamplerDescriptorSetLayout = _device.logical().createDescriptorSetLayout(samplerLayoutInfo);
+    });
 }
 
 void App::createUniformBuffers()
@@ -273,14 +269,12 @@ void App::createDescriptorPool()
         return setCount;
     }();
 
-    const vk::DescriptorPoolCreateInfo poolInfo(
+    _vkDescriptorPool = _device.logical().createDescriptorPool({
         {}, // flags
         setCount, // max sets
         poolSizes.size(),
         poolSizes.data()
-    );
-
-    _vkDescriptorPool = _device.logical().createDescriptorPool(poolInfo);
+    });
 }
 
 void App::createDescriptorSets()
@@ -290,37 +284,34 @@ void App::createDescriptorSets()
         _swapchain.imageCount(),
         _vkCameraDescriptorSetLayout
     );
-    const vk::DescriptorSetAllocateInfo cameraAllocInfo(
+    _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets({
         _vkDescriptorPool,
-        cameraLayouts.size(),
+        static_cast<uint32_t>(cameraLayouts.size()),
         cameraLayouts.data()
-    );
-    _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets(cameraAllocInfo);
+    });
 
     const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
         _swapchain.imageCount(),
         _vkMeshInstanceDescriptorSetLayout
     );
-    const vk::DescriptorSetAllocateInfo meshInstanceAllocInfo(
-        _vkDescriptorPool,
-        meshInstanceLayouts.size(),
-        meshInstanceLayouts.data()
-    );
     for (auto& meshInstance : _scene)
-        meshInstance.descriptorSets = _device.logical().allocateDescriptorSets(meshInstanceAllocInfo);
+        meshInstance.descriptorSets = _device.logical().allocateDescriptorSets({
+            _vkDescriptorPool,
+            static_cast<uint32_t>(meshInstanceLayouts.size()),
+            meshInstanceLayouts.data()
+        });
 
-    const vk::DescriptorSetAllocateInfo samplerAllocInfo(
+    _vkSamplerDescriptorSet = _device.logical().allocateDescriptorSets({
         _vkDescriptorPool,
         1,
         &_vkSamplerDescriptorSetLayout
-    );
-    _vkSamplerDescriptorSet = _device.logical().allocateDescriptorSets(samplerAllocInfo)[0];
+    })[0];
 
 
     // Update them with buffers
     const auto cameraBufferInfos = _cam.bufferInfos();
     for (size_t i = 0; i < _vkCameraDescriptorSets.size(); ++i) {
-        const vk::WriteDescriptorSet descriptorWrite(
+        const vk::WriteDescriptorSet descriptorWrite{
             _vkCameraDescriptorSets[i],
             0, // dstBinding,
             0, // dstArrayElement
@@ -328,14 +319,14 @@ void App::createDescriptorSets()
             vk::DescriptorType::eUniformBuffer,
             nullptr, // pImageInfo
             &cameraBufferInfos[i]
-        );
+        };
         _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
     }
 
     for (auto& meshInstance : _scene) {
         const auto meshInstanceBufferInfos = meshInstance.bufferInfos();
         for (size_t i = 0; i < meshInstance.descriptorSets.size(); ++i) {
-            const vk::WriteDescriptorSet descriptorWrite(
+            const vk::WriteDescriptorSet descriptorWrite{
                 meshInstance.descriptorSets[i],
                 0, // dstBinding,
                 0, // dstArrayElement
@@ -343,21 +334,21 @@ void App::createDescriptorSets()
                 vk::DescriptorType::eUniformBuffer,
                 nullptr, // pImageInfo
                 &meshInstanceBufferInfos[i]
-            );
+            };
             _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
         }
     }
 
     {
         const auto imageInfo = _textures[0]->imageInfo();
-        const vk::WriteDescriptorSet descriptorWrite(
+        const vk::WriteDescriptorSet descriptorWrite{
             _vkSamplerDescriptorSet,
             0, // dstBinding,
             0, // dstArrayElement
             1, // descriptorCount
             vk::DescriptorType::eCombinedImageSampler,
             &imageInfo
-        );
+        };
         _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
     }
 
@@ -366,7 +357,7 @@ void App::createDescriptorSets()
 void App::createRenderPass(const SwapchainConfig& swapConfig)
 {
     // Fill color attachment data for the swap buffer
-    const vk::AttachmentDescription colorAttachment(
+    const vk::AttachmentDescription colorAttachment{
         {}, // flags
         swapConfig.surfaceFormat.format,
         vk::SampleCountFlagBits::e1,
@@ -376,24 +367,24 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
         vk::AttachmentStoreOp::eDontCare, // stencilStoreOp
         vk::ImageLayout::eUndefined, // initialLayout
         vk::ImageLayout::ePresentSrcKHR // finalLayout
-    );
-    const vk::AttachmentReference colorAttachmentRef(
+    };
+    const vk::AttachmentReference colorAttachmentRef{
         0, // attachment
         vk::ImageLayout::eColorAttachmentOptimal
-    );
+    };
 
     // Create subpass for output
-    const vk::SubpassDescription subpass(
+    const vk::SubpassDescription subpass{
         {}, // flags
         vk::PipelineBindPoint::eGraphics,
         0, // inputAttachmentCount
         nullptr, // pInputAttachments
         1, // colorAttachmentCount
         &colorAttachmentRef
-    );
+    };
 
     // Create subpass dependency to synchronize
-    const vk::SubpassDependency dependency(
+    const vk::SubpassDependency dependency{
         VK_SUBPASS_EXTERNAL, // srcSubpass
         0, // dstSubpass
         vk::PipelineStageFlagBits::eColorAttachmentOutput, // srcStageMask
@@ -401,10 +392,9 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
         {}, // srcAccessMask
         vk::AccessFlagBits::eColorAttachmentRead |
         vk::AccessFlagBits::eColorAttachmentWrite // dstAccessMask
-    );
+    };
 
-    // Create render pass
-    const vk::RenderPassCreateInfo renderPassInfo(
+    _vkRenderPass = _device.logical().createRenderPass({
         {}, // flags
         1, // attachmentCount
         &colorAttachment,
@@ -412,8 +402,7 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
         &subpass,
         1, // dependencyCount
         &dependency
-    );
-    _vkRenderPass = _device.logical().createRenderPass(renderPassInfo);
+    });
 }
 
 void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
@@ -424,62 +413,62 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     const vk::ShaderModule vertShaderModule = createShaderModule(_device.logical(), vertSPV);
     const vk::ShaderModule fragShaderModule = createShaderModule(_device.logical(), fragSPV);
 
-    // Fill out create infos for the shader stages
-    const vk::PipelineShaderStageCreateInfo vertStageInfo(
-        {}, // flags
-        vk::ShaderStageFlagBits::eVertex,
-        vertShaderModule,
-        "main"
-    );
-    const vk::PipelineShaderStageCreateInfo fragStageInfo(
-        {}, // flags
-        vk::ShaderStageFlagBits::eFragment,
-        fragShaderModule,
-        "main"
-    );
-    const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{vertStageInfo, fragStageInfo}};
+    const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
+        {
+            {}, // flags
+            vk::ShaderStageFlagBits::eVertex,
+            vertShaderModule,
+            "main"
+        },
+        {
+            {}, // flags
+            vk::ShaderStageFlagBits::eFragment,
+            fragShaderModule,
+            "main"
+        }
+    }};
 
     // Config shader stage inputs
     const auto vertexBindingDescription = Vertex::bindingDescription();
     const auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo(
+    const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
         {}, // flags
         1, // vertexBindingDescriptionCount
         &vertexBindingDescription,
         vertexAttributeDescriptions.size(),
         vertexAttributeDescriptions.data()
-    );
+    };
 
     // Config input topology
-    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly(
+    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         {}, // flags
         vk::PrimitiveTopology::eTriangleList,
         VK_FALSE // primitiveRestartEnable
-    );
+    };
 
     // Set up viewport
-    const vk::Viewport viewport(
+    const vk::Viewport viewport{
         0.f, // x
         0.f, // y
         static_cast<float>(swapConfig.extent.width), // width
         static_cast<float>(swapConfig.extent.height), // height
         0.f, // minDepth
         1.f // maxDepth
-    );
-    const vk::Rect2D scissor(
+    };
+    const vk::Rect2D scissor{
         {0, 0}, // offset
         swapConfig.extent
-    );
-    const vk::PipelineViewportStateCreateInfo viewportState(
+    };
+    const vk::PipelineViewportStateCreateInfo viewportState{
         {}, // flags
         1, // viewportCount
         &viewport,
         1, // scissorCount
         &scissor
-    );
+    };
 
     // Config rasterizer
-    const vk::PipelineRasterizationStateCreateInfo rasterizerState(
+    const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         {}, // flags
         VK_FALSE, // depthClampEnable
         VK_FALSE, // rasterizerDiscardEnable
@@ -491,18 +480,17 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         0.f, // depthBiasClamp
         0.f, // depthBiasSlopeOperator
         1.f // lineWidth
-    );
+    };
 
     // Config multisampling
-    const vk::PipelineMultisampleStateCreateInfo multisampleState(
+    const vk::PipelineMultisampleStateCreateInfo multisampleState{
         {}, //flags
         vk::SampleCountFlagBits::e1 // rasterationSamples
-    );
+    };
     // TODO: sampleshading now 0, verify it doesn't matter if not enabled
 
     // Config blending
-    // TODO: is default enough?
-    const vk::PipelineColorBlendAttachmentState colorBlendAttachment(
+    const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         VK_FALSE, // blendEnable
         vk::BlendFactor::eOne, // srcColorBlendFactor
         vk::BlendFactor::eZero, // dstColorBlendFactor
@@ -514,14 +502,14 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB |
         vk::ColorComponentFlagBits::eA // colorWriteMas
-    );
-    const vk::PipelineColorBlendStateCreateInfo colorBlendState(
+    };
+    const vk::PipelineColorBlendStateCreateInfo colorBlendState{
         {}, // flags
         VK_FALSE, // logicOpEnable
         vk::LogicOp::eCopy,
         1, // attachmentCount
         &colorBlendAttachment
-    );
+    };
 
     // Create pipeline layout
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
@@ -529,15 +517,13 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         _vkMeshInstanceDescriptorSetLayout,
         _vkSamplerDescriptorSetLayout
     }};
-    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
+    _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout({
         {}, // flags
         setLayouts.size(),
         setLayouts.data()
-    );
-    _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout(pipelineLayoutInfo);
+    });
 
-    // Create pipeline
-    const vk::GraphicsPipelineCreateInfo pipelineInfo(
+    _vkGraphicsPipeline = _device.logical().createGraphicsPipeline({}, {
         {}, // flags
         shaderStages.size(),
         shaderStages.data(),
@@ -553,8 +539,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         _vkGraphicsPipelineLayout,
         _vkRenderPass,
         0 // subpass
-    );
-    _vkGraphicsPipeline = _device.logical().createGraphicsPipeline({}, pipelineInfo);
+    });
 
     // Clean up shaders
     _device.logical().destroyShaderModule(vertShaderModule);
@@ -563,38 +548,35 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 
 void App::createCommandBuffers()
 {
-    const vk::CommandBufferAllocateInfo allocInfo(
+    _vkCommandBuffers = _device.logical().allocateCommandBuffers({
         _device.commandPool(),
         vk::CommandBufferLevel::ePrimary,
         _swapchain.imageCount() // commandBufferCount
-    );
-    _vkCommandBuffers = _device.logical().allocateCommandBuffers(allocInfo);
+    });
 }
 
 void App::createSemaphores()
 {
-    const vk::SemaphoreCreateInfo semaphoreInfo;
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        _imageAvailableSemaphores.push_back(_device.logical().createSemaphore(semaphoreInfo));
-        _renderFinishedSemaphores.push_back(_device.logical().createSemaphore(semaphoreInfo));
+        _imageAvailableSemaphores.push_back(_device.logical().createSemaphore({}));
+        _renderFinishedSemaphores.push_back(_device.logical().createSemaphore({}));
     }
 }
 
 void App::drawFrame()
 {
-    // currentFrame corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
-    // nexttImage corresponds to the swapchain image
-    const auto [currentFrame, nextImage] = [&]{
-        size_t currentFrame = _swapchain.currentFrame();
+    // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
+    const size_t currentFrame = _swapchain.currentFrame();
+    // Corresponds to the swapchain image
+    const auto nextImage = [&]{
         auto nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
         while (!nextImage.has_value()) {
             // Recreate the swap chain as necessary
             recreateSwapchainAndRelated();
-            currentFrame = _swapchain.currentFrame();
             nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
         }
 
-        return std::pair(currentFrame, nextImage.value());
+        return nextImage.value();
     }();
 
     // Update uniform buffers
@@ -613,7 +595,7 @@ void App::drawFrame()
     const std::array<vk::Semaphore, 1> signalSemaphores = {{
         _renderFinishedSemaphores[currentFrame]
     }};
-    const vk::SubmitInfo submitInfo(
+    const vk::SubmitInfo submitInfo{
         waitSemaphores.size(),
         waitSemaphores.data(),
         waitStages.data(),
@@ -621,7 +603,7 @@ void App::drawFrame()
         &_vkCommandBuffers[nextImage],
         signalSemaphores.size(),
         signalSemaphores.data()
-    );
+    };
     _device.graphicsQueue().submit(1, &submitInfo, _swapchain.currentFence());
 
     // Recreate swapchain if so indicated and explicitly handle resizes
@@ -658,27 +640,24 @@ void App::recordCommandBuffer(const uint32_t nextImage)
     // Reset command buffer
     buffer.reset({});
 
-    // Begin command buffer
-    const vk::CommandBufferBeginInfo beginInfo(
+    buffer.begin({
         vk::CommandBufferUsageFlagBits::eSimultaneousUse
-    );
-    buffer.begin(beginInfo);
+    });
 
-    // Record renderpass
     const vk::ClearValue clearColor(std::array<float, 4>{0.f, 0.f, 0.f, 0.f});
-    const vk::RenderPassBeginInfo renderPassInfo(
-        _vkRenderPass,
-        _swapchain.fbo(nextImage),
-        vk::Rect2D(
-            {0, 0}, // offset
-            _swapchain.extent()
-        ),
-        1, // clearValueCount
-        &clearColor
+    buffer.beginRenderPass(
+        {
+            _vkRenderPass,
+            _swapchain.fbo(nextImage),
+            vk::Rect2D{
+                {0, 0}, // offset
+                _swapchain.extent()
+            },
+            1, // clearValueCount
+            &clearColor
+        },
+        vk::SubpassContents::eInline
     );
-
-    // Begin
-    buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
     // Bind pipeline
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _vkGraphicsPipeline);

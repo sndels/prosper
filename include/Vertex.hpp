@@ -13,11 +13,11 @@ struct Vertex {
 
     static const vk::VertexInputBindingDescription& bindingDescription()
     {
-        static const vk::VertexInputBindingDescription description(
+        static const vk::VertexInputBindingDescription description{
             0,
             sizeof(Vertex),
             vk::VertexInputRate::eVertex
-        );
+        };
 
         return description;
     }
@@ -26,26 +26,26 @@ struct Vertex {
     {
         static const std::array<vk::VertexInputAttributeDescription, 3> descriptions{
             // pos
-            vk::VertexInputAttributeDescription(
+            vk::VertexInputAttributeDescription{
                 0, // location
                 0, // binding
                 vk::Format::eR32G32B32Sfloat,
                 offsetof(Vertex, pos)
-            ),
+            },
             // texCoord
-            vk::VertexInputAttributeDescription(
+            vk::VertexInputAttributeDescription{
                 1, // location
                 0, // binding
                 vk::Format::eR32G32Sfloat,
                 offsetof(Vertex, texCoord)
-            ),
+            },
             // color
-            vk::VertexInputAttributeDescription(
+            vk::VertexInputAttributeDescription{
                 2, // location
                 0, // buinding
                 vk::Format::eR32G32B32Sfloat,
                 offsetof(Vertex, color)
-            )
+            }
         };
 
         return descriptions;

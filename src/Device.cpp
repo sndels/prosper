@@ -154,16 +154,16 @@ namespace {
     {
         if (oldLayout == vk::ImageLayout::eUndefined &&
             newLayout == vk::ImageLayout::eTransferDstOptimal) {
-            return std::pair(
-                vk::AccessFlags(),
+            return std::pair{
+                vk::AccessFlags{},
                 vk::AccessFlagBits::eTransferWrite
-            );
+            };
         } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
                    newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-            return std::pair(
+            return std::pair{
                 vk::AccessFlagBits::eTransferWrite,
                 vk::AccessFlagBits::eShaderRead
-            );
+            };
         } else
             throw std::runtime_error("Unsupported layout transition");
     }
@@ -172,16 +172,16 @@ namespace {
     {
         if (oldLayout == vk::ImageLayout::eUndefined &&
             newLayout == vk::ImageLayout::eTransferDstOptimal) {
-            return std::pair(
+            return std::pair{
                 vk::PipelineStageFlagBits::eTopOfPipe,
                 vk::PipelineStageFlagBits::eTransfer
-            );
+            };
         } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
                    newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-            return std::pair(
+            return std::pair{
                 vk::PipelineStageFlagBits::eTransfer,
                 vk::PipelineStageFlagBits::eFragmentShader
-            );
+            };
         } else
             throw std::runtime_error("Unsupported layout transition");
     }
@@ -253,24 +253,20 @@ Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlag
 {
     Buffer buffer;
 
-    // Create the buffer
-    const vk::BufferCreateInfo bufferInfo(
+    buffer.handle = _logical.createBuffer({
         {}, // flags
         size,
         usage,
         vk::SharingMode::eExclusive
-    );
-    buffer.handle = _logical.createBuffer(bufferInfo);
+    });
 
     // Check memory requirements
     const auto memRequirements = _logical.getBufferMemoryRequirements(buffer.handle);
 
-    // Allocate memory for it
-    const vk::MemoryAllocateInfo allocInfo(
+    buffer.memory = _logical.allocateMemory({
         memRequirements.size, 
         findMemoryType(_physical, memRequirements.memoryTypeBits, properties)
-    );
-    buffer.memory = _logical.allocateMemory(allocInfo);
+    });
 
     // Bind memory to buffer
     _logical.bindBufferMemory(buffer.handle, buffer.memory, 0);
@@ -282,11 +278,11 @@ void Device::copyBuffer(const Buffer& src, const Buffer& dst, const vk::DeviceSi
 {
     const auto commandBuffer = beginGraphicsCommands();
 
-    const vk::BufferCopy copyRegion(
+    const vk::BufferCopy copyRegion{
         0, // srcOffset
         0, // dstOffset
         size
-    );
+    };
     commandBuffer.copyBuffer(src.handle, dst.handle, 1, &copyRegion);
 
     endGraphicsCommands(commandBuffer);
@@ -296,19 +292,19 @@ void Device::copyBufferToImage(const Buffer& src, const Image& dst, const vk::Ex
 {
     const auto commandBuffer = beginGraphicsCommands();
 
-    const vk::BufferImageCopy region(
+    const vk::BufferImageCopy region{
         0, // bufferOffset
         0, // bufferRowLength
         0, // bufferImageHeight
-        vk::ImageSubresourceLayers(
+        vk::ImageSubresourceLayers{
             vk::ImageAspectFlagBits::eColor,
             0, // mipLevel
             0, // arrayLayer
             1 // layerCount
-        ),
-        vk::Offset3D(0, 0, 0),
-        vk::Extent3D(extent, 1)
-    );
+        },
+        vk::Offset3D{0, 0, 0},
+        vk::Extent3D{extent, 1}
+    };
     commandBuffer.copyBufferToImage(
         src.handle,
         dst.handle,
@@ -324,28 +320,27 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format, co
 {
     Image image;
 
-    // Create handle
-    const vk::ImageCreateInfo imageInfo(
+    image.handle = _logical.createImage({
         {}, // flags
         vk::ImageType::e2D,
         vk::Format::eR8G8B8A8Unorm,
-        vk::Extent3D(extent, 1),
+        vk::Extent3D{extent, 1},
         1, // mipLevels
         1, // arrayLayers
         vk::SampleCountFlagBits::e1,
         tiling,
         usage,
         vk::SharingMode::eExclusive
-    );
-    image.handle = _logical.createImage(imageInfo);
+    });
 
     // Allocate and bind memory
     const auto memRequirements = _logical.getImageMemoryRequirements(image.handle);
-    const vk::MemoryAllocateInfo allocInfo(
+
+    image.memory = _logical.allocateMemory({
         memRequirements.size,
         findMemoryType(_physical, memRequirements.memoryTypeBits, properties)
-    );
-    image.memory = _logical.allocateMemory(allocInfo);
+    });
+
     _logical.bindImageMemory(image.handle, image.memory, 0);
 
     return image;
@@ -358,7 +353,7 @@ void Device::transitionImageLayout(const Image& image, const vk::Format format, 
     const auto [srcAccessMask, dstAccessMask] = accessMasks(oldLayout, newLayout);
     const auto [srcStageMask, dstStageMask] = stageMasks(oldLayout, newLayout);
 
-    const vk::ImageMemoryBarrier barrier(
+    const vk::ImageMemoryBarrier barrier{
         srcAccessMask,
         dstAccessMask,
         oldLayout,
@@ -367,7 +362,7 @@ void Device::transitionImageLayout(const Image& image, const vk::Format format, 
         VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
         image.handle,
         subresourceRange
-    );
+    };
     commandBuffer.pipelineBarrier(
         srcStageMask,
         dstStageMask,
@@ -382,13 +377,11 @@ void Device::transitionImageLayout(const Image& image, const vk::Format format, 
 
 vk::CommandBuffer Device::beginGraphicsCommands() const
 {
-    // Allocate and begin a command buffer
-    const vk::CommandBufferAllocateInfo allocInfo(
+    const auto buffer = _logical.allocateCommandBuffers({
         _commandPool,
         vk::CommandBufferLevel::ePrimary,
         1 // commandBufferCount
-    );
-    const auto buffer = _logical.allocateCommandBuffers(allocInfo)[0];
+    })[0];
 
     const vk::CommandBufferBeginInfo beginInfo(
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit
@@ -403,13 +396,13 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
     // End and submit on graphics queue
     buffer.end();
 
-    const vk::SubmitInfo submitInfo(
+    const vk::SubmitInfo submitInfo{
         0, // waitSemaphoreCount
         nullptr, // pWaitSemaphores
         nullptr, // pWaitDstStageMask
         1, // commandBufferCount
         &buffer
-    );
+    };
     _graphicsQueue.submit(1, &submitInfo, {});
     _graphicsQueue.waitIdle(); // TODO: Collect setup commands and execute at once
 
@@ -445,33 +438,31 @@ void Device::createInstance()
         throw std::runtime_error("Validation layers not available");
 
     // Setup app info
-    const vk::ApplicationInfo appInfo(
+    const vk::ApplicationInfo appInfo{
         "prosper",
         VK_MAKE_VERSION(1, 0, 0),
         "prosper",
         VK_MAKE_VERSION(1, 0, 0),
         VK_API_VERSION_1_0
-    );
+    };
 
     // Gather required extensions
     const auto extensions = getRequiredExtensions();
 
-    // Create instance
-    const vk::InstanceCreateInfo createInfo(
+    _instance = vk::createInstance({
         {}, // flags
         &appInfo,
-        validationLayers.size(),
+        static_cast<uint32_t>(validationLayers.size()),
         validationLayers.data(),
-        extensions.size(),
+        static_cast<uint32_t>(extensions.size()),
         extensions.data()
-    );
-    _instance = vk::createInstance(createInfo);
+    });
 }
 
 void Device::createDebugMessenger()
 {
     // Create debug messenger with everything except info
-    const vk::DebugUtilsMessengerCreateInfoEXT createInfo(
+    const vk::DebugUtilsMessengerCreateInfoEXT createInfo{
         {},
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
@@ -480,7 +471,7 @@ void Device::createDebugMessenger()
         vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
         vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
         debugCallback
-    );
+    };
     CreateDebugUtilsMessengerEXT(_instance, &createInfo, nullptr, &_debugMessenger);
 }
 
@@ -522,13 +513,12 @@ void Device::createLogicalDevice()
             presentFamily
         };
         for (uint32_t family : uniqueQueueFamilies) {
-            const vk::DeviceQueueCreateInfo queueCreateInfo(
+            cis.push_back({
                 {}, //flags
                 family,
                 1, // queueCount
                 &queuePriority
-            );
-            cis.push_back(queueCreateInfo);
+            });
         }
         return cis;
     }();
@@ -541,18 +531,16 @@ void Device::createLogicalDevice()
         return features;
     }();
 
-    // Create logical device
-    const vk::DeviceCreateInfo createInfo(
+    _logical = _physical.createDevice({
         {}, // flags
-        queueCreateInfos.size(),
+        static_cast<uint32_t>(queueCreateInfos.size()),
         queueCreateInfos.data(),
-        validationLayers.size(),
+        static_cast<uint32_t>(validationLayers.size()),
         validationLayers.data(),
-        deviceExtensions.size(),
+        static_cast<uint32_t>(deviceExtensions.size()),
         deviceExtensions.data(),
         &deviceFeatures
-    );
-    _logical = _physical.createDevice(createInfo);
+    });
 
     // Get the created queues
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);

@@ -43,10 +43,10 @@ void Camera::orient(const vec3& eye, const vec3& fwd, const vec3& up)
     vec3 newUp = normalize(cross(fwd, right));
 
     // Left handed camera
-    _worldToCamera = mat4(         right.x,          newUp.x,          fwd.x, 0.f,
+    _worldToCamera = mat4{         right.x,          newUp.x,          fwd.x, 0.f,
                                    right.y,          newUp.y,          fwd.y, 0.f,
                                    right.z,          newUp.z,          fwd.z, 0.f,
-                          -dot(right, eye), -dot(newUp, eye), -dot(fwd, eye), 1.f);
+                          -dot(right, eye), -dot(newUp, eye), -dot(fwd, eye), 1.f};
 
     _worldToClip = _cameraToClip * _worldToCamera;
 }
@@ -56,10 +56,10 @@ void Camera::perspective(const float fov, const float ar, const float zN, const 
     const float tf = 1.f / tanf(fov * 0.5);
 
     // "DX" projection matrix with flipped y to match Vulkan clip space
-    _cameraToClip = mat4(tf / ar, 0.f,                  0.f, 0.f,
+    _cameraToClip = mat4{tf / ar, 0.f,                  0.f, 0.f,
                              0.f, -tf,                  0.f, 0.f,
                              0.f, 0.f,       zF / (zF - zN), 1.f,
-                             0.f, 0.f, -zN * zF / (zF - zN), 0.f);
+                             0.f, 0.f, -zN * zF / (zF - zN), 0.f};
 
     _worldToClip = _cameraToClip * _worldToCamera;
 }

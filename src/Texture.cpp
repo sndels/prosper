@@ -9,13 +9,13 @@ Texture::Texture(Device* device, const std::string& path) :
     const auto [pixels, extent] = loadFromFile(path);
     const auto stagingBuffer = stagePixels(pixels, extent);
 
-    const vk::ImageSubresourceRange subresourceRange(
+    const vk::ImageSubresourceRange subresourceRange{
             vk::ImageAspectFlagBits::eColor,
             0, // baseMipLevel
             1, // levelCount
             0, // baseArrayLayer
             1 // layerCount
-    );
+    };
 
     createImage(stagingBuffer, extent, subresourceRange);
     createImageView(subresourceRange);
@@ -36,11 +36,11 @@ Texture::~Texture()
 
 vk::DescriptorImageInfo Texture::imageInfo() const
 {
-    return vk::DescriptorImageInfo(
+    return vk::DescriptorImageInfo{
         _sampler,
         _imageView,
         vk::ImageLayout::eShaderReadOnlyOptimal
-    );
+    };
 }
 
 std::pair<uint8_t*, vk::Extent2D> Texture::loadFromFile(const std::string& path)
@@ -51,7 +51,13 @@ std::pair<uint8_t*, vk::Extent2D> Texture::loadFromFile(const std::string& path)
     if (pixels == nullptr)
         throw std::runtime_error("Failed to load texture '" + path + "'");
 
-    return std::pair(pixels, vk::Extent2D(w, h));
+    return std::pair{
+        pixels, 
+        vk::Extent2D{
+            static_cast<uint32_t>(w),
+            static_cast<uint32_t>(h)
+        }
+    };
 }
 
 Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
@@ -103,20 +109,19 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
 
 void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
 {
-    const vk::ImageViewCreateInfo imageViewCreateInfo(
+    _imageView = _device->logical().createImageView({
         {}, // flags
         _image.handle,
         vk::ImageViewType::e2D,
         vk::Format::eR8G8B8A8Unorm,
-        vk::ComponentMapping(),
+        vk::ComponentMapping{},
         subresourceRange
-    );
-    _imageView = _device->logical().createImageView(imageViewCreateInfo);
+    });
 }
 
 void Texture::createSampler()
 {
-    const vk::SamplerCreateInfo samplerCreateInfo(
+    _sampler = _device->logical().createSampler({
         {}, // flags
         vk::Filter::eLinear, // magFilter
         vk::Filter::eLinear, // minFilter
@@ -127,6 +132,5 @@ void Texture::createSampler()
         0.f, // mipLodBias
         VK_TRUE, // anisotropyEnable
         16 // maxAnisotropy
-    );
-    _sampler = _device->logical().createSampler(samplerCreateInfo);
+    });
 }
