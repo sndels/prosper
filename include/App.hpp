@@ -57,20 +57,16 @@ private:
     void recreateSwapchainAndRelated();
     void destroySwapchainRelated();
 
-    // Before pipeline
-    void createDescriptorSetLayouts();
-    void createUniformBuffers();
-    void createDescriptorPool();
-    void createDescriptorSets();
+    void createUniformBuffers(const uint32_t swapImageCount);
+    void createDescriptorPool(const uint32_t swapImageCount);
+    // DescriptorSetLayouts need to be available before pipeline
+    void createDescriptorSets(const uint32_t swapImageCount);
+    void createSemaphores(const uint32_t concurrentFrameCount);
 
-    // These need to be recreated with Swapchain
-    // Before swapchain
+    // These also need to be recreated with Swapchain as they depend on swapconfig / swapchain
     void createRenderPass(const SwapchainConfig& swapConfig);
     void createGraphicsPipeline(const SwapchainConfig& swapConfig);
-    // After swapchain
-    void createCommandBuffers();
-
-    void createSemaphores();
+    void createCommandBuffers(const SwapchainConfig& swapConfig);
 
     void drawFrame();
     void updateUniformBuffers(const uint32_t nextImage);

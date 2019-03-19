@@ -16,7 +16,7 @@ public:
     Camera(Device* device, const uint32_t bufferCount, const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up, const float fov, const float ar, const float zN, const float zF);
     ~Camera();
 
-    void createUniformBuffers(Device* device, const uint32_t count);
+    void createUniformBuffers(Device* device, const uint32_t swapImageCount);
 
     void lookAt(const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up);
     void orient(const glm::vec3& eye, const glm::vec3& fwd, const glm::vec3& up);

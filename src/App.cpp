@@ -61,14 +61,17 @@ namespace {
 
 App::~App()
 {
+    destroySwapchainRelated();
+
     for (auto& semaphore : _renderFinishedSemaphores)
         _device.logical().destroy(semaphore);
     for (auto& semaphore : _imageAvailableSemaphores)
         _device.logical().destroy(semaphore);
 
-    destroySwapchainRelated();
-
     _device.logical().destroy(_vkDescriptorPool);
+    _device.logical().destroy(_vkCameraDescriptorSetLayout);
+    _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
+    _device.logical().destroy(_vkSamplerDescriptorSetLayout);
 
     for (auto& instance : _scene) {
         for (auto& buffer : instance.uniformBuffers) {
@@ -76,10 +79,6 @@ App::~App()
             _device.logical().free(buffer.memory);
         }
     }
-
-    _device.logical().destroy(_vkCameraDescriptorSetLayout);
-    _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
-    _device.logical().destroy(_vkSamplerDescriptorSetLayout);
 }
 
 void App::init()
@@ -106,22 +105,18 @@ void App::init()
         {_window.width(), _window.height()}
     );
 
+    // Resources tied to specific swap images via command buffers
+    createUniformBuffers(swapConfig.imageCount);
+    createDescriptorPool(swapConfig.imageCount);
+    createDescriptorSets(swapConfig.imageCount);
+    // Semaphores are correspond to logical frames instead of swapchain images
+    createSemaphores(MAX_FRAMES_IN_FLIGHT);
+
     createRenderPass(swapConfig);
-
-    createDescriptorSetLayouts();
     createGraphicsPipeline(swapConfig);
-
     _swapchain.create(&_device, _vkRenderPass, swapConfig);
-
-    _cam.createUniformBuffers(&_device, _swapchain.imageCount());
-    createUniformBuffers();
-
-    createDescriptorPool();
-    createDescriptorSets();
-
-    createCommandBuffers();
-
-    createSemaphores();
+    // Each command buffer binds to specific swapchain image
+    createCommandBuffers(swapConfig);
 
     _cam.lookAt(
         vec3(0.f, -2.f, -2.f),
@@ -167,10 +162,8 @@ void App::recreateSwapchainAndRelated()
 
     createRenderPass(swapConfig);
     createGraphicsPipeline(swapConfig);
-
     _swapchain.create(&_device, _vkRenderPass, swapConfig);
-
-    createCommandBuffers();
+    createCommandBuffers(swapConfig);
 
     _cam.perspective(
         radians(45.f),
@@ -187,14 +180,62 @@ void App::destroySwapchainRelated()
         _vkCommandBuffers.size(),
         _vkCommandBuffers.data()
     );
+
     _device.logical().destroy(_vkGraphicsPipeline);
     _device.logical().destroy(_vkGraphicsPipelineLayout);
     _device.logical().destroy(_vkRenderPass);
 }
 
-void App::createDescriptorSetLayouts()
+void App::createUniformBuffers(const uint32_t swapImageCount)
 {
-    // Separate bindings for camera and mesh instance to avoid having camera bound to all mesh instance sets
+    _cam.createUniformBuffers(&_device, swapImageCount);
+
+    // TODO: Abstract mesh instances
+    const vk::DeviceSize bufferSize = sizeof(MeshInstanceUniforms);
+    for (auto& meshInstance : _scene) {
+        for (size_t i = 0; i < swapImageCount; ++i)
+            meshInstance.uniformBuffers.push_back(_device.createBuffer(
+                bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                vk::MemoryPropertyFlagBits::eHostCoherent
+            ));
+    }
+}
+
+void App::createDescriptorPool(const uint32_t swapImageCount)
+{
+    const std::array<vk::DescriptorPoolSize, 2> poolSizes = {{
+        {
+            vk::DescriptorType::eUniformBuffer,
+            swapImageCount * (1 + static_cast<uint32_t>(_scene.size())) // descriptorCount, camera and mesh instances
+        },
+        {
+            vk::DescriptorType::eCombinedImageSampler,
+            swapImageCount // descriptorCount
+        }
+    }};
+    const uint32_t setCount = [&]{
+        uint32_t setCount = 0;
+        for (auto& size : poolSizes)
+            setCount += size.descriptorCount;
+
+        return setCount;
+    }();
+
+    _vkDescriptorPool = _device.logical().createDescriptorPool({
+        {}, // flags
+        setCount, // max sets
+        poolSizes.size(),
+        poolSizes.data()
+    });
+}
+
+void App::createDescriptorSets(const uint32_t swapImageCount)
+{
+    // Create DescriptorSetLayouts
+    // Separate bindings for camera and mesh instances to avoid having camera bound
+    // to all mesh instance sets
     const vk::DescriptorSetLayoutBinding cameraLayoutBinding{
         0, // binding
         vk::DescriptorType::eUniformBuffer,
@@ -231,57 +272,10 @@ void App::createDescriptorSetLayouts()
         1, // bindingCount
         &samplerLayoutBinding
     });
-}
 
-void App::createUniformBuffers()
-{
-    // TODO: Abstract mesh instances
-    const vk::DeviceSize bufferSize = sizeof(MeshInstanceUniforms);
-
-    for (auto& meshInstance : _scene) {
-        for (size_t i = 0; i < _swapchain.imageCount(); ++i)
-            meshInstance.uniformBuffers.push_back(_device.createBuffer(
-                bufferSize,
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent
-            ));
-    }
-}
-
-void App::createDescriptorPool()
-{
-    const std::array<vk::DescriptorPoolSize, 2> poolSizes = {{
-        {
-            vk::DescriptorType::eUniformBuffer,
-            _swapchain.imageCount() * (1 + static_cast<uint32_t>(_scene.size())) // descriptor count, camera and mesh instances
-        },
-        {
-            vk::DescriptorType::eCombinedImageSampler,
-            _swapchain.imageCount() // descriptor count
-        }
-    }};
-    const uint32_t setCount = [&]{
-        uint32_t setCount = 0;
-        for (auto& size : poolSizes)
-            setCount += size.descriptorCount;
-
-        return setCount;
-    }();
-
-    _vkDescriptorPool = _device.logical().createDescriptorPool({
-        {}, // flags
-        setCount, // max sets
-        poolSizes.size(),
-        poolSizes.data()
-    });
-}
-
-void App::createDescriptorSets()
-{ 
     // Allocate descriptor sets
     const std::vector<vk::DescriptorSetLayout> cameraLayouts(
-        _swapchain.imageCount(),
+        swapImageCount,
         _vkCameraDescriptorSetLayout
     );
     _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets({
@@ -291,7 +285,7 @@ void App::createDescriptorSets()
     });
 
     const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
-        _swapchain.imageCount(),
+        swapImageCount,
         _vkMeshInstanceDescriptorSetLayout
     );
     for (auto& meshInstance : _scene)
@@ -353,9 +347,17 @@ void App::createDescriptorSets()
 
 }
 
+void App::createSemaphores(const uint32_t concurrentFrameCount)
+{
+    for (size_t i = 0; i < concurrentFrameCount; ++i) {
+        _imageAvailableSemaphores.push_back(_device.logical().createSemaphore({}));
+        _renderFinishedSemaphores.push_back(_device.logical().createSemaphore({}));
+    }
+}
+
 void App::createRenderPass(const SwapchainConfig& swapConfig)
 {
-
+    // TODO: Can swap surface formats change after first creation?
     const std::array<vk::AttachmentDescription, 2> attachments = {{
         { // swap color
             {}, // flags
@@ -460,6 +462,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         VK_FALSE // primitiveRestartEnable
     };
 
+    // TODO: Dynamic viewport state?
     const vk::Viewport viewport{
         0.f, // x
         0.f, // y
@@ -561,21 +564,13 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     _device.logical().destroyShaderModule(fragShaderModule);
 }
 
-void App::createCommandBuffers()
+void App::createCommandBuffers(const SwapchainConfig& swapConfig)
 {
     _vkCommandBuffers = _device.logical().allocateCommandBuffers({
         _device.commandPool(),
         vk::CommandBufferLevel::ePrimary,
-        _swapchain.imageCount() // commandBufferCount
+        swapConfig.imageCount // commandBufferCount
     });
-}
-
-void App::createSemaphores()
-{
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        _imageAvailableSemaphores.push_back(_device.logical().createSemaphore({}));
-        _renderFinishedSemaphores.push_back(_device.logical().createSemaphore({}));
-    }
 }
 
 void App::drawFrame()

@@ -14,14 +14,14 @@ Camera::~Camera()
     destroyUniformBuffers();
 }
 
-void Camera::createUniformBuffers(Device* device, const uint32_t bufferCount)
+void Camera::createUniformBuffers(Device* device, const uint32_t swapImageCount)
 {
     destroyUniformBuffers();
 
     _device = device;
     const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
 
-    for (uint32_t i = 0; i < bufferCount; ++i) {
+    for (uint32_t i = 0; i < swapImageCount; ++i) {
         _uniformBuffers.push_back(_device->createBuffer(
             bufferSize,
             vk::BufferUsageFlagBits::eUniformBuffer,
