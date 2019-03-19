@@ -46,7 +46,7 @@ public:
     const vk::Extent2D& extent() const;
     uint32_t imageCount() const;
     vk::Framebuffer fbo(size_t i);
-    size_t currentFrame() const;
+    size_t nextFrame() const;
     vk::Fence currentFence() const;
     // nullopt tells to recreate swapchain
     std::optional<uint32_t> acquireNextImage(vk::Semaphore waitSemaphore);
@@ -69,7 +69,7 @@ private:
     Image _depthImage;
     vk::ImageView _depthView;
     std::vector<vk::Fence> _inFlightFences;
-    size_t _currentFrame = 0;
+    size_t _nextFrame = 0;
 };
 
 #endif // PROSPER_SWAPCHAIN_HPP

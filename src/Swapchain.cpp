@@ -137,27 +137,27 @@ vk::Framebuffer Swapchain::fbo(size_t i)
     throw std::runtime_error("Tried to index past swap image count");
 }
 
-size_t Swapchain::currentFrame() const
+size_t Swapchain::nextFrame() const
 {
-    return _currentFrame;
+    return _nextFrame;
 }
 
 vk::Fence Swapchain::currentFence() const
 {
-    return _inFlightFences[_currentFrame];
+    return _inFlightFences[_nextFrame];
 }
 
 std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore waitSemaphore)
 {
     _device->logical().waitForFences(
         1, // fenceCount
-        &_inFlightFences[_currentFrame],
+        &_inFlightFences[_nextFrame],
         VK_TRUE, // waitAll
         std::numeric_limits<uint64_t>::max() // timeout
     );
     _device->logical().resetFences(
         1, // fenceCount
-        &_inFlightFences[_currentFrame])
+        &_inFlightFences[_nextFrame])
     ;
 
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
@@ -203,7 +203,7 @@ bool Swapchain::present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSe
         return good_swap;
     }();
 
-    _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    _nextFrame = (_nextFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     return good_swap;
 }
 
@@ -359,6 +359,6 @@ void Swapchain::destroy()
     _swapchain = vk::SwapchainKHR();
     _images.clear();
     _inFlightFences.clear();
-    _currentFrame = 0;
+    _nextFrame = 0;
     _nextImage = 0;
 }

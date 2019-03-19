@@ -581,14 +581,14 @@ void App::createSemaphores()
 void App::drawFrame()
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
-    const size_t currentFrame = _swapchain.currentFrame();
+    const size_t nextFrame = _swapchain.nextFrame();
     // Corresponds to the swapchain image
     const auto nextImage = [&]{
-        auto nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+        auto nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[nextFrame]);
         while (!nextImage.has_value()) {
             // Recreate the swap chain as necessary
             recreateSwapchainAndRelated();
-            nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[currentFrame]);
+            nextImage = _swapchain.acquireNextImage(_imageAvailableSemaphores[nextFrame]);
         }
 
         return nextImage.value();
@@ -600,13 +600,13 @@ void App::drawFrame()
 
     // Submit queue
     const std::array<vk::Semaphore, 1> waitSemaphores = {{
-        _imageAvailableSemaphores[currentFrame]
+        _imageAvailableSemaphores[nextFrame]
     }};
     const std::array<vk::PipelineStageFlags, 1> waitStages = {{
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     }};
     const std::array<vk::Semaphore, 1> signalSemaphores = {{
-        _renderFinishedSemaphores[currentFrame]
+        _renderFinishedSemaphores[nextFrame]
     }};
     const vk::SubmitInfo submitInfo{
         waitSemaphores.size(),
