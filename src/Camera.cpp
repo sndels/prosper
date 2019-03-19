@@ -11,6 +11,7 @@ Camera::Camera(Device* device, const uint32_t bufferCount, const vec3& eye, cons
 
 Camera::~Camera()
 {
+    _device->logical().destroy(_descriptorSetLayout);
     destroyUniformBuffers();
 }
 
@@ -28,6 +29,45 @@ void Camera::createUniformBuffers(Device* device, const uint32_t swapImageCount)
             vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent
         ));
+    }
+}
+
+void Camera::createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags)
+{
+    const vk::DescriptorSetLayoutBinding layoutBinding{
+        0, // binding
+        vk::DescriptorType::eUniformBuffer,
+        1, // descriptorCount
+        stageFlags
+    };
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout({
+        {}, // flags
+        1, // bindingCount
+        &layoutBinding
+    });
+
+    const std::vector<vk::DescriptorSetLayout> layouts(
+        swapImageCount,
+        _descriptorSetLayout
+    );
+    _descriptorSets = _device->logical().allocateDescriptorSets({
+        descriptorPool,
+        static_cast<uint32_t>(layouts.size()),
+        layouts.data()
+    });
+
+    const auto infos = bufferInfos();
+    for (size_t i = 0; i < _descriptorSets.size(); ++i) {
+        const vk::WriteDescriptorSet descriptorWrite{
+            _descriptorSets[i],
+            0, // dstBinding,
+            0, // dstArrayElement
+            1, // descriptorCount
+            vk::DescriptorType::eUniformBuffer,
+            nullptr, // pImageInfo
+            &infos[i]
+        };
+        _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
     }
 }
 
@@ -83,6 +123,20 @@ std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
         infos.emplace_back(buffer.handle, 0, sizeof(CameraUniforms));
 
     return infos;
+}
+
+const vk::DescriptorSetLayout& Camera::descriptorSetLayout() const
+{
+    if (!_descriptorSetLayout)
+        throw std::runtime_error("Camera: Called descriptorSetLayout before createDescriptorSets");
+    return _descriptorSetLayout;
+}
+
+const vk::DescriptorSet& Camera::descriptorSet(const uint32_t index) const
+{
+    if (!_descriptorSetLayout)
+        throw std::runtime_error("Camera: Called descriptorSet before createDescriptorSets");
+    return _descriptorSets[index];
 }
 
 void Camera::destroyUniformBuffers()

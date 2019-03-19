@@ -69,7 +69,6 @@ App::~App()
         _device.logical().destroy(semaphore);
 
     _device.logical().destroy(_vkDescriptorPool);
-    _device.logical().destroy(_vkCameraDescriptorSetLayout);
     _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
     _device.logical().destroy(_vkSamplerDescriptorSetLayout);
 
@@ -109,6 +108,11 @@ void App::init()
     createUniformBuffers(swapConfig.imageCount);
     createDescriptorPool(swapConfig.imageCount);
     createDescriptorSets(swapConfig.imageCount);
+    _cam.createDescriptorSets(
+        _vkDescriptorPool,
+        swapConfig.imageCount,
+        vk::ShaderStageFlagBits::eVertex
+    );
     // Semaphores are correspond to logical frames instead of swapchain images
     createSemaphores(MAX_FRAMES_IN_FLIGHT);
 
@@ -234,20 +238,6 @@ void App::createDescriptorPool(const uint32_t swapImageCount)
 void App::createDescriptorSets(const uint32_t swapImageCount)
 {
     // Create DescriptorSetLayouts
-    // Separate bindings for camera and mesh instances to avoid having camera bound
-    // to all mesh instance sets
-    const vk::DescriptorSetLayoutBinding cameraLayoutBinding{
-        0, // binding
-        vk::DescriptorType::eUniformBuffer,
-        1, // descriptorCount
-        vk::ShaderStageFlagBits::eVertex
-    };
-    _vkCameraDescriptorSetLayout = _device.logical().createDescriptorSetLayout({
-        {}, // flags
-        1, // bindingCount
-        &cameraLayoutBinding
-    });
-
     const vk::DescriptorSetLayoutBinding meshInstanceLayoutBinding{
         0, // binding
         vk::DescriptorType::eUniformBuffer,
@@ -274,16 +264,6 @@ void App::createDescriptorSets(const uint32_t swapImageCount)
     });
 
     // Allocate descriptor sets
-    const std::vector<vk::DescriptorSetLayout> cameraLayouts(
-        swapImageCount,
-        _vkCameraDescriptorSetLayout
-    );
-    _vkCameraDescriptorSets = _device.logical().allocateDescriptorSets({
-        _vkDescriptorPool,
-        static_cast<uint32_t>(cameraLayouts.size()),
-        cameraLayouts.data()
-    });
-
     const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
         swapImageCount,
         _vkMeshInstanceDescriptorSetLayout
@@ -302,20 +282,6 @@ void App::createDescriptorSets(const uint32_t swapImageCount)
     })[0];
 
     // Update them with buffers
-    const auto cameraBufferInfos = _cam.bufferInfos();
-    for (size_t i = 0; i < _vkCameraDescriptorSets.size(); ++i) {
-        const vk::WriteDescriptorSet descriptorWrite{
-            _vkCameraDescriptorSets[i],
-            0, // dstBinding,
-            0, // dstArrayElement
-            1, // descriptorCount
-            vk::DescriptorType::eUniformBuffer,
-            nullptr, // pImageInfo
-            &cameraBufferInfos[i]
-        };
-        _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
-    }
-
     for (auto& meshInstance : _scene) {
         const auto meshInstanceBufferInfos = meshInstance.bufferInfos();
         for (size_t i = 0; i < meshInstance.descriptorSets.size(); ++i) {
@@ -532,7 +498,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     };
 
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
-        _vkCameraDescriptorSetLayout,
+        _cam.descriptorSetLayout(),
         _vkMeshInstanceDescriptorSetLayout,
         _vkSamplerDescriptorSetLayout
     }};
@@ -683,7 +649,7 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         _vkGraphicsPipelineLayout,
         0, // firstSet
         1, // descriptorSetCount
-        &_vkCameraDescriptorSets[nextImage],
+        &_cam.descriptorSet(nextImage),
         0, // dynamicOffsetCount
         nullptr // pDynamicOffsets
     );

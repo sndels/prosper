@@ -80,13 +80,11 @@ private:
     std::vector<MeshInstance> _scene;
     Camera _cam;
 
-    vk::DescriptorSetLayout _vkCameraDescriptorSetLayout;
     vk::DescriptorSetLayout _vkMeshInstanceDescriptorSetLayout;
     vk::DescriptorSetLayout _vkSamplerDescriptorSetLayout;
     vk::PipelineLayout _vkGraphicsPipelineLayout;
 
     vk::DescriptorPool _vkDescriptorPool;
-    std::vector<vk::DescriptorSet> _vkCameraDescriptorSets;
     vk::DescriptorSet _vkSamplerDescriptorSet;
 
     vk::RenderPass _vkRenderPass;
