@@ -30,16 +30,19 @@ target_compile_options(prosper
     -wd4996 # yup, I do want to use fopen
 )
 else()
-target_compile_options(prosper
-    PRIVATE
-    -Wall
-    -Wunused-parameter
-    -Wno-gnu-anonymous-struct
-    -Wno-nested-anon-types
-    -Wno-missing-braces
-    -Werror
-    -pedantic
-)
+# Anon structs cannot be suppressed in g++ pedantic
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    target_compile_options(prosper
+        PRIVATE
+        -Wall
+        -Wunused-parameter
+        -Wno-gnu-anonymous-struct # glm
+        -Wno-nested-anon-types # glm
+        -Wno-missing-braces
+        -Werror
+        -pedantic
+    )
+endif()
 endif() # MSVC
 target_include_directories(prosper
     PRIVATE
