@@ -4,3 +4,6 @@
 [submodule "ext/glm"]
 	path = ext/glm
 	url = git@github.com:g-truc/glm.git
+[submodule "ext/tinygltf"]
+	path = ext/tinygltf
+	url = https://github.com/syoyo/tinygltf.git

@@ -15,4 +15,8 @@ add_subdirectory(glfw)
 
 # stb_image is header only
 add_library(stb_image INTERFACE)
-target_include_directories(stb_image INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(stb_image INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
+
+# tinygltf is header only
+add_library(tinygltf INTERFACE)
+target_include_directories(tinygltf INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
