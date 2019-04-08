@@ -1,6 +1,5 @@
 #include "Texture.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 Texture::Texture(Device* device, const std::string& path) :
