@@ -39,12 +39,28 @@ namespace {
         std::cerr << "Invalid gl wrapping mode " << glEnum << std::endl;
         return vk::SamplerAddressMode::eClampToEdge;
     }
+
+    std::pair<uint8_t*, vk::Extent2D> pixelsFromFile(const std::string& path)
+    {
+        int w, h, channels;
+        stbi_uc* pixels = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+        if (pixels == nullptr)
+            throw std::runtime_error("Failed to load texture '" + path + "'");
+
+        return std::pair{
+            pixels,
+            vk::Extent2D{
+                static_cast<uint32_t>(w),
+                static_cast<uint32_t>(h)
+            }
+        };
+    }
 }
 
 Texture::Texture(Device* device, const std::string& path) :
     _device(device)
 {
-    const auto [pixels, extent] = loadFromFile(path);
+    const auto [pixels, extent] = pixelsFromFile(path);
     const auto stagingBuffer = stagePixels(pixels, extent);
 
     const vk::ImageSubresourceRange subresourceRange{
@@ -128,22 +144,6 @@ vk::DescriptorImageInfo Texture::imageInfo() const
         _sampler,
         _imageView,
         vk::ImageLayout::eShaderReadOnlyOptimal
-    };
-}
-
-std::pair<uint8_t*, vk::Extent2D> Texture::loadFromFile(const std::string& path)
-{
-    int w, h, channels;
-    stbi_uc* pixels = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
-    if (pixels == nullptr)
-        throw std::runtime_error("Failed to load texture '" + path + "'");
-
-    return std::pair{
-        pixels, 
-        vk::Extent2D{
-            static_cast<uint32_t>(w),
-            static_cast<uint32_t>(h)
-        }
     };
 }
 
