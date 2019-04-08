@@ -138,6 +138,18 @@ Texture::~Texture()
     _device->logical().free(_image.memory);
 }
 
+Texture::Texture(Texture&& other) :
+    _device(other._device),
+    _image(other._image),
+    _imageView(other._imageView),
+    _sampler(other._sampler)
+{
+    other._image.handle = nullptr;
+    other._image.memory = nullptr;
+    other._imageView = nullptr;
+    other._sampler = nullptr;
+}
+
 vk::DescriptorImageInfo Texture::imageInfo() const
 {
     return vk::DescriptorImageInfo{
@@ -190,6 +202,11 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal
     );
+
+    if (!_image.handle)
+        std::cerr << "Null image" << std::endl;
+    if (!_image.memory)
+        std::cerr << "Null image memory" << std::endl;
 }
 
 void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
@@ -202,6 +219,9 @@ void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
         vk::ComponentMapping{},
         subresourceRange
     });
+
+    if (!_imageView)
+        std::cerr << "Null image view" << std::endl;
 }
 
 void Texture::createSampler()

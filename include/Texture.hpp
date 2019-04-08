@@ -11,6 +11,10 @@ public:
     Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler);
     ~Texture();
 
+    Texture(const Texture& other) = delete;
+    Texture(Texture&& other);
+    Texture operator=(const Texture& other) = delete;
+
     vk::DescriptorImageInfo imageInfo() const;
 
 private:
