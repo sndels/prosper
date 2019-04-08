@@ -7,12 +7,6 @@
 #include <stdexcept>
 #include <glm/gtc/matrix_transform.hpp>
 
-// Define these in exactly one .cpp
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <tiny_gltf.h>
-
 #include "Constants.hpp"
 #include "Vertex.hpp"
 
@@ -67,24 +61,6 @@ namespace {
     {
         return std::string{RES_PATH} + res;
     }
-
-    tinygltf::Model loadGLTF(const std::string& filename)
-    {
-        tinygltf::Model model;
-        tinygltf::TinyGLTF loader;
-        std::string warn;
-        std::string err;
-
-        bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
-        if (!warn.empty())
-            cout << "TinyGLTF warning: " << warn << endl;
-        if (!err.empty())
-            cerr << "TinyGLTF error: " << err << endl;
-        if (!ret)
-            throw std::runtime_error("Parising glTF failed");
-
-        return model;
-    }
 }
 
 App::~App()
@@ -113,10 +89,9 @@ void App::init()
     _window.init(WIDTH, HEIGHT, "prosper");
     _device.init(_window.ptr());
 
-    auto gltfModel = loadGLTF(resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf"));
+    _world.loadGLTF(&_device, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf"));
 
     _meshes.push_back(std::make_shared<Mesh>(vertices, indices, &_device));
-    _textures.push_back(std::make_shared<Texture>(&_device, resPath("texture/statue.jpg")));
 
     // TODO: Actual abstraction for drawables/meshinstances and scene
     _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
@@ -329,7 +304,7 @@ void App::createDescriptorSets(const uint32_t swapImageCount)
     }
 
     {
-        const auto imageInfo = _textures[0]->imageInfo();
+        const auto imageInfo = _world._textures[0].imageInfo();
         const vk::WriteDescriptorSet descriptorWrite{
             _vkSamplerDescriptorSet,
             0, // dstBinding,

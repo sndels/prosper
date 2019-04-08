@@ -10,6 +10,7 @@
 #include "Swapchain.hpp"
 #include "Texture.hpp"
 #include "Window.hpp"
+#include "World.hpp"
 
 struct MeshInstanceUniforms {
     glm::mat4 modelToWorld;
@@ -75,8 +76,8 @@ private:
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
+    World _world;
     std::vector<std::shared_ptr<Mesh>> _meshes;
-    std::vector<std::shared_ptr<Texture>> _textures;
     std::vector<MeshInstance> _scene;
     Camera _cam;
 
