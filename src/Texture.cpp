@@ -150,6 +150,21 @@ Texture::Texture(Texture&& other) :
     other._sampler = nullptr;
 }
 
+Texture& Texture::operator=(Texture&& other)
+{
+    if (this != &other) {
+        _device = other._device;
+        _image = other._image;
+        _imageView = other._imageView;
+        _sampler = other._sampler;
+        other._image.handle = nullptr;
+        other._image.memory = nullptr;
+        other._imageView = nullptr;
+        other._sampler = nullptr;
+    }
+    return *this;
+}
+
 vk::DescriptorImageInfo Texture::imageInfo() const
 {
     return vk::DescriptorImageInfo{
