@@ -74,7 +74,6 @@ App::~App()
 
     _device.logical().destroy(_vkDescriptorPool);
     _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
-    _device.logical().destroy(_vkSamplerDescriptorSetLayout);
 
     for (auto& instance : _scene) {
         for (auto& buffer : instance.uniformBuffers) {
@@ -214,29 +213,15 @@ void App::createUniformBuffers(const uint32_t swapImageCount)
 
 void App::createDescriptorPool(const uint32_t swapImageCount)
 {
-    const std::array<vk::DescriptorPoolSize, 2> poolSizes = {{
-        {
+    const vk::DescriptorPoolSize poolSize{
             vk::DescriptorType::eUniformBuffer,
             swapImageCount * (1 + static_cast<uint32_t>(_scene.size())) // descriptorCount, camera and mesh instances
-        },
-        {
-            vk::DescriptorType::eCombinedImageSampler,
-            swapImageCount // descriptorCount
-        }
-    }};
-    const uint32_t setCount = [&]{
-        uint32_t setCount = 0;
-        for (auto& size : poolSizes)
-            setCount += size.descriptorCount;
-
-        return setCount;
-    }();
-
+        };
     _vkDescriptorPool = _device.logical().createDescriptorPool({
         {}, // flags
-        setCount, // max sets
-        poolSizes.size(),
-        poolSizes.data()
+        poolSize.descriptorCount, // max sets
+        1,
+        &poolSize
     });
 }
 
@@ -255,19 +240,6 @@ void App::createDescriptorSets(const uint32_t swapImageCount)
         &meshInstanceLayoutBinding
     });
 
-    // Samplers get a separate layout for simplicity
-    const vk::DescriptorSetLayoutBinding samplerLayoutBinding{
-        0, // binding
-        vk::DescriptorType::eCombinedImageSampler,
-        1, // descriptorCount
-        vk::ShaderStageFlagBits::eFragment
-    };
-    _vkSamplerDescriptorSetLayout = _device.logical().createDescriptorSetLayout({
-        {}, // flags
-        1, // bindingCount
-        &samplerLayoutBinding
-    });
-
     // Allocate descriptor sets
     const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
         swapImageCount,
@@ -279,12 +251,6 @@ void App::createDescriptorSets(const uint32_t swapImageCount)
             static_cast<uint32_t>(meshInstanceLayouts.size()),
             meshInstanceLayouts.data()
         });
-
-    _vkSamplerDescriptorSet = _device.logical().allocateDescriptorSets({
-        _vkDescriptorPool,
-        1,
-        &_vkSamplerDescriptorSetLayout
-    })[0];
 
     // Update them with buffers
     for (auto& meshInstance : _scene) {
@@ -302,20 +268,6 @@ void App::createDescriptorSets(const uint32_t swapImageCount)
             _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
         }
     }
-
-    {
-        const auto imageInfo = _world._textures[0].imageInfo();
-        const vk::WriteDescriptorSet descriptorWrite{
-            _vkSamplerDescriptorSet,
-            0, // dstBinding,
-            0, // dstArrayElement
-            1, // descriptorCount
-            vk::DescriptorType::eCombinedImageSampler,
-            &imageInfo
-        };
-        _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
-    }
-
 }
 
 void App::createSemaphores(const uint32_t concurrentFrameCount)
@@ -505,12 +457,19 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _cam.descriptorSetLayout(),
         _vkMeshInstanceDescriptorSetLayout,
-        _vkSamplerDescriptorSetLayout
+        _world._materialDSLayout
     }};
+    const vk::PushConstantRange pcRange{
+        vk::ShaderStageFlagBits::eFragment,
+        0, // offset
+        sizeof(Material::PCBlock)
+    };
     _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout({
         {}, // flags
         setLayouts.size(),
-        setLayouts.data()
+        setLayouts.data(),
+        1, // pushConstantRangeCount
+        &pcRange
     });
 
     _vkGraphicsPipeline = _device.logical().createGraphicsPipeline({}, {
@@ -660,10 +619,12 @@ void App::recordCommandBuffer(const uint32_t nextImage)
     );
 
     // Draw scene
-    for (auto& meshInstance : _scene) {
+    for (size_t i = 0; i < _scene.size(); ++i) {
+        const auto& meshInstance = _scene[i];
+        const auto& material = _world._materials[i % _world._materials.size()];
         const std::array<vk::DescriptorSet, 2> sets = {{
             meshInstance.descriptorSets[nextImage],
-            _vkSamplerDescriptorSet
+            material._descriptorSet
         }};
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
@@ -673,6 +634,21 @@ void App::recordCommandBuffer(const uint32_t nextImage)
             sets.data(),
             0, // dynamicOffsetCount
             nullptr // pDynamicOffsets
+        );
+        Material::PCBlock pcBlock{
+            material._baseColorFactor,
+            material._metallicFactor,
+            material._roughnessFactor,
+            material._texCoordSets.baseColor,
+            material._texCoordSets.metallicRoughness,
+            material._texCoordSets.normal
+        };
+        buffer.pushConstants(
+            _vkGraphicsPipelineLayout,
+            vk::ShaderStageFlagBits::eFragment,
+            0, // offset
+            sizeof(Material::PCBlock),
+            &pcBlock
         );
         meshInstance.mesh->draw(buffer);
     }

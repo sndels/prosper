@@ -82,11 +82,9 @@ private:
     Camera _cam;
 
     vk::DescriptorSetLayout _vkMeshInstanceDescriptorSetLayout;
-    vk::DescriptorSetLayout _vkSamplerDescriptorSetLayout;
     vk::PipelineLayout _vkGraphicsPipelineLayout;
 
     vk::DescriptorPool _vkDescriptorPool;
-    vk::DescriptorSet _vkSamplerDescriptorSet;
 
     vk::RenderPass _vkRenderPass;
     vk::Pipeline _vkGraphicsPipeline;
