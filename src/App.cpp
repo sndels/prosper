@@ -101,7 +101,7 @@ void App::init()
     createCommandBuffers(swapConfig);
 
     _cam.lookAt(
-        vec3(0.f, -2.f, -2.f),
+        vec3(0.f, 0.f, -1.f),
         vec3(0.f),
         vec3(0.f, 1.f, 0.f)
     );
