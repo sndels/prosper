@@ -2,6 +2,7 @@
 #define PROSPER_WORLD_HPP
 
 #include "Material.hpp"
+#include "Model.hpp"
 #include "Texture.hpp"
 
 class Device;
@@ -15,17 +16,20 @@ public:
     World(const World& other) = delete;
     World operator=(const World& other) = delete;
 
-    void loadGLTF(Device* device, const std::string& filename);
-    void createDescriptorPool();
-    void createDescriptorSets();
+    void loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename);
+    void createUniformBuffers(const uint32_t swapImageCount);
+    void createDescriptorPool(const uint32_t swapImageCount);
+    void createDescriptorSets(const uint32_t swapImageCount);
 
     // TODO: Private?
     std::optional<Texture> _emptyTexture;
     std::vector<Texture> _textures;
     std::vector<Material> _materials;
+    std::vector<Model> _models;
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;
+    vk::DescriptorSetLayout _modelDSLayout;
 
 private:
     Device* _device = nullptr;

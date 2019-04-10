@@ -12,37 +12,6 @@
 #include "Window.hpp"
 #include "World.hpp"
 
-struct MeshInstanceUniforms {
-    glm::mat4 modelToWorld;
-};
-
-struct MeshInstance {
-    std::shared_ptr<Mesh> mesh;
-    std::vector<Buffer> uniformBuffers;
-    std::vector<vk::DescriptorSet> descriptorSets;
-    glm::mat4 modelToWorld;
-
-    std::vector<vk::DescriptorBufferInfo> bufferInfos() const
-    {
-        std::vector<vk::DescriptorBufferInfo> infos;
-        for (auto& buffer : uniformBuffers)
-            infos.emplace_back(buffer.handle, 0, sizeof(MeshInstanceUniforms));
-
-        return infos;
-    }
-
-    void updateBuffer(const Device* device, const uint32_t index) const
-    {
-        MeshInstanceUniforms uniforms;
-        uniforms.modelToWorld = modelToWorld;
-
-        void* data;
-        device->logical().mapMemory(uniformBuffers[index].memory, 0, sizeof(MeshInstanceUniforms), {}, &data);
-        memcpy(data, &uniforms, sizeof(MeshInstanceUniforms));
-        device->logical().unmapMemory(uniformBuffers[index].memory);
-    }
-};
-
 class App {
 public:
     App() = default;
@@ -60,8 +29,6 @@ private:
 
     void createUniformBuffers(const uint32_t swapImageCount);
     void createDescriptorPool(const uint32_t swapImageCount);
-    // DescriptorSetLayouts need to be available before pipeline
-    void createDescriptorSets(const uint32_t swapImageCount);
     void createSemaphores(const uint32_t concurrentFrameCount);
 
     // These also need to be recreated with Swapchain as they depend on swapconfig / swapchain
@@ -77,11 +44,8 @@ private:
     Device _device; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
     World _world;
-    std::vector<std::shared_ptr<Mesh>> _meshes;
-    std::vector<MeshInstance> _scene;
     Camera _cam;
 
-    vk::DescriptorSetLayout _vkMeshInstanceDescriptorSetLayout;
     vk::PipelineLayout _vkGraphicsPipelineLayout;
 
     vk::DescriptorPool _vkDescriptorPool;

@@ -1,8 +1,9 @@
 #include "Mesh.hpp"
 
 
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, Device* device) :
+Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, Material* material, Device* device) :
     _device(device),
+    _material(material),
     _indexCount(indices.size())
 {
     createVertexBuffer(vertices);
@@ -22,14 +23,21 @@ Mesh::~Mesh()
 
 Mesh::Mesh(Mesh&& other) :
     _device(other._device),
+    _material(other._material),
     _vertexBuffer(other._vertexBuffer),
     _indexBuffer(other._indexBuffer),
     _indexCount(other._indexCount)
 {
+    other._material = nullptr;
     other._device = nullptr;
     other._vertexBuffer = {{}, {}};
     other._indexBuffer = {{}, {}};
     other._indexCount = 0;
+}
+
+const Material& Mesh::material() const
+{
+    return *_material;
 }
 
 void Mesh::draw(vk::CommandBuffer commandBuffer) const

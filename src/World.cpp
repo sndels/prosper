@@ -39,9 +39,16 @@ World::~World()
 {
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_materialDSLayout);
+    _device->logical().destroy(_modelDSLayout);
+    for (auto& model : _models) {
+        for (auto& buffer : model.uniformBuffers) {
+            _device->logical().destroy(buffer.handle);
+            _device->logical().free(buffer.memory);
+        }
+    }
 }
 
-void World::loadGLTF(Device* device, const std::string& filename)
+void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename)
 {
     _device = device;
 
@@ -101,27 +108,128 @@ void World::loadGLTF(Device* device, const std::string& filename)
         _materials.push_back(std::move(mat));
     }
 
-    createDescriptorPool();
-    createDescriptorSets();
+    for (const auto& model : gltfModel.meshes) {
+        _models.push_back({_device, {}, {}, {}});
+        for (const auto& primitive : model.primitives) {
+            // TODO: More vertex attributes, different modes, no indices
+            // Retrieve attribute buffers
+            const auto [positions, vertexCount] = [&]{
+                const auto& attribute = primitive.attributes.find("POSITION");
+                assert(attribute != primitive.attributes.end());
+                const auto& accessor = gltfModel.accessors[attribute->second];
+                const auto& view = gltfModel.bufferViews[accessor.bufferView];
+                const auto& data = gltfModel.buffers[view.buffer].data;
+                const size_t offset = accessor.byteOffset + view.byteOffset;
+                return std::make_tuple(
+                    reinterpret_cast<const float*>(&(data[offset])),
+                    accessor.count
+                );
+            }();
+            const auto normals = [&]{
+                const auto& attribute = primitive.attributes.find("NORMAL");
+                assert(attribute != primitive.attributes.end());
+                const auto& accessor = gltfModel.accessors[attribute->second];
+                const auto& view = gltfModel.bufferViews[accessor.bufferView];
+                const auto& data = gltfModel.buffers[view.buffer].data;
+                const size_t offset = accessor.byteOffset + view.byteOffset;
+                return reinterpret_cast<const float*>(&(data[offset]));
+            }();
+            const auto texCoords0 = [&]{
+                const auto& attribute = primitive.attributes.find("TEXCOORD_0");
+                assert(attribute != primitive.attributes.end());
+                const auto& accessor = gltfModel.accessors[attribute->second];
+                const auto& view = gltfModel.bufferViews[accessor.bufferView];
+                const auto& data = gltfModel.buffers[view.buffer].data;
+                const size_t offset = accessor.byteOffset + view.byteOffset;
+                return reinterpret_cast<const float*>(&(data[offset]));
+            }();
+
+            // Clang doesn't support capture of structured bindings (yet?)
+            const std::vector<Vertex> vertices = [&, vertexCount = vertexCount, positions = positions]{
+                std::vector<Vertex> vs;
+                for (size_t v = 0; v < vertexCount; ++v) {
+                    vs.push_back({
+                        glm::vec4{glm::make_vec3(&positions[v * 3]), 1.f},
+                        glm::normalize(glm::make_vec3(&normals[v * 3])),
+                        glm::make_vec2(&texCoords0[v * 2])
+                    });
+                }
+                return vs;
+            }();
+
+            const std::vector<uint32_t> indices = [&]{
+                std::vector<uint32_t> is;
+                // TODO: Other index types
+                assert(primitive.indices > -1);
+                const auto& accessor = gltfModel.accessors[primitive.indices];
+                assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
+                const auto& view = gltfModel.bufferViews[accessor.bufferView];
+                const auto& data = gltfModel.buffers[view.buffer].data;
+                const size_t offset = accessor.byteOffset + view.byteOffset;
+                const auto* indexData = reinterpret_cast<const uint16_t*>(&(data[offset]));
+
+                is.resize(accessor.count);
+                for (size_t i = 0; i < accessor.count; ++i)
+                    is[i] = indexData[i];
+
+                return is;
+            }();
+
+            const int material = primitive.material;
+            assert(material > -1);
+
+            _models.back()._meshes.emplace_back(
+                vertices,
+                indices,
+                &_materials[material],
+                _device
+            );
+        }
+    }
+
+    createUniformBuffers(swapImageCount);
+    createDescriptorPool(swapImageCount);
+    createDescriptorSets(swapImageCount);
 }
 
-void World::createDescriptorPool()
+void World::createUniformBuffers(const uint32_t swapImageCount)
 {
-    // TODO: See previous implementation in App for multiple pool sizes when needed
-    // Materials only need one descriptor per texture as they are constant between frames
-    const vk::DescriptorPoolSize poolSize {
-        vk::DescriptorType::eCombinedImageSampler,
-        3 * static_cast<uint32_t>(_materials.size()) // descriptorCount
-    };
+    const vk::DeviceSize bufferSize = sizeof(Model::UBlock);
+    for (auto& meshInstance : _models) {
+        for (size_t i = 0; i < swapImageCount; ++i)
+            meshInstance.uniformBuffers.push_back(_device->createBuffer(
+                bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                vk::MemoryPropertyFlagBits::eHostCoherent
+            ));
+    }
+}
+
+void World::createDescriptorPool(const uint32_t swapImageCount)
+{
+    const std::array<vk::DescriptorPoolSize, 2> poolSizes{{
+        { // (Dynamic) Models need per frame descriptor sets of one descriptor for the UBlock
+            vk::DescriptorType::eUniformBuffer,
+            swapImageCount * static_cast<uint32_t>(_models.size()) // descriptorCount
+        },
+        { // Materials need one descriptor per texture as they are constant between frames
+            vk::DescriptorType::eCombinedImageSampler,
+            3 * static_cast<uint32_t>(_materials.size()) // descriptorCount
+        }
+    }};
+    const uint32_t maxSets =
+        swapImageCount * static_cast<uint32_t>(_models.size()) +
+        static_cast<uint32_t>(_materials.size());
     _descriptorPool = _device->logical().createDescriptorPool({
         {}, // flags
-        static_cast<uint32_t>(_materials.size()), // maxSets
-        1,
-        &poolSize
+        maxSets,
+        static_cast<uint32_t>(poolSizes.size()),
+        poolSizes.data()
     });
 }
 
-void World::createDescriptorSets()
+void World::createDescriptorSets(const uint32_t swapImageCount)
 {
     if (_device == nullptr)
         throw std::runtime_error("Tried to create World descriptor sets before loading glTF");
@@ -177,5 +285,43 @@ void World::createDescriptorSets()
             0, // descriptorCopyCount
             nullptr  // pDescriptorCopies
         );
+    }
+
+    const vk::DescriptorSetLayoutBinding modelLayoutBinding{
+        0, // binding
+        vk::DescriptorType::eUniformBuffer,
+        1, // descriptorCount
+        vk::ShaderStageFlagBits::eVertex
+    };
+    _modelDSLayout = _device->logical().createDescriptorSetLayout({
+        {}, // flags
+        1, // bindingCount
+        &modelLayoutBinding
+    });
+
+    const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
+        swapImageCount,
+        _modelDSLayout
+    );
+    for (auto& model : _models) {
+        model.descriptorSets = _device->logical().allocateDescriptorSets({
+            _descriptorPool,
+            static_cast<uint32_t>(meshInstanceLayouts.size()),
+            meshInstanceLayouts.data()
+        });
+
+        const auto bufferInfos = model.bufferInfos();
+        for (size_t i = 0; i < model.descriptorSets.size(); ++i) {
+            const vk::WriteDescriptorSet descriptorWrite{
+                model.descriptorSets[i],
+                0, // dstBinding,
+                0, // dstArrayElement
+                1, // descriptorCount
+                vk::DescriptorType::eUniformBuffer,
+                nullptr, // pImageInfo
+                &bufferInfos[i]
+            };
+            _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+        }
     }
 }

@@ -20,16 +20,6 @@ namespace {
     const uint32_t WIDTH = 1280;
     const uint32_t HEIGHT = 720;
 
-    const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, 0.f}, {0.f, 1.f}, {1.f, 0.f, 0.f}},
-        {{ 0.5f, -0.5f, 0.f}, {1.f, 1.f}, {0.f, 1.f, 0.f}},
-        {{ 0.5f,  0.5f, 0.f}, {1.f, 0.f}, {0.f, 0.f, 1.f}},
-        {{-0.5f,  0.5f, 0.f}, {0.f, 0.f}, {1.f, 1.f, 1.f}}
-    };
-    const std::vector<uint32_t> indices = {
-        0, 1, 2, 2, 3, 0
-    };
-
     static std::vector<char> readFile(const std::string& filename)
     {
         // Open from end to find size from initial position
@@ -73,14 +63,6 @@ App::~App()
         _device.logical().destroy(semaphore);
 
     _device.logical().destroy(_vkDescriptorPool);
-    _device.logical().destroy(_vkMeshInstanceDescriptorSetLayout);
-
-    for (auto& instance : _scene) {
-        for (auto& buffer : instance.uniformBuffers) {
-            _device.logical().destroy(buffer.handle);
-            _device.logical().free(buffer.memory);
-        }
-    }
 }
 
 void App::init()
@@ -88,35 +70,27 @@ void App::init()
     _window.init(WIDTH, HEIGHT, "prosper");
     _device.init(_window.ptr());
 
-    _world.loadGLTF(&_device, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf"));
-
-    _meshes.push_back(std::make_shared<Mesh>(vertices, indices, &_device));
-
-    // TODO: Actual abstraction for drawables/meshinstances and scene
-    _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
-    _scene.push_back({_meshes[0], {}, {}, mat4(1.f)});
-    _scene.push_back({
-        _meshes[0], {}, {},
-        scale(
-            translate(mat4(1.f), vec3(0.f, 0.f, 1.f)),
-            vec3(10.f)
-        )
-    });
-
     const SwapchainConfig swapConfig = selectSwapchainConfig(
         &_device,
         {_window.width(), _window.height()}
     );
 
     // Resources tied to specific swap images via command buffers
-    createUniformBuffers(swapConfig.imageCount);
     createDescriptorPool(swapConfig.imageCount);
-    createDescriptorSets(swapConfig.imageCount);
+
+    _cam.createUniformBuffers(&_device, swapConfig.imageCount);
     _cam.createDescriptorSets(
         _vkDescriptorPool,
         swapConfig.imageCount,
         vk::ShaderStageFlagBits::eVertex
     );
+
+    _world.loadGLTF(
+        &_device,
+        swapConfig.imageCount,
+        resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")
+    );
+
     // Semaphores are correspond to logical frames instead of swapchain images
     createSemaphores(MAX_FRAMES_IN_FLIGHT);
 
@@ -194,28 +168,11 @@ void App::destroySwapchainRelated()
     _device.logical().destroy(_vkRenderPass);
 }
 
-void App::createUniformBuffers(const uint32_t swapImageCount)
-{
-    _cam.createUniformBuffers(&_device, swapImageCount);
-
-    // TODO: Abstract mesh instances
-    const vk::DeviceSize bufferSize = sizeof(MeshInstanceUniforms);
-    for (auto& meshInstance : _scene) {
-        for (size_t i = 0; i < swapImageCount; ++i)
-            meshInstance.uniformBuffers.push_back(_device.createBuffer(
-                bufferSize,
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent
-            ));
-    }
-}
-
 void App::createDescriptorPool(const uint32_t swapImageCount)
 {
     const vk::DescriptorPoolSize poolSize{
             vk::DescriptorType::eUniformBuffer,
-            swapImageCount * (1 + static_cast<uint32_t>(_scene.size())) // descriptorCount, camera and mesh instances
+            swapImageCount // descriptorCount, camera and mesh instances
         };
     _vkDescriptorPool = _device.logical().createDescriptorPool({
         {}, // flags
@@ -223,51 +180,6 @@ void App::createDescriptorPool(const uint32_t swapImageCount)
         1,
         &poolSize
     });
-}
-
-void App::createDescriptorSets(const uint32_t swapImageCount)
-{
-    // Create DescriptorSetLayouts
-    const vk::DescriptorSetLayoutBinding meshInstanceLayoutBinding{
-        0, // binding
-        vk::DescriptorType::eUniformBuffer,
-        1, // descriptorCount
-        vk::ShaderStageFlagBits::eVertex
-    };
-    _vkMeshInstanceDescriptorSetLayout = _device.logical().createDescriptorSetLayout({
-        {}, // flags
-        1, // bindingCount
-        &meshInstanceLayoutBinding
-    });
-
-    // Allocate descriptor sets
-    const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
-        swapImageCount,
-        _vkMeshInstanceDescriptorSetLayout
-    );
-    for (auto& meshInstance : _scene)
-        meshInstance.descriptorSets = _device.logical().allocateDescriptorSets({
-            _vkDescriptorPool,
-            static_cast<uint32_t>(meshInstanceLayouts.size()),
-            meshInstanceLayouts.data()
-        });
-
-    // Update them with buffers
-    for (auto& meshInstance : _scene) {
-        const auto meshInstanceBufferInfos = meshInstance.bufferInfos();
-        for (size_t i = 0; i < meshInstance.descriptorSets.size(); ++i) {
-            const vk::WriteDescriptorSet descriptorWrite{
-                meshInstance.descriptorSets[i],
-                0, // dstBinding,
-                0, // dstArrayElement
-                1, // descriptorCount
-                vk::DescriptorType::eUniformBuffer,
-                nullptr, // pImageInfo
-                &meshInstanceBufferInfos[i]
-            };
-            _device.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
-        }
-    }
 }
 
 void App::createSemaphores(const uint32_t concurrentFrameCount)
@@ -456,7 +368,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _cam.descriptorSetLayout(),
-        _vkMeshInstanceDescriptorSetLayout,
+        _world._modelDSLayout,
         _world._materialDSLayout
     }};
     const vk::PushConstantRange pcRange{
@@ -555,28 +467,8 @@ void App::updateUniformBuffers(const uint32_t nextImage)
 {
     _cam.updateBuffer(nextImage);
 
-    static const auto startTime = std::chrono::high_resolution_clock::now();
-    const auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-    _scene[0].modelToWorld = rotate(
-                                translate(
-                                    mat4(1.f),
-                                    vec3(-1.f, 0.f, 0.f)
-                                ),
-                                time * radians(-360.f),
-                                vec3(0.f, 0.f, 1.f)
-                             );
-    _scene[1].modelToWorld = rotate(
-                                translate(
-                                    mat4(1.f),
-                                    vec3(1.f, 0.f, 0.f)
-                                ),
-                                time * radians(360.f),
-                                vec3(0.f, 0.f, 1.f)
-                             );
-    for (auto& instance : _scene)
-        instance.updateBuffer(&_device, nextImage);
+    for (auto& model : _world._models)
+        model.updateBuffer(&_device, nextImage, mat4(1.f));
 }
 
 void App::recordCommandBuffer(const uint32_t nextImage)
@@ -619,38 +511,43 @@ void App::recordCommandBuffer(const uint32_t nextImage)
     );
 
     // Draw scene
-    for (size_t i = 0; i < _scene.size(); ++i) {
-        const auto& meshInstance = _scene[i];
-        const auto& material = _world._materials[i % _world._materials.size()];
-        const std::array<vk::DescriptorSet, 2> sets = {{
-            meshInstance.descriptorSets[nextImage],
-            material._descriptorSet
-        }};
+    for (const auto& model : _world._models) {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             _vkGraphicsPipelineLayout,
             1, // firstSet
-            sets.size(),
-            sets.data(),
+            1, // descriptorSetCount
+            &model.descriptorSets[nextImage],
             0, // dynamicOffsetCount
             nullptr // pDynamicOffsets
         );
-        Material::PCBlock pcBlock{
-            material._baseColorFactor,
-            material._metallicFactor,
-            material._roughnessFactor,
-            material._texCoordSets.baseColor,
-            material._texCoordSets.metallicRoughness,
-            material._texCoordSets.normal
-        };
-        buffer.pushConstants(
-            _vkGraphicsPipelineLayout,
-            vk::ShaderStageFlagBits::eFragment,
-            0, // offset
-            sizeof(Material::PCBlock),
-            &pcBlock
-        );
-        meshInstance.mesh->draw(buffer);
+        for (const auto& mesh : model._meshes) {
+            buffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                _vkGraphicsPipelineLayout,
+                2, // firstSet
+                1, // descriptorSetCount
+                &mesh.material()._descriptorSet,
+                0, // dynamicOffsetCount
+                nullptr // pDynamicOffsets
+            );
+            Material::PCBlock pcBlock{
+                mesh.material()._baseColorFactor,
+                mesh.material()._metallicFactor,
+                mesh.material()._roughnessFactor,
+                mesh.material()._texCoordSets.baseColor,
+                mesh.material()._texCoordSets.metallicRoughness,
+                mesh.material()._texCoordSets.normal
+            };
+            buffer.pushConstants(
+                _vkGraphicsPipelineLayout,
+                vk::ShaderStageFlagBits::eFragment,
+                0, // offset
+                sizeof(Material::PCBlock),
+                &pcBlock
+            );
+            mesh.draw(buffer);
+        }
     }
 
     buffer.endRenderPass();
