@@ -1,6 +1,8 @@
 #include "World.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
 
 // Define these in exactly one .cpp
 #define TINYGLTF_IMPLEMENTATION
@@ -8,6 +10,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tiny_gltf.h>
 
+#include <algorithm>
 #include <iostream>
 
 namespace {
@@ -39,9 +42,9 @@ World::~World()
 {
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_materialDSLayout);
-    _device->logical().destroy(_modelDSLayout);
-    for (auto& model : _models) {
-        for (auto& buffer : model.uniformBuffers) {
+    _device->logical().destroy(_nodeDSLayout);
+    for (auto& node : _nodes) {
+        for (auto& buffer : node.uniformBuffers) {
             _device->logical().destroy(buffer.handle);
             _device->logical().free(buffer.memory);
         }
@@ -109,7 +112,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
     }
 
     for (const auto& model : gltfModel.meshes) {
-        _models.push_back({_device, {}, {}, {}});
+        _models.push_back({_device, {}});
         for (const auto& primitive : model.primitives) {
             // TODO: More vertex attributes, different modes, no indices
             // Retrieve attribute buffers
@@ -157,20 +160,29 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
                 return vs;
             }();
 
-            const std::vector<uint32_t> indices = [&]{
+            const std::vector<uint32_t> indices = [&, vertexCount = vertexCount]{
                 std::vector<uint32_t> is;
                 // TODO: Other index types
                 assert(primitive.indices > -1);
                 const auto& accessor = gltfModel.accessors[primitive.indices];
-                assert(accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
                 const auto& view = gltfModel.bufferViews[accessor.bufferView];
                 const auto& data = gltfModel.buffers[view.buffer].data;
                 const size_t offset = accessor.byteOffset + view.byteOffset;
-                const auto* indexData = reinterpret_cast<const uint16_t*>(&(data[offset]));
 
-                is.resize(accessor.count);
-                for (size_t i = 0; i < accessor.count; ++i)
-                    is[i] = indexData[i];
+                if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+                    const auto indexData = reinterpret_cast<const uint32_t*>(&(data[offset]));
+                    is = {indexData, indexData + vertexCount};
+                } else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                    const auto indexData = reinterpret_cast<const uint16_t*>(&(data[offset]));
+                    is.resize(accessor.count);
+                    for (size_t i = 0; i < accessor.count; ++i)
+                        is[i] = indexData[i];
+                } else {
+                    const auto indexData = reinterpret_cast<const uint8_t*>(&(data[offset]));
+                    is.resize(accessor.count);
+                    for (size_t i = 0; i < accessor.count; ++i)
+                        is[i] = indexData[i];
+                }
 
                 return is;
             }();
@@ -187,6 +199,51 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
         }
     }
 
+    // TODO: More complex nodes
+    _nodes.resize(gltfModel.nodes.size());
+    for (size_t n = 0; n < _nodes.size(); ++n) {
+        const auto& node = gltfModel.nodes[n];
+        std::transform(
+            node.children.begin(),
+            node.children.end(),
+            std::back_inserter(_nodes[n].children),
+            [&](int i){ return &_nodes[i]; }
+        );
+        if (node.mesh > -1)
+            _nodes[n].model = &_models[node.mesh];
+        if (node.matrix.size() == 16) {
+            // Spec defines the matrix to be decomposeable to T * R * S
+            const auto matrix = glm::mat4{glm::make_mat4(node.matrix.data())};
+            glm::vec3 skew;
+            glm::vec4 perspective;
+            glm::decompose(
+                matrix,
+                _nodes[n].scale,
+                _nodes[n].rotation,
+                _nodes[n].translation,
+                skew,
+                perspective
+            );
+        }
+        if (node.translation.size() == 3)
+            _nodes[n].translation = glm::vec3{glm::make_vec3(node.translation.data())};
+        if (node.rotation.size() == 4)
+            _nodes[n].rotation = glm::make_quat(node.rotation.data());
+        if (node.scale.size() == 3)
+            _nodes[n].scale= glm::vec3{glm::make_vec3(node.scale.data())};
+    }
+
+    _scenes.resize(gltfModel.scenes.size());
+    for (size_t s = 0; s < _scenes.size(); ++s) {
+        const auto& scene = gltfModel.scenes[s];
+        std::transform(
+            scene.nodes.begin(),
+            scene.nodes.end(),
+            std::back_inserter(_scenes[s].nodes),
+            [&](int i){ return &_nodes[i]; }
+        );
+    }
+
     createUniformBuffers(swapImageCount);
     createDescriptorPool(swapImageCount);
     createDescriptorSets(swapImageCount);
@@ -194,10 +251,10 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
 
 void World::createUniformBuffers(const uint32_t swapImageCount)
 {
-    const vk::DeviceSize bufferSize = sizeof(Model::UBlock);
-    for (auto& meshInstance : _models) {
+    const vk::DeviceSize bufferSize = sizeof(Scene::Node::UBlock);
+    for (auto& node : _nodes) {
         for (size_t i = 0; i < swapImageCount; ++i)
-            meshInstance.uniformBuffers.push_back(_device->createBuffer(
+            node.uniformBuffers.push_back(_device->createBuffer(
                 bufferSize,
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible |
@@ -208,10 +265,11 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
 
 void World::createDescriptorPool(const uint32_t swapImageCount)
 {
+    // TODO: Tight bound for node descriptor count by nodes with a mesh
     const std::array<vk::DescriptorPoolSize, 2> poolSizes{{
-        { // (Dynamic) Models need per frame descriptor sets of one descriptor for the UBlock
+        { // (Dynamic) Nodes need per frame descriptor sets of one descriptor for the UBlock
             vk::DescriptorType::eUniformBuffer,
-            swapImageCount * static_cast<uint32_t>(_models.size()) // descriptorCount
+            swapImageCount * static_cast<uint32_t>(_nodes.size())// descriptorCount
         },
         { // Materials need one descriptor per texture as they are constant between frames
             vk::DescriptorType::eCombinedImageSampler,
@@ -219,7 +277,7 @@ void World::createDescriptorPool(const uint32_t swapImageCount)
         }
     }};
     const uint32_t maxSets =
-        swapImageCount * static_cast<uint32_t>(_models.size()) +
+        swapImageCount * static_cast<uint32_t>(_nodes.size()) +
         static_cast<uint32_t>(_materials.size());
     _descriptorPool = _device->logical().createDescriptorPool({
         {}, // flags
@@ -287,33 +345,33 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         );
     }
 
-    const vk::DescriptorSetLayoutBinding modelLayoutBinding{
+    const vk::DescriptorSetLayoutBinding nodeLayoutBinding{
         0, // binding
         vk::DescriptorType::eUniformBuffer,
         1, // descriptorCount
         vk::ShaderStageFlagBits::eVertex
     };
-    _modelDSLayout = _device->logical().createDescriptorSetLayout({
+    _nodeDSLayout = _device->logical().createDescriptorSetLayout({
         {}, // flags
         1, // bindingCount
-        &modelLayoutBinding
+        &nodeLayoutBinding
     });
 
-    const std::vector<vk::DescriptorSetLayout> meshInstanceLayouts(
+    const std::vector<vk::DescriptorSetLayout> nodeLayouts(
         swapImageCount,
-        _modelDSLayout
+        _nodeDSLayout
     );
-    for (auto& model : _models) {
-        model.descriptorSets = _device->logical().allocateDescriptorSets({
+    for (auto& node : _nodes) {
+        node.descriptorSets = _device->logical().allocateDescriptorSets({
             _descriptorPool,
-            static_cast<uint32_t>(meshInstanceLayouts.size()),
-            meshInstanceLayouts.data()
+            static_cast<uint32_t>(nodeLayouts.size()),
+            nodeLayouts.data()
         });
 
-        const auto bufferInfos = model.bufferInfos();
-        for (size_t i = 0; i < model.descriptorSets.size(); ++i) {
+        const auto bufferInfos = node.bufferInfos();
+        for (size_t i = 0; i < node.descriptorSets.size(); ++i) {
             const vk::WriteDescriptorSet descriptorWrite{
-                model.descriptorSets[i],
+                node.descriptorSets[i],
                 0, // dstBinding,
                 0, // dstArrayElement
                 1, // descriptorCount

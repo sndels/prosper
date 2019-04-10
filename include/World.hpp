@@ -3,6 +3,7 @@
 
 #include "Material.hpp"
 #include "Model.hpp"
+#include "Scene.hpp"
 #include "Texture.hpp"
 
 class Device;
@@ -26,10 +27,12 @@ public:
     std::vector<Texture> _textures;
     std::vector<Material> _materials;
     std::vector<Model> _models;
+    std::vector<Scene::Node> _nodes;
+    std::vector<Scene> _scenes;
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;
-    vk::DescriptorSetLayout _modelDSLayout;
+    vk::DescriptorSetLayout _nodeDSLayout;
 
 private:
     Device* _device = nullptr;

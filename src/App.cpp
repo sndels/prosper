@@ -4,6 +4,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -101,12 +102,12 @@ void App::init()
     createCommandBuffers(swapConfig);
 
     _cam.lookAt(
-        vec3(0.f, 0.f, -1.f),
+        vec3(0.f, 0.f, 1.f),
         vec3(0.f),
         vec3(0.f, 1.f, 0.f)
     );
     _cam.perspective(
-        radians(45.f),
+        radians(59.f),
         _window.width() / static_cast<float>(_window.height()),
         0.1f,
         100.f
@@ -148,7 +149,7 @@ void App::recreateSwapchainAndRelated()
     createCommandBuffers(swapConfig);
 
     _cam.perspective(
-        radians(45.f),
+        radians(59.f),
         _window.width() / static_cast<float>(_window.height()),
         0.1f,
         100.f
@@ -368,7 +369,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _cam.descriptorSetLayout(),
-        _world._modelDSLayout,
+        _world._nodeDSLayout,
         _world._materialDSLayout
     }};
     const vk::PushConstantRange pcRange{
@@ -467,8 +468,35 @@ void App::updateUniformBuffers(const uint32_t nextImage)
 {
     _cam.updateBuffer(nextImage);
 
-    for (auto& model : _world._models)
-        model.updateBuffer(&_device, nextImage, mat4(1.f));
+    // Traverse the scenes and update node uniforms
+    std::vector<mat4> parentTransforms{mat4{1.f}};
+    for (auto& scene : _world._scenes) {
+        std::set<Scene::Node*> visited;
+        std::vector<Scene::Node*> nodeStack = scene.nodes;
+        while (!nodeStack.empty()) {
+            const auto node = nodeStack.back();
+            if (visited.find(node) != visited.end()) {
+                nodeStack.pop_back();
+                parentTransforms.pop_back();
+            } else {
+                visited.emplace(node);
+                nodeStack.insert(nodeStack.end(), node->children.begin(), node->children.end());
+                const mat4 transform =
+                    parentTransforms.back() *
+                    translate(mat4{1.f}, node->translation) *
+                    mat4_cast(node->rotation) *
+                    scale(mat4{1.f}, node->scale);
+                if (node->model) {
+                    node->updateBuffer(
+                        &_device,
+                        nextImage,
+                        transform
+                    );
+                }
+                parentTransforms.emplace_back(transform);
+            }
+        }
+    }
 }
 
 void App::recordCommandBuffer(const uint32_t nextImage)
@@ -511,17 +539,19 @@ void App::recordCommandBuffer(const uint32_t nextImage)
     );
 
     // Draw scene
-    for (const auto& model : _world._models) {
+    for (const auto& node : _world._nodes) {
+        if (!node.model)
+            continue;
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             _vkGraphicsPipelineLayout,
             1, // firstSet
             1, // descriptorSetCount
-            &model.descriptorSets[nextImage],
+            &node.descriptorSets[nextImage],
             0, // dynamicOffsetCount
             nullptr // pDynamicOffsets
         );
-        for (const auto& mesh : model._meshes) {
+        for (const auto& mesh : node.model->_meshes) {
             buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 _vkGraphicsPipelineLayout,
