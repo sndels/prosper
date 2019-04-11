@@ -15,6 +15,8 @@
 
 #include "Constants.hpp"
 
+using namespace glm;
+
 namespace {
     tinygltf::Model loadGLTFModel(const std::string& filename)
     {
@@ -94,7 +96,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
         }
         if (const auto& elem = material.values.find("baseColorFactor");
             elem != material.values.end()) {
-            mat._baseColorFactor = glm::make_vec4(elem->second.ColorFactor().data());
+            mat._baseColorFactor = make_vec4(elem->second.ColorFactor().data());
         }
         if (const auto& elem = material.values.find("metallicFactor");
             elem != material.values.end()) {
@@ -158,10 +160,10 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
                 std::vector<Vertex> vs;
                 for (size_t v = 0; v < vertexCount; ++v) {
                     vs.push_back({
-                        glm::vec4{glm::make_vec3(&positions[v * 3]), 1.f},
-                        glm::normalize(glm::make_vec3(&normals[v * 3])),
-                        glm::normalize(glm::make_vec4(&tangents[v * 4])),
-                        glm::make_vec2(&texCoords0[v * 2])
+                        vec4{make_vec3(&positions[v * 3]), 1.f},
+                        normalize(make_vec3(&normals[v * 3])),
+                        normalize(make_vec4(&tangents[v * 4])),
+                        make_vec2(&texCoords0[v * 2])
                     });
                 }
                 return vs;
@@ -220,10 +222,10 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             _nodes[n].model = &_models[node.mesh];
         if (node.matrix.size() == 16) {
             // Spec defines the matrix to be decomposeable to T * R * S
-            const auto matrix = glm::mat4{glm::make_mat4(node.matrix.data())};
-            glm::vec3 skew;
-            glm::vec4 perspective;
-            glm::decompose(
+            const auto matrix = mat4{make_mat4(node.matrix.data())};
+            vec3 skew;
+            vec4 perspective;
+            decompose(
                 matrix,
                 _nodes[n].scale,
                 _nodes[n].rotation,
@@ -233,11 +235,11 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             );
         }
         if (node.translation.size() == 3)
-            _nodes[n].translation = glm::vec3{glm::make_vec3(node.translation.data())};
+            _nodes[n].translation = vec3{make_vec3(node.translation.data())};
         if (node.rotation.size() == 4)
-            _nodes[n].rotation = glm::make_quat(node.rotation.data());
+            _nodes[n].rotation = make_quat(node.rotation.data());
         if (node.scale.size() == 3)
-            _nodes[n].scale= glm::vec3{glm::make_vec3(node.scale.data())};
+            _nodes[n].scale = vec3{make_vec3(node.scale.data())};
     }
 
     _scenes.resize(gltfModel.scenes.size());
