@@ -83,7 +83,7 @@ void App::init()
     _cam.createDescriptorSets(
         _vkDescriptorPool,
         swapConfig.imageCount,
-        vk::ShaderStageFlagBits::eVertex
+        vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
     );
 
     _world.loadGLTF(

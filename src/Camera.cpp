@@ -79,6 +79,7 @@ void Camera::lookAt(const vec3& eye, const vec3& target, const vec3& up)
 
 void Camera::orient(const vec3& eye, const vec3& fwd, const vec3& up)
 {
+    _eye = eye;
     vec3 z = -fwd;
     vec3 right = normalize(cross(up, z));
     vec3 newUp = normalize(cross(z, right));
@@ -112,6 +113,7 @@ void Camera::perspective(const float fov, const float ar, const float zN, const 
 void Camera::updateBuffer(const uint32_t index) const
 {
     CameraUniforms uniforms;
+    uniforms.eye = _eye;
     uniforms.worldToCamera = _worldToCamera;
     uniforms.cameraToClip = _cameraToClip;
 

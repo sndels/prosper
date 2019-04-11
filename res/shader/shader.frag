@@ -4,6 +4,12 @@
 #define PI 3.14159265
 #define saturate(x) clamp(x, 0.0, 1.0)
 
+layout(set = 0, binding = 0) uniform Camera {
+    mat4 worldToCamera;
+    mat4 cameraToClip;
+    vec3 eye;
+} camera;
+
 layout(set = 2, binding = 0) uniform sampler2D baseColor;
 layout(set = 2, binding = 1) uniform sampler2D metallicRoughness;
 layout(set = 2, binding = 2) uniform sampler2D normal;
@@ -25,7 +31,6 @@ layout(location = 2) in mat3 fragTBN;
 layout(location = 0) out vec4 outColor;
 
 // TODO: Uniform inputs
-vec3 cam_pos = vec3(0.25, 0.2, 0.75);
 vec3 light_dir = vec3(-1, -1, -1);
 vec3 light_int = vec3(4);
 
@@ -121,7 +126,7 @@ void main()
     m.metallic = mr.b * materialPC.metallicFactor;
     m.roughness = mr.g * materialPC.roughnessFactor;
 
-    vec3 v = normalize(cam_pos - fragPosition);
+    vec3 v = normalize(camera.eye - fragPosition);
     vec3 l = -normalize(light_dir);
     vec3 color = light_int * evalBRDF(normal, v, l, m);
     // TODO: Doesn't outputting to sRGB render target do this?

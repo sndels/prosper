@@ -5,9 +5,11 @@
 
 #include "Device.hpp"
 
+// Vector types in uniforms need to be aligned to 16 bytes
 struct CameraUniforms {
-    glm::mat4 worldToCamera;
-    glm::mat4 cameraToClip;
+    alignas(16) glm::mat4 worldToCamera;
+    alignas(16) glm::mat4 cameraToClip;
+    alignas(16) glm::vec3 eye;
 };
 
 class Camera {
@@ -33,6 +35,7 @@ private:
     void destroyUniformBuffers();
 
     Device* _device = nullptr;
+    glm::vec3 _eye;
     glm::mat4 _worldToClip;
     glm::mat4 _worldToCamera;
     glm::mat4 _cameraToClip;
