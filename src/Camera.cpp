@@ -2,13 +2,6 @@
 
 using namespace glm;
 
-Camera::Camera(Device* device, const uint32_t bufferCount, const vec3& eye, const vec3& target, const vec3& up, const float fov, const float ar, const float zN, const float zF)
-{
-    lookAt(eye, target, up);
-    perspective(fov, ar, zN, zF);
-    createUniformBuffers(device, bufferCount);
-}
-
 Camera::~Camera()
 {
     _device->logical().destroy(_descriptorSetLayout);

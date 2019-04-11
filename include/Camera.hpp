@@ -15,7 +15,6 @@ struct CameraUniforms {
 class Camera {
 public:
     Camera() = default;
-    Camera(Device* device, const uint32_t bufferCount, const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up, const float fov, const float ar, const float zN, const float zF);
     ~Camera();
 
     void createUniformBuffers(Device* device, const uint32_t swapImageCount);
