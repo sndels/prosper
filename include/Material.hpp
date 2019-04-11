@@ -29,7 +29,7 @@ public:
 
     Material(const Material& other) = delete;
     Material(Material&& other);
-    Material operator=(const Material& other) = delete;
+    Material& operator=(const Material& other) = delete;
 
     // TODO: More parameters
     Texture* _baseColor = nullptr;

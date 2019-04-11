@@ -34,7 +34,7 @@ public:
     ~Device();
 
     Device(const Device& other) = delete;
-    Device operator=(const Device& other) = delete;
+    Device& operator=(const Device& other) = delete;
 
     void init(GLFWwindow* window);
 

@@ -13,7 +13,7 @@ public:
 
     Texture(const Texture& other) = delete;
     Texture(Texture&& other);
-    Texture operator=(const Texture& other) = delete;
+    Texture& operator=(const Texture& other) = delete;
     Texture& operator=(Texture&& other);
 
     vk::DescriptorImageInfo imageInfo() const;

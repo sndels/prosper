@@ -14,7 +14,7 @@ public:
 
     Mesh(const Mesh& other) = delete;
     Mesh(Mesh&& other);
-    Mesh operator=(const Mesh& other) = delete;
+    Mesh& operator=(const Mesh& other) = delete;
 
     const Material& material() const;
 

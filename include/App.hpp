@@ -18,7 +18,7 @@ public:
     ~App();
 
     App(const App& other) = delete;
-    App operator=(const App& other) = delete;
+    App& operator=(const App& other) = delete;
 
     void init();
     void run();

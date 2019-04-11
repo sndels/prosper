@@ -37,7 +37,7 @@ public:
     ~Swapchain();
 
     Swapchain(const Swapchain& other) = delete;
-    Swapchain operator=(const Swapchain& other) = delete;
+    Swapchain& operator=(const Swapchain& other) = delete;
 
     void create(Device* device, const vk::RenderPass renderPass, const SwapchainConfig& config);
     void destroy();
