@@ -137,6 +137,15 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
                 const size_t offset = accessor.byteOffset + view.byteOffset;
                 return reinterpret_cast<const float*>(&(data[offset]));
             }();
+            const auto tangents = [&]{
+                const auto& attribute = primitive.attributes.find("TANGENT");
+                assert(attribute != primitive.attributes.end());
+                const auto& accessor = gltfModel.accessors[attribute->second];
+                const auto& view = gltfModel.bufferViews[accessor.bufferView];
+                const auto& data = gltfModel.buffers[view.buffer].data;
+                const size_t offset = accessor.byteOffset + view.byteOffset;
+                return reinterpret_cast<const float*>(&(data[offset]));
+            }();
             const auto texCoords0 = [&]{
                 const auto& attribute = primitive.attributes.find("TEXCOORD_0");
                 assert(attribute != primitive.attributes.end());
@@ -154,6 +163,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
                     vs.push_back({
                         glm::vec4{glm::make_vec3(&positions[v * 3]), 1.f},
                         glm::normalize(glm::make_vec3(&normals[v * 3])),
+                        glm::normalize(glm::make_vec4(&tangents[v * 4])),
                         glm::make_vec2(&texCoords0[v * 2])
                     });
                 }

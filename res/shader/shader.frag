@@ -19,13 +19,13 @@ layout(push_constant) uniform MaterialPC {
 } materialPC;
 
 layout(location = 0) in vec3 fragPosition;
-layout(location = 1) in vec3 fragNormal;
-layout(location = 2) in vec2 fragTexCoord0;
+layout(location = 1) in vec2 fragTexCoord0;
+layout(location = 2) in mat3 fragTBN;
 
 layout(location = 0) out vec4 outColor;
 
 // TODO: Uniform inputs
-vec3 cam_pos = vec3(0, 0, 1);
+vec3 cam_pos = vec3(0.25, 0.2, 0.75);
 vec3 light_dir = vec3(-1, -1, -1);
 vec3 light_int = vec3(4);
 
@@ -112,10 +112,10 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    // TODO: alpha, tangent space normal mapping
+    // TODO: alpha, skipping normal mapping based on B
     vec3 albedo = sRGBtoLinear(texture(baseColor, fragTexCoord0).rgb);
     vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
-    vec3 normal = normalize(texture(normal, fragTexCoord0).rgb * 2 - 1);
+    vec3 normal = normalize(fragTBN * (texture(normal, fragTexCoord0).rgb * 2 - 1));
     Material m;
     m.albedo = albedo * materialPC.baseColorFactor.rgb;
     m.metallic = mr.b * materialPC.metallicFactor;
@@ -123,8 +123,7 @@ void main()
 
     vec3 v = normalize(cam_pos - fragPosition);
     vec3 l = -normalize(light_dir);
-    vec3 color = light_int * evalBRDF(fragNormal, v, l, m);
-
+    vec3 color = light_int * evalBRDF(normal, v, l, m);
     // TODO: Doesn't outputting to sRGB render target do this?
     float gamma = 2.2;
     outColor = vec4(pow(color, vec3(1 / gamma)), 1.f);

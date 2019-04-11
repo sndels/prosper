@@ -102,9 +102,9 @@ void App::init()
     createCommandBuffers(swapConfig);
 
     _cam.lookAt(
-        vec3(0.f, 0.f, 1.f),
-        vec3(0.f),
-        vec3(0.f, 1.f, 0.f)
+        vec3{0.25f, 0.2f, 0.75f},
+        vec3{0.f},
+        vec3{0.f, 1.f, 0.f}
     );
     _cam.perspective(
         radians(59.f),
