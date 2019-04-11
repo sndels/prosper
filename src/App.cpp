@@ -47,11 +47,6 @@ namespace {
             reinterpret_cast<const uint32_t*>(spv.data())
         });
     }
-
-    std::string resPath(const std::string& res)
-    {
-        return std::string{RES_PATH} + res;
-    }
 }
 
 App::~App()

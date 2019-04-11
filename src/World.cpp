@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <iostream>
 
+#include "Constants.hpp"
+
 namespace {
     tinygltf::Model loadGLTFModel(const std::string& filename)
     {
@@ -30,11 +32,6 @@ namespace {
             throw std::runtime_error("Parising glTF failed");
 
         return model;
-    }
-
-    std::string resPath(const std::string& res)
-    {
-        return std::string{RES_PATH} + res;
     }
 }
 
