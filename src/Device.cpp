@@ -124,13 +124,14 @@ namespace {
         const vk::AllocationCallbacks* pAllocator,
         vk::DebugUtilsMessengerEXT* pDebugMessenger)
     {
+        auto vkInstance = static_cast<VkInstance>(instance);
         auto vkpCreateInfo = reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(pCreateInfo);
         auto vkpAllocator = reinterpret_cast<const VkAllocationCallbacks*>(pAllocator);
         auto vkpDebugMessenger = reinterpret_cast<VkDebugUtilsMessengerEXT*>(pDebugMessenger);
 
-        auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+        auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(vkInstance, "vkCreateDebugUtilsMessengerEXT");
         if (func == nullptr || 
-            func(instance, vkpCreateInfo, vkpAllocator, vkpDebugMessenger) != VK_SUCCESS)
+            func(vkInstance, vkpCreateInfo, vkpAllocator, vkpDebugMessenger) != VK_SUCCESS)
             throw std::runtime_error("failed to create debug messenger");
     }
 
@@ -139,11 +140,13 @@ namespace {
         const vk::DebugUtilsMessengerEXT debugMessenger,
         const vk::AllocationCallbacks* pAllocator)
      {
+        auto vkInstance = static_cast<VkInstance>(instance);
+        const auto vkDebugMessenger = static_cast<const VkDebugUtilsMessengerEXT>(debugMessenger);
         auto vkpAllocator = reinterpret_cast<const VkAllocationCallbacks*>(pAllocator);
 
-        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(vkInstance, "vkDestroyDebugUtilsMessengerEXT");
         if (func != nullptr)
-            func(instance, debugMessenger, vkpAllocator);
+            func(vkInstance, vkDebugMessenger, vkpAllocator);
     }
 
     std::pair<vk::AccessFlags, vk::AccessFlags> accessMasks(const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout)
@@ -480,7 +483,8 @@ void Device::createDebugMessenger()
 void Device::createSurface(GLFWwindow* window)
 {
     auto vkpSurface = reinterpret_cast<VkSurfaceKHR*>(&_surface);
-    if (glfwCreateWindowSurface(_instance, window, nullptr, vkpSurface) != VK_SUCCESS)
+    auto vkInstance = static_cast<VkInstance>(_instance);
+    if (glfwCreateWindowSurface(vkInstance, window, nullptr, vkpSurface) != VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface");
 }
 

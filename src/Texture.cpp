@@ -5,6 +5,12 @@
 
 #include <stb_image.h>
 
+#if defined(_WIN32) or defined(_WIN64)
+    // Windows' header doesn't include these
+    #define GL_CLAMP_TO_EDGE 0x812F
+    #define GL_MIRRORED_REPEAT 0x8370
+#endif // _WIN32 or _WIN64
+
 namespace {
     vk::Filter getVkFilterMode(int glEnum)
     {
