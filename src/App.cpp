@@ -9,6 +9,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Constants.hpp"
+#include "InputHandler.hpp"
 #include "Vertex.hpp"
 
 using namespace glm;
@@ -113,6 +114,22 @@ void App::run()
 {
     while (_window.open()) {
         _window.startFrame();
+
+        const auto& mouse = InputHandler::instance().mouse();
+        if (mouse.leftDown && mouse.currentPos != mouse.lastPos) {
+            _cam.orbit(
+                mouse.currentPos,
+                mouse.lastPos,
+                vec2(_window.width(), _window.height()) / 2.f
+            );
+        }
+        if (mouse.rightDown && mouse.currentPos != mouse.lastPos) {
+            _cam.scaleOrbit(
+                mouse.currentPos.y,
+                 mouse.lastPos.y,
+                _window.height() / 2.f
+            );
+        }
         drawFrame();
     }
 
