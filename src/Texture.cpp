@@ -1,5 +1,6 @@
 #include "Texture.hpp"
 
+#include <cmath>
 #include <iostream>
 
 #include <stb_image.h>
@@ -57,30 +58,33 @@ namespace {
     }
 }
 
-Texture::Texture(Device* device, const std::string& path) :
+Texture::Texture(Device* device, const std::string& path, const bool mipmap) :
     _device(device)
 {
     const auto [pixels, extent] = pixelsFromFile(path);
     const auto stagingBuffer = stagePixels(pixels, extent);
 
+    const uint32_t mipLevels = mipmap ?
+        static_cast<uint32_t>(floor(log2(std::max(extent.width, extent.height)))) + 1 :
+        1;
     const vk::ImageSubresourceRange subresourceRange{
             vk::ImageAspectFlagBits::eColor,
             0, // baseMipLevel
-            1, // levelCount
+            mipLevels, // levelCount
             0, // baseArrayLayer
             1 // layerCount
     };
 
     createImage(stagingBuffer, extent, subresourceRange);
     createImageView(subresourceRange);
-    createSampler();
+    createSampler(mipLevels);
 
     stbi_image_free(pixels);
     _device->logical().destroy(stagingBuffer.handle);
     _device->logical().free(stagingBuffer.memory);
 }
 
-Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler) :
+Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap) :
     _device(device)
 {
     // TODO: support
@@ -114,17 +118,20 @@ Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::S
     };
     const auto stagingBuffer = stagePixels(pixels, extent);
 
+    const uint32_t mipLevels = mipmap ?
+        static_cast<uint32_t>(floor(log2(std::max(extent.width, extent.height)))) + 1 :
+        1;
     const vk::ImageSubresourceRange subresourceRange{
             vk::ImageAspectFlagBits::eColor,
             0, // baseMipLevel
-            1, // levelCount
+            mipLevels, // levelCount
             0, // baseArrayLayer
             1 // layerCount
     };
 
     createImage(stagingBuffer, extent, subresourceRange);
     createImageView(subresourceRange);
-    createSampler(sampler);
+    createSampler(sampler, mipLevels);
 
     _device->logical().destroy(stagingBuffer.handle);
     _device->logical().free(stagingBuffer.memory);
@@ -195,11 +202,14 @@ Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
 
 void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange)
 {
+    // Both transfer source and destination as pixels will be transferred to it and
+    // mipmaps will be generated from it
     _image = _device->createImage(
         extent,
-        1, // mipLevels
+        subresourceRange.levelCount,
         vk::Format::eR8G8B8A8Unorm,
         vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eTransferSrc |
         vk::ImageUsageFlagBits::eTransferDst |
         vk::ImageUsageFlagBits::eSampled,
         vk::MemoryPropertyFlagBits::eDeviceLocal
@@ -212,17 +222,123 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
         vk::ImageLayout::eTransferDstOptimal
     );
     _device->copyBufferToImage(stagingBuffer, _image, extent);
-    _device->transitionImageLayout(
-        _image,
-        subresourceRange,
-        vk::ImageLayout::eTransferDstOptimal,
-        vk::ImageLayout::eShaderReadOnlyOptimal
-    );
 
     if (!_image.handle)
         std::cerr << "Null image" << std::endl;
     if (!_image.memory)
         std::cerr << "Null image memory" << std::endl;
+
+    createMipmaps(extent, subresourceRange.levelCount);
+}
+
+void Texture::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels)
+{
+    // TODO: Check that the texture format supports linear filtering
+    const auto buffer = _device->beginGraphicsCommands();
+
+    vk::ImageMemoryBarrier barrier{
+        vk::AccessFlagBits::eTransferWrite, // srcAccessMask
+        vk::AccessFlagBits::eTransferRead, // dstAccessMask
+        vk::ImageLayout::eTransferDstOptimal, // oldLayout
+        vk::ImageLayout::eTransferSrcOptimal, // newLayout
+        VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
+        _image.handle,
+        vk::ImageSubresourceRange{
+            vk::ImageAspectFlagBits::eColor,
+            0, // baseMipLevel
+            1, // levelCount
+            0, // baseArrayLayer
+            1 // layerCount
+        }
+    };
+
+    int32_t mipWidth = extent.width;
+    int32_t mipHeight = extent.height;
+    for (uint32_t i = 1; i < mipLevels; ++i) {
+        // Make sure last operation finished and source is transitioned
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+        barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+        buffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer, // srcStageMask
+            vk::PipelineStageFlagBits::eTransfer, // dstStageMask
+            {}, // dependencyFlags
+            {}, nullptr, // memoryBarrierCount, ptr
+            {}, nullptr, // bufferMemoryBarrierCount, ptr
+            1, &barrier // imageMemoryBarrierCount, ptr
+        );
+
+        vk::ImageBlit blit{
+            vk::ImageSubresourceLayers{
+                vk::ImageAspectFlagBits::eColor,
+                i - 1, // baseMipLevel
+                0, // baseArrayLayer
+                1 // layerCount
+            }, // srcSubresource
+            {{{0}, {mipWidth, mipHeight, 1}}}, // srtOffsets
+            vk::ImageSubresourceLayers{
+                vk::ImageAspectFlagBits::eColor,
+                i, // baseMipLevel
+                0, // baseArrayLayer
+                1 // layerCount
+            }, // dstSubresource
+            {{
+                {0},
+                {
+                    mipWidth > 1 ? mipWidth / 2 : 1,
+                    mipHeight > 1 ? mipHeight / 2 : 1,
+                    1
+                }
+            }} // srcOffsets
+        };
+        buffer.blitImage(
+            _image.handle, // srcImage
+            vk::ImageLayout::eTransferSrcOptimal, // srcImageLayout
+            _image.handle, // dstImage
+            vk::ImageLayout::eTransferDstOptimal, // dstImageLayout
+            1, &blit, // regionCount, ptr
+            vk::Filter::eLinear
+        );
+
+        // Source needs to be transitioned to shader read optimal
+        barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+        barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+        buffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer, // srcStageMask
+            vk::PipelineStageFlagBits::eFragmentShader, // dstStageMask
+            {}, // dependencyFlags
+            {}, nullptr, // memoryBarrierCount, ptr
+            {}, nullptr, // bufferMemoryBarrierCount, ptr
+            1, &barrier // imageMemoryBarrierCount, ptr
+        );
+
+        if (mipWidth > 1)
+            mipWidth /= 2;
+        if (mipHeight > 1)
+            mipHeight /= 2;
+    }
+
+    // Last mip level needs to be transitioned to shader read optimal
+    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+    barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+    barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+    barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+    buffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eTransfer, // srcStageMask
+        vk::PipelineStageFlagBits::eFragmentShader, // dstStageMask
+        {}, // dependencyFlags
+        {}, nullptr, // memoryBarrierCount, ptr
+        {}, nullptr, // bufferMemoryBarrierCount, ptr
+        1, &barrier // imageMemoryBarrierCount, ptr
+    );
+
+    _device->endGraphicsCommands(buffer);
 }
 
 void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
@@ -240,7 +356,7 @@ void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
         std::cerr << "Null image view" << std::endl;
 }
 
-void Texture::createSampler()
+void Texture::createSampler(const uint32_t mipLevels)
 {
     // TODO: Use shared samplers
     _sampler = _device->logical().createSampler({
@@ -253,11 +369,15 @@ void Texture::createSampler()
         vk::SamplerAddressMode::eClampToEdge, // addressModeW
         0.f, // mipLodBias
         VK_TRUE, // anisotropyEnable
-        16 // maxAnisotropy
+        16, // maxAnisotropy
+        false, // compareEnable
+        vk::CompareOp::eNever,
+        0, // minLod
+        static_cast<float>(mipLevels) // maxLod
     });
 }
 
-void Texture::createSampler(const tinygltf::Sampler& sampler)
+void Texture::createSampler(const tinygltf::Sampler& sampler, const uint32_t mipLevels)
 {
     // TODO: Use shared samplers
     _sampler = _device->logical().createSampler({
@@ -270,6 +390,10 @@ void Texture::createSampler(const tinygltf::Sampler& sampler)
         vk::SamplerAddressMode::eClampToEdge, // addressModeW
         0.f, // mipLodBias
         VK_TRUE, // anisotropyEnable
-        16 // maxAnisotropy
+        16, // maxAnisotropy
+        false, // compareEnable
+        vk::CompareOp::eNever,
+        0, // minLod
+        static_cast<float>(mipLevels) // maxLod
     });
 }

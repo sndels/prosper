@@ -7,8 +7,8 @@
 
 class Texture {
 public:
-    Texture(Device* device, const std::string& path);
-    Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler);
+    Texture(Device* device, const std::string& path, const bool mipmap);
+    Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap);
     ~Texture();
 
     Texture(const Texture& other) = delete;
@@ -21,9 +21,10 @@ public:
 private:
     Buffer stagePixels(const uint8_t* pixels, const vk::Extent2D extent);
     void createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange);
+    void createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels);
     void createImageView(const vk::ImageSubresourceRange& subresourceRange);
-    void createSampler();
-    void createSampler(const tinygltf::Sampler& sampler);
+    void createSampler(const uint32_t mipLevels);
+    void createSampler(const tinygltf::Sampler& sampler, const uint32_t mipLevels);
 
     Device* _device;
     Image _image;

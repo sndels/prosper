@@ -55,7 +55,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
     _device = device;
 
     {
-        auto empty = Texture(_device, resPath("texture/empty.png"));
+        auto empty = Texture(_device, resPath("texture/empty.png"), false);
         _emptyTexture = std::move(empty);
     }
 
@@ -74,7 +74,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
                 s = gltfModel.samplers[texture.sampler];
             return s;
         }();
-        _textures.emplace_back(_device, image, sampler);
+        _textures.emplace_back(_device, image, sampler, true);
     }
 
     for (const auto& material : gltfModel.materials) {
