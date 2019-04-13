@@ -24,6 +24,11 @@ public:
     void lookAt(const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up);
     void orient(const glm::vec3& eye, const glm::vec3& fwd, const glm::vec3& up);
     void perspective(const float fov, const float ar, const float zN, const float zF);
+
+    // Move camera orbiting the origin
+    void orbit(const glm::vec2& currentPos, const glm::vec2& lastPos, const glm::vec2& screenCenter);
+    void scaleOrbit(const float currentY, const float lastY, const float screenCenterY);
+
     void updateBuffer(const uint32_t index) const;
 
     std::vector<vk::DescriptorBufferInfo> bufferInfos() const;

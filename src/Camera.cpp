@@ -1,5 +1,11 @@
 #include "Camera.hpp"
 
+#include <iostream>
+
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_access.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 using namespace glm;
 
 Camera::~Camera()
@@ -101,6 +107,31 @@ void Camera::perspective(const float fov, const float ar, const float zN, const 
                              0.f, 0.f,     2 * zF * zN / (zN - zF),  0.f};
 
     _worldToClip = _cameraToClip * _worldToCamera;
+}
+
+void Camera::orbit(const vec2& currentPos, const vec2& lastPos, const vec2& screenCenter)
+{
+    const auto& right = vec3{row(_worldToCamera, 0)};
+    const vec2 delta = -(lastPos - currentPos) / screenCenter;
+
+    _worldToCamera =
+        _worldToCamera *
+        glm::rotate(mat4{1.f}, delta.y, right) *
+        glm::rotate(mat4{1.f}, delta.x, vec3{0.f, 1.f, 0.f});
+    _eye = vec3{inverse(_worldToCamera)[3]};
+}
+
+void Camera::scaleOrbit(const float currentY, const float lastY, const float screenCenterY)
+{
+    // Move along the z-axis
+    const float delta = -(currentY - lastY) / screenCenterY;
+    _eye += vec3{row(_worldToCamera, 2)} * delta;
+    _worldToCamera[3] = vec4{
+        -dot(vec3{row(_worldToCamera, 0)}, _eye),
+        -dot(vec3{row(_worldToCamera, 1)}, _eye),
+        -dot(vec3{row(_worldToCamera, 2)}, _eye),
+        1.f
+    };
 }
 
 void Camera::updateBuffer(const uint32_t index) const
