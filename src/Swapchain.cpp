@@ -284,6 +284,7 @@ void Swapchain::createDepthResources()
 
     _depthImage = _device->createImage(
         _config.extent,
+        1, // mipLevels
         _config.depthFormat,
         vk::ImageTiling::eOptimal,
         vk::ImageUsageFlagBits::eDepthStencilAttachment,

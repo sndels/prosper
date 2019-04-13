@@ -197,6 +197,7 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
 {
     _image = _device->createImage(
         extent,
+        1, // mipLevels
         vk::Format::eR8G8B8A8Unorm,
         vk::ImageTiling::eOptimal,
         vk::ImageUsageFlagBits::eTransferDst |

@@ -323,7 +323,7 @@ void Device::copyBufferToImage(const Buffer& src, const Image& dst, const vk::Ex
     endGraphicsCommands(commandBuffer);
 }
 
-Image Device::createImage(const vk::Extent2D extent, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties) const
+Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties) const
 {
     Image image;
 
@@ -332,7 +332,7 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format, co
         vk::ImageType::e2D,
         format,
         vk::Extent3D{extent, 1},
-        1, // mipLevels
+        mipLevels,
         1, // arrayLayers
         vk::SampleCountFlagBits::e1,
         tiling,
