@@ -12,7 +12,7 @@ layout(set = 0, binding = 0) uniform Camera {
 
 layout(set = 2, binding = 0) uniform sampler2D baseColor;
 layout(set = 2, binding = 1) uniform sampler2D metallicRoughness;
-layout(set = 2, binding = 2) uniform sampler2D normal;
+layout(set = 2, binding = 2) uniform sampler2D tangentNormal;
 
 // Needs to match Material::PCBlock
 layout(push_constant) uniform MaterialPC {
@@ -120,7 +120,7 @@ void main()
     // TODO: alpha, skipping normal mapping based on B
     vec3 albedo = sRGBtoLinear(texture(baseColor, fragTexCoord0).rgb);
     vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
-    vec3 normal = normalize(fragTBN * (texture(normal, fragTexCoord0).rgb * 2 - 1));
+    vec3 normal = normalize(fragTBN * (texture(tangentNormal, fragTexCoord0).rgb * 2 - 1));
     Material m;
     m.albedo = albedo * materialPC.baseColorFactor.rgb;
     m.metallic = mr.b * materialPC.metallicFactor;
