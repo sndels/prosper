@@ -22,6 +22,10 @@ namespace {
     const uint32_t WIDTH = 1280;
     const uint32_t HEIGHT = 720;
 
+    const float CAMERA_FOV = 59.f;
+    const float CAMERA_NEAR = 0.001f;
+    const float CAMERA_FAR = 512.f;
+
     static std::vector<char> readFile(const std::string& filename)
     {
         // Open from end to find size from initial position
@@ -103,10 +107,10 @@ void App::init()
         vec3{0.f, 1.f, 0.f}
     );
     _cam.perspective(
-        radians(59.f),
+        radians(CAMERA_FOV),
         _window.width() / static_cast<float>(_window.height()),
-        0.1f,
-        100.f
+        CAMERA_NEAR,
+        CAMERA_FAR
     );
 }
 
@@ -161,10 +165,10 @@ void App::recreateSwapchainAndRelated()
     createCommandBuffers(swapConfig);
 
     _cam.perspective(
-        radians(59.f),
+        radians(CAMERA_FOV),
         _window.width() / static_cast<float>(_window.height()),
-        0.1f,
-        100.f
+        CAMERA_NEAR,
+        CAMERA_FAR
     );
 }
 
