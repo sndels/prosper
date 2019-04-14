@@ -288,7 +288,8 @@ void Swapchain::createDepthResources()
         _config.depthFormat,
         vk::ImageTiling::eOptimal,
         vk::ImageUsageFlagBits::eDepthStencilAttachment,
-        vk::MemoryPropertyFlagBits::eDeviceLocal
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        VMA_MEMORY_USAGE_GPU_ONLY
     );
 
     const vk::ImageSubresourceRange subresourceRange{
@@ -349,8 +350,7 @@ void Swapchain::destroy()
     for (auto fence : _inFlightFences)
         _device->logical().destroy(fence);
     _device->logical().destroy(_depthView);
-    _device->logical().destroy(_depthImage.handle);
-    _device->logical().free(_depthImage.memory);
+    _device->destroy(_depthImage);
     for (auto& image : _images) {
         _device->logical().destroy(image.fbo);
         _device->logical().destroy(image.view);

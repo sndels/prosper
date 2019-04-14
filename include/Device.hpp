@@ -5,6 +5,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <vk_mem_alloc.h>
+
 #include <optional>
 #include <vector>
 
@@ -20,12 +22,12 @@ struct QueueFamilies {
 
 struct Buffer {
     vk::Buffer handle;
-    vk::DeviceMemory memory;
+    VmaAllocation allocation;
 };
 
 struct Image {
     vk::Image handle;
-    vk::DeviceMemory memory;
+    VmaAllocation allocation;
 };
 
 class Device {
@@ -47,12 +49,17 @@ public:
     vk::Queue presentQueue() const;
     const QueueFamilies& queueFamilies() const;
 
-    Buffer createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties) const;
+    void map(const VmaAllocation allocation, void** data) const;
+    void unmap(const VmaAllocation allocation) const;
+
+    Buffer createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const;
     void copyBuffer(const Buffer& src, const Buffer& dst, const vk::DeviceSize size) const;
     void copyBufferToImage(const Buffer& src, const Image& dst, const vk::Extent2D extent) const;
+    void destroy(const Buffer& buffer);
 
-    Image createImage(const vk::Extent2D extent, const uint32_t mipLevels, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties) const;
+    Image createImage(const vk::Extent2D extent, const uint32_t mipLevels, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const;
     void transitionImageLayout(const Image& image, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const;
+    void destroy(const Image& image);
 
     vk::CommandBuffer beginGraphicsCommands() const;
     void endGraphicsCommands(const vk::CommandBuffer buffer) const;
@@ -65,11 +72,13 @@ private:
     void createSurface(GLFWwindow* window);
     void selectPhysicalDevice();
     void createLogicalDevice();
+    void createAllocator();
     void createCommandPool();
 
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
     vk::Device _logical;
+    VmaAllocator _allocator;
     vk::SurfaceKHR _surface;
 
     QueueFamilies _queueFamilies = {std::nullopt, std::nullopt};

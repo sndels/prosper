@@ -86,8 +86,7 @@ Texture::Texture(Device* device, const std::string& path, const bool mipmap) :
     createSampler(mipLevels);
 
     stbi_image_free(pixels);
-    _device->logical().destroy(stagingBuffer.handle);
-    _device->logical().free(stagingBuffer.memory);
+    _device->destroy(stagingBuffer);
 }
 
 Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap) :
@@ -139,16 +138,14 @@ Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::S
     createImageView(subresourceRange);
     createSampler(sampler, mipLevels);
 
-    _device->logical().destroy(stagingBuffer.handle);
-    _device->logical().free(stagingBuffer.memory);
+    _device->destroy(stagingBuffer);
 }
 
 Texture::~Texture()
 {
     _device->logical().destroy(_imageView);
     _device->logical().destroy(_sampler);
-    _device->logical().destroy(_image.handle);
-    _device->logical().free(_image.memory);
+    _device->destroy(_image);
 }
 
 Texture::Texture(Texture&& other) :
@@ -158,7 +155,7 @@ Texture::Texture(Texture&& other) :
     _sampler(other._sampler)
 {
     other._image.handle = nullptr;
-    other._image.memory = nullptr;
+    other._image.allocation = nullptr;
     other._imageView = nullptr;
     other._sampler = nullptr;
 }
@@ -171,7 +168,7 @@ Texture& Texture::operator=(Texture&& other)
         _imageView = other._imageView;
         _sampler = other._sampler;
         other._image.handle = nullptr;
-        other._image.memory = nullptr;
+        other._image.allocation = nullptr;
         other._imageView = nullptr;
         other._sampler = nullptr;
     }
@@ -195,13 +192,14 @@ Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
         imageSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
-        vk::MemoryPropertyFlagBits::eHostCoherent
+        vk::MemoryPropertyFlagBits::eHostCoherent,
+        VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
     void* data;
-    _device->logical().mapMemory(stagingBuffer.memory, 0, imageSize, {}, &data);
+    _device->map(stagingBuffer.allocation, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    _device->logical().unmapMemory(stagingBuffer.memory);
+    _device->unmap(stagingBuffer.allocation);
 
     return stagingBuffer;
 }
@@ -218,7 +216,8 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
         vk::ImageUsageFlagBits::eTransferSrc |
         vk::ImageUsageFlagBits::eTransferDst |
         vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        VMA_MEMORY_USAGE_GPU_ONLY
     );
 
     _device->transitionImageLayout(
@@ -231,8 +230,8 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
 
     if (!_image.handle)
         std::cerr << "Null image" << std::endl;
-    if (!_image.memory)
-        std::cerr << "Null image memory" << std::endl;
+    if (!_image.allocation)
+        std::cerr << "Null image allocation" << std::endl;
 
     createMipmaps(extent, subresourceRange.levelCount);
 }

@@ -104,20 +104,6 @@ namespace {
         return VK_FALSE; // Don't fail the causing command
     }
 
-    uint32_t findMemoryType(const vk::PhysicalDevice physical, const uint32_t typeFilter, const vk::MemoryPropertyFlags properties)
-    {
-        const auto memProperties = physical.getMemoryProperties();
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i) {
-            if(typeFilter & (1 << i) &&
-               (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-
-        throw std::runtime_error("Failed to find suitable memory type");
-    }
-
     void CreateDebugUtilsMessengerEXT(
         const vk::Instance instance,
         const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -203,6 +189,7 @@ Device::~Device()
 {
     // Also cleans up associated command buffers
     _logical.destroy(_commandPool);
+    vmaDestroyAllocator(_allocator);
     // Implicitly cleans up associated queues as well
     _logical.destroy();
     _instance.destroy(_surface);
@@ -218,6 +205,7 @@ void Device::init(GLFWwindow* window)
     selectPhysicalDevice();
     _queueFamilies = findQueueFamilies(_physical, _surface);
     createLogicalDevice();
+    createAllocator();
     createCommandPool();
 }
 
@@ -261,26 +249,40 @@ const QueueFamilies& Device::queueFamilies() const
     return _queueFamilies;
 }
 
-Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties) const
+void Device::map(const VmaAllocation allocation, void** data) const
 {
-    Buffer buffer;
+    vmaMapMemory(_allocator, allocation, data);
+}
 
-    buffer.handle = _logical.createBuffer({
+void Device::unmap(const VmaAllocation allocation) const
+{
+    vmaUnmapMemory(_allocator, allocation);
+}
+
+Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const
+{
+    vk::BufferCreateInfo bufferInfo{
         {}, // flags
         size,
         usage,
         vk::SharingMode::eExclusive
-    });
+    };
+    // TODO: preferred flags, create mapped
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = vmaUsage;
+    allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
 
-    const auto memRequirements = _logical.getBufferMemoryRequirements(buffer.handle);
-
-    buffer.memory = _logical.allocateMemory({
-        memRequirements.size, 
-        findMemoryType(_physical, memRequirements.memoryTypeBits, properties)
-    });
-
-    _logical.bindBufferMemory(buffer.handle, buffer.memory, 0);
-
+    Buffer buffer;
+    auto vkpBufferInfo = reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo);
+    auto vkpBuffer = reinterpret_cast<VkBuffer*>(&buffer.handle);
+    vmaCreateBuffer(
+        _allocator,
+        vkpBufferInfo,
+        &allocInfo,
+        vkpBuffer,
+        &buffer.allocation,
+        nullptr
+    );
     return buffer;
 }
 
@@ -326,11 +328,15 @@ void Device::copyBufferToImage(const Buffer& src, const Image& dst, const vk::Ex
     endGraphicsCommands(commandBuffer);
 }
 
-Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties) const
+void Device::destroy(const Buffer& buffer)
 {
-    Image image;
+    const auto vkBuffer = static_cast<VkBuffer>(buffer.handle);
+    vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
+}
 
-    image.handle = _logical.createImage({
+Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const
+{
+    vk::ImageCreateInfo imageInfo{
         {}, // flags
         vk::ImageType::e2D,
         format,
@@ -341,17 +347,23 @@ Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, c
         tiling,
         usage,
         vk::SharingMode::eExclusive
-    });
+    };
+    // TODO: preferred flags, create mapped
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = vmaUsage;
+    allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
 
-    const auto memRequirements = _logical.getImageMemoryRequirements(image.handle);
-
-    image.memory = _logical.allocateMemory({
-        memRequirements.size,
-        findMemoryType(_physical, memRequirements.memoryTypeBits, properties)
-    });
-
-    _logical.bindImageMemory(image.handle, image.memory, 0);
-
+    Image image;
+    auto vkpImageInfo = reinterpret_cast<VkImageCreateInfo*>(&imageInfo);
+    auto vkpImage = reinterpret_cast<VkImage*>(&image.handle);
+    vmaCreateImage(
+        _allocator,
+        vkpImageInfo,
+        &allocInfo,
+        vkpImage,
+        &image.allocation,
+        nullptr
+    );
     return image;
 }
 
@@ -382,6 +394,12 @@ void Device::transitionImageLayout(const Image& image, const vk::ImageSubresourc
     );
 
     endGraphicsCommands(commandBuffer);
+}
+
+void Device::destroy(const Image& image)
+{
+    const auto vkImage = static_cast<VkImage>(image.handle);
+    vmaDestroyImage(_allocator, vkImage, image.allocation);
 }
 
 vk::CommandBuffer Device::beginGraphicsCommands() const
@@ -547,6 +565,15 @@ void Device::createLogicalDevice()
     // Get the created queues
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
     _presentQueue = _logical.getQueue(presentFamily, 0);
+}
+
+void Device::createAllocator()
+{
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = static_cast<VkPhysicalDevice>(_physical);
+    allocatorInfo.device = static_cast<VkDevice>(_logical);
+    if (vmaCreateAllocator(&allocatorInfo, &_allocator) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create allocator");
 }
 
 void Device::createCommandPool()

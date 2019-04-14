@@ -39,10 +39,8 @@ World::~World()
     _device->logical().destroy(_materialDSLayout);
     _device->logical().destroy(_nodeDSLayout);
     for (auto& node : _nodes) {
-        for (auto& buffer : node.uniformBuffers) {
-            _device->logical().destroy(buffer.handle);
-            _device->logical().free(buffer.memory);
-        }
+        for (auto& buffer : node.uniformBuffers)
+            _device->destroy(buffer);
     }
 }
 
@@ -263,7 +261,8 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
                 bufferSize,
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent
+                vk::MemoryPropertyFlagBits::eHostCoherent,
+                VMA_MEMORY_USAGE_CPU_TO_GPU
             ));
     }
 }

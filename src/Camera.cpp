@@ -26,7 +26,8 @@ void Camera::createUniformBuffers(Device* device, const uint32_t swapImageCount)
             bufferSize,
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent
+            vk::MemoryPropertyFlagBits::eHostCoherent,
+            VMA_MEMORY_USAGE_CPU_TO_GPU
         ));
     }
 }
@@ -142,9 +143,9 @@ void Camera::updateBuffer(const uint32_t index) const
     uniforms.cameraToClip = _cameraToClip;
 
     void* data;
-    _device->logical().mapMemory(_uniformBuffers[index].memory, 0, sizeof(CameraUniforms), {}, &data);
+    _device->map(_uniformBuffers[index].allocation, &data);
     memcpy(data, &uniforms, sizeof(CameraUniforms));
-    _device->logical().unmapMemory(_uniformBuffers[index].memory);
+    _device->unmap(_uniformBuffers[index].allocation);
 }
 
 std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
@@ -173,10 +174,8 @@ const vk::DescriptorSet& Camera::descriptorSet(const uint32_t index) const
 void Camera::destroyUniformBuffers()
 {
     if (_device != nullptr) {
-        for (auto& buffer : _uniformBuffers) {
-            _device->logical().destroy(buffer.handle);
-            _device->logical().free(buffer.memory);
-        }
+        for (auto& buffer : _uniformBuffers)
+            _device->destroy(buffer);
     }
     _uniformBuffers.clear();
 }

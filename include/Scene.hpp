@@ -46,9 +46,9 @@ struct Scene {
             uBlock.modelToWorld = modelToWorld;
 
             void* data;
-            device->logical().mapMemory(uniformBuffers[nextImage].memory, 0, sizeof(UBlock), {}, &data);
+            device->map(uniformBuffers[nextImage].allocation, &data);
             memcpy(data, &uBlock, sizeof(UBlock));
-            device->logical().unmapMemory(uniformBuffers[nextImage].memory);
+            device->unmap(uniformBuffers[nextImage].allocation);
         }
     };
 

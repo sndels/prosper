@@ -13,11 +13,8 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& ind
 Mesh::~Mesh()
 {
     if (_device != nullptr) {
-        _device->logical().destroy(_indexBuffer.handle);
-        _device->logical().free(_indexBuffer.memory);
-
-        _device->logical().destroy(_vertexBuffer.handle);
-        _device->logical().free(_vertexBuffer.memory);
+        _device->destroy(_indexBuffer);
+        _device->destroy(_vertexBuffer);
     }
 }
 
@@ -57,25 +54,26 @@ void Mesh::createVertexBuffer(const std::vector<Vertex>& vertices)
         bufferSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
-        vk::MemoryPropertyFlagBits::eHostCoherent
+        vk::MemoryPropertyFlagBits::eHostCoherent,
+        VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
     // Move vertex data to staging
     void* data;
-    _device->logical().mapMemory(stagingBuffer.memory, 0, bufferSize, {}, &data);
+    _device->map(stagingBuffer.allocation, &data);
     memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    _device->logical().unmapMemory(stagingBuffer.memory);
+    _device->unmap(stagingBuffer.allocation);
 
     _vertexBuffer = _device->createBuffer(
         bufferSize,
         vk::BufferUsageFlagBits::eVertexBuffer |
         vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        VMA_MEMORY_USAGE_GPU_ONLY
     );
     _device->copyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
 
-    _device->logical().destroy(stagingBuffer.handle);
-    _device->logical().free(stagingBuffer.memory);
+    _device->destroy(stagingBuffer);
 }
 
 void Mesh::createIndexBuffer(const std::vector<uint32_t>& indices)
@@ -86,24 +84,24 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t>& indices)
         bufferSize,
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
-        vk::MemoryPropertyFlagBits::eHostCoherent
+        vk::MemoryPropertyFlagBits::eHostCoherent,
+        VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
     // Move index data to staging
     void* data;
-    _device->logical().mapMemory(stagingBuffer.memory, 0, bufferSize, {}, &data);
+    _device->map(stagingBuffer.allocation, &data);
     memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
-    _device->logical().unmapMemory(stagingBuffer.memory);
+    _device->unmap(stagingBuffer.allocation);
 
     _indexBuffer = _device->createBuffer(
         bufferSize,
         vk::BufferUsageFlagBits::eIndexBuffer |
         vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        VMA_MEMORY_USAGE_GPU_ONLY
     );
     _device->copyBuffer(stagingBuffer, _indexBuffer, bufferSize);
 
-    // Clean up
-    _device->logical().destroy(stagingBuffer.handle);
-    _device->logical().free(stagingBuffer.memory);
+    _device->destroy(stagingBuffer);
 }
