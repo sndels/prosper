@@ -100,6 +100,17 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             elem != material.values.end()) {
             mat._roughnessFactor = elem->second.Factor();
         }
+        if (const auto& elem = material.additionalValues.find("alphaMode");
+            elem != material.additionalValues.end()) {
+            if (elem->second.string_value == "MASK")
+                mat._alphaMode = Material::AlphaMode::Mask;
+            else if (elem->second.string_value == "BLEND")
+                mat._alphaMode = Material::AlphaMode::Blend;
+        }
+        if (const auto& elem = material.additionalValues.find("alphaCutoff");
+            elem != material.additionalValues.end()) {
+            mat._alphaCutoff = static_cast<float>(elem->second.Factor());
+        }
         // TODO: Support more parameters
         _materials.push_back(std::move(mat));
     }

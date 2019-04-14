@@ -581,6 +581,8 @@ void App::recordCommandBuffer(const uint32_t nextImage)
                 mesh.material()._baseColorFactor,
                 mesh.material()._metallicFactor,
                 mesh.material()._roughnessFactor,
+                mesh.material().alphaModeFloat(),
+                mesh.material()._alphaCutoff,
                 mesh.material()._texCoordSets.baseColor,
                 mesh.material()._texCoordSets.metallicRoughness,
                 mesh.material()._texCoordSets.normal

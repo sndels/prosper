@@ -19,6 +19,8 @@ layout(push_constant) uniform MaterialPC {
     vec4 baseColorFactor;
     float metallicFactor;
     float roughnessFactor;
+    float alphaMode;
+    float alphaCutoff;
     int baseColorTextureSet;
     int metallicRoughnessTextureSet;
     int normalTextureSet;
@@ -48,6 +50,11 @@ float sRGBtoLinear(float x)
 vec3 sRGBtoLinear(vec3 v)
 {
     return vec3(sRGBtoLinear(v.r), sRGBtoLinear(v.g), sRGBtoLinear(v.b));
+}
+// Alpha shouldn't be converted
+vec4 sRGBtoLinear(vec4 v)
+{
+    return vec4(sRGBtoLinear(v.rgb), v.a);
 }
 
 // Lambert diffuse term
@@ -117,19 +124,31 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    // TODO: alpha, skipping normal mapping based on B
-    vec3 albedo = sRGBtoLinear(texture(baseColor, fragTexCoord0).rgb);
+    // TODO: skipping normal mapping based on B
+    vec4 linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0)) * materialPC.baseColorFactor;
+
+    // Alpha masking is 1.f
+    if (materialPC.alphaMode > 0.f && materialPC.alphaMode < 2.f) {
+        if (linearBaseColor.a < materialPC.alphaCutoff)
+            discard;
+    }
+
     vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
     vec3 normal = normalize(fragTBN * (texture(tangentNormal, fragTexCoord0).rgb * 2 - 1));
+
     Material m;
-    m.albedo = albedo * materialPC.baseColorFactor.rgb;
+    m.albedo = linearBaseColor.rgb;
     m.metallic = mr.b * materialPC.metallicFactor;
     m.roughness = mr.g * materialPC.roughnessFactor;
 
     vec3 v = normalize(camera.eye - fragPosition);
     vec3 l = -normalize(light_dir);
     vec3 color = light_int * evalBRDF(normal, v, l, m);
+
+    // Alpha blending is 2.f
+    float alpha = materialPC.alphaMode > 1.f ? linearBaseColor.a : 1.f;
+
     // TODO: Doesn't outputting to sRGB render target do this?
     float gamma = 2.2;
-    outColor = vec4(pow(color, vec3(1 / gamma)), 1.f);
+    outColor = vec4(pow(color, vec3(1 / gamma)), alpha);
 }
