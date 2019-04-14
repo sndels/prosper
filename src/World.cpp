@@ -156,7 +156,8 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             }();
             const auto texCoords0 = [&]{
                 const auto& attribute = primitive.attributes.find("TEXCOORD_0");
-                assert(attribute != primitive.attributes.end());
+                if (attribute == primitive.attributes.end())
+                    return static_cast<const float*>(nullptr);
                 const auto& accessor = gltfModel.accessors[attribute->second];
                 const auto& view = gltfModel.bufferViews[accessor.bufferView];
                 const auto& data = gltfModel.buffers[view.buffer].data;
@@ -172,7 +173,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
                         vec4{make_vec3(&positions[v * 3]), 1.f},
                         normalize(make_vec3(&normals[v * 3])),
                         tangents ? normalize(make_vec4(&tangents[v * 4])) : vec4(0),
-                        make_vec2(&texCoords0[v * 2])
+                        texCoords0 ? make_vec2(&texCoords0[v * 2]) : vec2(0)
                     });
                 }
                 return vs;
