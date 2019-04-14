@@ -108,7 +108,7 @@ Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::S
         tmpPixels.resize(image.width * image.height * 4);
         const auto* rgb = image.image.data();
         auto* rgba = tmpPixels.data();
-        for (size_t i = 0; i < image.width * image.height; ++i) {
+        for (int i = 0; i < image.width * image.height; ++i) {
             rgba[0] = rgb[0];
             rgba[1] = rgb[1];
             rgba[2] = rgb[2];

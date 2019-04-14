@@ -22,28 +22,15 @@ target_compile_features(prosper
     PRIVATE
     cxx_std_17
 )
-if (MSVC)
-target_compile_options(prosper
-    PRIVATE
-    -W4     # Wall is _very_ verbose
-    -wd4201 # glm uses nameless structs/unions
-    -wd4996 # yup, I do want to use fopen
-)
-else()
-# Anon structs cannot be suppressed in g++ pedantic
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+if (NOT MSVC)
     target_compile_options(prosper
         PRIVATE
-        -Wall
-        -Wunused-parameter
-        -Wno-gnu-anonymous-struct # glm
-        -Wno-nested-anon-types # glm
-        -Wno-missing-braces
-        -Werror
         -pedantic
+        -Wall
+        -Werror
+        -Wunused-parameter
     )
-endif()
-endif() # MSVC
+endif() # NOT MSVC
 target_include_directories(prosper
     PRIVATE
     ${PROSPER_INCLUDE_DIR}

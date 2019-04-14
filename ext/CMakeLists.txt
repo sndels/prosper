@@ -3,7 +3,8 @@ execute_process(COMMAND git submodule update --init --depth 1)
 
 # GLM is header only
 add_library(glm INTERFACE)
-target_include_directories(glm INTERFACE ${CMAKE_CURRENT_LIST_DIR}/glm)
+# Define as system to suppress warnings
+target_include_directories(glm SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/glm)
 
 # Use ready CMakeLists when available
 # Override glfw default options
