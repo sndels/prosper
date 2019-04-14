@@ -24,11 +24,16 @@ layout(location = 2) out mat3 fragTBN;
 void main() {
     vec4 pos = object.modelToWorld * vec4(vertPosition, 1.0);
     vec3 normal = normalize(transpose(inverse(mat3(object.modelToWorld))) * vertNormal);
-    vec3 tangent = normalize(mat3(object.modelToWorld) * vertTangent.xyz);
-    vec3 bitangent = cross(normal, tangent) * vertTangent.w;
+
+    // No point in generating normal basis here if no tangent is supplied
+    if (length(vertTangent.xyz) > 0) {
+        vec3 tangent = normalize(mat3(object.modelToWorld) * vertTangent.xyz);
+        vec3 bitangent = cross(normal, tangent) * vertTangent.w;
+        fragTBN = mat3(tangent, bitangent, normal);
+    } else
+        fragTBN = mat3(vec3(0), vec3(0), normal);
 
     fragPosition = pos.xyz / pos.w;
-    fragTBN = mat3(tangent, bitangent, normal);
     fragTexCoord0 = vertTexCoord0;
 
     gl_Position = camera.cameraToClip * camera.worldToCamera * pos;

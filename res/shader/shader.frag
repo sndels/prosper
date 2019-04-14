@@ -57,6 +57,20 @@ vec4 sRGBtoLinear(vec4 v)
     return vec4(sRGBtoLinear(v.rgb), v.a);
 }
 
+mat3 generateTBN()
+{
+    // http://www.thetenthplanet.de/archives/1180
+    vec3 dp1 = dFdx(fragPosition);
+    vec3 dp2 = dFdy(fragPosition);
+    vec2 duv1 = dFdx(fragTexCoord0);
+    vec2 duv2 = dFdy(fragTexCoord0);
+
+    vec3 N = normalize(fragTBN[2]);
+    vec3 T = normalize(dp1 * duv2.t - dp2 * duv1.t);
+    vec3 B = normalize(cross(N, T));
+    return mat3(T, B, N);
+}
+
 // Lambert diffuse term
 vec3 lambertBRFD(vec3 c_diff)
 {
@@ -124,7 +138,6 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    // TODO: skipping normal mapping based on B
     vec4 linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0)) * materialPC.baseColorFactor;
 
     // Alpha masking is 1.f
@@ -134,7 +147,13 @@ void main()
     }
 
     vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
-    vec3 normal = normalize(fragTBN * (texture(tangentNormal, fragTexCoord0).rgb * 2 - 1));
+
+    vec3 normal;
+    if (materialPC.normalTextureSet > -1){
+        mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
+        normal = normalize(TBN * (texture(tangentNormal, fragTexCoord0).xyz * 2 - 1));
+    } else
+        normal = normalize(fragTBN[2]);
 
     Material m;
     m.albedo = linearBaseColor.rgb;
