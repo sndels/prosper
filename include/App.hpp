@@ -1,6 +1,7 @@
 #ifndef PROSPER_APP_HPP
 #define PROSPER_APP_HPP
 
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -14,6 +15,11 @@
 
 class App {
 public:
+    struct Pipelines {
+        vk::Pipeline pbr;
+        vk::Pipeline pbrAlphaBlend;
+    };
+
     App() = default;
     ~App();
 
@@ -39,6 +45,7 @@ private:
     void drawFrame();
     void updateUniformBuffers(const uint32_t nextImage);
     void recordCommandBuffer(const uint32_t nextImage);
+    void recordModelInstances(const vk::CommandBuffer buffer, const uint32_t nextImage, const std::vector<Scene::ModelInstance>& instances, const std::function<bool(const Mesh&)>& cullMesh);
 
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
@@ -51,7 +58,7 @@ private:
     vk::DescriptorPool _vkDescriptorPool;
 
     vk::RenderPass _vkRenderPass;
-    vk::Pipeline _vkGraphicsPipeline;
+    Pipelines _pipelines;
 
     std::vector<vk::CommandBuffer> _vkCommandBuffers;
 

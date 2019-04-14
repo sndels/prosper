@@ -180,7 +180,8 @@ void App::destroySwapchainRelated()
         _vkCommandBuffers.data()
     );
 
-    _device.logical().destroy(_vkGraphicsPipeline);
+    _device.logical().destroy(_pipelines.pbr);
+    _device.logical().destroy(_pipelines.pbrAlphaBlend);
     _device.logical().destroy(_vkGraphicsPipelineLayout);
     _device.logical().destroy(_vkRenderPass);
 }
@@ -335,7 +336,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         &scissor
     };
 
-    const vk::PipelineRasterizationStateCreateInfo rasterizerState{
+    // Alpha blend pipeline is created with a modified version
+    vk::PipelineRasterizationStateCreateInfo rasterizerState{
         {}, // flags
         VK_FALSE, // depthClampEnable
         VK_FALSE, // rasterizerDiscardEnable
@@ -362,7 +364,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         vk::CompareOp::eLess
     };
 
-    const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+    // Alpha blend pipeline is created with a modified version
+    vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         VK_FALSE, // blendEnable
         vk::BlendFactor::eOne, // srcColorBlendFactor
         vk::BlendFactor::eZero, // dstColorBlendFactor
@@ -383,6 +386,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         &colorBlendAttachment
     };
 
+    // Pipelines share layout
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _cam.descriptorSetLayout(),
         _world._modelInstanceDSLayout,
@@ -401,7 +405,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         &pcRange
     });
 
-    _vkGraphicsPipeline = _device.logical().createGraphicsPipeline({}, {
+    vk::GraphicsPipelineCreateInfo createInfo{
         {}, // flags
         shaderStages.size(),
         shaderStages.data(),
@@ -417,7 +421,19 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         _vkGraphicsPipelineLayout,
         _vkRenderPass,
         0 // subpass
-    });
+    };
+    _pipelines.pbr = _device.logical().createGraphicsPipeline({}, createInfo);
+
+    rasterizerState.cullMode = vk::CullModeFlagBits::eNone;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+    colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+    colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+    colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+    colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+    colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+
+    _pipelines.pbrAlphaBlend = _device.logical().createGraphicsPipeline({}, createInfo);
 
     _device.logical().destroyShaderModule(vertShaderModule);
     _device.logical().destroyShaderModule(fragShaderModule);
@@ -515,7 +531,7 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         vk::SubpassContents::eInline
     );
 
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _vkGraphicsPipeline);
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.pbr);
 
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
@@ -527,8 +543,36 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         nullptr // pDynamicOffsets
     );
 
-    // Draw scene
-    for (const auto& instance : _world.currentScene().modelInstances) {
+    // Draw opaque and alpha masked geometry
+    recordModelInstances(
+        buffer,
+        nextImage,
+        _world.currentScene().modelInstances,
+        [](const Mesh& mesh){
+            return mesh.material()._alphaMode == Material::AlphaMode::Blend;
+        }
+    );
+
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.pbrAlphaBlend);
+
+    // Draw transparent geometry
+    // TODO: Sort back to front
+    recordModelInstances(
+        buffer,
+        nextImage,
+        _world.currentScene().modelInstances,
+        [](const Mesh& mesh){
+            return mesh.material()._alphaMode != Material::AlphaMode::Blend;
+        }
+    );
+
+    buffer.endRenderPass();
+    buffer.end();
+}
+
+void App::recordModelInstances(const vk::CommandBuffer buffer, const uint32_t nextImage, const std::vector<Scene::ModelInstance>& instances, const std::function<bool(const Mesh&)>& cullMesh)
+{
+    for (const auto& instance : instances) {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             _vkGraphicsPipelineLayout,
@@ -539,6 +583,8 @@ void App::recordCommandBuffer(const uint32_t nextImage)
             nullptr // pDynamicOffsets
         );
         for (const auto& mesh : instance.model->_meshes) {
+            if (cullMesh(mesh))
+                continue;
             buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 _vkGraphicsPipelineLayout,
@@ -569,6 +615,4 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         }
     }
 
-    buffer.endRenderPass();
-    buffer.end();
 }

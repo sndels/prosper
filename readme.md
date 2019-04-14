@@ -9,6 +9,7 @@ Current features include:
 * Physically based shading
 * Tangent space normal mapping
 * Mipmapping
+* Transparency (no sorting)
 
 Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and the dependencies of [glfw](https://github.com/glfw/glfw). Includes [glm](https://github.com/g-truc/glm), [glfw](https://github.com/glfw/glfw), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules. [stb_image](https://github.com/nothings/stb) provided by [tinygltf](https://github.com/syoyo/tinygltf) is also utilized.
 
