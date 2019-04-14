@@ -20,3 +20,8 @@ target_include_directories(stb_image INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinyglt
 # tinygltf is header only
 add_library(tinygltf INTERFACE)
 target_include_directories(tinygltf INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
+
+# vulkan memory allocator is header only
+add_library(vma INTERFACE)
+# Define as system to suppress warnings
+target_include_directories(vma SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/vma/src)
