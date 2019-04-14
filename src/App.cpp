@@ -484,10 +484,8 @@ void App::updateUniformBuffers(const uint32_t nextImage)
 {
     _cam.updateBuffer(nextImage);
 
-    for (const auto& scene : _world._scenes) {
-        for (const auto& instance : scene.modelInstances)
-            instance.updateBuffer(&_device, nextImage);
-    }
+    for (const auto& instance : _world.currentScene().modelInstances)
+        instance.updateBuffer(&_device, nextImage);
 }
 
 void App::recordCommandBuffer(const uint32_t nextImage)
@@ -530,46 +528,44 @@ void App::recordCommandBuffer(const uint32_t nextImage)
     );
 
     // Draw scene
-    for (const auto& scene : _world._scenes) {
-        for (const auto& instance : scene.modelInstances) {
+    for (const auto& instance : _world.currentScene().modelInstances) {
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            _vkGraphicsPipelineLayout,
+            1, // firstSet
+            1, // descriptorSetCount
+            &instance.descriptorSets[nextImage],
+            0, // dynamicOffsetCount
+            nullptr // pDynamicOffsets
+        );
+        for (const auto& mesh : instance.model->_meshes) {
             buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 _vkGraphicsPipelineLayout,
-                1, // firstSet
+                2, // firstSet
                 1, // descriptorSetCount
-                &instance.descriptorSets[nextImage],
+                &mesh.material()._descriptorSet,
                 0, // dynamicOffsetCount
                 nullptr // pDynamicOffsets
             );
-            for (const auto& mesh : instance.model->_meshes) {
-                buffer.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics,
-                    _vkGraphicsPipelineLayout,
-                    2, // firstSet
-                    1, // descriptorSetCount
-                    &mesh.material()._descriptorSet,
-                    0, // dynamicOffsetCount
-                    nullptr // pDynamicOffsets
-                );
-                Material::PCBlock pcBlock{
-                    mesh.material()._baseColorFactor,
-                    mesh.material()._metallicFactor,
-                    mesh.material()._roughnessFactor,
-                    mesh.material().alphaModeFloat(),
-                    mesh.material()._alphaCutoff,
-                    mesh.material()._texCoordSets.baseColor,
-                    mesh.material()._texCoordSets.metallicRoughness,
-                    mesh.material()._texCoordSets.normal
-                };
-                buffer.pushConstants(
-                    _vkGraphicsPipelineLayout,
-                    vk::ShaderStageFlagBits::eFragment,
-                    0, // offset
-                    sizeof(Material::PCBlock),
-                    &pcBlock
-                );
-                mesh.draw(buffer);
-            }
+            Material::PCBlock pcBlock{
+                mesh.material()._baseColorFactor,
+                mesh.material()._metallicFactor,
+                mesh.material()._roughnessFactor,
+                mesh.material().alphaModeFloat(),
+                mesh.material()._alphaCutoff,
+                mesh.material()._texCoordSets.baseColor,
+                mesh.material()._texCoordSets.metallicRoughness,
+                mesh.material()._texCoordSets.normal
+            };
+            buffer.pushConstants(
+                _vkGraphicsPipelineLayout,
+                vk::ShaderStageFlagBits::eFragment,
+                0, // offset
+                sizeof(Material::PCBlock),
+                &pcBlock
+            );
+            mesh.draw(buffer);
         }
     }
 
