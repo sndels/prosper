@@ -9,10 +9,6 @@ struct Model;
 
 struct Scene {
     struct Node {
-        struct UBlock {
-            glm::mat4 modelToWorld;
-        };
-
         // TODO: Other fields
         std::vector<Node*> children;
         Model* model;
@@ -27,6 +23,15 @@ struct Scene {
             rotation(1.f, 0.f, 0.f, 0.f),
             scale(1.f)
         { }
+    };
+
+    struct ModelInstance {
+        struct UBlock {
+            glm::mat4 modelToWorld;
+        };
+
+        Model* model;
+        glm::mat4 modelToWorld;
 
         std::vector<Buffer> uniformBuffers;
         std::vector<vk::DescriptorSet> descriptorSets;
@@ -40,7 +45,7 @@ struct Scene {
             return infos;
         }
 
-        void updateBuffer(const Device* device, const uint32_t nextImage, const glm::mat4& modelToWorld) const
+        void updateBuffer(const Device* device, const uint32_t nextImage) const
         {
             UBlock uBlock;
             uBlock.modelToWorld = modelToWorld;
@@ -53,6 +58,7 @@ struct Scene {
     };
 
     std::vector<Node*> nodes;
+    std::vector<ModelInstance> modelInstances;
 };
 
 #endif // PROSPER_SCENENODE_HPP

@@ -385,7 +385,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 
     const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
         _cam.descriptorSetLayout(),
-        _world._nodeDSLayout,
+        _world._modelInstanceDSLayout,
         _world._materialDSLayout
     }};
     const vk::PushConstantRange pcRange{
@@ -484,34 +484,9 @@ void App::updateUniformBuffers(const uint32_t nextImage)
 {
     _cam.updateBuffer(nextImage);
 
-    // Traverse the scenes and update node uniforms
-    std::vector<mat4> parentTransforms{mat4{1.f}};
-    for (auto& scene : _world._scenes) {
-        std::set<Scene::Node*> visited;
-        std::vector<Scene::Node*> nodeStack = scene.nodes;
-        while (!nodeStack.empty()) {
-            const auto node = nodeStack.back();
-            if (visited.find(node) != visited.end()) {
-                nodeStack.pop_back();
-                parentTransforms.pop_back();
-            } else {
-                visited.emplace(node);
-                nodeStack.insert(nodeStack.end(), node->children.begin(), node->children.end());
-                const mat4 transform =
-                    parentTransforms.back() *
-                    translate(mat4{1.f}, node->translation) *
-                    mat4_cast(node->rotation) *
-                    scale(mat4{1.f}, node->scale);
-                if (node->model) {
-                    node->updateBuffer(
-                        &_device,
-                        nextImage,
-                        transform
-                    );
-                }
-                parentTransforms.emplace_back(transform);
-            }
-        }
+    for (const auto& scene : _world._scenes) {
+        for (const auto& instance : scene.modelInstances)
+            instance.updateBuffer(&_device, nextImage);
     }
 }
 
@@ -555,46 +530,46 @@ void App::recordCommandBuffer(const uint32_t nextImage)
     );
 
     // Draw scene
-    for (const auto& node : _world._nodes) {
-        if (!node.model)
-            continue;
-        buffer.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            _vkGraphicsPipelineLayout,
-            1, // firstSet
-            1, // descriptorSetCount
-            &node.descriptorSets[nextImage],
-            0, // dynamicOffsetCount
-            nullptr // pDynamicOffsets
-        );
-        for (const auto& mesh : node.model->_meshes) {
+    for (const auto& scene : _world._scenes) {
+        for (const auto& instance : scene.modelInstances) {
             buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 _vkGraphicsPipelineLayout,
-                2, // firstSet
+                1, // firstSet
                 1, // descriptorSetCount
-                &mesh.material()._descriptorSet,
+                &instance.descriptorSets[nextImage],
                 0, // dynamicOffsetCount
                 nullptr // pDynamicOffsets
             );
-            Material::PCBlock pcBlock{
-                mesh.material()._baseColorFactor,
-                mesh.material()._metallicFactor,
-                mesh.material()._roughnessFactor,
-                mesh.material().alphaModeFloat(),
-                mesh.material()._alphaCutoff,
-                mesh.material()._texCoordSets.baseColor,
-                mesh.material()._texCoordSets.metallicRoughness,
-                mesh.material()._texCoordSets.normal
-            };
-            buffer.pushConstants(
-                _vkGraphicsPipelineLayout,
-                vk::ShaderStageFlagBits::eFragment,
-                0, // offset
-                sizeof(Material::PCBlock),
-                &pcBlock
-            );
-            mesh.draw(buffer);
+            for (const auto& mesh : instance.model->_meshes) {
+                buffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    _vkGraphicsPipelineLayout,
+                    2, // firstSet
+                    1, // descriptorSetCount
+                    &mesh.material()._descriptorSet,
+                    0, // dynamicOffsetCount
+                    nullptr // pDynamicOffsets
+                );
+                Material::PCBlock pcBlock{
+                    mesh.material()._baseColorFactor,
+                    mesh.material()._metallicFactor,
+                    mesh.material()._roughnessFactor,
+                    mesh.material().alphaModeFloat(),
+                    mesh.material()._alphaCutoff,
+                    mesh.material()._texCoordSets.baseColor,
+                    mesh.material()._texCoordSets.metallicRoughness,
+                    mesh.material()._texCoordSets.normal
+                };
+                buffer.pushConstants(
+                    _vkGraphicsPipelineLayout,
+                    vk::ShaderStageFlagBits::eFragment,
+                    0, // offset
+                    sizeof(Material::PCBlock),
+                    &pcBlock
+                );
+                mesh.draw(buffer);
+            }
         }
     }
 

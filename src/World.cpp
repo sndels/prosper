@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <set>
 
 #include "Constants.hpp"
 
@@ -37,10 +38,12 @@ World::~World()
 {
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_materialDSLayout);
-    _device->logical().destroy(_nodeDSLayout);
-    for (auto& node : _nodes) {
-        for (auto& buffer : node.uniformBuffers)
-            _device->destroy(buffer);
+    _device->logical().destroy(_modelInstanceDSLayout);
+    for (auto& scene : _scenes) {
+        for (auto& instance: scene.modelInstances) {
+            for (auto& buffer : instance.uniformBuffers)
+                _device->destroy(buffer);
+        }
     }
 }
 
@@ -258,6 +261,37 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
         );
     }
 
+    // Traverse scenes and generate model instances for snappier rendering
+    std::vector<mat4> parentTransforms{mat4{1.f}};
+    for (auto& scene : _scenes) {
+        std::set<Scene::Node*> visited;
+        std::vector<Scene::Node*> nodeStack = scene.nodes;
+        while (!nodeStack.empty()) {
+            const auto node = nodeStack.back();
+            if (visited.find(node) != visited.end()) {
+                nodeStack.pop_back();
+                parentTransforms.pop_back();
+            } else {
+                visited.emplace(node);
+                nodeStack.insert(nodeStack.end(), node->children.begin(), node->children.end());
+                const mat4 transform =
+                    parentTransforms.back() *
+                    translate(mat4{1.f}, node->translation) *
+                    mat4_cast(node->rotation) *
+                    scale(mat4{1.f}, node->scale);
+                if (node->model) {
+                    scene.modelInstances.push_back({
+                        node->model,
+                        transform,
+                        {},
+                        {}
+                    });
+                }
+                parentTransforms.emplace_back(transform);
+            }
+        }
+    }
+
     createUniformBuffers(swapImageCount);
     createDescriptorPool(swapImageCount);
     createDescriptorSets(swapImageCount);
@@ -265,16 +299,18 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
 
 void World::createUniformBuffers(const uint32_t swapImageCount)
 {
-    const vk::DeviceSize bufferSize = sizeof(Scene::Node::UBlock);
-    for (auto& node : _nodes) {
-        for (size_t i = 0; i < swapImageCount; ++i)
-            node.uniformBuffers.push_back(_device->createBuffer(
-                bufferSize,
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent,
-                VMA_MEMORY_USAGE_CPU_TO_GPU
-            ));
+    const vk::DeviceSize bufferSize = sizeof(Scene::ModelInstance::UBlock);
+    for (auto& scene : _scenes) {
+        for (auto& modelInstance : scene.modelInstances) {
+            for (size_t i = 0; i < swapImageCount; ++i)
+                modelInstance.uniformBuffers.push_back(_device->createBuffer(
+                    bufferSize,
+                    vk::BufferUsageFlagBits::eUniformBuffer,
+                    vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent,
+                    VMA_MEMORY_USAGE_CPU_TO_GPU
+                ));
+        }
     }
 }
 
@@ -360,41 +396,43 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         );
     }
 
-    const vk::DescriptorSetLayoutBinding nodeLayoutBinding{
+    const vk::DescriptorSetLayoutBinding modelInstanceLayoutBinding{
         0, // binding
         vk::DescriptorType::eUniformBuffer,
         1, // descriptorCount
         vk::ShaderStageFlagBits::eVertex
     };
-    _nodeDSLayout = _device->logical().createDescriptorSetLayout({
+    _modelInstanceDSLayout = _device->logical().createDescriptorSetLayout({
         {}, // flags
         1, // bindingCount
-        &nodeLayoutBinding
+        &modelInstanceLayoutBinding
     });
 
-    const std::vector<vk::DescriptorSetLayout> nodeLayouts(
+    const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
         swapImageCount,
-        _nodeDSLayout
+        _modelInstanceDSLayout
     );
-    for (auto& node : _nodes) {
-        node.descriptorSets = _device->logical().allocateDescriptorSets({
-            _descriptorPool,
-            static_cast<uint32_t>(nodeLayouts.size()),
-            nodeLayouts.data()
-        });
+    for (auto& scene : _scenes) {
+        for (auto& instance : scene.modelInstances) {
+            instance.descriptorSets = _device->logical().allocateDescriptorSets({
+                _descriptorPool,
+                static_cast<uint32_t>(modelInstanceLayouts.size()),
+                modelInstanceLayouts.data()
+            });
 
-        const auto bufferInfos = node.bufferInfos();
-        for (size_t i = 0; i < node.descriptorSets.size(); ++i) {
-            const vk::WriteDescriptorSet descriptorWrite{
-                node.descriptorSets[i],
-                0, // dstBinding,
-                0, // dstArrayElement
-                1, // descriptorCount
-                vk::DescriptorType::eUniformBuffer,
-                nullptr, // pImageInfo
-                &bufferInfos[i]
-            };
-            _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+            const auto bufferInfos = instance.bufferInfos();
+            for (size_t i = 0; i < instance.descriptorSets.size(); ++i) {
+                const vk::WriteDescriptorSet descriptorWrite{
+                    instance.descriptorSets[i],
+                    0, // dstBinding,
+                    0, // dstArrayElement
+                    1, // descriptorCount
+                    vk::DescriptorType::eUniformBuffer,
+                    nullptr, // pImageInfo
+                    &bufferInfos[i]
+                };
+                _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+            }
         }
     }
 }

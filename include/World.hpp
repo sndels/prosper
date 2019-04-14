@@ -32,7 +32,7 @@ public:
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;
-    vk::DescriptorSetLayout _nodeDSLayout;
+    vk::DescriptorSetLayout _modelInstanceDSLayout;
 
 private:
     Device* _device = nullptr;
