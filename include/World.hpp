@@ -21,6 +21,7 @@ public:
     void createUniformBuffers(const uint32_t swapImageCount);
     void createDescriptorPool(const uint32_t swapImageCount);
     void createDescriptorSets(const uint32_t swapImageCount);
+    const Scene& currentScene() const;
 
     // TODO: Private?
     std::optional<Texture> _emptyTexture;
@@ -29,6 +30,7 @@ public:
     std::vector<Model> _models;
     std::vector<Scene::Node> _nodes;
     std::vector<Scene> _scenes;
+    size_t _currentScene;
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;

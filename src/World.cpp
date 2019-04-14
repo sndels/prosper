@@ -260,6 +260,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             [&](int i){ return &_nodes[i]; }
         );
     }
+    _currentScene = max(gltfModel.defaultScene, 0);
 
     // Traverse scenes and generate model instances for snappier rendering
     std::vector<mat4> parentTransforms{mat4{1.f}};
@@ -435,4 +436,9 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             }
         }
     }
+}
+
+const Scene& World::currentScene() const
+{
+    return _scenes[_currentScene];
 }
