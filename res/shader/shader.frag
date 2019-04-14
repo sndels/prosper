@@ -146,7 +146,16 @@ void main()
             discard;
     }
 
-    vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
+    float metallic;
+    float roughness;
+    if (materialPC.metallicRoughnessTextureSet > -1) {
+        vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
+        metallic = mr.b * materialPC.metallicFactor;
+        roughness = mr.g * materialPC.roughnessFactor;
+    } else {
+        metallic = materialPC.metallicFactor;
+        roughness = materialPC.roughnessFactor;
+    }
 
     vec3 normal;
     if (materialPC.normalTextureSet > -1){
@@ -157,8 +166,8 @@ void main()
 
     Material m;
     m.albedo = linearBaseColor.rgb;
-    m.metallic = mr.b * materialPC.metallicFactor;
-    m.roughness = mr.g * materialPC.roughnessFactor;
+    m.metallic = metallic;
+    m.roughness = roughness;
 
     vec3 v = normalize(camera.eye - fragPosition);
     vec3 l = -normalize(light_dir);
