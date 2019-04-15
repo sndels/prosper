@@ -10,3 +10,6 @@
 [submodule "ext/vma"]
 	path = ext/vma
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "ext/gli"]
+	path = ext/gli
+	url = https://github.com/g-truc/gli.git

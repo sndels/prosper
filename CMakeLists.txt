@@ -39,6 +39,7 @@ target_include_directories(prosper
 target_link_libraries(prosper
     PRIVATE
     glfw
+    gli
     glm
     stb_image
     vma

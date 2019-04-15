@@ -26,3 +26,8 @@ target_include_directories(tinygltf INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf
 add_library(vma INTERFACE)
 # Define as system to suppress warnings
 target_include_directories(vma SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/vma/src)
+
+# gli is header only
+add_library(gli INTERFACE)
+# Define as system to suppress warnings
+target_include_directories(gli SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/gli)
