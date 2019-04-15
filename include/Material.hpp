@@ -39,6 +39,7 @@ public:
     Material& operator=(const Material& other) = delete;
 
     float alphaModeFloat() const;
+    PCBlock pcBlock() const;
 
     // TODO: More parameters
     Texture* _baseColor = nullptr;

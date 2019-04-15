@@ -27,3 +27,17 @@ float Material::alphaModeFloat() const
     }
     return -1;
 }
+
+Material::PCBlock Material::pcBlock() const
+{
+    return {
+        _baseColorFactor,
+        _metallicFactor,
+        _roughnessFactor,
+        alphaModeFloat(),
+        _alphaCutoff,
+        _texCoordSets.baseColor,
+        _texCoordSets.metallicRoughness,
+        _texCoordSets.normal
+    };
+}

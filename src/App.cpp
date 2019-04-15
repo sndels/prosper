@@ -594,16 +594,7 @@ void App::recordModelInstances(const vk::CommandBuffer buffer, const uint32_t ne
                 0, // dynamicOffsetCount
                 nullptr // pDynamicOffsets
             );
-            Material::PCBlock pcBlock{
-                mesh.material()._baseColorFactor,
-                mesh.material()._metallicFactor,
-                mesh.material()._roughnessFactor,
-                mesh.material().alphaModeFloat(),
-                mesh.material()._alphaCutoff,
-                mesh.material()._texCoordSets.baseColor,
-                mesh.material()._texCoordSets.metallicRoughness,
-                mesh.material()._texCoordSets.normal
-            };
+            const auto pcBlock = mesh.material().pcBlock();
             buffer.pushConstants(
                 _vkGraphicsPipelineLayout,
                 vk::ShaderStageFlagBits::eFragment,
