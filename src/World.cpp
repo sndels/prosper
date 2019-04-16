@@ -112,6 +112,7 @@ World::~World()
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_materialDSLayout);
     _device->logical().destroy(_modelInstanceDSLayout);
+    _device->logical().destroy(_skyboxDSLayout);
     _device->destroy(_skyboxVertexBuffer);
     for (auto& scene : _scenes) {
         for (auto& instance: scene.modelInstances) {
@@ -418,7 +419,7 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
     }
 
     {
-        const vk::DeviceSize bufferSize = sizeof(SkyboxUBlock);
+        const vk::DeviceSize bufferSize = sizeof(mat4);
         for (size_t i = 0; i < swapImageCount; ++i) {
             _skyboxUniformBuffers.push_back(_device->createBuffer(
                 bufferSize,
@@ -434,19 +435,24 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
 void World::createDescriptorPool(const uint32_t swapImageCount)
 {
     // TODO: Tight bound for node descriptor count by nodes with a mesh
+    // Skybox cubemap is also one descriptor per image as it's in the same set as camera
+    const uint32_t uniformDescriptorCount =
+        swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 1);
+    const uint32_t samplerDescriptorCount =
+        3 * static_cast<uint32_t>(_materials.size()) + swapImageCount;
     const std::array<vk::DescriptorPoolSize, 2> poolSizes{{
         { // (Dynamic) Nodes need per frame descriptor sets of one descriptor for the UBlock
             vk::DescriptorType::eUniformBuffer,
-            swapImageCount * static_cast<uint32_t>(_nodes.size())// descriptorCount
+            uniformDescriptorCount
         },
         { // Materials need one descriptor per texture as they are constant between frames
             vk::DescriptorType::eCombinedImageSampler,
-            3 * static_cast<uint32_t>(_materials.size()) // descriptorCount
+            samplerDescriptorCount
         }
     }};
     const uint32_t maxSets =
-        swapImageCount * static_cast<uint32_t>(_nodes.size()) +
-        static_cast<uint32_t>(_materials.size());
+        swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 1) +
+        static_cast<uint32_t>(_materials.size()) + swapImageCount;
     _descriptorPool = _device->logical().createDescriptorPool({
         {}, // flags
         maxSets,
@@ -551,5 +557,70 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
             }
         }
+    }
+
+    const std::array<vk::DescriptorSetLayoutBinding, 2> skyboxLayoutBindings{{
+        {
+            0, // binding
+            vk::DescriptorType::eUniformBuffer,
+            1, // descriptorCount
+            vk::ShaderStageFlagBits::eVertex
+        },
+        {
+            1, // binding
+            vk::DescriptorType::eCombinedImageSampler,
+            1, // descriptorCount
+            vk::ShaderStageFlagBits::eFragment
+        },
+    }};
+    _skyboxDSLayout = _device->logical().createDescriptorSetLayout({
+        {}, // flags
+        static_cast<uint32_t>(skyboxLayoutBindings.size()), // bindingCount
+        skyboxLayoutBindings.data()
+    });
+
+    const std::vector<vk::DescriptorSetLayout> skyboxLayouts(
+        swapImageCount,
+        _skyboxDSLayout
+    );
+    _skyboxDSs = _device->logical().allocateDescriptorSets({
+        _descriptorPool,
+        static_cast<uint32_t>(skyboxLayouts.size()),
+        skyboxLayouts.data()
+    });
+
+    const auto skyboxBufferInfos = [&]{
+        std::vector<vk::DescriptorBufferInfo> bufferInfos;
+        for (auto& buffer : _skyboxUniformBuffers)
+            bufferInfos.emplace_back(buffer.handle, 0, sizeof(mat4));
+        return bufferInfos;
+    }();
+    const vk::DescriptorImageInfo skyboxImageInfo = _skyboxTexture->imageInfo();
+    for (size_t i = 0; i < _skyboxDSs.size(); ++i) {
+        const std::array<vk::WriteDescriptorSet, 2> writeDescriptorSets{{
+            {
+                _skyboxDSs[i],
+                0, // dstBinding,
+                0, // dstArrayElement
+                1, // descriptorCount
+                vk::DescriptorType::eUniformBuffer,
+                nullptr, // pImageInfo
+                &skyboxBufferInfos[i]
+            },
+            {
+                _skyboxDSs[i],
+                1, // dstBinding,
+                0, // dstArrayElement
+                1, // descriptorCount
+                vk::DescriptorType::eCombinedImageSampler,
+                &skyboxImageInfo
+            }
+        }};
+        _device->logical().updateDescriptorSets(
+            static_cast<uint32_t>(writeDescriptorSets.size()),
+            writeDescriptorSets.data(),
+            0, // descriptorCopyCount
+            nullptr  // pDescriptorCopies
+        );
     }
 }

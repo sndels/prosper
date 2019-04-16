@@ -11,11 +11,6 @@ class Device;
 class World
 {
 public:
-    struct SkyboxUBlock {
-        glm::mat4 worldToCamera; // Without translation
-        glm::mat4 cameraToClip;
-    };
-
     World() = default;
     ~World();
 
@@ -37,10 +32,12 @@ public:
     std::optional<TextureCubemap> _skyboxTexture;
     Buffer _skyboxVertexBuffer;
     std::vector<Buffer> _skyboxUniformBuffers;
+    std::vector<vk::DescriptorSet> _skyboxDSs;
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;
     vk::DescriptorSetLayout _modelInstanceDSLayout;
+    vk::DescriptorSetLayout _skyboxDSLayout;
 
 private:
     void loadTextures(const tinygltf::Model& gltfModel);
