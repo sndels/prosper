@@ -119,6 +119,8 @@ World::~World()
                 _device->destroy(buffer);
         }
     }
+    for (auto& buffer : _skyboxUniformBuffers)
+        _device->destroy(buffer);
 }
 
 void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename)
@@ -399,17 +401,32 @@ void World::loadScenes(const tinygltf::Model& gltfModel)
 
 void World::createUniformBuffers(const uint32_t swapImageCount)
 {
-    const vk::DeviceSize bufferSize = sizeof(Scene::ModelInstance::UBlock);
-    for (auto& scene : _scenes) {
-        for (auto& modelInstance : scene.modelInstances) {
-            for (size_t i = 0; i < swapImageCount; ++i)
-                modelInstance.uniformBuffers.push_back(_device->createBuffer(
-                    bufferSize,
-                    vk::BufferUsageFlagBits::eUniformBuffer,
-                    vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent,
-                    VMA_MEMORY_USAGE_CPU_TO_GPU
-                ));
+    {
+        const vk::DeviceSize bufferSize = sizeof(Scene::ModelInstance::UBlock);
+        for (auto& scene : _scenes) {
+            for (auto& modelInstance : scene.modelInstances) {
+                for (size_t i = 0; i < swapImageCount; ++i)
+                    modelInstance.uniformBuffers.push_back(_device->createBuffer(
+                        bufferSize,
+                        vk::BufferUsageFlagBits::eUniformBuffer,
+                        vk::MemoryPropertyFlagBits::eHostVisible |
+                        vk::MemoryPropertyFlagBits::eHostCoherent,
+                        VMA_MEMORY_USAGE_CPU_TO_GPU
+                    ));
+            }
+        }
+    }
+
+    {
+        const vk::DeviceSize bufferSize = sizeof(SkyboxUBlock);
+        for (size_t i = 0; i < swapImageCount; ++i) {
+            _skyboxUniformBuffers.push_back(_device->createBuffer(
+                bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible |
+                vk::MemoryPropertyFlagBits::eHostCoherent,
+                VMA_MEMORY_USAGE_CPU_TO_GPU
+            ));
         }
     }
 }

@@ -11,6 +11,11 @@ class Device;
 class World
 {
 public:
+    struct SkyboxUBlock {
+        glm::mat4 worldToCamera; // Without translation
+        glm::mat4 cameraToClip;
+    };
+
     World() = default;
     ~World();
 
@@ -31,6 +36,7 @@ public:
 
     std::optional<TextureCubemap> _skyboxTexture;
     Buffer _skyboxVertexBuffer;
+    std::vector<Buffer> _skyboxUniformBuffers;
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;
