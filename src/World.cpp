@@ -52,7 +52,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
     _device = device;
 
     {
-        auto empty = Texture(_device, resPath("texture/empty.png"), false);
+        auto empty = Texture2D(_device, resPath("texture/empty.png"), false);
         _emptyTexture = std::move(empty);
     }
 

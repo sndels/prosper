@@ -24,8 +24,8 @@ public:
     const Scene& currentScene() const;
 
     // TODO: Private?
-    std::optional<Texture> _emptyTexture;
-    std::vector<Texture> _textures;
+    std::optional<Texture2D> _emptyTexture;
+    std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
     std::vector<Model> _models;
     std::vector<Scene::Node> _nodes;

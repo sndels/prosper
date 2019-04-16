@@ -64,9 +64,57 @@ namespace {
     }
 }
 
-Texture::Texture(Device* device, const std::string& path, const bool mipmap) :
+Texture::Texture(Device* device) :
     _device(device)
+{ }
+
+Texture::~Texture()
 {
+    _device->logical().destroy(_imageView);
+    _device->logical().destroy(_sampler);
+    _device->destroy(_image);
+}
+
+Texture::Texture(Texture&& other) :
+    _device(other._device),
+    _image(other._image),
+    _imageView(other._imageView),
+    _sampler(other._sampler)
+{
+    other._image.handle = nullptr;
+    other._image.allocation = nullptr;
+    other._imageView = nullptr;
+    other._sampler = nullptr;
+}
+
+Texture& Texture::operator=(Texture&& other)
+{
+    if (this != &other) {
+        _device = other._device;
+        _image = other._image;
+        _imageView = other._imageView;
+        _sampler = other._sampler;
+        other._image.handle = nullptr;
+        other._image.allocation = nullptr;
+        other._imageView = nullptr;
+        other._sampler = nullptr;
+    }
+    return *this;
+}
+
+vk::DescriptorImageInfo Texture::imageInfo() const
+{
+    return vk::DescriptorImageInfo{
+        _sampler,
+        _imageView,
+        vk::ImageLayout::eShaderReadOnlyOptimal
+    };
+}
+
+Texture2D::Texture2D(Device* device, const std::string& path, const bool mipmap) :
+    Texture(device)
+{
+    _device = device;
     const auto [pixels, extent] = pixelsFromFile(path);
     const auto stagingBuffer = stagePixels(pixels, extent);
 
@@ -89,8 +137,8 @@ Texture::Texture(Device* device, const std::string& path, const bool mipmap) :
     _device->destroy(stagingBuffer);
 }
 
-Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap) :
-    _device(device)
+Texture2D::Texture2D(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap) :
+    Texture(device)
 {
     // TODO: support
     if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
@@ -141,50 +189,7 @@ Texture::Texture(Device* device, const tinygltf::Image& image, const tinygltf::S
     _device->destroy(stagingBuffer);
 }
 
-Texture::~Texture()
-{
-    _device->logical().destroy(_imageView);
-    _device->logical().destroy(_sampler);
-    _device->destroy(_image);
-}
-
-Texture::Texture(Texture&& other) :
-    _device(other._device),
-    _image(other._image),
-    _imageView(other._imageView),
-    _sampler(other._sampler)
-{
-    other._image.handle = nullptr;
-    other._image.allocation = nullptr;
-    other._imageView = nullptr;
-    other._sampler = nullptr;
-}
-
-Texture& Texture::operator=(Texture&& other)
-{
-    if (this != &other) {
-        _device = other._device;
-        _image = other._image;
-        _imageView = other._imageView;
-        _sampler = other._sampler;
-        other._image.handle = nullptr;
-        other._image.allocation = nullptr;
-        other._imageView = nullptr;
-        other._sampler = nullptr;
-    }
-    return *this;
-}
-
-vk::DescriptorImageInfo Texture::imageInfo() const
-{
-    return vk::DescriptorImageInfo{
-        _sampler,
-        _imageView,
-        vk::ImageLayout::eShaderReadOnlyOptimal
-    };
-}
-
-Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
+Buffer Texture2D::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
 {
     const vk::DeviceSize imageSize = extent.width * extent.height * 4;
 
@@ -204,7 +209,7 @@ Buffer Texture::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
     return stagingBuffer;
 }
 
-void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange)
+void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange)
 {
     // Both transfer source and destination as pixels will be transferred to it and
     // mipmaps will be generated from it
@@ -236,7 +241,7 @@ void Texture::createImage(const Buffer& stagingBuffer, const vk::Extent2D extent
     createMipmaps(extent, subresourceRange.levelCount);
 }
 
-void Texture::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels)
+void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels)
 {
     // TODO: Check that the texture format supports linear filtering
     const auto buffer = _device->beginGraphicsCommands();
@@ -346,7 +351,7 @@ void Texture::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels)
     _device->endGraphicsCommands(buffer);
 }
 
-void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
+void Texture2D::createImageView(const vk::ImageSubresourceRange& subresourceRange)
 {
     _imageView = _device->logical().createImageView({
         {}, // flags
@@ -361,7 +366,7 @@ void Texture::createImageView(const vk::ImageSubresourceRange& subresourceRange)
         std::cerr << "Null image view" << std::endl;
 }
 
-void Texture::createSampler(const uint32_t mipLevels)
+void Texture2D::createSampler(const uint32_t mipLevels)
 {
     // TODO: Use shared samplers
     _sampler = _device->logical().createSampler({
@@ -382,7 +387,7 @@ void Texture::createSampler(const uint32_t mipLevels)
     });
 }
 
-void Texture::createSampler(const tinygltf::Sampler& sampler, const uint32_t mipLevels)
+void Texture2D::createSampler(const tinygltf::Sampler& sampler, const uint32_t mipLevels)
 {
     // TODO: Use shared samplers
     _sampler = _device->logical().createSampler({
