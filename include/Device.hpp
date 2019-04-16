@@ -57,7 +57,7 @@ public:
     void copyBufferToImage(const Buffer& src, const Image& dst, const vk::Extent2D extent) const;
     void destroy(const Buffer& buffer);
 
-    Image createImage(const vk::Extent2D extent, const uint32_t mipLevels, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const;
+    Image createImage(const vk::Extent2D extent, const uint32_t mipLevels, const uint32_t arrayLayers, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const;
     void transitionImageLayout(const Image& image, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const;
     void destroy(const Image& image);
 
