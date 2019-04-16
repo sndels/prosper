@@ -34,6 +34,8 @@ public:
     std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
     const vk::DescriptorSetLayout& descriptorSetLayout() const;
     const vk::DescriptorSet& descriptorSet(const uint32_t index) const;
+    const glm::mat4& worldToCamera() const;
+    const glm::mat4& cameraToClip() const;
 
 private:
     void destroyUniformBuffers();

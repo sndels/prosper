@@ -171,6 +171,16 @@ const vk::DescriptorSet& Camera::descriptorSet(const uint32_t index) const
     return _descriptorSets[index];
 }
 
+const glm::mat4& Camera::worldToCamera() const
+{
+    return _worldToCamera;
+}
+
+const glm::mat4& Camera::cameraToClip() const
+{
+    return _cameraToClip;
+}
+
 void Camera::destroyUniformBuffers()
 {
     if (_device != nullptr) {
