@@ -30,6 +30,7 @@ public:
     size_t _currentScene;
 
     std::optional<TextureCubemap> _skyboxTexture;
+    Buffer _skyboxVertexBuffer;
 
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;

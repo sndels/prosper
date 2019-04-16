@@ -15,6 +15,50 @@
 using namespace glm;
 
 namespace {
+    const std::array<glm::vec3, 36> skyboxVerts{{
+        vec3{-1.0f,  1.0f, -1.0f},
+        vec3{-1.0f, -1.0f, -1.0f},
+        vec3{1.0f, -1.0f, -1.0f},
+        vec3{1.0f, -1.0f, -1.0f},
+        vec3{1.0f,  1.0f, -1.0f},
+        vec3{-1.0f,  1.0f, -1.0f},
+
+        vec3{-1.0f, -1.0f,  1.0f},
+        vec3{-1.0f, -1.0f, -1.0f},
+        vec3{-1.0f,  1.0f, -1.0f},
+        vec3{-1.0f,  1.0f, -1.0f},
+        vec3{-1.0f,  1.0f,  1.0f},
+        vec3{-1.0f, -1.0f,  1.0f},
+
+        vec3{1.0f, -1.0f, -1.0f},
+        vec3{1.0f, -1.0f,  1.0f},
+        vec3{1.0f,  1.0f,  1.0f},
+        vec3{1.0f,  1.0f,  1.0f},
+        vec3{1.0f,  1.0f, -1.0f},
+        vec3{1.0f, -1.0f, -1.0f},
+
+        vec3{-1.0f, -1.0f,  1.0f},
+        vec3{-1.0f,  1.0f,  1.0f},
+        vec3{1.0f,  1.0f,  1.0f},
+        vec3{1.0f,  1.0f,  1.0f},
+        vec3{1.0f, -1.0f,  1.0f},
+        vec3{-1.0f, -1.0f,  1.0f},
+
+        vec3{-1.0f,  1.0f, -1.0f},
+        vec3{1.0f,  1.0f, -1.0f},
+        vec3{1.0f,  1.0f,  1.0f},
+        vec3{1.0f,  1.0f,  1.0f},
+        vec3{-1.0f,  1.0f,  1.0f},
+        vec3{-1.0f,  1.0f, -1.0f},
+
+        vec3{-1.0f, -1.0f, -1.0f},
+        vec3{-1.0f, -1.0f,  1.0f},
+        vec3{1.0f, -1.0f, -1.0f},
+        vec3{1.0f, -1.0f, -1.0f},
+        vec3{-1.0f, -1.0f,  1.0f},
+        vec3{1.0f, -1.0f,  1.0f}
+    }};
+
     tinygltf::Model loadGLTFModel(const std::string& filename)
     {
         tinygltf::Model model;
@@ -32,6 +76,35 @@ namespace {
 
         return model;
     }
+
+    Buffer createSkyboxVertexBuffer(Device* device)
+    {
+        const vk::DeviceSize bufferSize = sizeof(skyboxVerts[0]) * skyboxVerts.size();
+        const Buffer stagingBuffer = device->createBuffer(
+            bufferSize,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent,
+            VMA_MEMORY_USAGE_CPU_TO_GPU
+        );
+
+        void* data;
+        device->map(stagingBuffer.allocation, &data);
+        memcpy(data, skyboxVerts.data(), static_cast<size_t>(bufferSize));
+        device->unmap(stagingBuffer.allocation);
+
+        const auto skyboxVertexBuffer = device->createBuffer(
+            bufferSize,
+            vk::BufferUsageFlagBits::eVertexBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY
+        );
+        device->copyBuffer(stagingBuffer, skyboxVertexBuffer, bufferSize);
+
+        device->destroy(stagingBuffer);
+        return skyboxVertexBuffer;
+    }
 }
 
 World::~World()
@@ -39,6 +112,7 @@ World::~World()
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_materialDSLayout);
     _device->logical().destroy(_modelInstanceDSLayout);
+    _device->destroy(_skyboxVertexBuffer);
     for (auto& scene : _scenes) {
         for (auto& instance: scene.modelInstances) {
             for (auto& buffer : instance.uniformBuffers)
@@ -56,6 +130,7 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
         _emptyTexture = std::move(empty);
         auto skybox = TextureCubemap(_device, resPath("env/storm.ktx"));
         _skyboxTexture = std::move(skybox);
+        _skyboxVertexBuffer = createSkyboxVertexBuffer(_device);
     }
 
     const auto gltfModel = loadGLTFModel(filename);
