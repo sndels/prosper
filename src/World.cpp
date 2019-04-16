@@ -151,6 +151,13 @@ const Scene& World::currentScene() const
     return _scenes[_currentScene];
 }
 
+void World::drawSkybox(const vk::CommandBuffer& buffer) const
+{
+    const vk::DeviceSize offset = 0;
+    buffer.bindVertexBuffers(0, 1, &_skyboxVertexBuffer.handle, &offset);
+    buffer.draw(static_cast<uint32_t>(skyboxVerts.size()), 1, 0, 0);
+}
+
 void World::loadTextures(const tinygltf::Model& gltfModel)
 {
     for (const auto& texture : gltfModel.textures) {

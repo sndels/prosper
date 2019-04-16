@@ -19,6 +19,7 @@ public:
 
     void loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename);
     const Scene& currentScene() const;
+    void drawSkybox(const vk::CommandBuffer& buffer) const;
 
     // TODO: Private?
     std::optional<Texture2D> _emptyTexture;
