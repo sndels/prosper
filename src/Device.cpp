@@ -334,10 +334,10 @@ void Device::destroy(const Buffer& buffer)
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
 }
 
-Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, const uint32_t arrayLayers, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const
+Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, const uint32_t arrayLayers, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const
 {
     vk::ImageCreateInfo imageInfo{
-        {}, // flags
+        flags,
         vk::ImageType::e2D,
         format,
         vk::Extent3D{extent, 1},

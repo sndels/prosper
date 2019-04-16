@@ -288,6 +288,7 @@ void Swapchain::createDepthResources()
         1, // arrayLayers
         _config.depthFormat,
         vk::ImageTiling::eOptimal,
+        vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eDepthStencilAttachment,
         vk::MemoryPropertyFlagBits::eDeviceLocal,
         VMA_MEMORY_USAGE_GPU_ONLY

@@ -219,6 +219,7 @@ void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D exte
         1,
         vk::Format::eR8G8B8A8Unorm,
         vk::ImageTiling::eOptimal,
+        vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eTransferSrc |
         vk::ImageUsageFlagBits::eTransferDst |
         vk::ImageUsageFlagBits::eSampled,
