@@ -1,6 +1,8 @@
 set(SHADER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/shader.frag
     ${CMAKE_CURRENT_LIST_DIR}/shader.vert
+    ${CMAKE_CURRENT_LIST_DIR}/skybox.frag
+    ${CMAKE_CURRENT_LIST_DIR}/skybox.vert
 )
 
 foreach(GLSL ${SHADER_SOURCES})
