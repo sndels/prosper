@@ -1,6 +1,7 @@
 #ifndef PROSPER_TEXTURE_HPP
 #define PROSPER_TEXTURE_HPP
 
+#include <gli/gli.hpp>
 #include <tiny_gltf.h>
 
 #include "Device.hpp"
@@ -37,6 +38,15 @@ private:
     void createImageView(const vk::ImageSubresourceRange& subresourceRange);
     void createSampler(const uint32_t mipLevels);
     void createSampler(const tinygltf::Sampler& sampler, const uint32_t mipLevels);
+
+};
+
+class TextureCubemap : public Texture {
+public:
+    TextureCubemap(Device* device, const std::string& path);
+
+private:
+    void copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange);
 
 };
 

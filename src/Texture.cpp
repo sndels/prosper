@@ -409,3 +409,160 @@ void Texture2D::createSampler(const tinygltf::Sampler& sampler, const uint32_t m
         static_cast<float>(mipLevels) // maxLod
     });
 }
+
+TextureCubemap::TextureCubemap(Device* device, const std::string& path) :
+    Texture(device)
+{
+    _device = device;
+
+    const gli::texture_cube cube(gli::load(path));
+    assert(!cube.empty());
+    assert(cube.faces() == 6);
+
+    const vk::Extent2D layerExtent{
+        static_cast<uint32_t>(cube.extent().x),
+        static_cast<uint32_t>(cube.extent().y)
+    };
+    const uint32_t mipLevels = cube.levels();
+
+    _image = _device->createImage(
+        layerExtent,
+        mipLevels,
+        6, // cubemap faces are layers in vk
+        vk::Format::eR16G16B16A16Sfloat,
+        vk::ImageTiling::eOptimal,
+        vk::ImageCreateFlagBits::eCubeCompatible,
+        vk::ImageUsageFlagBits::eTransferDst |
+        vk::ImageUsageFlagBits::eSampled,
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
+
+    const vk::ImageSubresourceRange subresourceRange{
+        vk::ImageAspectFlagBits::eColor,
+        0, // baseMipLevel
+        mipLevels, // levelCount
+        0, // baseArrayLayer
+        6 // layerCount
+    };
+
+    copyPixels(cube, subresourceRange);
+
+    _imageView = _device->logical().createImageView({
+        {}, // flags
+        _image.handle,
+        vk::ImageViewType::eCube,
+        vk::Format::eR16G16B16A16Sfloat,
+        vk::ComponentMapping{},
+        subresourceRange
+    });
+
+    _sampler = _device->logical().createSampler({
+        {}, // flags
+        vk::Filter::eLinear, // magFilter
+        vk::Filter::eLinear, // minFilter
+        vk::SamplerMipmapMode::eLinear,
+        vk::SamplerAddressMode::eClampToEdge, // addressModeU
+        vk::SamplerAddressMode::eClampToEdge, // addressModeV
+        vk::SamplerAddressMode::eClampToEdge, // addressModeW
+        0.f, // mipLodBias
+        VK_TRUE, // anisotropyEnable
+        16, // maxAnisotropy
+        false, // compareEnable
+        vk::CompareOp::eNever,
+        0, // minLod
+        static_cast<float>(mipLevels) // maxLod
+    });
+}
+
+void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange)
+{
+    const Buffer stagingBuffer = _device->createBuffer(
+        cube.size(),
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible |
+        vk::MemoryPropertyFlagBits::eHostCoherent,
+        VMA_MEMORY_USAGE_CPU_TO_GPU
+    );
+
+    void* data;
+    _device->map(stagingBuffer.allocation, &data);
+    memcpy(data, cube.data(), cube.size());
+    _device->unmap(stagingBuffer.allocation);
+
+    // Collect memory regions of all faces and their miplevels so their transfers
+    // can be submitted together
+    const std::vector<vk::BufferImageCopy> regions = [&]{
+        std::vector<vk::BufferImageCopy> regions;
+        size_t offset = 0;
+        for (uint32_t face = 0; face < cube.faces(); ++face) {
+            for (uint32_t mipLevel = 0; mipLevel < cube.levels(); ++mipLevel) {
+            // Cubemap data contains each face and its miplevels in order
+                regions.emplace_back(
+                    offset,
+                    0, 0, // bufferRowLength, bufferImageHeight, it is tightly packed
+                    vk::ImageSubresourceLayers{
+                        vk::ImageAspectFlagBits::eColor,
+                        mipLevel,
+                        face,
+                        1, // layerCount
+                    },
+                    vk::Offset3D{0},
+                    vk::Extent3D{
+                        static_cast<uint32_t>(cube[face][mipLevel].extent().x),
+                        static_cast<uint32_t>(cube[face][mipLevel].extent().y),
+                        1
+                    }
+                );
+                offset += cube[face][mipLevel].size();
+            }
+        }
+        return regions;
+    }();
+
+    const auto copyBuffer = _device->beginGraphicsCommands();
+
+    vk::ImageMemoryBarrier barrier{
+        {}, // srcAccessMask
+        vk::AccessFlagBits::eTransferWrite, // dstAccessMask
+        vk::ImageLayout::eUndefined, // oldLayout
+        vk::ImageLayout::eTransferDstOptimal, // newLayout
+        VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
+        _image.handle,
+        subresourceRange
+    };
+    copyBuffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eAllCommands, // srcStageMask
+        vk::PipelineStageFlagBits::eAllCommands, // dstStageMask
+        {}, // dependencyFlags
+        {}, nullptr, // memoryBarrierCount, ptr
+        {}, nullptr, // bufferMemoryBarrierCount, ptr
+        1, &barrier // imageMemoryBarrierCount, ptr
+    );
+
+    copyBuffer.copyBufferToImage(
+        stagingBuffer.handle,
+        _image.handle,
+        vk::ImageLayout::eTransferDstOptimal,
+        static_cast<uint32_t>(regions.size()),
+        regions.data()
+    );
+
+    barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+    barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+    barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+    barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    copyBuffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eTransfer, // srcStageMask
+        vk::PipelineStageFlagBits::eFragmentShader, // dstStageMask
+        {}, // dependencyFlags
+        {}, nullptr, // memoryBarrierCount, ptr
+        {}, nullptr, // bufferMemoryBarrierCount, ptr
+        1, &barrier // imageMemoryBarrierCount, ptr
+    );
+
+    _device->endGraphicsCommands(copyBuffer);
+
+    _device->destroy(stagingBuffer);
+}
