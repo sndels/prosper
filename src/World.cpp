@@ -54,6 +54,8 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
     {
         auto empty = Texture2D(_device, resPath("texture/empty.png"), false);
         _emptyTexture = std::move(empty);
+        auto skybox = TextureCubemap(_device, resPath("env/storm.ktx"));
+        _skyboxTexture = std::move(skybox);
     }
 
     const auto gltfModel = loadGLTFModel(filename);

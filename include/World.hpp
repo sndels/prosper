@@ -32,6 +32,8 @@ public:
     std::vector<Scene> _scenes;
     size_t _currentScene;
 
+    std::optional<TextureCubemap> _skyboxTexture;
+
     vk::DescriptorPool _descriptorPool;
     vk::DescriptorSetLayout _materialDSLayout;
     vk::DescriptorSetLayout _modelInstanceDSLayout;
