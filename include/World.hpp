@@ -36,6 +36,10 @@ public:
     vk::DescriptorSetLayout _modelInstanceDSLayout;
 
 private:
+    void loadTextures(const tinygltf::Model& gltfModel);
+    void loadMaterials(const tinygltf::Model& gltfModel);
+    void loadModels(const tinygltf::Model& gltfModel);
+    void loadScenes(const tinygltf::Model& gltfModel);
     void createUniformBuffers(const uint32_t swapImageCount);
     void createDescriptorPool(const uint32_t swapImageCount);
     void createDescriptorSets(const uint32_t swapImageCount);

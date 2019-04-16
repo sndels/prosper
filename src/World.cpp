@@ -60,6 +60,23 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
 
     const auto gltfModel = loadGLTFModel(filename);
 
+    loadTextures(gltfModel);
+    loadMaterials(gltfModel);
+    loadModels(gltfModel);
+    loadScenes(gltfModel);
+
+    createUniformBuffers(swapImageCount);
+    createDescriptorPool(swapImageCount);
+    createDescriptorSets(swapImageCount);
+}
+
+const Scene& World::currentScene() const
+{
+    return _scenes[_currentScene];
+}
+
+void World::loadTextures(const tinygltf::Model& gltfModel)
+{
     for (const auto& texture : gltfModel.textures) {
         const auto& image = gltfModel.images[texture.source];
         const tinygltf::Sampler sampler = [&]{
@@ -75,7 +92,10 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
         }();
         _textures.emplace_back(_device, image, sampler, true);
     }
+}
 
+void World::loadMaterials(const tinygltf::Model& gltfModel)
+{
     for (const auto& material : gltfModel.materials) {
         Material mat;
         if (const auto& elem = material.values.find("baseColorTexture");
@@ -119,7 +139,10 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
         // TODO: Support more parameters
         _materials.push_back(std::move(mat));
     }
+}
 
+void World::loadModels(const tinygltf::Model& gltfModel)
+{
     for (const auto& model : gltfModel.meshes) {
         _models.push_back({_device, {}});
         for (const auto& primitive : model.primitives) {
@@ -219,7 +242,10 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             );
         }
     }
+}
 
+void World::loadScenes(const tinygltf::Model& gltfModel)
+{
     // TODO: More complex nodes
     _nodes.resize(gltfModel.nodes.size());
     for (size_t n = 0; n < _nodes.size(); ++n) {
@@ -296,15 +322,6 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
             }
         }
     }
-
-    createUniformBuffers(swapImageCount);
-    createDescriptorPool(swapImageCount);
-    createDescriptorSets(swapImageCount);
-}
-
-const Scene& World::currentScene() const
-{
-    return _scenes[_currentScene];
 }
 
 void World::createUniformBuffers(const uint32_t swapImageCount)
