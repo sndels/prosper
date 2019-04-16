@@ -182,7 +182,9 @@ void App::destroySwapchainRelated()
 
     _device.logical().destroy(_pipelines.pbr);
     _device.logical().destroy(_pipelines.pbrAlphaBlend);
-    _device.logical().destroy(_vkGraphicsPipelineLayout);
+    _device.logical().destroy(_pipelines.skybox);
+    _device.logical().destroy(_pipelineLayouts.pbr);
+    _device.logical().destroy(_pipelineLayouts.skybox);
     _device.logical().destroy(_vkRenderPass);
 }
 
@@ -280,163 +282,307 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
 
 void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 {
-    const auto vertSPV = readFile("shader/shader.vert.spv");
-    const auto fragSPV = readFile("shader/shader.frag.spv");
-    const vk::ShaderModule vertShaderModule = createShaderModule(_device.logical(), vertSPV);
-    const vk::ShaderModule fragShaderModule = createShaderModule(_device.logical(), fragSPV);
-    const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
-        {
+    {
+        const auto vertSPV = readFile("shader/shader.vert.spv");
+        const auto fragSPV = readFile("shader/shader.frag.spv");
+        const vk::ShaderModule vertSM = createShaderModule(_device.logical(), vertSPV);
+        const vk::ShaderModule fragSM = createShaderModule(_device.logical(), fragSPV);
+        const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
+            {
+                {}, // flags
+                vk::ShaderStageFlagBits::eVertex,
+                vertSM,
+                "main"
+            },
+            {
+                {}, // flags
+                vk::ShaderStageFlagBits::eFragment,
+                fragSM,
+                "main"
+            }
+        }};
+
+        const auto vertexBindingDescription = Vertex::bindingDescription();
+        const auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
+        const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
             {}, // flags
-            vk::ShaderStageFlagBits::eVertex,
-            vertShaderModule,
-            "main"
-        },
-        {
+            1, // vertexBindingDescriptionCount
+            &vertexBindingDescription,
+            vertexAttributeDescriptions.size(),
+            vertexAttributeDescriptions.data()
+        };
+
+        const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
             {}, // flags
+            vk::PrimitiveTopology::eTriangleList,
+            VK_FALSE // primitiveRestartEnable
+        };
+
+        // TODO: Dynamic viewport state?
+        const vk::Viewport viewport{
+            0.f, // x
+            0.f, // y
+            static_cast<float>(swapConfig.extent.width), // width
+            static_cast<float>(swapConfig.extent.height), // height
+            0.f, // minDepth
+            1.f // maxDepth
+        };
+        const vk::Rect2D scissor{
+            {0, 0}, // offset
+            swapConfig.extent
+        };
+        const vk::PipelineViewportStateCreateInfo viewportState{
+            {}, // flags
+            1, // viewportCount
+            &viewport,
+            1, // scissorCount
+            &scissor
+        };
+
+        // Alpha blend is created with a modified version
+        vk::PipelineRasterizationStateCreateInfo rasterizerState{
+            {}, // flags
+            VK_FALSE, // depthClampEnable
+            VK_FALSE, // rasterizerDiscardEnable
+            vk::PolygonMode::eFill,
+            vk::CullModeFlagBits::eBack,
+            vk::FrontFace::eCounterClockwise,
+            VK_FALSE, // depthBiasEnable
+            0.f, // depthBiasConstantFactor
+            0.f, // depthBiasClamp
+            0.f, // depthBiasSlopeOperator
+            1.f // lineWidth
+        };
+
+        const vk::PipelineMultisampleStateCreateInfo multisampleState{
+            {}, //flags
+            vk::SampleCountFlagBits::e1 // rasterationSamples
+        };
+        // TODO: sampleshading now 0, verify it doesn't matter if not enabled
+
+        const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
+            {}, // flags
+            VK_TRUE, // depthTestEnable
+            VK_TRUE, // depthWriteEnable
+            vk::CompareOp::eLess
+        };
+
+        // Alpha blend pipeline is created with a modified version
+        vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+            VK_FALSE, // blendEnable
+            vk::BlendFactor::eOne, // srcColorBlendFactor
+            vk::BlendFactor::eZero, // dstColorBlendFactor
+            vk::BlendOp::eAdd, // colorBlendOp
+            vk::BlendFactor::eOne, // srcAlphaBlendFactor
+            vk::BlendFactor::eZero, // dstAlphaBlendFactor
+            vk::BlendOp::eAdd, // alphaBlendOp
+            vk::ColorComponentFlagBits::eR |
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA // colorWriteMas
+        };
+        const vk::PipelineColorBlendStateCreateInfo colorBlendState{
+            {}, // flags
+            VK_FALSE, // logicOpEnable
+            vk::LogicOp::eCopy,
+            1, // attachmentCount
+            &colorBlendAttachment
+        };
+
+        const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
+            _cam.descriptorSetLayout(),
+            _world._modelInstanceDSLayout,
+            _world._materialDSLayout
+        }};
+        const vk::PushConstantRange pcRange{
             vk::ShaderStageFlagBits::eFragment,
-            fragShaderModule,
-            "main"
-        }
-    }};
+            0, // offset
+            sizeof(Material::PCBlock)
+        };
+        _pipelineLayouts.pbr = _device.logical().createPipelineLayout({
+            {}, // flags
+            setLayouts.size(),
+            setLayouts.data(),
+            1, // pushConstantRangeCount
+            &pcRange
+        });
 
-    const auto vertexBindingDescription = Vertex::bindingDescription();
-    const auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
-        {}, // flags
-        1, // vertexBindingDescriptionCount
-        &vertexBindingDescription,
-        vertexAttributeDescriptions.size(),
-        vertexAttributeDescriptions.data()
-    };
+        const vk::GraphicsPipelineCreateInfo createInfo{
+            {}, // flags
+            shaderStages.size(),
+            shaderStages.data(),
+            &vertInputInfo,
+            &inputAssembly,
+            nullptr, // tessellation
+            &viewportState,
+            &rasterizerState,
+            &multisampleState,
+            &depthStencilState,
+            &colorBlendState,
+            nullptr, // dynamic
+            _pipelineLayouts.pbr,
+            _vkRenderPass,
+            0 // subpass
+        };
+        _pipelines.pbr = _device.logical().createGraphicsPipeline({}, createInfo);
 
-    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        {}, // flags
-        vk::PrimitiveTopology::eTriangleList,
-        VK_FALSE // primitiveRestartEnable
-    };
+        rasterizerState.cullMode = vk::CullModeFlagBits::eNone;
+        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+        colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+        colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
 
-    // TODO: Dynamic viewport state?
-    const vk::Viewport viewport{
-        0.f, // x
-        0.f, // y
-        static_cast<float>(swapConfig.extent.width), // width
-        static_cast<float>(swapConfig.extent.height), // height
-        0.f, // minDepth
-        1.f // maxDepth
-    };
-    const vk::Rect2D scissor{
-        {0, 0}, // offset
-        swapConfig.extent
-    };
-    const vk::PipelineViewportStateCreateInfo viewportState{
-        {}, // flags
-        1, // viewportCount
-        &viewport,
-        1, // scissorCount
-        &scissor
-    };
+        _pipelines.pbrAlphaBlend = _device.logical().createGraphicsPipeline({}, createInfo);
 
-    // Alpha blend pipeline is created with a modified version
-    vk::PipelineRasterizationStateCreateInfo rasterizerState{
-        {}, // flags
-        VK_FALSE, // depthClampEnable
-        VK_FALSE, // rasterizerDiscardEnable
-        vk::PolygonMode::eFill,
-        vk::CullModeFlagBits::eBack,
-        vk::FrontFace::eCounterClockwise,
-        VK_FALSE, // depthBiasEnable
-        0.f, // depthBiasConstantFactor
-        0.f, // depthBiasClamp
-        0.f, // depthBiasSlopeOperator
-        1.f // lineWidth
-    };
+        _device.logical().destroyShaderModule(vertSM);
+        _device.logical().destroyShaderModule(fragSM);
+    }
 
-    const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        {}, //flags
-        vk::SampleCountFlagBits::e1 // rasterationSamples
-    };
-    // TODO: sampleshading now 0, verify it doesn't matter if not enabled
+    {
+        const auto vertSPV = readFile("shader/skybox.vert.spv");
+        const auto fragSPV = readFile("shader/skybox.frag.spv");
+        const vk::ShaderModule vertSM = createShaderModule(_device.logical(), vertSPV);
+        const vk::ShaderModule fragSM = createShaderModule(_device.logical(), fragSPV);
+        const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
+            {
+                {}, // flags
+                vk::ShaderStageFlagBits::eVertex,
+                vertSM,
+                "main"
+            },
+            {
+                {}, // flags
+                vk::ShaderStageFlagBits::eFragment,
+                fragSM,
+                "main"
+            }
+        }};
 
-    const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
-        {}, // flags
-        VK_TRUE, // depthTestEnable
-        VK_TRUE, // depthWriteEnable
-        vk::CompareOp::eLess
-    };
+        const vk::VertexInputBindingDescription vertexBindingDescription{
+            0,
+            sizeof(vec3), // Only position
+            vk::VertexInputRate::eVertex
+        };
+        const vk::VertexInputAttributeDescription vertexAttributeDescription{
+            0, // location
+            0, // binding
+            vk::Format::eR32G32B32Sfloat,
+            0
+        };
+        const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
+            {}, // flags
+            1, // vertexBindingDescriptionCount
+            &vertexBindingDescription,
+            1, //vertexAttributeDescriptionCount
+            &vertexAttributeDescription
+        };
 
-    // Alpha blend pipeline is created with a modified version
-    vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-        VK_FALSE, // blendEnable
-        vk::BlendFactor::eOne, // srcColorBlendFactor
-        vk::BlendFactor::eZero, // dstColorBlendFactor
-        vk::BlendOp::eAdd, // colorBlendOp
-        vk::BlendFactor::eOne, // srcAlphaBlendFactor
-        vk::BlendFactor::eZero, // dstAlphaBlendFactor
-        vk::BlendOp::eAdd, // alphaBlendOp
-        vk::ColorComponentFlagBits::eR |
-        vk::ColorComponentFlagBits::eG |
-        vk::ColorComponentFlagBits::eB |
-        vk::ColorComponentFlagBits::eA // colorWriteMas
-    };
-    const vk::PipelineColorBlendStateCreateInfo colorBlendState{
-        {}, // flags
-        VK_FALSE, // logicOpEnable
-        vk::LogicOp::eCopy,
-        1, // attachmentCount
-        &colorBlendAttachment
-    };
+        const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+            {}, // flags
+            vk::PrimitiveTopology::eTriangleList,
+            VK_FALSE // primitiveRestartEnable
+        };
 
-    // Pipelines share layout
-    const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
-        _cam.descriptorSetLayout(),
-        _world._modelInstanceDSLayout,
-        _world._materialDSLayout
-    }};
-    const vk::PushConstantRange pcRange{
-        vk::ShaderStageFlagBits::eFragment,
-        0, // offset
-        sizeof(Material::PCBlock)
-    };
-    _vkGraphicsPipelineLayout = _device.logical().createPipelineLayout({
-        {}, // flags
-        setLayouts.size(),
-        setLayouts.data(),
-        1, // pushConstantRangeCount
-        &pcRange
-    });
+        // TODO: Dynamic viewport state?
+        const vk::Viewport viewport{
+            0.f, // x
+            0.f, // y
+            static_cast<float>(swapConfig.extent.width), // width
+            static_cast<float>(swapConfig.extent.height), // height
+            0.f, // minDepth
+            1.f // maxDepth
+        };
+        const vk::Rect2D scissor{
+            {0, 0}, // offset
+            swapConfig.extent
+        };
+        const vk::PipelineViewportStateCreateInfo viewportState{
+            {}, // flags
+            1, // viewportCount
+            &viewport,
+            1, // scissorCount
+            &scissor
+        };
 
-    vk::GraphicsPipelineCreateInfo createInfo{
-        {}, // flags
-        shaderStages.size(),
-        shaderStages.data(),
-        &vertInputInfo,
-        &inputAssembly,
-        nullptr, // tessellation
-        &viewportState,
-        &rasterizerState,
-        &multisampleState,
-        &depthStencilState,
-        &colorBlendState,
-        nullptr, // dynamic
-        _vkGraphicsPipelineLayout,
-        _vkRenderPass,
-        0 // subpass
-    };
-    _pipelines.pbr = _device.logical().createGraphicsPipeline({}, createInfo);
+        const vk::PipelineRasterizationStateCreateInfo rasterizerState{
+            {}, // flags
+            VK_FALSE, // depthClampEnable
+            VK_FALSE, // rasterizerDiscardEnable
+            vk::PolygonMode::eFill,
+            vk::CullModeFlagBits::eNone, // Draw the skybox from inside
+            vk::FrontFace::eCounterClockwise,
+            VK_FALSE, // depthBiasEnable
+            0.f, // depthBiasConstantFactor
+            0.f, // depthBiasClamp
+            0.f, // depthBiasSlopeOperator
+            1.f // lineWidth
+        };
 
-    rasterizerState.cullMode = vk::CullModeFlagBits::eNone;
-    colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-    colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-    colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-    colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-    colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-    colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+        const vk::PipelineMultisampleStateCreateInfo multisampleState{
+            {}, //flags
+            vk::SampleCountFlagBits::e1 // rasterationSamples
+        };
+        // TODO: sampleshading now 0, verify it doesn't matter if not enabled
 
-    _pipelines.pbrAlphaBlend = _device.logical().createGraphicsPipeline({}, createInfo);
+        const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
+            {}, // flags
+            VK_TRUE, // depthTestEnable
+            VK_TRUE, // depthWriteEnable
+            vk::CompareOp::eLessOrEqual // Draw skybox at maximum depth
+        };
 
-    _device.logical().destroyShaderModule(vertShaderModule);
-    _device.logical().destroyShaderModule(fragShaderModule);
+        const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+            VK_FALSE, // blendEnable
+            vk::BlendFactor::eOne, // srcColorBlendFactor
+            vk::BlendFactor::eZero, // dstColorBlendFactor
+            vk::BlendOp::eAdd, // colorBlendOp
+            vk::BlendFactor::eOne, // srcAlphaBlendFactor
+            vk::BlendFactor::eZero, // dstAlphaBlendFactor
+            vk::BlendOp::eAdd, // alphaBlendOp
+            vk::ColorComponentFlagBits::eR |
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA // colorWriteMas
+        };
+        const vk::PipelineColorBlendStateCreateInfo colorBlendState{
+            {}, // flags
+            VK_FALSE, // logicOpEnable
+            vk::LogicOp::eCopy,
+            1, // attachmentCount
+            &colorBlendAttachment
+        };
+
+        _pipelineLayouts.skybox = _device.logical().createPipelineLayout({
+            {}, // flags
+            1, // layoutCount
+            &_world._skyboxDSLayout
+        });
+
+        const vk::GraphicsPipelineCreateInfo createInfo{
+            {}, // flags
+            shaderStages.size(),
+            shaderStages.data(),
+            &vertInputInfo,
+            &inputAssembly,
+            nullptr, // tessellation
+            &viewportState,
+            &rasterizerState,
+            &multisampleState,
+            &depthStencilState,
+            &colorBlendState,
+            nullptr, // dynamic
+            _pipelineLayouts.skybox,
+            _vkRenderPass,
+            0 // subpass
+        };
+        _pipelines.skybox = _device.logical().createGraphicsPipeline({}, createInfo);
+
+        _device.logical().destroyShaderModule(vertSM);
+        _device.logical().destroyShaderModule(fragSM);
+    }
 }
 
 void App::createCommandBuffers(const SwapchainConfig& swapConfig)
@@ -500,6 +646,12 @@ void App::updateUniformBuffers(const uint32_t nextImage)
 {
     _cam.updateBuffer(nextImage);
 
+    const mat4 worldToClip = _cam.cameraToClip() * mat4(mat3(_cam.worldToCamera()));
+    void* data;
+    _device.map(_world._skyboxUniformBuffers[nextImage].allocation, &data);
+    memcpy(data, &worldToClip, sizeof(mat4));
+    _device.unmap(_world._skyboxUniformBuffers[nextImage].allocation);
+
     for (const auto& instance : _world.currentScene().modelInstances)
         instance.updateBuffer(&_device, nextImage);
 }
@@ -535,7 +687,7 @@ void App::recordCommandBuffer(const uint32_t nextImage)
 
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
-        _vkGraphicsPipelineLayout,
+        _pipelineLayouts.pbr,
         0, // firstSet
         1, // descriptorSetCount
         &_cam.descriptorSet(nextImage),
@@ -566,6 +718,20 @@ void App::recordCommandBuffer(const uint32_t nextImage)
         }
     );
 
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.skybox);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics,
+        _pipelineLayouts.skybox,
+        0, // firstSet
+        1, // descriptorSetCount
+        &_world._skyboxDSs[nextImage],
+        0, // dynamicOffsetCount
+        nullptr // pDynamicOffsets
+    );
+
+    _world.drawSkybox(buffer);
+
     buffer.endRenderPass();
     buffer.end();
 }
@@ -575,7 +741,7 @@ void App::recordModelInstances(const vk::CommandBuffer buffer, const uint32_t ne
     for (const auto& instance : instances) {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
-            _vkGraphicsPipelineLayout,
+            _pipelineLayouts.pbr,
             1, // firstSet
             1, // descriptorSetCount
             &instance.descriptorSets[nextImage],
@@ -587,7 +753,7 @@ void App::recordModelInstances(const vk::CommandBuffer buffer, const uint32_t ne
                 continue;
             buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
-                _vkGraphicsPipelineLayout,
+                _pipelineLayouts.pbr,
                 2, // firstSet
                 1, // descriptorSetCount
                 &mesh.material()._descriptorSet,
@@ -596,7 +762,7 @@ void App::recordModelInstances(const vk::CommandBuffer buffer, const uint32_t ne
             );
             const auto pcBlock = mesh.material().pcBlock();
             buffer.pushConstants(
-                _vkGraphicsPipelineLayout,
+                _pipelineLayouts.pbr,
                 vk::ShaderStageFlagBits::eFragment,
                 0, // offset
                 sizeof(Material::PCBlock),

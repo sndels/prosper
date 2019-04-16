@@ -18,6 +18,12 @@ public:
     struct Pipelines {
         vk::Pipeline pbr;
         vk::Pipeline pbrAlphaBlend;
+        vk::Pipeline skybox;
+    };
+
+    struct PipelineLayouts {
+        vk::PipelineLayout pbr;
+        vk::PipelineLayout skybox;
     };
 
     App() = default;
@@ -53,7 +59,7 @@ private:
     World _world;
     Camera _cam;
 
-    vk::PipelineLayout _vkGraphicsPipelineLayout;
+    PipelineLayouts _pipelineLayouts;
 
     vk::DescriptorPool _vkDescriptorPool;
 
