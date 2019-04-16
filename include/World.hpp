@@ -18,9 +18,6 @@ public:
     World& operator=(const World& other) = delete;
 
     void loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename);
-    void createUniformBuffers(const uint32_t swapImageCount);
-    void createDescriptorPool(const uint32_t swapImageCount);
-    void createDescriptorSets(const uint32_t swapImageCount);
     const Scene& currentScene() const;
 
     // TODO: Private?
@@ -39,6 +36,10 @@ public:
     vk::DescriptorSetLayout _modelInstanceDSLayout;
 
 private:
+    void createUniformBuffers(const uint32_t swapImageCount);
+    void createDescriptorPool(const uint32_t swapImageCount);
+    void createDescriptorSets(const uint32_t swapImageCount);
+
     Device* _device = nullptr;
 
 };

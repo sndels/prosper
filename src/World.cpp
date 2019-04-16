@@ -302,6 +302,11 @@ void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::s
     createDescriptorSets(swapImageCount);
 }
 
+const Scene& World::currentScene() const
+{
+    return _scenes[_currentScene];
+}
+
 void World::createUniformBuffers(const uint32_t swapImageCount)
 {
     const vk::DeviceSize bufferSize = sizeof(Scene::ModelInstance::UBlock);
@@ -440,9 +445,4 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             }
         }
     }
-}
-
-const Scene& World::currentScene() const
-{
-    return _scenes[_currentScene];
 }
