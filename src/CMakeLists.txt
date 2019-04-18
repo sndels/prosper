@@ -11,6 +11,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
     ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/vmaImplementation.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/VkUtils.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/World.cpp
     PARENT_SCOPE

@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "Constants.hpp"
+#include "VkUtils.hpp"
 
 namespace {
     vk::SurfaceFormatKHR selectSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats)
@@ -311,12 +312,17 @@ void Swapchain::createDepthResources()
         subresourceRange
     });
 
-    _device->transitionImageLayout(
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    transitionImageLayout(
         _depthImage,
         subresourceRange,
         vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eDepthStencilAttachmentOptimal
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        commandBuffer
     );
+
+    _device->endGraphicsCommands(commandBuffer);
 }
 
 void Swapchain::createFramebuffers(const vk::RenderPass renderPass)

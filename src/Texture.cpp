@@ -5,6 +5,8 @@
 
 #include <stb_image.h>
 
+#include "VkUtils.hpp"
+
 #if defined(_WIN32) or defined(_WIN64)
     // Windows' header doesn't include these
     #define GL_CLAMP_TO_EDGE 0x812F
@@ -227,18 +229,38 @@ void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D exte
         VMA_MEMORY_USAGE_GPU_ONLY
     );
 
-    _device->transitionImageLayout(
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    transitionImageLayout(
         _image,
         subresourceRange,
         vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eTransferDstOptimal
+        vk::ImageLayout::eTransferDstOptimal,
+        commandBuffer
     );
-    _device->copyBufferToImage(stagingBuffer, _image, extent);
 
-    if (!_image.handle)
-        std::cerr << "Null image" << std::endl;
-    if (!_image.allocation)
-        std::cerr << "Null image allocation" << std::endl;
+    const vk::BufferImageCopy region{
+        0, // bufferOffset
+        0, // bufferRowLength
+        0, // bufferImageHeight
+        vk::ImageSubresourceLayers{
+            vk::ImageAspectFlagBits::eColor,
+            0, // mipLevel
+            0, // arrayLayer
+            1 // layerCount
+        },
+        vk::Offset3D{0, 0, 0},
+        vk::Extent3D{extent, 1}
+    };
+    commandBuffer.copyBufferToImage(
+        stagingBuffer.handle,
+        _image.handle,
+        vk::ImageLayout::eTransferDstOptimal,
+        1, // regionCount
+        &region
+    );
+
+    _device->endGraphicsCommands(commandBuffer);
 
     createMipmaps(extent, subresourceRange.levelCount);
 }
@@ -248,39 +270,25 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
     // TODO: Check that the texture format supports linear filtering
     const auto buffer = _device->beginGraphicsCommands();
 
-    vk::ImageMemoryBarrier barrier{
-        vk::AccessFlagBits::eTransferWrite, // srcAccessMask
-        vk::AccessFlagBits::eTransferRead, // dstAccessMask
-        vk::ImageLayout::eTransferDstOptimal, // oldLayout
-        vk::ImageLayout::eTransferSrcOptimal, // newLayout
-        VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
-        VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
-        _image.handle,
-        vk::ImageSubresourceRange{
-            vk::ImageAspectFlagBits::eColor,
-            0, // baseMipLevel
-            1, // levelCount
-            0, // baseArrayLayer
-            1 // layerCount
-        }
+    vk::ImageSubresourceRange subresourceRange{
+        vk::ImageAspectFlagBits::eColor,
+        0, // baseMipLevel
+        1, // levelCount
+        0, // baseArrayLayer
+        1 // layerCount
     };
 
     int32_t mipWidth = extent.width;
     int32_t mipHeight = extent.height;
     for (uint32_t i = 1; i < mipLevels; ++i) {
         // Make sure last operation finished and source is transitioned
-        barrier.subresourceRange.baseMipLevel = i - 1;
-        barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-        barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-        buffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer, // srcStageMask
-            vk::PipelineStageFlagBits::eTransfer, // dstStageMask
-            {}, // dependencyFlags
-            {}, nullptr, // memoryBarrierCount, ptr
-            {}, nullptr, // bufferMemoryBarrierCount, ptr
-            1, &barrier // imageMemoryBarrierCount, ptr
+        subresourceRange.baseMipLevel = i -1;
+        transitionImageLayout(
+            _image,
+            subresourceRange,
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::ImageLayout::eTransferSrcOptimal,
+            buffer
         );
 
         vk::ImageBlit blit{
@@ -316,17 +324,12 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
         );
 
         // Source needs to be transitioned to shader read optimal
-        barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
-        barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
-        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-        buffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer, // srcStageMask
-            vk::PipelineStageFlagBits::eFragmentShader, // dstStageMask
-            {}, // dependencyFlags
-            {}, nullptr, // memoryBarrierCount, ptr
-            {}, nullptr, // bufferMemoryBarrierCount, ptr
-            1, &barrier // imageMemoryBarrierCount, ptr
+        transitionImageLayout(
+            _image,
+            subresourceRange,
+            vk::ImageLayout::eTransferSrcOptimal,
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            buffer
         );
 
         if (mipWidth > 1)
@@ -336,18 +339,13 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
     }
 
     // Last mip level needs to be transitioned to shader read optimal
-    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-    barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-    barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-    barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-    buffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTransfer, // srcStageMask
-        vk::PipelineStageFlagBits::eFragmentShader, // dstStageMask
-        {}, // dependencyFlags
-        {}, nullptr, // memoryBarrierCount, ptr
-        {}, nullptr, // bufferMemoryBarrierCount, ptr
-        1, &barrier // imageMemoryBarrierCount, ptr
+    subresourceRange.baseMipLevel = mipLevels - 1;
+    transitionImageLayout(
+        _image,
+        subresourceRange,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        buffer
     );
 
     _device->endGraphicsCommands(buffer);
@@ -522,23 +520,12 @@ void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSu
 
     const auto copyBuffer = _device->beginGraphicsCommands();
 
-    vk::ImageMemoryBarrier barrier{
-        {}, // srcAccessMask
-        vk::AccessFlagBits::eTransferWrite, // dstAccessMask
-        vk::ImageLayout::eUndefined, // oldLayout
-        vk::ImageLayout::eTransferDstOptimal, // newLayout
-        VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
-        VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
-        _image.handle,
-        subresourceRange
-    };
-    copyBuffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eAllCommands, // srcStageMask
-        vk::PipelineStageFlagBits::eAllCommands, // dstStageMask
-        {}, // dependencyFlags
-        {}, nullptr, // memoryBarrierCount, ptr
-        {}, nullptr, // bufferMemoryBarrierCount, ptr
-        1, &barrier // imageMemoryBarrierCount, ptr
+    transitionImageLayout(
+        _image,
+        subresourceRange,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal,
+        copyBuffer
     );
 
     copyBuffer.copyBufferToImage(
@@ -549,17 +536,12 @@ void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSu
         regions.data()
     );
 
-    barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-    barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-    barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-    barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    copyBuffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTransfer, // srcStageMask
-        vk::PipelineStageFlagBits::eFragmentShader, // dstStageMask
-        {}, // dependencyFlags
-        {}, nullptr, // memoryBarrierCount, ptr
-        {}, nullptr, // bufferMemoryBarrierCount, ptr
-        1, &barrier // imageMemoryBarrierCount, ptr
+    transitionImageLayout(
+        _image,
+        subresourceRange,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        copyBuffer
     );
 
     _device->endGraphicsCommands(copyBuffer);

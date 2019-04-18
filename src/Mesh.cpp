@@ -1,5 +1,6 @@
 #include "Mesh.hpp"
 
+#include "VkUtils.hpp"
 
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, Material* material, Device* device) :
     _device(device),
@@ -71,7 +72,17 @@ void Mesh::createVertexBuffer(const std::vector<Vertex>& vertices)
         vk::MemoryPropertyFlagBits::eDeviceLocal,
         VMA_MEMORY_USAGE_GPU_ONLY
     );
-    _device->copyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
+
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    const vk::BufferCopy copyRegion{
+        0, // srcOffset
+        0, // dstOffset
+        bufferSize
+    };
+    commandBuffer.copyBuffer(stagingBuffer.handle, _vertexBuffer.handle, 1, &copyRegion);
+
+    _device->endGraphicsCommands(commandBuffer);
 
     _device->destroy(stagingBuffer);
 }
@@ -101,7 +112,17 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t>& indices)
         vk::MemoryPropertyFlagBits::eDeviceLocal,
         VMA_MEMORY_USAGE_GPU_ONLY
     );
-    _device->copyBuffer(stagingBuffer, _indexBuffer, bufferSize);
+
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    const vk::BufferCopy copyRegion{
+        0, // srcOffset
+        0, // dstOffset
+        bufferSize
+    };
+    commandBuffer.copyBuffer(stagingBuffer.handle, _indexBuffer.handle, 1, &copyRegion);
+
+    _device->endGraphicsCommands(commandBuffer);
 
     _device->destroy(stagingBuffer);
 }

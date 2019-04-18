@@ -11,6 +11,7 @@
 #include <set>
 
 #include "Constants.hpp"
+#include "VkUtils.hpp"
 
 using namespace glm;
 
@@ -100,7 +101,17 @@ namespace {
             vk::MemoryPropertyFlagBits::eDeviceLocal,
             VMA_MEMORY_USAGE_GPU_ONLY
         );
-        device->copyBuffer(stagingBuffer, skyboxVertexBuffer, bufferSize);
+
+        const auto commandBuffer = device->beginGraphicsCommands();
+
+        const vk::BufferCopy copyRegion{
+            0, // srcOffset
+            0, // dstOffset
+            bufferSize
+        };
+        commandBuffer.copyBuffer(stagingBuffer.handle, skyboxVertexBuffer.handle, 1, &copyRegion);
+
+        device->endGraphicsCommands(commandBuffer);
 
         device->destroy(stagingBuffer);
         return skyboxVertexBuffer;
