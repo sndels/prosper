@@ -13,8 +13,9 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(res/shader)
 
-# Set up absolute path to resources
+# Set up absolute path to resources and binaries
 add_definitions(-DRES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/")
+add_definitions(-DBIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
 
 # Set up project targets
 add_executable(prosper ${PROSPER_SOURCES} ${PROSPER_INCLUDES})

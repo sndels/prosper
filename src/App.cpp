@@ -283,8 +283,8 @@ void App::createRenderPass(const SwapchainConfig& swapConfig)
 void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 {
     {
-        const auto vertSPV = readFile("shader/shader.vert.spv");
-        const auto fragSPV = readFile("shader/shader.frag.spv");
+        const auto vertSPV = readFile(binPath("shader/shader.vert.spv"));
+        const auto fragSPV = readFile(binPath("shader/shader.frag.spv"));
         const vk::ShaderModule vertSM = createShaderModule(_device.logical(), vertSPV);
         const vk::ShaderModule fragSM = createShaderModule(_device.logical(), fragSPV);
         const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
@@ -442,8 +442,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
     }
 
     {
-        const auto vertSPV = readFile("shader/skybox.vert.spv");
-        const auto fragSPV = readFile("shader/skybox.frag.spv");
+        const auto vertSPV = readFile(binPath("shader/skybox.vert.spv"));
+        const auto fragSPV = readFile(binPath("shader/skybox.frag.spv"));
         const vk::ShaderModule vertSM = createShaderModule(_device.logical(), vertSPV);
         const vk::ShaderModule fragSM = createShaderModule(_device.logical(), fragSPV);
         const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
