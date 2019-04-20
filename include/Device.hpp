@@ -11,12 +11,15 @@
 #include <vector>
 
 struct QueueFamilies {
+    std::optional<uint32_t> computeFamily;
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
     bool isComplete() const
     {
-        return graphicsFamily.has_value() && presentFamily.has_value();
+        return computeFamily.has_value() &&
+               graphicsFamily.has_value() &&
+               presentFamily.has_value();
     }
 };
 
@@ -44,7 +47,9 @@ public:
     vk::PhysicalDevice physical() const;
     vk::Device logical() const;
     vk::SurfaceKHR surface() const;
-    vk::CommandPool commandPool() const;
+    vk::CommandPool computePool() const;
+    vk::CommandPool graphicsPool() const;
+    vk::Queue computeQueue() const;
     vk::Queue graphicsQueue() const;
     vk::Queue presentQueue() const;
     const QueueFamilies& queueFamilies() const;
@@ -70,7 +75,7 @@ private:
     void selectPhysicalDevice();
     void createLogicalDevice();
     void createAllocator();
-    void createCommandPool();
+    void createCommandPools();
 
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
@@ -78,11 +83,13 @@ private:
     VmaAllocator _allocator;
     vk::SurfaceKHR _surface;
 
-    QueueFamilies _queueFamilies = {std::nullopt, std::nullopt};
+    QueueFamilies _queueFamilies = {std::nullopt, std::nullopt, std::nullopt};
+    vk::Queue _computeQueue;
     vk::Queue _graphicsQueue;
     vk::Queue _presentQueue;
 
-    vk::CommandPool _commandPool;
+    vk::CommandPool _computePool;
+    vk::CommandPool _graphicsPool;
 
     vk::DebugUtilsMessengerEXT _debugMessenger;
 };

@@ -28,6 +28,8 @@ namespace {
                 const vk::Bool32 presentSupport = device.getSurfaceSupportKHR(i, surface);
 
                 // Set index to matching families 
+                if (allFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
+                    families.computeFamily = i;
                 if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
                     families.graphicsFamily = i;
                 if (presentSupport)
@@ -139,7 +141,8 @@ namespace {
 Device::~Device()
 {
     // Also cleans up associated command buffers
-    _logical.destroy(_commandPool);
+    _logical.destroy(_graphicsPool);
+    _logical.destroy(_computePool);
     vmaDestroyAllocator(_allocator);
     // Implicitly cleans up associated queues as well
     _logical.destroy();
@@ -157,7 +160,7 @@ void Device::init(GLFWwindow* window)
     _queueFamilies = findQueueFamilies(_physical, _surface);
     createLogicalDevice();
     createAllocator();
-    createCommandPool();
+    createCommandPools();
 }
 
 vk::Instance Device::instance() const
@@ -180,9 +183,19 @@ vk::SurfaceKHR Device::surface() const
     return _surface;
 }
 
-vk::CommandPool Device::commandPool() const
+vk::CommandPool Device::computePool() const
 {
-    return _commandPool;
+    return _graphicsPool;
+}
+
+vk::CommandPool Device::graphicsPool() const
+{
+    return _graphicsPool;
+}
+
+vk::Queue Device::computeQueue() const
+{
+    return _computeQueue;
 }
 
 vk::Queue Device::graphicsQueue() const
@@ -285,7 +298,7 @@ void Device::destroy(const Image& image) const
 vk::CommandBuffer Device::beginGraphicsCommands() const
 {
     const auto buffer = _logical.allocateCommandBuffers({
-        _commandPool,
+        _graphicsPool,
         vk::CommandBufferLevel::ePrimary,
         1 // commandBufferCount
     })[0];
@@ -312,7 +325,7 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
     _graphicsQueue.submit(1, &submitInfo, {});
     _graphicsQueue.waitIdle(); // TODO: Collect setup commands and execute at once
 
-    _logical.freeCommandBuffers(_commandPool, 1, &buffer);
+    _logical.freeCommandBuffers(_graphicsPool, 1, &buffer);
 }
 
 bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
@@ -402,6 +415,7 @@ void Device::selectPhysicalDevice()
 
 void Device::createLogicalDevice()
 {
+    const uint32_t computeFamily = _queueFamilies.computeFamily.value();
     const uint32_t graphicsFamily = _queueFamilies.graphicsFamily.value();
     const uint32_t presentFamily = _queueFamilies.presentFamily.value();
 
@@ -410,6 +424,7 @@ void Device::createLogicalDevice()
     const std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]{
         std::vector<vk::DeviceQueueCreateInfo> cis;
         const std::set<uint32_t> uniqueQueueFamilies = {
+            computeFamily,
             graphicsFamily,
             presentFamily
         };
@@ -443,6 +458,7 @@ void Device::createLogicalDevice()
     });
 
     // Get the created queues
+    _computeQueue = _logical.getQueue(computeFamily, 0);
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
     _presentQueue = _logical.getQueue(presentFamily, 0);
 }
@@ -456,11 +472,21 @@ void Device::createAllocator()
         throw std::runtime_error("Failed to create allocator");
 }
 
-void Device::createCommandPool()
+void Device::createCommandPools()
 {
-    const vk::CommandPoolCreateInfo poolInfo(
-        vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-        _queueFamilies.graphicsFamily.value()
-    );
-    _commandPool = _logical.createCommandPool(poolInfo, nullptr);
+    {
+        const vk::CommandPoolCreateInfo poolInfo(
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            _queueFamilies.graphicsFamily.value()
+        );
+        _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
+    }
+
+    {
+        const vk::CommandPoolCreateInfo poolInfo(
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            _queueFamilies.computeFamily.value()
+        );
+        _computePool = _logical.createCommandPool(poolInfo, nullptr);
+    }
 }

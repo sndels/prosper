@@ -67,7 +67,7 @@ void Renderer::destroySwapchainRelated()
 {
     if (_device) {
         _device->logical().freeCommandBuffers(
-            _device->commandPool(),
+            _device->graphicsPool(),
             _commandBuffers.size(),
             _commandBuffers.data()
         );
@@ -501,7 +501,7 @@ void Renderer::createGraphicsPipelines(const SwapchainConfig& swapConfig, const 
 void Renderer::createCommandBuffers(const SwapchainConfig& swapConfig)
 {
     _commandBuffers = _device->logical().allocateCommandBuffers({
-        _device->commandPool(),
+        _device->graphicsPool(),
         vk::CommandBufferLevel::ePrimary,
         swapConfig.imageCount // commandBufferCount
     });
