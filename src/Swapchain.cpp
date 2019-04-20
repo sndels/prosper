@@ -283,18 +283,6 @@ void Swapchain::createDepthResources()
     if ((properties.optimalTilingFeatures & features) != features)
         throw std::runtime_error("Depth format unsupported");
 
-    _depthImage = _device->createImage(
-        _config.extent,
-        1, // mipLevels
-        1, // arrayLayers
-        _config.depthFormat,
-        vk::ImageTiling::eOptimal,
-        vk::ImageCreateFlags{},
-        vk::ImageUsageFlagBits::eDepthStencilAttachment,
-        vk::MemoryPropertyFlagBits::eDeviceLocal,
-        VMA_MEMORY_USAGE_GPU_ONLY
-    );
-
     const vk::ImageSubresourceRange subresourceRange{
         vk::ImageAspectFlagBits::eDepth,
         0, // baseMipLevel
@@ -303,14 +291,17 @@ void Swapchain::createDepthResources()
         1 // layerCount
     };
 
-    _depthView = _device->logical().createImageView({
-        {}, // flags
-        _depthImage.handle,
-        vk::ImageViewType::e2D,
+    _depthImage = _device->createImage(
+        _config.extent,
         _config.depthFormat,
-        vk::ComponentMapping{},
-        subresourceRange
-    });
+        subresourceRange,
+        vk::ImageViewType::e2D,
+        vk::ImageTiling::eOptimal,
+        vk::ImageCreateFlags{},
+        vk::ImageUsageFlagBits::eDepthStencilAttachment,
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        VMA_MEMORY_USAGE_GPU_ONLY
+    );
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
@@ -330,7 +321,7 @@ void Swapchain::createFramebuffers(const vk::RenderPass renderPass)
     for (auto& image : _images) {
         const std::array<vk::ImageView, 2> attachments = {{
             image.view,
-            _depthView
+            _depthImage.view
         }};
         image.fbo = _device->logical().createFramebuffer({
             {}, // flags
@@ -358,7 +349,6 @@ void Swapchain::destroy()
     if (_device) {
         for (auto fence : _inFlightFences)
             _device->logical().destroy(fence);
-        _device->logical().destroy(_depthView);
         _device->destroy(_depthImage);
         for (auto& image : _images) {
             _device->logical().destroy(image.fbo);

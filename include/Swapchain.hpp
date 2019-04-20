@@ -66,8 +66,7 @@ private:
     vk::SwapchainKHR _swapchain;
     std::vector<SwapchainImage> _images;
     uint32_t _nextImage = 0;
-    Image _depthImage;
-    vk::ImageView _depthView;
+    Image _depthImage = {nullptr, nullptr, {}, nullptr};
     std::vector<vk::Fence> _inFlightFences;
     size_t _nextFrame = 0;
 };

@@ -72,7 +72,6 @@ Texture::Texture(Device* device) :
 
 Texture::~Texture()
 {
-    _device->logical().destroy(_imageView);
     _device->logical().destroy(_sampler);
     _device->destroy(_image);
 }
@@ -80,12 +79,11 @@ Texture::~Texture()
 Texture::Texture(Texture&& other) :
     _device(other._device),
     _image(other._image),
-    _imageView(other._imageView),
     _sampler(other._sampler)
 {
     other._image.handle = nullptr;
+    other._image.view = nullptr;
     other._image.allocation = nullptr;
-    other._imageView = nullptr;
     other._sampler = nullptr;
 }
 
@@ -94,11 +92,10 @@ Texture& Texture::operator=(Texture&& other)
     if (this != &other) {
         _device = other._device;
         _image = other._image;
-        _imageView = other._imageView;
         _sampler = other._sampler;
         other._image.handle = nullptr;
+        other._image.view = nullptr;
         other._image.allocation = nullptr;
-        other._imageView = nullptr;
         other._sampler = nullptr;
     }
     return *this;
@@ -108,7 +105,7 @@ vk::DescriptorImageInfo Texture::imageInfo() const
 {
     return vk::DescriptorImageInfo{
         _sampler,
-        _imageView,
+        _image.view,
         vk::ImageLayout::eShaderReadOnlyOptimal
     };
 }
@@ -132,7 +129,6 @@ Texture2D::Texture2D(Device* device, const std::string& path, const bool mipmap)
     };
 
     createImage(stagingBuffer, extent, subresourceRange);
-    createImageView(subresourceRange);
     createSampler(mipLevels);
 
     stbi_image_free(pixels);
@@ -185,7 +181,6 @@ Texture2D::Texture2D(Device* device, const tinygltf::Image& image, const tinyglt
     };
 
     createImage(stagingBuffer, extent, subresourceRange);
-    createImageView(subresourceRange);
     createSampler(sampler, mipLevels);
 
     _device->destroy(stagingBuffer);
@@ -217,9 +212,9 @@ void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D exte
     // mipmaps will be generated from it
     _image = _device->createImage(
         extent,
-        subresourceRange.levelCount,
-        1,
         vk::Format::eR8G8B8A8Unorm,
+        subresourceRange,
+        vk::ImageViewType::e2D,
         vk::ImageTiling::eOptimal,
         vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eTransferSrc |
@@ -351,21 +346,6 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
     _device->endGraphicsCommands(buffer);
 }
 
-void Texture2D::createImageView(const vk::ImageSubresourceRange& subresourceRange)
-{
-    _imageView = _device->logical().createImageView({
-        {}, // flags
-        _image.handle,
-        vk::ImageViewType::e2D,
-        vk::Format::eR8G8B8A8Unorm,
-        vk::ComponentMapping{},
-        subresourceRange
-    });
-
-    if (!_imageView)
-        std::cerr << "Null image view" << std::endl;
-}
-
 void Texture2D::createSampler(const uint32_t mipLevels)
 {
     // TODO: Use shared samplers
@@ -423,11 +403,19 @@ TextureCubemap::TextureCubemap(Device* device, const std::string& path) :
     };
     const uint32_t mipLevels = cube.levels();
 
+    const vk::ImageSubresourceRange subresourceRange{
+        vk::ImageAspectFlagBits::eColor,
+        0, // baseMipLevel
+        mipLevels, // levelCount
+        0, // baseArrayLayer
+        6 // layerCount, cubemap faces are layers in vk
+    };
+
     _image = _device->createImage(
         layerExtent,
-        mipLevels,
-        6, // cubemap faces are layers in vk
         vk::Format::eR16G16B16A16Sfloat,
+        subresourceRange,
+        vk::ImageViewType::eCube,
         vk::ImageTiling::eOptimal,
         vk::ImageCreateFlagBits::eCubeCompatible,
         vk::ImageUsageFlagBits::eTransferDst |
@@ -436,24 +424,7 @@ TextureCubemap::TextureCubemap(Device* device, const std::string& path) :
         VMA_MEMORY_USAGE_GPU_ONLY
     );
 
-    const vk::ImageSubresourceRange subresourceRange{
-        vk::ImageAspectFlagBits::eColor,
-        0, // baseMipLevel
-        mipLevels, // levelCount
-        0, // baseArrayLayer
-        6 // layerCount
-    };
-
     copyPixels(cube, subresourceRange);
-
-    _imageView = _device->logical().createImageView({
-        {}, // flags
-        _image.handle,
-        vk::ImageViewType::eCube,
-        vk::Format::eR16G16B16A16Sfloat,
-        vk::ComponentMapping{},
-        subresourceRange
-    });
 
     _sampler = _device->logical().createSampler({
         {}, // flags

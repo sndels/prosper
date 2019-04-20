@@ -256,15 +256,15 @@ void Device::destroy(const Buffer& buffer) const
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
 }
 
-Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, const uint32_t arrayLayers, const vk::Format format, const vk::ImageTiling tiling, const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const
+Image Device::createImage(const vk::Extent2D extent, const vk::Format format, const vk::ImageSubresourceRange& range, const vk::ImageViewType viewType, const vk::ImageTiling tiling, const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const
 {
     vk::ImageCreateInfo imageInfo{
         flags,
         vk::ImageType::e2D,
         format,
         vk::Extent3D{extent, 1},
-        mipLevels,
-        arrayLayers,
+        range.levelCount,
+        range.layerCount,
         vk::SampleCountFlagBits::e1,
         tiling,
         usage,
@@ -286,6 +286,16 @@ Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, c
         &image.allocation,
         nullptr
     );
+
+    image.view = _logical.createImageView({
+        {}, // flags
+        image.handle,
+        viewType,
+        format,
+        vk::ComponentMapping{},
+        range
+    });
+
     image.format = format;
     return image;
 }
@@ -294,6 +304,7 @@ void Device::destroy(const Image& image) const
 {
     const auto vkImage = static_cast<VkImage>(image.handle);
     vmaDestroyImage(_allocator, vkImage, image.allocation);
+    _logical.destroy(image.view);
 }
 
 vk::CommandBuffer Device::beginGraphicsCommands() const
