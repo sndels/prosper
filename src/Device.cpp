@@ -286,6 +286,7 @@ Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, c
         &image.allocation,
         nullptr
     );
+    image.format = format;
     return image;
 }
 

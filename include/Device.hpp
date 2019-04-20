@@ -30,6 +30,7 @@ struct Buffer {
 
 struct Image {
     vk::Image handle;
+    vk::Format format;
     VmaAllocation allocation;
 };
 
