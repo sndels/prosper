@@ -191,7 +191,7 @@ Texture2D::Texture2D(Device* device, const tinygltf::Image& image, const tinyglt
     _device->destroy(stagingBuffer);
 }
 
-Buffer Texture2D::stagePixels(const uint8_t* pixels, const vk::Extent2D extent)
+Buffer Texture2D::stagePixels(const uint8_t* pixels, const vk::Extent2D extent) const
 {
     const vk::DeviceSize imageSize = extent.width * extent.height * 4;
 
@@ -265,7 +265,7 @@ void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D exte
     createMipmaps(extent, subresourceRange.levelCount);
 }
 
-void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels)
+void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels) const
 {
     // TODO: Check that the texture format supports linear filtering
     const auto buffer = _device->beginGraphicsCommands();
@@ -473,7 +473,7 @@ TextureCubemap::TextureCubemap(Device* device, const std::string& path) :
     });
 }
 
-void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange)
+void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange) const
 {
     const Buffer stagingBuffer = _device->createBuffer(
         cube.size(),

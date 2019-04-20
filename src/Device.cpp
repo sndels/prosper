@@ -237,7 +237,7 @@ Buffer Device::createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlag
     return buffer;
 }
 
-void Device::destroy(const Buffer& buffer)
+void Device::destroy(const Buffer& buffer) const
 {
     const auto vkBuffer = static_cast<VkBuffer>(buffer.handle);
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
@@ -276,7 +276,7 @@ Image Device::createImage(const vk::Extent2D extent, const uint32_t mipLevels, c
     return image;
 }
 
-void Device::destroy(const Image& image)
+void Device::destroy(const Image& image) const
 {
     const auto vkImage = static_cast<VkImage>(image.handle);
     vmaDestroyImage(_allocator, vkImage, image.allocation);

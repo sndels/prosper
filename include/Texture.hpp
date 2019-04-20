@@ -32,9 +32,9 @@ public:
     Texture2D(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap);
 
 private:
-    Buffer stagePixels(const uint8_t* pixels, const vk::Extent2D extent);
+    Buffer stagePixels(const uint8_t* pixels, const vk::Extent2D extent) const;
     void createImage(const Buffer& stagingBuffer, const vk::Extent2D extent, const vk::ImageSubresourceRange& subresourceRange);
-    void createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels);
+    void createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels) const;
     void createImageView(const vk::ImageSubresourceRange& subresourceRange);
     void createSampler(const uint32_t mipLevels);
     void createSampler(const tinygltf::Sampler& sampler, const uint32_t mipLevels);
@@ -46,7 +46,7 @@ public:
     TextureCubemap(Device* device, const std::string& path);
 
 private:
-    void copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange);
+    void copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange) const;
 
 };
 
