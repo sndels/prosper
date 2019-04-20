@@ -355,15 +355,17 @@ void Swapchain::createFences()
 
 void Swapchain::destroy()
 {
-    for (auto fence : _inFlightFences)
-        _device->logical().destroy(fence);
-    _device->logical().destroy(_depthView);
-    _device->destroy(_depthImage);
-    for (auto& image : _images) {
-        _device->logical().destroy(image.fbo);
-        _device->logical().destroy(image.view);
+    if (_device) {
+        for (auto fence : _inFlightFences)
+            _device->logical().destroy(fence);
+        _device->logical().destroy(_depthView);
+        _device->destroy(_depthImage);
+        for (auto& image : _images) {
+            _device->logical().destroy(image.fbo);
+            _device->logical().destroy(image.view);
+        }
+        _device->logical().destroy(_swapchain);
     }
-    _device->logical().destroy(_swapchain);
 
     _swapchain = vk::SwapchainKHR();
     _images.clear();
