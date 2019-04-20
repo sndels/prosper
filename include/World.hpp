@@ -11,6 +11,11 @@ class Device;
 class World
 {
 public:
+    struct DSLayouts {
+        vk::DescriptorSetLayout material;
+        vk::DescriptorSetLayout modelInstance;
+        vk::DescriptorSetLayout skybox;
+    };
     World() = default;
     ~World();
 
@@ -36,9 +41,7 @@ public:
     std::vector<vk::DescriptorSet> _skyboxDSs;
 
     vk::DescriptorPool _descriptorPool;
-    vk::DescriptorSetLayout _materialDSLayout;
-    vk::DescriptorSetLayout _modelInstanceDSLayout;
-    vk::DescriptorSetLayout _skyboxDSLayout;
+    DSLayouts _dsLayouts;
 
 private:
     void loadTextures(const tinygltf::Model& gltfModel);

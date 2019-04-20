@@ -121,9 +121,9 @@ namespace {
 World::~World()
 {
     _device->logical().destroy(_descriptorPool);
-    _device->logical().destroy(_materialDSLayout);
-    _device->logical().destroy(_modelInstanceDSLayout);
-    _device->logical().destroy(_skyboxDSLayout);
+    _device->logical().destroy(_dsLayouts.material);
+    _device->logical().destroy(_dsLayouts.modelInstance);
+    _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
     for (auto& scene : _scenes) {
         for (auto& instance: scene.modelInstances) {
@@ -489,7 +489,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         { 1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment},
         { 2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment}
     }};
-    _materialDSLayout = _device->logical().createDescriptorSetLayout({
+    _dsLayouts.material = _device->logical().createDescriptorSetLayout({
         {}, // flags
         static_cast<uint32_t>(layoutBindings.size()),
         layoutBindings.data()
@@ -499,7 +499,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         material._descriptorSet = _device->logical().allocateDescriptorSets({
             _descriptorPool,
             1,
-            &_materialDSLayout
+            &_dsLayouts.material
         })[0];
 
         const std::array<vk::DescriptorImageInfo, 3> imageInfos = [&]{
@@ -543,7 +543,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         1, // descriptorCount
         vk::ShaderStageFlagBits::eVertex
     };
-    _modelInstanceDSLayout = _device->logical().createDescriptorSetLayout({
+    _dsLayouts.modelInstance = _device->logical().createDescriptorSetLayout({
         {}, // flags
         1, // bindingCount
         &modelInstanceLayoutBinding
@@ -551,7 +551,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
         swapImageCount,
-        _modelInstanceDSLayout
+        _dsLayouts.modelInstance
     );
     for (auto& scene : _scenes) {
         for (auto& instance : scene.modelInstances) {
@@ -591,7 +591,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             vk::ShaderStageFlagBits::eFragment
         },
     }};
-    _skyboxDSLayout = _device->logical().createDescriptorSetLayout({
+    _dsLayouts.skybox = _device->logical().createDescriptorSetLayout({
         {}, // flags
         static_cast<uint32_t>(skyboxLayoutBindings.size()), // bindingCount
         skyboxLayoutBindings.data()
@@ -599,7 +599,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     const std::vector<vk::DescriptorSetLayout> skyboxLayouts(
         swapImageCount,
-        _skyboxDSLayout
+        _dsLayouts.skybox
     );
     _skyboxDSs = _device->logical().allocateDescriptorSets({
         _descriptorPool,

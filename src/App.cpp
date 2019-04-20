@@ -391,8 +391,8 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
 
         const std::array<vk::DescriptorSetLayout, 3> setLayouts = {{
             _cam.descriptorSetLayout(),
-            _world._modelInstanceDSLayout,
-            _world._materialDSLayout
+            _world._dsLayouts.modelInstance,
+            _world._dsLayouts.material
         }};
         const vk::PushConstantRange pcRange{
             vk::ShaderStageFlagBits::eFragment,
@@ -558,7 +558,7 @@ void App::createGraphicsPipeline(const SwapchainConfig& swapConfig)
         _pipelineLayouts.skybox = _device.logical().createPipelineLayout({
             {}, // flags
             1, // layoutCount
-            &_world._skyboxDSLayout
+            &_world._dsLayouts.skybox
         });
 
         const vk::GraphicsPipelineCreateInfo createInfo{
