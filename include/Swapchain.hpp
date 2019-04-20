@@ -45,7 +45,7 @@ public:
     vk::Format format() const;
     const vk::Extent2D& extent() const;
     uint32_t imageCount() const;
-    vk::Framebuffer fbo(size_t i);
+    vk::Framebuffer fbo(size_t i) const;
     size_t nextFrame() const;
     vk::Fence currentFence() const;
     // nullopt tells to recreate swapchain

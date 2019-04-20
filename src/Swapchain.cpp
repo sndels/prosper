@@ -131,7 +131,7 @@ uint32_t Swapchain::imageCount() const
     return _config.imageCount;
 }
 
-vk::Framebuffer Swapchain::fbo(size_t i)
+vk::Framebuffer Swapchain::fbo(size_t i) const
 {
     if (i < _images.size())
         return _images[i].fbo;
