@@ -37,6 +37,7 @@ public:
 private:
     // These also need to be recreated with Swapchain as they depend on swapconfig
     void createRenderPass(const SwapchainConfig& swapConfig);
+    void createFramebuffer(const SwapchainConfig& swapConfig);
     void createGraphicsPipelines(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig& swapConfig);
 
@@ -54,6 +55,10 @@ private:
     vk::RenderPass _renderpass;
 
     std::vector<vk::CommandBuffer> _commandBuffers;
+
+    vk::Framebuffer _fbo;
+    Image _colorImage = {nullptr, nullptr, {}, nullptr};
+    Image _depthImage = {nullptr, nullptr, {}, nullptr};
 
     std::vector<vk::Semaphore> _imageAvailableSemaphores;
     std::vector<vk::Semaphore> _renderFinishedSemaphores;

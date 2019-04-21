@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include "Constants.hpp"
+#include "VkUtils.hpp"
 
 using namespace glm;
 
@@ -77,6 +78,9 @@ void Renderer::destroySwapchainRelated()
         _device->logical().destroy(_pipelines.skybox);
         _device->logical().destroy(_pipelineLayouts.pbr);
         _device->logical().destroy(_pipelineLayouts.skybox);
+        _device->logical().destroy(_fbo);
+        _device->destroy(_depthImage);
+        _device->destroy(_colorImage);
         _device->logical().destroy(_renderpass);
     }
 }
@@ -192,6 +196,85 @@ void Renderer::createRenderPass(const SwapchainConfig& swapConfig)
         &dependency
     });
 }
+
+void Renderer::createFramebuffer(const SwapchainConfig& swapConfig)
+{
+    {
+        const vk::ImageSubresourceRange subresourceRange{
+            vk::ImageAspectFlagBits::eColor,
+            0, // baseMipLevel
+            1, // levelCount
+            0, // baseArrayLayer
+            1 // layerCount
+        };
+
+        _colorImage = _device->createImage(
+            swapConfig.extent,
+            swapConfig.surfaceFormat.format,
+            subresourceRange,
+            vk::ImageViewType::e2D,
+            vk::ImageTiling::eOptimal,
+            vk::ImageCreateFlagBits{},
+            vk::ImageUsageFlagBits::eColorAttachment | // will be written to by frag
+            vk::ImageUsageFlagBits::eTransferSrc, // will be blitted from to swap
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY
+        );
+    }
+    {
+        // Check depth buffer without stencil is supported
+        const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+        const auto properties = _device->physical().getFormatProperties(swapConfig.depthFormat);
+        if ((properties.optimalTilingFeatures & features) != features)
+            throw std::runtime_error("Depth format unsupported");
+
+        const vk::ImageSubresourceRange subresourceRange{
+            vk::ImageAspectFlagBits::eDepth,
+            0, // baseMipLevel
+            1, // levelCount
+            0, // baseArrayLayer
+            1 // layerCount
+        };
+
+        _depthImage = _device->createImage(
+            swapConfig.extent,
+            swapConfig.depthFormat,
+            subresourceRange,
+            vk::ImageViewType::e2D,
+            vk::ImageTiling::eOptimal,
+            vk::ImageCreateFlags{},
+            vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY
+        );
+
+        const auto commandBuffer = _device->beginGraphicsCommands();
+
+        transitionImageLayout(
+            _depthImage,
+            subresourceRange,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            commandBuffer
+        );
+
+        _device->endGraphicsCommands(commandBuffer);
+    }
+    const std::array<vk::ImageView, 2> attachments = {{
+        _colorImage.view,
+        _depthImage.view
+    }};
+    _fbo = _device->logical().createFramebuffer({
+        {}, // flags
+        _renderpass,
+        attachments.size(),
+        attachments.data(),
+        swapConfig.extent.width,
+        swapConfig.extent.height,
+        1 // layers
+    });
+}
+
 
 void Renderer::createGraphicsPipelines(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts)
 {
