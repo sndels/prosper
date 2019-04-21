@@ -57,6 +57,7 @@ private:
     std::vector<vk::CommandBuffer> _commandBuffers;
 
     vk::Framebuffer _fbo;
+    vk::ImageBlit _fboToSwap;
     Image _colorImage = {nullptr, nullptr, {}, nullptr};
     Image _depthImage = {nullptr, nullptr, {}, nullptr};
 

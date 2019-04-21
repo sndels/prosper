@@ -85,6 +85,11 @@ SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent
         device->surface()
     );
 
+    // Needed to blit into, not supported by all implementations
+    if (!(swapchainSupport.capabilities.supportedUsageFlags &
+          vk::ImageUsageFlagBits::eTransferDst))
+        throw std::runtime_error("TransferDst usage not supported by swap surface");
+
     SwapchainConfig config = {
         swapchainSupport.capabilities.currentTransform,
         selectSwapSurfaceFormat(swapchainSupport.formats),
@@ -105,14 +110,12 @@ Swapchain::~Swapchain()
     destroy();
 }
 
-void Swapchain::create(Device* device, const vk::RenderPass renderPass, const SwapchainConfig& config)
+void Swapchain::create(Device* device, const SwapchainConfig& config)
 {
     _device = device;
     _config = config;
     createSwapchain();
     createImages();
-    createDepthResources();
-    createFramebuffers(renderPass);
     createFences();
 }
 
@@ -131,10 +134,10 @@ uint32_t Swapchain::imageCount() const
     return _config.imageCount;
 }
 
-vk::Framebuffer Swapchain::fbo(size_t i) const
+SwapchainImage Swapchain::image(size_t i) const
 {
     if (i < _images.size())
-        return _images[i].fbo;
+        return _images[i];
     throw std::runtime_error("Tried to index past swap image count");
 }
 
@@ -242,7 +245,7 @@ void Swapchain::createSwapchain()
         _config.surfaceFormat.colorSpace,
         _config.extent,
         1, // layers
-        vk::ImageUsageFlagBits::eColorAttachment,
+        vk::ImageUsageFlagBits::eTransferDst,
         imageSharingMode,
         queueFamilyIndexCount,
         pQueueFamilyIndices,
@@ -257,80 +260,16 @@ void Swapchain::createImages()
 {
     auto images =_device->logical().getSwapchainImagesKHR(_swapchain);
     for (auto& image : images) {
-        _images.push_back({image, {}, {}});
-        _images.back().view = _device->logical().createImageView({
-            {}, // flags
+        _images.push_back({
             image,
-            vk::ImageViewType::e2D,
-            _config.surfaceFormat.format,
-            {}, // Identity swizzles
-            vk::ImageSubresourceRange{
+            _config.extent,
+            {
                 vk::ImageAspectFlagBits::eColor,
-                0, // base mip
-                1, // level count
-                0, // base array layer
-                1  // layer count
+                0, // baseMipLevel
+                1, // levelCount
+                0, // baseArrayLayer
+                1 // layerCount
             }
-        });
-    }
-}
-
-void Swapchain::createDepthResources()
-{
-    // Check depth buffer without stencil is supported
-    const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-    const auto properties = _device->physical().getFormatProperties(_config.depthFormat);
-    if ((properties.optimalTilingFeatures & features) != features)
-        throw std::runtime_error("Depth format unsupported");
-
-    const vk::ImageSubresourceRange subresourceRange{
-        vk::ImageAspectFlagBits::eDepth,
-        0, // baseMipLevel
-        1, // levelCount
-        0, // baseArrayLayer
-        1 // layerCount
-    };
-
-    _depthImage = _device->createImage(
-        _config.extent,
-        _config.depthFormat,
-        subresourceRange,
-        vk::ImageViewType::e2D,
-        vk::ImageTiling::eOptimal,
-        vk::ImageCreateFlags{},
-        vk::ImageUsageFlagBits::eDepthStencilAttachment,
-        vk::MemoryPropertyFlagBits::eDeviceLocal,
-        VMA_MEMORY_USAGE_GPU_ONLY
-    );
-
-    const auto commandBuffer = _device->beginGraphicsCommands();
-
-    transitionImageLayout(
-        _depthImage,
-        subresourceRange,
-        vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eDepthStencilAttachmentOptimal,
-        commandBuffer
-    );
-
-    _device->endGraphicsCommands(commandBuffer);
-}
-
-void Swapchain::createFramebuffers(const vk::RenderPass renderPass)
-{
-    for (auto& image : _images) {
-        const std::array<vk::ImageView, 2> attachments = {{
-            image.view,
-            _depthImage.view
-        }};
-        image.fbo = _device->logical().createFramebuffer({
-            {}, // flags
-            renderPass,
-            attachments.size(),
-            attachments.data(),
-            _config.extent.width,
-            _config.extent.height,
-            1 // layers
         });
     }
 }
@@ -349,11 +288,6 @@ void Swapchain::destroy()
     if (_device) {
         for (auto fence : _inFlightFences)
             _device->logical().destroy(fence);
-        _device->destroy(_depthImage);
-        for (auto& image : _images) {
-            _device->logical().destroy(image.fbo);
-            _device->logical().destroy(image.view);
-        }
         _device->logical().destroy(_swapchain);
     }
 

@@ -34,6 +34,12 @@ namespace {
                 vk::AccessFlagBits::eTransferWrite,
                 vk::AccessFlagBits::eShaderRead
             };
+        } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
+                   newLayout == vk::ImageLayout::ePresentSrcKHR) {
+            return std::pair{
+                vk::AccessFlagBits::eTransferWrite,
+                vk::AccessFlagBits::eMemoryRead
+            };
         } else
             throw std::runtime_error("Unsupported layout transition");
     }
@@ -69,6 +75,12 @@ namespace {
             return std::pair{
                 vk::PipelineStageFlagBits::eTransfer,
                 vk::PipelineStageFlagBits::eFragmentShader
+            };
+        } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal &&
+                   newLayout == vk::ImageLayout::ePresentSrcKHR) {
+            return std::pair{
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eTransfer
             };
         } else
             throw std::runtime_error("Unsupported layout transition");

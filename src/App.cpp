@@ -116,7 +116,7 @@ void App::recreateSwapchainAndRelated()
         _cam.descriptorSetLayout(),
         _world._dsLayouts
     );
-    _swapchain.create(&_device, _renderer.outputRenderpass(), swapConfig);
+    _swapchain.create(&_device, swapConfig);
 
     _cam.perspective(
         radians(CAMERA_FOV),

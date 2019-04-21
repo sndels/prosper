@@ -59,6 +59,7 @@ void Renderer::init(Device* device)
 void Renderer::createSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts)
 {
     createRenderPass(swapConfig);
+    createFramebuffer(swapConfig);
     createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
     // Each command buffer binds to specific swapchain image
     createCommandBuffers(swapConfig);
@@ -140,7 +141,7 @@ void Renderer::createRenderPass(const SwapchainConfig& swapConfig)
             vk::AttachmentLoadOp::eDontCare, // stencilLoadOp
             vk::AttachmentStoreOp::eDontCare, // stencilStoreOp
             vk::ImageLayout::eUndefined, // initialLayout
-            vk::ImageLayout::ePresentSrcKHR // finalLayout
+            vk::ImageLayout::eTransferSrcOptimal // finalLayout, will be blitted from
         },
         { // depth
             {}, // flags
@@ -175,16 +176,25 @@ void Renderer::createRenderPass(const SwapchainConfig& swapConfig)
         &depthAttachmentRef
     };
 
-    // Synchronize
-    const vk::SubpassDependency dependency{
-        VK_SUBPASS_EXTERNAL, // srcSubpass
-        0, // dstSubpass
-        vk::PipelineStageFlagBits::eColorAttachmentOutput, // srcStageMask
-        vk::PipelineStageFlagBits::eColorAttachmentOutput, // dstStageMask
-        {}, // srcAccessMask
-        vk::AccessFlagBits::eColorAttachmentRead |
-        vk::AccessFlagBits::eColorAttachmentWrite // dstAccessMask
-    };
+    // Synchronize and handle layout transitions
+    const std::array<vk::SubpassDependency, 2> dependencies{{
+        {
+            VK_SUBPASS_EXTERNAL, // srcSubpass
+            0, // dstSubpass
+            vk::PipelineStageFlagBits::eTopOfPipe, // srcStageMask
+            vk::PipelineStageFlagBits::eColorAttachmentOutput, // dstStageMask
+            vk::AccessFlagBits::eMemoryRead, // srcAccessMask
+            vk::AccessFlagBits::eColorAttachmentWrite // dstAccessMask
+        },
+        {
+            0, // srcSubpass
+            VK_SUBPASS_EXTERNAL, // dstSubpass
+            vk::PipelineStageFlagBits::eColorAttachmentOutput, // srcStageMask
+            vk::PipelineStageFlagBits::eTopOfPipe, // dstStageMask
+            vk::AccessFlagBits::eColorAttachmentWrite, // srcAccessMask
+            vk::AccessFlagBits::eMemoryRead // dstAccessMask
+        }
+    }};
 
     _renderpass = _device->logical().createRenderPass({
         {}, // flags
@@ -192,8 +202,8 @@ void Renderer::createRenderPass(const SwapchainConfig& swapConfig)
         attachments.data(),
         1, // subpassCount
         &subpass,
-        1, // dependencyCount
-        &dependency
+        static_cast<uint32_t>(dependencies.size()), // dependencyCount
+        dependencies.data()
     });
 }
 
@@ -251,7 +261,7 @@ void Renderer::createFramebuffer(const SwapchainConfig& swapConfig)
         const auto commandBuffer = _device->beginGraphicsCommands();
 
         transitionImageLayout(
-            _depthImage,
+            _depthImage.handle,
             subresourceRange,
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -273,6 +283,28 @@ void Renderer::createFramebuffer(const SwapchainConfig& swapConfig)
         swapConfig.extent.height,
         1 // layers
     });
+
+    // Fbo layers and extent match swap image for now
+    const vk::ImageSubresourceLayers layers{
+        vk::ImageAspectFlagBits::eColor,
+        0, // baseMipLevel
+        0, // baseArrayLayer
+        1 // layerCount
+    };
+    const std::array<vk::Offset3D, 2> offsets{{
+        {0},
+        {
+            static_cast<int32_t>(swapConfig.extent.width),
+            static_cast<int32_t>(swapConfig.extent.height),
+            1
+        }
+    }};
+    _fboToSwap = vk::ImageBlit{
+        layers, // srcSubresource
+        offsets, // srcOffsets
+        layers, // dstSubresource
+        offsets, // dstOffsets
+    };
 }
 
 
@@ -628,7 +660,7 @@ void Renderer::recordCommandBuffer(const World& world, const Camera& cam, const 
     buffer.beginRenderPass(
         {
             _renderpass,
-            swapchain.fbo(nextImage),
+            _fbo,
             vk::Rect2D{
                 {0, 0}, // offset
                 swapchain.extent()
@@ -700,6 +732,35 @@ void Renderer::recordCommandBuffer(const World& world, const Camera& cam, const 
     );
 
     buffer.endRenderPass();
+
+    // Blit to support different internal rendering resolution (and color format?) the future
+    const auto& swapImage = swapchain.image(nextImage);
+
+    transitionImageLayout(
+        swapImage.handle,
+        swapImage.subresourceRange,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal,
+        buffer
+    );
+
+    buffer.blitImage(
+        _colorImage.handle, // srcImage
+        vk::ImageLayout::eTransferSrcOptimal, // srcImageLayout
+        swapImage.handle, // dstImage
+        vk::ImageLayout::eTransferDstOptimal, // dstImageLayout
+        1, &_fboToSwap, // regionCount, ptr
+        vk::Filter::eLinear
+    );
+
+    transitionImageLayout(
+        swapImage.handle,
+        swapImage.subresourceRange,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::ePresentSrcKHR,
+        buffer
+    );
+
     buffer.end();
 }
 
