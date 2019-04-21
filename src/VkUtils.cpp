@@ -75,7 +75,7 @@ namespace {
     }
 }
 
-void transitionImageLayout(const Image& image, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout, const vk::CommandBuffer& commandBuffer)
+void transitionImageLayout(const vk::Image& image, const vk::ImageSubresourceRange& subresourceRange, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout, const vk::CommandBuffer& commandBuffer)
 {
     const auto [srcAccessMask, dstAccessMask] = accessMasks(oldLayout, newLayout);
     const auto [srcStageMask, dstStageMask] = stageMasks(oldLayout, newLayout);
@@ -87,7 +87,7 @@ void transitionImageLayout(const Image& image, const vk::ImageSubresourceRange& 
         newLayout,
         VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
         VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
-        image.handle,
+        image,
         subresourceRange
     };
     commandBuffer.pipelineBarrier(

@@ -227,7 +227,7 @@ void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D exte
     const auto commandBuffer = _device->beginGraphicsCommands();
 
     transitionImageLayout(
-        _image,
+        _image.handle,
         subresourceRange,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal,
@@ -279,7 +279,7 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
         // Make sure last operation finished and source is transitioned
         subresourceRange.baseMipLevel = i -1;
         transitionImageLayout(
-            _image,
+            _image.handle,
             subresourceRange,
             vk::ImageLayout::eTransferDstOptimal,
             vk::ImageLayout::eTransferSrcOptimal,
@@ -320,7 +320,7 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
 
         // Source needs to be transitioned to shader read optimal
         transitionImageLayout(
-            _image,
+            _image.handle,
             subresourceRange,
             vk::ImageLayout::eTransferSrcOptimal,
             vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -336,7 +336,7 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
     // Last mip level needs to be transitioned to shader read optimal
     subresourceRange.baseMipLevel = mipLevels - 1;
     transitionImageLayout(
-        _image,
+        _image.handle,
         subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -492,7 +492,7 @@ void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSu
     const auto copyBuffer = _device->beginGraphicsCommands();
 
     transitionImageLayout(
-        _image,
+        _image.handle,
         subresourceRange,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal,
@@ -508,7 +508,7 @@ void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSu
     );
 
     transitionImageLayout(
-        _image,
+        _image.handle,
         subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
