@@ -160,7 +160,7 @@ void App::drawFrame()
     const auto signalSemaphores = _renderer.drawFrame(_world, _cam, _swapchain, nextImage);
 
     // Recreate swapchain if so indicated and explicitly handle resizes
-    if (!_swapchain.present(signalSemaphores.size(), signalSemaphores.data()) ||
+    if (!_swapchain.present(signalSemaphores) ||
         _window.resized())
         recreateSwapchainAndRelated();
 

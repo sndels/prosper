@@ -183,12 +183,12 @@ std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore signalSemaphor
     return _nextImage;
 }
 
-bool Swapchain::present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSemaphores)
+bool Swapchain::present(const std::array<vk::Semaphore, 1>& waitSemaphores)
 {
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
-        waitSemaphoreCount,
-        waitSemaphores,
+        static_cast<uint32_t>(waitSemaphores.size()),
+        waitSemaphores.data(),
         1, // swapchainCount
         &_swapchain,
         &_nextImage

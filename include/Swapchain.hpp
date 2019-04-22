@@ -51,7 +51,7 @@ public:
     // nullopt tells to recreate swapchain
     std::optional<uint32_t> acquireNextImage(vk::Semaphore signalSemaphore);
     // false if swapchain should be recerated
-    bool present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSemaphores);
+    bool present(const std::array<vk::Semaphore, 1>& waitSemaphores);
 
 private:
     void createSwapchain();
