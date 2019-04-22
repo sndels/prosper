@@ -151,7 +151,7 @@ vk::Fence Swapchain::currentFence() const
     return _inFlightFences[_nextFrame];
 }
 
-std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore waitSemaphore)
+std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore signalSemaphore)
 {
     _device->logical().waitForFences(
         1, // fenceCount
@@ -168,7 +168,7 @@ std::optional<uint32_t> Swapchain::acquireNextImage(vk::Semaphore waitSemaphore)
     const auto result = _device->logical().acquireNextImageKHR(
         _swapchain,
         std::numeric_limits<uint64_t>::max(), // timeout
-        waitSemaphore,
+        signalSemaphore,
         {}, // fence
         &_nextImage
     );

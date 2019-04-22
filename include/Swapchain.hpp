@@ -49,7 +49,7 @@ public:
     size_t nextFrame() const;
     vk::Fence currentFence() const;
     // nullopt tells to recreate swapchain
-    std::optional<uint32_t> acquireNextImage(vk::Semaphore waitSemaphore);
+    std::optional<uint32_t> acquireNextImage(vk::Semaphore signalSemaphore);
     // false if swapchain should be recerated
     bool present(uint32_t waitSemaphoreCount, const vk::Semaphore* waitSemaphores);
 
