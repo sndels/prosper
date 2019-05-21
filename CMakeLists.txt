@@ -23,15 +23,18 @@ target_compile_features(prosper
     PRIVATE
     cxx_std_17
 )
-if (NOT MSVC)
-    target_compile_options(prosper
-        PRIVATE
-        -pedantic
-        -Wall
-        -Werror
-        -Wunused-parameter
-    )
-endif() # NOT MSVC
+if (CMAKE_BUILD_TYPE EQUAL "DEBUG")
+    if (NOT MSVC)
+        target_compile_options(prosper
+            PRIVATE
+            -pedantic
+            -Werror
+            -Wall
+            -Wextra
+            -Wunused
+        )
+    endif() # NOT MSVC
+endif() # DEBUG
 target_include_directories(prosper
     PRIVATE
     ${PROSPER_INCLUDE_DIR}
