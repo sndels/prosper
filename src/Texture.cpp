@@ -227,11 +227,15 @@ void Texture2D::createImage(const Buffer& stagingBuffer, const vk::Extent2D exte
     const auto commandBuffer = _device->beginGraphicsCommands();
 
     transitionImageLayout(
+        commandBuffer,
         _image.handle,
         subresourceRange,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal,
-        commandBuffer
+        vk::AccessFlags{},
+        vk::AccessFlagBits::eTransferWrite,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eTransfer
     );
 
     const vk::BufferImageCopy region{
@@ -279,11 +283,15 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
         // Make sure last operation finished and source is transitioned
         subresourceRange.baseMipLevel = i -1;
         transitionImageLayout(
+            buffer,
             _image.handle,
             subresourceRange,
             vk::ImageLayout::eTransferDstOptimal,
             vk::ImageLayout::eTransferSrcOptimal,
-            buffer
+            vk::AccessFlagBits::eTransferWrite,
+            vk::AccessFlagBits::eTransferRead,
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eTransfer
         );
 
         vk::ImageBlit blit{
@@ -320,11 +328,15 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
 
         // Source needs to be transitioned to shader read optimal
         transitionImageLayout(
+            buffer,
             _image.handle,
             subresourceRange,
             vk::ImageLayout::eTransferSrcOptimal,
             vk::ImageLayout::eShaderReadOnlyOptimal,
-            buffer
+            vk::AccessFlagBits::eTransferRead,
+            vk::AccessFlagBits::eShaderRead,
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader
         );
 
         if (mipWidth > 1)
@@ -336,11 +348,15 @@ void Texture2D::createMipmaps(const vk::Extent2D extent, const uint32_t mipLevel
     // Last mip level needs to be transitioned to shader read optimal
     subresourceRange.baseMipLevel = mipLevels - 1;
     transitionImageLayout(
+        buffer,
         _image.handle,
         subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
-        buffer
+        vk::AccessFlagBits::eTransferRead,
+        vk::AccessFlagBits::eShaderRead,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader
     );
 
     _device->endGraphicsCommands(buffer);
@@ -492,11 +508,15 @@ void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSu
     const auto copyBuffer = _device->beginGraphicsCommands();
 
     transitionImageLayout(
+        copyBuffer,
         _image.handle,
         subresourceRange,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal,
-        copyBuffer
+        vk::AccessFlags{},
+        vk::AccessFlagBits::eTransferWrite,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eTransfer
     );
 
     copyBuffer.copyBufferToImage(
@@ -508,11 +528,15 @@ void TextureCubemap::copyPixels(const gli::texture_cube& cube, const vk::ImageSu
     );
 
     transitionImageLayout(
+        copyBuffer,
         _image.handle,
         subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
-        copyBuffer
+        vk::AccessFlagBits::eTransferWrite,
+        vk::AccessFlagBits::eShaderRead,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader
     );
 
     _device->endGraphicsCommands(copyBuffer);

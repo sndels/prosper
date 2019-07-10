@@ -261,11 +261,15 @@ void Renderer::createFramebuffer(const SwapchainConfig& swapConfig)
         const auto commandBuffer = _device->beginGraphicsCommands();
 
         transitionImageLayout(
+            commandBuffer,
             _depthImage.handle,
             subresourceRange,
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            commandBuffer
+            vk::AccessFlags{},
+            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eEarlyFragmentTests
         );
 
         _device->endGraphicsCommands(commandBuffer);
@@ -737,11 +741,15 @@ void Renderer::recordCommandBuffer(const World& world, const Camera& cam, const 
     const auto& swapImage = swapchain.image(nextImage);
 
     transitionImageLayout(
+        buffer,
         swapImage.handle,
         swapImage.subresourceRange,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eTransferDstOptimal,
-        buffer
+        vk::AccessFlags{},
+        vk::AccessFlagBits::eTransferWrite,
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eTransfer
     );
 
     buffer.blitImage(
@@ -754,11 +762,15 @@ void Renderer::recordCommandBuffer(const World& world, const Camera& cam, const 
     );
 
     transitionImageLayout(
+        buffer,
         swapImage.handle,
         swapImage.subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::ePresentSrcKHR,
-        buffer
+        vk::AccessFlagBits::eTransferWrite,
+        vk::AccessFlagBits::eMemoryRead,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eTransfer
     );
 
     buffer.end();
