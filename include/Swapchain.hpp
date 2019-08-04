@@ -21,7 +21,7 @@ struct SwapchainConfig {
     vk::Format depthFormat;
     vk::PresentModeKHR presentMode;
     vk::Extent2D extent;
-    uint32_t imageCount;
+    uint32_t imageCount = 0;
 };
 SwapchainConfig selectSwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& extent);
 
@@ -38,6 +38,7 @@ public:
 
     Swapchain(const Swapchain& other) = delete;
     Swapchain& operator=(const Swapchain& other) = delete;
+    Swapchain& operator=(Swapchain&& other);
 
     void create(std::shared_ptr<Device> device, const SwapchainConfig& config);
     void destroy();
@@ -58,6 +59,7 @@ private:
     void createImages();
     void createFences();
 
+    // Swapchain with null device is invalid or moved
     std::shared_ptr<Device> _device = nullptr;
     SwapchainConfig _config = {};
 

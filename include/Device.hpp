@@ -82,7 +82,7 @@ private:
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
     vk::Device _logical;
-    VmaAllocator _allocator;
+    VmaAllocator _allocator = nullptr;
     vk::SurfaceKHR _surface;
 
     QueueFamilies _queueFamilies = {std::nullopt, std::nullopt, std::nullopt};

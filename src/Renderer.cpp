@@ -45,8 +45,8 @@ Renderer::~Renderer()
             _device->logical().destroy(semaphore);
         for (auto& semaphore : _imageAvailableSemaphores)
             _device->logical().destroy(semaphore);
+        destroySwapchainRelated();
     }
-    destroySwapchainRelated();
 }
 
 void Renderer::init(std::shared_ptr<Device> device)

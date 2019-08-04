@@ -11,18 +11,11 @@ struct Scene {
     struct Node {
         // TODO: Other fields
         std::vector<Node*> children;
-        Model* model;
-        glm::vec3 translation;
-        glm::quat rotation;
-        glm::vec3 scale;
+        Model* model = nullptr;
+        glm::vec3 translation = glm::vec3{0.f};
+        glm::quat rotation = glm::quat{1.f, 0.f, 0.f, 0.f};
+        glm::vec3 scale = glm::vec3{1.f};
 
-        Node() :
-            children(),
-            model(nullptr),
-            translation(0.f),
-            rotation(1.f, 0.f, 0.f, 0.f),
-            scale(1.f)
-        { }
     };
 
     struct ModelInstance {
@@ -30,8 +23,8 @@ struct Scene {
             glm::mat4 modelToWorld;
         };
 
-        Model* model;
-        glm::mat4 modelToWorld;
+        Model* model = nullptr;
+        glm::mat4 modelToWorld = glm::mat4{1.f};
 
         std::vector<Buffer> uniformBuffers;
         std::vector<vk::DescriptorSet> descriptorSets;

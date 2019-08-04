@@ -110,6 +110,23 @@ Swapchain::~Swapchain()
     destroy();
 }
 
+Swapchain& Swapchain::operator=(Swapchain&& other)
+{
+    destroy();
+    if (this != &other) {
+        _device = other._device;
+        _config = std::move(other._config);
+        _swapchain = other._swapchain;
+        _images = std::move(other._images);
+        _nextImage = other._nextImage;
+        _inFlightFences = std::move(other._inFlightFences);
+        _nextFrame = other._nextFrame;
+
+        other._device = nullptr;
+    }
+    return *this;
+}
+
 void Swapchain::create(std::shared_ptr<Device> device, const SwapchainConfig& config)
 {
     _device = device;
@@ -291,7 +308,9 @@ void Swapchain::destroy()
         _device->logical().destroy(_swapchain);
     }
 
-    _swapchain = vk::SwapchainKHR();
+    _device = nullptr;
+    _config = {};
+    _swapchain = vk::SwapchainKHR{};
     _images.clear();
     _inFlightFences.clear();
     _nextFrame = 0;

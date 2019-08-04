@@ -24,6 +24,9 @@ public:
     Renderer() = default;
     ~Renderer();
 
+    Renderer(const Renderer& other) = delete;
+    Renderer& operator=(const Renderer& other) = delete;
+
     // Two-part initialization simplifies things in App
     void init(std::shared_ptr<Device> device);
     void createSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts);

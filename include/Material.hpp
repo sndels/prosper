@@ -6,14 +6,14 @@
 
 class Texture;
 
-class Material
+struct Material
 {
-public:
     enum class AlphaMode {
         Opaque,
         Mask,
         Blend
     };
+
     // Needs to match shader
     struct PCBlock {
         glm::vec4 baseColorFactor;
@@ -32,15 +32,6 @@ public:
         int normal = -1;
     };
 
-    Material() = default;
-
-    Material(const Material& other) = delete;
-    Material(Material&& other);
-    Material& operator=(const Material& other) = delete;
-
-    float alphaModeFloat() const;
-    PCBlock pcBlock() const;
-
     // TODO: More parameters
     Texture* _baseColor = nullptr;
     Texture* _metallicRoughness = nullptr;
@@ -52,6 +43,9 @@ public:
     AlphaMode _alphaMode = AlphaMode::Opaque;
     float _alphaCutoff = 0.5f;
     vk::DescriptorSet _descriptorSet;
+
+    float alphaModeFloat() const;
+    PCBlock pcBlock() const;
 };
 
 

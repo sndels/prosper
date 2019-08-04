@@ -7,10 +7,10 @@
 #include <array>
 
 struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 normal;
-    glm::vec4 tangent;
-    glm::vec2 texCoord0;
+    glm::vec3 pos = glm::vec3{0.f};
+    glm::vec3 normal = glm::vec3{0.f, 1.f, 0.f};
+    glm::vec4 tangent = glm::vec4{0.f, 0.f, 1.f, 0.f};
+    glm::vec2 texCoord0 = glm::vec2{0.5f};
 
     static const vk::VertexInputBindingDescription& bindingDescription()
     {

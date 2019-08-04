@@ -10,8 +10,10 @@ using namespace glm;
 
 Camera::~Camera()
 {
-    _device->logical().destroy(_descriptorSetLayout);
-    destroyUniformBuffers();
+    if (_device) {
+        _device->logical().destroy(_descriptorSetLayout);
+        destroyUniformBuffers();
+    }
 }
 
 void Camera::createUniformBuffers(std::shared_ptr<Device> device, const uint32_t swapImageCount)

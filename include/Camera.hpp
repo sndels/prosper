@@ -17,6 +17,9 @@ public:
     Camera() = default;
     ~Camera();
 
+    Camera(const Camera& other) = delete;
+    Camera& operator=(const Camera& other) = delete;
+
     void createUniformBuffers(std::shared_ptr<Device> device, const uint32_t swapImageCount);
     // Create uniform buffers first
     void createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);

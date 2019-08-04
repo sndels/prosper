@@ -33,7 +33,7 @@ public:
     std::vector<Model> _models;
     std::vector<Scene::Node> _nodes;
     std::vector<Scene> _scenes;
-    size_t _currentScene;
+    size_t _currentScene = 0;
 
     std::optional<TextureCubemap> _skyboxTexture;
     Buffer _skyboxVertexBuffer;

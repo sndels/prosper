@@ -19,7 +19,10 @@ public:
     vk::DescriptorImageInfo imageInfo() const;
 
 protected:
-    std::shared_ptr<Device> _device;
+    void destroy();
+
+    // Texture with null device is invalid or moved
+    std::shared_ptr<Device> _device = nullptr;
     Image _image;
     vk::Sampler _sampler;
 

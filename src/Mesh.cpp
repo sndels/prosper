@@ -3,9 +3,9 @@
 #include "VkUtils.hpp"
 
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, Material* material, std::shared_ptr<Device> device) :
-    _device(device),
-    _material(material),
-    _indexCount(indices.size())
+    _device{device},
+    _material{material},
+    _indexCount{static_cast<uint32_t>(indices.size())}
 {
     createVertexBuffer(vertices);
     createIndexBuffer(indices);
@@ -13,24 +13,20 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& ind
 
 Mesh::~Mesh()
 {
-    if (_device != nullptr) {
+    if (_device) {
         _device->destroy(_indexBuffer);
         _device->destroy(_vertexBuffer);
     }
 }
 
 Mesh::Mesh(Mesh&& other) :
-    _device(other._device),
-    _material(other._material),
-    _vertexBuffer(other._vertexBuffer),
-    _indexBuffer(other._indexBuffer),
-    _indexCount(other._indexCount)
+    _device{other._device},
+    _material{other._material},
+    _vertexBuffer{other._vertexBuffer},
+    _indexBuffer{other._indexBuffer},
+    _indexCount{other._indexCount}
 {
-    other._material = nullptr;
     other._device = nullptr;
-    other._vertexBuffer = {{}, {}};
-    other._indexBuffer = {{}, {}};
-    other._indexCount = 0;
 }
 
 const Material& Mesh::material() const

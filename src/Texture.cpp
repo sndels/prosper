@@ -67,36 +67,31 @@ namespace {
 }
 
 Texture::Texture(std::shared_ptr<Device> device) :
-    _device(device)
+    _device{device}
 { }
 
 Texture::~Texture()
 {
-    _device->logical().destroy(_sampler);
-    _device->destroy(_image);
+    destroy();
 }
 
 Texture::Texture(Texture&& other) :
-    _device(other._device),
-    _image(other._image),
-    _sampler(other._sampler)
+    _device{other._device},
+    _image{other._image},
+    _sampler{other._sampler}
 {
-    other._image.handle = nullptr;
-    other._image.view = nullptr;
-    other._image.allocation = nullptr;
-    other._sampler = nullptr;
+    other._device = nullptr;
 }
 
 Texture& Texture::operator=(Texture&& other)
 {
+    destroy();
     if (this != &other) {
         _device = other._device;
         _image = other._image;
         _sampler = other._sampler;
-        other._image.handle = nullptr;
-        other._image.view = nullptr;
-        other._image.allocation = nullptr;
-        other._sampler = nullptr;
+
+        other._device = nullptr;
     }
     return *this;
 }
@@ -108,6 +103,14 @@ vk::DescriptorImageInfo Texture::imageInfo() const
         _image.view,
         vk::ImageLayout::eShaderReadOnlyOptimal
     };
+}
+
+void Texture::destroy()
+{
+    if (_device) {
+        _device->logical().destroy(_sampler);
+        _device->destroy(_image);
+    }
 }
 
 Texture2D::Texture2D(std::shared_ptr<Device> device, const std::string& path, const bool mipmap) :
