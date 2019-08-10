@@ -45,7 +45,7 @@ struct Scene {
             return infos;
         }
 
-        void updateBuffer(const Device* device, const uint32_t nextImage) const
+        void updateBuffer(const std::shared_ptr<Device> device, const uint32_t nextImage) const
         {
             UBlock uBlock;
             uBlock.modelToWorld = modelToWorld;

@@ -22,7 +22,7 @@ public:
     World(const World& other) = delete;
     World& operator=(const World& other) = delete;
 
-    void loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename);
+    void loadGLTF(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename);
     const Scene& currentScene() const;
     void drawSkybox(const vk::CommandBuffer& buffer) const;
 
@@ -52,7 +52,7 @@ private:
     void createDescriptorPool(const uint32_t swapImageCount);
     void createDescriptorSets(const uint32_t swapImageCount);
 
-    Device* _device = nullptr;
+    std::shared_ptr<Device> _device = nullptr;
 
 };
 

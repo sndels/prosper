@@ -5,7 +5,7 @@
 
 struct Model
 {
-    Device* _device;
+    std::shared_ptr<Device> _device;
     std::vector<Mesh> _meshes;
     // TODO: Materials for meshes here instead of Mesh?
 };

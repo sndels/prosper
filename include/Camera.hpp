@@ -17,7 +17,7 @@ public:
     Camera() = default;
     ~Camera();
 
-    void createUniformBuffers(Device* device, const uint32_t swapImageCount);
+    void createUniformBuffers(std::shared_ptr<Device> device, const uint32_t swapImageCount);
     // Create uniform buffers first
     void createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
 
@@ -40,7 +40,7 @@ public:
 private:
     void destroyUniformBuffers();
 
-    Device* _device = nullptr;
+    std::shared_ptr<Device> _device = nullptr;
     glm::vec3 _eye;
     glm::mat4 _worldToClip;
     glm::mat4 _worldToCamera;

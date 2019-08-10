@@ -27,7 +27,7 @@ private:
     void drawFrame();
 
     Window _window; // Needs to be valid before and after everything else
-    Device _device; // Needs to be valid before and after all other vk resources
+    std::shared_ptr<Device> _device = nullptr; // Needs to be valid before and after all other vk resources
     Swapchain _swapchain;
     World _world;
     Camera _cam;

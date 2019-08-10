@@ -23,7 +23,7 @@ struct SwapchainConfig {
     vk::Extent2D extent;
     uint32_t imageCount;
 };
-SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent);
+SwapchainConfig selectSwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& extent);
 
 struct SwapchainImage {
     vk::Image handle;
@@ -39,7 +39,7 @@ public:
     Swapchain(const Swapchain& other) = delete;
     Swapchain& operator=(const Swapchain& other) = delete;
 
-    void create(Device* device, const SwapchainConfig& config);
+    void create(std::shared_ptr<Device> device, const SwapchainConfig& config);
     void destroy();
 
     vk::Format format() const;
@@ -58,7 +58,7 @@ private:
     void createImages();
     void createFences();
 
-    Device* _device = nullptr;
+    std::shared_ptr<Device> _device = nullptr;
     SwapchainConfig _config = {};
 
     vk::SwapchainKHR _swapchain;

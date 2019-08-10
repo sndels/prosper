@@ -49,7 +49,7 @@ Renderer::~Renderer()
     destroySwapchainRelated();
 }
 
-void Renderer::init(Device* device)
+void Renderer::init(std::shared_ptr<Device> device)
 {
     _device = device;
     // Semaphores correspond to logical frames instead of swapchain images

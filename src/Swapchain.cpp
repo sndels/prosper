@@ -78,7 +78,7 @@ SwapchainSupport querySwapchainSupport(vk::PhysicalDevice device, const vk::Surf
     return details;
 }
 
-SwapchainConfig selectSwapchainConfig(Device* device, const vk::Extent2D& extent)
+SwapchainConfig selectSwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& extent)
 {
     const SwapchainSupport swapchainSupport = querySwapchainSupport(
         device->physical(),
@@ -110,7 +110,7 @@ Swapchain::~Swapchain()
     destroy();
 }
 
-void Swapchain::create(Device* device, const SwapchainConfig& config)
+void Swapchain::create(std::shared_ptr<Device> device, const SwapchainConfig& config)
 {
     _device = device;
     _config = config;

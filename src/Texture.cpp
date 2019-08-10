@@ -66,7 +66,7 @@ namespace {
     }
 }
 
-Texture::Texture(Device* device) :
+Texture::Texture(std::shared_ptr<Device> device) :
     _device(device)
 { }
 
@@ -110,7 +110,7 @@ vk::DescriptorImageInfo Texture::imageInfo() const
     };
 }
 
-Texture2D::Texture2D(Device* device, const std::string& path, const bool mipmap) :
+Texture2D::Texture2D(std::shared_ptr<Device> device, const std::string& path, const bool mipmap) :
     Texture(device)
 {
     _device = device;
@@ -135,7 +135,7 @@ Texture2D::Texture2D(Device* device, const std::string& path, const bool mipmap)
     _device->destroy(stagingBuffer);
 }
 
-Texture2D::Texture2D(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap) :
+Texture2D::Texture2D(std::shared_ptr<Device> device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap) :
     Texture(device)
 {
     // TODO: support
@@ -404,7 +404,7 @@ void Texture2D::createSampler(const tinygltf::Sampler& sampler, const uint32_t m
     });
 }
 
-TextureCubemap::TextureCubemap(Device* device, const std::string& path) :
+TextureCubemap::TextureCubemap(std::shared_ptr<Device> device, const std::string& path) :
     Texture(device)
 {
     _device = device;

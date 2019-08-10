@@ -8,7 +8,7 @@
 
 class Texture {
 public:
-    Texture(Device* device);
+    Texture(std::shared_ptr<Device> device);
     ~Texture();
 
     Texture(const Texture& other) = delete;
@@ -19,7 +19,7 @@ public:
     vk::DescriptorImageInfo imageInfo() const;
 
 protected:
-    Device* _device;
+    std::shared_ptr<Device> _device;
     Image _image;
     vk::Sampler _sampler;
 
@@ -27,8 +27,8 @@ protected:
 
 class Texture2D : public Texture {
 public:
-    Texture2D(Device* device, const std::string& path, const bool mipmap);
-    Texture2D(Device* device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap);
+    Texture2D(std::shared_ptr<Device> device, const std::string& path, const bool mipmap);
+    Texture2D(std::shared_ptr<Device> device, const tinygltf::Image& image, const tinygltf::Sampler& sampler, const bool mipmap);
 
 private:
     Buffer stagePixels(const uint8_t* pixels, const vk::Extent2D extent) const;
@@ -41,7 +41,7 @@ private:
 
 class TextureCubemap : public Texture {
 public:
-    TextureCubemap(Device* device, const std::string& path);
+    TextureCubemap(std::shared_ptr<Device> device, const std::string& path);
 
 private:
     void copyPixels(const gli::texture_cube& cube, const vk::ImageSubresourceRange& subresourceRange) const;

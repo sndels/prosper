@@ -78,7 +78,7 @@ namespace {
         return model;
     }
 
-    Buffer createSkyboxVertexBuffer(Device* device)
+    Buffer createSkyboxVertexBuffer(std::shared_ptr<Device> device)
     {
         const vk::DeviceSize bufferSize = sizeof(skyboxVerts[0]) * skyboxVerts.size();
         const Buffer stagingBuffer = device->createBuffer(
@@ -135,7 +135,7 @@ World::~World()
         _device->destroy(buffer);
 }
 
-void World::loadGLTF(Device* device, const uint32_t swapImageCount, const std::string& filename)
+void World::loadGLTF(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename)
 {
     _device = device;
 

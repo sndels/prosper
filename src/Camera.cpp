@@ -14,7 +14,7 @@ Camera::~Camera()
     destroyUniformBuffers();
 }
 
-void Camera::createUniformBuffers(Device* device, const uint32_t swapImageCount)
+void Camera::createUniformBuffers(std::shared_ptr<Device> device, const uint32_t swapImageCount)
 {
     destroyUniformBuffers();
 

@@ -25,7 +25,7 @@ public:
     ~Renderer();
 
     // Two-part initialization simplifies things in App
-    void init(Device* device);
+    void init(std::shared_ptr<Device> device);
     void createSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts);
     void destroySwapchainRelated();
 
@@ -47,7 +47,7 @@ private:
     void recordCommandBuffer(const World& world, const Camera& cam, const Swapchain& swapchain, const uint32_t nextImage) const;
     void recordModelInstances(const vk::CommandBuffer buffer, const uint32_t nextImage, const std::vector<Scene::ModelInstance>& instances, const std::function<bool(const Mesh&)>& cullMesh) const;
 
-    Device* _device = nullptr;
+    std::shared_ptr<Device> _device = nullptr;
 
     PipelineLayouts _pipelineLayouts;
     Pipelines _pipelines;
