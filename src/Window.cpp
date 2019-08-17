@@ -87,7 +87,7 @@ void Window::keyCallback(GLFWwindow* window, int32_t key, int32_t scancode, int3
         case GLFW_KEY_ESCAPE:
             glfwSetWindowShouldClose(window, GLFW_TRUE);
             break;
-        default: 
+        default:
             break;
         }
     }
@@ -110,14 +110,14 @@ void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int
     auto& mouse = InputHandler::instance()._mouse;
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS)
-            mouse.leftDown = true; 
+            mouse.leftDown = true;
         else
-            mouse.leftDown = false; 
+            mouse.leftDown = false;
     } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
         if (action == GLFW_PRESS)
-            mouse.rightDown = true; 
+            mouse.rightDown = true;
         else
-            mouse.rightDown = false; 
+            mouse.rightDown = false;
     }
 }
 

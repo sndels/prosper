@@ -27,7 +27,7 @@ namespace {
             if (allFamilies[i].queueCount > 0) {
                 const vk::Bool32 presentSupport = device.getSurfaceSupportKHR(i, surface);
 
-                // Set index to matching families 
+                // Set index to matching families
                 if (allFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
                     families.computeFamily = i;
                 if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
@@ -118,7 +118,7 @@ namespace {
         auto vkpDebugMessenger = reinterpret_cast<VkDebugUtilsMessengerEXT*>(pDebugMessenger);
 
         auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(vkInstance, "vkCreateDebugUtilsMessengerEXT");
-        if (func == nullptr || 
+        if (func == nullptr ||
             func(vkInstance, vkpCreateInfo, vkpAllocator, vkpDebugMessenger) != VK_SUCCESS)
             throw std::runtime_error("failed to create debug messenger");
     }
