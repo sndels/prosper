@@ -38,6 +38,14 @@ namespace {
     }
 }
 
+Renderer::Renderer(std::shared_ptr<Device> device, const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts) :
+    _device{device}
+{
+    // Semaphores correspond to logical frames instead of swapchain images
+    createSemaphores(MAX_FRAMES_IN_FLIGHT);
+    recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
+}
+
 Renderer::~Renderer()
 {
     if (_device) {
@@ -49,41 +57,14 @@ Renderer::~Renderer()
     }
 }
 
-void Renderer::init(std::shared_ptr<Device> device)
+void Renderer::recreateSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts)
 {
-    _device = device;
-    // Semaphores correspond to logical frames instead of swapchain images
-    createSemaphores(MAX_FRAMES_IN_FLIGHT);
-}
-
-void Renderer::createSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts)
-{
+    destroySwapchainRelated();
     createRenderPass(swapConfig);
     createFramebuffer(swapConfig);
     createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
     // Each command buffer binds to specific swapchain image
     createCommandBuffers(swapConfig);
-}
-
-void Renderer::destroySwapchainRelated()
-{
-    if (_device) {
-        _device->logical().freeCommandBuffers(
-            _device->graphicsPool(),
-            _commandBuffers.size(),
-            _commandBuffers.data()
-        );
-
-        _device->logical().destroy(_pipelines.pbr);
-        _device->logical().destroy(_pipelines.pbrAlphaBlend);
-        _device->logical().destroy(_pipelines.skybox);
-        _device->logical().destroy(_pipelineLayouts.pbr);
-        _device->logical().destroy(_pipelineLayouts.skybox);
-        _device->logical().destroy(_fbo);
-        _device->destroy(_depthImage);
-        _device->destroy(_colorImage);
-        _device->logical().destroy(_renderpass);
-    }
 }
 
 vk::Semaphore Renderer::imageAvailable(const uint32_t frame) const
@@ -126,6 +107,27 @@ std::array<vk::Semaphore, 1> Renderer::drawFrame(const World& world, const Camer
     _device->graphicsQueue().submit(1, &submitInfo, swapchain.currentFence());
 
     return signalSemaphores;
+}
+
+void Renderer::destroySwapchainRelated()
+{
+    if (_device) {
+        _device->logical().freeCommandBuffers(
+            _device->graphicsPool(),
+            _commandBuffers.size(),
+            _commandBuffers.data()
+        );
+
+        _device->logical().destroy(_pipelines.pbr);
+        _device->logical().destroy(_pipelines.pbrAlphaBlend);
+        _device->logical().destroy(_pipelines.skybox);
+        _device->logical().destroy(_pipelineLayouts.pbr);
+        _device->logical().destroy(_pipelineLayouts.skybox);
+        _device->logical().destroy(_fbo);
+        _device->destroy(_depthImage);
+        _device->destroy(_colorImage);
+        _device->logical().destroy(_renderpass);
+    }
 }
 
 void Renderer::createRenderPass(const SwapchainConfig& swapConfig)

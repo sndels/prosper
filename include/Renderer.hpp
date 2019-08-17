@@ -21,16 +21,13 @@ public:
         vk::PipelineLayout skybox;
     };
 
-    Renderer() = default;
+    Renderer(std::shared_ptr<Device> device, const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts);
     ~Renderer();
 
     Renderer(const Renderer& other) = delete;
     Renderer& operator=(const Renderer& other) = delete;
 
-    // Two-part initialization simplifies things in App
-    void init(std::shared_ptr<Device> device);
-    void createSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts);
-    void destroySwapchainRelated();
+    void recreateSwapchainRelated(const SwapchainConfig& swapConfig, const vk::DescriptorSetLayout camDSLayout, const World::DSLayouts& worldDSLayouts);
 
     vk::Semaphore imageAvailable(const uint32_t frame) const;
     vk::RenderPass outputRenderpass() const;
@@ -38,6 +35,7 @@ public:
     std::array<vk::Semaphore, 1> drawFrame(const World& world, const Camera& cam, const Swapchain& swapchain, const uint32_t nextImage) const;
 
 private:
+    void destroySwapchainRelated();
     // These also need to be recreated with Swapchain as they depend on swapconfig
     void createRenderPass(const SwapchainConfig& swapConfig);
     void createFramebuffer(const SwapchainConfig& swapConfig);

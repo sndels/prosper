@@ -8,68 +8,19 @@
 
 using namespace glm;
 
+Camera::Camera(std::shared_ptr<Device> device, const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags) :
+    _device{device}
+{
+    createUniformBuffers(swapImageCount);
+    createDescriptorSets(descriptorPool, swapImageCount, stageFlags);
+}
+
 Camera::~Camera()
 {
     if (_device) {
         _device->logical().destroy(_descriptorSetLayout);
-        destroyUniformBuffers();
-    }
-}
-
-void Camera::createUniformBuffers(std::shared_ptr<Device> device, const uint32_t swapImageCount)
-{
-    destroyUniformBuffers();
-
-    _device = device;
-    const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
-
-    for (uint32_t i = 0; i < swapImageCount; ++i) {
-        _uniformBuffers.push_back(_device->createBuffer(
-            bufferSize,
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-            VMA_MEMORY_USAGE_CPU_TO_GPU
-        ));
-    }
-}
-
-void Camera::createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags)
-{
-    const vk::DescriptorSetLayoutBinding layoutBinding{
-        0, // binding
-        vk::DescriptorType::eUniformBuffer,
-        1, // descriptorCount
-        stageFlags
-    };
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout({
-        {}, // flags
-        1, // bindingCount
-        &layoutBinding
-    });
-
-    const std::vector<vk::DescriptorSetLayout> layouts(
-        swapImageCount,
-        _descriptorSetLayout
-    );
-    _descriptorSets = _device->logical().allocateDescriptorSets({
-        descriptorPool,
-        static_cast<uint32_t>(layouts.size()),
-        layouts.data()
-    });
-
-    const auto infos = bufferInfos();
-    for (size_t i = 0; i < _descriptorSets.size(); ++i) {
-        const vk::WriteDescriptorSet descriptorWrite{
-            _descriptorSets[i],
-            0, // dstBinding,
-            0, // dstArrayElement
-            1, // descriptorCount
-            vk::DescriptorType::eUniformBuffer,
-            nullptr, // pImageInfo
-            &infos[i]
-        };
-        _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+        for (auto& buffer : _uniformBuffers)
+            _device->destroy(buffer);
     }
 }
 
@@ -183,11 +134,56 @@ const glm::mat4& Camera::cameraToClip() const
     return _cameraToClip;
 }
 
-void Camera::destroyUniformBuffers()
+void Camera::createUniformBuffers(const uint32_t swapImageCount)
 {
-    if (_device != nullptr) {
-        for (auto& buffer : _uniformBuffers)
-            _device->destroy(buffer);
+    const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
+
+    for (uint32_t i = 0; i < swapImageCount; ++i) {
+        _uniformBuffers.push_back(_device->createBuffer(
+            bufferSize,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent,
+            VMA_MEMORY_USAGE_CPU_TO_GPU
+        ));
     }
-    _uniformBuffers.clear();
+}
+
+void Camera::createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags)
+{
+    const vk::DescriptorSetLayoutBinding layoutBinding{
+        0, // binding
+        vk::DescriptorType::eUniformBuffer,
+        1, // descriptorCount
+        stageFlags
+    };
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout({
+        {}, // flags
+        1, // bindingCount
+        &layoutBinding
+    });
+
+    const std::vector<vk::DescriptorSetLayout> layouts(
+        swapImageCount,
+        _descriptorSetLayout
+    );
+    _descriptorSets = _device->logical().allocateDescriptorSets({
+        descriptorPool,
+        static_cast<uint32_t>(layouts.size()),
+        layouts.data()
+    });
+
+    const auto infos = bufferInfos();
+    for (size_t i = 0; i < _descriptorSets.size(); ++i) {
+        const vk::WriteDescriptorSet descriptorWrite{
+            _descriptorSets[i],
+            0, // dstBinding,
+            0, // dstArrayElement
+            1, // descriptorCount
+            vk::DescriptorType::eUniformBuffer,
+            nullptr, // pImageInfo
+            &infos[i]
+        };
+        _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+    }
 }

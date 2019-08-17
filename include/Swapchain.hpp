@@ -12,8 +12,9 @@ struct SwapchainSupport {
     vk::SurfaceCapabilitiesKHR capabilities;
     std::vector<vk::SurfaceFormatKHR> formats;
     std::vector<vk::PresentModeKHR> presentModes;
+
+    SwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface);
 };
-SwapchainSupport querySwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface);
 
 struct SwapchainConfig {
     vk::SurfaceTransformFlagBitsKHR transform;
@@ -22,8 +23,9 @@ struct SwapchainConfig {
     vk::PresentModeKHR presentMode;
     vk::Extent2D extent;
     uint32_t imageCount = 0;
+
+    SwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& preferredExtent);
 };
-SwapchainConfig selectSwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& extent);
 
 struct SwapchainImage {
     vk::Image handle;
@@ -33,15 +35,12 @@ struct SwapchainImage {
 
 class Swapchain {
 public:
-    Swapchain() = default;
+    Swapchain(std::shared_ptr<Device> device, const SwapchainConfig& config);
     ~Swapchain();
 
     Swapchain(const Swapchain& other) = delete;
     Swapchain& operator=(const Swapchain& other) = delete;
     Swapchain& operator=(Swapchain&& other);
-
-    void create(std::shared_ptr<Device> device, const SwapchainConfig& config);
-    void destroy();
 
     vk::Format format() const;
     const vk::Extent2D& extent() const;
@@ -55,13 +54,15 @@ public:
     bool present(const std::array<vk::Semaphore, 1>& waitSemaphores);
 
 private:
+    void destroy();
+
     void createSwapchain();
     void createImages();
     void createFences();
 
     // Swapchain with null device is invalid or moved
     std::shared_ptr<Device> _device = nullptr;
-    SwapchainConfig _config = {};
+    SwapchainConfig _config;
 
     vk::SwapchainKHR _swapchain;
     std::vector<SwapchainImage> _images;

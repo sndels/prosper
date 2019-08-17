@@ -138,6 +138,18 @@ namespace {
     }
 }
 
+Device::Device(GLFWwindow* window)
+{
+    createInstance();
+    createDebugMessenger();
+    createSurface(window);
+    selectPhysicalDevice();
+    _queueFamilies = findQueueFamilies(_physical, _surface);
+    createLogicalDevice();
+    createAllocator();
+    createCommandPools();
+}
+
 Device::~Device()
 {
     // Also cleans up associated command buffers
@@ -149,18 +161,6 @@ Device::~Device()
     _instance.destroy(_surface);
     DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
     _instance.destroy();
-}
-
-void Device::init(GLFWwindow* window)
-{
-    createInstance();
-    createDebugMessenger();
-    createSurface(window);
-    selectPhysicalDevice();
-    _queueFamilies = findQueueFamilies(_physical, _surface);
-    createLogicalDevice();
-    createAllocator();
-    createCommandPools();
 }
 
 vk::Instance Device::instance() const
@@ -350,7 +350,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const bool swapChainAdequate = [&]{
         bool adequate = false;
         if (extensionsSupported) {
-            SwapchainSupport swapSupport = querySwapchainSupport(device, _surface);
+            SwapchainSupport swapSupport{device, _surface};
             adequate = !swapSupport.formats.empty() && !swapSupport.presentModes.empty();
         }
 

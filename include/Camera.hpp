@@ -14,15 +14,12 @@ struct CameraUniforms {
 
 class Camera {
 public:
-    Camera() = default;
+    Camera(std::shared_ptr<Device> device, const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
     ~Camera();
 
     Camera(const Camera& other) = delete;
     Camera& operator=(const Camera& other) = delete;
 
-    void createUniformBuffers(std::shared_ptr<Device> device, const uint32_t swapImageCount);
-    // Create uniform buffers first
-    void createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
 
     void lookAt(const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up);
     void orient(const glm::vec3& eye, const glm::vec3& fwd, const glm::vec3& up);
@@ -41,7 +38,9 @@ public:
     const glm::mat4& cameraToClip() const;
 
 private:
-    void destroyUniformBuffers();
+    void createUniformBuffers(const uint32_t swapImageCount);
+    // Create uniform buffers first
+    void createDescriptorSets(const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
 
     std::shared_ptr<Device> _device = nullptr;
     glm::vec3 _eye;

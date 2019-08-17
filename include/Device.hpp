@@ -37,13 +37,11 @@ struct Image {
 
 class Device {
 public:
-    Device() = default;
+    Device(GLFWwindow* window);
     ~Device();
 
     Device(const Device& other) = delete;
     Device& operator=(const Device& other) = delete;
-
-    void init(GLFWwindow* window);
 
     vk::Instance instance() const;
     vk::PhysicalDevice physical() const;

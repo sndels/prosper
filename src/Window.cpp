@@ -8,17 +8,10 @@
 
 using namespace glm;
 
-Window::~Window()
+Window::Window(const uint32_t width, const uint32_t height, const std::string& title) :
+    _width(width),
+    _height(height)
 {
-    glfwDestroyWindow(_window);
-    glfwTerminate();
-}
-
-void Window::init(const uint32_t width, const uint32_t height, const std::string& title)
-{
-    _width = width;
-    _height = height;
-
     glfwSetErrorCallback(Window::errorCallback);
 
     glfwInit();
@@ -32,6 +25,12 @@ void Window::init(const uint32_t width, const uint32_t height, const std::string
     glfwSetCursorPosCallback(_window, Window::cursorPosCallback);
     glfwSetMouseButtonCallback(_window, Window::mouseButtonCallback);
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
+}
+
+Window::~Window()
+{
+    glfwDestroyWindow(_window);
+    glfwTerminate();
 }
 
 GLFWwindow* Window::ptr() const

@@ -67,42 +67,44 @@ namespace {
     }
 }
 
-SwapchainSupport querySwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface)
+SwapchainSupport::SwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface) :
+    capabilities{device.getSurfaceCapabilitiesKHR(surface)},
+    formats{device.getSurfaceFormatsKHR(surface)},
+    presentModes{device.getSurfacePresentModesKHR(surface)}
 {
-    const SwapchainSupport details = {
-        device.getSurfaceCapabilitiesKHR(surface),
-        device.getSurfaceFormatsKHR(surface),
-        device.getSurfacePresentModesKHR(surface)
-    };
-
-    return details;
 }
 
-SwapchainConfig selectSwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& extent)
+SwapchainConfig::SwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& preferredExtent)
 {
-    const SwapchainSupport swapchainSupport = querySwapchainSupport(
+    const SwapchainSupport support(
         device->physical(),
         device->surface()
     );
 
     // Needed to blit into, not supported by all implementations
-    if (!(swapchainSupport.capabilities.supportedUsageFlags &
+    if (!(support.capabilities.supportedUsageFlags &
           vk::ImageUsageFlagBits::eTransferDst))
         throw std::runtime_error("TransferDst usage not supported by swap surface");
 
-    SwapchainConfig config = {
-        swapchainSupport.capabilities.currentTransform,
-        selectSwapSurfaceFormat(swapchainSupport.formats),
-        vk::Format::eD32Sfloat,
-        selectSwapPresentMode(swapchainSupport.presentModes),
-        selectSwapExtent(extent, swapchainSupport.capabilities),
-        swapchainSupport.capabilities.minImageCount + 1 // Prefer one extra image to limit waiting on internal operations
-    };
-    if (swapchainSupport.capabilities.maxImageCount > 0 &&
-        config.imageCount > swapchainSupport.capabilities.maxImageCount)
-        config.imageCount = swapchainSupport.capabilities.maxImageCount;
+    transform = support.capabilities.currentTransform;
+    surfaceFormat = selectSwapSurfaceFormat(support.formats);
+    depthFormat = vk::Format::eD32Sfloat;
+    presentMode = selectSwapPresentMode(support.presentModes);
+    extent = selectSwapExtent(preferredExtent, support.capabilities);
+    imageCount = support.capabilities.minImageCount + 1; // Prefer one extra image to limit waiting on internal operations
 
-    return config;
+    if (support.capabilities.maxImageCount > 0 &&
+        imageCount > support.capabilities.maxImageCount)
+        imageCount = support.capabilities.maxImageCount;
+}
+
+Swapchain::Swapchain(std::shared_ptr<Device> device, const SwapchainConfig& config) :
+    _device{device},
+    _config{config}
+{
+    createSwapchain();
+    createImages();
+    createFences();
 }
 
 Swapchain::~Swapchain()
@@ -125,15 +127,6 @@ Swapchain& Swapchain::operator=(Swapchain&& other)
         other._device = nullptr;
     }
     return *this;
-}
-
-void Swapchain::create(std::shared_ptr<Device> device, const SwapchainConfig& config)
-{
-    _device = device;
-    _config = config;
-    createSwapchain();
-    createImages();
-    createFences();
 }
 
 vk::Format Swapchain::format() const
@@ -228,6 +221,15 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1>& waitSemaphores)
     return good_swap;
 }
 
+void Swapchain::destroy()
+{
+    if (_device) {
+        for (auto fence : _inFlightFences)
+            _device->logical().destroy(fence);
+        _device->logical().destroy(_swapchain);
+    }
+}
+
 void Swapchain::createSwapchain()
 {
     const QueueFamilies indices = _device->queueFamilies();
@@ -298,21 +300,4 @@ void Swapchain::createFences()
     );
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _inFlightFences.push_back(_device->logical().createFence(fenceInfo));
-}
-
-void Swapchain::destroy()
-{
-    if (_device) {
-        for (auto fence : _inFlightFences)
-            _device->logical().destroy(fence);
-        _device->logical().destroy(_swapchain);
-    }
-
-    _device = nullptr;
-    _config = {};
-    _swapchain = vk::SwapchainKHR{};
-    _images.clear();
-    _inFlightFences.clear();
-    _nextFrame = 0;
-    _nextImage = 0;
 }

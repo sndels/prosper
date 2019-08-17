@@ -116,7 +116,6 @@ void Texture::destroy()
 Texture2D::Texture2D(std::shared_ptr<Device> device, const std::string& path, const bool mipmap) :
     Texture(device)
 {
-    _device = device;
     const auto [pixels, extent] = pixelsFromFile(path);
     const auto stagingBuffer = stagePixels(pixels, extent);
 
@@ -410,8 +409,6 @@ void Texture2D::createSampler(const tinygltf::Sampler& sampler, const uint32_t m
 TextureCubemap::TextureCubemap(std::shared_ptr<Device> device, const std::string& path) :
     Texture(device)
 {
-    _device = device;
-
     const gli::texture_cube cube(gli::load(path));
     assert(!cube.empty());
     assert(cube.faces() == 6);

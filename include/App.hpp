@@ -10,30 +10,27 @@
 
 class App {
 public:
-    App() = default;
+    App();
     ~App();
 
     App(const App& other) = delete;
     App& operator=(const App& other) = delete;
 
-    void init();
     void run();
 
 private:
     void recreateSwapchainAndRelated();
 
-    void createDescriptorPool(const uint32_t swapImageCount);
-
     void drawFrame();
 
     Window _window; // Needs to be valid before and after everything else
     std::shared_ptr<Device> _device = nullptr; // Needs to be valid before and after all other vk resources
-    Swapchain _swapchain;
-    World _world;
+    SwapchainConfig _swapConfig;
+    vk::DescriptorPool _descriptorPool;
     Camera _cam;
+    World _world;
+    Swapchain _swapchain;
     Renderer _renderer;
-
-    vk::DescriptorPool _vkDescriptorPool;
 
 };
 

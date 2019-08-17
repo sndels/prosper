@@ -135,16 +135,12 @@ World::~World()
         _device->destroy(buffer);
 }
 
-void World::loadGLTF(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename)
+World::World(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename) :
+    _emptyTexture{device, resPath("texture/empty.png"), false},
+    _skyboxTexture{device, resPath("env/storm.ktx")},
+    _skyboxVertexBuffer{createSkyboxVertexBuffer(device)},
+    _device{device}
 {
-    _device = device;
-
-    auto empty = Texture2D(_device, resPath("texture/empty.png"), false);
-    _emptyTexture = std::move(empty);
-    auto skybox = TextureCubemap(_device, resPath("env/storm.ktx"));
-    _skyboxTexture = std::move(skybox);
-    _skyboxVertexBuffer = createSkyboxVertexBuffer(_device);
-
     const auto gltfModel = loadGLTFModel(filename);
 
     loadTextures(gltfModel);
@@ -504,9 +500,9 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
         const std::array<vk::DescriptorImageInfo, 3> imageInfos = [&]{
             std::array<vk::DescriptorImageInfo, 3> iis{{
-                _emptyTexture.value().imageInfo(),
-                _emptyTexture.value().imageInfo(),
-                _emptyTexture.value().imageInfo()
+                _emptyTexture.imageInfo(),
+                _emptyTexture.imageInfo(),
+                _emptyTexture.imageInfo()
             }};
             if (material._baseColor)
                 iis[0] = material._baseColor->imageInfo();
@@ -613,7 +609,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             bufferInfos.emplace_back(buffer.handle, 0, sizeof(mat4));
         return bufferInfos;
     }();
-    const vk::DescriptorImageInfo skyboxImageInfo = _skyboxTexture->imageInfo();
+    const vk::DescriptorImageInfo skyboxImageInfo = _skyboxTexture.imageInfo();
     for (size_t i = 0; i < _skyboxDSs.size(); ++i) {
         const std::array<vk::WriteDescriptorSet, 2> writeDescriptorSets{{
             {

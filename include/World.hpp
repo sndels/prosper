@@ -16,18 +16,20 @@ public:
         vk::DescriptorSetLayout modelInstance;
         vk::DescriptorSetLayout skybox;
     };
-    World() = default;
+    World(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename);
     ~World();
 
     World(const World& other) = delete;
     World& operator=(const World& other) = delete;
 
-    void loadGLTF(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename);
     const Scene& currentScene() const;
     void drawSkybox(const vk::CommandBuffer& buffer) const;
 
     // TODO: Private?
-    std::optional<Texture2D> _emptyTexture;
+    Texture2D _emptyTexture;
+    TextureCubemap _skyboxTexture;
+    Buffer _skyboxVertexBuffer;
+
     std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
     std::vector<Model> _models;
@@ -35,13 +37,11 @@ public:
     std::vector<Scene> _scenes;
     size_t _currentScene = 0;
 
-    std::optional<TextureCubemap> _skyboxTexture;
-    Buffer _skyboxVertexBuffer;
-    std::vector<Buffer> _skyboxUniformBuffers;
-    std::vector<vk::DescriptorSet> _skyboxDSs;
-
     vk::DescriptorPool _descriptorPool;
     DSLayouts _dsLayouts;
+
+    std::vector<Buffer> _skyboxUniformBuffers;
+    std::vector<vk::DescriptorSet> _skyboxDSs;
 
 private:
     void loadTextures(const tinygltf::Model& gltfModel);

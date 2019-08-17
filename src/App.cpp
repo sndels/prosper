@@ -23,51 +23,69 @@ namespace {
     const float CAMERA_FOV = 59.f;
     const float CAMERA_NEAR = 0.001f;
     const float CAMERA_FAR = 512.f;
+
+    vk::DescriptorPool createDescriptorPool(const std::shared_ptr<Device> device, const uint32_t swapImageCount)
+    {
+        const vk::DescriptorPoolSize poolSize{
+                vk::DescriptorType::eUniformBuffer,
+                swapImageCount // descriptorCount, camera and mesh instances
+            };
+        return device->logical().createDescriptorPool({
+            {}, // flags
+            poolSize.descriptorCount, // max sets
+            1,
+            &poolSize
+        });
+    }
+
 }
 
-App::~App()
-{
-    _device->logical().destroy(_vkDescriptorPool);
-}
-
-void App::init()
-{
-    _window.init(WIDTH, HEIGHT, "prosper");
-    _device = std::make_shared<Device>();
-    _device->init(_window.ptr());
-
-    const SwapchainConfig swapConfig = selectSwapchainConfig(
+App::App() :
+    _window{WIDTH, HEIGHT, "prosper"},
+    _device{std::make_shared<Device>(_window.ptr())},
+    _swapConfig{
         _device,
         {_window.width(), _window.height()}
-    );
-
-    // Resources tied to specific swap images via command buffers
-    createDescriptorPool(swapConfig.imageCount);
-
-    _cam.createUniformBuffers(_device, swapConfig.imageCount);
-    _cam.createDescriptorSets(
-        _vkDescriptorPool,
-        swapConfig.imageCount,
-        vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
-    );
-
-    _world.loadGLTF(
+    },
+    _descriptorPool{createDescriptorPool(_device, _swapConfig.imageCount)},
+    _cam{
         _device,
-        swapConfig.imageCount,
+        _descriptorPool,
+        _swapConfig.imageCount,
+        vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
+    },
+    _world{
+        _device,
+        _swapConfig.imageCount,
         resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")
-    );
-
+    },
+    _swapchain{_device, _swapConfig},
+    _renderer{
+        _device,
+        _swapConfig,
+        _cam.descriptorSetLayout(),
+        _world._dsLayouts
+    }
+{
     _cam.lookAt(
         vec3{0.25f, 0.2f, 0.75f},
         vec3{0.f},
         vec3{0.f, 1.f, 0.f}
     );
-
-    _renderer.init(_device);
-    recreateSwapchainAndRelated();
+    _cam.perspective(
+        radians(CAMERA_FOV),
+        _window.width() / static_cast<float>(_window.height()),
+        CAMERA_NEAR,
+        CAMERA_FAR
+    );
 }
 
-void App::run() 
+App::~App()
+{
+    _device->logical().destroy(_descriptorPool);
+}
+
+void App::run()
 {
     while (_window.open()) {
         _window.startFrame();
@@ -103,21 +121,18 @@ void App::recreateSwapchainAndRelated()
     // Wait for resources to be out of use
     _device->logical().waitIdle();
 
-    _renderer.destroySwapchainRelated();
-    _swapchain.destroy();
-
-    const SwapchainConfig swapConfig = selectSwapchainConfig(
+    _swapConfig = SwapchainConfig{
         _device,
         {_window.width(),
         _window.height()}
-    );
+    };
 
-    _renderer.createSwapchainRelated(
-        swapConfig,
+    _swapchain = Swapchain{_device, _swapConfig};
+    _renderer.recreateSwapchainRelated(
+        _swapConfig,
         _cam.descriptorSetLayout(),
         _world._dsLayouts
     );
-    _swapchain.create(_device, swapConfig);
 
     _cam.perspective(
         radians(CAMERA_FOV),
@@ -125,20 +140,6 @@ void App::recreateSwapchainAndRelated()
         CAMERA_NEAR,
         CAMERA_FAR
     );
-}
-
-void App::createDescriptorPool(const uint32_t swapImageCount)
-{
-    const vk::DescriptorPoolSize poolSize{
-            vk::DescriptorType::eUniformBuffer,
-            swapImageCount // descriptorCount, camera and mesh instances
-        };
-    _vkDescriptorPool = _device->logical().createDescriptorPool({
-        {}, // flags
-        poolSize.descriptorCount, // max sets
-        1,
-        &poolSize
-    });
 }
 
 void App::drawFrame()
