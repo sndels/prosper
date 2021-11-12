@@ -2,8 +2,10 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(binding = 0) uniform Camera {
-    mat4 worldToClip; // This shouldn't have camera translation to keep skybox stationary
-} camera;
+    mat4 worldToClip; // This shouldn't have camera translation to keep skybox
+                      // stationary
+}
+camera;
 
 layout(location = 0) in vec3 vertPosition;
 

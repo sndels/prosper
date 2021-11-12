@@ -8,7 +8,8 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 worldToCamera;
     mat4 cameraToClip;
     vec3 eye;
-} camera;
+}
+camera;
 
 layout(set = 2, binding = 0) uniform sampler2D baseColor;
 layout(set = 2, binding = 1) uniform sampler2D metallicRoughness;
@@ -24,7 +25,8 @@ layout(push_constant) uniform MaterialPC {
     int baseColorTextureSet;
     int metallicRoughnessTextureSet;
     int normalTextureSet;
-} materialPC;
+}
+materialPC;
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec2 fragTexCoord0;
@@ -43,35 +45,30 @@ struct Material {
 };
 
 // TODO: sRGB-texture for baseColor
-float sRGBtoLinear(float x)
-{
+float sRGBtoLinear(float x) {
     return x <= 0.04045 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4);
 }
-vec3 sRGBtoLinear(vec3 v)
-{
+vec3 sRGBtoLinear(vec3 v) {
     return vec3(sRGBtoLinear(v.r), sRGBtoLinear(v.g), sRGBtoLinear(v.b));
 }
 // Alpha shouldn't be converted
-vec4 sRGBtoLinear(vec4 v)
-{
-    return vec4(sRGBtoLinear(v.rgb), v.a);
-}
+vec4 sRGBtoLinear(vec4 v) { return vec4(sRGBtoLinear(v.rgb), v.a); }
 
 // From http://filmicworlds.com/blog/filmic-tonemapping-operators/
 // https://www.slideshare.net/ozlael/hable-john-uncharted2-hdr-lighting
-vec3 Uncharted2Tonemap(vec3 color)
-{
+vec3 Uncharted2Tonemap(vec3 color) {
     float A = 0.15; // Shoulder strength
     float B = 0.50; // Linear strength
     float C = 0.10; // Linear angle
     float D = 0.20; // Toe strength
     float E = 0.02; // Toe numerator
     float F = 0.30; // Toe denominator
-    return ((color*(A*color+C*B)+D*E)/(color*(A*color+B)+D*F))-E/F;
+    return ((color * (A * color + C * B) + D * E) /
+            (color * (A * color + B) + D * F)) -
+           E / F;
 }
 
-vec3 tonemap(vec3 color)
-{
+vec3 tonemap(vec3 color) {
     float exposure = 1.0;
     float gamma = 2.2;
     float linearWhite = 11.2;
@@ -80,8 +77,7 @@ vec3 tonemap(vec3 color)
     return pow(outcol, vec3(1 / gamma));
 }
 
-mat3 generateTBN()
-{
+mat3 generateTBN() {
     // http://www.thetenthplanet.de/archives/1180
     vec3 dp1 = dFdx(fragPosition);
     vec3 dp2 = dFdy(fragPosition);
@@ -95,14 +91,10 @@ mat3 generateTBN()
 }
 
 // Lambert diffuse term
-vec3 lambertBRFD(vec3 c_diff)
-{
-    return c_diff / PI;
-}
+vec3 lambertBRFD(vec3 c_diff) { return c_diff / PI; }
 
 // GGX distribution function
-float ggx(float NoH, float alpha)
-{
+float ggx(float NoH, float alpha) {
     // Match gltf spec
     float a2 = alpha * alpha;
 
@@ -111,14 +103,12 @@ float ggx(float NoH, float alpha)
 }
 
 // Schlick fresnel function
-vec3 schlickFresnel(float VoH, vec3 f0)
-{
+vec3 schlickFresnel(float VoH, vec3 f0) {
     return f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);
 }
 
 // Schlick-GGX geometry function
-float schlick_ggx(float NoL, float NoV, float alpha)
-{
+float schlick_ggx(float NoL, float NoV, float alpha) {
     float k = alpha + 1.0;
     k *= k * 0.125;
     float gl = NoL / (NoL * (1.0 - k) + k);
@@ -127,8 +117,8 @@ float schlick_ggx(float NoL, float NoV, float alpha)
 }
 
 // Evaluate the Cook-Torrance specular BRDF
-vec3 cookTorranceBRDF(float NoL, float NoV, float NoH, float VoH, vec3 f0, float roughness)
-{
+vec3 cookTorranceBRDF(float NoL, float NoV, float NoH, float VoH, vec3 f0,
+                      float roughness) {
     // Match gltf spec
     float alpha = roughness * roughness;
 
@@ -141,8 +131,7 @@ vec3 cookTorranceBRDF(float NoL, float NoV, float NoH, float VoH, vec3 f0, float
 }
 
 // Evaluate combined diffuse and specular BRDF
-vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
-{
+vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m) {
     // Common dot products
     vec3 h = normalize(v + l);
     float NoV = saturate(dot(n, v));
@@ -156,12 +145,14 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
     // Match glTF spec
     vec3 c_diff = mix(m.albedo * (1 - 0.04), vec3(0), m.metallic);
 
-    return (lambertBRFD(c_diff) + cookTorranceBRDF(NoL, NoV, NoH, VoH, f0, m.roughness)) * NoL;
+    return (lambertBRFD(c_diff) +
+            cookTorranceBRDF(NoL, NoV, NoH, VoH, f0, m.roughness)) *
+           NoL;
 }
 
-void main()
-{
-    vec4 linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0)) * materialPC.baseColorFactor;
+void main() {
+    vec4 linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0)) *
+                           materialPC.baseColorFactor;
 
     // Alpha masking is 1.f
     if (materialPC.alphaMode > 0.f && materialPC.alphaMode < 2.f) {
@@ -181,9 +172,10 @@ void main()
     }
 
     vec3 normal;
-    if (materialPC.normalTextureSet > -1){
+    if (materialPC.normalTextureSet > -1) {
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
-        normal = normalize(TBN * (texture(tangentNormal, fragTexCoord0).xyz * 2 - 1));
+        normal = normalize(TBN *
+                           (texture(tangentNormal, fragTexCoord0).xyz * 2 - 1));
     } else
         normal = normalize(fragTBN[2]);
 

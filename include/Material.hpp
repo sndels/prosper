@@ -6,13 +6,8 @@
 
 class Texture;
 
-struct Material
-{
-    enum class AlphaMode {
-        Opaque,
-        Mask,
-        Blend
-    };
+struct Material {
+    enum class AlphaMode { Opaque, Mask, Blend };
 
     // Needs to match shader
     struct PCBlock {
@@ -33,9 +28,9 @@ struct Material
     };
 
     // TODO: More parameters
-    Texture* _baseColor = nullptr;
-    Texture* _metallicRoughness = nullptr;
-    Texture* _normal = nullptr;
+    Texture *_baseColor = nullptr;
+    Texture *_metallicRoughness = nullptr;
+    Texture *_normal = nullptr;
     TexCoordSets _texCoordSets;
     glm::vec4 _baseColorFactor = glm::vec4(1);
     float _metallicFactor = 1.f;
@@ -47,6 +42,5 @@ struct Material
     float alphaModeFloat() const;
     PCBlock pcBlock() const;
 };
-
 
 #endif // PROSPER_MATERIAL_HPP

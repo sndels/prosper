@@ -24,7 +24,8 @@ struct SwapchainConfig {
     vk::Extent2D extent;
     uint32_t imageCount = 0;
 
-    SwapchainConfig(std::shared_ptr<Device> device, const vk::Extent2D& preferredExtent);
+    SwapchainConfig(std::shared_ptr<Device> device,
+                    const vk::Extent2D &preferredExtent);
 };
 
 struct SwapchainImage {
@@ -34,16 +35,16 @@ struct SwapchainImage {
 };
 
 class Swapchain {
-public:
-    Swapchain(std::shared_ptr<Device> device, const SwapchainConfig& config);
+  public:
+    Swapchain(std::shared_ptr<Device> device, const SwapchainConfig &config);
     ~Swapchain();
 
-    Swapchain(const Swapchain& other) = delete;
-    Swapchain& operator=(const Swapchain& other) = delete;
-    Swapchain& operator=(Swapchain&& other);
+    Swapchain(const Swapchain &other) = delete;
+    Swapchain &operator=(const Swapchain &other) = delete;
+    Swapchain &operator=(Swapchain &&other);
 
     vk::Format format() const;
-    const vk::Extent2D& extent() const;
+    const vk::Extent2D &extent() const;
     uint32_t imageCount() const;
     SwapchainImage image(size_t i) const;
     size_t nextFrame() const;
@@ -51,9 +52,9 @@ public:
     // nullopt tells to recreate swapchain
     std::optional<uint32_t> acquireNextImage(vk::Semaphore signalSemaphore);
     // false if swapchain should be recerated
-    bool present(const std::array<vk::Semaphore, 1>& waitSemaphores);
+    bool present(const std::array<vk::Semaphore, 1> &waitSemaphores);
 
-private:
+  private:
     void destroy();
 
     void createSwapchain();

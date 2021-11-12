@@ -8,22 +8,22 @@
 
 class Device;
 
-class World
-{
-public:
+class World {
+  public:
     struct DSLayouts {
         vk::DescriptorSetLayout material;
         vk::DescriptorSetLayout modelInstance;
         vk::DescriptorSetLayout skybox;
     };
-    World(std::shared_ptr<Device> device, const uint32_t swapImageCount, const std::string& filename);
+    World(std::shared_ptr<Device> device, const uint32_t swapImageCount,
+          const std::string &filename);
     ~World();
 
-    World(const World& other) = delete;
-    World& operator=(const World& other) = delete;
+    World(const World &other) = delete;
+    World &operator=(const World &other) = delete;
 
-    const Scene& currentScene() const;
-    void drawSkybox(const vk::CommandBuffer& buffer) const;
+    const Scene &currentScene() const;
+    void drawSkybox(const vk::CommandBuffer &buffer) const;
 
     // TODO: Private?
     Texture2D _emptyTexture;
@@ -43,17 +43,16 @@ public:
     std::vector<Buffer> _skyboxUniformBuffers;
     std::vector<vk::DescriptorSet> _skyboxDSs;
 
-private:
-    void loadTextures(const tinygltf::Model& gltfModel);
-    void loadMaterials(const tinygltf::Model& gltfModel);
-    void loadModels(const tinygltf::Model& gltfModel);
-    void loadScenes(const tinygltf::Model& gltfModel);
+  private:
+    void loadTextures(const tinygltf::Model &gltfModel);
+    void loadMaterials(const tinygltf::Model &gltfModel);
+    void loadModels(const tinygltf::Model &gltfModel);
+    void loadScenes(const tinygltf::Model &gltfModel);
     void createUniformBuffers(const uint32_t swapImageCount);
     void createDescriptorPool(const uint32_t swapImageCount);
     void createDescriptorSets(const uint32_t swapImageCount);
 
     std::shared_ptr<Device> _device = nullptr;
-
 };
 
 #endif // PROSPER_WORLD_HPP

@@ -8,17 +8,17 @@
 
 using namespace glm;
 
-Window::Window(const uint32_t width, const uint32_t height, const std::string& title) :
-    _width(width),
-    _height(height)
-{
+Window::Window(const uint32_t width, const uint32_t height,
+               const std::string &title)
+    : _width(width), _height(height) {
     glfwSetErrorCallback(Window::errorCallback);
 
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    _window = glfwCreateWindow(_width, _height, title.c_str(), nullptr, nullptr);
+    _window =
+        glfwCreateWindow(_width, _height, title.c_str(), nullptr, nullptr);
 
     glfwSetWindowUserPointer(_window, this);
     glfwSetKeyCallback(_window, Window::keyCallback);
@@ -27,42 +27,24 @@ Window::Window(const uint32_t width, const uint32_t height, const std::string& t
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
 }
 
-Window::~Window()
-{
+Window::~Window() {
     glfwDestroyWindow(_window);
     glfwTerminate();
 }
 
-GLFWwindow* Window::ptr() const
-{
-    return _window;
-}
+GLFWwindow *Window::ptr() const { return _window; }
 
-bool Window::open() const
-{
-    return !glfwWindowShouldClose(_window);
-}
+bool Window::open() const { return !glfwWindowShouldClose(_window); }
 
-uint32_t Window::width() const
-{
-    return _width;
-}
+uint32_t Window::width() const { return _width; }
 
-uint32_t Window::height() const
-{
+uint32_t Window::height() const { return _height; }
 
-    return _height;
-}
+bool Window::resized() const { return _resized; }
 
-bool Window::resized() const
-{
-    return _resized;
-}
-
-void Window::startFrame()
-{
+void Window::startFrame() {
     _resized = false;
-    auto& mouse = InputHandler::instance()._mouse;
+    auto &mouse = InputHandler::instance()._mouse;
     const vec2 lastMouse = mouse.currentPos;
 
     glfwPollEvents();
@@ -72,15 +54,14 @@ void Window::startFrame()
         mouse.lastPos = mouse.currentPos;
 }
 
-void Window::errorCallback(int error, const char* description)
-{
+void Window::errorCallback(int error, const char *description) {
     std::cerr << "GLFW error " << error << ": " << description << std::endl;
 }
 
-void Window::keyCallback(GLFWwindow* window, int32_t key, int32_t scancode, int32_t action, int32_t mods)
-{
-    (void) scancode;
-    (void) mods;
+void Window::keyCallback(GLFWwindow *window, int32_t key, int32_t scancode,
+                         int32_t action, int32_t mods) {
+    (void)scancode;
+    (void)mods;
 
     if (action == GLFW_PRESS) {
         switch (key) {
@@ -93,21 +74,20 @@ void Window::keyCallback(GLFWwindow* window, int32_t key, int32_t scancode, int3
     }
 }
 
-void Window::cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
-{
-    (void) window;
+void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
+    (void)window;
 
-    auto& mouse = InputHandler::instance()._mouse;
+    auto &mouse = InputHandler::instance()._mouse;
     mouse.lastPos = mouse.currentPos;
     mouse.currentPos = vec2(xpos, ypos);
 }
 
-void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
-{
-    (void) window;
-    (void) mods;
+void Window::mouseButtonCallback(GLFWwindow *window, int button, int action,
+                                 int mods) {
+    (void)window;
+    (void)mods;
 
-    auto& mouse = InputHandler::instance()._mouse;
+    auto &mouse = InputHandler::instance()._mouse;
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS)
             mouse.leftDown = true;
@@ -121,9 +101,9 @@ void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int
     }
 }
 
-void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height)
-{
-    Window* thisPtr = (Window*)glfwGetWindowUserPointer(window);
+void Window::framebufferSizeCallback(GLFWwindow *window, int width,
+                                     int height) {
+    Window *thisPtr = (Window *)glfwGetWindowUserPointer(window);
     auto uw = static_cast<uint32_t>(width);
     auto uh = static_cast<uint32_t>(height);
     if (thisPtr->_width != uw || thisPtr->_height != uh) {

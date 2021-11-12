@@ -5,11 +5,11 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 worldToCamera;
     mat4 cameraToClip;
     vec3 eye;
-} camera;
+}
+camera;
 
-layout(set = 1, binding = 0) uniform Object {
-    mat4 modelToWorld;
-} object;
+layout(set = 1, binding = 0) uniform Object { mat4 modelToWorld; }
+object;
 
 // These need to match both vertex data and their attribute descriptions
 layout(location = 0) in vec3 vertPosition;
@@ -23,7 +23,8 @@ layout(location = 2) out mat3 fragTBN;
 
 void main() {
     vec4 pos = object.modelToWorld * vec4(vertPosition, 1.0);
-    vec3 normal = normalize(transpose(inverse(mat3(object.modelToWorld))) * vertNormal);
+    vec3 normal =
+        normalize(transpose(inverse(mat3(object.modelToWorld))) * vertNormal);
 
     // No point in generating normal basis here if no tangent is supplied
     if (length(vertTangent.xyz) > 0) {

@@ -15,10 +15,8 @@ struct QueueFamilies {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
-    bool isComplete() const
-    {
-        return computeFamily.has_value() &&
-               graphicsFamily.has_value() &&
+    bool isComplete() const {
+        return computeFamily.has_value() && graphicsFamily.has_value() &&
                presentFamily.has_value();
     }
 };
@@ -36,12 +34,12 @@ struct Image {
 };
 
 class Device {
-public:
-    Device(GLFWwindow* window);
+  public:
+    Device(GLFWwindow *window);
     ~Device();
 
-    Device(const Device& other) = delete;
-    Device& operator=(const Device& other) = delete;
+    Device(const Device &other) = delete;
+    Device &operator=(const Device &other) = delete;
 
     vk::Instance instance() const;
     vk::PhysicalDevice physical() const;
@@ -52,26 +50,36 @@ public:
     vk::Queue computeQueue() const;
     vk::Queue graphicsQueue() const;
     vk::Queue presentQueue() const;
-    const QueueFamilies& queueFamilies() const;
+    const QueueFamilies &queueFamilies() const;
 
-    void map(const VmaAllocation allocation, void** data) const;
+    void map(const VmaAllocation allocation, void **data) const;
     void unmap(const VmaAllocation allocation) const;
 
-    Buffer createBuffer(const vk::DeviceSize size, const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const;
-    void destroy(const Buffer& buffer) const;
+    Buffer createBuffer(const vk::DeviceSize size,
+                        const vk::BufferUsageFlags usage,
+                        const vk::MemoryPropertyFlags properties,
+                        const VmaMemoryUsage vmaUsage) const;
+    void destroy(const Buffer &buffer) const;
 
-    Image createImage(const vk::Extent2D extent, const vk::Format format, const vk::ImageSubresourceRange& range, const vk::ImageViewType viewType, const vk::ImageTiling tiling, const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties, const VmaMemoryUsage vmaUsage) const;
-    void destroy(const Image& image) const;
+    Image createImage(const vk::Extent2D extent, const vk::Format format,
+                      const vk::ImageSubresourceRange &range,
+                      const vk::ImageViewType viewType,
+                      const vk::ImageTiling tiling,
+                      const vk::ImageCreateFlags flags,
+                      const vk::ImageUsageFlags usage,
+                      const vk::MemoryPropertyFlags properties,
+                      const VmaMemoryUsage vmaUsage) const;
+    void destroy(const Image &image) const;
 
     vk::CommandBuffer beginGraphicsCommands() const;
     void endGraphicsCommands(const vk::CommandBuffer buffer) const;
 
-private:
+  private:
     bool isDeviceSuitable(const vk::PhysicalDevice device) const;
 
     void createInstance();
     void createDebugMessenger();
-    void createSurface(GLFWwindow* window);
+    void createSurface(GLFWwindow *window);
     void selectPhysicalDevice();
     void createLogicalDevice();
     void createAllocator();
