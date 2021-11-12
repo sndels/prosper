@@ -458,7 +458,14 @@ void Renderer::createGraphicsPipelines(const SwapchainConfig& swapConfig, const 
             _renderpass,
             0 // subpass
         };
-        _pipelines.pbr = _device->logical().createGraphicsPipeline({}, createInfo);
+
+        {
+            auto pipeline = _device->logical().createGraphicsPipeline({}, createInfo);
+            if (pipeline.result != vk::Result::eSuccess)
+                throw std::runtime_error("Failed to create pbr pipeline");
+
+            _pipelines.pbr = pipeline.value;
+        }
 
         rasterizerState.cullMode = vk::CullModeFlagBits::eNone;
         colorBlendAttachment.blendEnable = VK_TRUE;
@@ -469,7 +476,13 @@ void Renderer::createGraphicsPipelines(const SwapchainConfig& swapConfig, const 
         colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
         colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
 
-        _pipelines.pbrAlphaBlend = _device->logical().createGraphicsPipeline({}, createInfo);
+        {
+            auto pipeline = _device->logical().createGraphicsPipeline({}, createInfo);
+            if (pipeline.result != vk::Result::eSuccess)
+                throw std::runtime_error("Failed to create pbr alpha blend pipeline");
+
+            _pipelines.pbrAlphaBlend = pipeline.value;
+        }
 
         _device->logical().destroyShaderModule(vertSM);
         _device->logical().destroyShaderModule(fragSM);
@@ -612,7 +625,12 @@ void Renderer::createGraphicsPipelines(const SwapchainConfig& swapConfig, const 
             _renderpass,
             0 // subpass
         };
-        _pipelines.skybox = _device->logical().createGraphicsPipeline({}, createInfo);
+        {
+            auto pipeline = _device->logical().createGraphicsPipeline({}, createInfo);
+            if (pipeline.result != vk::Result::eSuccess)
+                throw std::runtime_error("Failed to create skybox pipeline");
+            _pipelines.skybox = pipeline.value;
+        }
 
         _device->logical().destroyShaderModule(vertSM);
         _device->logical().destroyShaderModule(fragSM);
