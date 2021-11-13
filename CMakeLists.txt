@@ -44,6 +44,7 @@ target_link_libraries(prosper
     glfw
     gli
     glm
+    imgui
     stb_image
     vma
     ${Vulkan_LIBRARY}

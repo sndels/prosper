@@ -14,6 +14,28 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build the GLFW documentation")
 set(GLFW_INSTALL OFF CACHE BOOL "Generate installation target")
 add_subdirectory(glfw)
 
+add_library(imgui STATIC "")
+target_sources(imgui
+    PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_draw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_tables.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_widgets.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/backends/imgui_impl_glfw.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/backends/imgui_impl_vulkan.cpp
+)
+target_include_directories(imgui
+    PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}/imgui
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/backends
+    ${Vulkan_INCLUDE_DIR}
+)
+target_link_libraries(imgui
+    PUBLIC
+    glfw
+    ${Vulkan_LIBRARY}
+)
+
 # stb_image is header only
 add_library(stb_image INTERFACE)
 target_include_directories(stb_image INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
