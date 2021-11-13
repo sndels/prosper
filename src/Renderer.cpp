@@ -105,9 +105,11 @@ Renderer::drawFrame(const World &world, const Camera &cam,
 
 void Renderer::destroySwapchainRelated() {
     if (_device) {
-        _device->logical().freeCommandBuffers(_device->graphicsPool(),
-                                              _commandBuffers.size(),
-                                              _commandBuffers.data());
+        if (_commandBuffers.size() > 0) {
+            _device->logical().freeCommandBuffers(_device->graphicsPool(),
+                                                  _commandBuffers.size(),
+                                                  _commandBuffers.data());
+        }
 
         _device->logical().destroy(_pipelines.pbr);
         _device->logical().destroy(_pipelines.pbrAlphaBlend);
