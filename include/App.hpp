@@ -31,7 +31,11 @@ class App {
     Camera _cam;
     World _world;
     Swapchain _swapchain;
+    std::vector<vk::CommandBuffer> _swapCommandBuffers;
     Renderer _renderer;
+
+    std::vector<vk::Semaphore> _imageAvailableSemaphores;
+    std::vector<vk::Semaphore> _renderFinishedSemaphores;
 };
 
 #endif // PROSPER_APP_HPP

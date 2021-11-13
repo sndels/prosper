@@ -9,6 +9,7 @@
 #include "Constants.hpp"
 #include "InputHandler.hpp"
 #include "Vertex.hpp"
+#include "VkUtils.hpp"
 
 using namespace glm;
 
@@ -56,9 +57,28 @@ App::App()
     _cam.perspective(radians(CAMERA_FOV),
                      _window.width() / static_cast<float>(_window.height()),
                      CAMERA_NEAR, CAMERA_FAR);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        _imageAvailableSemaphores.push_back(
+            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+        _renderFinishedSemaphores.push_back(
+            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+    }
+
+    _swapCommandBuffers =
+        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+            .commandPool = _device->graphicsPool(),
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = _swapConfig.imageCount});
 }
 
-App::~App() { _device->logical().destroy(_descriptorPool); }
+App::~App() {
+    for (auto &semaphore : _renderFinishedSemaphores)
+        _device->logical().destroy(semaphore);
+    for (auto &semaphore : _imageAvailableSemaphores)
+        _device->logical().destroy(semaphore);
+    _device->logical().destroy(_descriptorPool);
+}
 
 void App::run() {
     while (_window.open()) {
@@ -104,7 +124,7 @@ void App::drawFrame() {
     const size_t nextFrame = _swapchain.nextFrame();
     // Corresponds to the swapchain image
     const auto nextImage = [&] {
-        const auto imageAvailable = _renderer.imageAvailable(nextFrame);
+        const auto imageAvailable = _imageAvailableSemaphores[nextFrame];
         auto nextImage = _swapchain.acquireNextImage(imageAvailable);
         while (!nextImage.has_value()) {
             // Recreate the swap chain as necessary
@@ -115,8 +135,87 @@ void App::drawFrame() {
         return nextImage.value();
     }();
 
-    const auto signalSemaphores =
-        _renderer.drawFrame(_world, _cam, _swapchain, nextImage);
+    const vk::Rect2D renderArea{.offset = {0, 0},
+                                .extent = _swapchain.extent()};
+    const auto &rendererOutput =
+        _renderer.drawFrame(_world, _cam, renderArea, nextImage);
+
+    std::vector<vk::CommandBuffer> commandBuffers = {
+        rendererOutput.commandBuffer};
+
+    {
+        // Blit to support different internal rendering resolution (and color
+        // format?) the future
+        const auto &swapImage = _swapchain.image(nextImage);
+
+        const auto commandBuffer = _swapCommandBuffers[nextImage];
+        commandBuffer.reset();
+
+        commandBuffer.begin(vk::CommandBufferBeginInfo{
+            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+        transitionImageLayout(
+            commandBuffer, swapImage.handle, swapImage.subresourceRange,
+            vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+            vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer);
+
+        {
+            const vk::ImageSubresourceLayers layers{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1};
+            const std::array<vk::Offset3D, 2> offsets{
+                {{0},
+                 {static_cast<int32_t>(_swapConfig.extent.width),
+                  static_cast<int32_t>(_swapConfig.extent.height), 1}}};
+            const auto fboBlit = vk::ImageBlit{
+                .srcSubresource = layers,
+                .srcOffsets = offsets,
+                .dstSubresource = layers,
+                .dstOffsets = offsets,
+            };
+            commandBuffer.blitImage(rendererOutput.image.handle,
+                                    vk::ImageLayout::eTransferSrcOptimal,
+                                    swapImage.handle,
+                                    vk::ImageLayout::eTransferDstOptimal, 1,
+                                    &fboBlit, vk::Filter::eLinear);
+        }
+
+        transitionImageLayout(
+            commandBuffer, swapImage.handle, swapImage.subresourceRange,
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::ImageLayout::ePresentSrcKHR, vk::AccessFlagBits::eTransferWrite,
+            vk::AccessFlagBits::eMemoryRead,
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eTransfer);
+
+        commandBuffer.end();
+
+        commandBuffers.push_back(commandBuffer);
+    }
+
+    // Submit queue
+    const std::array<vk::Semaphore, 1> waitSemaphores = {
+        _imageAvailableSemaphores[nextFrame]};
+    const std::array<vk::PipelineStageFlags, 1> waitStages = {
+        vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    const std::array<vk::Semaphore, 1> signalSemaphores = {
+        _renderFinishedSemaphores[nextFrame]};
+    const vk::SubmitInfo submitInfo{
+        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
+        .pWaitSemaphores = waitSemaphores.data(),
+        .pWaitDstStageMask = waitStages.data(),
+        .commandBufferCount = static_cast<uint32_t>(commandBuffers.size()),
+        .pCommandBuffers = commandBuffers.data(),
+        .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
+        .pSignalSemaphores = signalSemaphores.data()};
+
+    checkSuccess(_device->graphicsQueue().submit(1, &submitInfo,
+                                                 _swapchain.currentFence()),
+                 "submit");
 
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (!_swapchain.present(signalSemaphores) || _window.resized())

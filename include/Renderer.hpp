@@ -10,6 +10,11 @@
 
 class Renderer {
   public:
+    struct Output {
+        const Image &image;
+        vk::CommandBuffer commandBuffer;
+    };
+
     struct Pipelines {
         vk::Pipeline pbr;
         vk::Pipeline pbrAlphaBlend;
@@ -36,10 +41,9 @@ class Renderer {
     vk::Semaphore imageAvailable(const size_t frame) const;
     vk::RenderPass outputRenderpass() const;
 
-    std::array<vk::Semaphore, 1> drawFrame(const World &world,
-                                           const Camera &cam,
-                                           const Swapchain &swapchain,
-                                           const uint32_t nextImage) const;
+    Output drawFrame(const World &world, const Camera &cam,
+                     const vk::Rect2D &renderArea,
+                     const uint32_t nextImage) const;
 
   private:
     void destroySwapchainRelated();
@@ -52,13 +56,11 @@ class Renderer {
                                  const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
-    void createSemaphores(const uint32_t concurrentFrameCount);
-
     void updateUniformBuffers(const World &world, const Camera &cam,
                               const uint32_t nextImage) const;
-    void recordCommandBuffer(const World &world, const Camera &cam,
-                             const Swapchain &swapchain,
-                             const uint32_t nextImage) const;
+    vk::CommandBuffer recordCommandBuffer(const World &world, const Camera &cam,
+                                          const vk::Rect2D &renderArea,
+                                          const uint32_t nextImage) const;
     void recordModelInstances(
         const vk::CommandBuffer buffer, const uint32_t nextImage,
         const std::vector<Scene::ModelInstance> &instances,
@@ -74,12 +76,8 @@ class Renderer {
     std::vector<vk::CommandBuffer> _commandBuffers;
 
     vk::Framebuffer _fbo;
-    vk::ImageBlit _fboToSwap;
     Image _colorImage = {nullptr, nullptr, {}, nullptr};
     Image _depthImage = {nullptr, nullptr, {}, nullptr};
-
-    std::vector<vk::Semaphore> _imageAvailableSemaphores;
-    std::vector<vk::Semaphore> _renderFinishedSemaphores;
 };
 
 #endif // PROSPER_RENDERER_HPP

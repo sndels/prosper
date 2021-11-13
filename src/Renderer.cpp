@@ -40,17 +40,11 @@ Renderer::Renderer(std::shared_ptr<Device> device,
                    const vk::DescriptorSetLayout camDSLayout,
                    const World::DSLayouts &worldDSLayouts)
     : _device{device} {
-    // Semaphores correspond to logical frames instead of swapchain images
-    createSemaphores(MAX_FRAMES_IN_FLIGHT);
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
 
 Renderer::~Renderer() {
     if (_device) {
-        for (auto &semaphore : _renderFinishedSemaphores)
-            _device->logical().destroy(semaphore);
-        for (auto &semaphore : _imageAvailableSemaphores)
-            _device->logical().destroy(semaphore);
         destroySwapchainRelated();
     }
 }
@@ -67,43 +61,17 @@ void Renderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::Semaphore Renderer::imageAvailable(const size_t frame) const {
-    return _imageAvailableSemaphores[frame];
-}
-
 vk::RenderPass Renderer::outputRenderpass() const { return _renderpass; }
 
-std::array<vk::Semaphore, 1>
-Renderer::drawFrame(const World &world, const Camera &cam,
-                    const Swapchain &swapchain,
-                    const uint32_t nextImage) const {
+Renderer::Output Renderer::drawFrame(const World &world, const Camera &cam,
+                                     const vk::Rect2D &renderArea,
+                                     const uint32_t nextImage) const {
     updateUniformBuffers(world, cam, nextImage);
 
-    recordCommandBuffer(world, cam, swapchain, nextImage);
+    const auto commandBuffer =
+        recordCommandBuffer(world, cam, renderArea, nextImage);
 
-    // Submit queue
-    const size_t nextFrame = swapchain.nextFrame();
-
-    const std::array<vk::Semaphore, 1> waitSemaphores = {
-        _imageAvailableSemaphores[nextFrame]};
-    const std::array<vk::PipelineStageFlags, 1> waitStages = {
-        vk::PipelineStageFlagBits::eColorAttachmentOutput};
-    const std::array<vk::Semaphore, 1> signalSemaphores = {
-        _renderFinishedSemaphores[nextFrame]};
-    const vk::SubmitInfo submitInfo{
-        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
-        .pWaitSemaphores = waitSemaphores.data(),
-        .pWaitDstStageMask = waitStages.data(),
-        .commandBufferCount = 1, // commandBufferCount
-        .pCommandBuffers = &_commandBuffers[nextImage],
-        .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
-        .pSignalSemaphores = signalSemaphores.data()};
-
-    checkSuccess(_device->graphicsQueue().submit(1, &submitInfo,
-                                                 swapchain.currentFence()),
-                 "submit");
-
-    return signalSemaphores;
+    return {_colorImage, commandBuffer};
 }
 
 void Renderer::destroySwapchainRelated() {
@@ -254,23 +222,6 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig) {
         .width = swapConfig.extent.width,
         .height = swapConfig.extent.height,
         .layers = 1});
-
-    // Fbo layers and extent match swap image for now
-    const vk::ImageSubresourceLayers layers{.aspectMask =
-                                                vk::ImageAspectFlagBits::eColor,
-                                            .mipLevel = 0,
-                                            .baseArrayLayer = 0,
-                                            .layerCount = 1};
-    const std::array<vk::Offset3D, 2> offsets{
-        {{0},
-         {static_cast<int32_t>(swapConfig.extent.width),
-          static_cast<int32_t>(swapConfig.extent.height), 1}}};
-    _fboToSwap = vk::ImageBlit{
-        .srcSubresource = layers,
-        .srcOffsets = offsets,
-        .dstSubresource = layers,
-        .dstOffsets = offsets,
-    };
 }
 
 void Renderer::createGraphicsPipelines(
@@ -535,15 +486,6 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig) {
             .commandBufferCount = swapConfig.imageCount});
 }
 
-void Renderer::createSemaphores(const uint32_t concurrentFrameCount) {
-    for (size_t i = 0; i < concurrentFrameCount; ++i) {
-        _imageAvailableSemaphores.push_back(
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
-        _renderFinishedSemaphores.push_back(
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
-    }
-}
-
 void Renderer::updateUniformBuffers(const World &world, const Camera &cam,
                                     const uint32_t nextImage) const {
     cam.updateBuffer(nextImage);
@@ -559,14 +501,15 @@ void Renderer::updateUniformBuffers(const World &world, const Camera &cam,
         instance.updateBuffer(_device, nextImage);
 }
 
-void Renderer::recordCommandBuffer(const World &world, const Camera &cam,
-                                   const Swapchain &swapchain,
-                                   const uint32_t nextImage) const {
+vk::CommandBuffer
+Renderer::recordCommandBuffer(const World &world, const Camera &cam,
+                              const vk::Rect2D &renderArea,
+                              const uint32_t nextImage) const {
     const auto buffer = _commandBuffers[nextImage];
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse});
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     const std::array<vk::ClearValue, 2> clearColors = {
         {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
@@ -574,13 +517,12 @@ void Renderer::recordCommandBuffer(const World &world, const Camera &cam,
              std::array<float, 4>{1.f, 0.f, 0.f, 0.f}}} // depth stencil
     };
     buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{
-            .renderPass = _renderpass,
-            .framebuffer = _fbo,
-            .renderArea =
-                vk::Rect2D{.offset = {0, 0}, .extent = swapchain.extent()},
-            .clearValueCount = static_cast<uint32_t>(clearColors.size()),
-            .pClearValues = clearColors.data()},
+        vk::RenderPassBeginInfo{.renderPass = _renderpass,
+                                .framebuffer = _fbo,
+                                .renderArea = renderArea,
+                                .clearValueCount =
+                                    static_cast<uint32_t>(clearColors.size()),
+                                .pClearValues = clearColors.data()},
         vk::SubpassContents::eInline);
 
     // Draw opaque and alpha masked geometry
@@ -626,29 +568,9 @@ void Renderer::recordCommandBuffer(const World &world, const Camera &cam,
 
     buffer.endRenderPass();
 
-    // Blit to support different internal rendering resolution (and color
-    // format?) the future
-    const auto &swapImage = swapchain.image(nextImage);
-
-    transitionImageLayout(buffer, swapImage.handle, swapImage.subresourceRange,
-                          vk::ImageLayout::eUndefined,
-                          vk::ImageLayout::eTransferDstOptimal,
-                          vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
-                          vk::PipelineStageFlagBits::eTopOfPipe,
-                          vk::PipelineStageFlagBits::eTransfer);
-
-    buffer.blitImage(_colorImage.handle, vk::ImageLayout::eTransferSrcOptimal,
-                     swapImage.handle, vk::ImageLayout::eTransferDstOptimal, 1,
-                     &_fboToSwap, vk::Filter::eLinear);
-
-    transitionImageLayout(
-        buffer, swapImage.handle, swapImage.subresourceRange,
-        vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR,
-        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eMemoryRead,
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eTransfer);
-
     buffer.end();
+
+    return buffer;
 }
 
 void Renderer::recordModelInstances(
