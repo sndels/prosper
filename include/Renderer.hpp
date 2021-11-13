@@ -76,8 +76,8 @@ class Renderer {
     std::vector<vk::CommandBuffer> _commandBuffers;
 
     vk::Framebuffer _fbo;
-    Image _colorImage = {nullptr, nullptr, {}, nullptr};
-    Image _depthImage = {nullptr, nullptr, {}, nullptr};
+    Image _colorImage;
+    Image _depthImage;
 };
 
 #endif // PROSPER_RENDERER_HPP

@@ -257,6 +257,7 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format,
                                 .format = format,
                                 .subresourceRange = range});
 
+    image.extent = extent;
     image.format = format;
     return image;
 }

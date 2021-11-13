@@ -30,7 +30,8 @@ struct Image {
     vk::Image handle;
     vk::ImageView view;
     vk::Format format;
-    VmaAllocation allocation;
+    vk::Extent2D extent;
+    VmaAllocation allocation = nullptr;
 };
 
 class Device {
