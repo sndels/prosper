@@ -3,6 +3,7 @@
 
 #include "Camera.hpp"
 #include "Device.hpp"
+#include "ImGuiRenderer.hpp"
 #include "Renderer.hpp"
 #include "Swapchain.hpp"
 #include "Window.hpp"
@@ -27,6 +28,7 @@ class App {
     std::shared_ptr<Device> _device =
         nullptr; // Needs to be valid before and after all other vk resources
     SwapchainConfig _swapConfig;
+    ImGuiRenderer _imguiRenderer;
     vk::DescriptorPool _descriptorPool;
     Camera _cam;
     World _world;

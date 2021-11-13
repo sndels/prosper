@@ -26,7 +26,10 @@ class Window {
     static void errorCallback(int error, const char *description);
     static void keyCallback(GLFWwindow *window, int32_t key, int32_t scancode,
                             int32_t action, int32_t mods);
+    static void charCallback(GLFWwindow *window, unsigned int c);
     static void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
+    static void scrollCallback(GLFWwindow *window, double xoffset,
+                               double yoffset);
     static void mouseButtonCallback(GLFWwindow *window, int button, int action,
                                     int mods);
     static void framebufferSizeCallback(GLFWwindow *window, int width,

@@ -1,6 +1,8 @@
 #include "Window.hpp"
 
 #include <glm/glm.hpp>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
 
 #include <iostream>
 
@@ -22,7 +24,9 @@ Window::Window(const uint32_t width, const uint32_t height,
 
     glfwSetWindowUserPointer(_window, this);
     glfwSetKeyCallback(_window, Window::keyCallback);
+    glfwSetCharCallback(_window, Window::charCallback);
     glfwSetCursorPosCallback(_window, Window::cursorPosCallback);
+    glfwSetScrollCallback(_window, Window::scrollCallback);
     glfwSetMouseButtonCallback(_window, Window::mouseButtonCallback);
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
 }
@@ -63,15 +67,22 @@ void Window::keyCallback(GLFWwindow *window, int32_t key, int32_t scancode,
     (void)scancode;
     (void)mods;
 
-    if (action == GLFW_PRESS) {
-        switch (key) {
-        case GLFW_KEY_ESCAPE:
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-            break;
-        default:
-            break;
+    if (!ImGui::IsAnyItemActive()) {
+        if (action == GLFW_PRESS) {
+            switch (key) {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+                break;
+            default:
+                break;
+            }
         }
     }
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+}
+
+void Window::charCallback(GLFWwindow *window, unsigned int c) {
+    ImGui_ImplGlfw_CharCallback(window, c);
 }
 
 void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
@@ -82,22 +93,36 @@ void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
     mouse.currentPos = vec2(xpos, ypos);
 }
 
+void Window::scrollCallback(GLFWwindow *window, double xoffset,
+                            double yoffset) {
+    const ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+        ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+    else
+        ;
+}
+
 void Window::mouseButtonCallback(GLFWwindow *window, int button, int action,
                                  int mods) {
     (void)window;
     (void)mods;
 
-    auto &mouse = InputHandler::instance()._mouse;
-    if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        if (action == GLFW_PRESS)
-            mouse.leftDown = true;
-        else
-            mouse.leftDown = false;
-    } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        if (action == GLFW_PRESS)
-            mouse.rightDown = true;
-        else
-            mouse.rightDown = false;
+    const ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse) {
+        ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+    } else {
+        auto &mouse = InputHandler::instance()._mouse;
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (action == GLFW_PRESS && !io.WantCaptureMouse)
+                mouse.leftDown = true;
+            else
+                mouse.leftDown = false;
+        } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            if (action == GLFW_PRESS && !io.WantCaptureMouse)
+                mouse.rightDown = true;
+            else
+                mouse.rightDown = false;
+        }
     }
 }
 

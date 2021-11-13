@@ -6,6 +6,8 @@
 #include <set>
 #include <stdexcept>
 
+#include <imgui.h>
+
 #include "Constants.hpp"
 #include "InputHandler.hpp"
 #include "Vertex.hpp"
@@ -44,6 +46,7 @@ App::App()
     : _window{WIDTH, HEIGHT, "prosper"}, _device{std::make_shared<Device>(
                                              _window.ptr())},
       _swapConfig{_device, {_window.width(), _window.height()}},
+      _imguiRenderer{_device, _window.ptr(), _swapConfig},
       _descriptorPool{createDescriptorPool(_device, _swapConfig.imageCount)},
       _cam{_device, _descriptorPool, _swapConfig.imageCount,
            vk::ShaderStageFlagBits::eVertex |
@@ -135,6 +138,17 @@ void App::drawFrame() {
         return nextImage.value();
     }();
 
+    _imguiRenderer.startFrame();
+
+    {
+        ImGui::Begin("Stats");
+
+        ImGui::Text("%.3f ms/frame (%.1f FPS)",
+                    1000.0f / ImGui::GetIO().Framerate,
+                    ImGui::GetIO().Framerate);
+        ImGui::End();
+    }
+
     const vk::Rect2D renderArea{.offset = {0, 0},
                                 .extent = _swapchain.extent()};
     const auto &rendererOutput =
@@ -142,6 +156,9 @@ void App::drawFrame() {
 
     std::vector<vk::CommandBuffer> commandBuffers = {
         rendererOutput.commandBuffer};
+
+    commandBuffers.push_back(
+        _imguiRenderer.endFrame(rendererOutput.image, nextImage));
 
     {
         // Blit to support different internal rendering resolution (and color
@@ -153,6 +170,20 @@ void App::drawFrame() {
 
         commandBuffer.begin(vk::CommandBufferBeginInfo{
             .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+        transitionImageLayout(commandBuffer, rendererOutput.image.handle,
+                              vk::ImageSubresourceRange{
+                                  .aspectMask = vk::ImageAspectFlagBits::eColor,
+                                  .baseMipLevel = 0,
+                                  .levelCount = 1,
+                                  .baseArrayLayer = 0,
+                                  .layerCount = 1},
+                              vk::ImageLayout::eColorAttachmentOptimal,
+                              vk::ImageLayout::eTransferSrcOptimal,
+                              vk::AccessFlagBits::eColorAttachmentWrite,
+                              vk::AccessFlagBits::eTransferRead,
+                              vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                              vk::PipelineStageFlagBits::eTransfer);
 
         transitionImageLayout(
             commandBuffer, swapImage.handle, swapImage.subresourceRange,

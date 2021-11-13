@@ -1,7 +1,10 @@
 #include "Renderer.hpp"
 
 #include <fstream>
+
 #include <glm/gtc/matrix_transform.hpp>
+#include <imgui.h>
+#include <imgui_impl_vulkan.h>
 
 #include "Constants.hpp"
 #include "VkUtils.hpp"
@@ -96,9 +99,8 @@ void Renderer::destroySwapchainRelated() {
 }
 
 void Renderer::createRenderPass(const SwapchainConfig &swapConfig) {
-    // TODO: Can swap surface formats change after first creation?
     const std::array<vk::AttachmentDescription, 2> attachments = {
-        // swap color
+        // color
         vk::AttachmentDescription{
             .format = swapConfig.surfaceFormat.format,
             .samples = vk::SampleCountFlagBits::e1,
@@ -107,9 +109,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig) {
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
             .initialLayout = vk::ImageLayout::eUndefined,
-            .finalLayout =
-                vk::ImageLayout::eTransferSrcOptimal // will be blitted from
-        },
+            .finalLayout = vk::ImageLayout::eColorAttachmentOptimal},
         vk::AttachmentDescription{
             // depth
             .format = swapConfig.depthFormat,
