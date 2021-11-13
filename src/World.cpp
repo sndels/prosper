@@ -177,11 +177,11 @@ void World::loadMaterials(const tinygltf::Model &gltfModel) {
         }
         if (const auto &elem = material.values.find("metallicFactor");
             elem != material.values.end()) {
-            mat._metallicFactor = elem->second.Factor();
+            mat._metallicFactor = static_cast<float>(elem->second.Factor());
         }
         if (const auto &elem = material.values.find("roughnessFactor");
             elem != material.values.end()) {
-            mat._roughnessFactor = elem->second.Factor();
+            mat._roughnessFactor = static_cast<float>(elem->second.Factor());
         }
         if (const auto &elem = material.additionalValues.find("alphaMode");
             elem != material.additionalValues.end()) {

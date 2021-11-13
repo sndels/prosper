@@ -67,7 +67,7 @@ void Renderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::Semaphore Renderer::imageAvailable(const uint32_t frame) const {
+vk::Semaphore Renderer::imageAvailable(const size_t frame) const {
     return _imageAvailableSemaphores[frame];
 }
 
@@ -91,14 +91,17 @@ Renderer::drawFrame(const World &world, const Camera &cam,
     const std::array<vk::Semaphore, 1> signalSemaphores = {
         _renderFinishedSemaphores[nextFrame]};
     const vk::SubmitInfo submitInfo{
-        .waitSemaphoreCount = waitSemaphores.size(),
+        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
         .pWaitDstStageMask = waitStages.data(),
         .commandBufferCount = 1, // commandBufferCount
         .pCommandBuffers = &_commandBuffers[nextImage],
-        .signalSemaphoreCount = signalSemaphores.size(),
+        .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
         .pSignalSemaphores = signalSemaphores.data()};
-    _device->graphicsQueue().submit(1, &submitInfo, swapchain.currentFence());
+
+    checkSuccess(_device->graphicsQueue().submit(1, &submitInfo,
+                                                 swapchain.currentFence()),
+                 "submit");
 
     return signalSemaphores;
 }
@@ -106,9 +109,10 @@ Renderer::drawFrame(const World &world, const Camera &cam,
 void Renderer::destroySwapchainRelated() {
     if (_device) {
         if (_commandBuffers.size() > 0) {
-            _device->logical().freeCommandBuffers(_device->graphicsPool(),
-                                                  _commandBuffers.size(),
-                                                  _commandBuffers.data());
+            _device->logical().freeCommandBuffers(
+                _device->graphicsPool(),
+                static_cast<uint32_t>(_commandBuffers.size()),
+                _commandBuffers.data());
         }
 
         _device->logical().destroy(_pipelines.pbr);
@@ -179,7 +183,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig) {
             .dstAccessMask = vk::AccessFlagBits::eMemoryRead}};
 
     _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
-        .attachmentCount = attachments.size(),
+        .attachmentCount = static_cast<uint32_t>(attachments.size()),
         .pAttachments = attachments.data(),
         .subpassCount = 1,
         .pSubpasses = &subpass,
@@ -243,13 +247,13 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig) {
     }
     const std::array<vk::ImageView, 2> attachments = {
         {_colorImage.view, _depthImage.view}};
-    _fbo = _device->logical().createFramebuffer(
-        vk::FramebufferCreateInfo{.renderPass = _renderpass,
-                                  .attachmentCount = attachments.size(),
-                                  .pAttachments = attachments.data(),
-                                  .width = swapConfig.extent.width,
-                                  .height = swapConfig.extent.height,
-                                  .layers = 1});
+    _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
+        .renderPass = _renderpass,
+        .attachmentCount = static_cast<uint32_t>(attachments.size()),
+        .pAttachments = attachments.data(),
+        .width = swapConfig.extent.width,
+        .height = swapConfig.extent.height,
+        .layers = 1});
 
     // Fbo layers and extent match swap image for now
     const vk::ImageSubresourceLayers layers{.aspectMask =
@@ -297,7 +301,7 @@ void Renderer::createGraphicsPipelines(
             .vertexBindingDescriptionCount = 1,
             .pVertexBindingDescriptions = &vertexBindingDescription,
             .vertexAttributeDescriptionCount =
-                vertexAttributeDescriptions.size(),
+                static_cast<uint32_t>(vertexAttributeDescriptions.size()),
             .pVertexAttributeDescriptions = vertexAttributeDescriptions.data()};
 
         const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
@@ -357,13 +361,14 @@ void Renderer::createGraphicsPipelines(
             .offset = 0,
             .size = sizeof(Material::PCBlock)};
         _pipelineLayouts.pbr = _device->logical().createPipelineLayout(
-            vk::PipelineLayoutCreateInfo{.setLayoutCount = setLayouts.size(),
-                                         .pSetLayouts = setLayouts.data(),
-                                         .pushConstantRangeCount = 1,
-                                         .pPushConstantRanges = &pcRange});
+            vk::PipelineLayoutCreateInfo{
+                .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+                .pSetLayouts = setLayouts.data(),
+                .pushConstantRangeCount = 1,
+                .pPushConstantRanges = &pcRange});
 
         const vk::GraphicsPipelineCreateInfo createInfo{
-            .stageCount = shaderStages.size(),
+            .stageCount = static_cast<uint32_t>(shaderStages.size()),
             .pStages = shaderStages.data(),
             .pVertexInputState = &vertInputInfo,
             .pInputAssemblyState = &inputAssembly,
@@ -497,7 +502,7 @@ void Renderer::createGraphicsPipelines(
                 .setLayoutCount = 1, .pSetLayouts = &worldDSLayouts.skybox});
 
         const vk::GraphicsPipelineCreateInfo createInfo{
-            .stageCount = shaderStages.size(),
+            .stageCount = static_cast<uint32_t>(shaderStages.size()),
             .pStages = shaderStages.data(),
             .pVertexInputState = &vertInputInfo,
             .pInputAssemblyState = &inputAssembly,
@@ -574,7 +579,7 @@ void Renderer::recordCommandBuffer(const World &world, const Camera &cam,
             .framebuffer = _fbo,
             .renderArea =
                 vk::Rect2D{.offset = {0, 0}, .extent = swapchain.extent()},
-            .clearValueCount = clearColors.size(),
+            .clearValueCount = static_cast<uint32_t>(clearColors.size()),
             .pClearValues = clearColors.data()},
         vk::SubpassContents::eInline);
 

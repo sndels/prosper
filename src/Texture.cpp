@@ -7,7 +7,7 @@
 
 #include "VkUtils.hpp"
 
-#if defined(_WIN32) or defined(_WIN64)
+#ifdef _WIN32
 // Windows' header doesn't include these
 #define GL_CLAMP_TO_EDGE 0x812F
 #define GL_MIRRORED_REPEAT 0x8370
@@ -348,7 +348,7 @@ TextureCubemap::TextureCubemap(std::shared_ptr<Device> device,
 
     const vk::Extent2D layerExtent{static_cast<uint32_t>(cube.extent().x),
                                    static_cast<uint32_t>(cube.extent().y)};
-    const uint32_t mipLevels = cube.levels();
+    const uint32_t mipLevels = static_cast<uint32_t>(cube.levels());
 
     const vk::ImageSubresourceRange subresourceRange{
         .aspectMask = vk::ImageAspectFlagBits::eColor,

@@ -20,7 +20,12 @@ target_compile_features(prosper
     PRIVATE
     cxx_std_20
 )
-if (NOT MSVC)
+if (MSVC)
+    target_compile_options(prosper
+        PRIVATE
+        /wd4005 # glfw seems to misbehave
+    )
+else()
     target_compile_options(prosper
         PRIVATE
         -pedantic

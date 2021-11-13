@@ -7,6 +7,7 @@
 
 #include "App.hpp"
 #include "Swapchain.hpp"
+#include "VkUtils.hpp"
 
 namespace {
 const std::vector<const char *> validationLayers = {
@@ -284,9 +285,8 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const {
 
     const vk::SubmitInfo submitInfo{.commandBufferCount = 1,
                                     .pCommandBuffers = &buffer};
-    _graphicsQueue.submit(1, &submitInfo, vk::Fence{});
-    _graphicsQueue
-        .waitIdle(); // TODO: Collect setup commands and execute at once
+    checkSuccess(_graphicsQueue.submit(1, &submitInfo, vk::Fence{}), "submit");
+    _graphicsQueue.waitIdle();
 
     _logical.freeCommandBuffers(_graphicsPool, 1, &buffer);
 }

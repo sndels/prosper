@@ -22,3 +22,10 @@ void transitionImageLayout(const vk::CommandBuffer &commandBuffer,
                                   vk::DependencyFlags{}, 0, nullptr, 0, nullptr,
                                   1, &barrier);
 }
+
+void checkSuccess(vk::Result result, const char *source) {
+    if (result != vk::Result::eSuccess) {
+        throw std::runtime_error(std::string(source) +
+                                 " failed: " + vk::to_string(result) + "!");
+    }
+}

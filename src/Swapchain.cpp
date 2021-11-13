@@ -139,9 +139,12 @@ vk::Fence Swapchain::currentFence() const {
 std::optional<uint32_t>
 Swapchain::acquireNextImage(vk::Semaphore signalSemaphore) {
     const auto noTimeout = std::numeric_limits<uint64_t>::max();
-    _device->logical().waitForFences(1, &_inFlightFences[_nextFrame], VK_TRUE,
-                                     noTimeout);
-    _device->logical().resetFences(1, &_inFlightFences[_nextFrame]);
+    checkSuccess(_device->logical().waitForFences(
+                     1, &_inFlightFences[_nextFrame], VK_TRUE, noTimeout),
+                 "waitForFences");
+    checkSuccess(
+        _device->logical().resetFences(1, &_inFlightFences[_nextFrame]),
+        "resetFences");
 
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const auto result = _device->logical().acquireNextImageKHR(
@@ -202,7 +205,8 @@ void Swapchain::createSwapchain() {
         if (indices.graphicsFamily != indices.presentFamily) {
             // Pick concurrent to skip in-depth ownership jazz for now
             return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
-                vk::SharingMode::eConcurrent, queueFamilyIndices.size(),
+                vk::SharingMode::eConcurrent,
+                static_cast<uint32_t>(queueFamilyIndices.size()),
                 queueFamilyIndices.data());
         } else {
             return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(

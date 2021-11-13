@@ -13,4 +13,6 @@ void transitionImageLayout(const vk::CommandBuffer &commandBuffer,
                            const vk::PipelineStageFlags srcStageMask,
                            const vk::PipelineStageFlags dstStageMask);
 
+void checkSuccess(vk::Result result, const char *source);
+
 #endif // PROSPER_VKUTILS_HPP

@@ -33,7 +33,7 @@ class Renderer {
                                   const vk::DescriptorSetLayout camDSLayout,
                                   const World::DSLayouts &worldDSLayouts);
 
-    vk::Semaphore imageAvailable(const uint32_t frame) const;
+    vk::Semaphore imageAvailable(const size_t frame) const;
     vk::RenderPass outputRenderpass() const;
 
     std::array<vk::Semaphore, 1> drawFrame(const World &world,

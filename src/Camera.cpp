@@ -48,7 +48,7 @@ void Camera::orient(const vec3 &eye, const vec3 &fwd, const vec3 &up) {
 
 void Camera::perspective(const float fov, const float ar, const float zN,
                          const float zF) {
-    const float tf = 1.f / tanf(fov * 0.5);
+    const float tf = 1.f / tanf(fov * 0.5f);
 
     // From glTF spec with flipped y and z in [0,1]
 
