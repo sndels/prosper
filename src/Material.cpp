@@ -15,12 +15,13 @@ float Material::alphaModeFloat() const {
 }
 
 Material::PCBlock Material::pcBlock() const {
-    return {_baseColorFactor,
-            _metallicFactor,
-            _roughnessFactor,
-            alphaModeFloat(),
-            _alphaCutoff,
-            _texCoordSets.baseColor,
-            _texCoordSets.metallicRoughness,
-            _texCoordSets.normal};
+    return PCBlock{.baseColorFactor = _baseColorFactor,
+                   .metallicFactor = _metallicFactor,
+                   .roughnessFactor = _roughnessFactor,
+                   .alphaMode = alphaModeFloat(),
+                   .alphaCutoff = _alphaCutoff,
+                   .baseColorTextureSet = _texCoordSets.baseColor,
+                   .metallicRoughnessTextureSet =
+                       _texCoordSets.metallicRoughness,
+                   .normalTextureSet = _texCoordSets.normal};
 }

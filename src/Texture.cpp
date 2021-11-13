@@ -81,8 +81,10 @@ Texture &Texture::operator=(Texture &&other) {
 }
 
 vk::DescriptorImageInfo Texture::imageInfo() const {
-    return vk::DescriptorImageInfo{_sampler, _image.view,
-                                   vk::ImageLayout::eShaderReadOnlyOptimal};
+    return vk::DescriptorImageInfo{.sampler = _sampler,
+                                   .imageView = _image.view,
+                                   .imageLayout =
+                                       vk::ImageLayout::eShaderReadOnlyOptimal};
 }
 
 void Texture::destroy() {
@@ -104,12 +106,11 @@ Texture2D::Texture2D(std::shared_ptr<Device> device, const std::string &path,
                      1
                : 1;
     const vk::ImageSubresourceRange subresourceRange{
-        vk::ImageAspectFlagBits::eColor,
-        0,         // baseMipLevel
-        mipLevels, // levelCount
-        0,         // baseArrayLayer
-        1          // layerCount
-    };
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel = 0,
+        .levelCount = mipLevels,
+        .baseArrayLayer = 0,
+        .layerCount = 1};
 
     createImage(stagingBuffer, extent, subresourceRange);
     createSampler(mipLevels);
@@ -147,8 +148,8 @@ Texture2D::Texture2D(std::shared_ptr<Device> device,
         pixels = tmpPixels.data();
     } else
         pixels = reinterpret_cast<const uint8_t *>(image.image.data());
-    const VkExtent2D extent{static_cast<uint32_t>(image.width),
-                            static_cast<uint32_t>(image.height)};
+    const vk::Extent2D extent{static_cast<uint32_t>(image.width),
+                              static_cast<uint32_t>(image.height)};
     const auto stagingBuffer = stagePixels(pixels, extent);
 
     const uint32_t mipLevels =
@@ -157,12 +158,11 @@ Texture2D::Texture2D(std::shared_ptr<Device> device,
                      1
                : 1;
     const vk::ImageSubresourceRange subresourceRange{
-        vk::ImageAspectFlagBits::eColor,
-        0,         // baseMipLevel
-        mipLevels, // levelCount
-        0,         // baseArrayLayer
-        1          // layerCount
-    };
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel = 0,
+        .levelCount = mipLevels,
+        .baseArrayLayer = 0,
+        .layerCount = 1};
 
     createImage(stagingBuffer, extent, subresourceRange);
     createSampler(sampler, mipLevels);
@@ -211,20 +211,20 @@ void Texture2D::createImage(const Buffer &stagingBuffer,
                           vk::PipelineStageFlagBits::eTopOfPipe,
                           vk::PipelineStageFlagBits::eTransfer);
 
-    const vk::BufferImageCopy region{0, // bufferOffset
-                                     0, // bufferRowLength
-                                     0, // bufferImageHeight
-                                     vk::ImageSubresourceLayers{
-                                         vk::ImageAspectFlagBits::eColor,
-                                         0, // mipLevel
-                                         0, // arrayLayer
-                                         1  // layerCount
-                                     },
-                                     vk::Offset3D{0, 0, 0},
-                                     vk::Extent3D{extent, 1}};
+    const vk::BufferImageCopy region{
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource =
+            vk::ImageSubresourceLayers{.aspectMask =
+                                           vk::ImageAspectFlagBits::eColor,
+                                       .mipLevel = 0,
+                                       .baseArrayLayer = 0,
+                                       .layerCount = 1},
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {extent.width, extent.height, 1}};
     commandBuffer.copyBufferToImage(stagingBuffer.handle, _image.handle,
-                                    vk::ImageLayout::eTransferDstOptimal,
-                                    1, // regionCount
+                                    vk::ImageLayout::eTransferDstOptimal, 1,
                                     &region);
 
     _device->endGraphicsCommands(commandBuffer);
@@ -238,12 +238,11 @@ void Texture2D::createMipmaps(const vk::Extent2D extent,
     const auto buffer = _device->beginGraphicsCommands();
 
     vk::ImageSubresourceRange subresourceRange{
-        vk::ImageAspectFlagBits::eColor,
-        0, // baseMipLevel
-        1, // levelCount
-        0, // baseArrayLayer
-        1  // layerCount
-    };
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1};
 
     int32_t mipWidth = extent.width;
     int32_t mipHeight = extent.height;
@@ -259,29 +258,27 @@ void Texture2D::createMipmaps(const vk::Extent2D extent,
                               vk::PipelineStageFlagBits::eTransfer);
 
         vk::ImageBlit blit{
-            vk::ImageSubresourceLayers{
-                vk::ImageAspectFlagBits::eColor,
-                i - 1,                         // baseMipLevel
-                0,                             // baseArrayLayer
-                1                              // layerCount
-            },                                 // srcSubresource
-            {{{0}, {mipWidth, mipHeight, 1}}}, // srtOffsets
-            vk::ImageSubresourceLayers{
-                vk::ImageAspectFlagBits::eColor,
-                i, // baseMipLevel
-                0, // baseArrayLayer
-                1  // layerCount
-            },     // dstSubresource
-            {{{0},
-              {mipWidth > 1 ? mipWidth / 2 : 1,
-               mipHeight > 1 ? mipHeight / 2 : 1, 1}}} // srcOffsets
-        };
-        buffer.blitImage(_image.handle,                        // srcImage
-                         vk::ImageLayout::eTransferSrcOptimal, // srcImageLayout
-                         _image.handle,                        // dstImage
-                         vk::ImageLayout::eTransferDstOptimal, // dstImageLayout
-                         1, &blit, // regionCount, ptr
-                         vk::Filter::eLinear);
+            .srcSubresource =
+                vk::ImageSubresourceLayers{.aspectMask =
+                                               vk::ImageAspectFlagBits::eColor,
+                                           .mipLevel = i - 1,
+                                           .baseArrayLayer = 0,
+                                           .layerCount = 1},
+            .srcOffsets = {{vk::Offset3D{0},
+                            vk::Offset3D{mipWidth, mipHeight, 1}}},
+            .dstSubresource =
+                vk::ImageSubresourceLayers{.aspectMask =
+                                               vk::ImageAspectFlagBits::eColor,
+                                           .mipLevel = i,
+                                           .baseArrayLayer = 0,
+                                           .layerCount = 1},
+            .dstOffsets = {
+                {vk::Offset3D{0},
+                 vk::Offset3D{mipWidth > 1 ? mipWidth / 2 : 1,
+                              mipHeight > 1 ? mipHeight / 2 : 1, 1}}}};
+        buffer.blitImage(_image.handle, vk::ImageLayout::eTransferSrcOptimal,
+                         _image.handle, vk::ImageLayout::eTransferDstOptimal, 1,
+                         &blit, vk::Filter::eLinear);
 
         // Source needs to be transitioned to shader read optimal
         transitionImageLayout(buffer, _image.handle, subresourceRange,
@@ -313,43 +310,33 @@ void Texture2D::createMipmaps(const vk::Extent2D extent,
 
 void Texture2D::createSampler(const uint32_t mipLevels) {
     // TODO: Use shared samplers
-    _sampler = _device->logical().createSampler({
-        {},                  // flags
-        vk::Filter::eLinear, // magFilter
-        vk::Filter::eLinear, // minFilter
-        vk::SamplerMipmapMode::eLinear,
-        vk::SamplerAddressMode::eClampToEdge, // addressModeU
-        vk::SamplerAddressMode::eClampToEdge, // addressModeV
-        vk::SamplerAddressMode::eClampToEdge, // addressModeW
-        0.f,                                  // mipLodBias
-        VK_TRUE,                              // anisotropyEnable
-        16,                                   // maxAnisotropy
-        false,                                // compareEnable
-        vk::CompareOp::eNever,
-        0,                            // minLod
-        static_cast<float>(mipLevels) // maxLod
-    });
+    _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
+        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        .anisotropyEnable = VK_TRUE,
+        .maxAnisotropy = 16,
+        .minLod = 0,
+        .maxLod = static_cast<float>(mipLevels)});
 }
 
 void Texture2D::createSampler(const tinygltf::Sampler &sampler,
                               const uint32_t mipLevels) {
     // TODO: Use shared samplers
-    _sampler = _device->logical().createSampler({
-        {}, // flags
-        getVkFilterMode(sampler.magFilter),
-        getVkFilterMode(sampler.minFilter),
-        vk::SamplerMipmapMode::eLinear, // TODO
-        getVkAddressMode(sampler.wrapS),
-        getVkAddressMode(sampler.wrapT),
-        vk::SamplerAddressMode::eClampToEdge, // addressModeW
-        0.f,                                  // mipLodBias
-        VK_TRUE,                              // anisotropyEnable
-        16,                                   // maxAnisotropy
-        false,                                // compareEnable
-        vk::CompareOp::eNever,
-        0,                            // minLod
-        static_cast<float>(mipLevels) // maxLod
-    });
+    _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
+        .magFilter = getVkFilterMode(sampler.magFilter),
+        .minFilter = getVkFilterMode(sampler.minFilter),
+        .mipmapMode = vk::SamplerMipmapMode::eLinear, // TODO
+        .addressModeU = getVkAddressMode(sampler.wrapS),
+        .addressModeV = getVkAddressMode(sampler.wrapT),
+        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        .anisotropyEnable = VK_TRUE,
+        .maxAnisotropy = 16,
+        .minLod = 0,
+        .maxLod = static_cast<float>(mipLevels)});
 }
 
 TextureCubemap::TextureCubemap(std::shared_ptr<Device> device,
@@ -364,12 +351,11 @@ TextureCubemap::TextureCubemap(std::shared_ptr<Device> device,
     const uint32_t mipLevels = cube.levels();
 
     const vk::ImageSubresourceRange subresourceRange{
-        vk::ImageAspectFlagBits::eColor,
-        0,         // baseMipLevel
-        mipLevels, // levelCount
-        0,         // baseArrayLayer
-        6          // layerCount, cubemap faces are layers in vk
-    };
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel = 0,
+        .levelCount = mipLevels,
+        .baseArrayLayer = 0,
+        .layerCount = 6};
 
     _image = _device->createImage(
         layerExtent, vk::Format::eR16G16B16A16Sfloat, subresourceRange,
@@ -380,22 +366,17 @@ TextureCubemap::TextureCubemap(std::shared_ptr<Device> device,
 
     copyPixels(cube, subresourceRange);
 
-    _sampler = _device->logical().createSampler({
-        {},                  // flags
-        vk::Filter::eLinear, // magFilter
-        vk::Filter::eLinear, // minFilter
-        vk::SamplerMipmapMode::eLinear,
-        vk::SamplerAddressMode::eClampToEdge, // addressModeU
-        vk::SamplerAddressMode::eClampToEdge, // addressModeV
-        vk::SamplerAddressMode::eClampToEdge, // addressModeW
-        0.f,                                  // mipLodBias
-        VK_TRUE,                              // anisotropyEnable
-        16,                                   // maxAnisotropy
-        false,                                // compareEnable
-        vk::CompareOp::eNever,
-        0,                            // minLod
-        static_cast<float>(mipLevels) // maxLod
-    });
+    _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
+        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        .anisotropyEnable = VK_TRUE,
+        .maxAnisotropy = 16,
+        .minLod = 0,
+        .maxLod = static_cast<float>(mipLevels)});
 }
 
 void TextureCubemap::copyPixels(
@@ -425,8 +406,10 @@ void TextureCubemap::copyPixels(
                     0, // bufferRowLength, bufferImageHeight, it is tightly
                        // packed
                     vk::ImageSubresourceLayers{
-                        vk::ImageAspectFlagBits::eColor, mipLevel, face,
-                        1, // layerCount
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .mipLevel = mipLevel,
+                        .baseArrayLayer = face,
+                        .layerCount = 1,
                     },
                     vk::Offset3D{0},
                     vk::Extent3D{

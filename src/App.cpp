@@ -27,14 +27,14 @@ const float CAMERA_FAR = 512.f;
 vk::DescriptorPool createDescriptorPool(const std::shared_ptr<Device> device,
                                         const uint32_t swapImageCount) {
     const vk::DescriptorPoolSize poolSize{
-        vk::DescriptorType::eUniformBuffer,
-        swapImageCount // descriptorCount, camera and mesh instances
+        .type = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount =
+            swapImageCount // descriptorCount, camera and mesh instances
     };
     return device->logical().createDescriptorPool(
-        {{},                       // flags
-         poolSize.descriptorCount, // max sets
-         1,
-         &poolSize});
+        vk::DescriptorPoolCreateInfo{.maxSets = poolSize.descriptorCount,
+                                     .poolSizeCount = 1,
+                                     .pPoolSizes = &poolSize});
 }
 
 } // namespace

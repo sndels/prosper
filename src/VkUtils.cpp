@@ -10,17 +10,15 @@ void transitionImageLayout(const vk::CommandBuffer &commandBuffer,
                            const vk::PipelineStageFlags srcStageMask,
                            const vk::PipelineStageFlags dstStageMask) {
     const vk::ImageMemoryBarrier barrier{
-        srcAccessMask,
-        dstAccessMask,
-        oldLayout,
-        newLayout,
-        VK_QUEUE_FAMILY_IGNORED, // srcQueueFamilyIndex
-        VK_QUEUE_FAMILY_IGNORED, // dstQueueFamilyIndex
-        image,
-        subresourceRange};
+        .srcAccessMask = srcAccessMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresourceRange = subresourceRange};
     commandBuffer.pipelineBarrier(srcStageMask, dstStageMask,
-                                  vk::DependencyFlags{}, 0,
-                                  nullptr,    // memoryBarriers
-                                  0, nullptr, // bufferMemoryBarriers
+                                  vk::DependencyFlags{}, 0, nullptr, 0, nullptr,
                                   1, &barrier);
 }

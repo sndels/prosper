@@ -138,21 +138,14 @@ vk::Fence Swapchain::currentFence() const {
 
 std::optional<uint32_t>
 Swapchain::acquireNextImage(vk::Semaphore signalSemaphore) {
-    _device->logical().waitForFences(
-        1, // fenceCount
-        &_inFlightFences[_nextFrame],
-        VK_TRUE,                             // waitAll
-        std::numeric_limits<uint64_t>::max() // timeout
-    );
-    _device->logical().resetFences(1, // fenceCount
-                                   &_inFlightFences[_nextFrame]);
+    const auto noTimeout = std::numeric_limits<uint64_t>::max();
+    _device->logical().waitForFences(1, &_inFlightFences[_nextFrame], VK_TRUE,
+                                     noTimeout);
+    _device->logical().resetFences(1, &_inFlightFences[_nextFrame]);
 
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const auto result = _device->logical().acquireNextImageKHR(
-        _swapchain,
-        std::numeric_limits<uint64_t>::max(), // timeout
-        signalSemaphore, {},                  // fence
-        &_nextImage);
+        _swapchain, noTimeout, signalSemaphore, vk::Fence{}, &_nextImage);
 
     // Swapchain should be recreated if out of date or suboptimal
     if (result == vk::Result::eErrorOutOfDateKHR ||
@@ -167,9 +160,11 @@ Swapchain::acquireNextImage(vk::Semaphore signalSemaphore) {
 bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores) {
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
-        static_cast<uint32_t>(waitSemaphores.size()), waitSemaphores.data(),
-        1, // swapchainCount
-        &_swapchain, &_nextImage};
+        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
+        .pWaitSemaphores = waitSemaphores.data(),
+        .swapchainCount = 1,
+        .pSwapchains = &_swapchain,
+        .pImageIndices = &_nextImage};
     const vk::Result result = _device->presentQueue().presentKHR(&presentInfo);
 
     // Swapchain should be recreated if out of date or suboptimal
@@ -211,49 +206,46 @@ void Swapchain::createSwapchain() {
                 queueFamilyIndices.data());
         } else {
             return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
-                vk::SharingMode::eExclusive,
-                0,      // optional
-                nullptr // optional
-            );
+                vk::SharingMode::eExclusive, 0, nullptr);
         }
     }();
 
-    _swapchain = _device->logical().createSwapchainKHR({
-        {}, // flags
-        _device->surface(),
-        _config.imageCount,
-        _config.surfaceFormat.format,
-        _config.surfaceFormat.colorSpace,
-        _config.extent,
-        1, // layers
-        vk::ImageUsageFlagBits::eTransferDst,
-        imageSharingMode,
-        queueFamilyIndexCount,
-        pQueueFamilyIndices,
-        _config.transform, // Can do mirrors, flips automagically
-        vk::CompositeAlphaFlagBitsKHR::eOpaque,
-        _config.presentMode,
-        VK_TRUE // Don't care about pixels covered by other windows
-    });
+    _swapchain =
+        _device->logical().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
+            .surface = _device->surface(),
+            .minImageCount = _config.imageCount,
+            .imageFormat = _config.surfaceFormat.format,
+            .imageColorSpace = _config.surfaceFormat.colorSpace,
+            .imageExtent = _config.extent,
+            .imageArrayLayers = 1,
+            .imageUsage = vk::ImageUsageFlagBits::eTransferDst,
+            .imageSharingMode = imageSharingMode,
+            .queueFamilyIndexCount = queueFamilyIndexCount,
+            .pQueueFamilyIndices = pQueueFamilyIndices,
+            .preTransform = _config.transform,
+            .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+            .presentMode = _config.presentMode,
+            .clipped = VK_TRUE});
 }
 
 void Swapchain::createImages() {
     auto images = _device->logical().getSwapchainImagesKHR(_swapchain);
     for (auto &image : images) {
-        _images.push_back({image,
-                           _config.extent,
-                           {
-                               vk::ImageAspectFlagBits::eColor,
-                               0, // baseMipLevel
-                               1, // levelCount
-                               0, // baseArrayLayer
-                               1  // layerCount
-                           }});
+        _images.push_back(
+            SwapchainImage{.handle = image,
+                           .extent = _config.extent,
+                           .subresourceRange = vk::ImageSubresourceRange{
+                               .aspectMask = vk::ImageAspectFlagBits::eColor,
+                               .baseMipLevel = 0,
+                               .levelCount = 1,
+                               .baseArrayLayer = 0,
+                               .layerCount = 1}});
     }
 }
 
 void Swapchain::createFences() {
-    const vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
+    const vk::FenceCreateInfo fenceInfo{.flags =
+                                            vk::FenceCreateFlagBits::eSignaled};
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _inFlightFences.push_back(_device->logical().createFence(fenceInfo));
 }

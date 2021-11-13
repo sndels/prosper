@@ -198,14 +198,14 @@ Buffer Device::createBuffer(const vk::DeviceSize size,
                             const vk::BufferUsageFlags usage,
                             const vk::MemoryPropertyFlags properties,
                             const VmaMemoryUsage vmaUsage) const {
-    vk::BufferCreateInfo bufferInfo{{}, // flags
-                                    size,
-                                    usage,
-                                    vk::SharingMode::eExclusive};
+    vk::BufferCreateInfo bufferInfo{.size = size,
+                                    .usage = usage,
+                                    .sharingMode = vk::SharingMode::eExclusive};
     // TODO: preferred flags, create mapped
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = vmaUsage;
-    allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
+    VmaAllocationCreateInfo allocInfo = {
+        .usage = vmaUsage,
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
+    };
 
     Buffer buffer;
     auto vkpBufferInfo = reinterpret_cast<VkBufferCreateInfo *>(&bufferInfo);
@@ -228,20 +228,21 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format,
                           const vk::ImageUsageFlags usage,
                           const vk::MemoryPropertyFlags properties,
                           const VmaMemoryUsage vmaUsage) const {
-    vk::ImageCreateInfo imageInfo{flags,
-                                  vk::ImageType::e2D,
-                                  format,
-                                  vk::Extent3D{extent, 1},
-                                  range.levelCount,
-                                  range.layerCount,
-                                  vk::SampleCountFlagBits::e1,
-                                  tiling,
-                                  usage,
-                                  vk::SharingMode::eExclusive};
+    vk::ImageCreateInfo imageInfo{
+        .flags = flags,
+        .imageType = vk::ImageType::e2D,
+        .format = format,
+        .extent = vk::Extent3D{extent.width, extent.height, 1},
+        .mipLevels = range.levelCount,
+        .arrayLayers = range.layerCount,
+        .samples = vk::SampleCountFlagBits::e1,
+        .tiling = tiling,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive};
     // TODO: preferred flags, create mapped
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = vmaUsage;
-    allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(properties);
+    VmaAllocationCreateInfo allocInfo = {
+        .usage = vmaUsage,
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties)};
 
     Image image;
     auto vkpImageInfo = reinterpret_cast<VkImageCreateInfo *>(&imageInfo);
@@ -249,12 +250,11 @@ Image Device::createImage(const vk::Extent2D extent, const vk::Format format,
     vmaCreateImage(_allocator, vkpImageInfo, &allocInfo, vkpImage,
                    &image.allocation, nullptr);
 
-    image.view = _logical.createImageView({{}, // flags
-                                           image.handle,
-                                           viewType,
-                                           format,
-                                           vk::ComponentMapping{},
-                                           range});
+    image.view = _logical.createImageView(
+        vk::ImageViewCreateInfo{.image = image.handle,
+                                .viewType = viewType,
+                                .format = format,
+                                .subresourceRange = range});
 
     image.format = format;
     return image;
@@ -267,13 +267,13 @@ void Device::destroy(const Image &image) const {
 }
 
 vk::CommandBuffer Device::beginGraphicsCommands() const {
-    const auto buffer = _logical.allocateCommandBuffers({
-        _graphicsPool, vk::CommandBufferLevel::ePrimary,
-        1 // commandBufferCount
-    })[0];
+    const auto buffer = _logical.allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo{.commandPool = _graphicsPool,
+                                      .level = vk::CommandBufferLevel::ePrimary,
+                                      .commandBufferCount = 1})[0];
 
-    const vk::CommandBufferBeginInfo beginInfo(
-        vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    const vk::CommandBufferBeginInfo beginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
     buffer.begin(beginInfo);
 
     return buffer;
@@ -282,12 +282,9 @@ vk::CommandBuffer Device::beginGraphicsCommands() const {
 void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const {
     buffer.end();
 
-    const vk::SubmitInfo submitInfo{0,       // waitSemaphoreCount
-                                    nullptr, // pWaitSemaphores
-                                    nullptr, // pWaitDstStageMask
-                                    1,       // commandBufferCount
-                                    &buffer};
-    _graphicsQueue.submit(1, &submitInfo, {});
+    const vk::SubmitInfo submitInfo{.commandBufferCount = 1,
+                                    .pCommandBuffers = &buffer};
+    _graphicsQueue.submit(1, &submitInfo, vk::Fence{});
     _graphicsQueue
         .waitIdle(); // TODO: Collect setup commands and execute at once
 
@@ -319,31 +316,32 @@ void Device::createInstance() {
     if (!checkValidationLayerSupport())
         throw std::runtime_error("Validation layers not available");
 
-    const vk::ApplicationInfo appInfo{"prosper", VK_MAKE_VERSION(1, 0, 0),
-                                      "prosper", VK_MAKE_VERSION(1, 0, 0),
-                                      VK_API_VERSION_1_0};
+    const vk::ApplicationInfo appInfo{.pApplicationName = "prosper",
+                                      .applicationVersion =
+                                          VK_MAKE_VERSION(1, 0, 0),
+                                      .pEngineName = "prosper",
+                                      .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+                                      .apiVersion = VK_API_VERSION_1_0};
 
     const auto extensions = getRequiredExtensions();
 
-    _instance =
-        vk::createInstance({{}, // flags
-                            &appInfo,
-                            static_cast<uint32_t>(validationLayers.size()),
-                            validationLayers.data(),
-                            static_cast<uint32_t>(extensions.size()),
-                            extensions.data()});
+    _instance = vk::createInstance(vk::InstanceCreateInfo{
+        .pApplicationInfo = &appInfo,
+        .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
+        .ppEnabledLayerNames = validationLayers.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data()});
 }
 
 void Device::createDebugMessenger() {
     const vk::DebugUtilsMessengerCreateInfoEXT createInfo{
-        {},
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-        debugCallback};
+        .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+        .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
+        .pfnUserCallback = debugCallback};
     CreateDebugUtilsMessengerEXT(_instance, &createInfo, nullptr,
                                  &_debugMessenger);
 }
@@ -381,30 +379,25 @@ void Device::createLogicalDevice() {
         const std::set<uint32_t> uniqueQueueFamilies = {
             computeFamily, graphicsFamily, presentFamily};
         for (uint32_t family : uniqueQueueFamilies) {
-            cis.push_back({{}, // flags
-                           family,
-                           1, // queueCount
-                           &queuePriority});
+            cis.push_back(
+                vk::DeviceQueueCreateInfo{.queueFamilyIndex = family,
+                                          .queueCount = 1,
+                                          .pQueuePriorities = &queuePriority});
         }
         return cis;
     }();
 
-    const vk::PhysicalDeviceFeatures deviceFeatures = [&] {
-        vk::PhysicalDeviceFeatures features;
-        features.samplerAnisotropy = VK_TRUE;
+    const vk::PhysicalDeviceFeatures deviceFeatures{.samplerAnisotropy =
+                                                        VK_TRUE};
 
-        return features;
-    }();
-
-    _logical =
-        _physical.createDevice({{}, // flags
-                                static_cast<uint32_t>(queueCreateInfos.size()),
-                                queueCreateInfos.data(),
-                                static_cast<uint32_t>(validationLayers.size()),
-                                validationLayers.data(),
-                                static_cast<uint32_t>(deviceExtensions.size()),
-                                deviceExtensions.data(),
-                                &deviceFeatures});
+    _logical = _physical.createDevice(vk::DeviceCreateInfo{
+        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
+        .pQueueCreateInfos = queueCreateInfos.data(),
+        .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
+        .ppEnabledLayerNames = validationLayers.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
+        .ppEnabledExtensionNames = deviceExtensions.data(),
+        .pEnabledFeatures = &deviceFeatures});
 
     // Get the created queues
     _computeQueue = _logical.getQueue(computeFamily, 0);
@@ -413,25 +406,25 @@ void Device::createLogicalDevice() {
 }
 
 void Device::createAllocator() {
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = static_cast<VkPhysicalDevice>(_physical);
-    allocatorInfo.device = static_cast<VkDevice>(_logical);
+    VmaAllocatorCreateInfo allocatorInfo{
+        .physicalDevice = static_cast<VkPhysicalDevice>(_physical),
+        .device = static_cast<VkDevice>(_logical)};
     if (vmaCreateAllocator(&allocatorInfo, &_allocator) != VK_SUCCESS)
         throw std::runtime_error("Failed to create allocator");
 }
 
 void Device::createCommandPools() {
     {
-        const vk::CommandPoolCreateInfo poolInfo(
-            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            _queueFamilies.graphicsFamily.value());
+        const vk::CommandPoolCreateInfo poolInfo{
+            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            .queueFamilyIndex = _queueFamilies.graphicsFamily.value()};
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
     }
 
     {
-        const vk::CommandPoolCreateInfo poolInfo(
-            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            _queueFamilies.computeFamily.value());
+        const vk::CommandPoolCreateInfo poolInfo{
+            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            .queueFamilyIndex = _queueFamilies.computeFamily.value()};
         _computePool = _logical.createCommandPool(poolInfo, nullptr);
     }
 }

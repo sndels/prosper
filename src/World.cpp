@@ -412,11 +412,11 @@ void World::createDescriptorPool(const uint32_t swapImageCount) {
     const uint32_t maxSets =
         swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 1) +
         static_cast<uint32_t>(_materials.size()) + swapImageCount;
-    _descriptorPool = _device->logical().createDescriptorPool(
-        {{}, // flags
-         maxSets,
-         static_cast<uint32_t>(poolSizes.size()),
-         poolSizes.data()});
+    _descriptorPool =
+        _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+            .maxSets = maxSets,
+            .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+            .pPoolSizes = poolSizes.data()});
 }
 
 void World::createDescriptorSets(const uint32_t swapImageCount) {
@@ -432,13 +432,16 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
          {2, vk::DescriptorType::eCombinedImageSampler, 1,
           vk::ShaderStageFlagBits::eFragment}}};
     _dsLayouts.material = _device->logical().createDescriptorSetLayout(
-        {{}, // flags
-         static_cast<uint32_t>(layoutBindings.size()),
-         layoutBindings.data()});
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+            .pBindings = layoutBindings.data()});
 
     for (auto &material : _materials) {
         material._descriptorSet = _device->logical().allocateDescriptorSets(
-            {_descriptorPool, 1, &_dsLayouts.material})[0];
+            vk::DescriptorSetAllocateInfo{.descriptorPool = _descriptorPool,
+                                          .descriptorSetCount = 1,
+                                          .pSetLayouts =
+                                              &_dsLayouts.material})[0];
 
         const std::array<vk::DescriptorImageInfo, 3> imageInfos = [&] {
             std::array<vk::DescriptorImageInfo, 3> iis{
@@ -468,41 +471,38 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
 
         _device->logical().updateDescriptorSets(
             static_cast<uint32_t>(writeDescriptorSets.size()),
-            writeDescriptorSets.data(),
-            0,      // descriptorCopyCount
-            nullptr // pDescriptorCopies
-        );
+            writeDescriptorSets.data(), 0, nullptr);
     }
 
     const vk::DescriptorSetLayoutBinding modelInstanceLayoutBinding{
-        0, // binding
-        vk::DescriptorType::eUniformBuffer,
-        1, // descriptorCount
-        vk::ShaderStageFlagBits::eVertex};
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex};
     _dsLayouts.modelInstance = _device->logical().createDescriptorSetLayout(
-        {{}, // flags
-         1,  // bindingCount
-         &modelInstanceLayoutBinding});
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = 1, .pBindings = &modelInstanceLayoutBinding});
 
     const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
         swapImageCount, _dsLayouts.modelInstance);
     for (auto &scene : _scenes) {
         for (auto &instance : scene.modelInstances) {
             instance.descriptorSets = _device->logical().allocateDescriptorSets(
-                {_descriptorPool,
-                 static_cast<uint32_t>(modelInstanceLayouts.size()),
-                 modelInstanceLayouts.data()});
+                vk::DescriptorSetAllocateInfo{
+                    .descriptorPool = _descriptorPool,
+                    .descriptorSetCount =
+                        static_cast<uint32_t>(modelInstanceLayouts.size()),
+                    .pSetLayouts = modelInstanceLayouts.data()});
 
             const auto bufferInfos = instance.bufferInfos();
             for (size_t i = 0; i < instance.descriptorSets.size(); ++i) {
                 const vk::WriteDescriptorSet descriptorWrite{
-                    instance.descriptorSets[i],
-                    0, // dstBinding,
-                    0, // dstArrayElement
-                    1, // descriptorCount
-                    vk::DescriptorType::eUniformBuffer,
-                    nullptr, // pImageInfo
-                    &bufferInfos[i]};
+                    .dstSet = instance.descriptorSets[i],
+                    .dstBinding = 0,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eUniformBuffer,
+                    .pBufferInfo = &bufferInfos[i]};
                 _device->logical().updateDescriptorSets(1, &descriptorWrite, 0,
                                                         nullptr);
             }
@@ -510,25 +510,27 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
     }
 
     const std::array<vk::DescriptorSetLayoutBinding, 2> skyboxLayoutBindings{{
-        {0, // binding
-         vk::DescriptorType::eUniformBuffer,
-         1, // descriptorCount
-         vk::ShaderStageFlagBits::eVertex},
-        {1, // binding
-         vk::DescriptorType::eCombinedImageSampler,
-         1, // descriptorCount
-         vk::ShaderStageFlagBits::eFragment},
+        {.binding = 0,
+         .descriptorType = vk::DescriptorType::eUniformBuffer,
+         .descriptorCount = 1,
+         .stageFlags = vk::ShaderStageFlagBits::eVertex},
+        {.binding = 1,
+         .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+         .descriptorCount = 1,
+         .stageFlags = vk::ShaderStageFlagBits::eFragment},
     }};
     _dsLayouts.skybox = _device->logical().createDescriptorSetLayout(
-        {{},                                                 // flags
-         static_cast<uint32_t>(skyboxLayoutBindings.size()), // bindingCount
-         skyboxLayoutBindings.data()});
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = static_cast<uint32_t>(skyboxLayoutBindings.size()),
+            .pBindings = skyboxLayoutBindings.data()});
 
     const std::vector<vk::DescriptorSetLayout> skyboxLayouts(swapImageCount,
                                                              _dsLayouts.skybox);
-    _skyboxDSs = _device->logical().allocateDescriptorSets(
-        {_descriptorPool, static_cast<uint32_t>(skyboxLayouts.size()),
-         skyboxLayouts.data()});
+    _skyboxDSs =
+        _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
+            .descriptorPool = _descriptorPool,
+            .descriptorSetCount = static_cast<uint32_t>(skyboxLayouts.size()),
+            .pSetLayouts = skyboxLayouts.data()});
 
     const auto skyboxBufferInfos = [&] {
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
@@ -539,23 +541,20 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
     const vk::DescriptorImageInfo skyboxImageInfo = _skyboxTexture.imageInfo();
     for (size_t i = 0; i < _skyboxDSs.size(); ++i) {
         const std::array<vk::WriteDescriptorSet, 2> writeDescriptorSets{
-            {{_skyboxDSs[i],
-              0, // dstBinding,
-              0, // dstArrayElement
-              1, // descriptorCount
-              vk::DescriptorType::eUniformBuffer,
-              nullptr, // pImageInfo
-              &skyboxBufferInfos[i]},
-             {_skyboxDSs[i],
-              1, // dstBinding,
-              0, // dstArrayElement
-              1, // descriptorCount
-              vk::DescriptorType::eCombinedImageSampler, &skyboxImageInfo}}};
+            {{.dstSet = _skyboxDSs[i],
+              .dstBinding = 0,
+              .dstArrayElement = 0,
+              .descriptorCount = 1,
+              .descriptorType = vk::DescriptorType::eUniformBuffer,
+              .pBufferInfo = &skyboxBufferInfos[i]},
+             {.dstSet = _skyboxDSs[i],
+              .dstBinding = 1,
+              .dstArrayElement = 0,
+              .descriptorCount = 1,
+              .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+              .pImageInfo = &skyboxImageInfo}}};
         _device->logical().updateDescriptorSets(
             static_cast<uint32_t>(writeDescriptorSets.size()),
-            writeDescriptorSets.data(),
-            0,      // descriptorCopyCount
-            nullptr // pDescriptorCopies
-        );
+            writeDescriptorSets.data(), 0, nullptr);
     }
 }

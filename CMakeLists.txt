@@ -13,15 +13,12 @@ add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(res/shader)
 
-# Set up absolute path to resources and binaries
-add_definitions(-DRES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/")
-add_definitions(-DBIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
 
 # Set up project targets
 add_executable(prosper ${PROSPER_SOURCES} ${PROSPER_INCLUDES})
 target_compile_features(prosper
     PRIVATE
-    cxx_std_17
+    cxx_std_20
 )
 if (NOT MSVC)
     target_compile_options(prosper
@@ -46,4 +43,11 @@ target_link_libraries(prosper
     vma
     ${Vulkan_LIBRARY}
 )
+target_compile_definitions(prosper
+    PRIVATE
+    VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+    # Set up absolute path to resources and binaries
+    RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"
+    BIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
+
 add_dependencies(prosper spirv-shaders)

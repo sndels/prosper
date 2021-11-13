@@ -140,31 +140,29 @@ void Camera::createDescriptorSets(const vk::DescriptorPool descriptorPool,
                                   const uint32_t swapImageCount,
                                   const vk::ShaderStageFlags stageFlags) {
     const vk::DescriptorSetLayoutBinding layoutBinding{
-        0, // binding
-        vk::DescriptorType::eUniformBuffer,
-        1, // descriptorCount
-        stageFlags};
-    _descriptorSetLayout =
-        _device->logical().createDescriptorSetLayout({{}, // flags
-                                                      1,  // bindingCount
-                                                      &layoutBinding});
+        .binding = 0, // binding
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1, // descriptorCount
+        .stageFlags = stageFlags};
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
+        vk::DescriptorSetLayoutCreateInfo{.bindingCount = 1,
+                                          .pBindings = &layoutBinding});
 
     const std::vector<vk::DescriptorSetLayout> layouts(swapImageCount,
                                                        _descriptorSetLayout);
-    _descriptorSets = _device->logical().allocateDescriptorSets(
-        {descriptorPool, static_cast<uint32_t>(layouts.size()),
-         layouts.data()});
+    _descriptorSets =
+        _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
+            .descriptorPool = descriptorPool,
+            .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+            .pSetLayouts = layouts.data()});
 
     const auto infos = bufferInfos();
     for (size_t i = 0; i < _descriptorSets.size(); ++i) {
         const vk::WriteDescriptorSet descriptorWrite{
-            _descriptorSets[i],
-            0, // dstBinding,
-            0, // dstArrayElement
-            1, // descriptorCount
-            vk::DescriptorType::eUniformBuffer,
-            nullptr, // pImageInfo
-            &infos[i]};
+            .dstSet = _descriptorSets[i],
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .pBufferInfo = &infos[i]};
         _device->logical().updateDescriptorSets(1, &descriptorWrite, 0,
                                                 nullptr);
     }
