@@ -9,17 +9,6 @@
 
 using namespace glm;
 
-namespace
-{
-vk::ShaderModule createShaderModule(
-    const vk::Device device, const std::vector<std::byte> &spv)
-{
-    return device.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = spv.size(),
-        .pCode = reinterpret_cast<const uint32_t *>(spv.data())});
-}
-} // namespace
-
 Renderer::Renderer(
     Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig,

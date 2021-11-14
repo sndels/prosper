@@ -30,3 +30,11 @@ std::vector<std::byte> readFileBytes(const std::string &filename)
     file.close();
     return buffer;
 }
+
+vk::ShaderModule createShaderModule(
+    const vk::Device device, const std::vector<std::byte> &spv)
+{
+    return device.createShaderModule(vk::ShaderModuleCreateInfo{
+        .codeSize = spv.size(),
+        .pCode = reinterpret_cast<const uint32_t *>(spv.data())});
+}
