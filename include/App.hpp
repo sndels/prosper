@@ -10,7 +10,8 @@
 #include "Window.hpp"
 #include "World.hpp"
 
-class App {
+class App
+{
   public:
     App();
     ~App();

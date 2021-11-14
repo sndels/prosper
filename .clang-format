@@ -4,4 +4,11 @@ UseTab: Never
 IndentWidth: 4
 TabWidth: 4
 AllowShortIfStatementsOnASingleLine: false
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 0
+AlignAfterOpenBracket: AlwaysBreak
+SpaceInEmptyBlock: true
+BreakBeforeBraces: Allman
+AlwaysBreakAfterReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 9999
 ---

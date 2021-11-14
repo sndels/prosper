@@ -19,7 +19,8 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-namespace {
+namespace
+{
 const uint32_t WIDTH = 1280;
 const uint32_t HEIGHT = 720;
 
@@ -27,41 +28,41 @@ const float CAMERA_FOV = 59.f;
 const float CAMERA_NEAR = 0.001f;
 const float CAMERA_FAR = 512.f;
 
-vk::DescriptorPool createDescriptorPool(const std::shared_ptr<Device> device,
-                                        const uint32_t swapImageCount) {
+vk::DescriptorPool createDescriptorPool(
+    const std::shared_ptr<Device> device, const uint32_t swapImageCount)
+{
     const vk::DescriptorPoolSize poolSize{
         .type = vk::DescriptorType::eUniformBuffer,
         .descriptorCount =
             swapImageCount // descriptorCount, camera and mesh instances
     };
-    return device->logical().createDescriptorPool(
-        vk::DescriptorPoolCreateInfo{.maxSets = poolSize.descriptorCount,
-                                     .poolSizeCount = 1,
-                                     .pPoolSizes = &poolSize});
+    return device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+        .maxSets = poolSize.descriptorCount,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize});
 }
 
 } // namespace
 
 App::App()
-    : _window{WIDTH, HEIGHT, "prosper"}, _device{std::make_shared<Device>(
-                                             _window.ptr())},
-      _swapConfig{_device, {_window.width(), _window.height()}},
-      _imguiRenderer{_device, _window.ptr(), _swapConfig},
-      _descriptorPool{createDescriptorPool(_device, _swapConfig.imageCount)},
-      _cam{_device, _descriptorPool, _swapConfig.imageCount,
-           vk::ShaderStageFlagBits::eVertex |
-               vk::ShaderStageFlagBits::eFragment},
-      _world{_device, _swapConfig.imageCount,
-             resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")},
-      _swapchain{_device, _swapConfig}, _renderer{_device, _swapConfig,
-                                                  _cam.descriptorSetLayout(),
-                                                  _world._dsLayouts} {
+: _window{WIDTH, HEIGHT, "prosper"}
+, _device{std::make_shared<Device>(_window.ptr())}
+, _swapConfig{_device, {_window.width(), _window.height()}}
+, _imguiRenderer{_device, _window.ptr(), _swapConfig}
+, _descriptorPool{createDescriptorPool(_device, _swapConfig.imageCount)}
+, _cam{_device, _descriptorPool, _swapConfig.imageCount, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
+, _world{_device, _swapConfig.imageCount, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
+, _swapchain{_device, _swapConfig}
+, _renderer{_device, _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts}
+{
     _cam.lookAt(vec3{0.25f, 0.2f, 0.75f}, vec3{0.f}, vec3{0.f, 1.f, 0.f});
-    _cam.perspective(radians(CAMERA_FOV),
-                     _window.width() / static_cast<float>(_window.height()),
-                     CAMERA_NEAR, CAMERA_FAR);
+    _cam.perspective(
+        radians(CAMERA_FOV),
+        _window.width() / static_cast<float>(_window.height()), CAMERA_NEAR,
+        CAMERA_FAR);
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
         _imageAvailableSemaphores.push_back(
             _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
         _renderFinishedSemaphores.push_back(
@@ -75,7 +76,8 @@ App::App()
             .commandBufferCount = _swapConfig.imageCount});
 }
 
-App::~App() {
+App::~App()
+{
     for (auto &semaphore : _renderFinishedSemaphores)
         _device->logical().destroy(semaphore);
     for (auto &semaphore : _imageAvailableSemaphores)
@@ -83,18 +85,23 @@ App::~App() {
     _device->logical().destroy(_descriptorPool);
 }
 
-void App::run() {
-    while (_window.open()) {
+void App::run()
+{
+    while (_window.open())
+    {
         _window.startFrame();
 
         const auto &mouse = InputHandler::instance().mouse();
-        if (mouse.leftDown && mouse.currentPos != mouse.lastPos) {
-            _cam.orbit(mouse.currentPos, mouse.lastPos,
-                       vec2(_window.width(), _window.height()) / 2.f);
+        if (mouse.leftDown && mouse.currentPos != mouse.lastPos)
+        {
+            _cam.orbit(
+                mouse.currentPos, mouse.lastPos,
+                vec2(_window.width(), _window.height()) / 2.f);
         }
-        if (mouse.rightDown && mouse.currentPos != mouse.lastPos) {
-            _cam.scaleOrbit(mouse.currentPos.y, mouse.lastPos.y,
-                            _window.height() / 2.f);
+        if (mouse.rightDown && mouse.currentPos != mouse.lastPos)
+        {
+            _cam.scaleOrbit(
+                mouse.currentPos.y, mouse.lastPos.y, _window.height() / 2.f);
         }
         drawFrame();
     }
@@ -103,8 +110,10 @@ void App::run() {
     _device->logical().waitIdle();
 }
 
-void App::recreateSwapchainAndRelated() {
-    while (_window.width() == 0 && _window.height() == 0) {
+void App::recreateSwapchainAndRelated()
+{
+    while (_window.width() == 0 && _window.height() == 0)
+    {
         // Window is minimized so wait until its not
         glfwWaitEvents();
     }
@@ -114,23 +123,27 @@ void App::recreateSwapchainAndRelated() {
     _swapConfig = SwapchainConfig{_device, {_window.width(), _window.height()}};
 
     _swapchain.recreate(_swapConfig);
-    _renderer.recreateSwapchainRelated(_swapConfig, _cam.descriptorSetLayout(),
-                                       _world._dsLayouts);
+    _renderer.recreateSwapchainRelated(
+        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
 
-    _cam.perspective(radians(CAMERA_FOV),
-                     _window.width() / static_cast<float>(_window.height()),
-                     CAMERA_NEAR, CAMERA_FAR);
+    _cam.perspective(
+        radians(CAMERA_FOV),
+        _window.width() / static_cast<float>(_window.height()), CAMERA_NEAR,
+        CAMERA_FAR);
 }
 
-void App::drawFrame() {
+void App::drawFrame()
+{
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
     const size_t nextFrame = _swapchain.nextFrame();
     // Corresponds to the swapchain image
-    const auto nextImage = [&] {
+    const auto nextImage = [&]
+    {
         const auto imageAvailable = _imageAvailableSemaphores[nextFrame];
         auto nextImage = _swapchain.acquireNextImage(imageAvailable);
-        while (!nextImage.has_value()) {
+        while (!nextImage.has_value())
+        {
             // Recreate the swap chain as necessary
             recreateSwapchainAndRelated();
             nextImage = _swapchain.acquireNextImage(imageAvailable);
@@ -145,7 +158,8 @@ void App::drawFrame() {
     {
         const float minDt =
             _useFpsLimit ? 1.f / static_cast<float>(_fpsLimit) : 0.f;
-        while (_frameTimer.getSeconds() < minDt) {
+        while (_frameTimer.getSeconds() < minDt)
+        {
             ;
         }
     }
@@ -156,20 +170,21 @@ void App::drawFrame() {
     {
         ImGui::Begin("Stats");
 
-        ImGui::Text("%.3f ms/frame (%.1f FPS)",
-                    1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
+        ImGui::Text(
+            "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+            ImGui::GetIO().Framerate);
 
         ImGui::Checkbox("Limit FPS", &_useFpsLimit);
-        if (_useFpsLimit) {
+        if (_useFpsLimit)
+        {
             ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
         }
 
         ImGui::End();
     }
 
-    const vk::Rect2D renderArea{.offset = {0, 0},
-                                .extent = _swapchain.extent()};
+    const vk::Rect2D renderArea{
+        .offset = {0, 0}, .extent = _swapchain.extent()};
     const auto &rendererOutput =
         _renderer.drawFrame(_world, _cam, renderArea, nextImage);
 
@@ -190,19 +205,20 @@ void App::drawFrame() {
         commandBuffer.begin(vk::CommandBufferBeginInfo{
             .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-        transitionImageLayout(commandBuffer, rendererOutput.image.handle,
-                              vk::ImageSubresourceRange{
-                                  .aspectMask = vk::ImageAspectFlagBits::eColor,
-                                  .baseMipLevel = 0,
-                                  .levelCount = 1,
-                                  .baseArrayLayer = 0,
-                                  .layerCount = 1},
-                              vk::ImageLayout::eColorAttachmentOptimal,
-                              vk::ImageLayout::eTransferSrcOptimal,
-                              vk::AccessFlagBits::eColorAttachmentWrite,
-                              vk::AccessFlagBits::eTransferRead,
-                              vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                              vk::PipelineStageFlagBits::eTransfer);
+        transitionImageLayout(
+            commandBuffer, rendererOutput.image.handle,
+            vk::ImageSubresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1},
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::ImageLayout::eTransferSrcOptimal,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eTransferRead,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eTransfer);
 
         transitionImageLayout(
             commandBuffer, swapImage.handle, swapImage.subresourceRange,
@@ -227,11 +243,11 @@ void App::drawFrame() {
                 .dstSubresource = layers,
                 .dstOffsets = offsets,
             };
-            commandBuffer.blitImage(rendererOutput.image.handle,
-                                    vk::ImageLayout::eTransferSrcOptimal,
-                                    swapImage.handle,
-                                    vk::ImageLayout::eTransferDstOptimal, 1,
-                                    &fboBlit, vk::Filter::eLinear);
+            commandBuffer.blitImage(
+                rendererOutput.image.handle,
+                vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
+                vk::ImageLayout::eTransferDstOptimal, 1, &fboBlit,
+                vk::Filter::eLinear);
         }
 
         transitionImageLayout(
@@ -263,9 +279,10 @@ void App::drawFrame() {
         .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
         .pSignalSemaphores = signalSemaphores.data()};
 
-    checkSuccess(_device->graphicsQueue().submit(1, &submitInfo,
-                                                 _swapchain.currentFence()),
-                 "submit");
+    checkSuccess(
+        _device->graphicsQueue().submit(
+            1, &submitInfo, _swapchain.currentFence()),
+        "submit");
 
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (!_swapchain.present(signalSemaphores) || _window.resized())

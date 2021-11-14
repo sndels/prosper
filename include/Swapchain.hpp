@@ -8,7 +8,8 @@
 
 #include "Device.hpp"
 
-struct SwapchainSupport {
+struct SwapchainSupport
+{
     vk::SurfaceCapabilitiesKHR capabilities;
     std::vector<vk::SurfaceFormatKHR> formats;
     std::vector<vk::PresentModeKHR> presentModes;
@@ -16,7 +17,8 @@ struct SwapchainSupport {
     SwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface);
 };
 
-struct SwapchainConfig {
+struct SwapchainConfig
+{
     vk::SurfaceTransformFlagBitsKHR transform;
     vk::SurfaceFormatKHR surfaceFormat;
     vk::Format depthFormat;
@@ -24,17 +26,19 @@ struct SwapchainConfig {
     vk::Extent2D extent;
     uint32_t imageCount = 0;
 
-    SwapchainConfig(std::shared_ptr<Device> device,
-                    const vk::Extent2D &preferredExtent);
+    SwapchainConfig(
+        std::shared_ptr<Device> device, const vk::Extent2D &preferredExtent);
 };
 
-struct SwapchainImage {
+struct SwapchainImage
+{
     vk::Image handle;
     vk::Extent2D extent;
     vk::ImageSubresourceRange subresourceRange;
 };
 
-class Swapchain {
+class Swapchain
+{
   public:
     Swapchain(std::shared_ptr<Device> device, const SwapchainConfig &config);
     ~Swapchain();

@@ -6,17 +6,21 @@
 
 #include "VkUtils.hpp"
 
-namespace {
+namespace
+{
 
-void checkSuccessImGui(VkResult err) {
+void checkSuccessImGui(VkResult err)
+{
     checkSuccess(static_cast<vk::Result>(err), "ImGui");
 }
 
 } // namespace
 
-ImGuiRenderer::ImGuiRenderer(std::shared_ptr<Device> device, GLFWwindow *window,
-                             const SwapchainConfig &swapConfig)
-    : _device{device} {
+ImGuiRenderer::ImGuiRenderer(
+    std::shared_ptr<Device> device, GLFWwindow *window,
+    const SwapchainConfig &swapConfig)
+: _device{device}
+{
     createDescriptorPool(swapConfig);
     createRenderPass(swapConfig.surfaceFormat.format);
 
@@ -50,7 +54,8 @@ ImGuiRenderer::ImGuiRenderer(std::shared_ptr<Device> device, GLFWwindow *window,
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-ImGuiRenderer::~ImGuiRenderer() {
+ImGuiRenderer::~ImGuiRenderer()
+{
     destroySwapchainRelated();
     _device->logical().destroy(_renderpass);
     _device->logical().destroy(_descriptorPool);
@@ -60,15 +65,18 @@ ImGuiRenderer::~ImGuiRenderer() {
     ImGui::DestroyContext();
 }
 
-void ImGuiRenderer::startFrame() const {
+void ImGuiRenderer::startFrame() const
+{
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
-vk::CommandBuffer ImGuiRenderer::endFrame(const Image &outputImage,
-                                          const uint32_t nextImage) {
-    if (outputImage.handle != _fbo.first) {
+vk::CommandBuffer ImGuiRenderer::endFrame(
+    const Image &outputImage, const uint32_t nextImage)
+{
+    if (outputImage.handle != _fbo.first)
+    {
         recreateFramebuffer(outputImage);
     }
 
@@ -97,7 +105,8 @@ vk::CommandBuffer ImGuiRenderer::endFrame(const Image &outputImage,
     return buffer;
 }
 
-void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat) {
+void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
+{
     const vk::AttachmentDescription attachment = {
         .format = colorFormat,
         .samples = vk::SampleCountFlagBits::e1,
@@ -135,8 +144,10 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat) {
     });
 }
 
-void ImGuiRenderer::destroySwapchainRelated() {
-    if (_commandBuffers.size() > 0) {
+void ImGuiRenderer::destroySwapchainRelated()
+{
+    if (_commandBuffers.size() > 0)
+    {
         _device->logical().freeCommandBuffers(
             _device->graphicsPool(),
             static_cast<uint32_t>(_commandBuffers.size()),
@@ -146,8 +157,8 @@ void ImGuiRenderer::destroySwapchainRelated() {
     _fbo = {};
 }
 
-void ImGuiRenderer::recreateSwapchainRelated(
-    const SwapchainConfig &swapConfig) {
+void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
+{
     destroySwapchainRelated();
 
     _commandBuffers =
@@ -157,7 +168,8 @@ void ImGuiRenderer::recreateSwapchainRelated(
             .commandBufferCount = swapConfig.imageCount});
 }
 
-void ImGuiRenderer::createDescriptorPool(const SwapchainConfig &swapConfig) {
+void ImGuiRenderer::createDescriptorPool(const SwapchainConfig &swapConfig)
+{
     const uint32_t maxSets = 1000;
     const std::array<vk::DescriptorPoolSize, 11> poolSizes{{
         {.type = vk::DescriptorType::eSampler, .descriptorCount = maxSets},
@@ -187,15 +199,17 @@ void ImGuiRenderer::createDescriptorPool(const SwapchainConfig &swapConfig) {
             .pPoolSizes = poolSizes.data()});
 }
 
-void ImGuiRenderer::recreateFramebuffer(const Image &image) {
+void ImGuiRenderer::recreateFramebuffer(const Image &image)
+{
     _device->logical().destroy(_fbo.second);
-    _fbo = {image.handle,
-            _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
-                .renderPass = _renderpass,
-                .attachmentCount = 1,
-                .pAttachments = &image.view,
-                .width = image.extent.width,
-                .height = image.extent.height,
-                .layers = 1,
-            })};
+    _fbo = {
+        image.handle,
+        _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
+            .renderPass = _renderpass,
+            .attachmentCount = 1,
+            .pAttachments = &image.view,
+            .width = image.extent.width,
+            .height = image.extent.height,
+            .layers = 1,
+        })};
 }

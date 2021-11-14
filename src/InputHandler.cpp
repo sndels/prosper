@@ -1,6 +1,7 @@
 #include "InputHandler.hpp"
 
-InputHandler &InputHandler::instance() {
+InputHandler &InputHandler::instance()
+{
     static InputHandler ih;
     return ih;
 }

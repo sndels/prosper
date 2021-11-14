@@ -11,13 +11,15 @@
 
 using namespace glm;
 
-namespace {
-static std::vector<char> readFile(const std::string &filename) {
+namespace
+{
+static std::vector<char> readFile(const std::string &filename)
+{
     // Open from end to find size from initial position
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open())
-        throw std::runtime_error(std::string{"Failed to open file '"} +
-                                 filename + "'");
+        throw std::runtime_error(
+            std::string{"Failed to open file '"} + filename + "'");
 
     const auto fileSize = static_cast<size_t>(file.tellg());
     std::vector<char> buffer(fileSize);
@@ -30,24 +32,28 @@ static std::vector<char> readFile(const std::string &filename) {
     return buffer;
 }
 
-vk::ShaderModule createShaderModule(const vk::Device device,
-                                    const std::vector<char> &spv) {
+vk::ShaderModule createShaderModule(
+    const vk::Device device, const std::vector<char> &spv)
+{
     return device.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spv.size(),
         .pCode = reinterpret_cast<const uint32_t *>(spv.data())});
 }
 } // namespace
 
-Renderer::Renderer(std::shared_ptr<Device> device,
-                   const SwapchainConfig &swapConfig,
-                   const vk::DescriptorSetLayout camDSLayout,
-                   const World::DSLayouts &worldDSLayouts)
-    : _device{device} {
+Renderer::Renderer(
+    std::shared_ptr<Device> device, const SwapchainConfig &swapConfig,
+    const vk::DescriptorSetLayout camDSLayout,
+    const World::DSLayouts &worldDSLayouts)
+: _device{device}
+{
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
 
-Renderer::~Renderer() {
-    if (_device) {
+Renderer::~Renderer()
+{
+    if (_device)
+    {
         destroySwapchainRelated();
     }
 }
@@ -55,7 +61,8 @@ Renderer::~Renderer() {
 void Renderer::recreateSwapchainRelated(
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts) {
+    const World::DSLayouts &worldDSLayouts)
+{
     destroySwapchainRelated();
     createRenderPass(swapConfig);
     createFramebuffer(swapConfig);
@@ -66,9 +73,10 @@ void Renderer::recreateSwapchainRelated(
 
 vk::RenderPass Renderer::outputRenderpass() const { return _renderpass; }
 
-Renderer::Output Renderer::drawFrame(const World &world, const Camera &cam,
-                                     const vk::Rect2D &renderArea,
-                                     const uint32_t nextImage) const {
+Renderer::Output Renderer::drawFrame(
+    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+    const uint32_t nextImage) const
+{
     updateUniformBuffers(world, cam, nextImage);
 
     const auto commandBuffer =
@@ -77,9 +85,12 @@ Renderer::Output Renderer::drawFrame(const World &world, const Camera &cam,
     return {_colorImage, commandBuffer};
 }
 
-void Renderer::destroySwapchainRelated() {
-    if (_device) {
-        if (_commandBuffers.size() > 0) {
+void Renderer::destroySwapchainRelated()
+{
+    if (_device)
+    {
+        if (_commandBuffers.size() > 0)
+        {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
                 static_cast<uint32_t>(_commandBuffers.size()),
@@ -98,7 +109,8 @@ void Renderer::destroySwapchainRelated() {
     }
 }
 
-void Renderer::createRenderPass(const SwapchainConfig &swapConfig) {
+void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
+{
     const std::array<vk::AttachmentDescription, 2> attachments = {
         // color
         vk::AttachmentDescription{
@@ -159,7 +171,8 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig) {
         .pDependencies = dependencies.data()});
 }
 
-void Renderer::createFramebuffer(const SwapchainConfig &swapConfig) {
+void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
+{
     {
         const vk::ImageSubresourceRange subresourceRange{
             .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -203,13 +216,13 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig) {
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 
-        transitionImageLayout(commandBuffer, _depthImage.handle,
-                              subresourceRange, vk::ImageLayout::eUndefined,
-                              vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                              vk::AccessFlags{},
-                              vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-                              vk::PipelineStageFlagBits::eTopOfPipe,
-                              vk::PipelineStageFlagBits::eEarlyFragmentTests);
+        transitionImageLayout(
+            commandBuffer, _depthImage.handle, subresourceRange,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::AccessFlags{},
+            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
         _device->endGraphicsCommands(commandBuffer);
     }
@@ -227,7 +240,8 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig) {
 void Renderer::createGraphicsPipelines(
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts) {
+    const World::DSLayouts &worldDSLayouts)
+{
     {
         const auto vertSPV = readFile(binPath("shader/shader.vert.spv"));
         const auto fragSPV = readFile(binPath("shader/shader.frag.spv"));
@@ -478,7 +492,8 @@ void Renderer::createGraphicsPipelines(
     }
 }
 
-void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig) {
+void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
+{
     _commandBuffers =
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
@@ -486,8 +501,9 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig) {
             .commandBufferCount = swapConfig.imageCount});
 }
 
-void Renderer::updateUniformBuffers(const World &world, const Camera &cam,
-                                    const uint32_t nextImage) const {
+void Renderer::updateUniformBuffers(
+    const World &world, const Camera &cam, const uint32_t nextImage) const
+{
     cam.updateBuffer(nextImage);
 
     const mat4 worldToClip =
@@ -501,10 +517,10 @@ void Renderer::updateUniformBuffers(const World &world, const Camera &cam,
         instance.updateBuffer(_device, nextImage);
 }
 
-vk::CommandBuffer
-Renderer::recordCommandBuffer(const World &world, const Camera &cam,
-                              const vk::Rect2D &renderArea,
-                              const uint32_t nextImage) const {
+vk::CommandBuffer Renderer::recordCommandBuffer(
+    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+    const uint32_t nextImage) const
+{
     const auto buffer = _commandBuffers[nextImage];
     buffer.reset();
 
@@ -517,54 +533,52 @@ Renderer::recordCommandBuffer(const World &world, const Camera &cam,
              std::array<float, 4>{1.f, 0.f, 0.f, 0.f}}} // depth stencil
     };
     buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{.renderPass = _renderpass,
-                                .framebuffer = _fbo,
-                                .renderArea = renderArea,
-                                .clearValueCount =
-                                    static_cast<uint32_t>(clearColors.size()),
-                                .pClearValues = clearColors.data()},
+        vk::RenderPassBeginInfo{
+            .renderPass = _renderpass,
+            .framebuffer = _fbo,
+            .renderArea = renderArea,
+            .clearValueCount = static_cast<uint32_t>(clearColors.size()),
+            .pClearValues = clearColors.data()},
         vk::SubpassContents::eInline);
 
     // Draw opaque and alpha masked geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.pbr);
 
-    buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                              _pipelineLayouts.pbr,
-                              0, // firstSet
-                              1, &cam.descriptorSet(nextImage), 0, nullptr);
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayouts.pbr,
+        0, // firstSet
+        1, &cam.descriptorSet(nextImage), 0, nullptr);
 
-    recordModelInstances(buffer, nextImage, world.currentScene().modelInstances,
-                         [](const Mesh &mesh) {
-                             return mesh.material()._alphaMode ==
-                                    Material::AlphaMode::Blend;
-                         });
+    recordModelInstances(
+        buffer, nextImage, world.currentScene().modelInstances,
+        [](const Mesh &mesh)
+        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
 
     // Skybox doesn't need to be drawn under opaque geometry but should be
     // before transparents
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.skybox);
 
-    buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                              _pipelineLayouts.skybox,
-                              0, // firstSet
-                              1, &world._skyboxDSs[nextImage], 0, nullptr);
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayouts.skybox,
+        0, // firstSet
+        1, &world._skyboxDSs[nextImage], 0, nullptr);
 
     world.drawSkybox(buffer);
 
     // Draw transparent geometry
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                        _pipelines.pbrAlphaBlend);
+    buffer.bindPipeline(
+        vk::PipelineBindPoint::eGraphics, _pipelines.pbrAlphaBlend);
 
-    buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                              _pipelineLayouts.pbr,
-                              0, // firstSet
-                              1, &cam.descriptorSet(nextImage), 0, nullptr);
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayouts.pbr,
+        0, // firstSet
+        1, &cam.descriptorSet(nextImage), 0, nullptr);
 
     // TODO: Sort back to front
-    recordModelInstances(buffer, nextImage, world.currentScene().modelInstances,
-                         [](const Mesh &mesh) {
-                             return mesh.material()._alphaMode !=
-                                    Material::AlphaMode::Blend;
-                         });
+    recordModelInstances(
+        buffer, nextImage, world.currentScene().modelInstances,
+        [](const Mesh &mesh)
+        { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
 
     buffer.endRenderPass();
 
@@ -576,13 +590,16 @@ Renderer::recordCommandBuffer(const World &world, const Camera &cam,
 void Renderer::recordModelInstances(
     const vk::CommandBuffer buffer, const uint32_t nextImage,
     const std::vector<Scene::ModelInstance> &instances,
-    const std::function<bool(const Mesh &)> &cullMesh) const {
-    for (const auto &instance : instances) {
+    const std::function<bool(const Mesh &)> &cullMesh) const
+{
+    for (const auto &instance : instances)
+    {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayouts.pbr,
             1, // firstSet
             1, &instance.descriptorSets[nextImage], 0, nullptr);
-        for (const auto &mesh : instance.model->_meshes) {
+        for (const auto &mesh : instance.model->_meshes)
+        {
             if (cullMesh(mesh))
                 continue;
             buffer.bindDescriptorSets(
@@ -590,10 +607,10 @@ void Renderer::recordModelInstances(
                 2, // firstSet
                 1, &mesh.material()._descriptorSet, 0, nullptr);
             const auto pcBlock = mesh.material().pcBlock();
-            buffer.pushConstants(_pipelineLayouts.pbr,
-                                 vk::ShaderStageFlagBits::eFragment,
-                                 0, // offset
-                                 sizeof(Material::PCBlock), &pcBlock);
+            buffer.pushConstants(
+                _pipelineLayouts.pbr, vk::ShaderStageFlagBits::eFragment,
+                0, // offset
+                sizeof(Material::PCBlock), &pcBlock);
             mesh.draw(buffer);
         }
     }

@@ -1,7 +1,9 @@
 #include "Material.hpp"
 
-float Material::alphaModeFloat() const {
-    switch (_alphaMode) {
+float Material::alphaModeFloat() const
+{
+    switch (_alphaMode)
+    {
     case AlphaMode::Opaque:
         return 0.f;
     case AlphaMode::Mask:
@@ -14,14 +16,15 @@ float Material::alphaModeFloat() const {
     return -1;
 }
 
-Material::PCBlock Material::pcBlock() const {
-    return PCBlock{.baseColorFactor = _baseColorFactor,
-                   .metallicFactor = _metallicFactor,
-                   .roughnessFactor = _roughnessFactor,
-                   .alphaMode = alphaModeFloat(),
-                   .alphaCutoff = _alphaCutoff,
-                   .baseColorTextureSet = _texCoordSets.baseColor,
-                   .metallicRoughnessTextureSet =
-                       _texCoordSets.metallicRoughness,
-                   .normalTextureSet = _texCoordSets.normal};
+Material::PCBlock Material::pcBlock() const
+{
+    return PCBlock{
+        .baseColorFactor = _baseColorFactor,
+        .metallicFactor = _metallicFactor,
+        .roughnessFactor = _roughnessFactor,
+        .alphaMode = alphaModeFloat(),
+        .alphaCutoff = _alphaCutoff,
+        .baseColorTextureSet = _texCoordSets.baseColor,
+        .metallicRoughnessTextureSet = _texCoordSets.metallicRoughness,
+        .normalTextureSet = _texCoordSets.normal};
 }

@@ -6,11 +6,18 @@
 
 class Texture;
 
-struct Material {
-    enum class AlphaMode { Opaque, Mask, Blend };
+struct Material
+{
+    enum class AlphaMode
+    {
+        Opaque,
+        Mask,
+        Blend
+    };
 
     // Needs to match shader
-    struct PCBlock {
+    struct PCBlock
+    {
         glm::vec4 baseColorFactor;
         float metallicFactor;
         float roughnessFactor;
@@ -21,7 +28,8 @@ struct Material {
         int normalTextureSet;
     };
 
-    struct TexCoordSets {
+    struct TexCoordSets
+    {
         int baseColor = -1;
         int metallicRoughness = -1;
         int normal = -1;

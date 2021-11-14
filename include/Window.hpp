@@ -6,10 +6,11 @@
 
 #include <string>
 
-class Window {
+class Window
+{
   public:
-    Window(const uint32_t width, const uint32_t height,
-           const std::string &title);
+    Window(
+        const uint32_t width, const uint32_t height, const std::string &title);
     ~Window();
 
     Window(const Window &other) = delete;
@@ -24,16 +25,17 @@ class Window {
     void startFrame();
 
     static void errorCallback(int error, const char *description);
-    static void keyCallback(GLFWwindow *window, int32_t key, int32_t scancode,
-                            int32_t action, int32_t mods);
+    static void keyCallback(
+        GLFWwindow *window, int32_t key, int32_t scancode, int32_t action,
+        int32_t mods);
     static void charCallback(GLFWwindow *window, unsigned int c);
     static void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
-    static void scrollCallback(GLFWwindow *window, double xoffset,
-                               double yoffset);
-    static void mouseButtonCallback(GLFWwindow *window, int button, int action,
-                                    int mods);
-    static void framebufferSizeCallback(GLFWwindow *window, int width,
-                                        int height);
+    static void scrollCallback(
+        GLFWwindow *window, double xoffset, double yoffset);
+    static void mouseButtonCallback(
+        GLFWwindow *window, int button, int action, int mods);
+    static void framebufferSizeCallback(
+        GLFWwindow *window, int width, int height);
 
   private:
     GLFWwindow *_window = nullptr;

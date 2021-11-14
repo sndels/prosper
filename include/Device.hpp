@@ -10,23 +10,27 @@
 #include <optional>
 #include <vector>
 
-struct QueueFamilies {
+struct QueueFamilies
+{
     std::optional<uint32_t> computeFamily;
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
-    bool isComplete() const {
+    bool isComplete() const
+    {
         return computeFamily.has_value() && graphicsFamily.has_value() &&
                presentFamily.has_value();
     }
 };
 
-struct Buffer {
+struct Buffer
+{
     vk::Buffer handle;
     VmaAllocation allocation;
 };
 
-struct Image {
+struct Image
+{
     vk::Image handle;
     vk::ImageView view;
     vk::Format format;
@@ -34,7 +38,8 @@ struct Image {
     VmaAllocation allocation = nullptr;
 };
 
-class Device {
+class Device
+{
   public:
     Device(GLFWwindow *window);
     ~Device();
@@ -56,20 +61,19 @@ class Device {
     void map(const VmaAllocation allocation, void **data) const;
     void unmap(const VmaAllocation allocation) const;
 
-    Buffer createBuffer(const vk::DeviceSize size,
-                        const vk::BufferUsageFlags usage,
-                        const vk::MemoryPropertyFlags properties,
-                        const VmaMemoryUsage vmaUsage) const;
+    Buffer createBuffer(
+        const vk::DeviceSize size, const vk::BufferUsageFlags usage,
+        const vk::MemoryPropertyFlags properties,
+        const VmaMemoryUsage vmaUsage) const;
     void destroy(const Buffer &buffer) const;
 
-    Image createImage(const vk::Extent2D extent, const vk::Format format,
-                      const vk::ImageSubresourceRange &range,
-                      const vk::ImageViewType viewType,
-                      const vk::ImageTiling tiling,
-                      const vk::ImageCreateFlags flags,
-                      const vk::ImageUsageFlags usage,
-                      const vk::MemoryPropertyFlags properties,
-                      const VmaMemoryUsage vmaUsage) const;
+    Image createImage(
+        const vk::Extent2D extent, const vk::Format format,
+        const vk::ImageSubresourceRange &range,
+        const vk::ImageViewType viewType, const vk::ImageTiling tiling,
+        const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
+        const vk::MemoryPropertyFlags properties,
+        const VmaMemoryUsage vmaUsage) const;
     void destroy(const Image &image) const;
 
     vk::CommandBuffer beginGraphicsCommands() const;

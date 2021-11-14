@@ -3,16 +3,22 @@
 
 #include <glm/glm.hpp>
 
-class InputHandler {
+class InputHandler
+{
   public:
-    struct Mouse {
+    struct Mouse
+    {
         glm::vec2 currentPos;
         glm::vec2 lastPos;
         bool leftDown;
         bool rightDown;
 
         Mouse()
-            : currentPos(0.f), lastPos(0.f), leftDown(false), rightDown(false) {
+        : currentPos(0.f)
+        , lastPos(0.f)
+        , leftDown(false)
+        , rightDown(false)
+        {
         }
     };
 

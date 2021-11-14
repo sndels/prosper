@@ -7,11 +7,13 @@
 #include "Material.hpp"
 #include "Vertex.hpp"
 
-class Mesh {
+class Mesh
+{
   public:
-    Mesh(const std::vector<Vertex> &vertices,
-         const std::vector<uint32_t> &indices, Material *material,
-         std::shared_ptr<Device> device);
+    Mesh(
+        const std::vector<Vertex> &vertices,
+        const std::vector<uint32_t> &indices, Material *material,
+        std::shared_ptr<Device> device);
     ~Mesh();
 
     Mesh(const Mesh &other) = delete;

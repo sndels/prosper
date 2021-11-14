@@ -6,16 +6,19 @@
 #include "Constants.hpp"
 #include "VkUtils.hpp"
 
-namespace {
+namespace
+{
 vk::SurfaceFormatKHR selectSwapSurfaceFormat(
-    const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
+    const std::vector<vk::SurfaceFormatKHR> &availableFormats)
+{
     // We're free to take our pick (sRGB output with "regular" 8bit rgba buffer)
     if (availableFormats.size() == 1 &&
         availableFormats[0].format == vk::Format::eUndefined)
         return {vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear};
 
     // Check if preferred sRGB format is present
-    for (const auto &format : availableFormats) {
+    for (const auto &format : availableFormats)
+    {
         if (format.format == vk::Format::eB8G8R8A8Unorm &&
             format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
             return format;
@@ -27,11 +30,13 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
 }
 
 vk::PresentModeKHR selectSwapPresentMode(
-    const std::vector<vk::PresentModeKHR> &availablePresentModes) {
+    const std::vector<vk::PresentModeKHR> &availablePresentModes)
+{
     // Default to fifo (double buffering)
     vk::PresentModeKHR bestMode = vk::PresentModeKHR::eFifo;
 
-    for (const auto &mode : availablePresentModes) {
+    for (const auto &mode : availablePresentModes)
+    {
         // We'd like mailbox to implement triple buffering
         if (mode == vk::PresentModeKHR::eMailbox)
             return mode;
@@ -44,8 +49,9 @@ vk::PresentModeKHR selectSwapPresentMode(
     return bestMode;
 }
 
-vk::Extent2D selectSwapExtent(const vk::Extent2D &extent,
-                              const vk::SurfaceCapabilitiesKHR &capabilities) {
+vk::Extent2D selectSwapExtent(
+    const vk::Extent2D &extent, const vk::SurfaceCapabilitiesKHR &capabilities)
+{
     // Check if we have a fixed extent
     if (capabilities.currentExtent.width !=
         std::numeric_limits<uint32_t>::max())
@@ -53,23 +59,28 @@ vk::Extent2D selectSwapExtent(const vk::Extent2D &extent,
 
     // Pick best resolution from given bounds
     const vk::Extent2D actualExtent{
-        std::clamp(extent.width, capabilities.minImageExtent.width,
-                   capabilities.maxImageExtent.width),
-        std::clamp(extent.height, capabilities.minImageExtent.height,
-                   capabilities.maxImageExtent.height)};
+        std::clamp(
+            extent.width, capabilities.minImageExtent.width,
+            capabilities.maxImageExtent.width),
+        std::clamp(
+            extent.height, capabilities.minImageExtent.height,
+            capabilities.maxImageExtent.height)};
 
     return actualExtent;
 }
 } // namespace
 
-SwapchainSupport::SwapchainSupport(vk::PhysicalDevice device,
-                                   const vk::SurfaceKHR surface)
-    : capabilities{device.getSurfaceCapabilitiesKHR(surface)},
-      formats{device.getSurfaceFormatsKHR(surface)},
-      presentModes{device.getSurfacePresentModesKHR(surface)} {}
+SwapchainSupport::SwapchainSupport(
+    vk::PhysicalDevice device, const vk::SurfaceKHR surface)
+: capabilities{device.getSurfaceCapabilitiesKHR(surface)}
+, formats{device.getSurfaceFormatsKHR(surface)}
+, presentModes{device.getSurfacePresentModesKHR(surface)}
+{
+}
 
-SwapchainConfig::SwapchainConfig(std::shared_ptr<Device> device,
-                                 const vk::Extent2D &preferredExtent) {
+SwapchainConfig::SwapchainConfig(
+    std::shared_ptr<Device> device, const vk::Extent2D &preferredExtent)
+{
     const SwapchainSupport support(device->physical(), device->surface());
 
     // Needed to blit into, not supported by all implementations
@@ -92,9 +103,11 @@ SwapchainConfig::SwapchainConfig(std::shared_ptr<Device> device,
         imageCount = support.capabilities.maxImageCount;
 }
 
-Swapchain::Swapchain(std::shared_ptr<Device> device,
-                     const SwapchainConfig &config)
-    : _device{device}, _config{config} {
+Swapchain::Swapchain(
+    std::shared_ptr<Device> device, const SwapchainConfig &config)
+: _device{device}
+, _config{config}
+{
     recreate(config);
 }
 
@@ -106,7 +119,8 @@ const vk::Extent2D &Swapchain::extent() const { return _config.extent; }
 
 uint32_t Swapchain::imageCount() const { return _config.imageCount; }
 
-SwapchainImage Swapchain::image(size_t i) const {
+SwapchainImage Swapchain::image(size_t i) const
+{
     if (i < _images.size())
         return _images[i];
     throw std::runtime_error("Tried to index past swap image count");
@@ -114,16 +128,19 @@ SwapchainImage Swapchain::image(size_t i) const {
 
 size_t Swapchain::nextFrame() const { return _nextFrame; }
 
-vk::Fence Swapchain::currentFence() const {
+vk::Fence Swapchain::currentFence() const
+{
     return _inFlightFences[_nextFrame];
 }
 
-std::optional<uint32_t>
-Swapchain::acquireNextImage(vk::Semaphore signalSemaphore) {
+std::optional<uint32_t> Swapchain::acquireNextImage(
+    vk::Semaphore signalSemaphore)
+{
     const auto noTimeout = std::numeric_limits<uint64_t>::max();
-    checkSuccess(_device->logical().waitForFences(
-                     1, &_inFlightFences[_nextFrame], VK_TRUE, noTimeout),
-                 "waitForFences");
+    checkSuccess(
+        _device->logical().waitForFences(
+            1, &_inFlightFences[_nextFrame], VK_TRUE, noTimeout),
+        "waitForFences");
     checkSuccess(
         _device->logical().resetFences(1, &_inFlightFences[_nextFrame]),
         "resetFences");
@@ -142,7 +159,8 @@ Swapchain::acquireNextImage(vk::Semaphore signalSemaphore) {
     return _nextImage;
 }
 
-bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores) {
+bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores)
+{
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
@@ -153,7 +171,8 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores) {
     const vk::Result result = _device->presentQueue().presentKHR(&presentInfo);
 
     // Swapchain should be recreated if out of date or suboptimal
-    const bool good_swap = [&] {
+    const bool good_swap = [&]
+    {
         bool good_swap = true;
         if (result == vk::Result::eErrorOutOfDateKHR ||
             result == vk::Result::eSuboptimalKHR)
@@ -168,7 +187,8 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores) {
     return good_swap;
 }
 
-void Swapchain::recreate(const SwapchainConfig &config) {
+void Swapchain::recreate(const SwapchainConfig &config)
+{
     destroy();
     _config = config;
     createSwapchain();
@@ -176,8 +196,10 @@ void Swapchain::recreate(const SwapchainConfig &config) {
     createFences();
 }
 
-void Swapchain::destroy() {
-    if (_device) {
+void Swapchain::destroy()
+{
+    if (_device)
+    {
         for (auto fence : _inFlightFences)
             _device->logical().destroy(fence);
         _inFlightFences.clear();
@@ -186,21 +208,26 @@ void Swapchain::destroy() {
     }
 }
 
-void Swapchain::createSwapchain() {
+void Swapchain::createSwapchain()
+{
     const QueueFamilies indices = _device->queueFamilies();
     const std::array<uint32_t, 2> queueFamilyIndices = {
         {indices.graphicsFamily.value(), indices.presentFamily.value()}};
 
     // Handle ownership of images
-    const auto [imageSharingMode, queueFamilyIndexCount,
-                pQueueFamilyIndices] = [&] {
-        if (indices.graphicsFamily != indices.presentFamily) {
+    const auto [imageSharingMode, queueFamilyIndexCount, pQueueFamilyIndices] =
+        [&]
+    {
+        if (indices.graphicsFamily != indices.presentFamily)
+        {
             // Pick concurrent to skip in-depth ownership jazz for now
             return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
                 vk::SharingMode::eConcurrent,
                 static_cast<uint32_t>(queueFamilyIndices.size()),
                 queueFamilyIndices.data());
-        } else {
+        }
+        else
+        {
             return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
                 vk::SharingMode::eExclusive, 0, nullptr);
         }
@@ -224,24 +251,27 @@ void Swapchain::createSwapchain() {
             .clipped = VK_TRUE});
 }
 
-void Swapchain::createImages() {
+void Swapchain::createImages()
+{
     auto images = _device->logical().getSwapchainImagesKHR(_swapchain);
-    for (auto &image : images) {
-        _images.push_back(
-            SwapchainImage{.handle = image,
-                           .extent = _config.extent,
-                           .subresourceRange = vk::ImageSubresourceRange{
-                               .aspectMask = vk::ImageAspectFlagBits::eColor,
-                               .baseMipLevel = 0,
-                               .levelCount = 1,
-                               .baseArrayLayer = 0,
-                               .layerCount = 1}});
+    for (auto &image : images)
+    {
+        _images.push_back(SwapchainImage{
+            .handle = image,
+            .extent = _config.extent,
+            .subresourceRange = vk::ImageSubresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1}});
     }
 }
 
-void Swapchain::createFences() {
-    const vk::FenceCreateInfo fenceInfo{.flags =
-                                            vk::FenceCreateFlagBits::eSignaled};
+void Swapchain::createFences()
+{
+    const vk::FenceCreateInfo fenceInfo{
+        .flags = vk::FenceCreateFlagBits::eSignaled};
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _inFlightFences.push_back(_device->logical().createFence(fenceInfo));
 }

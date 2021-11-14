@@ -3,10 +3,11 @@
 
 #include <chrono>
 
-class Timer {
+class Timer
+{
   public:
     Timer();
-    ~Timer() {}
+    ~Timer() { }
 
     void reset();
     float getSeconds() const;

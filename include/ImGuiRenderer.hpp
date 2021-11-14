@@ -7,15 +7,17 @@
 
 #include <glfw/glfw3.h>
 
-class ImGuiRenderer {
+class ImGuiRenderer
+{
   public:
-    ImGuiRenderer(std::shared_ptr<Device> device, GLFWwindow *window,
-                  const SwapchainConfig &swapConfig);
+    ImGuiRenderer(
+        std::shared_ptr<Device> device, GLFWwindow *window,
+        const SwapchainConfig &swapConfig);
     ~ImGuiRenderer();
 
     void startFrame() const;
-    vk::CommandBuffer endFrame(const Image &outputImage,
-                               const uint32_t nextImage);
+    vk::CommandBuffer endFrame(
+        const Image &outputImage, const uint32_t nextImage);
 
     void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
 

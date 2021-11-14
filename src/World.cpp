@@ -15,7 +15,8 @@
 
 using namespace glm;
 
-namespace {
+namespace
+{
 const std::array<glm::vec3, 36> skyboxVerts{
     {vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, -1.0f, -1.0f},
      vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
@@ -41,7 +42,8 @@ const std::array<glm::vec3, 36> skyboxVerts{
      vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
      vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f}}};
 
-tinygltf::Model loadGLTFModel(const std::string &filename) {
+tinygltf::Model loadGLTFModel(const std::string &filename)
+{
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string warn;
@@ -58,14 +60,15 @@ tinygltf::Model loadGLTFModel(const std::string &filename) {
     return model;
 }
 
-Buffer createSkyboxVertexBuffer(std::shared_ptr<Device> device) {
+Buffer createSkyboxVertexBuffer(std::shared_ptr<Device> device)
+{
     const vk::DeviceSize bufferSize =
         sizeof(skyboxVerts[0]) * skyboxVerts.size();
-    const Buffer stagingBuffer =
-        device->createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                             vk::MemoryPropertyFlagBits::eHostVisible |
-                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                             VMA_MEMORY_USAGE_CPU_TO_GPU);
+    const Buffer stagingBuffer = device->createBuffer(
+        bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent,
+        VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     void *data;
     device->map(stagingBuffer.allocation, &data);
@@ -80,11 +83,12 @@ Buffer createSkyboxVertexBuffer(std::shared_ptr<Device> device) {
 
     const auto commandBuffer = device->beginGraphicsCommands();
 
-    const vk::BufferCopy copyRegion{0, // srcOffset
-                                    0, // dstOffset
-                                    bufferSize};
-    commandBuffer.copyBuffer(stagingBuffer.handle, skyboxVertexBuffer.handle, 1,
-                             &copyRegion);
+    const vk::BufferCopy copyRegion{
+        0, // srcOffset
+        0, // dstOffset
+        bufferSize};
+    commandBuffer.copyBuffer(
+        stagingBuffer.handle, skyboxVertexBuffer.handle, 1, &copyRegion);
 
     device->endGraphicsCommands(commandBuffer);
 
@@ -93,14 +97,17 @@ Buffer createSkyboxVertexBuffer(std::shared_ptr<Device> device) {
 }
 } // namespace
 
-World::~World() {
+World::~World()
+{
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_dsLayouts.material);
     _device->logical().destroy(_dsLayouts.modelInstance);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
-    for (auto &scene : _scenes) {
-        for (auto &instance : scene.modelInstances) {
+    for (auto &scene : _scenes)
+    {
+        for (auto &instance : scene.modelInstances)
+        {
             for (auto &buffer : instance.uniformBuffers)
                 _device->destroy(buffer);
         }
@@ -109,11 +116,14 @@ World::~World() {
         _device->destroy(buffer);
 }
 
-World::World(std::shared_ptr<Device> device, const uint32_t swapImageCount,
-             const std::string &filename)
-    : _emptyTexture{device, resPath("texture/empty.png"), false},
-      _skyboxTexture{device, resPath("env/storm.ktx")},
-      _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}, _device{device} {
+World::World(
+    std::shared_ptr<Device> device, const uint32_t swapImageCount,
+    const std::string &filename)
+: _emptyTexture{device, resPath("texture/empty.png"), false}
+, _skyboxTexture{device, resPath("env/storm.ktx")}
+, _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
+, _device{device}
+{
     const auto gltfModel = loadGLTFModel(filename);
 
     loadTextures(gltfModel);
@@ -128,23 +138,29 @@ World::World(std::shared_ptr<Device> device, const uint32_t swapImageCount,
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
-void World::drawSkybox(const vk::CommandBuffer &buffer) const {
+void World::drawSkybox(const vk::CommandBuffer &buffer) const
+{
     const vk::DeviceSize offset = 0;
     buffer.bindVertexBuffers(0, 1, &_skyboxVertexBuffer.handle, &offset);
     buffer.draw(static_cast<uint32_t>(skyboxVerts.size()), 1, 0, 0);
 }
 
-void World::loadTextures(const tinygltf::Model &gltfModel) {
-    for (const auto &texture : gltfModel.textures) {
+void World::loadTextures(const tinygltf::Model &gltfModel)
+{
+    for (const auto &texture : gltfModel.textures)
+    {
         const auto &image = gltfModel.images[texture.source];
-        const tinygltf::Sampler sampler = [&] {
+        const tinygltf::Sampler sampler = [&]
+        {
             tinygltf::Sampler s;
-            if (texture.sampler == -1) {
+            if (texture.sampler == -1)
+            {
                 s.minFilter = GL_LINEAR;
                 s.magFilter = GL_LINEAR;
                 s.wrapS = GL_REPEAT;
                 s.wrapT = GL_REPEAT;
-            } else
+            }
+            else
                 s = gltfModel.samplers[texture.sampler];
             return s;
         }();
@@ -152,46 +168,56 @@ void World::loadTextures(const tinygltf::Model &gltfModel) {
     }
 }
 
-void World::loadMaterials(const tinygltf::Model &gltfModel) {
-    for (const auto &material : gltfModel.materials) {
+void World::loadMaterials(const tinygltf::Model &gltfModel)
+{
+    for (const auto &material : gltfModel.materials)
+    {
         Material mat;
         if (const auto &elem = material.values.find("baseColorTexture");
-            elem != material.values.end()) {
+            elem != material.values.end())
+        {
             mat._baseColor = &_textures[elem->second.TextureIndex()];
             mat._texCoordSets.baseColor = elem->second.TextureTexCoord();
         }
         if (const auto &elem = material.values.find("metallicRoughnessTexture");
-            elem != material.values.end()) {
+            elem != material.values.end())
+        {
             mat._metallicRoughness = &_textures[elem->second.TextureIndex()];
             mat._texCoordSets.metallicRoughness =
                 elem->second.TextureTexCoord();
         }
         if (const auto &elem = material.additionalValues.find("normalTexture");
-            elem != material.additionalValues.end()) {
+            elem != material.additionalValues.end())
+        {
             mat._normal = &_textures[elem->second.TextureIndex()];
             mat._texCoordSets.normal = elem->second.TextureTexCoord();
         }
         if (const auto &elem = material.values.find("baseColorFactor");
-            elem != material.values.end()) {
+            elem != material.values.end())
+        {
             mat._baseColorFactor = make_vec4(elem->second.ColorFactor().data());
         }
         if (const auto &elem = material.values.find("metallicFactor");
-            elem != material.values.end()) {
+            elem != material.values.end())
+        {
             mat._metallicFactor = static_cast<float>(elem->second.Factor());
         }
         if (const auto &elem = material.values.find("roughnessFactor");
-            elem != material.values.end()) {
+            elem != material.values.end())
+        {
             mat._roughnessFactor = static_cast<float>(elem->second.Factor());
         }
         if (const auto &elem = material.additionalValues.find("alphaMode");
-            elem != material.additionalValues.end()) {
+            elem != material.additionalValues.end())
+        {
             if (elem->second.string_value == "MASK")
                 mat._alphaMode = Material::AlphaMode::Mask;
             else if (elem->second.string_value == "BLEND")
                 mat._alphaMode = Material::AlphaMode::Blend;
         }
         if (const auto &elem = material.additionalValues.find("alphaCutoff");
-            elem != material.additionalValues.end()) {
+            elem != material.additionalValues.end())
+        {
             mat._alphaCutoff = static_cast<float>(elem->second.Factor());
         }
         // TODO: Support more parameters
@@ -199,13 +225,17 @@ void World::loadMaterials(const tinygltf::Model &gltfModel) {
     }
 }
 
-void World::loadModels(const tinygltf::Model &gltfModel) {
-    for (const auto &model : gltfModel.meshes) {
+void World::loadModels(const tinygltf::Model &gltfModel)
+{
+    for (const auto &model : gltfModel.meshes)
+    {
         _models.push_back({_device, {}});
-        for (const auto &primitive : model.primitives) {
+        for (const auto &primitive : model.primitives)
+        {
             // TODO: More vertex attributes, different modes, no indices
             // Retrieve attribute buffers
-            const auto [positions, vertexCount] = [&] {
+            const auto [positions, vertexCount] = [&]
+            {
                 const auto &attribute = primitive.attributes.find("POSITION");
                 assert(attribute != primitive.attributes.end());
                 const auto &accessor = gltfModel.accessors[attribute->second];
@@ -216,7 +246,8 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
                     reinterpret_cast<const float *>(&(data[offset])),
                     accessor.count);
             }();
-            const auto normals = [&] {
+            const auto normals = [&]
+            {
                 const auto &attribute = primitive.attributes.find("NORMAL");
                 assert(attribute != primitive.attributes.end());
                 const auto &accessor = gltfModel.accessors[attribute->second];
@@ -225,7 +256,8 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
                 const size_t offset = accessor.byteOffset + view.byteOffset;
                 return reinterpret_cast<const float *>(&(data[offset]));
             }();
-            const auto tangents = [&] {
+            const auto tangents = [&]
+            {
                 const auto &attribute = primitive.attributes.find("TANGENT");
                 if (attribute == primitive.attributes.end())
                     return static_cast<const float *>(nullptr);
@@ -235,7 +267,8 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
                 const size_t offset = accessor.byteOffset + view.byteOffset;
                 return reinterpret_cast<const float *>(&(data[offset]));
             }();
-            const auto texCoords0 = [&] {
+            const auto texCoords0 = [&]
+            {
                 const auto &attribute = primitive.attributes.find("TEXCOORD_0");
                 if (attribute == primitive.attributes.end())
                     return static_cast<const float *>(nullptr);
@@ -247,10 +280,12 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
             }();
 
             // Clang doesn't support capture of structured bindings (yet?)
-            const std::vector<Vertex> vertices = [&, vertexCount = vertexCount,
-                                                  positions = positions] {
+            const std::vector<Vertex> vertices =
+                [&, vertexCount = vertexCount, positions = positions]
+            {
                 std::vector<Vertex> vs;
-                for (size_t v = 0; v < vertexCount; ++v) {
+                for (size_t v = 0; v < vertexCount; ++v)
+                {
                     vs.push_back(
                         {vec4{make_vec3(&positions[v * 3]), 1.f},
                          normalize(make_vec3(&normals[v * 3])),
@@ -261,8 +296,8 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
                 return vs;
             }();
 
-            const std::vector<uint32_t> indices = [&,
-                                                   vertexCount = vertexCount] {
+            const std::vector<uint32_t> indices = [&, vertexCount = vertexCount]
+            {
                 std::vector<uint32_t> is;
                 // TODO: Other index types
                 assert(primitive.indices > -1);
@@ -272,18 +307,24 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
                 const size_t offset = accessor.byteOffset + view.byteOffset;
 
                 if (accessor.componentType ==
-                    TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+                    TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+                {
                     const auto indexData =
                         reinterpret_cast<const uint32_t *>(&(data[offset]));
                     is = {indexData, indexData + vertexCount};
-                } else if (accessor.componentType ==
-                           TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+                }
+                else if (
+                    accessor.componentType ==
+                    TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+                {
                     const auto indexData =
                         reinterpret_cast<const uint16_t *>(&(data[offset]));
                     is.resize(accessor.count);
                     for (size_t i = 0; i < accessor.count; ++i)
                         is[i] = indexData[i];
-                } else {
+                }
+                else
+                {
                     const auto indexData =
                         reinterpret_cast<const uint8_t *>(&(data[offset]));
                     is.resize(accessor.count);
@@ -297,29 +338,34 @@ void World::loadModels(const tinygltf::Model &gltfModel) {
             const int material = primitive.material;
             assert(material > -1);
 
-            _models.back()._meshes.emplace_back(vertices, indices,
-                                                &_materials[material], _device);
+            _models.back()._meshes.emplace_back(
+                vertices, indices, &_materials[material], _device);
         }
     }
 }
 
-void World::loadScenes(const tinygltf::Model &gltfModel) {
+void World::loadScenes(const tinygltf::Model &gltfModel)
+{
     // TODO: More complex nodes
     _nodes.resize(gltfModel.nodes.size());
-    for (size_t n = 0; n < _nodes.size(); ++n) {
+    for (size_t n = 0; n < _nodes.size(); ++n)
+    {
         const auto &node = gltfModel.nodes[n];
-        std::transform(node.children.begin(), node.children.end(),
-                       std::back_inserter(_nodes[n].children),
-                       [&](int i) { return &_nodes[i]; });
+        std::transform(
+            node.children.begin(), node.children.end(),
+            std::back_inserter(_nodes[n].children),
+            [&](int i) { return &_nodes[i]; });
         if (node.mesh > -1)
             _nodes[n].model = &_models[node.mesh];
-        if (node.matrix.size() == 16) {
+        if (node.matrix.size() == 16)
+        {
             // Spec defines the matrix to be decomposeable to T * R * S
             const auto matrix = mat4{make_mat4(node.matrix.data())};
             vec3 skew;
             vec4 perspective;
-            decompose(matrix, _nodes[n].scale, _nodes[n].rotation,
-                      _nodes[n].translation, skew, perspective);
+            decompose(
+                matrix, _nodes[n].scale, _nodes[n].rotation,
+                _nodes[n].translation, skew, perspective);
         }
         if (node.translation.size() == 3)
             _nodes[n].translation = vec3{make_vec3(node.translation.data())};
@@ -330,33 +376,42 @@ void World::loadScenes(const tinygltf::Model &gltfModel) {
     }
 
     _scenes.resize(gltfModel.scenes.size());
-    for (size_t s = 0; s < _scenes.size(); ++s) {
+    for (size_t s = 0; s < _scenes.size(); ++s)
+    {
         const auto &scene = gltfModel.scenes[s];
-        std::transform(scene.nodes.begin(), scene.nodes.end(),
-                       std::back_inserter(_scenes[s].nodes),
-                       [&](int i) { return &_nodes[i]; });
+        std::transform(
+            scene.nodes.begin(), scene.nodes.end(),
+            std::back_inserter(_scenes[s].nodes),
+            [&](int i) { return &_nodes[i]; });
     }
     _currentScene = max(gltfModel.defaultScene, 0);
 
     // Traverse scenes and generate model instances for snappier rendering
     std::vector<mat4> parentTransforms{mat4{1.f}};
-    for (auto &scene : _scenes) {
+    for (auto &scene : _scenes)
+    {
         std::set<Scene::Node *> visited;
         std::vector<Scene::Node *> nodeStack = scene.nodes;
-        while (!nodeStack.empty()) {
+        while (!nodeStack.empty())
+        {
             const auto node = nodeStack.back();
-            if (visited.find(node) != visited.end()) {
+            if (visited.find(node) != visited.end())
+            {
                 nodeStack.pop_back();
                 parentTransforms.pop_back();
-            } else {
+            }
+            else
+            {
                 visited.emplace(node);
-                nodeStack.insert(nodeStack.end(), node->children.begin(),
-                                 node->children.end());
+                nodeStack.insert(
+                    nodeStack.end(), node->children.begin(),
+                    node->children.end());
                 const mat4 transform = parentTransforms.back() *
                                        translate(mat4{1.f}, node->translation) *
                                        mat4_cast(node->rotation) *
                                        scale(mat4{1.f}, node->scale);
-                if (node->model) {
+                if (node->model)
+                {
                     scene.modelInstances.push_back(
                         {node->model, transform, {}, {}});
                 }
@@ -366,11 +421,14 @@ void World::loadScenes(const tinygltf::Model &gltfModel) {
     }
 }
 
-void World::createUniformBuffers(const uint32_t swapImageCount) {
+void World::createUniformBuffers(const uint32_t swapImageCount)
+{
     {
         const vk::DeviceSize bufferSize = sizeof(Scene::ModelInstance::UBlock);
-        for (auto &scene : _scenes) {
-            for (auto &modelInstance : scene.modelInstances) {
+        for (auto &scene : _scenes)
+        {
+            for (auto &modelInstance : scene.modelInstances)
+            {
                 for (size_t i = 0; i < swapImageCount; ++i)
                     modelInstance.uniformBuffers.push_back(
                         _device->createBuffer(
@@ -384,7 +442,8 @@ void World::createUniformBuffers(const uint32_t swapImageCount) {
 
     {
         const vk::DeviceSize bufferSize = sizeof(mat4);
-        for (size_t i = 0; i < swapImageCount; ++i) {
+        for (size_t i = 0; i < swapImageCount; ++i)
+        {
             _skyboxUniformBuffers.push_back(_device->createBuffer(
                 bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible |
@@ -394,7 +453,8 @@ void World::createUniformBuffers(const uint32_t swapImageCount) {
     }
 }
 
-void World::createDescriptorPool(const uint32_t swapImageCount) {
+void World::createDescriptorPool(const uint32_t swapImageCount)
+{
     // TODO: Tight bound for node descriptor count by nodes with a mesh
     // Skybox cubemap is also one descriptor per image as it's in the same set
     // as camera
@@ -419,7 +479,8 @@ void World::createDescriptorPool(const uint32_t swapImageCount) {
             .pPoolSizes = poolSizes.data()});
 }
 
-void World::createDescriptorSets(const uint32_t swapImageCount) {
+void World::createDescriptorSets(const uint32_t swapImageCount)
+{
     if (_device == nullptr)
         throw std::runtime_error(
             "Tried to create World descriptor sets before loading glTF");
@@ -436,14 +497,16 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
             .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
             .pBindings = layoutBindings.data()});
 
-    for (auto &material : _materials) {
+    for (auto &material : _materials)
+    {
         material._descriptorSet = _device->logical().allocateDescriptorSets(
-            vk::DescriptorSetAllocateInfo{.descriptorPool = _descriptorPool,
-                                          .descriptorSetCount = 1,
-                                          .pSetLayouts =
-                                              &_dsLayouts.material})[0];
+            vk::DescriptorSetAllocateInfo{
+                .descriptorPool = _descriptorPool,
+                .descriptorSetCount = 1,
+                .pSetLayouts = &_dsLayouts.material})[0];
 
-        const std::array<vk::DescriptorImageInfo, 3> imageInfos = [&] {
+        const std::array<vk::DescriptorImageInfo, 3> imageInfos = [&]
+        {
             std::array<vk::DescriptorImageInfo, 3> iis{
                 {_emptyTexture.imageInfo(), _emptyTexture.imageInfo(),
                  _emptyTexture.imageInfo()}};
@@ -456,9 +519,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
             return iis;
         }();
 
-        const std::array<vk::WriteDescriptorSet, 3> writeDescriptorSets = [&] {
+        const std::array<vk::WriteDescriptorSet, 3> writeDescriptorSets = [&]
+        {
             std::array<vk::WriteDescriptorSet, 3> dss;
-            for (size_t i = 0; i < imageInfos.size(); ++i) {
+            for (size_t i = 0; i < imageInfos.size(); ++i)
+            {
                 dss[i].dstSet = material._descriptorSet;
                 dss[i].dstBinding = static_cast<uint32_t>(i);
                 dss[i].descriptorCount = 1;
@@ -485,8 +550,10 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
 
     const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
         swapImageCount, _dsLayouts.modelInstance);
-    for (auto &scene : _scenes) {
-        for (auto &instance : scene.modelInstances) {
+    for (auto &scene : _scenes)
+    {
+        for (auto &instance : scene.modelInstances)
+        {
             instance.descriptorSets = _device->logical().allocateDescriptorSets(
                 vk::DescriptorSetAllocateInfo{
                     .descriptorPool = _descriptorPool,
@@ -495,7 +562,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
                     .pSetLayouts = modelInstanceLayouts.data()});
 
             const auto bufferInfos = instance.bufferInfos();
-            for (size_t i = 0; i < instance.descriptorSets.size(); ++i) {
+            for (size_t i = 0; i < instance.descriptorSets.size(); ++i)
+            {
                 const vk::WriteDescriptorSet descriptorWrite{
                     .dstSet = instance.descriptorSets[i],
                     .dstBinding = 0,
@@ -503,8 +571,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
                     .descriptorCount = 1,
                     .descriptorType = vk::DescriptorType::eUniformBuffer,
                     .pBufferInfo = &bufferInfos[i]};
-                _device->logical().updateDescriptorSets(1, &descriptorWrite, 0,
-                                                        nullptr);
+                _device->logical().updateDescriptorSets(
+                    1, &descriptorWrite, 0, nullptr);
             }
         }
     }
@@ -524,22 +592,24 @@ void World::createDescriptorSets(const uint32_t swapImageCount) {
             .bindingCount = static_cast<uint32_t>(skyboxLayoutBindings.size()),
             .pBindings = skyboxLayoutBindings.data()});
 
-    const std::vector<vk::DescriptorSetLayout> skyboxLayouts(swapImageCount,
-                                                             _dsLayouts.skybox);
+    const std::vector<vk::DescriptorSetLayout> skyboxLayouts(
+        swapImageCount, _dsLayouts.skybox);
     _skyboxDSs =
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = _descriptorPool,
             .descriptorSetCount = static_cast<uint32_t>(skyboxLayouts.size()),
             .pSetLayouts = skyboxLayouts.data()});
 
-    const auto skyboxBufferInfos = [&] {
+    const auto skyboxBufferInfos = [&]
+    {
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
         for (auto &buffer : _skyboxUniformBuffers)
             bufferInfos.emplace_back(buffer.handle, 0, sizeof(mat4));
         return bufferInfos;
     }();
     const vk::DescriptorImageInfo skyboxImageInfo = _skyboxTexture.imageInfo();
-    for (size_t i = 0; i < _skyboxDSs.size(); ++i) {
+    for (size_t i = 0; i < _skyboxDSs.size(); ++i)
+    {
         const std::array<vk::WriteDescriptorSet, 2> writeDescriptorSets{
             {{.dstSet = _skyboxDSs[i],
               .dstBinding = 0,

@@ -8,15 +8,18 @@
 
 class Device;
 
-class World {
+class World
+{
   public:
-    struct DSLayouts {
+    struct DSLayouts
+    {
         vk::DescriptorSetLayout material;
         vk::DescriptorSetLayout modelInstance;
         vk::DescriptorSetLayout skybox;
     };
-    World(std::shared_ptr<Device> device, const uint32_t swapImageCount,
-          const std::string &filename);
+    World(
+        std::shared_ptr<Device> device, const uint32_t swapImageCount,
+        const std::string &filename);
     ~World();
 
     World(const World &other) = delete;

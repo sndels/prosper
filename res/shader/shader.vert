@@ -1,7 +1,8 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform Camera
+{
     mat4 worldToCamera;
     mat4 cameraToClip;
     vec3 eye;
@@ -21,17 +22,20 @@ layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out vec2 fragTexCoord0;
 layout(location = 2) out mat3 fragTBN;
 
-void main() {
+void main()
+{
     vec4 pos = object.modelToWorld * vec4(vertPosition, 1.0);
     vec3 normal =
         normalize(transpose(inverse(mat3(object.modelToWorld))) * vertNormal);
 
     // No point in generating normal basis here if no tangent is supplied
-    if (length(vertTangent.xyz) > 0) {
+    if (length(vertTangent.xyz) > 0)
+    {
         vec3 tangent = normalize(mat3(object.modelToWorld) * vertTangent.xyz);
         vec3 bitangent = cross(normal, tangent) * vertTangent.w;
         fragTBN = mat3(tangent, bitangent, normal);
-    } else
+    }
+    else
         fragTBN = mat3(vec3(0), vec3(0), normal);
 
     fragPosition = pos.xyz / pos.w;

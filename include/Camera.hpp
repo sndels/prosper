@@ -6,35 +6,37 @@
 #include "Device.hpp"
 
 // Vector types in uniforms need to be aligned to 16 bytes
-struct CameraUniforms {
+struct CameraUniforms
+{
     alignas(16) glm::mat4 worldToCamera;
     alignas(16) glm::mat4 cameraToClip;
     alignas(16) glm::vec3 eye;
 };
 
-class Camera {
+class Camera
+{
   public:
-    Camera(std::shared_ptr<Device> device,
-           const vk::DescriptorPool descriptorPool,
-           const uint32_t swapImageCount,
-           const vk::ShaderStageFlags stageFlags);
+    Camera(
+        std::shared_ptr<Device> device, const vk::DescriptorPool descriptorPool,
+        const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
     ~Camera();
 
     Camera(const Camera &other) = delete;
     Camera &operator=(const Camera &other) = delete;
 
-    void lookAt(const glm::vec3 &eye, const glm::vec3 &target,
-                const glm::vec3 &up);
-    void orient(const glm::vec3 &eye, const glm::vec3 &fwd,
-                const glm::vec3 &up);
-    void perspective(const float fov, const float ar, const float zN,
-                     const float zF);
+    void lookAt(
+        const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
+    void orient(
+        const glm::vec3 &eye, const glm::vec3 &fwd, const glm::vec3 &up);
+    void perspective(
+        const float fov, const float ar, const float zN, const float zF);
 
     // Move camera orbiting the origin
-    void orbit(const glm::vec2 &currentPos, const glm::vec2 &lastPos,
-               const glm::vec2 &screenCenter);
-    void scaleOrbit(const float currentY, const float lastY,
-                    const float screenCenterY);
+    void orbit(
+        const glm::vec2 &currentPos, const glm::vec2 &lastPos,
+        const glm::vec2 &screenCenter);
+    void scaleOrbit(
+        const float currentY, const float lastY, const float screenCenterY);
 
     void updateBuffer(const uint32_t index) const;
 
@@ -47,9 +49,9 @@ class Camera {
   private:
     void createUniformBuffers(const uint32_t swapImageCount);
     // Create uniform buffers first
-    void createDescriptorSets(const vk::DescriptorPool descriptorPool,
-                              const uint32_t swapImageCount,
-                              const vk::ShaderStageFlags stageFlags);
+    void createDescriptorSets(
+        const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount,
+        const vk::ShaderStageFlags stageFlags);
 
     std::shared_ptr<Device> _device = nullptr;
     glm::vec3 _eye;

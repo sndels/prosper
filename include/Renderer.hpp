@@ -8,42 +8,48 @@
 #include "Swapchain.hpp"
 #include "World.hpp"
 
-class Renderer {
+class Renderer
+{
   public:
-    struct Output {
+    struct Output
+    {
         const Image &image;
         vk::CommandBuffer commandBuffer;
     };
 
-    struct Pipelines {
+    struct Pipelines
+    {
         vk::Pipeline pbr;
         vk::Pipeline pbrAlphaBlend;
         vk::Pipeline skybox;
     };
 
-    struct PipelineLayouts {
+    struct PipelineLayouts
+    {
         vk::PipelineLayout pbr;
         vk::PipelineLayout skybox;
     };
 
-    Renderer(std::shared_ptr<Device> device, const SwapchainConfig &swapConfig,
-             const vk::DescriptorSetLayout camDSLayout,
-             const World::DSLayouts &worldDSLayouts);
+    Renderer(
+        std::shared_ptr<Device> device, const SwapchainConfig &swapConfig,
+        const vk::DescriptorSetLayout camDSLayout,
+        const World::DSLayouts &worldDSLayouts);
     ~Renderer();
 
     Renderer(const Renderer &other) = delete;
     Renderer &operator=(const Renderer &other) = delete;
 
-    void recreateSwapchainRelated(const SwapchainConfig &swapConfig,
-                                  const vk::DescriptorSetLayout camDSLayout,
-                                  const World::DSLayouts &worldDSLayouts);
+    void recreateSwapchainRelated(
+        const SwapchainConfig &swapConfig,
+        const vk::DescriptorSetLayout camDSLayout,
+        const World::DSLayouts &worldDSLayouts);
 
     vk::Semaphore imageAvailable(const size_t frame) const;
     vk::RenderPass outputRenderpass() const;
 
-    Output drawFrame(const World &world, const Camera &cam,
-                     const vk::Rect2D &renderArea,
-                     const uint32_t nextImage) const;
+    Output drawFrame(
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        const uint32_t nextImage) const;
 
   private:
     void destroySwapchainRelated();
@@ -51,16 +57,17 @@ class Renderer {
     // swapconfig
     void createRenderPass(const SwapchainConfig &swapConfig);
     void createFramebuffer(const SwapchainConfig &swapConfig);
-    void createGraphicsPipelines(const SwapchainConfig &swapConfig,
-                                 const vk::DescriptorSetLayout camDSLayout,
-                                 const World::DSLayouts &worldDSLayouts);
+    void createGraphicsPipelines(
+        const SwapchainConfig &swapConfig,
+        const vk::DescriptorSetLayout camDSLayout,
+        const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
-    void updateUniformBuffers(const World &world, const Camera &cam,
-                              const uint32_t nextImage) const;
-    vk::CommandBuffer recordCommandBuffer(const World &world, const Camera &cam,
-                                          const vk::Rect2D &renderArea,
-                                          const uint32_t nextImage) const;
+    void updateUniformBuffers(
+        const World &world, const Camera &cam, const uint32_t nextImage) const;
+    vk::CommandBuffer recordCommandBuffer(
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        const uint32_t nextImage) const;
     void recordModelInstances(
         const vk::CommandBuffer buffer, const uint32_t nextImage,
         const std::vector<Scene::ModelInstance> &instances,
