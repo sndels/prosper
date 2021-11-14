@@ -1,39 +1,18 @@
 #include "Renderer.hpp"
 
-#include <fstream>
-
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <imgui_impl_vulkan.h>
 
-#include "Constants.hpp"
+#include "Utils.hpp"
 #include "VkUtils.hpp"
 
 using namespace glm;
 
 namespace
 {
-static std::vector<char> readFile(const std::string &filename)
-{
-    // Open from end to find size from initial position
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open())
-        throw std::runtime_error(
-            std::string{"Failed to open file '"} + filename + "'");
-
-    const auto fileSize = static_cast<size_t>(file.tellg());
-    std::vector<char> buffer(fileSize);
-
-    // Seek to beginning and read
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-
-    file.close();
-    return buffer;
-}
-
 vk::ShaderModule createShaderModule(
-    const vk::Device device, const std::vector<char> &spv)
+    const vk::Device device, const std::vector<std::byte> &spv)
 {
     return device.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spv.size(),
@@ -242,8 +221,8 @@ void Renderer::createGraphicsPipelines(
     const World::DSLayouts &worldDSLayouts)
 {
     {
-        const auto vertSPV = readFile(binPath("shader/shader.vert.spv"));
-        const auto fragSPV = readFile(binPath("shader/shader.frag.spv"));
+        const auto vertSPV = readFileBytes(binPath("shader/shader.vert.spv"));
+        const auto fragSPV = readFileBytes(binPath("shader/shader.frag.spv"));
         const vk::ShaderModule vertSM =
             createShaderModule(_device->logical(), vertSPV);
         const vk::ShaderModule fragSM =
@@ -380,8 +359,8 @@ void Renderer::createGraphicsPipelines(
     }
 
     {
-        const auto vertSPV = readFile(binPath("shader/skybox.vert.spv"));
-        const auto fragSPV = readFile(binPath("shader/skybox.frag.spv"));
+        const auto vertSPV = readFileBytes(binPath("shader/skybox.vert.spv"));
+        const auto fragSPV = readFileBytes(binPath("shader/skybox.frag.spv"));
         const vk::ShaderModule vertSM =
             createShaderModule(_device->logical(), vertSPV);
         const vk::ShaderModule fragSM =
