@@ -1,6 +1,6 @@
 
-#ifndef PROSPER_IMGUI_CONTEXT_HPP
-#define PROSPER_IMGUI_CONTEXT_HPP
+#ifndef PROSPER_IMGUI_RENDERER_HPP
+#define PROSPER_IMGUI_RENDERER_HPP
 
 #include "Device.hpp"
 #include "RenderResources.hpp"
@@ -37,4 +37,4 @@ class ImGuiRenderer
     std::vector<vk::CommandBuffer> _commandBuffers;
 };
 
-#endif // PROSPER_IMGUI_CONTEXT_HPP
+#endif // PROSPER_IMGUI_RENDERER_HPP
