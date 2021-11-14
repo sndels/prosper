@@ -41,7 +41,6 @@ class Swapchain {
 
     Swapchain(const Swapchain &other) = delete;
     Swapchain &operator=(const Swapchain &other) = delete;
-    Swapchain &operator=(Swapchain &&other);
 
     vk::Format format() const;
     const vk::Extent2D &extent() const;
@@ -53,6 +52,7 @@ class Swapchain {
     std::optional<uint32_t> acquireNextImage(vk::Semaphore signalSemaphore);
     // false if swapchain should be recerated
     bool present(const std::array<vk::Semaphore, 1> &waitSemaphores);
+    void recreate(const SwapchainConfig &config);
 
   private:
     void destroy();

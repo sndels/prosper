@@ -113,9 +113,10 @@ void App::recreateSwapchainAndRelated() {
 
     _swapConfig = SwapchainConfig{_device, {_window.width(), _window.height()}};
 
-    _swapchain = Swapchain{_device, _swapConfig};
+    _swapchain.recreate(_swapConfig);
     _renderer.recreateSwapchainRelated(_swapConfig, _cam.descriptorSetLayout(),
                                        _world._dsLayouts);
+    _imguiRenderer.recreateSwapchainRelated(_swapConfig);
 
     _cam.perspective(radians(CAMERA_FOV),
                      _window.width() / static_cast<float>(_window.height()),

@@ -95,28 +95,10 @@ SwapchainConfig::SwapchainConfig(std::shared_ptr<Device> device,
 Swapchain::Swapchain(std::shared_ptr<Device> device,
                      const SwapchainConfig &config)
     : _device{device}, _config{config} {
-    createSwapchain();
-    createImages();
-    createFences();
+    recreate(config);
 }
 
 Swapchain::~Swapchain() { destroy(); }
-
-Swapchain &Swapchain::operator=(Swapchain &&other) {
-    destroy();
-    if (this != &other) {
-        _device = other._device;
-        _config = std::move(other._config);
-        _swapchain = other._swapchain;
-        _images = std::move(other._images);
-        _nextImage = other._nextImage;
-        _inFlightFences = std::move(other._inFlightFences);
-        _nextFrame = other._nextFrame;
-
-        other._device = nullptr;
-    }
-    return *this;
-}
 
 vk::Format Swapchain::format() const { return _config.surfaceFormat.format; }
 
@@ -186,10 +168,20 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores) {
     return good_swap;
 }
 
+void Swapchain::recreate(const SwapchainConfig &config) {
+    destroy();
+    _config = config;
+    createSwapchain();
+    createImages();
+    createFences();
+}
+
 void Swapchain::destroy() {
     if (_device) {
         for (auto fence : _inFlightFences)
             _device->logical().destroy(fence);
+        _inFlightFences.clear();
+        _images.clear();
         _device->logical().destroy(_swapchain);
     }
 }
