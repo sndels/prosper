@@ -28,26 +28,26 @@ struct Vertex
     {
         static const std::array<vk::VertexInputAttributeDescription, 4>
             descriptions{
-                // pos
                 vk::VertexInputAttributeDescription{
-                    0, // location
-                    0, // binding
-                    vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos)},
-                // normal
+                    .location = 0,
+                    .binding = 0,
+                    .format = vk::Format::eR32G32B32Sfloat,
+                    .offset = offsetof(Vertex, pos)},
                 vk::VertexInputAttributeDescription{
-                    1, // location
-                    0, // binding
-                    vk::Format::eR32G32B32Sfloat, offsetof(Vertex, normal)},
-                // tangent
+                    .location = 1,
+                    .binding = 0,
+                    .format = vk::Format::eR32G32B32Sfloat,
+                    .offset = offsetof(Vertex, normal)},
                 vk::VertexInputAttributeDescription{
-                    2, // location
-                    0, // binding
-                    vk::Format::eR32G32B32A32Sfloat, offsetof(Vertex, tangent)},
-                // texCoord0
+                    .location = 2,
+                    .binding = 0,
+                    .format = vk::Format::eR32G32B32A32Sfloat,
+                    .offset = offsetof(Vertex, tangent)},
                 vk::VertexInputAttributeDescription{
-                    3, // location
-                    0, // binding
-                    vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord0)}};
+                    .location = 3,
+                    .binding = 0,
+                    .format = vk::Format::eR32G32Sfloat,
+                    .offset = offsetof(Vertex, texCoord0)}};
 
         return descriptions;
     }
