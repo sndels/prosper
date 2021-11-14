@@ -5,18 +5,13 @@
 
 #include "Camera.hpp"
 #include "Device.hpp"
+#include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
 
 class Renderer
 {
   public:
-    struct Output
-    {
-        const Image &image;
-        vk::CommandBuffer commandBuffer;
-    };
-
     struct Pipelines
     {
         vk::Pipeline pbr;
@@ -31,7 +26,8 @@ class Renderer
     };
 
     Renderer(
-        std::shared_ptr<Device> device, const SwapchainConfig &swapConfig,
+        std::shared_ptr<Device> device, RenderResources *resources,
+        const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~Renderer();
@@ -47,7 +43,7 @@ class Renderer
     vk::Semaphore imageAvailable(const size_t frame) const;
     vk::RenderPass outputRenderpass() const;
 
-    Output drawFrame(
+    vk::CommandBuffer execute(
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         const uint32_t nextImage) const;
 
@@ -74,6 +70,7 @@ class Renderer
         const std::function<bool(const Mesh &)> &cullMesh) const;
 
     std::shared_ptr<Device> _device = nullptr;
+    RenderResources *_resources;
 
     PipelineLayouts _pipelineLayouts;
     Pipelines _pipelines;
@@ -83,8 +80,6 @@ class Renderer
     std::vector<vk::CommandBuffer> _commandBuffers;
 
     vk::Framebuffer _fbo;
-    Image _colorImage;
-    Image _depthImage;
 };
 
 #endif // PROSPER_RENDERER_HPP

@@ -48,12 +48,14 @@ App::App()
 : _window{WIDTH, HEIGHT, "prosper"}
 , _device{std::make_shared<Device>(_window.ptr())}
 , _swapConfig{_device, {_window.width(), _window.height()}}
-, _imguiRenderer{_device, _window.ptr(), _swapConfig}
+, _swapchain{_device, _swapConfig}
 , _descriptorPool{createDescriptorPool(_device, _swapConfig.imageCount)}
 , _cam{_device, _descriptorPool, _swapConfig.imageCount, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
 , _world{_device, _swapConfig.imageCount, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
-, _swapchain{_device, _swapConfig}
-, _renderer{_device, _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts}
+, _renderer{
+      _device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      _world._dsLayouts}
+, _imguiRenderer{_device, &_resources, _window.ptr(), _swapConfig}
 {
     _cam.lookAt(vec3{0.25f, 0.2f, 0.75f}, vec3{0.f}, vec3{0.f, 1.f, 0.f});
     _cam.perspective(
@@ -123,6 +125,9 @@ void App::recreateSwapchainAndRelated()
     _swapConfig = SwapchainConfig{_device, {_window.width(), _window.height()}};
 
     _swapchain.recreate(_swapConfig);
+
+    // NOTE: These need to be in the order that RenderResources contents are
+    // written to!
     _renderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
@@ -185,14 +190,13 @@ void App::drawFrame()
 
     const vk::Rect2D renderArea{
         .offset = {0, 0}, .extent = _swapchain.extent()};
-    const auto &rendererOutput =
-        _renderer.drawFrame(_world, _cam, renderArea, nextImage);
 
-    std::vector<vk::CommandBuffer> commandBuffers = {
-        rendererOutput.commandBuffer};
+    std::vector<vk::CommandBuffer> commandBuffers;
 
     commandBuffers.push_back(
-        _imguiRenderer.endFrame(rendererOutput.image, nextImage));
+        _renderer.execute(_world, _cam, renderArea, nextImage));
+
+    commandBuffers.push_back(_imguiRenderer.endFrame(renderArea, nextImage));
 
     {
         // Blit to support different internal rendering resolution (and color
@@ -206,7 +210,7 @@ void App::drawFrame()
             .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
         transitionImageLayout(
-            commandBuffer, rendererOutput.image.handle,
+            commandBuffer, _resources.sceneColor.handle,
             vk::ImageSubresourceRange{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .baseMipLevel = 0,
@@ -244,7 +248,7 @@ void App::drawFrame()
                 .dstOffsets = offsets,
             };
             commandBuffer.blitImage(
-                rendererOutput.image.handle,
+                _resources.sceneColor.handle,
                 vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
                 vk::ImageLayout::eTransferDstOptimal, 1, &fboBlit,
                 vk::Filter::eLinear);

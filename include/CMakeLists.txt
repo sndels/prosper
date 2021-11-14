@@ -13,6 +13,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Model.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderResources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Scene.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp

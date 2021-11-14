@@ -42,10 +42,12 @@ vk::ShaderModule createShaderModule(
 } // namespace
 
 Renderer::Renderer(
-    std::shared_ptr<Device> device, const SwapchainConfig &swapConfig,
+    std::shared_ptr<Device> device, RenderResources *resources,
+    const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
+, _resources{resources}
 {
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
@@ -73,16 +75,13 @@ void Renderer::recreateSwapchainRelated(
 
 vk::RenderPass Renderer::outputRenderpass() const { return _renderpass; }
 
-Renderer::Output Renderer::drawFrame(
+vk::CommandBuffer Renderer::execute(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
     updateUniformBuffers(world, cam, nextImage);
 
-    const auto commandBuffer =
-        recordCommandBuffer(world, cam, renderArea, nextImage);
-
-    return {_colorImage, commandBuffer};
+    return recordCommandBuffer(world, cam, renderArea, nextImage);
 }
 
 void Renderer::destroySwapchainRelated()
@@ -103,8 +102,8 @@ void Renderer::destroySwapchainRelated()
         _device->logical().destroy(_pipelineLayouts.pbr);
         _device->logical().destroy(_pipelineLayouts.skybox);
         _device->logical().destroy(_fbo);
-        _device->destroy(_depthImage);
-        _device->destroy(_colorImage);
+        _device->destroy(_resources->sceneColor);
+        _device->destroy(_resources->sceneDepth);
         _device->logical().destroy(_renderpass);
     }
 }
@@ -181,7 +180,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        _colorImage = _device->createImage(
+        _resources->sceneColor = _device->createImage(
             swapConfig.extent, swapConfig.surfaceFormat.format,
             subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlagBits{},
@@ -206,7 +205,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        _depthImage = _device->createImage(
+        _resources->sceneDepth = _device->createImage(
             swapConfig.extent, swapConfig.depthFormat, subresourceRange,
             vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlags{},
@@ -217,7 +216,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
         const auto commandBuffer = _device->beginGraphicsCommands();
 
         transitionImageLayout(
-            commandBuffer, _depthImage.handle, subresourceRange,
+            commandBuffer, _resources->sceneDepth.handle, subresourceRange,
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::AccessFlags{},
             vk::AccessFlagBits::eDepthStencilAttachmentWrite,
@@ -227,7 +226,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
         _device->endGraphicsCommands(commandBuffer);
     }
     const std::array<vk::ImageView, 2> attachments = {
-        {_colorImage.view, _depthImage.view}};
+        {_resources->sceneColor.view, _resources->sceneDepth.view}};
     _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
         .renderPass = _renderpass,
         .attachmentCount = static_cast<uint32_t>(attachments.size()),

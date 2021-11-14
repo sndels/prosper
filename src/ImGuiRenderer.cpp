@@ -17,9 +17,10 @@ void checkSuccessImGui(VkResult err)
 } // namespace
 
 ImGuiRenderer::ImGuiRenderer(
-    std::shared_ptr<Device> device, GLFWwindow *window,
-    const SwapchainConfig &swapConfig)
+    std::shared_ptr<Device> device, RenderResources *resources,
+    GLFWwindow *window, const SwapchainConfig &swapConfig)
 : _device{device}
+, _resources{resources}
 {
     createDescriptorPool(swapConfig);
     createRenderPass(swapConfig.surfaceFormat.format);
@@ -73,13 +74,8 @@ void ImGuiRenderer::startFrame() const
 }
 
 vk::CommandBuffer ImGuiRenderer::endFrame(
-    const Image &outputImage, const uint32_t nextImage)
+    const vk::Rect2D &renderArea, const uint32_t nextImage)
 {
-    if (outputImage.handle != _fbo.first)
-    {
-        recreateFramebuffer(outputImage);
-    }
-
     ImGui::Render();
     ImDrawData *drawData = ImGui::GetDrawData();
 
@@ -92,9 +88,8 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{
             .renderPass = _renderpass,
-            .framebuffer = _fbo.second,
-            .renderArea =
-                vk::Rect2D{.offset = {0}, .extent = outputImage.extent}},
+            .framebuffer = _fbo,
+            .renderArea = renderArea},
         vk::SubpassContents::eInline);
 
     ImGui_ImplVulkan_RenderDrawData(drawData, buffer);
@@ -153,13 +148,22 @@ void ImGuiRenderer::destroySwapchainRelated()
             static_cast<uint32_t>(_commandBuffers.size()),
             _commandBuffers.data());
     }
-    _device->logical().destroy(_fbo.second);
-    _fbo = {};
+    _device->logical().destroy(_fbo);
 }
 
 void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
 {
     destroySwapchainRelated();
+
+    const auto &image = _resources->sceneColor;
+    _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
+        .renderPass = _renderpass,
+        .attachmentCount = 1,
+        .pAttachments = &image.view,
+        .width = image.extent.width,
+        .height = image.extent.height,
+        .layers = 1,
+    });
 
     _commandBuffers =
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
@@ -197,19 +201,4 @@ void ImGuiRenderer::createDescriptorPool(const SwapchainConfig &swapConfig)
             .maxSets = maxSets * static_cast<uint32_t>(poolSizes.size()),
             .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
             .pPoolSizes = poolSizes.data()});
-}
-
-void ImGuiRenderer::recreateFramebuffer(const Image &image)
-{
-    _device->logical().destroy(_fbo.second);
-    _fbo = {
-        image.handle,
-        _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
-            .renderPass = _renderpass,
-            .attachmentCount = 1,
-            .pAttachments = &image.view,
-            .width = image.extent.width,
-            .height = image.extent.height,
-            .layers = 1,
-        })};
 }
