@@ -6,6 +6,7 @@
 #include "ImGuiRenderer.hpp"
 #include "Renderer.hpp"
 #include "Swapchain.hpp"
+#include "Timer.hpp"
 #include "Window.hpp"
 #include "World.hpp"
 
@@ -35,6 +36,11 @@ class App {
     Swapchain _swapchain;
     std::vector<vk::CommandBuffer> _swapCommandBuffers;
     Renderer _renderer;
+
+    bool _useFpsLimit = true;
+    int32_t _fpsLimit = 60;
+
+    Timer _frameTimer;
 
     std::vector<vk::Semaphore> _imageAvailableSemaphores;
     std::vector<vk::Semaphore> _renderFinishedSemaphores;

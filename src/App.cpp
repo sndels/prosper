@@ -138,6 +138,18 @@ void App::drawFrame() {
         return nextImage.value();
     }();
 
+    // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
+    // Note that this is always based on the previous frame so it only limits
+    // fps and doesn't help actual frame timing
+    {
+        const float minDt =
+            _useFpsLimit ? 1.f / static_cast<float>(_fpsLimit) : 0.f;
+        while (_frameTimer.getSeconds() < minDt) {
+            ;
+        }
+    }
+    _frameTimer.reset();
+
     _imguiRenderer.startFrame();
 
     {
@@ -146,6 +158,12 @@ void App::drawFrame() {
         ImGui::Text("%.3f ms/frame (%.1f FPS)",
                     1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
+
+        ImGui::Checkbox("Limit FPS", &_useFpsLimit);
+        if (_useFpsLimit) {
+            ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
+        }
+
         ImGui::End();
     }
 
