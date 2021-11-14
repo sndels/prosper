@@ -29,12 +29,13 @@ class App
 
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
-    // Stored here, managed by (earliest) passes that write to them
-    RenderResources _resources;
 
     SwapchainConfig _swapConfig;
     Swapchain _swapchain;
     std::vector<vk::CommandBuffer> _swapCommandBuffers;
+
+    // Stored here, managed by (earliest) passes that write to them
+    RenderResources _resources;
 
     vk::DescriptorPool _descriptorPool;
 

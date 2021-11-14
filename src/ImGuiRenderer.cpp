@@ -155,7 +155,7 @@ void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
 {
     destroySwapchainRelated();
 
-    const auto &image = _resources->sceneColor;
+    const auto &image = _resources->images.sceneColor;
     _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
         .renderPass = _renderpass,
         .attachmentCount = 1,

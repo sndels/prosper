@@ -13,7 +13,6 @@
 #include "Vertex.hpp"
 #include "VkUtils.hpp"
 
-
 using namespace glm;
 
 using std::cerr;
@@ -29,20 +28,34 @@ const float CAMERA_FOV = 59.f;
 const float CAMERA_NEAR = 0.001f;
 const float CAMERA_FAR = 512.f;
 
-vk::DescriptorPool createDescriptorPool(
-    const Device *device, const uint32_t swapImageCount)
+std::vector<vk::CommandBuffer> allocateSwapCommandBuffers(
+    Device *device, const uint32_t swapImageCount)
 {
-    const vk::DescriptorPoolSize poolSize{
-        .type = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount =
-            swapImageCount // descriptorCount, camera and mesh instances
-    };
-    return device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
-        .maxSets = poolSize.descriptorCount,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize});
+    return device->logical().allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo{
+            .commandPool = device->graphicsPool(),
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = swapImageCount});
 }
 
+RenderResources::DescriptorPools createDescriptorPools(
+    const Device *device, const uint32_t swapImageCount)
+{
+    RenderResources::DescriptorPools pools;
+    {
+        const vk::DescriptorPoolSize poolSize{
+            .type = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = swapImageCount // camera uniforms
+        };
+        pools.constant =
+            device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+                .maxSets = poolSize.descriptorCount,
+                .poolSizeCount = 1,
+                .pPoolSizes = &poolSize});
+    }
+
+    return pools;
+}
 } // namespace
 
 App::App()
@@ -50,12 +63,18 @@ App::App()
 , _device{_window.ptr()}
 , _swapConfig{&_device, {_window.width(), _window.height()}}
 , _swapchain{&_device, _swapConfig}
-, _descriptorPool{createDescriptorPool(&_device, _swapConfig.imageCount)}
-, _cam{&_device, _descriptorPool, _swapConfig.imageCount, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
-, _world{&_device, _swapConfig.imageCount, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
+, _swapCommandBuffers{allocateSwapCommandBuffers(&_device, _swapConfig.imageCount)}
+, _resources{
+    .descriptorPools =
+        createDescriptorPools(&_device, _swapConfig.imageCount)}
+, _cam{&_device, _resources.descriptorPools.constant, _swapConfig.imageCount,
+    vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
+, _world{
+    &_device, _swapConfig.imageCount,
+    resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
 , _renderer{
-      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
-      _world._dsLayouts}
+    &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+    _world._dsLayouts}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 {
     _cam.lookAt(vec3{0.25f, 0.2f, 0.75f}, vec3{0.f}, vec3{0.f, 1.f, 0.f});
@@ -71,12 +90,6 @@ App::App()
         _renderFinishedSemaphores.push_back(
             _device.logical().createSemaphore(vk::SemaphoreCreateInfo{}));
     }
-
-    _swapCommandBuffers =
-        _device.logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device.graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = _swapConfig.imageCount});
 }
 
 App::~App()
@@ -85,7 +98,7 @@ App::~App()
         _device.logical().destroy(semaphore);
     for (auto &semaphore : _imageAvailableSemaphores)
         _device.logical().destroy(semaphore);
-    _device.logical().destroy(_descriptorPool);
+    _device.logical().destroy(_resources.descriptorPools.constant);
 }
 
 void App::run()
@@ -212,7 +225,7 @@ void App::drawFrame()
             .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
         transitionImageLayout(
-            commandBuffer, _resources.sceneColor.handle,
+            commandBuffer, _resources.images.sceneColor.handle,
             vk::ImageSubresourceRange{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .baseMipLevel = 0,
@@ -250,7 +263,7 @@ void App::drawFrame()
                 .dstOffsets = offsets,
             };
             commandBuffer.blitImage(
-                _resources.sceneColor.handle,
+                _resources.images.sceneColor.handle,
                 vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
                 vk::ImageLayout::eTransferDstOptimal, 1, &fboBlit,
                 vk::Filter::eLinear);

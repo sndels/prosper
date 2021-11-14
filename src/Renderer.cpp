@@ -81,8 +81,8 @@ void Renderer::destroySwapchainRelated()
         _device->logical().destroy(_pipelineLayouts.pbr);
         _device->logical().destroy(_pipelineLayouts.skybox);
         _device->logical().destroy(_fbo);
-        _device->destroy(_resources->sceneColor);
-        _device->destroy(_resources->sceneDepth);
+        _device->destroy(_resources->images.sceneColor);
+        _device->destroy(_resources->images.sceneDepth);
         _device->logical().destroy(_renderpass);
     }
 }
@@ -159,7 +159,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        _resources->sceneColor = _device->createImage(
+        _resources->images.sceneColor = _device->createImage(
             swapConfig.extent, swapConfig.surfaceFormat.format,
             subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlagBits{},
@@ -184,7 +184,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        _resources->sceneDepth = _device->createImage(
+        _resources->images.sceneDepth = _device->createImage(
             swapConfig.extent, swapConfig.depthFormat, subresourceRange,
             vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlags{},
@@ -195,8 +195,8 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
         const auto commandBuffer = _device->beginGraphicsCommands();
 
         transitionImageLayout(
-            commandBuffer, _resources->sceneDepth.handle, subresourceRange,
-            vk::ImageLayout::eUndefined,
+            commandBuffer, _resources->images.sceneDepth.handle,
+            subresourceRange, vk::ImageLayout::eUndefined,
             vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::AccessFlags{},
             vk::AccessFlagBits::eDepthStencilAttachmentWrite,
             vk::PipelineStageFlagBits::eTopOfPipe,
@@ -205,7 +205,8 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
         _device->endGraphicsCommands(commandBuffer);
     }
     const std::array<vk::ImageView, 2> attachments = {
-        {_resources->sceneColor.view, _resources->sceneDepth.view}};
+        {_resources->images.sceneColor.view,
+         _resources->images.sceneDepth.view}};
     _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
         .renderPass = _renderpass,
         .attachmentCount = static_cast<uint32_t>(attachments.size()),

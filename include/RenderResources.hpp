@@ -7,8 +7,19 @@
 // lifetime
 struct RenderResources
 {
-    Image sceneColor;
-    Image sceneDepth;
+    struct Images
+    {
+        Image sceneColor;
+        Image sceneDepth;
+    };
+
+    struct DescriptorPools
+    {
+        vk::DescriptorPool constant;
+    };
+
+    DescriptorPools descriptorPools;
+    Images images;
 };
 
 #endif // PROSPER_RENDER_RESOURCES_HPP
