@@ -66,7 +66,7 @@ std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(const std::string &path)
 }
 } // namespace
 
-Texture::Texture(std::shared_ptr<Device> device)
+Texture::Texture(Device *device)
 : _device{device}
 {
 }
@@ -112,8 +112,7 @@ void Texture::destroy()
     }
 }
 
-Texture2D::Texture2D(
-    std::shared_ptr<Device> device, const std::string &path, const bool mipmap)
+Texture2D::Texture2D(Device *device, const std::string &path, const bool mipmap)
 : Texture(device)
 {
     const auto [pixels, extent] = pixelsFromFile(path);
@@ -139,7 +138,7 @@ Texture2D::Texture2D(
 }
 
 Texture2D::Texture2D(
-    std::shared_ptr<Device> device, const tinygltf::Image &image,
+    Device *device, const tinygltf::Image &image,
     const tinygltf::Sampler &sampler, const bool mipmap)
 : Texture(device)
 {
@@ -371,8 +370,7 @@ void Texture2D::createSampler(
         .maxLod = static_cast<float>(mipLevels)});
 }
 
-TextureCubemap::TextureCubemap(
-    std::shared_ptr<Device> device, const std::string &path)
+TextureCubemap::TextureCubemap(Device *device, const std::string &path)
 : Texture(device)
 {
     const gli::texture_cube cube(gli::load(path));

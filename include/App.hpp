@@ -28,8 +28,7 @@ class App
     void drawFrame();
 
     Window _window; // Needs to be valid before and after everything else
-    std::shared_ptr<Device> _device =
-        nullptr; // Needs to be valid before and after all other vk resources
+    Device _device; // Needs to be valid before and after all other vk resources
     // Stored here, managed by (earliest) passes that write to them
     RenderResources _resources;
 

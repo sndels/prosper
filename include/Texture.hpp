@@ -9,7 +9,7 @@
 class Texture
 {
   public:
-    Texture(std::shared_ptr<Device> device);
+    Texture(Device *device);
     ~Texture();
 
     Texture(const Texture &other) = delete;
@@ -23,7 +23,7 @@ class Texture
     void destroy();
 
     // Texture with null device is invalid or moved
-    std::shared_ptr<Device> _device = nullptr;
+    Device *_device = nullptr;
     Image _image;
     vk::Sampler _sampler;
 };
@@ -31,11 +31,9 @@ class Texture
 class Texture2D : public Texture
 {
   public:
+    Texture2D(Device *device, const std::string &path, const bool mipmap);
     Texture2D(
-        std::shared_ptr<Device> device, const std::string &path,
-        const bool mipmap);
-    Texture2D(
-        std::shared_ptr<Device> device, const tinygltf::Image &image,
+        Device *device, const tinygltf::Image &image,
         const tinygltf::Sampler &sampler, const bool mipmap);
 
   private:
@@ -53,7 +51,7 @@ class Texture2D : public Texture
 class TextureCubemap : public Texture
 {
   public:
-    TextureCubemap(std::shared_ptr<Device> device, const std::string &path);
+    TextureCubemap(Device *device, const std::string &path);
 
   private:
     void copyPixels(

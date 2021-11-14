@@ -12,8 +12,8 @@ class ImGuiRenderer
 {
   public:
     ImGuiRenderer(
-        std::shared_ptr<Device> device, RenderResources *resources,
-        GLFWwindow *window, const SwapchainConfig &swapConfig);
+        Device *device, RenderResources *resources, GLFWwindow *window,
+        const SwapchainConfig &swapConfig);
     ~ImGuiRenderer();
 
     void startFrame() const;
@@ -29,8 +29,8 @@ class ImGuiRenderer
     void createDescriptorPool(const SwapchainConfig &swapConfig);
 
   private:
-    std::shared_ptr<Device> _device;
-    RenderResources *_resources;
+    Device *_device = nullptr;
+    RenderResources *_resources = nullptr;
     vk::DescriptorPool _descriptorPool;
     vk::RenderPass _renderpass;
     vk::Framebuffer _fbo;

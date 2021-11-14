@@ -17,7 +17,7 @@ class Camera
 {
   public:
     Camera(
-        std::shared_ptr<Device> device, const vk::DescriptorPool descriptorPool,
+        Device *device, const vk::DescriptorPool descriptorPool,
         const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
     ~Camera();
 
@@ -53,7 +53,7 @@ class Camera
         const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount,
         const vk::ShaderStageFlags stageFlags);
 
-    std::shared_ptr<Device> _device = nullptr;
+    Device *_device = nullptr;
     glm::vec3 _eye;
     glm::mat4 _worldToClip;
     glm::mat4 _worldToCamera;

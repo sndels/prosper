@@ -42,7 +42,7 @@ vk::ShaderModule createShaderModule(
 } // namespace
 
 Renderer::Renderer(
-    std::shared_ptr<Device> device, RenderResources *resources,
+    Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)

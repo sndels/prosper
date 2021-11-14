@@ -17,8 +17,8 @@ void checkSuccessImGui(VkResult err)
 } // namespace
 
 ImGuiRenderer::ImGuiRenderer(
-    std::shared_ptr<Device> device, RenderResources *resources,
-    GLFWwindow *window, const SwapchainConfig &swapConfig)
+    Device *device, RenderResources *resources, GLFWwindow *window,
+    const SwapchainConfig &swapConfig)
 : _device{device}
 , _resources{resources}
 {

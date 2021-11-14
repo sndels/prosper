@@ -13,7 +13,7 @@ class Mesh
     Mesh(
         const std::vector<Vertex> &vertices,
         const std::vector<uint32_t> &indices, Material *material,
-        std::shared_ptr<Device> device);
+        Device *device);
     ~Mesh();
 
     Mesh(const Mesh &other) = delete;
@@ -28,7 +28,7 @@ class Mesh
     void createVertexBuffer(const std::vector<Vertex> &vertices);
     void createIndexBuffer(const std::vector<uint32_t> &indices);
 
-    std::shared_ptr<Device> _device = nullptr;
+    Device *_device = nullptr;
     Material *_material;
     Buffer _vertexBuffer;
     Buffer _indexBuffer;

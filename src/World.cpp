@@ -60,7 +60,7 @@ tinygltf::Model loadGLTFModel(const std::string &filename)
     return model;
 }
 
-Buffer createSkyboxVertexBuffer(std::shared_ptr<Device> device)
+Buffer createSkyboxVertexBuffer(Device *device)
 {
     const vk::DeviceSize bufferSize =
         sizeof(skyboxVerts[0]) * skyboxVerts.size();
@@ -117,8 +117,7 @@ World::~World()
 }
 
 World::World(
-    std::shared_ptr<Device> device, const uint32_t swapImageCount,
-    const std::string &filename)
+    Device *device, const uint32_t swapImageCount, const std::string &filename)
 : _emptyTexture{device, resPath("texture/empty.png"), false}
 , _skyboxTexture{device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}

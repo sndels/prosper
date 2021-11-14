@@ -26,7 +26,7 @@ class Renderer
     };
 
     Renderer(
-        std::shared_ptr<Device> device, RenderResources *resources,
+        Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -69,8 +69,8 @@ class Renderer
         const std::vector<Scene::ModelInstance> &instances,
         const std::function<bool(const Mesh &)> &cullMesh) const;
 
-    std::shared_ptr<Device> _device = nullptr;
-    RenderResources *_resources;
+    Device *_device = nullptr;
+    RenderResources *_resources = nullptr;
 
     PipelineLayouts _pipelineLayouts;
     Pipelines _pipelines;

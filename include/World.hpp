@@ -18,7 +18,7 @@ class World
         vk::DescriptorSetLayout skybox;
     };
     World(
-        std::shared_ptr<Device> device, const uint32_t swapImageCount,
+        Device *device, const uint32_t swapImageCount,
         const std::string &filename);
     ~World();
 
@@ -55,7 +55,7 @@ class World
     void createDescriptorPool(const uint32_t swapImageCount);
     void createDescriptorSets(const uint32_t swapImageCount);
 
-    std::shared_ptr<Device> _device = nullptr;
+    Device *_device = nullptr;
 };
 
 #endif // PROSPER_WORLD_HPP

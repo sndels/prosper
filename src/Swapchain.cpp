@@ -79,7 +79,7 @@ SwapchainSupport::SwapchainSupport(
 }
 
 SwapchainConfig::SwapchainConfig(
-    std::shared_ptr<Device> device, const vk::Extent2D &preferredExtent)
+    Device *device, const vk::Extent2D &preferredExtent)
 {
     const SwapchainSupport support(device->physical(), device->surface());
 
@@ -103,8 +103,7 @@ SwapchainConfig::SwapchainConfig(
         imageCount = support.capabilities.maxImageCount;
 }
 
-Swapchain::Swapchain(
-    std::shared_ptr<Device> device, const SwapchainConfig &config)
+Swapchain::Swapchain(Device *device, const SwapchainConfig &config)
 : _device{device}
 , _config{config}
 {

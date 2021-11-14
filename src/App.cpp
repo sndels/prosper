@@ -29,7 +29,7 @@ const float CAMERA_NEAR = 0.001f;
 const float CAMERA_FAR = 512.f;
 
 vk::DescriptorPool createDescriptorPool(
-    const std::shared_ptr<Device> device, const uint32_t swapImageCount)
+    const Device *device, const uint32_t swapImageCount)
 {
     const vk::DescriptorPoolSize poolSize{
         .type = vk::DescriptorType::eUniformBuffer,
@@ -46,16 +46,16 @@ vk::DescriptorPool createDescriptorPool(
 
 App::App()
 : _window{WIDTH, HEIGHT, "prosper"}
-, _device{std::make_shared<Device>(_window.ptr())}
-, _swapConfig{_device, {_window.width(), _window.height()}}
-, _swapchain{_device, _swapConfig}
-, _descriptorPool{createDescriptorPool(_device, _swapConfig.imageCount)}
-, _cam{_device, _descriptorPool, _swapConfig.imageCount, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
-, _world{_device, _swapConfig.imageCount, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
+, _device{_window.ptr()}
+, _swapConfig{&_device, {_window.width(), _window.height()}}
+, _swapchain{&_device, _swapConfig}
+, _descriptorPool{createDescriptorPool(&_device, _swapConfig.imageCount)}
+, _cam{&_device, _descriptorPool, _swapConfig.imageCount, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
+, _world{&_device, _swapConfig.imageCount, resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
 , _renderer{
-      _device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
-, _imguiRenderer{_device, &_resources, _window.ptr(), _swapConfig}
+, _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 {
     _cam.lookAt(vec3{0.25f, 0.2f, 0.75f}, vec3{0.f}, vec3{0.f, 1.f, 0.f});
     _cam.perspective(
@@ -66,14 +66,14 @@ App::App()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _imageAvailableSemaphores.push_back(
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+            _device.logical().createSemaphore(vk::SemaphoreCreateInfo{}));
         _renderFinishedSemaphores.push_back(
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+            _device.logical().createSemaphore(vk::SemaphoreCreateInfo{}));
     }
 
     _swapCommandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
+        _device.logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+            .commandPool = _device.graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = _swapConfig.imageCount});
 }
@@ -81,10 +81,10 @@ App::App()
 App::~App()
 {
     for (auto &semaphore : _renderFinishedSemaphores)
-        _device->logical().destroy(semaphore);
+        _device.logical().destroy(semaphore);
     for (auto &semaphore : _imageAvailableSemaphores)
-        _device->logical().destroy(semaphore);
-    _device->logical().destroy(_descriptorPool);
+        _device.logical().destroy(semaphore);
+    _device.logical().destroy(_descriptorPool);
 }
 
 void App::run()
@@ -109,7 +109,7 @@ void App::run()
     }
 
     // Wait for in flight rendering actions to finish
-    _device->logical().waitIdle();
+    _device.logical().waitIdle();
 }
 
 void App::recreateSwapchainAndRelated()
@@ -120,9 +120,10 @@ void App::recreateSwapchainAndRelated()
         glfwWaitEvents();
     }
     // Wait for resources to be out of use
-    _device->logical().waitIdle();
+    _device.logical().waitIdle();
 
-    _swapConfig = SwapchainConfig{_device, {_window.width(), _window.height()}};
+    _swapConfig =
+        SwapchainConfig{&_device, {_window.width(), _window.height()}};
 
     _swapchain.recreate(_swapConfig);
 
@@ -284,7 +285,7 @@ void App::drawFrame()
         .pSignalSemaphores = signalSemaphores.data()};
 
     checkSuccess(
-        _device->graphicsQueue().submit(
+        _device.graphicsQueue().submit(
             1, &submitInfo, _swapchain.currentFence()),
         "submit");
 

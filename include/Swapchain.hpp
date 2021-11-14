@@ -26,8 +26,7 @@ struct SwapchainConfig
     vk::Extent2D extent;
     uint32_t imageCount = 0;
 
-    SwapchainConfig(
-        std::shared_ptr<Device> device, const vk::Extent2D &preferredExtent);
+    SwapchainConfig(Device *device, const vk::Extent2D &preferredExtent);
 };
 
 struct SwapchainImage
@@ -40,7 +39,7 @@ struct SwapchainImage
 class Swapchain
 {
   public:
-    Swapchain(std::shared_ptr<Device> device, const SwapchainConfig &config);
+    Swapchain(Device *device, const SwapchainConfig &config);
     ~Swapchain();
 
     Swapchain(const Swapchain &other) = delete;
@@ -66,7 +65,7 @@ class Swapchain
     void createFences();
 
     // Swapchain with null device is invalid or moved
-    std::shared_ptr<Device> _device = nullptr;
+    Device *_device = nullptr;
     SwapchainConfig _config;
 
     vk::SwapchainKHR _swapchain;

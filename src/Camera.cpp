@@ -9,7 +9,7 @@
 using namespace glm;
 
 Camera::Camera(
-    std::shared_ptr<Device> device, const vk::DescriptorPool descriptorPool,
+    Device *device, const vk::DescriptorPool descriptorPool,
     const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags)
 : _device{device}
 {
