@@ -113,7 +113,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
         .pDepthStencilAttachment = &depthAttachmentRef};
 
     // Synchronize and handle layout transitions
-    const std::array<vk::SubpassDependency, 2> dependencies{
+    const std::array<vk::SubpassDependency, 3> dependencies{
         vk::SubpassDependency{
             .srcSubpass = VK_SUBPASS_EXTERNAL,
             .dstSubpass = 0,
@@ -127,7 +127,15 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
             .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
             .dstStageMask = vk::PipelineStageFlagBits::eTopOfPipe,
             .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-            .dstAccessMask = vk::AccessFlagBits::eMemoryRead}};
+            .dstAccessMask = vk::AccessFlagBits::eMemoryRead},
+        vk::SubpassDependency{
+            .srcSubpass = VK_SUBPASS_EXTERNAL,
+            .dstSubpass = 0,
+            .srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe,
+            .dstStageMask = vk::PipelineStageFlagBits::eEarlyFragmentTests,
+            .srcAccessMask = vk::AccessFlagBits::eNoneKHR,
+            .dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        }};
 
     _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
         .attachmentCount = static_cast<uint32_t>(attachments.size()),
