@@ -1,7 +1,7 @@
 #ifndef PROSPER_SWAPCHAIN_HPP
 #define PROSPER_SWAPCHAIN_HPP
 
-#include <vulkan/vulkan.hpp>
+#include "vulkan.hpp"
 
 #include <optional>
 #include <vector>

@@ -1,7 +1,7 @@
 #ifndef PROSPER_CONSTANTS_HPP
 #define PROSPER_CONSTANTS_HPP
 
-#include <vulkan/vulkan.hpp>
+#include "vulkan.hpp"
 
 #include <cstddef>
 #include <string>

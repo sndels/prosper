@@ -1,7 +1,7 @@
 #ifndef PROSPER_DEVICE_HPP
 #define PROSPER_DEVICE_HPP
 
-#include <vulkan/vulkan.hpp>
+#include "vulkan.hpp"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 

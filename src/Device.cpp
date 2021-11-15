@@ -161,12 +161,22 @@ void DestroyDebugUtilsMessengerEXT(
 
 Device::Device(GLFWwindow *window)
 {
+    vk::DynamicLoader dl;
+    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
+        dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+
     createInstance();
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
+
     createDebugMessenger();
     createSurface(window);
     selectPhysicalDevice();
     _queueFamilies = findQueueFamilies(_physical, _surface);
+
     createLogicalDevice();
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
+
     createAllocator();
     createCommandPools();
 }

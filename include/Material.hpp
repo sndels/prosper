@@ -1,8 +1,9 @@
 #ifndef PROSPER_MATERIAL_HPP
 #define PROSPER_MATERIAL_HPP
 
+#include "vulkan.hpp"
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.hpp>
+
 
 class Texture;
 

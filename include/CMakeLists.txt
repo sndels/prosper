@@ -20,6 +20,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Vertex.hpp
     ${CMAKE_CURRENT_LIST_DIR}/VkUtils.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/vulkan.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Window.hpp
     ${CMAKE_CURRENT_LIST_DIR}/World.hpp
     PARENT_SCOPE
