@@ -65,7 +65,8 @@ Buffer createSkyboxVertexBuffer(Device *device)
     const vk::DeviceSize bufferSize =
         sizeof(skyboxVerts[0]) * skyboxVerts.size();
     const Buffer stagingBuffer = device->createBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
+        "SkyboxVertexStagingBuffer", bufferSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -76,7 +77,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
     device->unmap(stagingBuffer.allocation);
 
     const auto skyboxVertexBuffer = device->createBuffer(
-        bufferSize,
+        "SkyboxVertexBuffer", bufferSize,
         vk::BufferUsageFlagBits::eVertexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -431,7 +432,8 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
                 for (size_t i = 0; i < swapImageCount; ++i)
                     modelInstance.uniformBuffers.push_back(
                         _device->createBuffer(
-                            bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+                            "ModelInstanceUniforms", bufferSize,
+                            vk::BufferUsageFlagBits::eUniformBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
                             VMA_MEMORY_USAGE_CPU_TO_GPU));
@@ -444,7 +446,8 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
         for (size_t i = 0; i < swapImageCount; ++i)
         {
             _skyboxUniformBuffers.push_back(_device->createBuffer(
-                bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+                "SkyboxUniforms" + std::to_string(i), bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent,
                 VMA_MEMORY_USAGE_CPU_TO_GPU));

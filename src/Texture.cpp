@@ -199,7 +199,7 @@ Buffer Texture2D::stagePixels(
     const vk::DeviceSize imageSize = extent.width * extent.height * 4;
 
     const Buffer stagingBuffer = _device->createBuffer(
-        imageSize, vk::BufferUsageFlagBits::eTransferSrc,
+        "Texture2DStaging", imageSize, vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -219,7 +219,7 @@ void Texture2D::createImage(
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
     _image = _device->createImage(
-        extent, vk::Format::eR8G8B8A8Unorm, subresourceRange,
+        "Texture2D", extent, vk::Format::eR8G8B8A8Unorm, subresourceRange,
         vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
         vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eTransferSrc |
@@ -390,8 +390,8 @@ TextureCubemap::TextureCubemap(Device *device, const std::string &path)
         .layerCount = 6};
 
     _image = _device->createImage(
-        layerExtent, vk::Format::eR16G16B16A16Sfloat, subresourceRange,
-        vk::ImageViewType::eCube, vk::ImageTiling::eOptimal,
+        "TextureCubemap", layerExtent, vk::Format::eR16G16B16A16Sfloat,
+        subresourceRange, vk::ImageViewType::eCube, vk::ImageTiling::eOptimal,
         vk::ImageCreateFlagBits::eCubeCompatible,
         vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -416,7 +416,8 @@ void TextureCubemap::copyPixels(
     const vk::ImageSubresourceRange &subresourceRange) const
 {
     const Buffer stagingBuffer = _device->createBuffer(
-        cube.size(), vk::BufferUsageFlagBits::eTransferSrc,
+        "TextureCubemapStaging", cube.size(),
+        vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);

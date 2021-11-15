@@ -143,7 +143,8 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
     for (uint32_t i = 0; i < swapImageCount; ++i)
     {
         _uniformBuffers.push_back(_device->createBuffer(
-            bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+            "CameraUnfiroms" + std::to_string(i), bufferSize,
+            vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                 vk::MemoryPropertyFlagBits::eHostCoherent,
             VMA_MEMORY_USAGE_CPU_TO_GPU));

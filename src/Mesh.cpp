@@ -49,7 +49,8 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
     const vk::DeviceSize bufferSize = sizeof(Vertex) * vertices.size();
 
     const Buffer stagingBuffer = _device->createBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
+        "MeshVertexStagingBuffer", bufferSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -61,7 +62,7 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
     _device->unmap(stagingBuffer.allocation);
 
     _vertexBuffer = _device->createBuffer(
-        bufferSize,
+        "MeshVertexBuffer", bufferSize,
         vk::BufferUsageFlagBits::eVertexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -83,7 +84,8 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
     const vk::DeviceSize bufferSize = sizeof(uint32_t) * indices.size();
 
     const Buffer stagingBuffer = _device->createBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
+        "MeshIndexStagingBuffer", bufferSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -95,7 +97,7 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
     _device->unmap(stagingBuffer.allocation);
 
     _indexBuffer = _device->createBuffer(
-        bufferSize,
+        "MeshIndexBuffer", bufferSize,
         vk::BufferUsageFlagBits::eIndexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);

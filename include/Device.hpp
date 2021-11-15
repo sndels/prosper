@@ -62,14 +62,15 @@ class Device
     void unmap(const VmaAllocation allocation) const;
 
     Buffer createBuffer(
-        const vk::DeviceSize size, const vk::BufferUsageFlags usage,
+        const std::string &debugName, const vk::DeviceSize size,
+        const vk::BufferUsageFlags usage,
         const vk::MemoryPropertyFlags properties,
         const VmaMemoryUsage vmaUsage) const;
     void destroy(const Buffer &buffer) const;
 
     Image createImage(
-        const vk::Extent2D extent, const vk::Format format,
-        const vk::ImageSubresourceRange &range,
+        const std::string &debugName, const vk::Extent2D extent,
+        const vk::Format format, const vk::ImageSubresourceRange &range,
         const vk::ImageViewType viewType, const vk::ImageTiling tiling,
         const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
         const vk::MemoryPropertyFlags properties,

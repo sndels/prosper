@@ -149,7 +149,7 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
             .layerCount = 1};
 
         _resources->images.sceneColor = _device->createImage(
-            swapConfig.extent, swapConfig.surfaceFormat.format,
+            "sceneColor", swapConfig.extent, swapConfig.surfaceFormat.format,
             subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlagBits{},
             vk::ImageUsageFlagBits::eColorAttachment |
@@ -174,8 +174,8 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
             .layerCount = 1};
 
         _resources->images.sceneDepth = _device->createImage(
-            swapConfig.extent, swapConfig.depthFormat, subresourceRange,
-            vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
+            "sceneDepth", swapConfig.extent, swapConfig.depthFormat,
+            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::MemoryPropertyFlagBits::eDeviceLocal,

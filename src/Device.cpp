@@ -225,8 +225,8 @@ void Device::unmap(const VmaAllocation allocation) const
 }
 
 Buffer Device::createBuffer(
-    const vk::DeviceSize size, const vk::BufferUsageFlags usage,
-    const vk::MemoryPropertyFlags properties,
+    const std::string &debugName, const vk::DeviceSize size,
+    const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
     const VmaMemoryUsage vmaUsage) const
 {
     vk::BufferCreateInfo bufferInfo{
@@ -245,6 +245,13 @@ Buffer Device::createBuffer(
     vmaCreateBuffer(
         _allocator, vkpBufferInfo, &allocInfo, vkpBuffer, &buffer.allocation,
         nullptr);
+
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::eBuffer,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
+        .pObjectName = debugName.c_str()});
+
     return buffer;
 }
 
@@ -255,10 +262,11 @@ void Device::destroy(const Buffer &buffer) const
 }
 
 Image Device::createImage(
-    const vk::Extent2D extent, const vk::Format format,
-    const vk::ImageSubresourceRange &range, const vk::ImageViewType viewType,
-    const vk::ImageTiling tiling, const vk::ImageCreateFlags flags,
-    const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties,
+    const std::string &debugName, const vk::Extent2D extent,
+    const vk::Format format, const vk::ImageSubresourceRange &range,
+    const vk::ImageViewType viewType, const vk::ImageTiling tiling,
+    const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
+    const vk::MemoryPropertyFlags properties,
     const VmaMemoryUsage vmaUsage) const
 {
     vk::ImageCreateInfo imageInfo{
@@ -283,6 +291,12 @@ Image Device::createImage(
     vmaCreateImage(
         _allocator, vkpImageInfo, &allocInfo, vkpImage, &image.allocation,
         nullptr);
+
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::eImage,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
+        .pObjectName = debugName.c_str()});
 
     image.view = _logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,
