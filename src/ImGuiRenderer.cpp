@@ -137,6 +137,13 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
         .dependencyCount = 1,
         .pDependencies = &dependency,
     });
+
+    _device->logical().setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eRenderPass,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkRenderPass>(_renderpass)),
+            .pObjectName = "ImGui"});
 }
 
 void ImGuiRenderer::destroySwapchainRelated()

@@ -136,6 +136,13 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
         .pSubpasses = &subpass,
         .dependencyCount = static_cast<uint32_t>(dependencies.size()),
         .pDependencies = dependencies.data()});
+
+    _device->logical().setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eRenderPass,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkRenderPass>(_renderpass)),
+            .pObjectName = "Renderer"});
 }
 
 void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
