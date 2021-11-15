@@ -1,8 +1,6 @@
 #include "Renderer.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <imgui.h>
-#include <imgui_impl_vulkan.h>
 
 #include "Utils.hpp"
 #include "VkUtils.hpp"
