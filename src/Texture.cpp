@@ -330,7 +330,7 @@ void Texture2D::createMipmaps(
         buffer, _image.handle, subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
-        vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eShaderRead,
+        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
         vk::PipelineStageFlagBits::eTransfer,
         vk::PipelineStageFlagBits::eFragmentShader);
 
