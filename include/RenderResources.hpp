@@ -11,11 +11,13 @@ struct RenderResources
     {
         Image sceneColor;
         Image sceneDepth;
+        Image toneMapped;
     };
 
     struct DescriptorPools
     {
         vk::DescriptorPool constant;
+        vk::DescriptorPool swapchainRelated;
     };
 
     DescriptorPools descriptorPools;

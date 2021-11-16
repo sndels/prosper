@@ -1,8 +1,9 @@
 set(SHADER_SOURCES
-    ${CMAKE_CURRENT_LIST_DIR}/shader.frag
-    ${CMAKE_CURRENT_LIST_DIR}/shader.vert
+    ${CMAKE_CURRENT_LIST_DIR}/scene.frag
+    ${CMAKE_CURRENT_LIST_DIR}/scene.vert
     ${CMAKE_CURRENT_LIST_DIR}/skybox.frag
     ${CMAKE_CURRENT_LIST_DIR}/skybox.vert
+    ${CMAKE_CURRENT_LIST_DIR}/tone_map.comp
 )
 
 foreach(GLSL ${SHADER_SOURCES})

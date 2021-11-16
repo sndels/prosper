@@ -23,7 +23,7 @@ ImGuiRenderer::ImGuiRenderer(
 , _resources{resources}
 {
     createDescriptorPool(swapConfig);
-    createRenderPass(swapConfig.surfaceFormat.format);
+    createRenderPass(_resources->images.toneMapped.format);
 
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -116,8 +116,7 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
         .storeOp = vk::AttachmentStoreOp::eStore,
         .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-        // Don't do automagical transitions to make this more robust
-        .initialLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .initialLayout = vk::ImageLayout::eGeneral,
         .finalLayout = vk::ImageLayout::eColorAttachmentOptimal,
     };
     vk::AttachmentReference color_attachment = {
@@ -130,10 +129,10 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
     vk::SubpassDependency dependency = {
         .srcSubpass = VK_SUBPASS_EXTERNAL,
         .dstSubpass = 0,
-        .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+        .srcStageMask = vk::PipelineStageFlagBits::eComputeShader,
         .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
+        .srcAccessMask = vk::AccessFlagBits::eShaderWrite,
+        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead,
     };
     _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
         .attachmentCount = 1,
@@ -168,7 +167,7 @@ void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
 {
     destroySwapchainRelated();
 
-    const auto &image = _resources->images.sceneColor;
+    const auto &image = _resources->images.toneMapped;
     _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
         .renderPass = _renderpass,
         .attachmentCount = 1,

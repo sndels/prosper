@@ -32,6 +32,8 @@ void Renderer::recreateSwapchainRelated(
     const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
+
+    createOutputs(swapConfig);
     createRenderPass(swapConfig);
     createFramebuffer(swapConfig);
     createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
@@ -68,9 +70,66 @@ void Renderer::destroySwapchainRelated()
         _device->logical().destroy(_pipelineLayouts.pbr);
         _device->logical().destroy(_pipelineLayouts.skybox);
         _device->logical().destroy(_fbo);
+        _device->logical().destroy(_renderpass);
         _device->destroy(_resources->images.sceneColor);
         _device->destroy(_resources->images.sceneDepth);
-        _device->logical().destroy(_renderpass);
+    }
+}
+
+void Renderer::createOutputs(const SwapchainConfig &swapConfig)
+{
+    {
+        const vk::ImageSubresourceRange subresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+
+        _resources->images.sceneColor = _device->createImage(
+            "sceneColor", swapConfig.extent, vk::Format::eR16G16B16A16Sfloat,
+            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
+            vk::ImageCreateFlagBits{},
+            vk::ImageUsageFlagBits::eColorAttachment | // Render
+                vk::ImageUsageFlagBits::eStorage,      // ToneMap
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+    {
+        // Check depth buffer without stencil is supported
+        const auto features =
+            vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+        const auto properties =
+            _device->physical().getFormatProperties(swapConfig.depthFormat);
+        if ((properties.optimalTilingFeatures & features) != features)
+            throw std::runtime_error("Depth format unsupported");
+
+        const vk::ImageSubresourceRange subresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eDepth,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+
+        _resources->images.sceneDepth = _device->createImage(
+            "sceneDepth", swapConfig.extent, swapConfig.depthFormat,
+            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
+            vk::ImageCreateFlags{},
+            vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+        const auto commandBuffer = _device->beginGraphicsCommands();
+
+        transitionImageLayout(
+            commandBuffer, _resources->images.sceneDepth.handle,
+            subresourceRange, vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::AccessFlags{},
+            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eEarlyFragmentTests);
+
+        _device->endGraphicsCommands(commandBuffer);
     }
 }
 
@@ -79,7 +138,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
     const std::array<vk::AttachmentDescription, 2> attachments = {
         // color
         vk::AttachmentDescription{
-            .format = swapConfig.surfaceFormat.format,
+            .format = _resources->images.sceneColor.format,
             .samples = vk::SampleCountFlagBits::e1,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
@@ -89,7 +148,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
             .finalLayout = vk::ImageLayout::eColorAttachmentOptimal},
         vk::AttachmentDescription{
             // depth
-            .format = swapConfig.depthFormat,
+            .format = _resources->images.sceneDepth.format,
             .samples = vk::SampleCountFlagBits::e1,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eDontCare,
@@ -153,59 +212,6 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
 
 void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
 {
-    {
-        const vk::ImageSubresourceRange subresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-
-        _resources->images.sceneColor = _device->createImage(
-            "sceneColor", swapConfig.extent, swapConfig.surfaceFormat.format,
-            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-            vk::ImageCreateFlagBits{},
-            vk::ImageUsageFlagBits::eColorAttachment |
-                vk::ImageUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-    }
-    {
-        // Check depth buffer without stencil is supported
-        const auto features =
-            vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-        const auto properties =
-            _device->physical().getFormatProperties(swapConfig.depthFormat);
-        if ((properties.optimalTilingFeatures & features) != features)
-            throw std::runtime_error("Depth format unsupported");
-
-        const vk::ImageSubresourceRange subresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eDepth,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-
-        _resources->images.sceneDepth = _device->createImage(
-            "sceneDepth", swapConfig.extent, swapConfig.depthFormat,
-            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-            vk::ImageCreateFlags{},
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-        const auto commandBuffer = _device->beginGraphicsCommands();
-
-        transitionImageLayout(
-            commandBuffer, _resources->images.sceneDepth.handle,
-            subresourceRange, vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::AccessFlags{},
-            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eEarlyFragmentTests);
-
-        _device->endGraphicsCommands(commandBuffer);
-    }
     const std::array<vk::ImageView, 2> attachments = {
         {_resources->images.sceneColor.view,
          _resources->images.sceneDepth.view}};
@@ -224,8 +230,8 @@ void Renderer::createGraphicsPipelines(
     const World::DSLayouts &worldDSLayouts)
 {
     {
-        const auto vertSPV = readFileBytes(binPath("shader/shader.vert.spv"));
-        const auto fragSPV = readFileBytes(binPath("shader/shader.frag.spv"));
+        const auto vertSPV = readFileBytes(binPath("shader/scene.vert.spv"));
+        const auto fragSPV = readFileBytes(binPath("shader/scene.frag.spv"));
         const vk::ShaderModule vertSM =
             createShaderModule(_device->logical(), vertSPV);
         const vk::ShaderModule fragSM =

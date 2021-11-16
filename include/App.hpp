@@ -8,6 +8,7 @@
 #include "Renderer.hpp"
 #include "Swapchain.hpp"
 #include "Timer.hpp"
+#include "ToneMap.hpp"
 #include "Window.hpp"
 #include "World.hpp"
 
@@ -43,6 +44,7 @@ class App
     World _world;
 
     Renderer _renderer;
+    ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;
 
     bool _useFpsLimit = true;

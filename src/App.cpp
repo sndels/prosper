@@ -38,6 +38,20 @@ std::vector<vk::CommandBuffer> allocateSwapCommandBuffers(
             .commandBufferCount = swapImageCount});
 }
 
+vk::DescriptorPool createSwapchainRelatedDescriptorPool(
+    const Device *device, const uint32_t swapImageCount)
+{
+    const vk::DescriptorPoolSize poolSize{
+        .type = vk::DescriptorType::eStorageImage,
+        .descriptorCount = 2 * swapImageCount // tonemap input/output
+    };
+
+    return device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+        .maxSets = poolSize.descriptorCount,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize});
+}
+
 RenderResources::DescriptorPools createDescriptorPools(
     const Device *device, const uint32_t swapImageCount)
 {
@@ -53,6 +67,9 @@ RenderResources::DescriptorPools createDescriptorPools(
                 .poolSizeCount = 1,
                 .pPoolSizes = &poolSize});
     }
+
+    pools.swapchainRelated =
+        createSwapchainRelatedDescriptorPool(device, swapImageCount);
 
     return pools;
 }
@@ -73,8 +90,9 @@ App::App()
     &_device, _swapConfig.imageCount,
     resPath("glTF/FlightHelmet/glTF/FlightHelmet.gltf")}
 , _renderer{
-    &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
-    _world._dsLayouts}
+      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      _world._dsLayouts}
+, _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 {
     _cam.lookAt(vec3{0.25f, 0.2f, 0.75f}, vec3{0.f}, vec3{0.f, 1.f, 0.f});
@@ -99,6 +117,7 @@ App::~App()
     for (auto &semaphore : _imageAvailableSemaphores)
         _device.logical().destroy(semaphore);
     _device.logical().destroy(_resources.descriptorPools.constant);
+    _device.logical().destroy(_resources.descriptorPools.swapchainRelated);
 }
 
 void App::run()
@@ -141,10 +160,18 @@ void App::recreateSwapchainAndRelated()
 
     _swapchain.recreate(_swapConfig);
 
+    // We could free and recreate the individual sets but destroying the pool is
+    // cleaner
+    _device.logical().destroyDescriptorPool(
+        _resources.descriptorPools.swapchainRelated);
+    _resources.descriptorPools.swapchainRelated =
+        createSwapchainRelatedDescriptorPool(&_device, _swapConfig.imageCount);
+
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
     _renderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+    _toneMap.recreateSwapchainRelated(_swapConfig);
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
 
     _cam.perspective(
@@ -211,6 +238,8 @@ void App::drawFrame()
     commandBuffers.push_back(
         _renderer.execute(_world, _cam, renderArea, nextImage));
 
+    commandBuffers.push_back(_toneMap.execute(nextImage));
+
     commandBuffers.push_back(_imguiRenderer.endFrame(renderArea, nextImage));
 
     {
@@ -225,7 +254,7 @@ void App::drawFrame()
             .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
         transitionImageLayout(
-            commandBuffer, _resources.images.sceneColor.handle,
+            commandBuffer, _resources.images.toneMapped.handle,
             vk::ImageSubresourceRange{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .baseMipLevel = 0,
@@ -263,7 +292,7 @@ void App::drawFrame()
                 .dstOffsets = offsets,
             };
             commandBuffer.blitImage(
-                _resources.images.sceneColor.handle,
+                _resources.images.toneMapped.handle,
                 vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
                 vk::ImageLayout::eTransferDstOptimal, 1, &fboBlit,
                 vk::Filter::eLinear);

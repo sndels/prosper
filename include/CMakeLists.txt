@@ -18,6 +18,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/ToneMap.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Vertex.hpp
     ${CMAKE_CURRENT_LIST_DIR}/VkUtils.hpp
     ${CMAKE_CURRENT_LIST_DIR}/vulkan.hpp

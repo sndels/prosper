@@ -12,6 +12,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ToneMap.cpp
     ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/vmaImplementation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/VkUtils.cpp
