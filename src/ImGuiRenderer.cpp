@@ -85,6 +85,9 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "ImGui"});
+
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{
             .renderPass = _renderpass,
@@ -95,6 +98,9 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     ImGui_ImplVulkan_RenderDrawData(drawData, buffer);
 
     buffer.endRenderPass();
+
+    buffer.endDebugUtilsLabelEXT(); // ImGui
+
     buffer.end();
 
     return buffer;

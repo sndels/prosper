@@ -508,6 +508,9 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Scene"});
+
     const std::array<vk::ClearValue, 2> clearColors = {
         {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
          vk::ClearValue{
@@ -522,6 +525,9 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
             .pClearValues = clearColors.data()},
         vk::SubpassContents::eInline);
 
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Opaque"});
+
     // Draw opaque and alpha masked geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.pbr);
 
@@ -535,6 +541,11 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         [](const Mesh &mesh)
         { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
 
+    buffer.endDebugUtilsLabelEXT(); // Opaque
+
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Skybox"});
+
     // Skybox doesn't need to be drawn under opaque geometry but should be
     // before transparents
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipelines.skybox);
@@ -545,6 +556,11 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         1, &world._skyboxDSs[nextImage], 0, nullptr);
 
     world.drawSkybox(buffer);
+
+    buffer.endDebugUtilsLabelEXT(); // Skybox
+
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
 
     // Draw transparent geometry
     buffer.bindPipeline(
@@ -561,7 +577,11 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         [](const Mesh &mesh)
         { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
 
+    buffer.endDebugUtilsLabelEXT(); // Transparents
+
     buffer.endRenderPass();
+
+    buffer.endDebugUtilsLabelEXT(); // Scene
 
     buffer.end();
 
