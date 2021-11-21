@@ -263,17 +263,17 @@ void App::drawFrame()
                 .layerCount = 1},
             vk::ImageLayout::eColorAttachmentOptimal,
             vk::ImageLayout::eTransferSrcOptimal,
-            vk::AccessFlagBits::eColorAttachmentWrite,
-            vk::AccessFlagBits::eTransferRead,
-            vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            vk::PipelineStageFlagBits::eTransfer);
+            vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+            vk::AccessFlagBits2KHR::eTransferRead,
+            vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits2KHR::eTransfer);
 
         transitionImageLayout(
             commandBuffer, swapImage.handle, swapImage.subresourceRange,
             vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
-            vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eTransfer);
+            vk::AccessFlags2KHR{}, vk::AccessFlagBits2KHR::eTransferWrite,
+            vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+            vk::PipelineStageFlagBits2KHR::eTransfer);
 
         {
             const vk::ImageSubresourceLayers layers{
@@ -301,10 +301,11 @@ void App::drawFrame()
         transitionImageLayout(
             commandBuffer, swapImage.handle, swapImage.subresourceRange,
             vk::ImageLayout::eTransferDstOptimal,
-            vk::ImageLayout::ePresentSrcKHR, vk::AccessFlagBits::eTransferWrite,
-            vk::AccessFlagBits::eMemoryRead,
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eTransfer);
+            vk::ImageLayout::ePresentSrcKHR,
+            vk::AccessFlagBits2KHR::eTransferWrite,
+            vk::AccessFlagBits2KHR::eMemoryRead,
+            vk::PipelineStageFlagBits2KHR::eTransfer,
+            vk::PipelineStageFlagBits2KHR::eTransfer);
 
         commandBuffer.end();
 

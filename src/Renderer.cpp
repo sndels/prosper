@@ -124,10 +124,11 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
         transitionImageLayout(
             commandBuffer, _resources->images.sceneDepth.handle,
             subresourceRange, vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::AccessFlags{},
-            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eEarlyFragmentTests);
+            vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            vk::AccessFlags2KHR{},
+            vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+            vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+            vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests);
 
         _device->endGraphicsCommands(commandBuffer);
     }

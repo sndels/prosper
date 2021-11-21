@@ -232,9 +232,9 @@ void Texture2D::createImage(
     transitionImageLayout(
         commandBuffer, _image.handle, subresourceRange,
         vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
-        vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTransfer);
+        vk::AccessFlags2KHR{}, vk::AccessFlagBits2KHR::eTransferWrite,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+        vk::PipelineStageFlagBits2KHR::eTransfer);
 
     const vk::BufferImageCopy region{
         .bufferOffset = 0,
@@ -280,10 +280,10 @@ void Texture2D::createMipmaps(
             buffer, _image.handle, subresourceRange,
             vk::ImageLayout::eTransferDstOptimal,
             vk::ImageLayout::eTransferSrcOptimal,
-            vk::AccessFlagBits::eTransferWrite,
-            vk::AccessFlagBits::eTransferRead,
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eTransfer);
+            vk::AccessFlagBits2KHR::eTransferWrite,
+            vk::AccessFlagBits2KHR::eTransferRead,
+            vk::PipelineStageFlagBits2KHR::eTransfer,
+            vk::PipelineStageFlagBits2KHR::eTransfer);
 
         vk::ImageBlit blit{
             .srcSubresource =
@@ -314,9 +314,10 @@ void Texture2D::createMipmaps(
             buffer, _image.handle, subresourceRange,
             vk::ImageLayout::eTransferSrcOptimal,
             vk::ImageLayout::eShaderReadOnlyOptimal,
-            vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eShaderRead,
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eFragmentShader);
+            vk::AccessFlagBits2KHR::eTransferRead,
+            vk::AccessFlagBits2KHR::eShaderRead,
+            vk::PipelineStageFlagBits2KHR::eTransfer,
+            vk::PipelineStageFlagBits2KHR::eFragmentShader);
 
         if (mipWidth > 1)
             mipWidth /= 2;
@@ -330,9 +331,10 @@ void Texture2D::createMipmaps(
         buffer, _image.handle, subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
-        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eFragmentShader);
+        vk::AccessFlagBits2KHR::eTransferWrite,
+        vk::AccessFlagBits2KHR::eShaderRead,
+        vk::PipelineStageFlagBits2KHR::eTransfer,
+        vk::PipelineStageFlagBits2KHR::eFragmentShader);
 
     _device->endGraphicsCommands(buffer);
 }
@@ -465,9 +467,9 @@ void TextureCubemap::copyPixels(
     transitionImageLayout(
         copyBuffer, _image.handle, subresourceRange,
         vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
-        vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTransfer);
+        vk::AccessFlags2KHR{}, vk::AccessFlagBits2KHR::eTransferWrite,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+        vk::PipelineStageFlagBits2KHR::eTransfer);
 
     copyBuffer.copyBufferToImage(
         stagingBuffer.handle, _image.handle,
@@ -478,9 +480,10 @@ void TextureCubemap::copyPixels(
         copyBuffer, _image.handle, subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
-        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eFragmentShader);
+        vk::AccessFlagBits2KHR::eTransferWrite,
+        vk::AccessFlagBits2KHR::eShaderRead,
+        vk::PipelineStageFlagBits2KHR::eTransfer,
+        vk::PipelineStageFlagBits2KHR::eFragmentShader);
 
     _device->endGraphicsCommands(copyBuffer);
 

@@ -7,9 +7,10 @@ void transitionImageLayout(
     const vk::CommandBuffer &commandBuffer, const vk::Image &image,
     const vk::ImageSubresourceRange &subresourceRange,
     const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout,
-    const vk::AccessFlags srcAccessMask, const vk::AccessFlags dstAccessMask,
-    const vk::PipelineStageFlags srcStageMask,
-    const vk::PipelineStageFlags dstStageMask);
+    const vk::AccessFlags2KHR srcAccessMask,
+    const vk::AccessFlags2KHR dstAccessMask,
+    const vk::PipelineStageFlags2KHR srcStageMask,
+    const vk::PipelineStageFlags2KHR dstStageMask);
 
 void checkSuccess(vk::Result result, const char *source);
 

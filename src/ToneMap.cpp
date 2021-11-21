@@ -71,10 +71,10 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
             .baseArrayLayer = 0,
             .layerCount = 1},
         vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eGeneral,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::AccessFlagBits::eShaderRead,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eComputeShader);
+        vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+        vk::AccessFlagBits2KHR::eShaderRead,
+        vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits2KHR::eComputeShader);
 
     transitionImageLayout(
         buffer, _resources->images.toneMapped.handle,
@@ -85,9 +85,10 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
             .baseArrayLayer = 0,
             .layerCount = 1},
         vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eGeneral,
-        vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eShaderWrite,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eComputeShader);
+        vk::AccessFlagBits2KHR::eMemoryRead,
+        vk::AccessFlagBits2KHR::eShaderWrite,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+        vk::PipelineStageFlagBits2KHR::eComputeShader);
 
     buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
@@ -154,9 +155,9 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
             .baseArrayLayer = 0,
             .layerCount = 1},
         vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferSrcOptimal,
-        vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eMemoryRead,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTopOfPipe);
+        vk::AccessFlagBits2KHR::eNone, vk::AccessFlagBits2KHR::eMemoryRead,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe);
     _device->endGraphicsCommands(buffer);
 }
 
