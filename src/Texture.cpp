@@ -438,21 +438,22 @@ void TextureCubemap::copyPixels(
             for (uint32_t mipLevel = 0; mipLevel < cube.levels(); ++mipLevel)
             {
                 // Cubemap data contains each face and its miplevels in order
-                regions.emplace_back(
-                    offset, 0,
-                    0, // bufferRowLength, bufferImageHeight, it is tightly
-                       // packed
-                    vk::ImageSubresourceLayers{
-                        .aspectMask = vk::ImageAspectFlagBits::eColor,
-                        .mipLevel = mipLevel,
-                        .baseArrayLayer = face,
-                        .layerCount = 1,
-                    },
-                    vk::Offset3D{0},
-                    vk::Extent3D{
+                regions.push_back(vk::BufferImageCopy{
+                    .bufferOffset = offset,
+                    .bufferRowLength = 0,
+                    .bufferImageHeight = 0,
+                    .imageSubresource =
+                        vk::ImageSubresourceLayers{
+                            .aspectMask = vk::ImageAspectFlagBits::eColor,
+                            .mipLevel = mipLevel,
+                            .baseArrayLayer = face,
+                            .layerCount = 1,
+                        },
+                    .imageOffset = vk::Offset3D{0},
+                    .imageExtent = vk::Extent3D{
                         static_cast<uint32_t>(cube[face][mipLevel].extent().x),
                         static_cast<uint32_t>(cube[face][mipLevel].extent().y),
-                        1});
+                        1}});
                 offset += cube[face][mipLevel].size();
             }
         }

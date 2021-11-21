@@ -606,7 +606,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     {
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
         for (auto &buffer : _skyboxUniformBuffers)
-            bufferInfos.emplace_back(buffer.handle, 0, sizeof(mat4));
+            bufferInfos.push_back(vk::DescriptorBufferInfo{
+                .buffer = buffer.handle, .offset = 0, .range = sizeof(mat4)});
         return bufferInfos;
     }();
     const vk::DescriptorImageInfo skyboxImageInfo = _skyboxTexture.imageInfo();

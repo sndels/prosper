@@ -36,7 +36,10 @@ struct Scene
         {
             std::vector<vk::DescriptorBufferInfo> infos;
             for (auto &buffer : uniformBuffers)
-                infos.emplace_back(buffer.handle, 0, sizeof(UBlock));
+                infos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = buffer.handle,
+                    .offset = 0,
+                    .range = sizeof(UBlock)});
 
             return infos;
         }

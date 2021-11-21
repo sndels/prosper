@@ -111,7 +111,10 @@ std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
 {
     std::vector<vk::DescriptorBufferInfo> infos;
     for (auto &buffer : _uniformBuffers)
-        infos.emplace_back(buffer.handle, 0, sizeof(CameraUniforms));
+        infos.push_back(vk::DescriptorBufferInfo{
+            .buffer = buffer.handle,
+            .offset = 0,
+            .range = sizeof(CameraUniforms)});
 
     return infos;
 }
