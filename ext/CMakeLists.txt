@@ -15,6 +15,10 @@ set(GLFW_INSTALL OFF CACHE BOOL "Generate installation target")
 add_subdirectory(glfw)
 
 add_library(imgui STATIC "")
+target_compile_features(imgui
+    PRIVATE
+    cxx_std_11
+)
 target_sources(imgui
     PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui.cpp
