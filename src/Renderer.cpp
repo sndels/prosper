@@ -145,7 +145,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
             .storeOp = vk::AttachmentStoreOp::eStore,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eUndefined,
+            .initialLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .finalLayout = vk::ImageLayout::eColorAttachmentOptimal},
         vk::AttachmentDescription{
             // depth
@@ -155,7 +155,7 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
             .storeOp = vk::AttachmentStoreOp::eDontCare,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eUndefined,
+            .initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
             .finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal}};
     const vk::AttachmentReference swapAttachmentRef{
         .attachment = 0, .layout = vk::ImageLayout::eColorAttachmentOptimal};
@@ -170,38 +170,11 @@ void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
         .pColorAttachments = &swapAttachmentRef,
         .pDepthStencilAttachment = &depthAttachmentRef};
 
-    // Synchronize and handle layout transitions
-    const std::array<vk::SubpassDependency, 3> dependencies{
-        vk::SubpassDependency{
-            .srcSubpass = VK_SUBPASS_EXTERNAL,
-            .dstSubpass = 0,
-            .srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe,
-            .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            .srcAccessMask = vk::AccessFlagBits::eMemoryRead,
-            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite},
-        vk::SubpassDependency{
-            .srcSubpass = 0,
-            .dstSubpass = VK_SUBPASS_EXTERNAL,
-            .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            .dstStageMask = vk::PipelineStageFlagBits::eTopOfPipe,
-            .srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
-            .dstAccessMask = vk::AccessFlagBits::eMemoryRead},
-        vk::SubpassDependency{
-            .srcSubpass = VK_SUBPASS_EXTERNAL,
-            .dstSubpass = 0,
-            .srcStageMask = vk::PipelineStageFlagBits::eTopOfPipe,
-            .dstStageMask = vk::PipelineStageFlagBits::eEarlyFragmentTests,
-            .srcAccessMask = vk::AccessFlagBits::eNoneKHR,
-            .dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-        }};
-
     _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
         .attachmentCount = static_cast<uint32_t>(attachments.size()),
         .pAttachments = attachments.data(),
         .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = static_cast<uint32_t>(dependencies.size()),
-        .pDependencies = dependencies.data()});
+        .pSubpasses = &subpass});
 
     _device->logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
@@ -517,6 +490,33 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
 
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "Scene"});
+
+    transitionImageLayout(
+        buffer, _resources->images.sceneColor.handle,
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1},
+        vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal,
+        vk::AccessFlagBits2KHR::eMemoryRead,
+        vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+        vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput);
+    transitionImageLayout(
+        buffer, _resources->images.sceneDepth.handle,
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eDepth,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1},
+        vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::AccessFlagBits2KHR::eNone,
+        vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+        vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests);
 
     const std::array<vk::ClearValue, 2> clearColors = {
         {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color

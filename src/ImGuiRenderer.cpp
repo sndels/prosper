@@ -88,6 +88,20 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "ImGui"});
 
+    transitionImageLayout(
+        buffer, _resources->images.toneMapped.handle,
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1},
+        vk::ImageLayout::eGeneral, vk::ImageLayout::eColorAttachmentOptimal,
+        vk::AccessFlagBits2KHR::eShaderWrite,
+        vk::AccessFlagBits2KHR::eColorAttachmentRead,
+        vk::PipelineStageFlagBits2KHR::eComputeShader,
+        vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput);
+
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{
             .renderPass = _renderpass,
@@ -116,7 +130,7 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
         .storeOp = vk::AttachmentStoreOp::eStore,
         .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-        .initialLayout = vk::ImageLayout::eGeneral,
+        .initialLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .finalLayout = vk::ImageLayout::eColorAttachmentOptimal,
     };
     vk::AttachmentReference color_attachment = {
@@ -126,21 +140,11 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,
     };
-    vk::SubpassDependency dependency = {
-        .srcSubpass = VK_SUBPASS_EXTERNAL,
-        .dstSubpass = 0,
-        .srcStageMask = vk::PipelineStageFlagBits::eComputeShader,
-        .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        .srcAccessMask = vk::AccessFlagBits::eShaderWrite,
-        .dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead,
-    };
     _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
         .attachmentCount = 1,
         .pAttachments = &attachment,
         .subpassCount = 1,
         .pSubpasses = &subpass,
-        .dependencyCount = 1,
-        .pDependencies = &dependency,
     });
 
     _device->logical().setDebugUtilsObjectNameEXT(
