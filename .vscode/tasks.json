@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build (release)",
+            "label": "MSBuild (release)",
             "type": "shell",
             "dependsOn": [
                 "cmake"
@@ -31,7 +31,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "build (debug)",
+            "label": "MSBuild (debug)",
             "type": "shell",
             "dependsOn": [
                 "cmake"
@@ -61,7 +61,7 @@
             "label": "make",
             "group": "build",
             "type": "shell",
-            "command": "make -j9 prosper",
+            "command": "make -j prosper",
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },
