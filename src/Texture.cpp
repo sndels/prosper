@@ -5,8 +5,6 @@
 
 #include <stb_image.h>
 
-#include "VkUtils.hpp"
-
 #ifdef _WIN32
 // Windows' header doesn't include these
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -64,6 +62,31 @@ std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(const std::string &path)
         pixels,
         vk::Extent2D{static_cast<uint32_t>(w), static_cast<uint32_t>(h)}};
 }
+
+void transitionImageLayout(
+    const vk::CommandBuffer &commandBuffer, const vk::Image &image,
+    const vk::ImageSubresourceRange &subresourceRange,
+    const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout,
+    const vk::AccessFlags2KHR srcAccessMask,
+    const vk::AccessFlags2KHR dstAccessMask,
+    const vk::PipelineStageFlags2KHR srcStageMask,
+    const vk::PipelineStageFlags2KHR dstStageMask)
+{
+    const vk::ImageMemoryBarrier2KHR barrier{
+        .srcStageMask = srcStageMask,
+        .srcAccessMask = srcAccessMask,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresourceRange = subresourceRange};
+    commandBuffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &barrier});
+}
+
 } // namespace
 
 Texture::Texture(Device *device)
@@ -258,7 +281,7 @@ void Texture2D::createImage(
 }
 
 void Texture2D::createMipmaps(
-    const vk::Extent2D extent, const uint32_t mipLevels) const
+    const vk::Extent2D extent, const uint32_t mipLevels)
 {
     // TODO: Check that the texture format supports linear filtering
     const auto buffer = _device->beginGraphicsCommands();
@@ -335,6 +358,14 @@ void Texture2D::createMipmaps(
         vk::AccessFlagBits2KHR::eShaderRead,
         vk::PipelineStageFlagBits2KHR::eTransfer,
         vk::PipelineStageFlagBits2KHR::eFragmentShader);
+
+    // We went around the state management since it doesn't support
+    // per-subresource barriers
+    _image.state = ImageState{
+        .stageMask = vk::PipelineStageFlagBits2KHR::eFragmentShader,
+        .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+        .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
 
     _device->endGraphicsCommands(buffer);
 }

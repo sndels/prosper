@@ -29,13 +29,33 @@ struct Buffer
     VmaAllocation allocation;
 };
 
+struct ImageState
+{
+    vk::PipelineStageFlags2KHR stageMask{
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe};
+    vk::AccessFlags2KHR accessMask;
+    vk::ImageLayout layout{vk::ImageLayout::eUndefined};
+};
+
 struct Image
 {
     vk::Image handle;
     vk::ImageView view;
     vk::Format format;
     vk::Extent2D extent;
+    vk::ImageSubresourceRange subresourceRange;
+    ImageState state;
     VmaAllocation allocation = nullptr;
+
+    vk::ImageMemoryBarrier2KHR transitionBarrier(
+        const vk::ImageLayout newLayout,
+        const vk::AccessFlags2KHR dstAccessMask,
+        const vk::PipelineStageFlags2KHR dstStageMask);
+
+    void transitionBarrier(
+        const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
+        const vk::AccessFlags2KHR dstAccessMask,
+        const vk::PipelineStageFlags2KHR dstStageMask);
 };
 
 class Device

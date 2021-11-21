@@ -41,8 +41,7 @@ class Texture2D : public Texture
     void createImage(
         const Buffer &stagingBuffer, const vk::Extent2D extent,
         const vk::ImageSubresourceRange &subresourceRange);
-    void createMipmaps(
-        const vk::Extent2D extent, const uint32_t mipLevels) const;
+    void createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels);
     void createSampler(const uint32_t mipLevels);
     void createSampler(
         const tinygltf::Sampler &sampler, const uint32_t mipLevels);

@@ -5,7 +5,6 @@
 #include <fstream>
 
 #include "Utils.hpp"
-#include "VkUtils.hpp"
 
 using namespace glm;
 
@@ -62,33 +61,16 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "ToneMap"});
 
-    transitionImageLayout(
-        buffer, _resources->images.sceneColor.handle,
-        vk::ImageSubresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1},
-        vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::eGeneral,
-        vk::AccessFlagBits2KHR::eColorAttachmentWrite,
-        vk::AccessFlagBits2KHR::eShaderRead,
-        vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits2KHR::eComputeShader);
-
-    transitionImageLayout(
-        buffer, _resources->images.toneMapped.handle,
-        vk::ImageSubresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1},
-        vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eGeneral,
-        vk::AccessFlagBits2KHR::eMemoryRead,
-        vk::AccessFlagBits2KHR::eShaderWrite,
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
-        vk::PipelineStageFlagBits2KHR::eComputeShader);
+    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+        _resources->images.sceneColor.transitionBarrier(
+            vk::ImageLayout::eGeneral, vk::AccessFlagBits2KHR::eShaderRead,
+            vk::PipelineStageFlagBits2KHR::eComputeShader),
+        _resources->images.toneMapped.transitionBarrier(
+            vk::ImageLayout::eGeneral, vk::AccessFlagBits2KHR::eShaderWrite,
+            vk::PipelineStageFlagBits2KHR::eComputeShader)};
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data()});
 
     buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
@@ -143,22 +125,6 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
             vk::ImageUsageFlagBits::eColorAttachment | // ImGui
             vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
-
-    auto buffer = _device->beginGraphicsCommands();
-    // Before barrier expects this state
-    transitionImageLayout(
-        buffer, _resources->images.toneMapped.handle,
-        vk::ImageSubresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1},
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferSrcOptimal,
-        vk::AccessFlagBits2KHR::eNone, vk::AccessFlagBits2KHR::eMemoryRead,
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe);
-    _device->endGraphicsCommands(buffer);
 }
 
 void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)

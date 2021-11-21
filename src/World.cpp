@@ -11,7 +11,6 @@
 #include <set>
 
 #include "Utils.hpp"
-#include "VkUtils.hpp"
 
 using namespace glm;
 

@@ -159,6 +159,41 @@ void DestroyDebugUtilsMessengerEXT(
 }
 } // namespace
 
+vk::ImageMemoryBarrier2KHR Image::transitionBarrier(
+    const vk::ImageLayout newLayout, const vk::AccessFlags2KHR dstAccessMask,
+    const vk::PipelineStageFlags2KHR dstStageMask)
+{
+    const vk::ImageMemoryBarrier2KHR barrier{
+        .srcStageMask = state.stageMask,
+        .srcAccessMask = state.accessMask,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = state.layout,
+        .newLayout = newLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = handle,
+        .subresourceRange = subresourceRange};
+
+    state.stageMask = dstStageMask;
+    state.accessMask = dstAccessMask;
+    state.layout = newLayout;
+
+    return barrier;
+}
+
+void Image::transitionBarrier(
+    const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
+    const vk::AccessFlags2KHR dstAccessMask,
+    const vk::PipelineStageFlags2KHR dstStageMask)
+{
+
+    const auto barrier =
+        transitionBarrier(newLayout, dstAccessMask, dstStageMask);
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &barrier});
+}
+
 Device::Device(GLFWwindow *window)
 {
     vk::DynamicLoader dl;
@@ -306,6 +341,7 @@ Image Device::createImage(
         .subresourceRange = range});
 
     image.extent = extent;
+    image.subresourceRange = range;
     image.format = format;
     return image;
 }

@@ -104,16 +104,15 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
         if ((properties.optimalTilingFeatures & features) != features)
             throw std::runtime_error("Depth format unsupported");
 
-        const vk::ImageSubresourceRange subresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eDepth,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-
         _resources->images.sceneDepth = _device->createImage(
             "sceneDepth", swapConfig.extent, swapConfig.depthFormat,
-            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
+            vk::ImageSubresourceRange{
+                .aspectMask = vk::ImageAspectFlagBits::eDepth,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1},
+            vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::MemoryPropertyFlagBits::eDeviceLocal,
@@ -121,13 +120,9 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 
-        transitionImageLayout(
-            commandBuffer, _resources->images.sceneDepth.handle,
-            subresourceRange, vk::ImageLayout::eUndefined,
-            vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            vk::AccessFlags2KHR{},
+        _resources->images.sceneDepth.transitionBarrier(
+            commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal,
             vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits2KHR::eTopOfPipe,
             vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests);
 
         _device->endGraphicsCommands(commandBuffer);
@@ -491,32 +486,18 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "Scene"});
 
-    transitionImageLayout(
-        buffer, _resources->images.sceneColor.handle,
-        vk::ImageSubresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1},
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits2KHR::eMemoryRead,
-        vk::AccessFlagBits2KHR::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
-        vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput);
-    transitionImageLayout(
-        buffer, _resources->images.sceneDepth.handle,
-        vk::ImageSubresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eDepth,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1},
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits2KHR::eNone,
-        vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe,
-        vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests);
+    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+        _resources->images.sceneColor.transitionBarrier(
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+            vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput),
+        _resources->images.sceneDepth.transitionBarrier(
+            vk::ImageLayout::eDepthAttachmentOptimal,
+            vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+            vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests)};
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data()});
 
     const std::array<vk::ClearValue, 2> clearColors = {
         {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
