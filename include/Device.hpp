@@ -87,6 +87,7 @@ class Device
     void createDebugMessenger();
     void createSurface(GLFWwindow *window);
     void selectPhysicalDevice();
+    void enablePhysicalDeviceFeatures();
     void createLogicalDevice();
     void createAllocator();
     void createCommandPools();
