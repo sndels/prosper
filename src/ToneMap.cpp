@@ -1,6 +1,15 @@
 #include "ToneMap.hpp"
 
+// CMake doesn't seem to support MSVC /external -stuff yet
+#ifdef _MSC_VER
+#pragma warning(push, 0)
+#endif // _MSC_VER
+
 #include <glm/glm.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // _MSC_VER
 
 #include <fstream>
 
@@ -45,7 +54,7 @@ void ToneMap::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
     destroySwapchainRelated();
     createOutputImage(swapConfig);
     createDescriptorSet(swapConfig);
-    createPipelines(swapConfig);
+    createPipelines();
     // Each command buffer binds to specific swapchain image
     createCommandBuffers(swapConfig);
 }
@@ -165,7 +174,7 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
         0, nullptr);
 }
 
-void ToneMap::createPipelines(const SwapchainConfig &swapConfig)
+void ToneMap::createPipelines()
 {
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{

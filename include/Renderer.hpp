@@ -52,7 +52,7 @@ class Renderer
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
     void createOutputs(const SwapchainConfig &swapConfig);
-    void createRenderPass(const SwapchainConfig &swapConfig);
+    void createRenderPass();
     void createFramebuffer(const SwapchainConfig &swapConfig);
     void createGraphicsPipelines(
         const SwapchainConfig &swapConfig,

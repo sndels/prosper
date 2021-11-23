@@ -1,6 +1,15 @@
 #include "Renderer.hpp"
 
+// CMake doesn't seem to support MSVC /external -stuff yet
+#ifdef _MSC_VER
+#pragma warning(push, 0)
+#endif // _MSC_VER
+
 #include <glm/gtc/matrix_transform.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // _MSC_VER
 
 #include "Utils.hpp"
 #include "VkUtils.hpp"
@@ -34,7 +43,7 @@ void Renderer::recreateSwapchainRelated(
     destroySwapchainRelated();
 
     createOutputs(swapConfig);
-    createRenderPass(swapConfig);
+    createRenderPass();
     createFramebuffer(swapConfig);
     createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
     // Each command buffer binds to specific swapchain image
@@ -129,7 +138,7 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
     }
 }
 
-void Renderer::createRenderPass(const SwapchainConfig &swapConfig)
+void Renderer::createRenderPass()
 {
     const std::array<vk::AttachmentDescription, 2> attachments = {
         // color

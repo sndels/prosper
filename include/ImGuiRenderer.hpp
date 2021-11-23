@@ -6,7 +6,7 @@
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 
-#include <glfw/glfw3.h>
+#include <GLFW/glfw3.h>
 
 class ImGuiRenderer
 {
@@ -26,7 +26,7 @@ class ImGuiRenderer
     void createRenderPass(const vk::Format &colorFormat);
 
     void destroySwapchainRelated();
-    void createDescriptorPool(const SwapchainConfig &swapConfig);
+    void createDescriptorPool();
 
   private:
     Device *_device = nullptr;

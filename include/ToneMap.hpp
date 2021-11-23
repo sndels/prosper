@@ -26,7 +26,7 @@ class ToneMap
     void destroySwapchainRelated();
     void createOutputImage(const SwapchainConfig &swapConfig);
     void createDescriptorSet(const SwapchainConfig &swapConfig);
-    void createPipelines(const SwapchainConfig &swapConfig);
+    void createPipelines();
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     Device *_device = nullptr;

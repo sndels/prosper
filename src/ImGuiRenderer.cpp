@@ -22,7 +22,7 @@ ImGuiRenderer::ImGuiRenderer(
 : _device{device}
 , _resources{resources}
 {
-    createDescriptorPool(swapConfig);
+    createDescriptorPool();
     createRenderPass(_resources->images.toneMapped.format);
 
     ImGui::CreateContext();
@@ -179,7 +179,7 @@ void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
             .commandBufferCount = swapConfig.imageCount});
 }
 
-void ImGuiRenderer::createDescriptorPool(const SwapchainConfig &swapConfig)
+void ImGuiRenderer::createDescriptorPool()
 {
     const uint32_t maxSets = 1000;
     const std::array<vk::DescriptorPoolSize, 11> poolSizes{{

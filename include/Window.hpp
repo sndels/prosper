@@ -1,7 +1,6 @@
 #ifndef PROSPER_WINDOW_HPP
 #define PROSPER_WINDOW_HPP
 
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <string>

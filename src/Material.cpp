@@ -13,7 +13,6 @@ float Material::alphaModeFloat() const
     default:
         throw std::runtime_error("Unimplemented AlphaMode->float -conversion");
     }
-    return -1;
 }
 
 Material::PCBlock Material::pcBlock() const
