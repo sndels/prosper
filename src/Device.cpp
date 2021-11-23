@@ -15,7 +15,7 @@ const std::vector<const char *> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
 const std::vector<const char *> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME};
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 QueueFamilies findQueueFamilies(
     const vk::PhysicalDevice device, const vk::SurfaceKHR surface)
@@ -159,14 +159,14 @@ void DestroyDebugUtilsMessengerEXT(
 }
 } // namespace
 
-vk::ImageMemoryBarrier2KHR Image::transitionBarrier(
-    const vk::ImageLayout newLayout, const vk::AccessFlags2KHR dstAccessMask,
-    const vk::PipelineStageFlags2KHR dstStageMask)
+void Image::transitionBarrier(
+    const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
+    const vk::AccessFlags dstAccessMask,
+    const vk::PipelineStageFlags dstStageMask)
 {
-    const vk::ImageMemoryBarrier2KHR barrier{
-        .srcStageMask = state.stageMask,
+    const auto srcStageMask = state.stageMask;
+    const vk::ImageMemoryBarrier barrier{
         .srcAccessMask = state.accessMask,
-        .dstStageMask = dstStageMask,
         .dstAccessMask = dstAccessMask,
         .oldLayout = state.layout,
         .newLayout = newLayout,
@@ -175,23 +175,13 @@ vk::ImageMemoryBarrier2KHR Image::transitionBarrier(
         .image = handle,
         .subresourceRange = subresourceRange};
 
+    buffer.pipelineBarrier(
+        srcStageMask, dstStageMask, vk::DependencyFlags{}, 0, nullptr, 0,
+        nullptr, 1, &barrier);
+
     state.stageMask = dstStageMask;
     state.accessMask = dstAccessMask;
     state.layout = newLayout;
-
-    return barrier;
-}
-
-void Image::transitionBarrier(
-    const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
-    const vk::AccessFlags2KHR dstAccessMask,
-    const vk::PipelineStageFlags2KHR dstStageMask)
-{
-
-    const auto barrier =
-        transitionBarrier(newLayout, dstAccessMask, dstStageMask);
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
-        .imageMemoryBarrierCount = 1, .pImageMemoryBarriers = &barrier});
 }
 
 Device::Device(GLFWwindow *window)
@@ -207,7 +197,6 @@ Device::Device(GLFWwindow *window)
     createDebugMessenger();
     createSurface(window);
     selectPhysicalDevice();
-    enablePhysicalDeviceFeatures();
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
     createLogicalDevice();
@@ -385,8 +374,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto families = findQueueFamilies(device, _surface);
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
-    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
-    vk::PhysicalDeviceFeatures2 supportedFeatures{.pNext = &sync2Features};
+    vk::PhysicalDeviceFeatures2 supportedFeatures;
     device.getFeatures2(&supportedFeatures);
 
     const bool swapChainAdequate = [&]
@@ -403,8 +391,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     }();
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           supportedFeatures.features.samplerAnisotropy &&
-           sync2Features.synchronization2;
+           supportedFeatures.features.samplerAnisotropy;
 }
 
 void Device::createInstance()
@@ -467,7 +454,6 @@ void Device::selectPhysicalDevice()
 
     throw std::runtime_error("Failed to find a suitable GPU");
 }
-void Device::enablePhysicalDeviceFeatures() { }
 
 void Device::createLogicalDevice()
 {
@@ -492,13 +478,10 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
-    const vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
-        .synchronization2 = true};
     const vk::PhysicalDeviceFeatures deviceFeatures{
         .samplerAnisotropy = VK_TRUE};
 
     _logical = _physical.createDevice(vk::DeviceCreateInfo{
-        .pNext = &sync2Features,
         .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
         .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),

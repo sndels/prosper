@@ -31,9 +31,8 @@ struct Buffer
 
 struct ImageState
 {
-    vk::PipelineStageFlags2KHR stageMask{
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe};
-    vk::AccessFlags2KHR accessMask;
+    vk::PipelineStageFlags stageMask{vk::PipelineStageFlagBits::eTopOfPipe};
+    vk::AccessFlags accessMask;
     vk::ImageLayout layout{vk::ImageLayout::eUndefined};
 };
 
@@ -47,15 +46,10 @@ struct Image
     ImageState state;
     VmaAllocation allocation = nullptr;
 
-    vk::ImageMemoryBarrier2KHR transitionBarrier(
-        const vk::ImageLayout newLayout,
-        const vk::AccessFlags2KHR dstAccessMask,
-        const vk::PipelineStageFlags2KHR dstStageMask);
-
     void transitionBarrier(
         const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
-        const vk::AccessFlags2KHR dstAccessMask,
-        const vk::PipelineStageFlags2KHR dstStageMask);
+        const vk::AccessFlags dstAccessMask,
+        const vk::PipelineStageFlags dstStageMask);
 };
 
 class Device
@@ -107,7 +101,6 @@ class Device
     void createDebugMessenger();
     void createSurface(GLFWwindow *window);
     void selectPhysicalDevice();
-    void enablePhysicalDeviceFeatures();
     void createLogicalDevice();
     void createAllocator();
     void createCommandPools();

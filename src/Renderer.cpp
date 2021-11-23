@@ -122,8 +122,8 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 
         _resources->images.sceneDepth.transitionBarrier(
             commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests);
+            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+            vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
         _device->endGraphicsCommands(commandBuffer);
     }
@@ -486,18 +486,14 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "Scene"});
 
-    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
-        _resources->images.sceneColor.transitionBarrier(
-            vk::ImageLayout::eColorAttachmentOptimal,
-            vk::AccessFlagBits2KHR::eColorAttachmentWrite,
-            vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput),
-        _resources->images.sceneDepth.transitionBarrier(
-            vk::ImageLayout::eDepthAttachmentOptimal,
-            vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests)};
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
-        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data()});
+    _resources->images.sceneColor.transitionBarrier(
+        buffer, vk::ImageLayout::eColorAttachmentOptimal,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    _resources->images.sceneDepth.transitionBarrier(
+        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
     const std::array<vk::ClearValue, 2> clearColors = {
         {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color

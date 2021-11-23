@@ -90,8 +90,8 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
 
     _resources->images.toneMapped.transitionBarrier(
         buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits2KHR::eColorAttachmentRead,
-        vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput);
+        vk::AccessFlagBits::eColorAttachmentRead,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{
