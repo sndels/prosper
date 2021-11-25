@@ -15,7 +15,7 @@
 class App
 {
   public:
-    App();
+    App(std::string const &scenePath);
     ~App();
 
     App(const App &other) = delete;
