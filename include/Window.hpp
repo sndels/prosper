@@ -29,6 +29,7 @@ class Window
         int32_t mods);
     static void charCallback(GLFWwindow *window, unsigned int c);
     static void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
+    static void cursorEnterCallback(GLFWwindow *window, int entered);
     static void scrollCallback(
         GLFWwindow *window, double xoffset, double yoffset);
     static void mouseButtonCallback(

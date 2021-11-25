@@ -1,24 +1,11 @@
 #include "Window.hpp"
 
-// CMake doesn't seem to support MSVC /external -stuff yet
-#ifdef _MSC_VER
-#pragma warning(push, 0)
-#endif // _MSC_VER
-
-#include <glm/glm.hpp>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif // _MSC_VER
-
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 
 #include <iostream>
 
 #include "InputHandler.hpp"
-
-using namespace glm;
 
 Window::Window(
     const uint32_t width, const uint32_t height, const std::string &title)
@@ -38,6 +25,7 @@ Window::Window(
     glfwSetKeyCallback(_window, Window::keyCallback);
     glfwSetCharCallback(_window, Window::charCallback);
     glfwSetCursorPosCallback(_window, Window::cursorPosCallback);
+    glfwSetCursorEnterCallback(_window, Window::cursorEnterCallback);
     glfwSetScrollCallback(_window, Window::scrollCallback);
     glfwSetMouseButtonCallback(_window, Window::mouseButtonCallback);
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
@@ -62,14 +50,8 @@ bool Window::resized() const { return _resized; }
 void Window::startFrame()
 {
     _resized = false;
-    auto &mouse = InputHandler::instance()._mouse;
-    const vec2 lastMouse = mouse.currentPos;
 
     glfwPollEvents();
-
-    // Stationary mouse is not handled by callbacks
-    if (lastMouse == mouse.currentPos)
-        mouse.lastPos = mouse.currentPos;
 }
 
 void Window::errorCallback(int error, const char *description)
@@ -110,9 +92,14 @@ void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos)
 {
     (void)window;
 
-    auto &mouse = InputHandler::instance()._mouse;
-    mouse.lastPos = mouse.currentPos;
-    mouse.currentPos = vec2(xpos, ypos);
+    InputHandler::instance().handleMouseMove(xpos, ypos);
+}
+
+void Window::cursorEnterCallback(GLFWwindow *window, int entered)
+{
+    (void)window;
+
+    InputHandler::instance().handleCursorEntered(entered == GL_TRUE);
 }
 
 void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
@@ -121,7 +108,7 @@ void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
     if (io.WantCaptureMouse)
         ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
     else
-        ;
+        InputHandler::instance().handleMouseScroll(xoffset, yoffset);
 }
 
 void Window::mouseButtonCallback(
@@ -132,27 +119,9 @@ void Window::mouseButtonCallback(
 
     const ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse)
-    {
         ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-    }
     else
-    {
-        auto &mouse = InputHandler::instance()._mouse;
-        if (button == GLFW_MOUSE_BUTTON_LEFT)
-        {
-            if (action == GLFW_PRESS && !io.WantCaptureMouse)
-                mouse.leftDown = true;
-            else
-                mouse.leftDown = false;
-        }
-        else if (button == GLFW_MOUSE_BUTTON_RIGHT)
-        {
-            if (action == GLFW_PRESS && !io.WantCaptureMouse)
-                mouse.rightDown = true;
-            else
-                mouse.rightDown = false;
-        }
-    }
+        InputHandler::instance().handleMouseButton(button, action, mods);
 }
 
 void Window::framebufferSizeCallback(GLFWwindow *window, int width, int height)

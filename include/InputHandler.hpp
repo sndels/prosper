@@ -12,38 +12,59 @@
 #pragma warning(pop)
 #endif // _MSC_VER
 
+#include <optional>
+
+struct ModifierState
+{
+    bool shift{false};
+};
+
+struct CursorState
+{
+    glm::vec2 position{0.f, 0.f};
+    bool inside{false};
+};
+
+enum class MouseGestureType
+{
+    TrackBall,
+    TrackPlane,
+    TrackZoom,
+};
+
+struct MouseGesture
+{
+    glm::vec2 startPos{0.f, 0.f};
+    glm::vec2 currentPos{0.f, 0.f};
+    float verticalScroll{0.f};
+    MouseGestureType type;
+};
+
 class InputHandler
 {
   public:
-    struct Mouse
-    {
-        glm::vec2 currentPos;
-        glm::vec2 lastPos;
-        bool leftDown;
-        bool rightDown;
-
-        Mouse()
-        : currentPos(0.f)
-        , lastPos(0.f)
-        , leftDown(false)
-        , rightDown(false)
-        {
-        }
-    };
-
     InputHandler(const InputHandler &other) = delete;
     InputHandler &operator=(const InputHandler &other) = delete;
 
     static InputHandler &instance();
-    const Mouse &mouse() const;
+
+    void clearSingleFrameGestures();
+
+    const CursorState &cursor() const;
+    const ModifierState &modifiers() const;
+    const std::optional<MouseGesture> &mouseGesture() const;
+
+    void handleCursorEntered(bool entered);
+    void handleMouseScroll(double xoffset, double yoffset);
+    void handleMouseButton(int button, int action, int mods);
+    void handleMouseMove(double xpos, double ypos);
 
   private:
     InputHandler() = default;
 
-    Mouse _mouse;
-
-    // Window updates input state directly
-    friend class Window;
+    CursorState _cursor;
+    ModifierState _modifiers;
+    std::optional<MouseGesture> _mouseGesture;
 };
 
 #endif // PROSPER_INPUTHANDLER_HPP

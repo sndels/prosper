@@ -38,30 +38,16 @@ Camera::~Camera()
 
 void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
 {
-    vec3 fwd = normalize(target - eye);
-    orient(eye, fwd, up);
-}
+    _parameters = CameraParameters{.eye = eye, .target = target, .up = up};
 
-void Camera::orient(const vec3 &eye, const vec3 &fwd, const vec3 &up)
-{
-    _eye = eye;
-    vec3 z = -fwd;
-    vec3 right = normalize(cross(up, z));
-    vec3 newUp = normalize(cross(z, right));
-
-    // Right handed camera
-    _worldToCamera =
-        mat4{right.x,          newUp.x,          z.x,          0.f,
-             right.y,          newUp.y,          z.y,          0.f,
-             right.z,          newUp.z,          z.z,          0.f,
-             -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
-
-    _worldToClip = _cameraToClip * _worldToCamera;
+    updateWorldToCamera();
 }
 
 void Camera::perspective(
     const float fov, const float ar, const float zN, const float zF)
 {
+    _parameters.fov = fov;
+
     const float tf = 1.f / tanf(fov * 0.5f);
 
     // From glTF spec with flipped y and z in [0,1]
@@ -80,33 +66,15 @@ void Camera::perspective(
     _worldToClip = _cameraToClip * _worldToCamera;
 }
 
-void Camera::orbit(
-    const vec2 &currentPos, const vec2 &lastPos, const vec2 &screenCenter)
+void Camera::updateBuffer(const uint32_t index)
 {
-    const auto &right = vec3{row(_worldToCamera, 0)};
-    const vec2 delta = -(lastPos - currentPos) / screenCenter;
+    if (offset)
+    {
+        updateWorldToCamera();
+    }
 
-    _worldToCamera = _worldToCamera * glm::rotate(mat4{1.f}, delta.y, right) *
-                     glm::rotate(mat4{1.f}, delta.x, vec3{0.f, 1.f, 0.f});
-    _eye = vec3{inverse(_worldToCamera)[3]};
-}
-
-void Camera::scaleOrbit(
-    const float currentY, const float lastY, const float screenCenterY)
-{
-    // Move along the z-axis
-    const float delta = -(currentY - lastY) / screenCenterY;
-    _eye += vec3{row(_worldToCamera, 2)} * delta;
-    _worldToCamera[3] = vec4{
-        -dot(vec3{row(_worldToCamera, 0)}, _eye),
-        -dot(vec3{row(_worldToCamera, 1)}, _eye),
-        -dot(vec3{row(_worldToCamera, 2)}, _eye), 1.f};
-}
-
-void Camera::updateBuffer(const uint32_t index) const
-{
     CameraUniforms uniforms;
-    uniforms.eye = _eye;
+    uniforms.eye = offset ? _parameters.apply(*offset).eye : _parameters.eye;
     uniforms.worldToCamera = _worldToCamera;
     uniforms.cameraToClip = _cameraToClip;
 
@@ -147,6 +115,19 @@ const vk::DescriptorSet &Camera::descriptorSet(const uint32_t index) const
 const glm::mat4 &Camera::worldToCamera() const { return _worldToCamera; }
 
 const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
+
+const CameraParameters &Camera::parameters() const { return _parameters; }
+
+void Camera::applyOffset()
+{
+    if (offset)
+    {
+        _parameters = _parameters.apply(*offset);
+        offset = std::nullopt;
+    }
+
+    updateWorldToCamera();
+}
 
 void Camera::createUniformBuffers(const uint32_t swapImageCount)
 {
@@ -195,4 +176,24 @@ void Camera::createDescriptorSets(
         _device->logical().updateDescriptorSets(
             1, &descriptorWrite, 0, nullptr);
     }
+}
+
+void Camera::updateWorldToCamera()
+{
+    auto parameters = offset ? _parameters.apply(*offset) : _parameters;
+    auto const &[eye, target, up, _fov] = parameters;
+
+    vec3 fwd = normalize(target - eye);
+    vec3 z = -fwd;
+    vec3 right = normalize(cross(up, z));
+    vec3 newUp = normalize(cross(z, right));
+
+    // Right handed camera
+    _worldToCamera =
+        mat4{right.x,          newUp.x,          z.x,          0.f,
+             right.y,          newUp.y,          z.y,          0.f,
+             right.z,          newUp.z,          z.z,          0.f,
+             -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
+
+    _worldToClip = _cameraToClip * _worldToCamera;
 }

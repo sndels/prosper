@@ -26,6 +26,7 @@ class App
   private:
     void recreateSwapchainAndRelated();
 
+    void handleMouseGestures();
     void drawFrame();
 
     Window _window; // Needs to be valid before and after everything else

@@ -6,6 +6,17 @@
 #include <set>
 #include <stdexcept>
 
+// CMake doesn't seem to support MSVC /external -stuff yet
+#ifdef _MSC_VER
+#pragma warning(push, 0)
+#endif // _MSC_VER
+
+#include <glm/gtx/transform.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // _MSC_VER
+
 #include <imgui.h>
 
 #include "InputHandler.hpp"
@@ -126,19 +137,11 @@ void App::run()
     {
         _window.startFrame();
 
-        const auto &mouse = InputHandler::instance().mouse();
-        if (mouse.leftDown && mouse.currentPos != mouse.lastPos)
-        {
-            _cam.orbit(
-                mouse.currentPos, mouse.lastPos,
-                vec2(_window.width(), _window.height()) / 2.f);
-        }
-        if (mouse.rightDown && mouse.currentPos != mouse.lastPos)
-        {
-            _cam.scaleOrbit(
-                mouse.currentPos.y, mouse.lastPos.y, _window.height() / 2.f);
-        }
+        handleMouseGestures();
+
         drawFrame();
+
+        InputHandler::instance().clearSingleFrameGestures();
     }
 
     // Wait for in flight rendering actions to finish
@@ -178,6 +181,106 @@ void App::recreateSwapchainAndRelated()
         radians(CAMERA_FOV),
         _window.width() / static_cast<float>(_window.height()), CAMERA_NEAR,
         CAMERA_FAR);
+}
+
+void App::handleMouseGestures()
+{
+    // Gestures adapted from Max Liani
+    // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
+
+    const auto &gesture = InputHandler::instance().mouseGesture();
+    if (gesture)
+    {
+        using enum MouseGestureType;
+        if (gesture->type == TrackBall)
+        {
+
+            const auto dragScale = 1.f / 400.f;
+            const auto drag =
+                (gesture->currentPos - gesture->startPos) * dragScale;
+
+            const auto params = _cam.parameters();
+            const auto fromTarget = params.eye - params.target;
+
+            const auto horizontalRotatedFromTarget =
+                mat3(rotate(-drag.x, params.up)) * fromTarget;
+
+            const auto right =
+                normalize(cross(horizontalRotatedFromTarget, params.up));
+
+            const auto newFromTarget =
+                mat3(rotate(drag.y, right)) * horizontalRotatedFromTarget;
+            const auto flipUp =
+                dot(right, cross(newFromTarget, params.up)) < 0.0;
+
+            _cam.offset = CameraOffset{
+                .eye = newFromTarget - fromTarget,
+                .flipUp = flipUp,
+            };
+        }
+        else if (gesture->type == TrackPlane)
+        {
+            const auto params = _cam.parameters();
+            const auto from_target = params.eye - params.target;
+            const auto dist_target = length(from_target);
+
+            // TODO: Adjust for aspect ratio difference between film and window
+            const auto drag_scale = [&]
+            {
+                auto tanHalfFov = tan(params.fov * 0.5f);
+                return dist_target * tanHalfFov /
+                       (static_cast<float>(_window.height()) * 0.5f);
+            }();
+            const auto drag =
+                (gesture->currentPos - gesture->startPos) * drag_scale;
+
+            const auto right = normalize(cross(from_target, params.up));
+            const auto cam_up = normalize(cross(right, from_target));
+
+            const auto offset = right * (drag.x) + cam_up * (drag.y);
+
+            _cam.offset = CameraOffset{
+                .eye = offset,
+                .target = offset,
+            };
+        }
+        else if (gesture->type == TrackZoom)
+        {
+            if (!_cam.offset)
+            {
+                const auto &params = _cam.parameters();
+
+                const auto to_target = params.target - params.eye;
+                const auto dist_target = length(to_target);
+                const auto fwd = to_target / dist_target;
+
+                const auto scroll_scale = dist_target * 0.1f;
+
+                const auto offset = CameraOffset{
+                    .eye = fwd * gesture->verticalScroll * scroll_scale,
+                };
+
+                // Make sure we don't get too close to get stuck
+                const auto offsetParams = params.apply(offset);
+                if (all(greaterThan(
+                        abs(offsetParams.eye - params.target),
+                        vec3(compMax(
+                            0.01f * max(offsetParams.eye, params.target))))))
+                {
+                    _cam.offset = offset;
+                }
+            }
+        }
+        else
+            throw std::runtime_error("Unknown mouse gesture");
+    }
+    else
+    {
+        if (_cam.offset)
+        {
+            _cam.applyOffset();
+        }
+    }
 }
 
 void App::drawFrame()
@@ -234,6 +337,8 @@ void App::drawFrame()
         .offset = {0, 0}, .extent = _swapchain.extent()};
 
     std::vector<vk::CommandBuffer> commandBuffers;
+
+    _cam.updateBuffer(nextImage);
 
     commandBuffers.push_back(
         _renderer.execute(_world, _cam, renderArea, nextImage));

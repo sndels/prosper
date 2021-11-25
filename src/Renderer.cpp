@@ -469,8 +469,6 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
 void Renderer::updateUniformBuffers(
     const World &world, const Camera &cam, const uint32_t nextImage) const
 {
-    cam.updateBuffer(nextImage);
-
     const mat4 worldToClip =
         cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
     void *data;
