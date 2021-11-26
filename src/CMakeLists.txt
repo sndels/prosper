@@ -10,6 +10,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/TransparentsRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.cpp

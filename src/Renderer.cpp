@@ -74,7 +74,6 @@ void Renderer::destroySwapchainRelated()
         }
 
         _device->logical().destroy(_pipelines.pbr);
-        _device->logical().destroy(_pipelines.pbrAlphaBlend);
         _device->logical().destroy(_pipelines.skybox);
         _device->logical().destroy(_pipelineLayouts.pbr);
         _device->logical().destroy(_pipelineLayouts.skybox);
@@ -156,7 +155,7 @@ void Renderer::createRenderPass()
             .format = _resources->images.sceneDepth.format,
             .samples = vk::SampleCountFlagBits::e1,
             .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eDontCare,
+            .storeOp = vk::AttachmentStoreOp::eStore,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
             .initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -252,8 +251,7 @@ void Renderer::createGraphicsPipelines(
             .scissorCount = 1,
             .pScissors = &scissor};
 
-        // Alpha blend is created with a modified version
-        vk::PipelineRasterizationStateCreateInfo rasterizerState{
+        const vk::PipelineRasterizationStateCreateInfo rasterizerState{
             .polygonMode = vk::PolygonMode::eFill,
             .cullMode = vk::CullModeFlagBits::eBack,
             .frontFace = vk::FrontFace::eCounterClockwise,
@@ -267,8 +265,7 @@ void Renderer::createGraphicsPipelines(
             .depthWriteEnable = VK_TRUE,
             .depthCompareOp = vk::CompareOp::eLess};
 
-        // Alpha blend pipeline is created with a modified version
-        vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+        const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
             .blendEnable = VK_FALSE,
             .srcColorBlendFactor = vk::BlendFactor::eOne,
             .dstColorBlendFactor = vk::BlendFactor::eZero,
@@ -318,27 +315,6 @@ void Renderer::createGraphicsPipelines(
                 throw std::runtime_error("Failed to create pbr pipeline");
 
             _pipelines.pbr = pipeline.value;
-        }
-
-        rasterizerState.cullMode = vk::CullModeFlagBits::eNone;
-        colorBlendAttachment.blendEnable = VK_TRUE;
-        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-        colorBlendAttachment.dstColorBlendFactor =
-            vk::BlendFactor::eOneMinusSrcAlpha;
-        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-        colorBlendAttachment.srcAlphaBlendFactor =
-            vk::BlendFactor::eOneMinusSrcAlpha;
-        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-
-        {
-            auto pipeline = _device->logical().createGraphicsPipeline(
-                vk::PipelineCache{}, createInfo);
-            if (pipeline.result != vk::Result::eSuccess)
-                throw std::runtime_error(
-                    "Failed to create pbr alpha blend pipeline");
-
-            _pipelines.pbrAlphaBlend = pipeline.value;
         }
 
         _device->logical().destroyShaderModule(vertSM);
@@ -549,26 +525,6 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     world.drawSkybox(buffer);
 
     buffer.endDebugUtilsLabelEXT(); // Skybox
-
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
-
-    // Draw transparent geometry
-    buffer.bindPipeline(
-        vk::PipelineBindPoint::eGraphics, _pipelines.pbrAlphaBlend);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayouts.pbr,
-        0, // firstSet
-        1, &cam.descriptorSet(nextImage), 0, nullptr);
-
-    // TODO: Sort back to front
-    recordModelInstances(
-        buffer, nextImage, world.currentScene().modelInstances,
-        [](const Mesh &mesh)
-        { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
-
-    buffer.endDebugUtilsLabelEXT(); // Transparents
 
     buffer.endRenderPass();
 

@@ -16,6 +16,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Scene.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/TransparentsRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.hpp

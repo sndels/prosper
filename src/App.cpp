@@ -103,6 +103,9 @@ App::App(std::string const& scenePath)
 , _renderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
+, _transparentsRenderer{
+      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      _world._dsLayouts}
 , _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 {
@@ -173,6 +176,8 @@ void App::recreateSwapchainAndRelated()
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
     _renderer.recreateSwapchainRelated(
+        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+    _transparentsRenderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _toneMap.recreateSwapchainRelated(_swapConfig);
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
@@ -342,6 +347,9 @@ void App::drawFrame()
 
     commandBuffers.push_back(
         _renderer.execute(_world, _cam, renderArea, nextImage));
+
+    commandBuffers.push_back(
+        _transparentsRenderer.execute(_world, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(_toneMap.execute(nextImage));
 

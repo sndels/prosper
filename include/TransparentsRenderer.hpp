@@ -1,5 +1,5 @@
-#ifndef PROSPER_RENDERER_HPP
-#define PROSPER_RENDERER_HPP
+#ifndef PROSPER_TRANSPARENTS_RENDERER_HPP
+#define PROSPER_TRANSPARENTS_RENDERER_HPP
 
 #include <functional>
 
@@ -9,30 +9,24 @@
 #include "Swapchain.hpp"
 #include "World.hpp"
 
-class Renderer
+class TransparentsRenderer
 {
   public:
-    struct Pipelines
-    {
-        vk::Pipeline pbr;
-        vk::Pipeline skybox;
-    };
-
     struct PipelineLayouts
     {
         vk::PipelineLayout pbr;
         vk::PipelineLayout skybox;
     };
 
-    Renderer(
+    TransparentsRenderer(
         Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    ~Renderer();
+    ~TransparentsRenderer();
 
-    Renderer(const Renderer &other) = delete;
-    Renderer &operator=(const Renderer &other) = delete;
+    TransparentsRenderer(const TransparentsRenderer &other) = delete;
+    TransparentsRenderer &operator=(const TransparentsRenderer &other) = delete;
 
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig,
@@ -53,7 +47,7 @@ class Renderer
     void createOutputs(const SwapchainConfig &swapConfig);
     void createRenderPass();
     void createFramebuffer(const SwapchainConfig &swapConfig);
-    void createGraphicsPipelines(
+    void createGraphicsPipeline(
         const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -72,8 +66,8 @@ class Renderer
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
 
-    PipelineLayouts _pipelineLayouts;
-    Pipelines _pipelines;
+    vk::PipelineLayout _pipelineLayout;
+    vk::Pipeline _pipeline;
 
     vk::RenderPass _renderpass;
 
@@ -82,4 +76,4 @@ class Renderer
     vk::Framebuffer _fbo;
 };
 
-#endif // PROSPER_RENDERER_HPP
+#endif // PROSPER_TRANSPARENTS_RENDERER_HPP

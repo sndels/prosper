@@ -9,6 +9,7 @@
 #include "Swapchain.hpp"
 #include "Timer.hpp"
 #include "ToneMap.hpp"
+#include "TransparentsRenderer.hpp"
 #include "Window.hpp"
 #include "World.hpp"
 
@@ -45,6 +46,7 @@ class App
     World _world;
 
     Renderer _renderer;
+    TransparentsRenderer _transparentsRenderer;
     ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;
 
