@@ -50,8 +50,6 @@ void Renderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::RenderPass Renderer::outputRenderpass() const { return _renderpass; }
-
 vk::CommandBuffer Renderer::execute(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const

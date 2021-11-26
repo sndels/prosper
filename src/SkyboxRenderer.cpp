@@ -45,8 +45,6 @@ void SkyboxRenderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::RenderPass SkyboxRenderer::outputRenderpass() const { return _renderpass; }
-
 vk::CommandBuffer SkyboxRenderer::execute(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const

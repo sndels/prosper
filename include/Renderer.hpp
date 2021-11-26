@@ -27,9 +27,6 @@ class Renderer
         const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    vk::Semaphore imageAvailable(const size_t frame) const;
-    vk::RenderPass outputRenderpass() const;
-
     vk::CommandBuffer execute(
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         const uint32_t nextImage) const;

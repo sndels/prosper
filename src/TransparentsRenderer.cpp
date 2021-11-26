@@ -49,11 +49,6 @@ void TransparentsRenderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::RenderPass TransparentsRenderer::outputRenderpass() const
-{
-    return _renderpass;
-}
-
 vk::CommandBuffer TransparentsRenderer::execute(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
