@@ -106,6 +106,9 @@ App::App(std::string const& scenePath)
 , _transparentsRenderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
+, _skyboxRenderer{
+      &_device, &_resources, _swapConfig,
+      _world._dsLayouts}
 , _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 {
@@ -179,6 +182,7 @@ void App::recreateSwapchainAndRelated()
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _transparentsRenderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+    _skyboxRenderer.recreateSwapchainRelated(_swapConfig, _world._dsLayouts);
     _toneMap.recreateSwapchainRelated(_swapConfig);
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
 
@@ -350,6 +354,9 @@ void App::drawFrame()
 
     commandBuffers.push_back(
         _transparentsRenderer.execute(_world, _cam, renderArea, nextImage));
+
+    commandBuffers.push_back(
+        _skyboxRenderer.execute(_world, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(_toneMap.execute(nextImage));
 

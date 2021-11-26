@@ -6,6 +6,7 @@
 #include "ImGuiRenderer.hpp"
 #include "RenderResources.hpp"
 #include "Renderer.hpp"
+#include "SkyboxRenderer.hpp"
 #include "Swapchain.hpp"
 #include "Timer.hpp"
 #include "ToneMap.hpp"
@@ -47,6 +48,7 @@ class App
 
     Renderer _renderer;
     TransparentsRenderer _transparentsRenderer;
+    SkyboxRenderer _skyboxRenderer;
     ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;
 

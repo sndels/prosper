@@ -1,5 +1,5 @@
-#ifndef PROSPER_RENDERER_HPP
-#define PROSPER_RENDERER_HPP
+#ifndef PROSPER_SKYBOXRENDERER_HPP
+#define PROSPER_SKYBOXRENDERER_HPP
 
 #include <functional>
 
@@ -9,22 +9,20 @@
 #include "Swapchain.hpp"
 #include "World.hpp"
 
-class Renderer
+class SkyboxRenderer
 {
   public:
-    Renderer(
+    SkyboxRenderer(
         Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    ~Renderer();
+    ~SkyboxRenderer();
 
-    Renderer(const Renderer &other) = delete;
-    Renderer &operator=(const Renderer &other) = delete;
+    SkyboxRenderer(const SkyboxRenderer &other) = delete;
+    SkyboxRenderer &operator=(const SkyboxRenderer &other) = delete;
 
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     vk::Semaphore imageAvailable(const size_t frame) const;
@@ -38,24 +36,18 @@ class Renderer
     void destroySwapchainRelated();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createOutputs(const SwapchainConfig &swapConfig);
     void createRenderPass();
     void createFramebuffer(const SwapchainConfig &swapConfig);
     void createGraphicsPipelines(
         const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     void updateUniformBuffers(
         const World &world, const Camera &cam, const uint32_t nextImage) const;
     vk::CommandBuffer recordCommandBuffer(
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        const World &world, const vk::Rect2D &renderArea,
         const uint32_t nextImage) const;
-    void recordModelInstances(
-        const vk::CommandBuffer buffer, const uint32_t nextImage,
-        const std::vector<Scene::ModelInstance> &instances,
-        const std::function<bool(const Mesh &)> &cullMesh) const;
 
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
@@ -70,4 +62,4 @@ class Renderer
     vk::Framebuffer _fbo;
 };
 
-#endif // PROSPER_RENDERER_HPP
+#endif // PROSPER_SKYBOXRENDERER_HPP

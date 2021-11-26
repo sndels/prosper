@@ -1,4 +1,4 @@
-#include "Renderer.hpp"
+#include "SkyboxRenderer.hpp"
 
 // CMake doesn't seem to support MSVC /external -stuff yet
 #ifdef _MSC_VER
@@ -16,18 +16,16 @@
 
 using namespace glm;
 
-Renderer::Renderer(
+SkyboxRenderer::SkyboxRenderer(
     Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
-    recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
+    recreateSwapchainRelated(swapConfig, worldDSLayouts);
 }
 
-Renderer::~Renderer()
+SkyboxRenderer::~SkyboxRenderer()
 {
     if (_device)
     {
@@ -35,33 +33,30 @@ Renderer::~Renderer()
     }
 }
 
-void Renderer::recreateSwapchainRelated(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+void SkyboxRenderer::recreateSwapchainRelated(
+    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
-    createOutputs(swapConfig);
     createRenderPass();
     createFramebuffer(swapConfig);
-    createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(swapConfig, worldDSLayouts);
     // Each command buffer binds to specific swapchain image
     createCommandBuffers(swapConfig);
 }
 
-vk::RenderPass Renderer::outputRenderpass() const { return _renderpass; }
+vk::RenderPass SkyboxRenderer::outputRenderpass() const { return _renderpass; }
 
-vk::CommandBuffer Renderer::execute(
+vk::CommandBuffer SkyboxRenderer::execute(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
     updateUniformBuffers(world, cam, nextImage);
 
-    return recordCommandBuffer(world, cam, renderArea, nextImage);
+    return recordCommandBuffer(world, renderArea, nextImage);
 }
 
-void Renderer::destroySwapchainRelated()
+void SkyboxRenderer::destroySwapchainRelated()
 {
     if (_device)
     {
@@ -77,72 +72,17 @@ void Renderer::destroySwapchainRelated()
         _device->logical().destroy(_pipelineLayout);
         _device->logical().destroy(_fbo);
         _device->logical().destroy(_renderpass);
-        _device->destroy(_resources->images.sceneColor);
-        _device->destroy(_resources->images.sceneDepth);
     }
 }
 
-void Renderer::createOutputs(const SwapchainConfig &swapConfig)
-{
-    {
-        const vk::ImageSubresourceRange subresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-
-        _resources->images.sceneColor = _device->createImage(
-            "sceneColor", swapConfig.extent, vk::Format::eR16G16B16A16Sfloat,
-            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-            vk::ImageCreateFlagBits{},
-            vk::ImageUsageFlagBits::eColorAttachment | // Render
-                vk::ImageUsageFlagBits::eStorage,      // ToneMap
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-    }
-    {
-        // Check depth buffer without stencil is supported
-        const auto features =
-            vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-        const auto properties =
-            _device->physical().getFormatProperties(swapConfig.depthFormat);
-        if ((properties.optimalTilingFeatures & features) != features)
-            throw std::runtime_error("Depth format unsupported");
-
-        _resources->images.sceneDepth = _device->createImage(
-            "sceneDepth", swapConfig.extent, swapConfig.depthFormat,
-            vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eDepth,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1},
-            vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-            vk::ImageCreateFlags{},
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-        const auto commandBuffer = _device->beginGraphicsCommands();
-
-        _resources->images.sceneDepth.transitionBarrier(
-            commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits::eEarlyFragmentTests);
-
-        _device->endGraphicsCommands(commandBuffer);
-    }
-}
-
-void Renderer::createRenderPass()
+void SkyboxRenderer::createRenderPass()
 {
     const std::array<vk::AttachmentDescription, 2> attachments = {
         // color
         vk::AttachmentDescription{
             .format = _resources->images.sceneColor.format,
             .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
@@ -152,8 +92,8 @@ void Renderer::createRenderPass()
             // depth
             .format = _resources->images.sceneDepth.format,
             .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eDontCare,
             .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
             .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
             .initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -182,10 +122,10 @@ void Renderer::createRenderPass()
             .objectType = vk::ObjectType::eRenderPass,
             .objectHandle = reinterpret_cast<uint64_t>(
                 static_cast<VkRenderPass>(_renderpass)),
-            .pObjectName = "Renderer"});
+            .pObjectName = "SkyboxRenderer"});
 }
 
-void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
+void SkyboxRenderer::createFramebuffer(const SwapchainConfig &swapConfig)
 {
     const std::array<vk::ImageView, 2> attachments = {
         {_resources->images.sceneColor.view,
@@ -199,13 +139,11 @@ void Renderer::createFramebuffer(const SwapchainConfig &swapConfig)
         .layers = 1});
 }
 
-void Renderer::createGraphicsPipelines(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+void SkyboxRenderer::createGraphicsPipelines(
+    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSPV = readFileBytes(binPath("shader/scene.vert.spv"));
-    const auto fragSPV = readFileBytes(binPath("shader/scene.frag.spv"));
+    const auto vertSPV = readFileBytes(binPath("shader/skybox.vert.spv"));
+    const auto fragSPV = readFileBytes(binPath("shader/skybox.frag.spv"));
     const vk::ShaderModule vertSM =
         createShaderModule(_device->logical(), vertSPV);
     const vk::ShaderModule fragSM =
@@ -220,17 +158,24 @@ void Renderer::createGraphicsPipelines(
             .module = fragSM,
             .pName = "main"}};
 
-    const auto vertexBindingDescription = Vertex::bindingDescription();
-    const auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
+    const vk::VertexInputBindingDescription vertexBindingDescription{
+        .binding = 0,
+        .stride = sizeof(vec3), // Only position
+        .inputRate = vk::VertexInputRate::eVertex};
+    const vk::VertexInputAttributeDescription vertexAttributeDescription{
+        .location = 0,
+        .binding = 0,
+        .format = vk::Format::eR32G32B32Sfloat,
+        .offset = 0};
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &vertexBindingDescription,
-        .vertexAttributeDescriptionCount =
-            static_cast<uint32_t>(vertexAttributeDescriptions.size()),
-        .pVertexAttributeDescriptions = vertexAttributeDescriptions.data()};
+        .vertexAttributeDescriptionCount = 1,
+        .pVertexAttributeDescriptions = &vertexAttributeDescription};
 
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList};
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
 
     // TODO: Dynamic viewport state?
     const vk::Viewport viewport{
@@ -249,7 +194,7 @@ void Renderer::createGraphicsPipelines(
 
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .polygonMode = vk::PolygonMode::eFill,
-        .cullMode = vk::CullModeFlagBits::eBack,
+        .cullMode = vk::CullModeFlagBits::eNone, // Draw the skybox from inside
         .frontFace = vk::FrontFace::eCounterClockwise,
         .lineWidth = 1.0};
 
@@ -259,10 +204,9 @@ void Renderer::createGraphicsPipelines(
     const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
         .depthTestEnable = VK_TRUE,
         .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLess};
+        .depthCompareOp = vk::CompareOp::eLessOrEqual};
 
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-        .blendEnable = VK_FALSE,
         .srcColorBlendFactor = vk::BlendFactor::eOne,
         .dstColorBlendFactor = vk::BlendFactor::eZero,
         .colorBlendOp = vk::BlendOp::eAdd,
@@ -273,20 +217,13 @@ void Renderer::createGraphicsPipelines(
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
             vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
-        .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
+        .logicOp = vk::LogicOp::eCopy,
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment};
 
-    const std::array<vk::DescriptorSetLayout, 3> setLayouts = {
-        {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material}};
-    const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eFragment,
-        .offset = 0,
-        .size = sizeof(Material::PCBlock)};
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
-            .pSetLayouts = setLayouts.data(),
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange});
+            .setLayoutCount = 1, .pSetLayouts = &worldDSLayouts.skybox});
 
     const vk::GraphicsPipelineCreateInfo createInfo{
         .stageCount = static_cast<uint32_t>(shaderStages.size()),
@@ -301,13 +238,11 @@ void Renderer::createGraphicsPipelines(
         .layout = _pipelineLayout,
         .renderPass = _renderpass,
         .subpass = 0};
-
     {
         auto pipeline = _device->logical().createGraphicsPipeline(
             vk::PipelineCache{}, createInfo);
         if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create pbr pipeline");
-
+            throw std::runtime_error("Failed to create skybox pipeline");
         _pipeline = pipeline.value;
     }
 
@@ -315,7 +250,7 @@ void Renderer::createGraphicsPipelines(
     _device->logical().destroyShaderModule(fragSM);
 }
 
-void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
+void SkyboxRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)
 {
     _commandBuffers =
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
@@ -324,7 +259,7 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
             .commandBufferCount = swapConfig.imageCount});
 }
 
-void Renderer::updateUniformBuffers(
+void SkyboxRenderer::updateUniformBuffers(
     const World &world, const Camera &cam, const uint32_t nextImage) const
 {
     const mat4 worldToClip =
@@ -338,8 +273,8 @@ void Renderer::updateUniformBuffers(
         instance.updateBuffer(_device, nextImage);
 }
 
-vk::CommandBuffer Renderer::recordCommandBuffer(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
+    const World &world, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
     const auto buffer = _commandBuffers[nextImage];
@@ -354,74 +289,36 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         vk::PipelineStageFlagBits::eColorAttachmentOutput);
     _resources->images.sceneDepth.transitionBarrier(
         buffer, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        vk::AccessFlagBits::eDepthStencilAttachmentRead,
         vk::PipelineStageFlagBits::eEarlyFragmentTests);
 
-    const std::array<vk::ClearValue, 2> clearColors = {
-        {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
-         vk::ClearValue{
-             std::array<float, 4>{1.f, 0.f, 0.f, 0.f}}} // depth stencil
-    };
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{
             .renderPass = _renderpass,
             .framebuffer = _fbo,
             .renderArea = renderArea,
-            .clearValueCount = static_cast<uint32_t>(clearColors.size()),
-            .pClearValues = clearColors.data()},
+        },
         vk::SubpassContents::eInline);
 
     buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Opaque"});
+        vk::DebugUtilsLabelEXT{.pLabelName = "Skybox"});
 
-    // Draw opaque and alpha masked geometry
+    // Skybox doesn't need to be drawn under opaque geometry but should be
+    // before transparents
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
-        1, &cam.descriptorSet(nextImage), 0, nullptr);
+        1, &world._skyboxDSs[nextImage], 0, nullptr);
 
-    recordModelInstances(
-        buffer, nextImage, world.currentScene().modelInstances,
-        [](const Mesh &mesh)
-        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
+    world.drawSkybox(buffer);
 
-    buffer.endDebugUtilsLabelEXT(); // Opaque
+    buffer.endDebugUtilsLabelEXT(); // Skybox
 
     buffer.endRenderPass();
 
     buffer.end();
 
     return buffer;
-}
-
-void Renderer::recordModelInstances(
-    const vk::CommandBuffer buffer, const uint32_t nextImage,
-    const std::vector<Scene::ModelInstance> &instances,
-    const std::function<bool(const Mesh &)> &cullMesh) const
-{
-    for (const auto &instance : instances)
-    {
-        buffer.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-            1, // firstSet
-            1, &instance.descriptorSets[nextImage], 0, nullptr);
-        for (const auto &mesh : instance.model->_meshes)
-        {
-            if (cullMesh(mesh))
-            {
-                buffer.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-                    2, // firstSet
-                    1, &mesh.material()._descriptorSet, 0, nullptr);
-                const auto pcBlock = mesh.material().pcBlock();
-                buffer.pushConstants(
-                    _pipelineLayout, vk::ShaderStageFlagBits::eFragment,
-                    0, // offset
-                    sizeof(Material::PCBlock), &pcBlock);
-                mesh.draw(buffer);
-            }
-        }
-    }
 }
