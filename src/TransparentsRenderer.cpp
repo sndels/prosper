@@ -323,7 +323,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     recordModelInstances(
         buffer, nextImage, world.currentScene().modelInstances,
         [](const Mesh &mesh)
-        { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
+        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
 
     buffer.endDebugUtilsLabelEXT(); // Transparents
 
@@ -337,7 +337,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
 void TransparentsRenderer::recordModelInstances(
     const vk::CommandBuffer buffer, const uint32_t nextImage,
     const std::vector<Scene::ModelInstance> &instances,
-    const std::function<bool(const Mesh &)> &cullMesh) const
+    const std::function<bool(const Mesh &)> &shouldRender) const
 {
     for (const auto &instance : instances)
     {
@@ -347,18 +347,19 @@ void TransparentsRenderer::recordModelInstances(
             1, &instance.descriptorSets[nextImage], 0, nullptr);
         for (const auto &mesh : instance.model->_meshes)
         {
-            if (cullMesh(mesh))
-                continue;
-            buffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-                2, // firstSet
-                1, &mesh.material()._descriptorSet, 0, nullptr);
-            const auto pcBlock = mesh.material().pcBlock();
-            buffer.pushConstants(
-                _pipelineLayout, vk::ShaderStageFlagBits::eFragment,
-                0, // offset
-                sizeof(Material::PCBlock), &pcBlock);
-            mesh.draw(buffer);
+            if (shouldRender(mesh))
+            {
+                buffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+                    2, // firstSet
+                    1, &mesh.material()._descriptorSet, 0, nullptr);
+                const auto pcBlock = mesh.material().pcBlock();
+                buffer.pushConstants(
+                    _pipelineLayout, vk::ShaderStageFlagBits::eFragment,
+                    0, // offset
+                    sizeof(Material::PCBlock), &pcBlock);
+                mesh.draw(buffer);
+            }
         }
     }
 }

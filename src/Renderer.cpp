@@ -383,7 +383,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     recordModelInstances(
         buffer, nextImage, world.currentScene().modelInstances,
         [](const Mesh &mesh)
-        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
+        { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
 
     buffer.endDebugUtilsLabelEXT(); // Opaque
 
@@ -397,7 +397,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
 void Renderer::recordModelInstances(
     const vk::CommandBuffer buffer, const uint32_t nextImage,
     const std::vector<Scene::ModelInstance> &instances,
-    const std::function<bool(const Mesh &)> &cullMesh) const
+    const std::function<bool(const Mesh &)> &shouldRender) const
 {
     for (const auto &instance : instances)
     {
@@ -407,7 +407,7 @@ void Renderer::recordModelInstances(
             1, &instance.descriptorSets[nextImage], 0, nullptr);
         for (const auto &mesh : instance.model->_meshes)
         {
-            if (cullMesh(mesh))
+            if (shouldRender(mesh))
             {
                 buffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics, _pipelineLayout,

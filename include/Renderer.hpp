@@ -52,7 +52,7 @@ class Renderer
     void recordModelInstances(
         const vk::CommandBuffer buffer, const uint32_t nextImage,
         const std::vector<Scene::ModelInstance> &instances,
-        const std::function<bool(const Mesh &)> &cullMesh) const;
+        const std::function<bool(const Mesh &)> &shouldRender) const;
 
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
