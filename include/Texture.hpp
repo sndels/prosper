@@ -15,6 +15,8 @@
 
 #include "Device.hpp"
 
+#include <filesystem>
+
 class Texture
 {
   public:
@@ -40,7 +42,8 @@ class Texture
 class Texture2D : public Texture
 {
   public:
-    Texture2D(Device *device, const std::string &path, const bool mipmap);
+    Texture2D(
+        Device *device, const std::filesystem::path &path, const bool mipmap);
     Texture2D(
         Device *device, const tinygltf::Image &image,
         const tinygltf::Sampler &sampler, const bool mipmap);
@@ -59,7 +62,7 @@ class Texture2D : public Texture
 class TextureCubemap : public Texture
 {
   public:
-    TextureCubemap(Device *device, const std::string &path);
+    TextureCubemap(Device *device, const std::filesystem::path &path);
 
   private:
     void copyPixels(

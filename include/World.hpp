@@ -6,6 +6,8 @@
 #include "Scene.hpp"
 #include "Texture.hpp"
 
+#include <filesystem>
+
 class Device;
 
 class World
@@ -19,7 +21,7 @@ class World
     };
     World(
         Device *device, const uint32_t swapImageCount,
-        const std::string &filename);
+        const std::filesystem::path &scene);
     ~World();
 
     World(const World &other) = delete;

@@ -50,13 +50,15 @@ vk::SamplerAddressMode getVkAddressMode(int glEnum)
     return vk::SamplerAddressMode::eClampToEdge;
 }
 
-std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(const std::string &path)
+std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
+    const std::filesystem::path &path)
 {
+    const auto pathString = path.string();
     int w, h, channels;
     stbi_uc *pixels =
-        stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+        stbi_load(pathString.c_str(), &w, &h, &channels, STBI_rgb_alpha);
     if (pixels == nullptr)
-        throw std::runtime_error("Failed to load texture '" + path + "'");
+        throw std::runtime_error("Failed to load texture '" + pathString + "'");
 
     return std::pair{
         pixels,
@@ -134,7 +136,8 @@ void Texture::destroy()
     }
 }
 
-Texture2D::Texture2D(Device *device, const std::string &path, const bool mipmap)
+Texture2D::Texture2D(
+    Device *device, const std::filesystem::path &path, const bool mipmap)
 : Texture(device)
 {
     const auto [pixels, extent] = pixelsFromFile(path);
@@ -400,10 +403,11 @@ void Texture2D::createSampler(
         .maxLod = static_cast<float>(mipLevels)});
 }
 
-TextureCubemap::TextureCubemap(Device *device, const std::string &path)
+TextureCubemap::TextureCubemap(
+    Device *device, const std::filesystem::path &path)
 : Texture(device)
 {
-    const gli::texture_cube cube(gli::load(path));
+    const gli::texture_cube cube(gli::load(path.string()));
     assert(!cube.empty());
     assert(cube.faces() == 6);
 

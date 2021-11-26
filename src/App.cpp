@@ -86,7 +86,7 @@ RenderResources::DescriptorPools createDescriptorPools(
 }
 } // namespace
 
-App::App(std::string const& scenePath)
+App::App(const std::filesystem::path & scene)
 : _window{WIDTH, HEIGHT, "prosper"}
 , _device{_window.ptr()}
 , _swapConfig{&_device, {_window.width(), _window.height()}}
@@ -99,7 +99,7 @@ App::App(std::string const& scenePath)
     vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
 , _world{
     &_device, _swapConfig.imageCount,
-    resPath(scenePath)}
+    scene}
 , _renderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}

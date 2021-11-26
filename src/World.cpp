@@ -49,14 +49,15 @@ const std::array<glm::vec3, 36> skyboxVerts{
      vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
      vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f}}};
 
-tinygltf::Model loadGLTFModel(const std::string &filename)
+tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string warn;
     std::string err;
 
-    const bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
+    const bool ret =
+        loader.LoadASCIIFromFile(&model, &err, &warn, path.string());
     if (!warn.empty())
         std::cout << "TinyGLTF warning: " << warn << std::endl;
     if (!err.empty())
@@ -105,6 +106,26 @@ Buffer createSkyboxVertexBuffer(Device *device)
 }
 } // namespace
 
+World::World(
+    Device *device, const uint32_t swapImageCount,
+    const std::filesystem::path &scene)
+: _emptyTexture{device, resPath("texture/empty.png"), false}
+, _skyboxTexture{device, resPath("env/storm.ktx")}
+, _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
+, _device{device}
+{
+    const auto gltfModel = loadGLTFModel(resPath(scene));
+
+    loadTextures(gltfModel);
+    loadMaterials(gltfModel);
+    loadModels(gltfModel);
+    loadScenes(gltfModel);
+
+    createUniformBuffers(swapImageCount);
+    createDescriptorPool(swapImageCount);
+    createDescriptorSets(swapImageCount);
+}
+
 World::~World()
 {
     _device->logical().destroy(_descriptorPool);
@@ -122,25 +143,6 @@ World::~World()
     }
     for (auto &buffer : _skyboxUniformBuffers)
         _device->destroy(buffer);
-}
-
-World::World(
-    Device *device, const uint32_t swapImageCount, const std::string &filename)
-: _emptyTexture{device, resPath("texture/empty.png"), false}
-, _skyboxTexture{device, resPath("env/storm.ktx")}
-, _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
-, _device{device}
-{
-    const auto gltfModel = loadGLTFModel(filename);
-
-    loadTextures(gltfModel);
-    loadMaterials(gltfModel);
-    loadModels(gltfModel);
-    loadScenes(gltfModel);
-
-    createUniformBuffers(swapImageCount);
-    createDescriptorPool(swapImageCount);
-    createDescriptorSets(swapImageCount);
 }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }

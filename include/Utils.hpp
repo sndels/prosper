@@ -4,15 +4,16 @@
 #include "vulkan.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
-std::string resPath(const std::string &res);
-std::string binPath(const std::string &bin);
+std::filesystem::path resPath(const std::filesystem::path &path);
+std::filesystem::path binPath(const std::filesystem::path &path);
 
-std::vector<std::byte> readFileBytes(const std::string &filename);
+std::vector<std::byte> readFileBytes(const std::filesystem::path &path);
 
 vk::ShaderModule createShaderModule(
     const vk::Device device, const std::vector<std::byte> &spv);

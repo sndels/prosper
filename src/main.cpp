@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 
@@ -6,7 +7,7 @@
 
 int main(int argc, char *argv[])
 {
-    std::string scenePath = "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
+    std::filesystem::path scenePath{"glTF/FlightHelmet/glTF/FlightHelmet.gltf"};
     if (argc == 2)
     {
         scenePath = argv[1];

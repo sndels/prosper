@@ -2,23 +2,29 @@
 
 #include <fstream>
 
-std::string resPath(const std::string &res)
+std::filesystem::path resPath(const std::filesystem::path &path)
 {
-    return std::string{RES_PATH} + res;
+    if (path.is_absolute())
+        return path;
+    else
+        return std::filesystem::path{RES_PATH} / path;
 }
 
-std::string binPath(const std::string &bin)
+std::filesystem::path binPath(const std::filesystem::path &path)
 {
-    return std::string{BIN_PATH} + bin;
+    if (path.is_absolute())
+        return path;
+    else
+        return std::filesystem::path{BIN_PATH} / path;
 }
 
-std::vector<std::byte> readFileBytes(const std::string &filename)
+std::vector<std::byte> readFileBytes(const std::filesystem::path &path)
 {
     // Open from end to find size from initial position
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error(
-            std::string{"Failed to open file '"} + filename + "'");
+            std::string{"Failed to open file '"} + path.string() + "'");
 
     const auto fileSize = static_cast<size_t>(file.tellg());
     std::vector<std::byte> buffer(fileSize);

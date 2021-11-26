@@ -14,10 +14,12 @@
 #include "Window.hpp"
 #include "World.hpp"
 
+#include <filesystem>
+
 class App
 {
   public:
-    App(std::string const &scenePath);
+    App(const std::filesystem::path &scene);
     ~App();
 
     App(const App &other) = delete;
