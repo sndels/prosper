@@ -47,6 +47,17 @@ void Camera::perspective(
     const float fov, const float ar, const float zN, const float zF)
 {
     _parameters.fov = fov;
+    _parameters.zN = zN;
+    _parameters.zF = zF;
+
+    perspective(ar);
+}
+
+void Camera::perspective(const float ar)
+{
+    const auto fov = _parameters.fov;
+    const auto zN = _parameters.zN;
+    const auto zF = _parameters.zF;
 
     const float tf = 1.f / tanf(fov * 0.5f);
 

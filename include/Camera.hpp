@@ -27,6 +27,8 @@ struct CameraParameters
     glm::vec3 target{0.f, 0.f, 1.f};
     glm::vec3 up{0.f, 1.f, 0.f};
     float fov{glm::radians(59.f)};
+    float zN{0.1f};
+    float zF{100.f};
 
     CameraParameters apply(CameraOffset const &offset) const
     {
@@ -62,6 +64,7 @@ class Camera
         const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
     void perspective(
         const float fov, const float ar, const float zN, const float zF);
+    void perspective(const float ar);
 
     void updateBuffer(const uint32_t index);
 
