@@ -217,8 +217,9 @@ void TransparentsRenderer::createGraphicsPipeline(
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
         .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
 
-    const std::array<vk::DescriptorSetLayout, 3> setLayouts = {
-        {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material}};
+    const std::array<vk::DescriptorSetLayout, 4> setLayouts = {
+        {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material,
+         worldDSLayouts.directionalLight}};
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
@@ -318,6 +319,12 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
         1, &cam.descriptorSet(nextImage), 0, nullptr);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        3, // firstSet
+        1, &world.currentScene().directionalLight.descriptorSets[nextImage], 0,
+        nullptr);
 
     // TODO: Sort back to front
     recordModelInstances(

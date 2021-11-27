@@ -18,6 +18,7 @@ class World
     {
         vk::DescriptorSetLayout material;
         vk::DescriptorSetLayout modelInstance;
+        vk::DescriptorSetLayout directionalLight;
         vk::DescriptorSetLayout skybox;
     };
     World(
@@ -37,6 +38,8 @@ class World
     Buffer _skyboxVertexBuffer;
 
     std::unordered_map<Scene::Node *, CameraParameters> _cameras;
+    std::unordered_map<Scene::Node *, Scene::DirectionalLight::Parameters>
+        _directionalLights;
     std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
     std::vector<Model> _models;

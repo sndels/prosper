@@ -131,6 +131,7 @@ World::~World()
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_dsLayouts.material);
     _device->logical().destroy(_dsLayouts.modelInstance);
+    _device->logical().destroy(_dsLayouts.directionalLight);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
     for (auto &scene : _scenes)
@@ -140,6 +141,9 @@ World::~World()
             for (auto &buffer : instance.uniformBuffers)
                 _device->destroy(buffer);
         }
+
+        for (auto &buffer : scene.directionalLight.uniformBuffers)
+            _device->destroy(buffer);
     }
     for (auto &buffer : _skyboxUniformBuffers)
         _device->destroy(buffer);
@@ -458,15 +462,31 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
 void World::createUniformBuffers(const uint32_t swapImageCount)
 {
     {
-        const vk::DeviceSize bufferSize = sizeof(Scene::ModelInstance::UBlock);
         for (auto &scene : _scenes)
         {
-            for (auto &modelInstance : scene.modelInstances)
             {
+                const vk::DeviceSize bufferSize =
+                    sizeof(Scene::ModelInstance::UBlock);
+                for (auto &modelInstance : scene.modelInstances)
+                {
+                    for (size_t i = 0; i < swapImageCount; ++i)
+                        modelInstance.uniformBuffers.push_back(
+                            _device->createBuffer(
+                                "ModelInstanceUniforms", bufferSize,
+                                vk::BufferUsageFlagBits::eUniformBuffer,
+                                vk::MemoryPropertyFlagBits::eHostVisible |
+                                    vk::MemoryPropertyFlagBits::eHostCoherent,
+                                VMA_MEMORY_USAGE_CPU_TO_GPU));
+                }
+            }
+
+            {
+                const vk::DeviceSize bufferSize =
+                    sizeof(Scene::DirectionalLight::Parameters);
                 for (size_t i = 0; i < swapImageCount; ++i)
-                    modelInstance.uniformBuffers.push_back(
+                    scene.directionalLight.uniformBuffers.push_back(
                         _device->createBuffer(
-                            "ModelInstanceUniforms", bufferSize,
+                            "DirectionalLightUniforms", bufferSize,
                             vk::BufferUsageFlagBits::eUniformBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -575,33 +595,78 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             writeDescriptorSets.data(), 0, nullptr);
     }
 
-    const vk::DescriptorSetLayoutBinding modelInstanceLayoutBinding{
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eVertex};
-    _dsLayouts.modelInstance = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = 1, .pBindings = &modelInstanceLayoutBinding});
+    {
+        const vk::DescriptorSetLayoutBinding layoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eVertex};
+        _dsLayouts.modelInstance = _device->logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = 1, .pBindings = &layoutBinding});
+    }
 
-    const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
-        swapImageCount, _dsLayouts.modelInstance);
+    {
+        const vk::DescriptorSetLayoutBinding layoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment};
+        _dsLayouts.directionalLight =
+            _device->logical().createDescriptorSetLayout(
+                vk::DescriptorSetLayoutCreateInfo{
+                    .bindingCount = 1, .pBindings = &layoutBinding});
+    }
+
     for (auto &scene : _scenes)
     {
-        for (auto &instance : scene.modelInstances)
         {
-            instance.descriptorSets = _device->logical().allocateDescriptorSets(
+            const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
+                swapImageCount, _dsLayouts.modelInstance);
+
+            for (auto &instance : scene.modelInstances)
+            {
+                instance.descriptorSets =
+                    _device->logical().allocateDescriptorSets(
+                        vk::DescriptorSetAllocateInfo{
+                            .descriptorPool = _descriptorPool,
+                            .descriptorSetCount = static_cast<uint32_t>(
+                                modelInstanceLayouts.size()),
+                            .pSetLayouts = modelInstanceLayouts.data()});
+
+                const auto bufferInfos = instance.bufferInfos();
+                for (size_t i = 0; i < instance.descriptorSets.size(); ++i)
+                {
+                    const vk::WriteDescriptorSet descriptorWrite{
+                        .dstSet = instance.descriptorSets[i],
+                        .dstBinding = 0,
+                        .dstArrayElement = 0,
+                        .descriptorCount = 1,
+                        .descriptorType = vk::DescriptorType::eUniformBuffer,
+                        .pBufferInfo = &bufferInfos[i]};
+                    _device->logical().updateDescriptorSets(
+                        1, &descriptorWrite, 0, nullptr);
+                }
+            }
+        }
+
+        {
+            const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
+                swapImageCount, _dsLayouts.directionalLight);
+            auto &light = scene.directionalLight;
+
+            light.descriptorSets = _device->logical().allocateDescriptorSets(
                 vk::DescriptorSetAllocateInfo{
                     .descriptorPool = _descriptorPool,
                     .descriptorSetCount =
                         static_cast<uint32_t>(modelInstanceLayouts.size()),
                     .pSetLayouts = modelInstanceLayouts.data()});
 
-            const auto bufferInfos = instance.bufferInfos();
-            for (size_t i = 0; i < instance.descriptorSets.size(); ++i)
+            const auto bufferInfos = light.bufferInfos();
+            for (size_t i = 0; i < light.descriptorSets.size(); ++i)
             {
                 const vk::WriteDescriptorSet descriptorWrite{
-                    .dstSet = instance.descriptorSets[i],
+                    .dstSet = light.descriptorSets[i],
                     .dstBinding = 0,
                     .dstArrayElement = 0,
                     .descriptorCount = 1,

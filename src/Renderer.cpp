@@ -273,8 +273,9 @@ void Renderer::createGraphicsPipelines(
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
         .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
 
-    const std::array<vk::DescriptorSetLayout, 3> setLayouts = {
-        {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material}};
+    const std::array<vk::DescriptorSetLayout, 4> setLayouts = {
+        {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material,
+         worldDSLayouts.directionalLight}};
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
@@ -334,6 +335,8 @@ void Renderer::updateUniformBuffers(
 
     for (const auto &instance : world.currentScene().modelInstances)
         instance.updateBuffer(_device, nextImage);
+
+    world.currentScene().directionalLight.updateBuffer(_device, nextImage);
 }
 
 vk::CommandBuffer Renderer::recordCommandBuffer(
@@ -379,6 +382,12 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
         1, &cam.descriptorSet(nextImage), 0, nullptr);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        3, // firstSet
+        1, &world.currentScene().directionalLight.descriptorSets[nextImage], 0,
+        nullptr);
 
     recordModelInstances(
         buffer, nextImage, world.currentScene().modelInstances,

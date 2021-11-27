@@ -16,6 +16,13 @@ layout(set = 2, binding = 0) uniform sampler2D baseColor;
 layout(set = 2, binding = 1) uniform sampler2D metallicRoughness;
 layout(set = 2, binding = 2) uniform sampler2D tangentNormal;
 
+layout(set = 3, binding = 0) uniform DirectionalLight
+{
+    vec3 irradiance;
+    vec3 direction;
+}
+directionalLight;
+
 // Needs to match Material::PCBlock
 layout(push_constant) uniform MaterialPC
 {
@@ -35,10 +42,6 @@ layout(location = 1) in vec2 fragTexCoord0;
 layout(location = 2) in mat3 fragTBN;
 
 layout(location = 0) out vec4 outColor;
-
-// TODO: Uniform inputs
-vec3 light_dir = vec3(-1, -1, -1);
-vec3 light_int = vec3(4);
 
 struct Material
 {
@@ -179,8 +182,8 @@ void main()
     m.roughness = roughness;
 
     vec3 v = normalize(camera.eye - fragPosition);
-    vec3 l = -normalize(light_dir);
-    vec3 color = light_int * evalBRDF(normal, v, l, m);
+    vec3 l = -normalize(directionalLight.direction);
+    vec3 color = directionalLight.irradiance * evalBRDF(normal, v, l, m);
 
     // Alpha blending is 2.f
     float alpha = materialPC.alphaMode > 1.f ? linearBaseColor.a : 1.f;

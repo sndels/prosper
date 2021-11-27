@@ -69,9 +69,45 @@ struct Scene
         }
     };
 
+    struct DirectionalLight
+    {
+        // Vector types in uniforms need to be aligned to 16 bytes
+        struct Parameters
+        {
+            glm::vec3 irradiance{4.f};
+            uint32_t pad;
+            glm::vec3 direction{-1.f, -1.f, -1.f};
+            uint32_t pad1;
+        } parameters;
+
+        std::vector<Buffer> uniformBuffers;
+        std::vector<vk::DescriptorSet> descriptorSets;
+
+        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        {
+            std::vector<vk::DescriptorBufferInfo> infos;
+            for (auto &buffer : uniformBuffers)
+                infos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = buffer.handle,
+                    .offset = 0,
+                    .range = sizeof(Parameters)});
+
+            return infos;
+        }
+
+        void updateBuffer(const Device *device, const uint32_t nextImage) const
+        {
+            void *data;
+            device->map(uniformBuffers[nextImage].allocation, &data);
+            memcpy(data, &parameters, sizeof(Parameters));
+            device->unmap(uniformBuffers[nextImage].allocation);
+        }
+    };
+
     CameraParameters camera;
     std::vector<Node *> nodes;
     std::vector<ModelInstance> modelInstances;
+    DirectionalLight directionalLight;
 };
 
 #endif // PROSPER_SCENENODE_HPP
