@@ -112,11 +112,8 @@ App::App(const std::filesystem::path & scene)
 , _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 {
-    _cam.lookAt(vec3{0.25f, 0.2f, 0.75f}, vec3{0.f}, vec3{0.f, 1.f, 0.f});
-    _cam.perspective(
-        radians(CAMERA_FOV),
-        _window.width() / static_cast<float>(_window.height()), CAMERA_NEAR,
-        CAMERA_FAR);
+    _cam.init(_world._scenes[_world._currentScene].camera);
+    _cam.perspective(_window.width() / static_cast<float>(_window.height()));
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {

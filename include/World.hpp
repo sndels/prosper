@@ -7,6 +7,7 @@
 #include "Texture.hpp"
 
 #include <filesystem>
+#include <unordered_map>
 
 class Device;
 
@@ -35,6 +36,7 @@ class World
     TextureCubemap _skyboxTexture;
     Buffer _skyboxVertexBuffer;
 
+    std::unordered_map<Scene::Node *, CameraParameters> _cameras;
     std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
     std::vector<Model> _models;

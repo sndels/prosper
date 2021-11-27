@@ -366,6 +366,20 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
             [&](int i) { return &_nodes[i]; });
         if (node.mesh > -1)
             _nodes[n].model = &_models[node.mesh];
+        if (node.camera > -1)
+        {
+            const auto &cam = gltfModel.cameras[node.camera];
+            if (cam.type == "perspective")
+                _cameras[&_nodes[n]] = CameraParameters{
+                    .fov = static_cast<float>(cam.perspective.yfov),
+                    .zN = static_cast<float>(cam.perspective.znear),
+                    .zF = static_cast<float>(cam.perspective.zfar),
+                };
+            else
+                fprintf(
+                    stderr, "Camera type '%s' is not supported",
+                    cam.type.c_str());
+        }
         if (node.matrix.size() == 16)
         {
             // Spec defines the matrix to be decomposeable to T * R * S
@@ -415,16 +429,27 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 nodeStack.insert(
                     nodeStack.end(), node->children.begin(),
                     node->children.end());
-                const mat4 transform = parentTransforms.back() *
-                                       translate(mat4{1.f}, node->translation) *
-                                       mat4_cast(node->rotation) *
-                                       scale(mat4{1.f}, node->scale);
+                const mat4 modelToWorld =
+                    parentTransforms.back() *
+                    translate(mat4{1.f}, node->translation) *
+                    mat4_cast(node->rotation) * scale(mat4{1.f}, node->scale);
                 if (node->model)
                 {
                     scene.modelInstances.push_back(
-                        {node->model, transform, {}, {}});
+                        {node->model, modelToWorld, {}, {}});
                 }
-                parentTransforms.emplace_back(transform);
+                if (_cameras.contains(node))
+                {
+                    scene.camera = _cameras[node];
+                    scene.camera.eye =
+                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
+                    // TODO: Halfway from camera to scene bb end if inside bb /
+                    // halfway of bb if outside of bb?
+                    scene.camera.target =
+                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
+                    scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
+                }
+                parentTransforms.emplace_back(modelToWorld);
             }
         }
     }

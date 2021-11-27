@@ -1,6 +1,8 @@
 #ifndef PROSPER_SCENE_HPP
 #define PROSPER_SCENE_HPP
 
+#include "Camera.hpp"
+
 // CMake doesn't seem to support MSVC /external -stuff yet
 #ifdef _MSC_VER
 #pragma warning(push, 0)
@@ -24,6 +26,7 @@ struct Scene
         // TODO: Other fields
         std::vector<Node *> children;
         Model *model = nullptr;
+        CameraParameters camera;
         glm::vec3 translation = glm::vec3{0.f};
         glm::quat rotation = glm::quat{1.f, 0.f, 0.f, 0.f};
         glm::vec3 scale = glm::vec3{1.f};
@@ -66,6 +69,7 @@ struct Scene
         }
     };
 
+    CameraParameters camera;
     std::vector<Node *> nodes;
     std::vector<ModelInstance> modelInstances;
 };
