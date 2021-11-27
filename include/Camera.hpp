@@ -23,8 +23,8 @@ struct CameraOffset
 
 struct CameraParameters
 {
-    glm::vec3 eye{0.f, 0.f, 0.f};
-    glm::vec3 target{0.f, 0.f, 1.f};
+    glm::vec3 eye{1.f, 0.5f, 1.f};
+    glm::vec3 target{0.f, 0.f, 0.f};
     glm::vec3 up{0.f, 1.f, 0.f};
     float fov{glm::radians(59.f)};
     float zN{0.1f};
