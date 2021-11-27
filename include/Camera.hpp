@@ -60,6 +60,8 @@ class Camera
     Camera(const Camera &other) = delete;
     Camera &operator=(const Camera &other) = delete;
 
+    void init(CameraParameters const &params);
+
     void lookAt(
         const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
     void perspective(

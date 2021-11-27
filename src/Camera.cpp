@@ -36,6 +36,13 @@ Camera::~Camera()
     }
 }
 
+void Camera::init(CameraParameters const &params)
+{
+    _parameters = params;
+
+    updateWorldToCamera();
+}
+
 void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
 {
     _parameters = CameraParameters{.eye = eye, .target = target, .up = up};
@@ -192,7 +199,7 @@ void Camera::createDescriptorSets(
 void Camera::updateWorldToCamera()
 {
     auto parameters = offset ? _parameters.apply(*offset) : _parameters;
-    auto const &[eye, target, up, _fov] = parameters;
+    auto const &[eye, target, up, _fov, _zN, _zF] = parameters;
 
     vec3 fwd = normalize(target - eye);
     vec3 z = -fwd;
