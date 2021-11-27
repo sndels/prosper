@@ -151,6 +151,23 @@ World::~World()
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
+void World::updateUniformBuffers(
+    const Camera &cam, const uint32_t nextImage) const
+{
+    const mat4 worldToClip =
+        cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
+    void *data;
+    _device->map(_skyboxUniformBuffers[nextImage].allocation, &data);
+    memcpy(data, &worldToClip, sizeof(mat4));
+    _device->unmap(_skyboxUniformBuffers[nextImage].allocation);
+
+    const auto &scene = currentScene();
+    for (const auto &instance : scene.modelInstances)
+        instance.updateBuffer(_device, nextImage);
+
+    scene.directionalLight.updateBuffer(_device, nextImage);
+}
+
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
 {
     const vk::DeviceSize offset = 0;

@@ -33,8 +33,8 @@ class TransparentsRenderer
         const vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    vk::CommandBuffer execute(
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+    vk::CommandBuffer recordCommandBuffer(
+        const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
         const uint32_t nextImage) const;
 
   private:
@@ -50,11 +50,6 @@ class TransparentsRenderer
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
-    void updateUniformBuffers(
-        const World &world, const Camera &cam, const uint32_t nextImage) const;
-    vk::CommandBuffer recordCommandBuffer(
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        const uint32_t nextImage) const;
     void recordModelInstances(
         const vk::CommandBuffer buffer, const uint32_t nextImage,
         const std::vector<Scene::ModelInstance> &instances,

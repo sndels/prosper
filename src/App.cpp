@@ -345,15 +345,18 @@ void App::drawFrame()
     std::vector<vk::CommandBuffer> commandBuffers;
 
     _cam.updateBuffer(nextImage);
+    _world.updateUniformBuffers(_cam, nextImage);
+
+    const auto &scene = _world.currentScene();
 
     commandBuffers.push_back(
-        _renderer.execute(_world, _cam, renderArea, nextImage));
+        _renderer.recordCommandBuffer(scene, _cam, renderArea, nextImage));
+
+    commandBuffers.push_back(_transparentsRenderer.recordCommandBuffer(
+        scene, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(
-        _transparentsRenderer.execute(_world, _cam, renderArea, nextImage));
-
-    commandBuffers.push_back(
-        _skyboxRenderer.execute(_world, _cam, renderArea, nextImage));
+        _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));
 
     commandBuffers.push_back(_toneMap.execute(nextImage));
 

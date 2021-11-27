@@ -45,13 +45,54 @@ void SkyboxRenderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer SkyboxRenderer::execute(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
+    const World &world, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
-    updateUniformBuffers(world, cam, nextImage);
+    const auto buffer = _commandBuffers[nextImage];
+    buffer.reset();
 
-    return recordCommandBuffer(world, renderArea, nextImage);
+    buffer.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    _resources->images.sceneColor.transitionBarrier(
+        buffer, vk::ImageLayout::eColorAttachmentOptimal,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    _resources->images.sceneDepth.transitionBarrier(
+        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::AccessFlagBits::eDepthStencilAttachmentRead,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests);
+
+    buffer.beginRenderPass(
+        vk::RenderPassBeginInfo{
+            .renderPass = _renderpass,
+            .framebuffer = _fbo,
+            .renderArea = renderArea,
+        },
+        vk::SubpassContents::eInline);
+
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Skybox"});
+
+    // Skybox doesn't need to be drawn under opaque geometry but should be
+    // before transparents
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        0, // firstSet
+        1, &world._skyboxDSs[nextImage], 0, nullptr);
+
+    world.drawSkybox(buffer);
+
+    buffer.endDebugUtilsLabelEXT(); // Skybox
+
+    buffer.endRenderPass();
+
+    buffer.end();
+
+    return buffer;
 }
 
 void SkyboxRenderer::destroySwapchainRelated()
@@ -255,68 +296,4 @@ void SkyboxRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = swapConfig.imageCount});
-}
-
-void SkyboxRenderer::updateUniformBuffers(
-    const World &world, const Camera &cam, const uint32_t nextImage) const
-{
-    const mat4 worldToClip =
-        cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-    void *data;
-    _device->map(world._skyboxUniformBuffers[nextImage].allocation, &data);
-    memcpy(data, &worldToClip, sizeof(mat4));
-    _device->unmap(world._skyboxUniformBuffers[nextImage].allocation);
-
-    for (const auto &instance : world.currentScene().modelInstances)
-        instance.updateBuffer(_device, nextImage);
-}
-
-vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
-    const World &world, const vk::Rect2D &renderArea,
-    const uint32_t nextImage) const
-{
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-
-    _resources->images.sceneColor.transitionBarrier(
-        buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    _resources->images.sceneDepth.transitionBarrier(
-        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits::eDepthStencilAttachmentRead,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests);
-
-    buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{
-            .renderPass = _renderpass,
-            .framebuffer = _fbo,
-            .renderArea = renderArea,
-        },
-        vk::SubpassContents::eInline);
-
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Skybox"});
-
-    // Skybox doesn't need to be drawn under opaque geometry but should be
-    // before transparents
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        0, // firstSet
-        1, &world._skyboxDSs[nextImage], 0, nullptr);
-
-    world.drawSkybox(buffer);
-
-    buffer.endDebugUtilsLabelEXT(); // Skybox
-
-    buffer.endRenderPass();
-
-    buffer.end();
-
-    return buffer;
 }

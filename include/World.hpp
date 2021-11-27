@@ -30,6 +30,8 @@ class World
     World &operator=(const World &other) = delete;
 
     const Scene &currentScene() const;
+    void updateUniformBuffers(
+        const Camera &cam, const uint32_t nextImage) const;
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
     // TODO: Private?

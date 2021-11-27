@@ -49,13 +49,61 @@ void TransparentsRenderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer TransparentsRenderer::execute(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
+    const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
-    updateUniformBuffers(world, cam, nextImage);
+    const auto buffer = _commandBuffers[nextImage];
+    buffer.reset();
 
-    return recordCommandBuffer(world, cam, renderArea, nextImage);
+    buffer.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    _resources->images.sceneColor.transitionBarrier(
+        buffer, vk::ImageLayout::eColorAttachmentOptimal,
+        vk::AccessFlagBits::eColorAttachmentRead,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    _resources->images.sceneDepth.transitionBarrier(
+        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::AccessFlagBits::eDepthStencilAttachmentRead,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests);
+    buffer.beginRenderPass(
+        vk::RenderPassBeginInfo{
+            .renderPass = _renderpass,
+            .framebuffer = _fbo,
+            .renderArea = renderArea,
+        },
+        vk::SubpassContents::eInline);
+
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
+
+    // Draw transparent geometry
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        0, // firstSet
+        1, &cam.descriptorSet(nextImage), 0, nullptr);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        3, // firstSet
+        1, &scene.directionalLight.descriptorSets[nextImage], 0, nullptr);
+
+    // TODO: Sort back to front
+    recordModelInstances(
+        buffer, nextImage, scene.modelInstances,
+        [](const Mesh &mesh)
+        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
+
+    buffer.endDebugUtilsLabelEXT(); // Transparents
+
+    buffer.endRenderPass();
+
+    buffer.end();
+
+    return buffer;
 }
 
 void TransparentsRenderer::destroySwapchainRelated()
@@ -267,78 +315,6 @@ void TransparentsRenderer::createCommandBuffers(
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = swapConfig.imageCount});
-}
-
-void TransparentsRenderer::updateUniformBuffers(
-    const World &world, const Camera &cam, const uint32_t nextImage) const
-{
-    const mat4 worldToClip =
-        cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-    void *data;
-    _device->map(world._skyboxUniformBuffers[nextImage].allocation, &data);
-    memcpy(data, &worldToClip, sizeof(mat4));
-    _device->unmap(world._skyboxUniformBuffers[nextImage].allocation);
-
-    for (const auto &instance : world.currentScene().modelInstances)
-        instance.updateBuffer(_device, nextImage);
-}
-
-vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage) const
-{
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-
-    _resources->images.sceneColor.transitionBarrier(
-        buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits::eColorAttachmentRead,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    _resources->images.sceneDepth.transitionBarrier(
-        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits::eDepthStencilAttachmentRead,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests);
-    buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{
-            .renderPass = _renderpass,
-            .framebuffer = _fbo,
-            .renderArea = renderArea,
-        },
-        vk::SubpassContents::eInline);
-
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
-
-    // Draw transparent geometry
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        0, // firstSet
-        1, &cam.descriptorSet(nextImage), 0, nullptr);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        3, // firstSet
-        1, &world.currentScene().directionalLight.descriptorSets[nextImage], 0,
-        nullptr);
-
-    // TODO: Sort back to front
-    recordModelInstances(
-        buffer, nextImage, world.currentScene().modelInstances,
-        [](const Mesh &mesh)
-        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
-
-    buffer.endDebugUtilsLabelEXT(); // Transparents
-
-    buffer.endRenderPass();
-
-    buffer.end();
-
-    return buffer;
 }
 
 void TransparentsRenderer::recordModelInstances(

@@ -25,8 +25,8 @@ class SkyboxRenderer
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
 
-    vk::CommandBuffer execute(
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+    vk::CommandBuffer recordCommandBuffer(
+        const World &world, const vk::Rect2D &renderArea,
         const uint32_t nextImage) const;
 
   private:
@@ -39,12 +39,6 @@ class SkyboxRenderer
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
-
-    void updateUniformBuffers(
-        const World &world, const Camera &cam, const uint32_t nextImage) const;
-    vk::CommandBuffer recordCommandBuffer(
-        const World &world, const vk::Rect2D &renderArea,
-        const uint32_t nextImage) const;
 
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;

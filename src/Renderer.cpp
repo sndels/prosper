@@ -50,13 +50,67 @@ void Renderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer Renderer::execute(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+vk::CommandBuffer Renderer::recordCommandBuffer(
+    const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
-    updateUniformBuffers(world, cam, nextImage);
+    const auto buffer = _commandBuffers[nextImage];
+    buffer.reset();
 
-    return recordCommandBuffer(world, cam, renderArea, nextImage);
+    buffer.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+
+    _resources->images.sceneColor.transitionBarrier(
+        buffer, vk::ImageLayout::eColorAttachmentOptimal,
+        vk::AccessFlagBits::eColorAttachmentWrite,
+        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    _resources->images.sceneDepth.transitionBarrier(
+        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+        vk::PipelineStageFlagBits::eEarlyFragmentTests);
+
+    const std::array<vk::ClearValue, 2> clearColors = {
+        {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
+         vk::ClearValue{
+             std::array<float, 4>{1.f, 0.f, 0.f, 0.f}}} // depth stencil
+    };
+    buffer.beginRenderPass(
+        vk::RenderPassBeginInfo{
+            .renderPass = _renderpass,
+            .framebuffer = _fbo,
+            .renderArea = renderArea,
+            .clearValueCount = static_cast<uint32_t>(clearColors.size()),
+            .pClearValues = clearColors.data()},
+        vk::SubpassContents::eInline);
+
+    buffer.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{.pLabelName = "Opaque"});
+
+    // Draw opaque and alpha masked geometry
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        0, // firstSet
+        1, &cam.descriptorSet(nextImage), 0, nullptr);
+
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        3, // firstSet
+        1, &scene.directionalLight.descriptorSets[nextImage], 0, nullptr);
+
+    recordModelInstances(
+        buffer, nextImage, scene.modelInstances,
+        [](const Mesh &mesh)
+        { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
+
+    buffer.endDebugUtilsLabelEXT(); // Opaque
+
+    buffer.endRenderPass();
+
+    buffer.end();
+
+    return buffer;
 }
 
 void Renderer::destroySwapchainRelated()
@@ -321,86 +375,6 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = swapConfig.imageCount});
-}
-
-void Renderer::updateUniformBuffers(
-    const World &world, const Camera &cam, const uint32_t nextImage) const
-{
-    const mat4 worldToClip =
-        cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-    void *data;
-    _device->map(world._skyboxUniformBuffers[nextImage].allocation, &data);
-    memcpy(data, &worldToClip, sizeof(mat4));
-    _device->unmap(world._skyboxUniformBuffers[nextImage].allocation);
-
-    for (const auto &instance : world.currentScene().modelInstances)
-        instance.updateBuffer(_device, nextImage);
-
-    world.currentScene().directionalLight.updateBuffer(_device, nextImage);
-}
-
-vk::CommandBuffer Renderer::recordCommandBuffer(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage) const
-{
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-
-    _resources->images.sceneColor.transitionBarrier(
-        buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    _resources->images.sceneDepth.transitionBarrier(
-        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests);
-
-    const std::array<vk::ClearValue, 2> clearColors = {
-        {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
-         vk::ClearValue{
-             std::array<float, 4>{1.f, 0.f, 0.f, 0.f}}} // depth stencil
-    };
-    buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{
-            .renderPass = _renderpass,
-            .framebuffer = _fbo,
-            .renderArea = renderArea,
-            .clearValueCount = static_cast<uint32_t>(clearColors.size()),
-            .pClearValues = clearColors.data()},
-        vk::SubpassContents::eInline);
-
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Opaque"});
-
-    // Draw opaque and alpha masked geometry
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        0, // firstSet
-        1, &cam.descriptorSet(nextImage), 0, nullptr);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        3, // firstSet
-        1, &world.currentScene().directionalLight.descriptorSets[nextImage], 0,
-        nullptr);
-
-    recordModelInstances(
-        buffer, nextImage, world.currentScene().modelInstances,
-        [](const Mesh &mesh)
-        { return mesh.material()._alphaMode != Material::AlphaMode::Blend; });
-
-    buffer.endDebugUtilsLabelEXT(); // Opaque
-
-    buffer.endRenderPass();
-
-    buffer.end();
-
-    return buffer;
 }
 
 void Renderer::recordModelInstances(
