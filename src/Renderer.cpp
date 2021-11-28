@@ -89,15 +89,13 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     // Draw opaque and alpha masked geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
+    const std::array<vk::DescriptorSet, 2> descriptorSets{
+        scene.lights.descriptorSets[nextImage], cam.descriptorSet(nextImage)};
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
-        1, &cam.descriptorSet(nextImage), 0, nullptr);
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        3, // firstSet
-        1, &scene.lights.descriptorSets[nextImage], 0, nullptr);
+        static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0,
+        nullptr);
 
     recordModelInstances(
         buffer, nextImage, scene.modelInstances,
@@ -327,9 +325,12 @@ void Renderer::createGraphicsPipelines(
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
         .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
 
-    const std::array<vk::DescriptorSetLayout, 4> setLayouts = {
-        {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material,
-         worldDSLayouts.lights}};
+    const std::array<vk::DescriptorSetLayout, 4> setLayouts{
+        worldDSLayouts.lights,
+        camDSLayout,
+        worldDSLayouts.modelInstance,
+        worldDSLayouts.material,
+    };
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
@@ -386,7 +387,7 @@ void Renderer::recordModelInstances(
     {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-            1, // firstSet
+            2, // firstSet
             1, &instance.descriptorSets[nextImage], 0, nullptr);
         for (const auto &mesh : instance.model->_meshes)
         {
@@ -394,7 +395,7 @@ void Renderer::recordModelInstances(
             {
                 buffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-                    2, // firstSet
+                    3, // firstSet
                     1, &mesh.material()._descriptorSet, 0, nullptr);
                 const auto pcBlock = mesh.material().pcBlock();
                 buffer.pushConstants(

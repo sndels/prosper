@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(set = 0, binding = 0) uniform Camera
+layout(set = 1, binding = 0) uniform Camera
 {
     mat4 worldToCamera;
     mat4 cameraToClip;
@@ -9,7 +9,7 @@ layout(set = 0, binding = 0) uniform Camera
 }
 camera;
 
-layout(set = 1, binding = 0) uniform Object { mat4 modelToWorld; }
+layout(set = 2, binding = 0) uniform Object { mat4 modelToWorld; }
 object;
 
 // These need to match both vertex data and their attribute descriptions
