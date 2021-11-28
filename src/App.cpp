@@ -197,8 +197,7 @@ void App::handleMouseGestures()
     const auto &gesture = InputHandler::instance().mouseGesture();
     if (gesture)
     {
-        using enum MouseGestureType;
-        if (gesture->type == TrackBall)
+        if (gesture->type == MouseGestureType::TrackBall)
         {
 
             const auto dragScale = 1.f / 400.f;
@@ -224,7 +223,7 @@ void App::handleMouseGestures()
                 .flipUp = flipUp,
             };
         }
-        else if (gesture->type == TrackPlane)
+        else if (gesture->type == MouseGestureType::TrackPlane)
         {
             const auto params = _cam.parameters();
             const auto from_target = params.eye - params.target;
@@ -250,7 +249,7 @@ void App::handleMouseGestures()
                 .target = offset,
             };
         }
-        else if (gesture->type == TrackZoom)
+        else if (gesture->type == MouseGestureType::TrackZoom)
         {
             if (!_cam.offset)
             {
