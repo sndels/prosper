@@ -659,22 +659,26 @@ void World::createBuffers(const uint32_t swapImageCount)
 void World::createDescriptorPool(const uint32_t swapImageCount)
 {
     // TODO: Tight bound for node descriptor count by nodes with a mesh
-    // Skybox cubemap is also one descriptor per image as it's in the same set
-    // as camera
+    // Skybox cubemap is also one descriptor per image
+    // As is the directional light
     const uint32_t uniformDescriptorCount =
-        swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 1);
+        swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 2);
     const uint32_t samplerDescriptorCount =
         3 * static_cast<uint32_t>(_materials.size()) + swapImageCount;
-    const std::array<vk::DescriptorPoolSize, 2> poolSizes{
-        {{// (Dynamic) Nodes need per frame descriptor sets of one descriptor
-          // for the UBlock
+    const std::array<vk::DescriptorPoolSize, 3> poolSizes{
+        {{// Dynamic need per frame descriptor sets of one descriptor per UBlock
           vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
          {// Materials need one descriptor per texture as they are constant
           // between frames
-          vk::DescriptorType::eCombinedImageSampler, samplerDescriptorCount}}};
+          vk::DescriptorType::eCombinedImageSampler, samplerDescriptorCount},
+         {// Lights require per frame descriptors for points, spots
+          vk::DescriptorType::eStorageBuffer, 2 * swapImageCount}},
+    };
+    // Per-frame: Nodes, skybox, dirlight, points and spots
+    // Single: Materials
     const uint32_t maxSets =
-        swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 1) +
-        static_cast<uint32_t>(_materials.size()) + swapImageCount;
+        swapImageCount * ((static_cast<uint32_t>(_nodes.size()) + 3)) +
+        static_cast<uint32_t>(_materials.size());
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .maxSets = maxSets,
