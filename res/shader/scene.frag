@@ -18,8 +18,8 @@ layout(set = 2, binding = 2) uniform sampler2D tangentNormal;
 
 layout(set = 3, binding = 0) uniform DirectionalLight
 {
-    vec3 irradiance;
-    vec3 direction;
+    vec4 irradiance;
+    vec4 direction;
 }
 directionalLight;
 
@@ -182,8 +182,8 @@ void main()
     m.roughness = roughness;
 
     vec3 v = normalize(camera.eye - fragPosition);
-    vec3 l = -normalize(directionalLight.direction);
-    vec3 color = directionalLight.irradiance * evalBRDF(normal, v, l, m);
+    vec3 l = -normalize(directionalLight.direction.xyz);
+    vec3 color = directionalLight.irradiance.xyz * evalBRDF(normal, v, l, m);
 
     // Alpha blending is 2.f
     float alpha = materialPC.alphaMode > 1.f ? linearBaseColor.a : 1.f;

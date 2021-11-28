@@ -414,11 +414,10 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
             if (light.type == "directional")
             {
                 const auto irradiance =
-                    vec3{
+                    vec4{
                         static_cast<float>(light.color[0]),
                         static_cast<float>(light.color[1]),
-                        static_cast<float>(light.color[2]),
-                    } *
+                        static_cast<float>(light.color[2]), 0.f} *
                     static_cast<float>(light.intensity);
                 _directionalLights[&_nodes[n]] =
                     Scene::DirectionalLight::Parameters{
@@ -512,7 +511,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     scene.directionalLight.parameters =
                         _directionalLights[node];
                     scene.directionalLight.parameters.direction =
-                        mat3{modelToWorld} * vec3{0.f, 0.f, -1.f};
+                        vec4{mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
                     directionalLightFound = true;
                 }
                 parentTransforms.emplace_back(modelToWorld);

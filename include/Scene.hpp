@@ -71,13 +71,11 @@ struct Scene
 
     struct DirectionalLight
     {
-        // Vector types in uniforms need to be aligned to 16 bytes
         struct Parameters
         {
-            glm::vec3 irradiance{2.f};
-            uint32_t pad;
-            glm::vec3 direction{-1.f, -1.f, -1.f};
-            uint32_t pad1;
+            // Use vec4 because vec3 alignment is no fun between glsl, c++
+            glm::vec4 irradiance{2.f};
+            glm::vec4 direction{-1.f, -1.f, -1.f, 1.f};
         } parameters;
 
         std::vector<Buffer> uniformBuffers;
