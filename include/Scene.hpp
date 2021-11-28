@@ -139,10 +139,50 @@ struct Scene
         }
     };
 
+    struct SpotLights
+    {
+        static const uint32_t max_count = 100000;
+        struct SpotLight
+        {
+            glm::vec4 radianceAndAngleScale;
+            glm::vec4 positionAndAngleOffset;
+            glm::vec4 direction;
+        };
+
+        struct BufferData
+        {
+            SpotLight lights[max_count];
+            uint32_t count{0};
+        } bufferData;
+
+        std::vector<Buffer> storageBuffers;
+
+        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        {
+            std::vector<vk::DescriptorBufferInfo> infos;
+            for (auto &buffer : storageBuffers)
+                infos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = buffer.handle,
+                    .offset = 0,
+                    .range = sizeof(SpotLights::BufferData)});
+
+            return infos;
+        }
+
+        void updateBuffer(const Device *device, const uint32_t nextImage) const
+        {
+            void *data;
+            device->map(storageBuffers[nextImage].allocation, &data);
+            memcpy(data, &bufferData, sizeof(SpotLights::BufferData));
+            device->unmap(storageBuffers[nextImage].allocation);
+        }
+    };
+
     struct Lights
     {
         DirectionalLight directionalLight;
         PointLights pointLights;
+        SpotLights spotLights;
         std::vector<vk::DescriptorSet> descriptorSets;
     };
 

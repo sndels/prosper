@@ -39,6 +39,23 @@ layout(set = 3, binding = 1) buffer PointLights
 }
 pointLights;
 
+// This needs to match the engine
+#define MAX_SPOT_LIGHT_COUNT 100000
+
+struct SpotLight
+{
+    vec4 radianceAndAngleScale;
+    vec4 positionAndAngleOffset;
+    vec4 direction;
+};
+
+layout(set = 3, binding = 2) buffer SpotLights
+{
+    SpotLight lights[MAX_SPOT_LIGHT_COUNT];
+    uint count;
+}
+spotLights;
+
 // Needs to match Material::PCBlock
 layout(push_constant) uniform MaterialPC
 {
@@ -212,6 +229,24 @@ void main()
         float d2 = dot(toLight, toLight);
         vec3 l = toLight / sqrt(d2);
         color += light.radiance.xyz * evalBRDF(normal, v, l, m) / d2;
+    }
+
+    for (int i = 0; i < spotLights.count; ++i)
+    {
+        SpotLight light = spotLights.lights[i];
+        vec3 toLight = light.positionAndAngleOffset.xyz - fragPosition;
+        float d2 = dot(toLight, toLight);
+        vec3 l = toLight / sqrt(d2);
+
+        // Angular attenuation rom gltf spec
+        float cd = dot(-light.direction.xyz, l);
+        float angularAttenuation = saturate(
+            cd * light.radianceAndAngleScale.w +
+            light.positionAndAngleOffset.w);
+        angularAttenuation *= angularAttenuation;
+
+        color += angularAttenuation * light.radianceAndAngleScale.xyz *
+                 evalBRDF(normal, v, l, m) / d2;
     }
 
     // Alpha blending is 2.f

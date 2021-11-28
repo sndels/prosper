@@ -147,6 +147,9 @@ World::~World()
 
         for (auto &buffer : scene.lights.pointLights.storageBuffers)
             _device->destroy(buffer);
+
+        for (auto &buffer : scene.lights.spotLights.storageBuffers)
+            _device->destroy(buffer);
     }
     for (auto &buffer : _skyboxUniformBuffers)
         _device->destroy(buffer);
@@ -170,6 +173,7 @@ void World::updateUniformBuffers(
 
     scene.lights.directionalLight.updateBuffer(_device, nextImage);
     scene.lights.pointLights.updateBuffer(_device, nextImage);
+    scene.lights.spotLights.updateBuffer(_device, nextImage);
 }
 
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
@@ -528,6 +532,41 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                         // gltf blender exporter puts W into intensity
                         sceneLight.radiance /= 4.f * glm::pi<float>();
                     }
+                    else if (light.type == "spot")
+                    {
+                        auto &data = scene.lights.spotLights.bufferData;
+                        const auto i = data.count++;
+
+                        // Angular attenuation rom gltf spec
+                        const auto angleScale =
+                            1.f /
+                            max(0.001f, static_cast<float>(
+                                            cos(light.spot.innerConeAngle) -
+                                            cos(light.spot.outerConeAngle)));
+                        const auto angleOffset =
+                            static_cast<float>(
+                                -cos(light.spot.outerConeAngle)) *
+                            angleScale;
+
+                        auto &sceneLight = data.lights[i];
+                        sceneLight.radianceAndAngleScale =
+                            vec4{
+                                static_cast<float>(light.color[0]),
+                                static_cast<float>(light.color[1]),
+                                static_cast<float>(light.color[2]), 0.f} *
+                            static_cast<float>(light.intensity);
+                        // gltf blender exporter puts W into intensity
+                        sceneLight.radianceAndAngleScale /=
+                            4.f * glm::pi<float>();
+                        sceneLight.radianceAndAngleScale.w = angleScale;
+
+                        sceneLight.positionAndAngleOffset =
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                        sceneLight.positionAndAngleOffset.w = angleOffset;
+
+                        sceneLight.direction = vec4{
+                            mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
+                    }
                     else
                     {
                         fprintf(
@@ -582,6 +621,19 @@ void World::createBuffers(const uint32_t swapImageCount)
                     scene.lights.pointLights.storageBuffers.push_back(
                         _device->createBuffer(
                             "PointLightsBuffer", bufferSize,
+                            vk::BufferUsageFlagBits::eStorageBuffer,
+                            vk::MemoryPropertyFlagBits::eHostVisible |
+                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            VMA_MEMORY_USAGE_CPU_TO_GPU));
+            }
+
+            {
+                const vk::DeviceSize bufferSize =
+                    sizeof(Scene::SpotLights::BufferData);
+                for (size_t i = 0; i < swapImageCount; ++i)
+                    scene.lights.spotLights.storageBuffers.push_back(
+                        _device->createBuffer(
+                            "SpotLightsBuffer", bufferSize,
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -704,15 +756,20 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     }
 
     {
-        const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
-            {{.binding = 0,
-              .descriptorType = vk::DescriptorType::eUniformBuffer,
-              .descriptorCount = 1,
-              .stageFlags = vk::ShaderStageFlagBits::eFragment},
-             {.binding = 1,
-              .descriptorType = vk::DescriptorType::eStorageBuffer,
-              .descriptorCount = 1,
-              .stageFlags = vk::ShaderStageFlagBits::eFragment}}};
+        const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{{
+            {.binding = 0,
+             .descriptorType = vk::DescriptorType::eUniformBuffer,
+             .descriptorCount = 1,
+             .stageFlags = vk::ShaderStageFlagBits::eFragment},
+            {.binding = 1,
+             .descriptorType = vk::DescriptorType::eStorageBuffer,
+             .descriptorCount = 1,
+             .stageFlags = vk::ShaderStageFlagBits::eFragment},
+            {.binding = 2,
+             .descriptorType = vk::DescriptorType::eStorageBuffer,
+             .descriptorCount = 1,
+             .stageFlags = vk::ShaderStageFlagBits::eFragment},
+        }};
         _dsLayouts.lights = _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
                 .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
@@ -765,10 +822,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
             const auto dirLightInfos = lights.directionalLight.bufferInfos();
             const auto pointLightInfos = lights.pointLights.bufferInfos();
+            const auto spotLightInfos = lights.spotLights.bufferInfos();
             const auto &descriptorSets = lights.descriptorSets;
             for (size_t i = 0; i < descriptorSets.size(); ++i)
             {
-                const std::array<vk::WriteDescriptorSet, 2> descriptorWrites{
+                const std::array<vk::WriteDescriptorSet, 3> descriptorWrites{
                     {{.dstSet = descriptorSets[i],
                       .dstBinding = 0,
                       .dstArrayElement = 0,
@@ -780,7 +838,13 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                       .dstArrayElement = 0,
                       .descriptorCount = 1,
                       .descriptorType = vk::DescriptorType::eStorageBuffer,
-                      .pBufferInfo = &pointLightInfos[i]}}};
+                      .pBufferInfo = &pointLightInfos[i]},
+                     {.dstSet = descriptorSets[i],
+                      .dstBinding = 2,
+                      .dstArrayElement = 0,
+                      .descriptorCount = 1,
+                      .descriptorType = vk::DescriptorType::eStorageBuffer,
+                      .pBufferInfo = &spotLightInfos[i]}}};
                 _device->logical().updateDescriptorSets(
                     static_cast<uint32_t>(descriptorWrites.size()),
                     descriptorWrites.data(), 0, nullptr);
