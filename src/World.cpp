@@ -399,7 +399,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 };
             else
                 fprintf(
-                    stderr, "Camera type '%s' is not supported",
+                    stderr, "Camera type '%s' is not supported\n",
                     cam.type.c_str());
         }
         if (node.extensions.contains("KHR_lights_punctual"))
@@ -493,7 +493,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                             fprintf(
                                 stderr,
                                 "Found second directional light for a scene."
-                                " Ignoring since only one is supported");
+                                " Ignoring since only one is supported\n");
                         }
                         scene.directionalLight.parameters.irradiance =
                             vec4{
@@ -508,7 +508,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     else
                     {
                         fprintf(
-                            stderr, "Unknown light type '%s'",
+                            stderr, "Unknown light type '%s'\n",
                             light.type.c_str());
                     }
                 }
