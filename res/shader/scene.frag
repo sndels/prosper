@@ -24,7 +24,7 @@ layout(set = 3, binding = 0) uniform DirectionalLight
 directionalLight;
 
 // This needs to match the engine
-#define MAX_POINT_LIGHT_COUNT 1000000
+#define MAX_POINT_LIGHT_COUNT 100000
 
 struct PointLight
 {
