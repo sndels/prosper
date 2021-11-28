@@ -74,7 +74,7 @@ struct Scene
         // Vector types in uniforms need to be aligned to 16 bytes
         struct Parameters
         {
-            glm::vec3 irradiance{4.f};
+            glm::vec3 irradiance{2.f};
             uint32_t pad;
             glm::vec3 direction{-1.f, -1.f, -1.f};
             uint32_t pad1;
