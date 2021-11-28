@@ -18,7 +18,7 @@ class World
     {
         vk::DescriptorSetLayout material;
         vk::DescriptorSetLayout modelInstance;
-        vk::DescriptorSetLayout directionalLight;
+        vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout skybox;
     };
     World(
@@ -58,7 +58,7 @@ class World
     void loadMaterials(const tinygltf::Model &gltfModel);
     void loadModels(const tinygltf::Model &gltfModel);
     void loadScenes(const tinygltf::Model &gltfModel);
-    void createUniformBuffers(const uint32_t swapImageCount);
+    void createBuffers(const uint32_t swapImageCount);
     void createDescriptorPool(const uint32_t swapImageCount);
     void createDescriptorSets(const uint32_t swapImageCount);
 

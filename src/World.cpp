@@ -121,7 +121,7 @@ World::World(
     loadModels(gltfModel);
     loadScenes(gltfModel);
 
-    createUniformBuffers(swapImageCount);
+    createBuffers(swapImageCount);
     createDescriptorPool(swapImageCount);
     createDescriptorSets(swapImageCount);
 }
@@ -131,7 +131,7 @@ World::~World()
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_dsLayouts.material);
     _device->logical().destroy(_dsLayouts.modelInstance);
-    _device->logical().destroy(_dsLayouts.directionalLight);
+    _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
     for (auto &scene : _scenes)
@@ -142,7 +142,10 @@ World::~World()
                 _device->destroy(buffer);
         }
 
-        for (auto &buffer : scene.directionalLight.uniformBuffers)
+        for (auto &buffer : scene.lights.directionalLight.uniformBuffers)
+            _device->destroy(buffer);
+
+        for (auto &buffer : scene.lights.pointLights.storageBuffers)
             _device->destroy(buffer);
     }
     for (auto &buffer : _skyboxUniformBuffers)
@@ -165,7 +168,8 @@ void World::updateUniformBuffers(
     for (const auto &instance : scene.modelInstances)
         instance.updateBuffer(_device, nextImage);
 
-    scene.directionalLight.updateBuffer(_device, nextImage);
+    scene.lights.directionalLight.updateBuffer(_device, nextImage);
+    scene.lights.pointLights.updateBuffer(_device, nextImage);
 }
 
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
@@ -495,15 +499,34 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                                 "Found second directional light for a scene."
                                 " Ignoring since only one is supported\n");
                         }
-                        scene.directionalLight.parameters.irradiance =
+                        auto &parameters =
+                            scene.lights.directionalLight.parameters;
+                        // gltf blender exporter puts W/m^2 into intensity
+                        parameters.irradiance =
                             vec4{
                                 static_cast<float>(light.color[0]),
                                 static_cast<float>(light.color[1]),
                                 static_cast<float>(light.color[2]), 0.f} *
                             static_cast<float>(light.intensity);
-                        scene.directionalLight.parameters.direction = vec4{
+                        parameters.direction = vec4{
                             mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
                         directionalLightFound = true;
+                    }
+                    else if (light.type == "point")
+                    {
+                        auto &data = scene.lights.pointLights.bufferData;
+                        const auto i = data.count++;
+                        auto &sceneLight = data.lights[i];
+                        sceneLight.position =
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                        sceneLight.radiance =
+                            vec4{
+                                static_cast<float>(light.color[0]),
+                                static_cast<float>(light.color[1]),
+                                static_cast<float>(light.color[2]), 0.f} *
+                            static_cast<float>(light.intensity);
+                        // gltf blender exporter puts W into intensity
+                        sceneLight.radiance /= 4.f * glm::pi<float>();
                     }
                     else
                     {
@@ -518,7 +541,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
     }
 }
 
-void World::createUniformBuffers(const uint32_t swapImageCount)
+void World::createBuffers(const uint32_t swapImageCount)
 {
     {
         for (auto &scene : _scenes)
@@ -543,10 +566,23 @@ void World::createUniformBuffers(const uint32_t swapImageCount)
                 const vk::DeviceSize bufferSize =
                     sizeof(Scene::DirectionalLight::Parameters);
                 for (size_t i = 0; i < swapImageCount; ++i)
-                    scene.directionalLight.uniformBuffers.push_back(
+                    scene.lights.directionalLight.uniformBuffers.push_back(
                         _device->createBuffer(
                             "DirectionalLightUniforms", bufferSize,
                             vk::BufferUsageFlagBits::eUniformBuffer,
+                            vk::MemoryPropertyFlagBits::eHostVisible |
+                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            VMA_MEMORY_USAGE_CPU_TO_GPU));
+            }
+
+            {
+                const vk::DeviceSize bufferSize =
+                    sizeof(Scene::PointLights::BufferData);
+                for (size_t i = 0; i < swapImageCount; ++i)
+                    scene.lights.pointLights.storageBuffers.push_back(
+                        _device->createBuffer(
+                            "PointLightsBuffer", bufferSize,
+                            vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
                             VMA_MEMORY_USAGE_CPU_TO_GPU));
@@ -600,17 +636,19 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         throw std::runtime_error(
             "Tried to create World descriptor sets before loading glTF");
 
-    const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{
-        {{0, vk::DescriptorType::eCombinedImageSampler, 1,
-          vk::ShaderStageFlagBits::eFragment},
-         {1, vk::DescriptorType::eCombinedImageSampler, 1,
-          vk::ShaderStageFlagBits::eFragment},
-         {2, vk::DescriptorType::eCombinedImageSampler, 1,
-          vk::ShaderStageFlagBits::eFragment}}};
-    _dsLayouts.material = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data()});
+    {
+        const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{
+            {{0, vk::DescriptorType::eCombinedImageSampler, 1,
+              vk::ShaderStageFlagBits::eFragment},
+             {1, vk::DescriptorType::eCombinedImageSampler, 1,
+              vk::ShaderStageFlagBits::eFragment},
+             {2, vk::DescriptorType::eCombinedImageSampler, 1,
+              vk::ShaderStageFlagBits::eFragment}}};
+        _dsLayouts.material = _device->logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+                .pBindings = layoutBindings.data()});
+    }
 
     for (auto &material : _materials)
     {
@@ -666,15 +704,19 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     }
 
     {
-        const vk::DescriptorSetLayoutBinding layoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment};
-        _dsLayouts.directionalLight =
-            _device->logical().createDescriptorSetLayout(
-                vk::DescriptorSetLayoutCreateInfo{
-                    .bindingCount = 1, .pBindings = &layoutBinding});
+        const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
+            {{.binding = 0,
+              .descriptorType = vk::DescriptorType::eUniformBuffer,
+              .descriptorCount = 1,
+              .stageFlags = vk::ShaderStageFlagBits::eFragment},
+             {.binding = 1,
+              .descriptorType = vk::DescriptorType::eStorageBuffer,
+              .descriptorCount = 1,
+              .stageFlags = vk::ShaderStageFlagBits::eFragment}}};
+        _dsLayouts.lights = _device->logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+                .pBindings = layoutBindings.data()});
     }
 
     for (auto &scene : _scenes)
@@ -710,29 +752,38 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         }
 
         {
-            const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
-                swapImageCount, _dsLayouts.directionalLight);
-            auto &light = scene.directionalLight;
+            const std::vector<vk::DescriptorSetLayout> layouts(
+                swapImageCount, _dsLayouts.lights);
 
-            light.descriptorSets = _device->logical().allocateDescriptorSets(
+            auto &lights = scene.lights;
+
+            lights.descriptorSets = _device->logical().allocateDescriptorSets(
                 vk::DescriptorSetAllocateInfo{
                     .descriptorPool = _descriptorPool,
-                    .descriptorSetCount =
-                        static_cast<uint32_t>(modelInstanceLayouts.size()),
-                    .pSetLayouts = modelInstanceLayouts.data()});
+                    .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+                    .pSetLayouts = layouts.data()});
 
-            const auto bufferInfos = light.bufferInfos();
-            for (size_t i = 0; i < light.descriptorSets.size(); ++i)
+            const auto dirLightInfos = lights.directionalLight.bufferInfos();
+            const auto pointLightInfos = lights.pointLights.bufferInfos();
+            const auto &descriptorSets = lights.descriptorSets;
+            for (size_t i = 0; i < descriptorSets.size(); ++i)
             {
-                const vk::WriteDescriptorSet descriptorWrite{
-                    .dstSet = light.descriptorSets[i],
-                    .dstBinding = 0,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = vk::DescriptorType::eUniformBuffer,
-                    .pBufferInfo = &bufferInfos[i]};
+                const std::array<vk::WriteDescriptorSet, 2> descriptorWrites{
+                    {{.dstSet = descriptorSets[i],
+                      .dstBinding = 0,
+                      .dstArrayElement = 0,
+                      .descriptorCount = 1,
+                      .descriptorType = vk::DescriptorType::eUniformBuffer,
+                      .pBufferInfo = &dirLightInfos[i]},
+                     {.dstSet = descriptorSets[i],
+                      .dstBinding = 1,
+                      .dstArrayElement = 0,
+                      .descriptorCount = 1,
+                      .descriptorType = vk::DescriptorType::eStorageBuffer,
+                      .pBufferInfo = &pointLightInfos[i]}}};
                 _device->logical().updateDescriptorSets(
-                    1, &descriptorWrite, 0, nullptr);
+                    static_cast<uint32_t>(descriptorWrites.size()),
+                    descriptorWrites.data(), 0, nullptr);
             }
         }
     }

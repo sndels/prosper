@@ -23,6 +23,22 @@ layout(set = 3, binding = 0) uniform DirectionalLight
 }
 directionalLight;
 
+// This needs to match the engine
+#define MAX_POINT_LIGHT_COUNT 1000000
+
+struct PointLight
+{
+    vec4 radiance;
+    vec4 position;
+};
+
+layout(set = 3, binding = 1) buffer PointLights
+{
+    PointLight lights[MAX_POINT_LIGHT_COUNT];
+    uint count;
+}
+pointLights;
+
 // Needs to match Material::PCBlock
 layout(push_constant) uniform MaterialPC
 {
@@ -182,8 +198,21 @@ void main()
     m.roughness = roughness;
 
     vec3 v = normalize(camera.eye - fragPosition);
-    vec3 l = -normalize(directionalLight.direction.xyz);
-    vec3 color = directionalLight.irradiance.xyz * evalBRDF(normal, v, l, m);
+
+    vec3 color = vec3(0);
+    {
+        vec3 l = -normalize(directionalLight.direction.xyz);
+        color += directionalLight.irradiance.xyz * evalBRDF(normal, v, l, m);
+    }
+
+    for (int i = 0; i < pointLights.count; ++i)
+    {
+        PointLight light = pointLights.lights[i];
+        vec3 toLight = light.position.xyz - fragPosition;
+        float d2 = dot(toLight, toLight);
+        vec3 l = toLight / sqrt(d2);
+        color += light.radiance.xyz * evalBRDF(normal, v, l, m) / d2;
+    }
 
     // Alpha blending is 2.f
     float alpha = materialPC.alphaMode > 1.f ? linearBaseColor.a : 1.f;

@@ -79,7 +79,6 @@ struct Scene
         } parameters;
 
         std::vector<Buffer> uniformBuffers;
-        std::vector<vk::DescriptorSet> descriptorSets;
 
         std::vector<vk::DescriptorBufferInfo> bufferInfos() const
         {
@@ -102,10 +101,55 @@ struct Scene
         }
     };
 
+    struct PointLights
+    {
+        static const uint32_t max_count = 1000000;
+        struct PointLight
+        {
+            glm::vec4 radiance;
+            glm::vec4 position;
+        };
+
+        struct BufferData
+        {
+            PointLight lights[max_count];
+            uint32_t count{0};
+        } bufferData;
+
+        std::vector<Buffer> storageBuffers;
+
+        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        {
+            std::vector<vk::DescriptorBufferInfo> infos;
+            for (auto &buffer : storageBuffers)
+                infos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = buffer.handle,
+                    .offset = 0,
+                    .range = sizeof(PointLights::BufferData)});
+
+            return infos;
+        }
+
+        void updateBuffer(const Device *device, const uint32_t nextImage) const
+        {
+            void *data;
+            device->map(storageBuffers[nextImage].allocation, &data);
+            memcpy(data, &bufferData, sizeof(PointLights::BufferData));
+            device->unmap(storageBuffers[nextImage].allocation);
+        }
+    };
+
+    struct Lights
+    {
+        DirectionalLight directionalLight;
+        PointLights pointLights;
+        std::vector<vk::DescriptorSet> descriptorSets;
+    };
+
     CameraParameters camera;
     std::vector<Node *> nodes;
     std::vector<ModelInstance> modelInstances;
-    DirectionalLight directionalLight;
+    Lights lights;
 };
 
 #endif // PROSPER_SCENENODE_HPP

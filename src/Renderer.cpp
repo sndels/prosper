@@ -97,7 +97,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         3, // firstSet
-        1, &scene.directionalLight.descriptorSets[nextImage], 0, nullptr);
+        1, &scene.lights.descriptorSets[nextImage], 0, nullptr);
 
     recordModelInstances(
         buffer, nextImage, scene.modelInstances,
@@ -329,7 +329,7 @@ void Renderer::createGraphicsPipelines(
 
     const std::array<vk::DescriptorSetLayout, 4> setLayouts = {
         {camDSLayout, worldDSLayouts.modelInstance, worldDSLayouts.material,
-         worldDSLayouts.directionalLight}};
+         worldDSLayouts.lights}};
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
