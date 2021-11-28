@@ -401,6 +401,35 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     stderr, "Camera type '%s' is not supported",
                     cam.type.c_str());
         }
+        if (node.extensions.contains("KHR_lights_punctual"))
+        {
+            // operator[] doesn't work for some reason
+            const auto &ext = node.extensions.at("KHR_lights_punctual");
+            const auto &obj = ext.Get<tinygltf::Value::Object>();
+
+            const auto &light_index = obj.find("light")->second;
+            assert(light_index.IsInt());
+
+            const auto &light = gltfModel.lights[light_index.GetNumberAsInt()];
+            if (light.type == "directional")
+            {
+                const auto irradiance =
+                    vec3{
+                        static_cast<float>(light.color[0]),
+                        static_cast<float>(light.color[1]),
+                        static_cast<float>(light.color[2]),
+                    } *
+                    static_cast<float>(light.intensity);
+                _directionalLights[&_nodes[n]] =
+                    Scene::DirectionalLight::Parameters{
+                        .irradiance = irradiance,
+                    };
+            }
+            else
+            {
+                fprintf(stderr, "Unknown light type '%s'", light.type.c_str());
+            }
+        }
         if (node.matrix.size() == 16)
         {
             // Spec defines the matrix to be decomposeable to T * R * S
@@ -434,6 +463,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
     std::vector<mat4> parentTransforms{mat4{1.f}};
     for (auto &scene : _scenes)
     {
+        bool directionalLightFound = false;
         std::set<Scene::Node *> visited;
         std::vector<Scene::Node *> nodeStack = scene.nodes;
         while (!nodeStack.empty())
@@ -469,6 +499,21 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     scene.camera.target =
                         vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
+                }
+                if (_directionalLights.contains(node))
+                {
+                    if (directionalLightFound)
+                    {
+                        fprintf(
+                            stderr,
+                            "Found second directional light for a scene."
+                            " Ignoring since only one is supported");
+                    }
+                    scene.directionalLight.parameters =
+                        _directionalLights[node];
+                    scene.directionalLight.parameters.direction =
+                        mat3{modelToWorld} * vec3{0.f, 0.f, -1.f};
+                    directionalLightFound = true;
                 }
                 parentTransforms.emplace_back(modelToWorld);
             }
