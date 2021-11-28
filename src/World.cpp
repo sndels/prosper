@@ -376,6 +376,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 
 void World::loadScenes(const tinygltf::Model &gltfModel)
 {
+    std::unordered_map<Scene::Node *, size_t> lights;
     // TODO: More complex nodes
     _nodes.resize(gltfModel.nodes.size());
     for (size_t n = 0; n < _nodes.size(); ++n)
@@ -407,27 +408,10 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
             const auto &ext = node.extensions.at("KHR_lights_punctual");
             const auto &obj = ext.Get<tinygltf::Value::Object>();
 
-            const auto &light_index = obj.find("light")->second;
-            assert(light_index.IsInt());
+            const auto &light = obj.find("light")->second;
+            assert(light.IsInt());
 
-            const auto &light = gltfModel.lights[light_index.GetNumberAsInt()];
-            if (light.type == "directional")
-            {
-                const auto irradiance =
-                    vec4{
-                        static_cast<float>(light.color[0]),
-                        static_cast<float>(light.color[1]),
-                        static_cast<float>(light.color[2]), 0.f} *
-                    static_cast<float>(light.intensity);
-                _directionalLights[&_nodes[n]] =
-                    Scene::DirectionalLight::Parameters{
-                        .irradiance = irradiance,
-                    };
-            }
-            else
-            {
-                fprintf(stderr, "Unknown light type '%s'", light.type.c_str());
-            }
+            lights[&_nodes[n]] = static_cast<size_t>(light.GetNumberAsInt());
         }
         if (node.matrix.size() == 16)
         {
@@ -499,20 +483,34 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                         vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
                 }
-                if (_directionalLights.contains(node))
+                if (lights.contains(node))
                 {
-                    if (directionalLightFound)
+                    const auto &light = gltfModel.lights[lights[node]];
+                    if (light.type == "directional")
+                    {
+                        if (directionalLightFound)
+                        {
+                            fprintf(
+                                stderr,
+                                "Found second directional light for a scene."
+                                " Ignoring since only one is supported");
+                        }
+                        scene.directionalLight.parameters.irradiance =
+                            vec4{
+                                static_cast<float>(light.color[0]),
+                                static_cast<float>(light.color[1]),
+                                static_cast<float>(light.color[2]), 0.f} *
+                            static_cast<float>(light.intensity);
+                        scene.directionalLight.parameters.direction = vec4{
+                            mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
+                        directionalLightFound = true;
+                    }
+                    else
                     {
                         fprintf(
-                            stderr,
-                            "Found second directional light for a scene."
-                            " Ignoring since only one is supported");
+                            stderr, "Unknown light type '%s'",
+                            light.type.c_str());
                     }
-                    scene.directionalLight.parameters =
-                        _directionalLights[node];
-                    scene.directionalLight.parameters.direction =
-                        vec4{mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
-                    directionalLightFound = true;
                 }
                 parentTransforms.emplace_back(modelToWorld);
             }
