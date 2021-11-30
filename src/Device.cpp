@@ -374,7 +374,19 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto families = findQueueFamilies(device, _surface);
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
-    vk::PhysicalDeviceFeatures2 supportedFeatures;
+    vk::PhysicalDeviceVulkan12Features vk12Features{
+        .descriptorIndexing = VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        .runtimeDescriptorArray = VK_TRUE,
+    };
+    vk::PhysicalDeviceFeatures2 supportedFeatures{
+        .pNext = &vk12Features,
+        .features =
+            {
+                .samplerAnisotropy = VK_TRUE,
+                .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
+            },
+    };
     device.getFeatures2(&supportedFeatures);
 
     const bool swapChainAdequate = [&]
@@ -478,17 +490,29 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
-    const vk::PhysicalDeviceFeatures deviceFeatures{
-        .samplerAnisotropy = VK_TRUE};
+    vk::PhysicalDeviceVulkan12Features vk12Features{
+        .descriptorIndexing = VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        .runtimeDescriptorArray = VK_TRUE,
+    };
+    const vk::PhysicalDeviceFeatures2 deviceFeatures{
+        .pNext = &vk12Features,
+        .features =
+            {
+                .samplerAnisotropy = VK_TRUE,
+                .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
+            },
+    };
 
     _logical = _physical.createDevice(vk::DeviceCreateInfo{
+        .pNext = &deviceFeatures,
         .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
         .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
         .ppEnabledLayerNames = validationLayers.data(),
         .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
         .ppEnabledExtensionNames = deviceExtensions.data(),
-        .pEnabledFeatures = &deviceFeatures});
+    });
 
     // Get the created queues
     _computeQueue = _logical.getQueue(computeFamily, 0);
