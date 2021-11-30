@@ -204,6 +204,29 @@ Device::Device(GLFWwindow *window)
 
     createAllocator();
     createCommandPools();
+
+    {
+        const auto properties = _physical.getProperties();
+
+        const auto apiPacked = properties.apiVersion;
+        fprintf(
+            stderr, "Vulkan %u.%u.%u\n", VK_API_VERSION_MAJOR(apiPacked),
+            VK_API_VERSION_MINOR(apiPacked), VK_API_VERSION_PATCH(apiPacked));
+
+        fprintf(stderr, "%s\n", properties.deviceName.data());
+        fprintf(
+            stderr, "Max per descriptor set samplers: %u\n",
+            properties.limits.maxDescriptorSetSamplers);
+        fprintf(
+            stderr, "Max per stage samplers: %u\n",
+            properties.limits.maxPerStageDescriptorSamplers);
+        fprintf(
+            stderr, "Max per descriptor set sampled images: %u\n",
+            properties.limits.maxDescriptorSetSampledImages);
+        fprintf(
+            stderr, "Max per stage sampled images: %u\n",
+            properties.limits.maxPerStageDescriptorSampledImages);
+    }
 }
 
 Device::~Device()
