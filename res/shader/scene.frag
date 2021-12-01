@@ -2,57 +2,14 @@
 #pragma shader_stage(fragment)
 
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_GOOGLE_include_directive : require
 
 #define PI 3.14159265
 #define saturate(x) clamp(x, 0.0, 1.0)
 
-layout(set = 0, binding = 0) uniform DirectionalLight
-{
-    vec4 irradiance;
-    vec4 direction;
-}
-directionalLight;
+#include "ds0_lights.glsl"
 
-// This needs to match the engine
-#define MAX_POINT_LIGHT_COUNT 100000
-
-struct PointLight
-{
-    vec4 radiance;
-    vec4 position;
-};
-
-layout(set = 0, binding = 1) buffer PointLights
-{
-    PointLight lights[MAX_POINT_LIGHT_COUNT];
-    uint count;
-}
-pointLights;
-
-// This needs to match the engine
-#define MAX_SPOT_LIGHT_COUNT 100000
-
-struct SpotLight
-{
-    vec4 radianceAndAngleScale;
-    vec4 positionAndAngleOffset;
-    vec4 direction;
-};
-
-layout(set = 0, binding = 2) buffer SpotLights
-{
-    SpotLight lights[MAX_SPOT_LIGHT_COUNT];
-    uint count;
-}
-spotLights;
-
-layout(set = 1, binding = 0) uniform Camera
-{
-    mat4 worldToCamera;
-    mat4 cameraToClip;
-    vec3 eye;
-}
-camera;
+#include "ds1_camera.glsl"
 
 layout(set = 3, binding = 0) uniform sampler2D baseColor;
 layout(set = 3, binding = 1) uniform sampler2D metallicRoughness;

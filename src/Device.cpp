@@ -192,8 +192,43 @@ void Image::transition(
     });
 }
 
+FileIncluder::FileIncluder()
+: _includePath{resPath("shader")}
+{
+}
+
+shaderc_include_result *FileIncluder::GetInclude(
+    const char *requested_source, shaderc_include_type type,
+    const char * /*requesting_source*/, size_t /*include_depth*/)
+{
+    assert(type == shaderc_include_type_relative);
+
+    const auto source = readFileString(_includePath / requested_source);
+
+    char *content = new char[source.size()];
+    memcpy((void *)content, source.c_str(), source.size());
+
+    auto *result = new shaderc_include_result;
+
+    result->source_name = requested_source;
+    result->source_name_length = strlen(requested_source);
+    result->content = content;
+    result->content_length = source.size();
+    result->user_data = content;
+
+    return result;
+}
+
+void FileIncluder::ReleaseInclude(shaderc_include_result *data)
+{
+    delete[] data->user_data;
+    delete data;
+}
+
 Device::Device(GLFWwindow *window)
 {
+    _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
+
     vk::DynamicLoader dl;
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
@@ -282,11 +317,14 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     const std::string &debugName) const
 {
     const auto result = _compiler.CompileGlslToSpv(
-        source, shaderc_glsl_infer_from_source, path.c_str());
+        source, shaderc_glsl_infer_from_source, path.c_str(), _compilerOptions);
 
-    if (result.GetCompilationStatus())
+    if (const auto status = result.GetCompilationStatus(); status)
     {
-        fprintf(stderr, "%s\n", result.GetErrorMessage().c_str());
+        if (status == shaderc_compilation_status_invalid_stage)
+            fprintf(stderr, "Invalid or missing shader stage\n");
+        else
+            fprintf(stderr, "%s\n", result.GetErrorMessage().c_str());
         fprintf(stderr, "Compilation of '%s' failed\n", path.c_str());
         return {};
     }

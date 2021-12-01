@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <unordered_set>
 #include <vector>
 
 struct QueueFamilies
@@ -50,6 +51,21 @@ struct Image
 
     vk::ImageMemoryBarrier2KHR transitionBarrier(const ImageState &newState);
     void transition(const vk::CommandBuffer buffer, const ImageState &newState);
+};
+
+class FileIncluder : public shaderc::CompileOptions::IncluderInterface
+{
+  public:
+    FileIncluder();
+
+    virtual shaderc_include_result *GetInclude(
+        const char *requested_source, shaderc_include_type type,
+        const char *requesting_source, size_t include_depth);
+
+    virtual void ReleaseInclude(shaderc_include_result *data);
+
+  private:
+    std::filesystem::path _includePath;
 };
 
 class Device
@@ -114,8 +130,12 @@ class Device
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
     vk::Device _logical;
+
     VmaAllocator _allocator = nullptr;
+
+    shaderc::CompileOptions _compilerOptions;
     shaderc::Compiler _compiler;
+
     vk::SurfaceKHR _surface;
 
     QueueFamilies _queueFamilies = {std::nullopt, std::nullopt, std::nullopt};

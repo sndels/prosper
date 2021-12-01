@@ -2,14 +2,9 @@
 #pragma shader_stage(vertex)
 
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_GOOGLE_include_directive : require
 
-layout(set = 1, binding = 0) uniform Camera
-{
-    mat4 worldToCamera;
-    mat4 cameraToClip;
-    vec3 eye;
-}
-camera;
+#include "ds1_camera.glsl"
 
 layout(set = 2, binding = 0) uniform Object { mat4 modelToWorld; }
 object;
