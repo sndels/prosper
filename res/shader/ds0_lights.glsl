@@ -6,7 +6,7 @@ layout(set = 0, binding = 0) uniform DirectionalLight
 directionalLight;
 
 // This needs to match the engine
-#define MAX_POINT_LIGHT_COUNT 100000
+#define MAX_POINT_LIGHT_COUNT 0xFFFF
 
 struct PointLight
 {
@@ -22,7 +22,7 @@ layout(set = 0, binding = 1) buffer PointLights
 pointLights;
 
 // This needs to match the engine
-#define MAX_SPOT_LIGHT_COUNT 100000
+#define MAX_SPOT_LIGHT_COUNT 0xFFFF
 
 struct SpotLight
 {
