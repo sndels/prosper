@@ -251,7 +251,16 @@ void SkyboxRenderer::createGraphicsPipelines(
             vk::PipelineCache{}, createInfo);
         if (pipeline.result != vk::Result::eSuccess)
             throw std::runtime_error("Failed to create skybox pipeline");
+
         _pipeline = pipeline.value;
+
+        _device->logical().setDebugUtilsObjectNameEXT(
+            vk::DebugUtilsObjectNameInfoEXT{
+                .objectType = vk::ObjectType::ePipeline,
+                .objectHandle = reinterpret_cast<uint64_t>(
+                    static_cast<VkPipeline>(_pipeline)),
+                .pObjectName = "SkyboxRenderer",
+            });
     }
 
     _device->logical().destroyShaderModule(*vertSM);

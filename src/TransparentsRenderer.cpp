@@ -272,6 +272,14 @@ void TransparentsRenderer::createGraphicsPipeline(
                 "Failed to create pbr alpha blend pipeline");
 
         _pipeline = pipeline.value;
+
+        _device->logical().setDebugUtilsObjectNameEXT(
+            vk::DebugUtilsObjectNameInfoEXT{
+                .objectType = vk::ObjectType::ePipeline,
+                .objectHandle = reinterpret_cast<uint64_t>(
+                    static_cast<VkPipeline>(_pipeline)),
+                .pObjectName = "TransparentsRendering",
+            });
     }
 
     _device->logical().destroyShaderModule(*vertSM);
