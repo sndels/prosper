@@ -84,17 +84,21 @@ void Camera::perspective(const float ar)
     _worldToClip = _cameraToClip * _worldToCamera;
 }
 
-void Camera::updateBuffer(const uint32_t index)
+void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
 {
     if (offset)
     {
         updateWorldToCamera();
     }
 
-    CameraUniforms uniforms;
-    uniforms.eye = offset ? _parameters.apply(*offset).eye : _parameters.eye;
-    uniforms.worldToCamera = _worldToCamera;
-    uniforms.cameraToClip = _cameraToClip;
+    CameraUniforms uniforms{
+        .worldToCamera = _worldToCamera,
+        .cameraToClip = _cameraToClip,
+        .eye =
+            vec4{
+                offset ? _parameters.apply(*offset).eye : _parameters.eye, 1.f},
+        .resolution = resolution,
+    };
 
     void *data;
     _device->map(_uniformBuffers[index].allocation, &data);

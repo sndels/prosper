@@ -54,7 +54,9 @@ vk::DescriptorPool createSwapchainRelatedDescriptorPool(
 {
     const vk::DescriptorPoolSize poolSize{
         .type = vk::DescriptorType::eStorageImage,
-        .descriptorCount = 2 * swapImageCount // tonemap input/output
+        .descriptorCount =
+            (2 + 2) *
+            swapImageCount // tonemap input/output, light clustering outputs
     };
 
     return device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
@@ -96,10 +98,13 @@ App::App(const std::filesystem::path & scene)
     .descriptorPools =
         createDescriptorPools(&_device, _swapConfig.imageCount)}
 , _cam{&_device, _resources.descriptorPools.constant, _swapConfig.imageCount,
-    vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
+    vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment| vk::ShaderStageFlagBits::eCompute}
 , _world{
     &_device, _swapConfig.imageCount,
     scene}
+, _lightClustering{
+      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      _world._dsLayouts}
 , _renderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
@@ -175,6 +180,8 @@ void App::recreateSwapchainAndRelated()
 
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
+    _lightClustering.recreateSwapchainRelated(
+        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _renderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _transparentsRenderer.recreateSwapchainRelated(
@@ -343,10 +350,17 @@ void App::drawFrame()
 
     std::vector<vk::CommandBuffer> commandBuffers;
 
-    _cam.updateBuffer(nextImage);
+    assert(
+        renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
+        "Camera update assumes no render offset");
+    _cam.updateBuffer(
+        nextImage, uvec2{renderArea.extent.width, renderArea.extent.height});
     _world.updateUniformBuffers(_cam, nextImage);
 
     const auto &scene = _world.currentScene();
+
+    commandBuffers.push_back(_lightClustering.recordCommandBuffer(
+        scene, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(
         _renderer.recordCommandBuffer(scene, _cam, renderArea, nextImage));

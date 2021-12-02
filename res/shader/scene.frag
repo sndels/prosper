@@ -9,11 +9,13 @@
 
 #include "ds0_lights.glsl"
 
-#include "ds1_camera.glsl"
+#include "ds1_light_clusters.glsl"
 
-layout(set = 3, binding = 0) uniform sampler2D baseColor;
-layout(set = 3, binding = 1) uniform sampler2D metallicRoughness;
-layout(set = 3, binding = 2) uniform sampler2D tangentNormal;
+#include "ds2_camera.glsl"
+
+layout(set = 4, binding = 0) uniform sampler2D baseColor;
+layout(set = 4, binding = 1) uniform sampler2D metallicRoughness;
+layout(set = 4, binding = 2) uniform sampler2D tangentNormal;
 
 // Needs to match Material::PCBlock
 layout(push_constant) uniform MaterialPC
@@ -177,7 +179,7 @@ void main()
     m.metallic = metallic;
     m.roughness = roughness;
 
-    vec3 v = normalize(camera.eye - fragPosition);
+    vec3 v = normalize(camera.eye.xyz - fragPosition);
 
     vec3 color = vec3(0);
     {
@@ -185,18 +187,28 @@ void main()
         color += directionalLight.irradiance.xyz * evalBRDF(normal, v, l, m);
     }
 
-    for (int i = 0; i < pointLights.count; ++i)
+    uvec2 px = uvec2(gl_FragCoord.xy);
+    uvec2 clusterIndex = px / LIGHT_CLUSTER_DIMENSION;
+
+    uint clusterIndexOffset, pointCount, spotCount;
+    unpackClusterPointer(
+        clusterIndex, clusterIndexOffset, pointCount, spotCount);
+
+    for (uint i = 0; i < pointCount; ++i)
     {
-        PointLight light = pointLights.lights[i];
+        uint index = imageLoad(lightIndices, int(clusterIndexOffset + i)).x;
+        PointLight light = pointLights.lights[index];
         vec3 toLight = light.position.xyz - fragPosition;
         float d2 = dot(toLight, toLight);
         vec3 l = toLight / sqrt(d2);
         color += light.radiance.xyz * evalBRDF(normal, v, l, m) / d2;
     }
 
-    for (int i = 0; i < spotLights.count; ++i)
+    for (uint i = 0; i < spotCount; ++i)
     {
-        SpotLight light = spotLights.lights[i];
+        uint index =
+            imageLoad(lightIndices, int(clusterIndexOffset + pointCount + i)).x;
+        SpotLight light = spotLights.lights[index];
         vec3 toLight = light.positionAndAngleOffset.xyz - fragPosition;
         float d2 = dot(toLight, toLight);
         vec3 l = toLight / sqrt(d2);

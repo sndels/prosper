@@ -4,9 +4,9 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_GOOGLE_include_directive : require
 
-#include "ds1_camera.glsl"
+#include "ds2_camera.glsl"
 
-layout(set = 2, binding = 0) uniform Object { mat4 modelToWorld; }
+layout(set = 3, binding = 0) uniform Object { mat4 modelToWorld; }
 object;
 
 // These need to match both vertex data and their attribute descriptions

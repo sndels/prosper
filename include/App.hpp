@@ -4,6 +4,7 @@
 #include "Camera.hpp"
 #include "Device.hpp"
 #include "ImGuiRenderer.hpp"
+#include "LightClustering.hpp"
 #include "RenderResources.hpp"
 #include "Renderer.hpp"
 #include "SkyboxRenderer.hpp"
@@ -48,6 +49,7 @@ class App
     Camera _cam;
     World _world;
 
+    LightClustering _lightClustering;
     Renderer _renderer;
     TransparentsRenderer _transparentsRenderer;
     SkyboxRenderer _skyboxRenderer;

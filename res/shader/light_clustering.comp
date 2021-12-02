@@ -1,0 +1,125 @@
+#version 450
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+
+#define GROUP_DIM 16
+layout(local_size_x = GROUP_DIM, local_size_y = GROUP_DIM) in;
+
+#include "ds0_lights.glsl"
+
+#define WRITE_CULLING_BINDS
+#include "ds1_light_clusters.glsl"
+
+#include "ds2_camera.glsl"
+
+layout(push_constant) uniform ClusteringPC { uvec2 resolution; }
+clusteringPC;
+
+const uint maxPointIndices = 128;
+const uint maxSpotIndices = 128;
+
+shared uint pointCount;
+shared uint pointIndices[maxPointIndices];
+shared uint spotCount;
+shared uint spotIndices[maxPointIndices];
+shared uint clusterIndexOffset;
+
+bool pointVisible(uint i, uvec2 cluster)
+{
+    // TODO
+    return true;
+}
+
+bool spotVisible(uint i, uvec2 cluster)
+{
+    // TODO
+    return true;
+}
+
+void main()
+{
+    uvec2 cluster = gl_WorkGroupID.xy;
+    uvec2 clusterCorner = cluster * LIGHT_CLUSTER_DIMENSION;
+    if (all(greaterThanEqual(clusterCorner, clusteringPC.resolution)))
+        return;
+
+    uint localIndex = gl_LocalInvocationIndex;
+    bool leadThread = localIndex == 0;
+
+    if (leadThread)
+    {
+        pointCount = 0;
+        spotCount = 0;
+    }
+    barrier();
+    groupMemoryBarrier();
+
+    uint groupThreads = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+
+    {
+        uint totalPoints = pointLights.count;
+        uint threadPoints = (totalPoints - 1) / groupThreads + 1;
+        for (uint i = 0; i < threadPoints; ++i)
+        {
+            uint index = localIndex * threadPoints + i;
+            if (index >= totalPoints)
+                break;
+
+            if (pointVisible(index, cluster))
+            {
+                uint writeIndex = atomicAdd(pointCount, 1);
+                pointIndices[writeIndex] = index;
+            }
+        }
+
+        uint totalSpots = spotLights.count;
+        uint threadSpots = (totalSpots - 1) / groupThreads + 1;
+        for (uint i = 0; i < threadSpots; ++i)
+        {
+            uint index = localIndex * threadSpots + i;
+            if (index >= totalSpots)
+                break;
+            if (spotVisible(index, cluster))
+            {
+                uint writeIndex = atomicAdd(spotCount, 1);
+                spotIndices[writeIndex] = index;
+            }
+        }
+    }
+    barrier();
+    groupMemoryBarrier();
+
+    if (leadThread)
+    {
+        clusterIndexOffset =
+            imageAtomicAdd(lightIndicesCount, 0, pointCount + spotCount);
+        imageStore(
+            clusterPointers, ivec2(cluster),
+            packClusterPointer(clusterIndexOffset, pointCount, spotCount));
+    }
+    barrier();
+    groupMemoryBarrier();
+
+    uint threadPoints = (pointCount - 1) / groupThreads + 1;
+    for (uint i = 0; i < threadPoints; ++i)
+    {
+        uint index = localIndex * threadPoints + i;
+        if (index >= pointCount)
+            break;
+        imageStore(
+            lightIndices, int(clusterIndexOffset + index),
+            uvec4(pointIndices[index], 0, 0, 0));
+    }
+
+    uint threadSpots = (spotCount - 1) / groupThreads + 1;
+    for (uint i = 0; i < threadSpots; ++i)
+    {
+        uint index = localIndex * threadSpots + i;
+        if (index >= spotCount)
+            break;
+        imageStore(
+            lightIndices, int(clusterIndexOffset + pointCount + index),
+            uvec4(spotIndices[index], 0, 0, 0));
+    }
+}

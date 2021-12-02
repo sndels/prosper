@@ -184,6 +184,7 @@ struct Scene
         PointLights pointLights;
         SpotLights spotLights;
         std::vector<vk::DescriptorSet> descriptorSets;
+        std::vector<vk::DescriptorSet> descriptorSetsClustered;
     };
 
     CameraParameters camera;

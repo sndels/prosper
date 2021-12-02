@@ -19,6 +19,7 @@ class World
         vk::DescriptorSetLayout material;
         vk::DescriptorSetLayout modelInstance;
         vk::DescriptorSetLayout lights;
+        vk::DescriptorSetLayout lightsClustered;
         vk::DescriptorSetLayout skybox;
     };
     World(

@@ -44,9 +44,10 @@ struct CameraParameters
 // Vector types in uniforms need to be aligned to 16 bytes
 struct CameraUniforms
 {
-    alignas(16) glm::mat4 worldToCamera;
-    alignas(16) glm::mat4 cameraToClip;
-    alignas(16) glm::vec3 eye;
+    glm::mat4 worldToCamera;
+    glm::mat4 cameraToClip;
+    glm::vec4 eye;
+    glm::uvec2 resolution;
 };
 
 class Camera
@@ -68,7 +69,7 @@ class Camera
         const float fov, const float ar, const float zN, const float zF);
     void perspective(const float ar);
 
-    void updateBuffer(const uint32_t index);
+    void updateBuffer(const uint32_t index, const glm::uvec2 &resolution);
 
     std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
     const vk::DescriptorSetLayout &descriptorSetLayout() const;

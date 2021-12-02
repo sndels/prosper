@@ -14,6 +14,18 @@ struct RenderResources
         Image toneMapped;
     };
 
+    struct Buffers
+    {
+        struct
+        {
+            Image pointers;
+            TexelBuffer indicesCount;
+            TexelBuffer indices;
+            vk::DescriptorSetLayout descriptorSetLayout;
+            std::vector<vk::DescriptorSet> descriptorSets;
+        } lightClusters;
+    };
+
     struct DescriptorPools
     {
         vk::DescriptorPool constant;
@@ -22,6 +34,7 @@ struct RenderResources
 
     DescriptorPools descriptorPools;
     Images images;
+    Buffers buffers;
 };
 
 #endif // PROSPER_RENDER_RESOURCES_HPP

@@ -59,7 +59,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+    const std::array<vk::ImageMemoryBarrier2KHR, 3> imageBarriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
             .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
             .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentWrite,
@@ -70,11 +70,31 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
             .accessMask = vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
             .layout = vk::ImageLayout::eDepthAttachmentOptimal,
         }),
+        _resources->buffers.lightClusters.pointers.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eFragmentShader,
+            .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+            .layout = vk::ImageLayout::eGeneral,
+        }),
+    };
+
+    const std::array<vk::BufferMemoryBarrier2KHR, 2> bufferBarriers{
+        _resources->buffers.lightClusters.indicesCount.transitionBarrier(
+            BufferState{
+                .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
+                .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+            }),
+        _resources->buffers.lightClusters.indices.transitionBarrier(BufferState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
+            .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+        }),
     };
 
     buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
-        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
+        .bufferMemoryBarrierCount =
+            static_cast<uint32_t>(bufferBarriers.size()),
+        .pBufferMemoryBarriers = bufferBarriers.data(),
+        .imageMemoryBarrierCount = static_cast<uint32_t>(imageBarriers.size()),
+        .pImageMemoryBarriers = imageBarriers.data(),
     });
 
     buffer.beginDebugUtilsLabelEXT(
@@ -91,8 +111,10 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     // Draw opaque and alpha masked geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-    const std::array<vk::DescriptorSet, 2> descriptorSets{
-        scene.lights.descriptorSets[nextImage], cam.descriptorSet(nextImage)};
+    const std::array<vk::DescriptorSet, 3> descriptorSets{
+        scene.lights.descriptorSets[nextImage],
+        _resources->buffers.lightClusters.descriptorSets[nextImage],
+        cam.descriptorSet(nextImage)};
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
@@ -287,8 +309,9 @@ void Renderer::createGraphicsPipelines(
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
         .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
 
-    const std::array<vk::DescriptorSetLayout, 4> setLayouts{
+    const std::array<vk::DescriptorSetLayout, 5> setLayouts{
         worldDSLayouts.lights,
+        _resources->buffers.lightClusters.descriptorSetLayout,
         camDSLayout,
         worldDSLayouts.modelInstance,
         worldDSLayouts.material,
@@ -363,7 +386,7 @@ void Renderer::recordModelInstances(
     {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-            2, // firstSet
+            3, // firstSet
             1, &instance.descriptorSets[nextImage], 0, nullptr);
         for (const auto &mesh : instance.model->_meshes)
         {
@@ -371,7 +394,7 @@ void Renderer::recordModelInstances(
             {
                 buffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-                    3, // firstSet
+                    4, // firstSet
                     1, &mesh.material()._descriptorSet, 0, nullptr);
                 const auto pcBlock = mesh.material().pcBlock();
                 buffer.pushConstants(
