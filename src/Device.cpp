@@ -163,6 +163,36 @@ void DestroyDebugUtilsMessengerEXT(
 }
 } // namespace
 
+vk::BufferMemoryBarrier2KHR TexelBuffer::transitionBarrier(
+    const BufferState &newState)
+{
+    const vk::BufferMemoryBarrier2KHR barrier{
+        .srcStageMask = state.stageMask,
+        .srcAccessMask = state.accessMask,
+        .dstStageMask = newState.stageMask,
+        .dstAccessMask = newState.accessMask,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = handle,
+        .offset = 0,
+        .size = size,
+    };
+
+    state = newState;
+
+    return barrier;
+}
+
+void TexelBuffer::transition(
+    const vk::CommandBuffer buffer, const BufferState &newState)
+{
+    auto barrier = transitionBarrier(newState);
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &barrier,
+    });
+}
+
 vk::ImageMemoryBarrier2KHR Image::transitionBarrier(const ImageState &newState)
 {
     const vk::ImageMemoryBarrier2KHR barrier{
@@ -390,6 +420,62 @@ void Device::destroy(const Buffer &buffer) const
 {
     const auto vkBuffer = static_cast<VkBuffer>(buffer.handle);
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
+}
+
+TexelBuffer Device::createTexelBuffer(
+    const std::string &debugName, const vk::Format format,
+    const vk::DeviceSize size, const vk::BufferUsageFlags usage,
+    const vk::MemoryPropertyFlags properties, const bool supportAtomics,
+    const VmaMemoryUsage vmaUsage) const
+{
+    const auto formatProperties = _physical.getFormatProperties(format);
+
+    if (containsFlag(usage, vk::BufferUsageFlagBits::eStorageTexelBuffer))
+    {
+        assertContainsFlag(
+            formatProperties.bufferFeatures,
+            vk::FormatFeatureFlagBits::eStorageTexelBuffer,
+            "Format doesn't support storage texel buffer");
+    }
+    if (containsFlag(usage, vk::BufferUsageFlagBits::eUniformTexelBuffer))
+    {
+        assertContainsFlag(
+            formatProperties.bufferFeatures,
+            vk::FormatFeatureFlagBits::eUniformTexelBuffer,
+            "Format doesn't support uniform texel buffer");
+    }
+    if (supportAtomics)
+    {
+        assertContainsFlag(
+            formatProperties.bufferFeatures,
+            vk::FormatFeatureFlagBits::eStorageTexelBufferAtomic,
+            "Format doesn't support atomics");
+    }
+
+    const auto [handle, allocation] =
+        createBuffer(debugName, size, usage, properties, vmaUsage);
+
+    const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
+        .buffer = handle,
+        .format = format,
+        .offset = 0,
+        .range = size,
+    });
+
+    return TexelBuffer{
+        .handle = handle,
+        .view = view,
+        .format = format,
+        .size = size,
+        .allocation = allocation,
+    };
+}
+
+void Device::destroy(const TexelBuffer &buffer) const
+{
+    const auto vkBuffer = static_cast<VkBuffer>(buffer.handle);
+    vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
+    _logical.destroy(buffer.view);
 }
 
 Image Device::createImage(

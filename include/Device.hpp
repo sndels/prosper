@@ -25,10 +25,31 @@ struct QueueFamilies
     }
 };
 
+struct BufferState
+{
+    vk::PipelineStageFlags2KHR stageMask{
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe};
+    vk::AccessFlags2KHR accessMask;
+};
+
 struct Buffer
 {
     vk::Buffer handle;
     VmaAllocation allocation;
+};
+
+struct TexelBuffer
+{
+    vk::Buffer handle;
+    vk::BufferView view;
+    vk::Format format;
+    vk::DeviceSize size;
+    BufferState state;
+    VmaAllocation allocation;
+
+    vk::BufferMemoryBarrier2KHR transitionBarrier(const BufferState &newState);
+    void transition(
+        const vk::CommandBuffer buffer, const BufferState &newState);
 };
 
 struct ImageState
@@ -103,6 +124,13 @@ class Device
         const vk::MemoryPropertyFlags properties,
         const VmaMemoryUsage vmaUsage) const;
     void destroy(const Buffer &buffer) const;
+
+    TexelBuffer createTexelBuffer(
+        const std::string &debugName, const vk::Format format,
+        const vk::DeviceSize size, const vk::BufferUsageFlags usage,
+        const vk::MemoryPropertyFlags properties, const bool supportAtomics,
+        const VmaMemoryUsage vmaUsage) const;
+    void destroy(const TexelBuffer &buffer) const;
 
     Image createImage(
         const std::string &debugName, const vk::Extent2D extent,
