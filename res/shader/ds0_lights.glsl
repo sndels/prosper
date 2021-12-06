@@ -10,7 +10,7 @@ directionalLight;
 
 struct PointLight
 {
-    vec4 radiance;
+    vec4 radianceAndRadius;
     vec4 position;
 };
 

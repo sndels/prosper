@@ -521,19 +521,27 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     }
                     else if (light.type == "point")
                     {
+                        auto radiance =
+                            vec3{
+                                static_cast<float>(light.color[0]),
+                                static_cast<float>(light.color[1]),
+                                static_cast<float>(light.color[2])} *
+                            static_cast<float>(light.intensity)
+                            // gltf blender exporter puts W into intensity
+                            / (4.f * glm::pi<float>());
+                        const auto luminance =
+                            dot(radiance, vec3{0.2126, 0.7152, 0.0722});
+                        const auto minLuminance = 0.01f;
+                        const auto radius =
+                            light.range > 0.f ? light.range
+                                              : sqrt(luminance / minLuminance);
+
                         auto &data = scene.lights.pointLights.bufferData;
                         const auto i = data.count++;
                         auto &sceneLight = data.lights[i];
+                        sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
                             modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
-                        sceneLight.radiance =
-                            vec4{
-                                static_cast<float>(light.color[0]),
-                                static_cast<float>(light.color[1]),
-                                static_cast<float>(light.color[2]), 0.f} *
-                            static_cast<float>(light.intensity);
-                        // gltf blender exporter puts W into intensity
-                        sceneLight.radiance /= 4.f * glm::pi<float>();
                     }
                     else if (light.type == "spot")
                     {

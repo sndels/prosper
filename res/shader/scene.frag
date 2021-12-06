@@ -198,10 +198,22 @@ void main()
     {
         uint index = imageLoad(lightIndices, int(clusterIndexOffset + i)).x;
         PointLight light = pointLights.lights[index];
-        vec3 toLight = light.position.xyz - fragPosition;
+        vec3 pos = light.position.xyz;
+        vec3 radiance = light.radianceAndRadius.xyz;
+        float radius = light.radianceAndRadius.w;
+
+        vec3 toLight = pos - fragPosition;
         float d2 = dot(toLight, toLight);
-        vec3 l = toLight / sqrt(d2);
-        color += light.radiance.xyz * evalBRDF(normal, v, l, m) / d2;
+        float d = sqrt(d2);
+
+        vec3 l = toLight / d;
+
+        float dPerR = d / radius;
+        float dPerR2 = dPerR * dPerR;
+        float dPerR4 = dPerR2 * dPerR2;
+        float attenuation = max(min(1.0 - dPerR4, 1), 0) / d2;
+
+        color += radiance * attenuation * evalBRDF(normal, v, l, m);
     }
 
     for (uint i = 0; i < spotCount; ++i)

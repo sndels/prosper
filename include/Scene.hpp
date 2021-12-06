@@ -106,7 +106,7 @@ struct Scene
         static const uint32_t max_count = 0xFFFF;
         struct PointLight
         {
-            glm::vec4 radiance;
+            glm::vec4 radianceAndRadius;
             glm::vec4 position;
         };
 
