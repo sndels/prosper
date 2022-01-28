@@ -60,14 +60,23 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    _resources->images.sceneColor.transitionBarrier(
-        buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    _resources->images.sceneDepth.transitionBarrier(
-        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests);
+    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+        _resources->images.sceneColor.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
+            .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        }),
+        _resources->images.sceneDepth.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests,
+            .accessMask = vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+            .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+        }),
+    };
+
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data(),
+    });
 
     const std::array<vk::ClearValue, 2> clearColors = {
         {vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}}, // color
@@ -176,10 +185,14 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 
-        _resources->images.sceneDepth.transitionBarrier(
-            commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-            vk::PipelineStageFlagBits::eEarlyFragmentTests);
+        _resources->images.sceneDepth.transition(
+            commandBuffer,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests,
+                .accessMask =
+                    vk::AccessFlagBits2KHR::eDepthStencilAttachmentWrite,
+                .layout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            });
 
         _device->endGraphicsCommands(commandBuffer);
     }

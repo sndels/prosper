@@ -15,7 +15,9 @@ const std::vector<const char *> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
 const std::vector<const char *> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+};
 
 QueueFamilies findQueueFamilies(
     const vk::PhysicalDevice device, const vk::SurfaceKHR surface)
@@ -159,29 +161,33 @@ void DestroyDebugUtilsMessengerEXT(
 }
 } // namespace
 
-void Image::transitionBarrier(
-    const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
-    const vk::AccessFlags dstAccessMask,
-    const vk::PipelineStageFlags dstStageMask)
+vk::ImageMemoryBarrier2KHR Image::transitionBarrier(const ImageState &newState)
 {
-    const auto srcStageMask = state.stageMask;
-    const vk::ImageMemoryBarrier barrier{
+    const vk::ImageMemoryBarrier2KHR barrier{
+        .srcStageMask = state.stageMask,
         .srcAccessMask = state.accessMask,
-        .dstAccessMask = dstAccessMask,
+        .dstStageMask = newState.stageMask,
+        .dstAccessMask = newState.accessMask,
         .oldLayout = state.layout,
-        .newLayout = newLayout,
+        .newLayout = newState.layout,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = handle,
         .subresourceRange = subresourceRange};
 
-    buffer.pipelineBarrier(
-        srcStageMask, dstStageMask, vk::DependencyFlags{}, 0, nullptr, 0,
-        nullptr, 1, &barrier);
+    state = newState;
 
-    state.stageMask = dstStageMask;
-    state.accessMask = dstAccessMask;
-    state.layout = newLayout;
+    return barrier;
+}
+
+void Image::transition(
+    const vk::CommandBuffer buffer, const ImageState &newState)
+{
+    auto barrier = transitionBarrier(newState);
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier,
+    });
 }
 
 Device::Device(GLFWwindow *window)
@@ -397,7 +403,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto families = findQueueFamilies(device, _surface);
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
+    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
     vk::PhysicalDeviceVulkan12Features vk12Features{
+        .pNext = &sync2Features,
         .descriptorIndexing = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
         .runtimeDescriptorArray = VK_TRUE,
@@ -426,7 +434,8 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     }();
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           supportedFeatures.features.samplerAnisotropy;
+           supportedFeatures.features.samplerAnisotropy &&
+           sync2Features.synchronization2;
 }
 
 void Device::createInstance()
@@ -513,7 +522,11 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
+    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
+        .synchronization2 = true,
+    };
     vk::PhysicalDeviceVulkan12Features vk12Features{
+        .pNext = &sync2Features,
         .descriptorIndexing = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
         .runtimeDescriptorArray = VK_TRUE,

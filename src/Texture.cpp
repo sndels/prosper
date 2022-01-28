@@ -362,8 +362,8 @@ void Texture2D::createMipmaps(
     // We went around the state management since it doesn't support
     // per-subresource barriers
     _image.state = ImageState{
-        .stageMask = vk::PipelineStageFlagBits::eFragmentShader,
-        .accessMask = vk::AccessFlagBits::eShaderRead,
+        .stageMask = vk::PipelineStageFlagBits2KHR::eFragmentShader,
+        .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
         .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 

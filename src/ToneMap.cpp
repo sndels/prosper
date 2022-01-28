@@ -70,12 +70,23 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "ToneMap"});
 
-    _resources->images.sceneColor.transitionBarrier(
-        buffer, vk::ImageLayout::eGeneral, vk::AccessFlagBits::eShaderRead,
-        vk::PipelineStageFlagBits::eComputeShader);
-    _resources->images.toneMapped.transitionBarrier(
-        buffer, vk::ImageLayout::eGeneral, vk::AccessFlagBits::eShaderWrite,
-        vk::PipelineStageFlagBits::eComputeShader);
+    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+        _resources->images.sceneColor.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
+            .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+            .layout = vk::ImageLayout::eGeneral,
+        }),
+        _resources->images.toneMapped.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
+            .accessMask = vk::AccessFlagBits2KHR::eShaderWrite,
+            .layout = vk::ImageLayout::eGeneral,
+        }),
+    };
+
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data(),
+    });
 
     buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 

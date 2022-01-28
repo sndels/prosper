@@ -88,10 +88,13 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "ImGui"});
 
-    _resources->images.toneMapped.transitionBarrier(
-        buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits::eColorAttachmentRead,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    _resources->images.toneMapped.transition(
+        buffer,
+        ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
+            .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentRead,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        });
 
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{

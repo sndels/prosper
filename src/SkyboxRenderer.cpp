@@ -55,14 +55,23 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    _resources->images.sceneColor.transitionBarrier(
-        buffer, vk::ImageLayout::eColorAttachmentOptimal,
-        vk::AccessFlagBits::eColorAttachmentWrite,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    _resources->images.sceneDepth.transitionBarrier(
-        buffer, vk::ImageLayout::eDepthAttachmentOptimal,
-        vk::AccessFlagBits::eDepthStencilAttachmentRead,
-        vk::PipelineStageFlagBits::eEarlyFragmentTests);
+    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+        _resources->images.sceneColor.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
+            .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+            .layout = vk::ImageLayout::eColorAttachmentOptimal,
+        }),
+        _resources->images.sceneDepth.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests,
+            .accessMask = vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead,
+            .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+        }),
+    };
+
+    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data(),
+    });
 
     buffer.beginRenderPass(
         vk::RenderPassBeginInfo{

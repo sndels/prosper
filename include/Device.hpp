@@ -30,8 +30,9 @@ struct Buffer
 
 struct ImageState
 {
-    vk::PipelineStageFlags stageMask{vk::PipelineStageFlagBits::eTopOfPipe};
-    vk::AccessFlags accessMask;
+    vk::PipelineStageFlags2KHR stageMask{
+        vk::PipelineStageFlagBits2KHR::eTopOfPipe};
+    vk::AccessFlags2KHR accessMask;
     vk::ImageLayout layout{vk::ImageLayout::eUndefined};
 };
 
@@ -45,10 +46,8 @@ struct Image
     ImageState state;
     VmaAllocation allocation = nullptr;
 
-    void transitionBarrier(
-        const vk::CommandBuffer buffer, const vk::ImageLayout newLayout,
-        const vk::AccessFlags dstAccessMask,
-        const vk::PipelineStageFlags dstStageMask);
+    vk::ImageMemoryBarrier2KHR transitionBarrier(const ImageState &newState);
+    void transition(const vk::CommandBuffer buffer, const ImageState &newState);
 };
 
 class Device

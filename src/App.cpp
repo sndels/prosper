@@ -372,26 +372,30 @@ void App::drawFrame()
         commandBuffer.begin(vk::CommandBufferBeginInfo{
             .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-        _resources.images.toneMapped.transitionBarrier(
-            commandBuffer, vk::ImageLayout::eTransferSrcOptimal,
-            vk::AccessFlagBits::eTransferRead,
-            vk::PipelineStageFlagBits::eTransfer);
-        {
-            vk::ImageMemoryBarrier barrier{
-                .srcAccessMask = vk::AccessFlags{},
-                .dstAccessMask = vk::AccessFlagBits::eTransferWrite,
+        const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+            _resources.images.toneMapped.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2KHR::eTransfer,
+                .accessMask = vk::AccessFlagBits2KHR::eTransferRead,
+                .layout = vk::ImageLayout::eTransferSrcOptimal,
+            }),
+            vk::ImageMemoryBarrier2KHR{
+                .srcStageMask = vk::PipelineStageFlagBits2KHR::eTopOfPipe,
+                .srcAccessMask = vk::AccessFlags2KHR{},
+                .dstStageMask = vk::PipelineStageFlagBits2KHR::eTransfer,
+                .dstAccessMask = vk::AccessFlagBits2KHR::eTransferWrite,
                 .oldLayout = vk::ImageLayout::eUndefined,
                 .newLayout = vk::ImageLayout::eTransferDstOptimal,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = swapImage.handle,
-                .subresourceRange = swapImage.subresourceRange};
+                .subresourceRange = swapImage.subresourceRange,
+            },
+        };
 
-            commandBuffer.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTopOfPipe,
-                vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{}, 0,
-                nullptr, 0, nullptr, 1, &barrier);
-        }
+        commandBuffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+            .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+            .pImageMemoryBarriers = barriers.data(),
+        });
 
         {
             const vk::ImageSubresourceLayers layers{
@@ -417,9 +421,11 @@ void App::drawFrame()
         }
 
         {
-            const vk::ImageMemoryBarrier barrier{
-                .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-                .dstAccessMask = vk::AccessFlagBits::eMemoryRead,
+            const vk::ImageMemoryBarrier2KHR barrier{
+                .srcStageMask = vk::PipelineStageFlagBits2KHR::eTransfer,
+                .srcAccessMask = vk::AccessFlagBits2KHR::eTransferWrite,
+                .dstStageMask = vk::PipelineStageFlagBits2KHR::eTransfer,
+                .dstAccessMask = vk::AccessFlagBits2KHR::eMemoryRead,
                 .oldLayout = vk::ImageLayout::eTransferDstOptimal,
                 .newLayout = vk::ImageLayout::ePresentSrcKHR,
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -427,10 +433,10 @@ void App::drawFrame()
                 .image = swapImage.handle,
                 .subresourceRange = swapImage.subresourceRange};
 
-            commandBuffer.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTransfer,
-                vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{}, 0,
-                nullptr, 0, nullptr, 1, &barrier);
+            commandBuffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &barrier,
+            });
         }
 
         commandBuffer.end();
