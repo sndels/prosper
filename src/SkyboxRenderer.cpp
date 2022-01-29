@@ -193,9 +193,9 @@ void SkyboxRenderer::createGraphicsPipelines(
     const auto vertSPV = readFileBytes(binPath("shader/skybox.vert.spv"));
     const auto fragSPV = readFileBytes(binPath("shader/skybox.frag.spv"));
     const vk::ShaderModule vertSM =
-        createShaderModule(_device->logical(), vertSPV);
+        createShaderModule(_device->logical(), "skyboxVS", vertSPV);
     const vk::ShaderModule fragSM =
-        createShaderModule(_device->logical(), fragSPV);
+        createShaderModule(_device->logical(), "skyboxPS", fragSPV);
     const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eVertex,

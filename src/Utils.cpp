@@ -38,9 +38,19 @@ std::vector<std::byte> readFileBytes(const std::filesystem::path &path)
 }
 
 vk::ShaderModule createShaderModule(
-    const vk::Device device, const std::vector<std::byte> &spv)
+    const vk::Device device, const std::string &debugName,
+    const std::vector<std::byte> &spv)
 {
-    return device.createShaderModule(vk::ShaderModuleCreateInfo{
+    const auto sm = device.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spv.size(),
         .pCode = reinterpret_cast<const uint32_t *>(spv.data())});
+
+    device.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::eShaderModule,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
+        .pObjectName = debugName.c_str(),
+    });
+
+    return sm;
 }

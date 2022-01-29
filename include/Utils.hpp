@@ -16,6 +16,7 @@ std::filesystem::path binPath(const std::filesystem::path &path);
 std::vector<std::byte> readFileBytes(const std::filesystem::path &path);
 
 vk::ShaderModule createShaderModule(
-    const vk::Device device, const std::vector<std::byte> &spv);
+    const vk::Device device, const std::string &debugName,
+    const std::vector<std::byte> &spv);
 
 #endif // PROSPER_CONSTANTS_HPP

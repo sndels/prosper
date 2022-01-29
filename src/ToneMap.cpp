@@ -193,7 +193,7 @@ void ToneMap::createPipelines()
 
     const auto compSPV = readFileBytes(binPath("shader/tone_map.comp.spv"));
     const vk::ShaderModule compSM =
-        createShaderModule(_device->logical(), compSPV);
+        createShaderModule(_device->logical(), "tonemapCS", compSPV);
 
     const vk::ComputePipelineCreateInfo createInfo{
         .stage =
