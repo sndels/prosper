@@ -15,6 +15,7 @@ const std::vector<const char *> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
 const std::vector<const char *> deviceExtensions = {
+    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 };
@@ -403,7 +404,11 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto families = findQueueFamilies(device, _surface);
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
-    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{};
+
+    vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{};
+    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
+        .pNext = &dynamicRenderingFeatures,
+    };
     vk::PhysicalDeviceVulkan12Features vk12Features{
         .pNext = &sync2Features,
         .descriptorIndexing = VK_TRUE,
@@ -435,7 +440,8 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
            supportedFeatures.features.samplerAnisotropy &&
-           sync2Features.synchronization2;
+           sync2Features.synchronization2 &&
+           dynamicRenderingFeatures.dynamicRendering;
 }
 
 void Device::createInstance()
@@ -522,7 +528,11 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
+    vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{
+        .dynamicRendering = true,
+    };
     vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
+        .pNext = &dynamicRenderingFeatures,
         .synchronization2 = true,
     };
     vk::PhysicalDeviceVulkan12Features vk12Features{

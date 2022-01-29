@@ -42,8 +42,7 @@ void TransparentsRenderer::recreateSwapchainRelated(
 {
     destroySwapchainRelated();
 
-    createRenderPass();
-    createFramebuffer(swapConfig);
+    createAttachments();
     createGraphicsPipeline(swapConfig, camDSLayout, worldDSLayouts);
     // Each command buffer binds to specific swapchain image
     createCommandBuffers(swapConfig);
@@ -77,16 +76,16 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
         .pImageMemoryBarriers = barriers.data(),
     });
 
-    buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{
-            .renderPass = _renderpass,
-            .framebuffer = _fbo,
-            .renderArea = renderArea,
-        },
-        vk::SubpassContents::eInline);
-
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
+
+    buffer.beginRenderingKHR(vk::RenderingInfoKHR{
+        .renderArea = renderArea,
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &_colorAttachment,
+        .pDepthAttachment = &_depthAttachment,
+    });
 
     // Draw transparent geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
@@ -105,9 +104,9 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
         [](const Mesh &mesh)
         { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
 
-    buffer.endDebugUtilsLabelEXT(); // Transparents
+    buffer.endRenderingKHR();
 
-    buffer.endRenderPass();
+    buffer.endDebugUtilsLabelEXT(); // Transparents
 
     buffer.end();
 
@@ -128,73 +127,26 @@ void TransparentsRenderer::destroySwapchainRelated()
 
         _device->logical().destroy(_pipeline);
         _device->logical().destroy(_pipelineLayout);
-        _device->logical().destroy(_fbo);
-        _device->logical().destroy(_renderpass);
+
+        _colorAttachment = vk::RenderingAttachmentInfoKHR{};
+        _depthAttachment = vk::RenderingAttachmentInfoKHR{};
     }
 }
 
-void TransparentsRenderer::createRenderPass()
+void TransparentsRenderer::createAttachments()
 {
-    const std::array<vk::AttachmentDescription, 2> attachments = {
-        // color
-        vk::AttachmentDescription{
-            .format = _resources->images.sceneColor.format,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .finalLayout = vk::ImageLayout::eColorAttachmentOptimal},
-        vk::AttachmentDescription{
-            // depth
-            .format = _resources->images.sceneDepth.format,
-            .samples = vk::SampleCountFlagBits::e1,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-            .initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            .finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal}};
-    const vk::AttachmentReference swapAttachmentRef{
-        .attachment = 0, .layout = vk::ImageLayout::eColorAttachmentOptimal};
-    const vk::AttachmentReference depthAttachmentRef{
-        .attachment = 1,
-        .layout = vk::ImageLayout::eDepthStencilAttachmentOptimal};
-
-    // Output
-    const vk::SubpassDescription subpass{
-        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &swapAttachmentRef,
-        .pDepthStencilAttachment = &depthAttachmentRef};
-
-    _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
-        .attachmentCount = static_cast<uint32_t>(attachments.size()),
-        .pAttachments = attachments.data(),
-        .subpassCount = 1,
-        .pSubpasses = &subpass});
-
-    _device->logical().setDebugUtilsObjectNameEXT(
-        vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::eRenderPass,
-            .objectHandle = reinterpret_cast<uint64_t>(
-                static_cast<VkRenderPass>(_renderpass)),
-            .pObjectName = "TransparentsRenderer"});
-}
-
-void TransparentsRenderer::createFramebuffer(const SwapchainConfig &swapConfig)
-{
-    const std::array<vk::ImageView, 2> attachments = {
-        {_resources->images.sceneColor.view,
-         _resources->images.sceneDepth.view}};
-    _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
-        .renderPass = _renderpass,
-        .attachmentCount = static_cast<uint32_t>(attachments.size()),
-        .pAttachments = attachments.data(),
-        .width = swapConfig.extent.width,
-        .height = swapConfig.extent.height,
-        .layers = 1});
+    _colorAttachment = vk::RenderingAttachmentInfoKHR{
+        .imageView = _resources->images.sceneColor.view,
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eLoad,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    };
+    _depthAttachment = vk::RenderingAttachmentInfoKHR{
+        .imageView = _resources->images.sceneDepth.view,
+        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eLoad,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    };
 }
 
 void TransparentsRenderer::createGraphicsPipeline(
@@ -290,7 +242,14 @@ void TransparentsRenderer::createGraphicsPipeline(
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = &pcRange});
 
+    const vk::PipelineRenderingCreateInfoKHR renderingCreateInfo{
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &_resources->images.sceneColor.format,
+        .depthAttachmentFormat = _resources->images.sceneDepth.format,
+    };
+
     const vk::GraphicsPipelineCreateInfo createInfo{
+        .pNext = &renderingCreateInfo,
         .stageCount = static_cast<uint32_t>(shaderStages.size()),
         .pStages = shaderStages.data(),
         .pVertexInputState = &vertInputInfo,
@@ -301,8 +260,7 @@ void TransparentsRenderer::createGraphicsPipeline(
         .pDepthStencilState = &depthStencilState,
         .pColorBlendState = &colorBlendState,
         .layout = _pipelineLayout,
-        .renderPass = _renderpass,
-        .subpass = 0};
+    };
 
     {
         auto pipeline = _device->logical().createGraphicsPipeline(

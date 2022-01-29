@@ -41,9 +41,7 @@ class TransparentsRenderer
     void destroySwapchainRelated();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createOutputs(const SwapchainConfig &swapConfig);
-    void createRenderPass();
-    void createFramebuffer(const SwapchainConfig &swapConfig);
+    void createAttachments();
     void createGraphicsPipeline(
         const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
@@ -58,14 +56,13 @@ class TransparentsRenderer
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
 
+    vk::RenderingAttachmentInfoKHR _colorAttachment;
+    vk::RenderingAttachmentInfoKHR _depthAttachment;
+
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 
-    vk::RenderPass _renderpass;
-
     std::vector<vk::CommandBuffer> _commandBuffers;
-
-    vk::Framebuffer _fbo;
 };
 
 #endif // PROSPER_TRANSPARENTS_RENDERER_HPP

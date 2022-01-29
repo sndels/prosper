@@ -33,8 +33,7 @@ class SkyboxRenderer
     void destroySwapchainRelated();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createRenderPass();
-    void createFramebuffer(const SwapchainConfig &swapConfig);
+    void createAttachments();
     void createGraphicsPipelines(
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
@@ -43,14 +42,13 @@ class SkyboxRenderer
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
 
+    vk::RenderingAttachmentInfoKHR _colorAttachment;
+    vk::RenderingAttachmentInfoKHR _depthAttachment;
+
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 
-    vk::RenderPass _renderpass;
-
     std::vector<vk::CommandBuffer> _commandBuffers;
-
-    vk::Framebuffer _fbo;
 };
 
 #endif // PROSPER_SKYBOXRENDERER_HPP
