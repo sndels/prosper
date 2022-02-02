@@ -7,6 +7,10 @@ message(STATUS "Vulkan FOUND = ${Vulkan_FOUND}")
 message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
+if (MSVC)
+add_compile_options(/MP)
+endif() # NOT MSVC
+
 # Set up sub-builds and sources
 add_subdirectory(ext)
 add_subdirectory(include)
