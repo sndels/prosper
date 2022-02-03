@@ -5,18 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(lldb) Launch",
-            "type": "lldb",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/prosper",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "console": "internalConsole",
-            "preLaunchTask": ""
-        },
-        {
             "name": "(CppVSDbg) Launch (Release)",
             "type": "cppvsdbg",
             "request": "launch",
