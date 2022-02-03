@@ -153,32 +153,31 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
             .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
             .pSetLayouts = layouts.data()});
 
+    const vk::DescriptorImageInfo colorInfo{
+        .imageView = _resources->images.sceneColor.view,
+        .imageLayout = vk::ImageLayout::eGeneral,
+    };
+    const vk::DescriptorImageInfo mappedInfo{
+        .imageView = _resources->images.toneMapped.view,
+        .imageLayout = vk::ImageLayout::eGeneral,
+    };
     std::vector<vk::WriteDescriptorSet> descriptorWrites;
     for (size_t i = 0; i < _descriptorSets.size(); ++i)
     {
-        {
-            vk::DescriptorImageInfo info{
-                .imageView = _resources->images.sceneColor.view,
-                .imageLayout = vk::ImageLayout::eGeneral};
-            descriptorWrites.push_back(
-                {.dstSet = _descriptorSets[i],
-                 .dstBinding = 0,
-                 .descriptorCount = 1,
-                 .descriptorType = vk::DescriptorType::eStorageImage,
-                 .pImageInfo = &info});
-        }
-
-        {
-            vk::DescriptorImageInfo info{
-                .imageView = _resources->images.toneMapped.view,
-                .imageLayout = vk::ImageLayout::eGeneral};
-            descriptorWrites.push_back(
-                {.dstSet = _descriptorSets[i],
-                 .dstBinding = 1,
-                 .descriptorCount = 1,
-                 .descriptorType = vk::DescriptorType::eStorageImage,
-                 .pImageInfo = &info});
-        }
+        descriptorWrites.push_back({
+            .dstSet = _descriptorSets[i],
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .pImageInfo = &colorInfo,
+        });
+        descriptorWrites.push_back({
+            .dstSet = _descriptorSets[i],
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .pImageInfo = &mappedInfo,
+        });
     }
     _device->logical().updateDescriptorSets(
         static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
