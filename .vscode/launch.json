@@ -29,6 +29,18 @@
             "preLaunchTask": ""
         },
         {
+            "name": "(CppVSDbg) Launch (RelWithDebInfo)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/RelWithDebInfo/prosper.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "internalConsole",
+            "preLaunchTask": ""
+        },
+        {
             "name": "(CppVSDbg) Launch (Debug)",
             "type": "cppvsdbg",
             "request": "launch",
