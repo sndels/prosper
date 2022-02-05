@@ -16,3 +16,6 @@
 [submodule "ext/imgui"]
 	path = ext/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "ext/shaderc"]
+	path = ext/shaderc
+	url = https://github.com/google/shaderc.git

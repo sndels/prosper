@@ -14,6 +14,17 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build the GLFW documentation")
 set(GLFW_INSTALL OFF CACHE BOOL "Generate installation target")
 add_subdirectory(glfw)
 
+message(STATUS "Sync shaderc dependencies")
+execute_process(COMMAND
+    python utils/git-sync-deps
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/shaderc
+)
+set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Skip installation")
+set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip building tests")
+set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "Skip building examples")
+set(SHADERC_SKIP_COPYRIGHT_CHECK ON CACHE BOOL "Skip copyright check")
+add_subdirectory(shaderc)
+
 add_library(imgui STATIC "")
 target_compile_features(imgui
     PRIVATE

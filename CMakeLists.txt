@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.20)
 project(prosper)
 
 # Set up external dependencies
@@ -9,7 +9,7 @@ message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
 if (MSVC)
 add_compile_options(/MP)
-endif() # NOT MSVC
+endif() # MSVC
 
 # Set up sub-builds and sources
 add_subdirectory(ext)
@@ -69,6 +69,7 @@ target_link_libraries(prosper
     gli
     glm
     imgui
+    shaderc
     stb_image
     vma
     ${Vulkan_LIBRARY}
