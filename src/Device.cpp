@@ -7,6 +7,7 @@
 
 #include "App.hpp"
 #include "Swapchain.hpp"
+#include "Utils.hpp"
 #include "VkUtils.hpp"
 
 namespace
@@ -268,6 +269,43 @@ vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
 vk::Queue Device::presentQueue() const { return _presentQueue; }
 
 const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
+
+std::optional<vk::ShaderModule> Device::compileShaderModule(
+    const std::string &relPath, const std::string &debugName) const
+{
+    return compileShaderModule(
+        readFileString(resPath(relPath)), relPath, debugName);
+}
+
+std::optional<vk::ShaderModule> Device::compileShaderModule(
+    const std::string &source, const std::string &path,
+    const std::string &debugName) const
+{
+    const auto result = _compiler.CompileGlslToSpv(
+        source, shaderc_glsl_infer_from_source, path.c_str());
+
+    if (result.GetCompilationStatus())
+    {
+        fprintf(stderr, "%s\n", result.GetErrorMessage().c_str());
+        fprintf(stderr, "Compilation of '%s' failed\n", path.c_str());
+        return {};
+    }
+
+    const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
+        .codeSize = static_cast<size_t>(result.end() - result.begin()) *
+                    sizeof(uint32_t),
+        .pCode = result.begin(),
+    });
+
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::eShaderModule,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
+        .pObjectName = debugName.c_str(),
+    });
+
+    return sm;
+}
 
 void Device::map(const VmaAllocation allocation, void **data) const
 {

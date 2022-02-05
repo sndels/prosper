@@ -215,20 +215,21 @@ void Renderer::createGraphicsPipelines(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSPV = readFileBytes(binPath("shader/scene.vert.spv"));
-    const auto fragSPV = readFileBytes(binPath("shader/scene.frag.spv"));
-    const vk::ShaderModule vertSM =
-        createShaderModule(_device->logical(), "opaqueVS", vertSPV);
-    const vk::ShaderModule fragSM =
-        createShaderModule(_device->logical(), "opaquePS", fragSPV);
+    const auto vertSM =
+        _device->compileShaderModule("shader/scene.vert", "opaqueVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/scene.frag", "opaquePS");
+    if (!vertSM || !fragSM)
+        throw std::runtime_error("Renderer shader compilation failed");
+
     const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = vertSM,
+            .module = *vertSM,
             .pName = "main"},
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = fragSM,
+            .module = *fragSM,
             .pName = "main"}};
 
     const auto vertexBindingDescription = Vertex::bindingDescription();
@@ -332,8 +333,8 @@ void Renderer::createGraphicsPipelines(
         _pipeline = pipeline.value;
     }
 
-    _device->logical().destroyShaderModule(vertSM);
-    _device->logical().destroyShaderModule(fragSM);
+    _device->logical().destroyShaderModule(*vertSM);
+    _device->logical().destroyShaderModule(*fragSM);
 }
 
 void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)

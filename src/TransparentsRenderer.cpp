@@ -154,20 +154,22 @@ void TransparentsRenderer::createGraphicsPipeline(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSPV = readFileBytes(binPath("shader/scene.vert.spv"));
-    const auto fragSPV = readFileBytes(binPath("shader/scene.frag.spv"));
-    const vk::ShaderModule vertSM =
-        createShaderModule(_device->logical(), "transparentsVS", vertSPV);
-    const vk::ShaderModule fragSM =
-        createShaderModule(_device->logical(), "transparentsPS", fragSPV);
+    const auto vertSM =
+        _device->compileShaderModule("shader/scene.vert", "transparentsVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/scene.frag", "transparentsPS");
+    if (!vertSM || !fragSM)
+        throw std::runtime_error(
+            "TransparentsRenderer shader compilation failed");
+
     const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = vertSM,
+            .module = *vertSM,
             .pName = "main"},
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = fragSM,
+            .module = *fragSM,
             .pName = "main"}};
 
     const auto vertexBindingDescription = Vertex::bindingDescription();
@@ -272,8 +274,8 @@ void TransparentsRenderer::createGraphicsPipeline(
         _pipeline = pipeline.value;
     }
 
-    _device->logical().destroyShaderModule(vertSM);
-    _device->logical().destroyShaderModule(fragSM);
+    _device->logical().destroyShaderModule(*vertSM);
+    _device->logical().destroyShaderModule(*fragSM);
 }
 
 void TransparentsRenderer::createCommandBuffers(

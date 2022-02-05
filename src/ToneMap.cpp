@@ -190,14 +190,15 @@ void ToneMap::createPipelines()
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1, .pSetLayouts = &_descriptorSetLayout});
 
-    const auto compSPV = readFileBytes(binPath("shader/tone_map.comp.spv"));
-    const vk::ShaderModule compSM =
-        createShaderModule(_device->logical(), "tonemapCS", compSPV);
+    const auto compSM =
+        _device->compileShaderModule("shader/tone_map.comp", "tonemapCS");
+    if (!compSM)
+        throw std::runtime_error("ToneMap shader compilation failed");
 
     const vk::ComputePipelineCreateInfo createInfo{
         .stage =
             {.stage = vk::ShaderStageFlagBits::eCompute,
-             .module = compSM,
+             .module = *compSM,
              .pName = "main"},
         .layout = _pipelineLayout};
 
@@ -210,7 +211,7 @@ void ToneMap::createPipelines()
         _pipeline = pipeline.value;
     }
 
-    _device->logical().destroy(compSM);
+    _device->logical().destroy(*compSM);
 }
 
 void ToneMap::createCommandBuffers(const SwapchainConfig &swapConfig)

@@ -4,8 +4,10 @@
 #include "vulkan.hpp"
 
 #include <GLFW/glfw3.h>
+#include <shaderc/shaderc.hpp>
 #include <vk_mem_alloc.h>
 
+#include <filesystem>
 #include <optional>
 #include <vector>
 
@@ -70,6 +72,12 @@ class Device
     vk::Queue presentQueue() const;
     const QueueFamilies &queueFamilies() const;
 
+    std::optional<vk::ShaderModule> compileShaderModule(
+        const std::string &relPath, const std::string &debugName) const;
+    std::optional<vk::ShaderModule> compileShaderModule(
+        const std::string &source, const std::string &path,
+        const std::string &debugName) const;
+
     void map(const VmaAllocation allocation, void **data) const;
     void unmap(const VmaAllocation allocation) const;
 
@@ -107,6 +115,7 @@ class Device
     vk::PhysicalDevice _physical;
     vk::Device _logical;
     VmaAllocator _allocator = nullptr;
+    shaderc::Compiler _compiler;
     vk::SurfaceKHR _surface;
 
     QueueFamilies _queueFamilies = {std::nullopt, std::nullopt, std::nullopt};

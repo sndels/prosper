@@ -15,7 +15,6 @@ endif() # NOT MSVC
 add_subdirectory(ext)
 add_subdirectory(include)
 add_subdirectory(src)
-add_subdirectory(res/shader)
 
 
 # Set up project targets
@@ -80,5 +79,3 @@ target_compile_definitions(prosper
     # Set up absolute path to resources and binaries
     RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"
     BIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
-
-add_dependencies(prosper spirv-shaders)

@@ -1,4 +1,6 @@
 #version 450
+#pragma shader_stage(fragment)
+
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(location = 0) in vec3 fragTexCoord;

@@ -142,20 +142,21 @@ void SkyboxRenderer::createAttachments()
 void SkyboxRenderer::createGraphicsPipelines(
     const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSPV = readFileBytes(binPath("shader/skybox.vert.spv"));
-    const auto fragSPV = readFileBytes(binPath("shader/skybox.frag.spv"));
-    const vk::ShaderModule vertSM =
-        createShaderModule(_device->logical(), "skyboxVS", vertSPV);
-    const vk::ShaderModule fragSM =
-        createShaderModule(_device->logical(), "skyboxPS", fragSPV);
+    const auto vertSM =
+        _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/skybox.frag", "skyboxPS");
+    if (!vertSM || !fragSM)
+        throw std::runtime_error("SkyboxRenderer shader compilation failed");
+
     const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = vertSM,
+            .module = *vertSM,
             .pName = "main"},
         vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = fragSM,
+            .module = *fragSM,
             .pName = "main"}};
 
     const vk::VertexInputBindingDescription vertexBindingDescription{
@@ -253,8 +254,8 @@ void SkyboxRenderer::createGraphicsPipelines(
         _pipeline = pipeline.value;
     }
 
-    _device->logical().destroyShaderModule(vertSM);
-    _device->logical().destroyShaderModule(fragSM);
+    _device->logical().destroyShaderModule(*vertSM);
+    _device->logical().destroyShaderModule(*fragSM);
 }
 
 void SkyboxRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)
