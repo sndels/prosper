@@ -580,6 +580,14 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 parentTransforms.emplace_back(modelToWorld);
             }
         }
+
+        // Honor scene lighting
+        if (!directionalLightFound &&
+            (scene.lights.pointLights.bufferData.count > 0 ||
+             scene.lights.spotLights.bufferData.count > 0))
+        {
+            scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
+        }
     }
 }
 
