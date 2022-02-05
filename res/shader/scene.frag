@@ -175,8 +175,12 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    vec4 linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0)) *
-                           materialPC.baseColorFactor;
+    vec4 linearBaseColor;
+    if (materialPC.baseColorTextureSet > -1)
+        linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0));
+    else
+        linearBaseColor = vec4(1);
+    linearBaseColor *= materialPC.baseColorFactor;
 
     // Alpha masking is 1.f
     if (materialPC.alphaMode > 0.f && materialPC.alphaMode < 2.f)
