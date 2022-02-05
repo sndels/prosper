@@ -208,6 +208,8 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
 
 void World::loadMaterials(const tinygltf::Model &gltfModel)
 {
+    _materials.push_back(Material{});
+
     for (const auto &material : gltfModel.materials)
     {
         Material mat;
@@ -373,8 +375,9 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 return is;
             }();
 
-            const int material = primitive.material;
-            assert(material > -1);
+            // -1 is mapped to the default material
+            assert(primitive.material > -2);
+            const int material = primitive.material + 1;
 
             _models.back()._meshes.emplace_back(
                 vertices, indices, &_materials[material], _device);
