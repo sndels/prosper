@@ -23,6 +23,8 @@ class ToneMap
     vk::CommandBuffer execute(const uint32_t nextImage) const;
 
   private:
+    void compileShaders();
+
     void destroySwapchainRelated();
     void createOutputImage(const SwapchainConfig &swapConfig);
     void createDescriptorSet(const SwapchainConfig &swapConfig);
@@ -31,6 +33,8 @@ class ToneMap
 
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
+
+    vk::ShaderModule _compSM;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     std::vector<vk::DescriptorSet> _descriptorSets;

@@ -32,6 +32,8 @@ class LightClustering
         const uint32_t nextImage);
 
   private:
+    void compileShaders();
+
     void destroySwapchainRelated();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
@@ -44,6 +46,8 @@ class LightClustering
 
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
+
+    vk::ShaderModule _compSM;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

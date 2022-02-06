@@ -38,6 +38,8 @@ class TransparentsRenderer
         const uint32_t nextImage) const;
 
   private:
+    void compileShaders();
+
     void destroySwapchainRelated();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
@@ -55,6 +57,8 @@ class TransparentsRenderer
 
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
+
+    std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
 
     vk::RenderingAttachmentInfoKHR _colorAttachment;
     vk::RenderingAttachmentInfoKHR _depthAttachment;

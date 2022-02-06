@@ -22,6 +22,7 @@ SkyboxRenderer::SkyboxRenderer(
 : _device{device}
 , _resources{resources}
 {
+    compileShaders();
     recreateSwapchainRelated(swapConfig, worldDSLayouts);
 }
 
@@ -30,7 +31,32 @@ SkyboxRenderer::~SkyboxRenderer()
     if (_device)
     {
         destroySwapchainRelated();
+
+        for (auto const &stage : _shaderStages)
+            _device->logical().destroyShaderModule(stage.module);
     }
+}
+
+void SkyboxRenderer::compileShaders()
+{
+    const auto vertSM =
+        _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/skybox.frag", "skyboxPS");
+    if (!vertSM || !fragSM)
+        throw std::runtime_error("SkyboxRenderer shader compilation failed");
+
+    _shaderStages = {
+        vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eVertex,
+            .module = *vertSM,
+            .pName = "main",
+        },
+        vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eFragment,
+            .module = *fragSM,
+            .pName = "main",
+        }};
 }
 
 void SkyboxRenderer::recreateSwapchainRelated(
@@ -142,23 +168,6 @@ void SkyboxRenderer::createAttachments()
 void SkyboxRenderer::createGraphicsPipelines(
     const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSM =
-        _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
-    const auto fragSM =
-        _device->compileShaderModule("shader/skybox.frag", "skyboxPS");
-    if (!vertSM || !fragSM)
-        throw std::runtime_error("SkyboxRenderer shader compilation failed");
-
-    const std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = *vertSM,
-            .pName = "main"},
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = *fragSM,
-            .pName = "main"}};
-
     const vk::VertexInputBindingDescription vertexBindingDescription{
         .binding = 0,
         .stride = sizeof(vec3), // Only position
@@ -234,8 +243,8 @@ void SkyboxRenderer::createGraphicsPipelines(
 
     const vk::GraphicsPipelineCreateInfo createInfo{
         .pNext = &renderingCreateInfo,
-        .stageCount = static_cast<uint32_t>(shaderStages.size()),
-        .pStages = shaderStages.data(),
+        .stageCount = static_cast<uint32_t>(_shaderStages.size()),
+        .pStages = _shaderStages.data(),
         .pVertexInputState = &vertInputInfo,
         .pInputAssemblyState = &inputAssembly,
         .pViewportState = &viewportState,
@@ -262,9 +271,6 @@ void SkyboxRenderer::createGraphicsPipelines(
                 .pObjectName = "SkyboxRenderer",
             });
     }
-
-    _device->logical().destroyShaderModule(*vertSM);
-    _device->logical().destroyShaderModule(*fragSM);
 }
 
 void SkyboxRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)

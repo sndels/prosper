@@ -39,6 +39,8 @@ LightClustering::LightClustering(
 : _device{device}
 , _resources{resources}
 {
+    compileShaders();
+
     const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{{
         {
             .binding = 0,
@@ -83,12 +85,24 @@ LightClustering::~LightClustering()
 {
     if (_device)
     {
-
         destroySwapchainRelated();
+
         _device->destroy(_resources->buffers.lightClusters.indicesCount);
         _device->logical().destroy(
             _resources->buffers.lightClusters.descriptorSetLayout);
+
+        _device->logical().destroy(_compSM);
     }
+}
+
+void LightClustering::compileShaders()
+{
+    const auto compSM = _device->compileShaderModule(
+        "shader/light_clustering.comp", "lightClusteringCS");
+    if (!compSM)
+        throw std::runtime_error("LightClustering shader compilation failed");
+
+    _compSM = *compSM;
 }
 
 void LightClustering::recreateSwapchainRelated(
@@ -320,16 +334,11 @@ void LightClustering::createPipeline(
             .pPushConstantRanges = &pcRange,
         });
 
-    const auto compSM = _device->compileShaderModule(
-        "shader/light_clustering.comp", "lightClusteringCS");
-    if (!compSM)
-        throw std::runtime_error("LightClustering shader compilation failed");
-
     const vk::ComputePipelineCreateInfo createInfo{
         .stage =
             {
                 .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = *compSM,
+                .module = _compSM,
                 .pName = "main",
             },
         .layout = _pipelineLayout,
@@ -351,8 +360,6 @@ void LightClustering::createPipeline(
                 .pObjectName = "LightClustering",
             });
     }
-
-    _device->logical().destroy(*compSM);
 }
 
 void LightClustering::createCommandBuffers(const SwapchainConfig &swapConfig)

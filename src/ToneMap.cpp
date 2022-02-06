@@ -23,6 +23,8 @@ ToneMap::ToneMap(
 : _device{device}
 , _resources{resources}
 {
+    compileShaders();
+
     const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
         {{.binding = 0,
           .descriptorType = vk::DescriptorType::eStorageImage,
@@ -45,8 +47,22 @@ ToneMap::~ToneMap()
     if (_device)
     {
         destroySwapchainRelated();
+
         _device->logical().destroy(_descriptorSetLayout);
+
+        _device->logical().destroy(_compSM);
     }
+}
+
+void ToneMap::compileShaders()
+{
+
+    const auto compSM =
+        _device->compileShaderModule("shader/tone_map.comp", "tonemapCS");
+    if (!compSM)
+        throw std::runtime_error("ToneMap shader compilation failed");
+
+    _compSM = *compSM;
 }
 
 void ToneMap::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
@@ -191,15 +207,10 @@ void ToneMap::createPipelines()
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1, .pSetLayouts = &_descriptorSetLayout});
 
-    const auto compSM =
-        _device->compileShaderModule("shader/tone_map.comp", "tonemapCS");
-    if (!compSM)
-        throw std::runtime_error("ToneMap shader compilation failed");
-
     const vk::ComputePipelineCreateInfo createInfo{
         .stage =
             {.stage = vk::ShaderStageFlagBits::eCompute,
-             .module = *compSM,
+             .module = _compSM,
              .pName = "main"},
         .layout = _pipelineLayout};
 
@@ -219,8 +230,6 @@ void ToneMap::createPipelines()
                 .pObjectName = "ToneMap",
             });
     }
-
-    _device->logical().destroy(*compSM);
 }
 
 void ToneMap::createCommandBuffers(const SwapchainConfig &swapConfig)
