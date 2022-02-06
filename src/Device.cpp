@@ -12,6 +12,7 @@
 
 namespace
 {
+
 const std::vector<const char *> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
@@ -161,6 +162,34 @@ void DestroyDebugUtilsMessengerEXT(
     if (func != nullptr)
         func(vkInstance, vkDebugMessenger, vkpAllocator);
 }
+
+const char *statusString(shaderc_compilation_status status)
+{
+    switch (status)
+    {
+    case shaderc_compilation_status_success:
+        return "Success";
+    case shaderc_compilation_status_invalid_stage:
+        return "Stage deduction failed";
+    case shaderc_compilation_status_compilation_error:
+        return "Compilation error";
+    case shaderc_compilation_status_internal_error:
+        return "Internal error";
+    case shaderc_compilation_status_null_result_object:
+        return "Null result object";
+    case shaderc_compilation_status_invalid_assembly:
+        return "Invalid assembly";
+    case shaderc_compilation_status_validation_error:
+        return "Validation error";
+    case shaderc_compilation_status_transformation_error:
+        return "Transformation error";
+    case shaderc_compilation_status_configuration_error:
+        return "Configuration error";
+    default:
+        throw std::runtime_error("Unknown shaderc compilationstatus");
+    }
+}
+
 } // namespace
 
 vk::BufferMemoryBarrier2KHR TexelBuffer::transitionBarrier(
@@ -351,11 +380,11 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
 
     if (const auto status = result.GetCompilationStatus(); status)
     {
-        if (status == shaderc_compilation_status_invalid_stage)
-            fprintf(stderr, "Invalid or missing shader stage\n");
-        else
-            fprintf(stderr, "%s\n", result.GetErrorMessage().c_str());
+        const auto err = result.GetErrorMessage();
+        if (!err.empty())
+            fprintf(stderr, "%s\n", err.c_str());
         fprintf(stderr, "Compilation of '%s' failed\n", path.c_str());
+        fprintf(stderr, "%s\n", statusString(status));
         return {};
     }
 
