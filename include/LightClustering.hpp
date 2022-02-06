@@ -22,6 +22,10 @@ class LightClustering
     LightClustering(const LightClustering &other) = delete;
     LightClustering &operator=(const LightClustering &other) = delete;
 
+    void recompileShaders(
+        const vk::DescriptorSetLayout camDSLayout,
+        const World::DSLayouts &worldDSLayouts);
+
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
@@ -32,9 +36,10 @@ class LightClustering
         const uint32_t nextImage);
 
   private:
-    void compileShaders();
+    bool compileShaders();
 
     void destroySwapchainRelated();
+    void destroyPipeline();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
     void createOutputs(const SwapchainConfig &swapConfig);

@@ -29,6 +29,7 @@ class App
     void run();
 
   private:
+    void recompileShaders();
     void recreateSwapchainAndRelated();
 
     void handleMouseGestures();
@@ -58,6 +59,7 @@ class App
 
     bool _useFpsLimit = true;
     int32_t _fpsLimit = 60;
+    bool _recompileShaders{false};
 
     Timer _frameTimer;
 

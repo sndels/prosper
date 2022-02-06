@@ -21,6 +21,10 @@ class SkyboxRenderer
     SkyboxRenderer(const SkyboxRenderer &other) = delete;
     SkyboxRenderer &operator=(const SkyboxRenderer &other) = delete;
 
+    void recompileShaders(
+        const SwapchainConfig &swapConfig,
+        const World::DSLayouts &worldDSLayouts);
+
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
@@ -30,9 +34,10 @@ class SkyboxRenderer
         const uint32_t nextImage) const;
 
   private:
-    void compileShaders();
+    bool compileShaders();
 
     void destroySwapchainRelated();
+    void destroyGraphicsPipelines();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
     void createAttachments();

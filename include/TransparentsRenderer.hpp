@@ -28,6 +28,11 @@ class TransparentsRenderer
     TransparentsRenderer(const TransparentsRenderer &other) = delete;
     TransparentsRenderer &operator=(const TransparentsRenderer &other) = delete;
 
+    void recompileShaders(
+        const SwapchainConfig &swapConfig,
+        const vk::DescriptorSetLayout camDSLayout,
+        const World::DSLayouts &worldDSLayouts);
+
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig,
         const vk::DescriptorSetLayout camDSLayout,
@@ -38,9 +43,10 @@ class TransparentsRenderer
         const uint32_t nextImage) const;
 
   private:
-    void compileShaders();
+    bool compileShaders();
 
     void destroySwapchainRelated();
+    void destroyGraphicsPipeline();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
     void createAttachments();

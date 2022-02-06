@@ -23,7 +23,8 @@ ToneMap::ToneMap(
 : _device{device}
 , _resources{resources}
 {
-    compileShaders();
+    if (!compileShaders())
+        throw std::runtime_error("ToneMap shader compilation failed");
 
     const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
         {{.binding = 0,
@@ -54,15 +55,30 @@ ToneMap::~ToneMap()
     }
 }
 
-void ToneMap::compileShaders()
+void ToneMap::recompileShaders()
 {
+    if (compileShaders())
+    {
+        destroyPipelines();
+        createPipelines();
+    }
+}
 
+bool ToneMap::compileShaders()
+{
     const auto compSM =
         _device->compileShaderModule("shader/tone_map.comp", "tonemapCS");
-    if (!compSM)
-        throw std::runtime_error("ToneMap shader compilation failed");
 
-    _compSM = *compSM;
+    if (compSM)
+    {
+        _device->logical().destroy(_compSM);
+
+        _compSM = *compSM;
+
+        return true;
+    }
+
+    return false;
 }
 
 void ToneMap::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
@@ -134,11 +150,17 @@ void ToneMap::destroySwapchainRelated()
                 _commandBuffers.data());
         }
 
-        _device->logical().destroy(_pipeline);
-        _device->logical().destroy(_pipelineLayout);
+        destroyPipelines();
+
         // Descriptor sets are cleaned up when the pool is destroyed
         _device->destroy(_resources->images.toneMapped);
     }
+}
+
+void ToneMap::destroyPipelines()
+{
+    _device->logical().destroy(_pipeline);
+    _device->logical().destroy(_pipelineLayout);
 }
 
 void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)

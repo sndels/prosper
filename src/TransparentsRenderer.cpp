@@ -24,7 +24,9 @@ TransparentsRenderer::TransparentsRenderer(
 : _device{device}
 , _resources{resources}
 {
-    compileShaders();
+    if (!compileShaders())
+        throw std::runtime_error(
+            "TransparentsRenderer shader compilation failed");
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
 
@@ -39,27 +41,16 @@ TransparentsRenderer::~TransparentsRenderer()
     }
 }
 
-void TransparentsRenderer::compileShaders()
+void TransparentsRenderer::recompileShaders(
+    const SwapchainConfig &swapConfig,
+    const vk::DescriptorSetLayout camDSLayout,
+    const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSM =
-        _device->compileShaderModule("shader/scene.vert", "transparentsVS");
-    const auto fragSM =
-        _device->compileShaderModule("shader/scene.frag", "transparentsPS");
-    if (!vertSM || !fragSM)
-        throw std::runtime_error(
-            "TransparentsRenderer shader compilation failed");
-
-    _shaderStages = {
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = *vertSM,
-            .pName = "main",
-        },
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = *fragSM,
-            .pName = "main",
-        }};
+    if (compileShaders())
+    {
+        destroyGraphicsPipeline();
+        createGraphicsPipeline(swapConfig, camDSLayout, worldDSLayouts);
+    }
 }
 
 void TransparentsRenderer::recreateSwapchainRelated(
@@ -162,6 +153,41 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     return buffer;
 }
 
+bool TransparentsRenderer::compileShaders()
+{
+    const auto vertSM =
+        _device->compileShaderModule("shader/scene.vert", "transparentsVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/scene.frag", "transparentsPS");
+
+    if (vertSM && fragSM)
+    {
+        for (auto const &stage : _shaderStages)
+            _device->logical().destroyShaderModule(stage.module);
+
+        _shaderStages = {
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eVertex,
+                .module = *vertSM,
+                .pName = "main",
+            },
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eFragment,
+                .module = *fragSM,
+                .pName = "main",
+            }};
+
+        return true;
+    }
+
+    if (vertSM)
+        _device->logical().destroy(*vertSM);
+    if (fragSM)
+        _device->logical().destroy(*fragSM);
+
+    return false;
+}
+
 void TransparentsRenderer::destroySwapchainRelated()
 {
     if (_device)
@@ -174,12 +200,17 @@ void TransparentsRenderer::destroySwapchainRelated()
                 _commandBuffers.data());
         }
 
-        _device->logical().destroy(_pipeline);
-        _device->logical().destroy(_pipelineLayout);
+        destroyGraphicsPipeline();
 
         _colorAttachment = vk::RenderingAttachmentInfoKHR{};
         _depthAttachment = vk::RenderingAttachmentInfoKHR{};
     }
+}
+
+void TransparentsRenderer::destroyGraphicsPipeline()
+{
+    _device->logical().destroy(_pipeline);
+    _device->logical().destroy(_pipelineLayout);
 }
 
 void TransparentsRenderer::createAttachments()

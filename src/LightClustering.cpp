@@ -39,7 +39,8 @@ LightClustering::LightClustering(
 : _device{device}
 , _resources{resources}
 {
-    compileShaders();
+    if (!compileShaders())
+        throw std::runtime_error("LightClustering shader compilation failed");
 
     const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{{
         {
@@ -95,14 +96,15 @@ LightClustering::~LightClustering()
     }
 }
 
-void LightClustering::compileShaders()
+void LightClustering::recompileShaders(
+    const vk::DescriptorSetLayout camDSLayout,
+    const World::DSLayouts &worldDSLayouts)
 {
-    const auto compSM = _device->compileShaderModule(
-        "shader/light_clustering.comp", "lightClusteringCS");
-    if (!compSM)
-        throw std::runtime_error("LightClustering shader compilation failed");
-
-    _compSM = *compSM;
+    if (compileShaders())
+    {
+        destroyPipeline();
+        createPipeline(camDSLayout, worldDSLayouts);
+    }
 }
 
 void LightClustering::recreateSwapchainRelated(
@@ -207,6 +209,23 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
     return buffer;
 }
 
+bool LightClustering::compileShaders()
+{
+    const auto compSM = _device->compileShaderModule(
+        "shader/light_clustering.comp", "lightClusteringCS");
+
+    if (compSM)
+    {
+        _device->logical().destroy(_compSM);
+
+        _compSM = *compSM;
+
+        return true;
+    }
+
+    return false;
+}
+
 void LightClustering::destroySwapchainRelated()
 {
     if (_device)
@@ -219,8 +238,8 @@ void LightClustering::destroySwapchainRelated()
                 _commandBuffers.data());
         }
 
-        _device->logical().destroy(_pipeline);
-        _device->logical().destroy(_pipelineLayout);
+        destroyPipeline();
+
         _device->destroy(_resources->buffers.lightClusters.pointers);
         _device->destroy(_resources->buffers.lightClusters.indices);
     }
@@ -360,6 +379,12 @@ void LightClustering::createPipeline(
                 .pObjectName = "LightClustering",
             });
     }
+}
+
+void LightClustering::destroyPipeline()
+{
+    _device->logical().destroy(_pipeline);
+    _device->logical().destroy(_pipelineLayout);
 }
 
 void LightClustering::createCommandBuffers(const SwapchainConfig &swapConfig)

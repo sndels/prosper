@@ -147,6 +147,8 @@ void App::run()
 
         handleMouseGestures();
 
+        recompileShaders();
+
         drawFrame();
 
         InputHandler::instance().clearSingleFrameGestures();
@@ -194,6 +196,30 @@ void App::recreateSwapchainAndRelated()
         radians(CAMERA_FOV),
         _window.width() / static_cast<float>(_window.height()), CAMERA_NEAR,
         CAMERA_FAR);
+}
+
+void App::recompileShaders()
+{
+    if (_recompileShaders)
+    {
+        // Wait for resources to be out of use
+        _device.logical().waitIdle();
+
+        fprintf(stderr, "Recompiling shaders\n");
+
+        _lightClustering.recompileShaders(
+            _cam.descriptorSetLayout(), _world._dsLayouts);
+        _renderer.recompileShaders(
+            _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+        _transparentsRenderer.recompileShaders(
+            _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+        _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
+        _toneMap.recompileShaders();
+
+        fprintf(stderr, "Shaders recompiled\n");
+
+        _recompileShaders = false;
+    }
 }
 
 void App::handleMouseGestures()
@@ -330,7 +356,7 @@ void App::drawFrame()
     _imguiRenderer.startFrame();
 
     {
-        ImGui::Begin("Stats");
+        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         ImGui::Text(
             "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
@@ -341,6 +367,8 @@ void App::drawFrame()
         {
             ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
         }
+
+        _recompileShaders = ImGui::Button("Recompile shaders");
 
         ImGui::End();
     }

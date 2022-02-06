@@ -22,7 +22,9 @@ SkyboxRenderer::SkyboxRenderer(
 : _device{device}
 , _resources{resources}
 {
-    compileShaders();
+    if (!compileShaders())
+        throw std::runtime_error("SkyboxRenderer shader compilation failed");
+
     recreateSwapchainRelated(swapConfig, worldDSLayouts);
 }
 
@@ -37,26 +39,14 @@ SkyboxRenderer::~SkyboxRenderer()
     }
 }
 
-void SkyboxRenderer::compileShaders()
+void SkyboxRenderer::recompileShaders(
+    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSM =
-        _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
-    const auto fragSM =
-        _device->compileShaderModule("shader/skybox.frag", "skyboxPS");
-    if (!vertSM || !fragSM)
-        throw std::runtime_error("SkyboxRenderer shader compilation failed");
-
-    _shaderStages = {
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = *vertSM,
-            .pName = "main",
-        },
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = *fragSM,
-            .pName = "main",
-        }};
+    if (compileShaders())
+    {
+        destroyGraphicsPipelines();
+        createGraphicsPipelines(swapConfig, worldDSLayouts);
+    }
 }
 
 void SkyboxRenderer::recreateSwapchainRelated(
@@ -129,6 +119,41 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     return buffer;
 }
 
+bool SkyboxRenderer::compileShaders()
+{
+    const auto vertSM =
+        _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/skybox.frag", "skyboxPS");
+
+    if (vertSM && fragSM)
+    {
+        for (auto const &stage : _shaderStages)
+            _device->logical().destroyShaderModule(stage.module);
+
+        _shaderStages = {
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eVertex,
+                .module = *vertSM,
+                .pName = "main",
+            },
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eFragment,
+                .module = *fragSM,
+                .pName = "main",
+            }};
+
+        return true;
+    }
+
+    if (vertSM)
+        _device->logical().destroy(*vertSM);
+    if (fragSM)
+        _device->logical().destroy(*fragSM);
+
+    return false;
+}
+
 void SkyboxRenderer::destroySwapchainRelated()
 {
     if (_device)
@@ -141,12 +166,17 @@ void SkyboxRenderer::destroySwapchainRelated()
                 _commandBuffers.data());
         }
 
-        _device->logical().destroy(_pipeline);
-        _device->logical().destroy(_pipelineLayout);
+        destroyGraphicsPipelines();
 
         _colorAttachment = vk::RenderingAttachmentInfoKHR{};
         _depthAttachment = vk::RenderingAttachmentInfoKHR{};
     }
+}
+
+void SkyboxRenderer::destroyGraphicsPipelines()
+{
+    _device->logical().destroy(_pipeline);
+    _device->logical().destroy(_pipelineLayout);
 }
 
 void SkyboxRenderer::createAttachments()

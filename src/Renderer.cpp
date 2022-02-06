@@ -24,7 +24,9 @@ Renderer::Renderer(
 : _device{device}
 , _resources{resources}
 {
-    compileShaders();
+    if (!compileShaders())
+        throw std::runtime_error("Renderer shader compilation failed");
+
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
 
@@ -39,26 +41,16 @@ Renderer::~Renderer()
     }
 }
 
-void Renderer::compileShaders()
+void Renderer::recompileShaders(
+    const SwapchainConfig &swapConfig,
+    const vk::DescriptorSetLayout camDSLayout,
+    const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertSM =
-        _device->compileShaderModule("shader/scene.vert", "opaqueVS");
-    const auto fragSM =
-        _device->compileShaderModule("shader/scene.frag", "opaquePS");
-    if (!vertSM || !fragSM)
-        throw std::runtime_error("Renderer shader compilation failed");
-
-    _shaderStages = {
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eVertex,
-            .module = *vertSM,
-            .pName = "main",
-        },
-        vk::PipelineShaderStageCreateInfo{
-            .stage = vk::ShaderStageFlagBits::eFragment,
-            .module = *fragSM,
-            .pName = "main",
-        }};
+    if (compileShaders())
+    {
+        destroyGraphicsPipelines();
+        createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
+    }
 }
 
 void Renderer::recreateSwapchainRelated(
@@ -161,6 +153,41 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     return buffer;
 }
 
+bool Renderer::compileShaders()
+{
+    const auto vertSM =
+        _device->compileShaderModule("shader/scene.vert", "opaqueVS");
+    const auto fragSM =
+        _device->compileShaderModule("shader/scene.frag", "opaquePS");
+
+    if (vertSM && fragSM)
+    {
+        for (auto const &stage : _shaderStages)
+            _device->logical().destroyShaderModule(stage.module);
+
+        _shaderStages = {
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eVertex,
+                .module = *vertSM,
+                .pName = "main",
+            },
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eFragment,
+                .module = *fragSM,
+                .pName = "main",
+            }};
+
+        return true;
+    }
+
+    if (vertSM)
+        _device->logical().destroy(*vertSM);
+    if (fragSM)
+        _device->logical().destroy(*fragSM);
+
+    return false;
+}
+
 void Renderer::destroySwapchainRelated()
 {
     if (_device)
@@ -173,14 +200,20 @@ void Renderer::destroySwapchainRelated()
                 _commandBuffers.data());
         }
 
-        _device->logical().destroy(_pipeline);
-        _device->logical().destroy(_pipelineLayout);
+        destroyGraphicsPipelines();
+
         _device->destroy(_resources->images.sceneColor);
         _device->destroy(_resources->images.sceneDepth);
 
         _colorAttachment = vk::RenderingAttachmentInfoKHR{};
         _depthAttachment = vk::RenderingAttachmentInfoKHR{};
     }
+}
+
+void Renderer::destroyGraphicsPipelines()
+{
+    _device->logical().destroy(_pipeline);
+    _device->logical().destroy(_pipelineLayout);
 }
 
 void Renderer::createOutputs(const SwapchainConfig &swapConfig)
