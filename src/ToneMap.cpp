@@ -95,7 +95,8 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
         &_descriptorSets[nextImage], 0, nullptr);
 
     const auto &extent = _resources->images.sceneColor.extent;
-    const auto groups = glm::uvec2{extent.width, extent.height} / 16u;
+    const auto groups =
+        (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
     buffer.dispatch(groups.x, groups.y, 1);
 
     buffer.endDebugUtilsLabelEXT(); // ToneMap
