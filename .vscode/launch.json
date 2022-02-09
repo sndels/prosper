@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(CppVSDbg) Launch (Release)",
+            "name": "Launch (Release)",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/Release/prosper.exe",
@@ -17,7 +17,7 @@
             "preLaunchTask": ""
         },
         {
-            "name": "(CppVSDbg) Launch (RelWithDebInfo)",
+            "name": "Launch (RelWithDebInfo)",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/RelWithDebInfo/prosper.exe",
@@ -29,7 +29,7 @@
             "preLaunchTask": ""
         },
         {
-            "name": "(CppVSDbg) Launch (Debug)",
+            "name": "Launch (Debug)",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/Debug/prosper.exe",
