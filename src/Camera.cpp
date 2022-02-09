@@ -98,6 +98,8 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
             vec4{
                 offset ? _parameters.apply(*offset).eye : _parameters.eye, 1.f},
         .resolution = resolution,
+        .near = _parameters.zN,
+        .far = _parameters.zF,
     };
 
     void *data;

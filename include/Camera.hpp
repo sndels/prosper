@@ -48,6 +48,8 @@ struct CameraUniforms
     glm::mat4 cameraToClip;
     glm::vec4 eye;
     glm::uvec2 resolution;
+    float near;
+    float far;
 };
 
 class Camera
