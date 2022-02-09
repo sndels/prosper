@@ -18,6 +18,7 @@
 #include <iostream>
 #include <set>
 
+#include "Timer.hpp"
 #include "Utils.hpp"
 
 using namespace glm;
@@ -116,14 +117,24 @@ World::World(
 {
     fprintf(stderr, "Loading world\n");
 
+    Timer t;
     const auto gltfModel = loadGLTFModel(resPath(scene));
+    fprintf(stderr, "glTF model loading took %.2fs\n", t.getSeconds());
 
-    loadTextures(gltfModel);
-    loadMaterials(gltfModel);
-    loadModels(gltfModel);
-    loadScenes(gltfModel);
+    const auto &tl = [&](const char *stage, std::function<void()> fn)
+    {
+        t.reset();
+        fn();
+        fprintf(stderr, "%s took %.2fs\n", stage, t.getSeconds());
+    };
 
-    createBuffers(swapImageCount);
+    tl("Texture loading", [&]() { loadTextures(gltfModel); });
+    tl("Material loading", [&]() { loadMaterials(gltfModel); });
+    tl("Model loading ", [&]() { loadModels(gltfModel); });
+    tl("Scene loading ", [&]() { loadScenes(gltfModel); });
+
+    tl("Buffer creation", [&]() { createBuffers(swapImageCount); });
+
     createDescriptorPool(swapImageCount);
     createDescriptorSets(swapImageCount);
 }
