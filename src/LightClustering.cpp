@@ -213,6 +213,8 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
 bool LightClustering::compileShaders()
 {
+    fprintf(stderr, "Compiling LightClustering shaders\n");
+
     const auto compSM = _device->compileShaderModule(
         "shader/light_clustering.comp", "lightClusteringCS");
 

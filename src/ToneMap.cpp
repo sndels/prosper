@@ -68,6 +68,8 @@ void ToneMap::recompileShaders()
 
 bool ToneMap::compileShaders()
 {
+    fprintf(stderr, "Compiling ToneMap shaders\n");
+
     const auto compSM =
         _device->compileShaderModule("shader/tone_map.comp", "tonemapCS");
 

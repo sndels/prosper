@@ -157,6 +157,8 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
 
 bool Renderer::compileShaders()
 {
+    fprintf(stderr, "Compiling Renderer shaders\n");
+
     const auto vertSM =
         _device->compileShaderModule("shader/scene.vert", "opaqueVS");
     const auto fragSM =

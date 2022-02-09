@@ -157,6 +157,8 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
 
 bool TransparentsRenderer::compileShaders()
 {
+    fprintf(stderr, "Compiling TransparentsRenderer shaders\n");
+
     const auto vertSM =
         _device->compileShaderModule("shader/scene.vert", "transparentsVS");
     const auto fragSM =

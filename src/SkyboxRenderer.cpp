@@ -123,6 +123,8 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
 
 bool SkyboxRenderer::compileShaders()
 {
+    fprintf(stderr, "Compiling SkyboxRenderer shaders\n");
+
     const auto vertSM =
         _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
     const auto fragSM =
