@@ -22,6 +22,8 @@ ImGuiRenderer::ImGuiRenderer(
 : _device{device}
 , _resources{resources}
 {
+    fprintf(stderr, "Creating ImGuiRenderer\n");
+
     createDescriptorPool();
     createRenderPass(_resources->images.toneMapped.format);
 

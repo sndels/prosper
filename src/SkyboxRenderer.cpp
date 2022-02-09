@@ -22,6 +22,8 @@ SkyboxRenderer::SkyboxRenderer(
 : _device{device}
 , _resources{resources}
 {
+    fprintf(stderr, "Creating SkyboxRenderer\n");
+
     if (!compileShaders())
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 

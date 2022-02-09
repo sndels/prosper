@@ -24,6 +24,8 @@ TransparentsRenderer::TransparentsRenderer(
 : _device{device}
 , _resources{resources}
 {
+    fprintf(stderr, "Creating TransparentsRenderer\n");
+
     if (!compileShaders())
         throw std::runtime_error(
             "TransparentsRenderer shader compilation failed");

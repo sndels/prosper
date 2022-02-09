@@ -114,6 +114,8 @@ World::World(
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
 {
+    fprintf(stderr, "Loading world\n");
+
     const auto gltfModel = loadGLTFModel(resPath(scene));
 
     loadTextures(gltfModel);

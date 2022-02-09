@@ -39,6 +39,8 @@ LightClustering::LightClustering(
 : _device{device}
 , _resources{resources}
 {
+    fprintf(stderr, "Creating LightClustering\n");
+
     if (!compileShaders())
         throw std::runtime_error("LightClustering shader compilation failed");
 

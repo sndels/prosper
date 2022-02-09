@@ -12,6 +12,8 @@ Window::Window(
 : _width(width)
 , _height(height)
 {
+    fprintf(stderr, "Creating window\n");
+
     glfwSetErrorCallback(Window::errorCallback);
 
     glfwInit();

@@ -286,6 +286,8 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 
 Device::Device(GLFWwindow *window)
 {
+    fprintf(stderr, "Creating Vulkan device\n");
+
     _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
 
     vk::DynamicLoader dl;

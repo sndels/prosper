@@ -24,6 +24,8 @@ Renderer::Renderer(
 : _device{device}
 , _resources{resources}
 {
+    fprintf(stderr, "Creating Renderer\n");
+
     if (!compileShaders())
         throw std::runtime_error("Renderer shader compilation failed");
 

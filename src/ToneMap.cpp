@@ -23,6 +23,8 @@ ToneMap::ToneMap(
 : _device{device}
 , _resources{resources}
 {
+    fprintf(stderr, "Creating ToneMap\n");
+
     if (!compileShaders())
         throw std::runtime_error("ToneMap shader compilation failed");
 
