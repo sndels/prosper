@@ -2,6 +2,7 @@
 #pragma shader_stage(compute)
 
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_control_flow_attributes : require
 
 #define GROUP_DIM 16
 layout(local_size_x = GROUP_DIM, local_size_y = GROUP_DIM) in;
@@ -25,16 +26,84 @@ shared uint spotCount;
 shared uint spotIndices[maxPointIndices];
 shared uint clusterIndexOffset;
 
-bool pointVisible(uint i, uvec2 cluster)
+struct Sphere
+{
+    vec3 p;
+    float r;
+};
+
+struct Frustum
+{
+    vec4 planes[6];
+};
+
+float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, -1)); }
+
+bool intersect(Sphere s, Frustum f)
+{
+    // TODO: Bf3 culling slides unrolled this to do two sphere intersections at
+    // a time vectorized (Daniel Collin, Culling the Battlefield)
+    bool intersects = true;
+    [[unroll]] for (int i = 0; i < 6; ++i)
+    {
+        intersects = intersects && signedDistance(f.planes[i], s.p) >= -s.r;
+    }
+    return intersects;
+}
+
+bool isPointVisible(uint i, Frustum f)
+{
+    PointLight point = pointLights.lights[i];
+
+    Sphere s;
+    s.p = (camera.worldToCamera * point.position).xyz;
+    s.r = point.radianceAndRadius.w;
+
+    return intersect(s, f);
+}
+
+bool isSpotVisible(uint i, Frustum Frustum)
 {
     // TODO
     return true;
 }
 
-bool spotVisible(uint i, uvec2 cluster)
+Frustum clusterFrustum(uvec2 cluster)
 {
-    // TODO
-    return true;
+    // Ported from Intel's
+    // Deferred Rendering for Current and Future Rendering Pipelines
+    // License at the end of this file
+
+    // Work out scale/bias from [0, 1]
+    vec2 tileScale =
+        vec2(camera.resolution) / float(2 * LIGHT_CLUSTER_DIMENSION);
+    vec2 tileBias = tileScale - vec2(cluster);
+
+    // Now work out composite projection matrix
+    // Relevant matrix columns for this tile frusta
+    vec4 c1 = vec4(camera.cameraToClip[0][0] * tileScale.x, 0, -tileBias.x, 0);
+    // SS: Our projection Y is already flipped
+    vec4 c2 = vec4(0, camera.cameraToClip[1][1] * tileScale.y, -tileBias.y, 0);
+    vec4 c4 = vec4(0, 0, -1, 0);
+
+    // Derive frustum planes
+    Frustum f;
+    // Sides
+    f.planes[0] = c4 - c1;
+    f.planes[1] = c4 + c1;
+    f.planes[2] = c4 - c2;
+    f.planes[3] = c4 + c2;
+    // Near/far
+    f.planes[4] = vec4(0, 0, -1, camera.near);
+    f.planes[5] = vec4(0, 0, 1, -camera.far);
+
+    // Normalize frustum planes (near/far already normalized)
+    [[unroll]] for (uint i = 0; i < 4; ++i)
+    {
+        f.planes[i] /= length(f.planes[i].xyz);
+    }
+
+    return f;
 }
 
 void main()
@@ -55,6 +124,10 @@ void main()
     barrier();
     groupMemoryBarrier();
 
+    // TODO: Split into a separate compute pass to fill the data?
+    //       Get from CPU instead?
+    Frustum f = clusterFrustum(cluster);
+
     uint groupThreads = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
 
     {
@@ -62,14 +135,14 @@ void main()
         uint threadPoints = (totalPoints - 1) / groupThreads + 1;
         for (uint i = 0; i < threadPoints; ++i)
         {
-            uint index = localIndex * threadPoints + i;
-            if (index >= totalPoints)
+            uint pi = localIndex * threadPoints + i;
+            if (pi >= totalPoints)
                 break;
 
-            if (pointVisible(index, cluster))
+            if (isPointVisible(pi, f))
             {
                 uint writeIndex = atomicAdd(pointCount, 1);
-                pointIndices[writeIndex] = index;
+                pointIndices[writeIndex] = pi;
             }
         }
 
@@ -77,13 +150,14 @@ void main()
         uint threadSpots = (totalSpots - 1) / groupThreads + 1;
         for (uint i = 0; i < threadSpots; ++i)
         {
-            uint index = localIndex * threadSpots + i;
-            if (index >= totalSpots)
+            uint si = localIndex * threadSpots + i;
+            if (si >= totalSpots)
                 break;
-            if (spotVisible(index, cluster))
+
+            if (isSpotVisible(si, f))
             {
                 uint writeIndex = atomicAdd(spotCount, 1);
-                spotIndices[writeIndex] = index;
+                spotIndices[writeIndex] = si;
             }
         }
     }
@@ -123,3 +197,19 @@ void main()
             uvec4(spotIndices[index], 0, 0, 0));
     }
 }
+
+// Frustum creation
+// Copyright 2010 Intel Corporation
+// All Rights Reserved
+//
+// Permission is granted to use, copy, distribute and prepare derivative works
+// of this software for any purpose and without fee, provided, that the above
+// copyright notice and this statement appear in all copies.  Intel makes no
+// representations about the suitability of this software for any purpose.  THIS
+// SOFTWARE IS PROVIDED "AS IS." INTEL SPECIFICALLY DISCLAIMS ALL WARRANTIES,
+// EXPRESS OR IMPLIED, AND ALL LIABILITY, INCLUDING CONSEQUENTIAL AND OTHER
+// INDIRECT DAMAGES, FOR THE USE OF THIS SOFTWARE, INCLUDING LIABILITY FOR
+// INFRINGEMENT OF ANY PROPRIETARY RIGHTS, AND INCLUDING THE WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  Intel does not assume
+// any responsibility for any errors which may appear in this software nor any
+// responsibility to update it.
