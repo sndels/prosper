@@ -29,23 +29,23 @@ struct BufferState
 {
     vk::PipelineStageFlags2KHR stageMask{
         vk::PipelineStageFlagBits2KHR::eTopOfPipe};
-    vk::AccessFlags2KHR accessMask;
+    vk::AccessFlags2KHR accessMask{vk::AccessFlagBits2KHR::eNone};
 };
 
 struct Buffer
 {
     vk::Buffer handle;
-    VmaAllocation allocation;
+    VmaAllocation allocation{nullptr};
 };
 
 struct TexelBuffer
 {
     vk::Buffer handle;
     vk::BufferView view;
-    vk::Format format;
-    vk::DeviceSize size;
+    vk::Format format{vk::Format::eUndefined};
+    vk::DeviceSize size{0};
     BufferState state;
-    VmaAllocation allocation;
+    VmaAllocation allocation{nullptr};
 
     vk::BufferMemoryBarrier2KHR transitionBarrier(const BufferState &newState);
     void transition(
@@ -64,11 +64,11 @@ struct Image
 {
     vk::Image handle;
     vk::ImageView view;
-    vk::Format format;
+    vk::Format format{vk::Format::eUndefined};
     vk::Extent2D extent;
     vk::ImageSubresourceRange subresourceRange;
     ImageState state;
-    VmaAllocation allocation = nullptr;
+    VmaAllocation allocation{nullptr};
 
     vk::ImageMemoryBarrier2KHR transitionBarrier(const ImageState &newState);
     void transition(const vk::CommandBuffer buffer, const ImageState &newState);
