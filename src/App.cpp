@@ -207,6 +207,8 @@ void App::recompileShaders()
 
         fprintf(stderr, "Recompiling shaders\n");
 
+        Timer t;
+
         _lightClustering.recompileShaders(
             _cam.descriptorSetLayout(), _world._dsLayouts);
         _renderer.recompileShaders(
@@ -216,7 +218,7 @@ void App::recompileShaders()
         _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
         _toneMap.recompileShaders();
 
-        fprintf(stderr, "Shaders recompiled\n");
+        fprintf(stderr, "Shaders recompiled in %.2fs\n", t.getSeconds());
 
         _recompileShaders = false;
     }
