@@ -32,8 +32,8 @@ using std::endl;
 
 namespace
 {
-const uint32_t WIDTH = 1280;
-const uint32_t HEIGHT = 720;
+const uint32_t WIDTH = 1920;
+const uint32_t HEIGHT = 1080;
 
 const float CAMERA_FOV = 59.f;
 const float CAMERA_NEAR = 0.001f;
