@@ -510,18 +510,18 @@ void Device::destroy(const TexelBuffer &buffer) const
 }
 
 Image Device::createImage(
-    const std::string &debugName, const vk::Extent2D extent,
-    const vk::Format format, const vk::ImageSubresourceRange &range,
-    const vk::ImageViewType viewType, const vk::ImageTiling tiling,
-    const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
-    const vk::MemoryPropertyFlags properties,
+    const std::string &debugName, const vk::ImageType imageType,
+    const vk::Extent3D extent, const vk::Format format,
+    const vk::ImageSubresourceRange &range, const vk::ImageViewType viewType,
+    const vk::ImageTiling tiling, const vk::ImageCreateFlags flags,
+    const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties,
     const VmaMemoryUsage vmaUsage) const
 {
     vk::ImageCreateInfo imageInfo{
         .flags = flags,
-        .imageType = vk::ImageType::e2D,
+        .imageType = imageType,
         .format = format,
-        .extent = vk::Extent3D{extent.width, extent.height, 1},
+        .extent = extent,
         .mipLevels = range.levelCount,
         .arrayLayers = range.layerCount,
         .samples = vk::SampleCountFlagBits::e1,

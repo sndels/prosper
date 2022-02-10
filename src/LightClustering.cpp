@@ -259,14 +259,16 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
         .layerCount = 1,
     };
 
-    const vk::Extent2D pointersExtent{
+    const vk::Extent3D pointersExtent{
         .width = ((swapConfig.extent.width - 1u) / clusterDim) + 1u,
         .height = ((swapConfig.extent.height - 1u) / clusterDim) + 1u,
+        .depth = 1u,
     };
     _resources->buffers.lightClusters.pointers = _device->createImage(
-        "lightClusterPointers", pointersExtent, vk::Format::eR32G32Uint,
-        subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-        vk::ImageCreateFlagBits{}, vk::ImageUsageFlagBits::eStorage,
+        "lightClusterPointers", vk::ImageType::e2D, pointersExtent,
+        vk::Format::eR32G32Uint, subresourceRange, vk::ImageViewType::e2D,
+        vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
+        vk::ImageUsageFlagBits::eStorage,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 
     const vk::DeviceSize indicesSize =

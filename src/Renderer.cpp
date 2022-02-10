@@ -231,8 +231,14 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
             .layerCount = 1};
 
         _resources->images.sceneColor = _device->createImage(
-            "sceneColor", swapConfig.extent, vk::Format::eR16G16B16A16Sfloat,
-            subresourceRange, vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
+            "sceneColor", vk::ImageType::e2D,
+            vk::Extent3D{
+                .width = swapConfig.extent.width,
+                .height = swapConfig.extent.height,
+                .depth = 1,
+            },
+            vk::Format::eR16G16B16A16Sfloat, subresourceRange,
+            vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlagBits{},
             vk::ImageUsageFlagBits::eColorAttachment | // Render
                 vk::ImageUsageFlagBits::eStorage,      // ToneMap
@@ -249,7 +255,13 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
             throw std::runtime_error("Depth format unsupported");
 
         _resources->images.sceneDepth = _device->createImage(
-            "sceneDepth", swapConfig.extent, swapConfig.depthFormat,
+            "sceneDepth", vk::ImageType::e2D,
+            vk::Extent3D{
+                .width = swapConfig.extent.width,
+                .height = swapConfig.extent.height,
+                .depth = 1,
+            },
+            swapConfig.depthFormat,
             vk::ImageSubresourceRange{
                 .aspectMask = vk::ImageAspectFlagBits::eDepth,
                 .baseMipLevel = 0,

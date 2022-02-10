@@ -244,9 +244,14 @@ void Texture2D::createImage(
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
     _image = _device->createImage(
-        "Texture2D", extent, vk::Format::eR8G8B8A8Unorm, subresourceRange,
-        vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-        vk::ImageCreateFlags{},
+        "Texture2D", vk::ImageType::e2D,
+        vk::Extent3D{
+            .width = extent.width,
+            .height = extent.height,
+            .depth = 1,
+        },
+        vk::Format::eR8G8B8A8Unorm, subresourceRange, vk::ImageViewType::e2D,
+        vk::ImageTiling::eOptimal, vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eTransferSrc |
             vk::ImageUsageFlagBits::eTransferDst |
             vk::ImageUsageFlagBits::eSampled,
@@ -411,9 +416,11 @@ TextureCubemap::TextureCubemap(
     assert(!cube.empty());
     assert(cube.faces() == 6);
 
-    const vk::Extent2D layerExtent{
-        static_cast<uint32_t>(cube.extent().x),
-        static_cast<uint32_t>(cube.extent().y)};
+    const vk::Extent3D layerExtent{
+        .width = static_cast<uint32_t>(cube.extent().x),
+        .height = static_cast<uint32_t>(cube.extent().y),
+        .depth = 1u,
+    };
     const uint32_t mipLevels = static_cast<uint32_t>(cube.levels());
 
     const vk::ImageSubresourceRange subresourceRange{
@@ -424,8 +431,9 @@ TextureCubemap::TextureCubemap(
         .layerCount = 6};
 
     _image = _device->createImage(
-        "TextureCubemap", layerExtent, vk::Format::eR16G16B16A16Sfloat,
-        subresourceRange, vk::ImageViewType::eCube, vk::ImageTiling::eOptimal,
+        "TextureCubemap", vk::ImageType::e2D, layerExtent,
+        vk::Format::eR16G16B16A16Sfloat, subresourceRange,
+        vk::ImageViewType::eCube, vk::ImageTiling::eOptimal,
         vk::ImageCreateFlagBits::eCubeCompatible,
         vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);

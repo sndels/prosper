@@ -65,7 +65,7 @@ struct Image
     vk::Image handle;
     vk::ImageView view;
     vk::Format format{vk::Format::eUndefined};
-    vk::Extent2D extent;
+    vk::Extent3D extent;
     vk::ImageSubresourceRange subresourceRange;
     ImageState state;
     VmaAllocation allocation{nullptr};
@@ -133,8 +133,9 @@ class Device
     void destroy(const TexelBuffer &buffer) const;
 
     Image createImage(
-        const std::string &debugName, const vk::Extent2D extent,
-        const vk::Format format, const vk::ImageSubresourceRange &range,
+        const std::string &debugName, const vk::ImageType imageType,
+        const vk::Extent3D extent, const vk::Format format,
+        const vk::ImageSubresourceRange &range,
         const vk::ImageViewType viewType, const vk::ImageTiling tiling,
         const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
         const vk::MemoryPropertyFlags properties,
