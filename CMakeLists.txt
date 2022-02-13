@@ -1,12 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(prosper)
 
-# Set up external dependencies
-find_package(Vulkan)
-message(STATUS "Vulkan FOUND = ${Vulkan_FOUND}")
-message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
-message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
-
 if (MSVC)
 add_compile_options(/MP)
 endif() # MSVC
@@ -61,7 +55,6 @@ endif() # NOT MSVC
 target_include_directories(prosper
     PRIVATE
     ${PROSPER_INCLUDE_DIR}
-    ${Vulkan_INCLUDE_DIR}
 )
 target_link_libraries(prosper
     PRIVATE
@@ -72,7 +65,7 @@ target_link_libraries(prosper
     shaderc
     stb_image
     vma
-    ${Vulkan_LIBRARY}
+    vulkan
 )
 target_compile_definitions(prosper
     PRIVATE

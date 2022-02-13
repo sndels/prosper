@@ -1,6 +1,15 @@
 # Pull submodules
 execute_process(COMMAND git submodule update --init --depth 1)
 
+find_package(Vulkan)
+message(STATUS "Vulkan FOUND = ${Vulkan_FOUND}")
+message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
+message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
+
+add_library(vulkan INTERFACE)
+target_include_directories(vulkan SYSTEM INTERFACE ${Vulkan_INCLUDE_DIR})
+target_link_libraries(vulkan INTERFACE ${Vulkan_LIBRARY})
+
 # GLM is header only
 add_library(glm INTERFACE)
 # Define as system to suppress warnings
@@ -43,12 +52,11 @@ target_include_directories(imgui
     PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/imgui
     ${CMAKE_CURRENT_LIST_DIR}/imgui/backends
-    ${Vulkan_INCLUDE_DIR}
 )
 target_link_libraries(imgui
     PUBLIC
     glfw
-    ${Vulkan_LIBRARY}
+    vulkan
 )
 
 # stb_image is header only
