@@ -16,8 +16,9 @@ layout(location = 2) in vec4 vertTangent;
 layout(location = 3) in vec2 vertTexCoord0;
 
 layout(location = 0) out vec3 fragPosition;
-layout(location = 1) out vec2 fragTexCoord0;
-layout(location = 2) out mat3 fragTBN;
+layout(location = 1) out float fragZCam;
+layout(location = 2) out vec2 fragTexCoord0;
+layout(location = 3) out mat3 fragTBN;
 
 void main()
 {
@@ -38,5 +39,8 @@ void main()
     fragPosition = pos.xyz / pos.w;
     fragTexCoord0 = vertTexCoord0;
 
-    gl_Position = camera.cameraToClip * camera.worldToCamera * pos;
+    vec4 posCam = camera.worldToCamera * pos;
+    fragZCam = posCam.z;
+
+    gl_Position = camera.cameraToClip * posCam;
 }

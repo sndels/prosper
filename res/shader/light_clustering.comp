@@ -4,15 +4,16 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_control_flow_attributes : require
 
-#define GROUP_DIM 16
-layout(local_size_x = GROUP_DIM, local_size_y = GROUP_DIM) in;
-
 #include "ds0_lights.glsl"
 
 #define WRITE_CULLING_BINDS
 #include "ds1_light_clusters.glsl"
 
 #include "ds2_camera.glsl"
+
+layout(
+    local_size_x = LIGHT_CLUSTER_DIMENSION,
+    local_size_y = LIGHT_CLUSTER_DIMENSION) in;
 
 layout(push_constant) uniform ClusteringPC { uvec2 resolution; }
 clusteringPC;
@@ -68,7 +69,7 @@ bool isSpotVisible(uint i, Frustum Frustum)
     return true;
 }
 
-Frustum clusterFrustum(uvec2 cluster)
+Frustum clusterFrustum(uvec3 cluster)
 {
     // Ported from Intel's
     // Deferred Rendering for Current and Future Rendering Pipelines
@@ -94,8 +95,11 @@ Frustum clusterFrustum(uvec2 cluster)
     f.planes[2] = c4 - c2;
     f.planes[3] = c4 + c2;
     // Near/far
-    f.planes[4] = vec4(0, 0, -1, camera.near);
-    f.planes[5] = vec4(0, 0, 1, -camera.far);
+    if (cluster.z == 0)
+        f.planes[4] = vec4(0, 0, -1, 0);
+    else
+        f.planes[4] = vec4(0, 0, -1, sliceStart(cluster.z));
+    f.planes[5] = vec4(0, 0, 1, -sliceStart(cluster.z + 1));
 
     // Normalize frustum planes (near/far already normalized)
     [[unroll]] for (uint i = 0; i < 4; ++i)
@@ -108,8 +112,8 @@ Frustum clusterFrustum(uvec2 cluster)
 
 void main()
 {
-    uvec2 cluster = gl_WorkGroupID.xy;
-    uvec2 clusterCorner = cluster * LIGHT_CLUSTER_DIMENSION;
+    uvec3 cluster = gl_WorkGroupID.xyz;
+    uvec2 clusterCorner = cluster.xy * LIGHT_CLUSTER_DIMENSION;
     if (all(greaterThanEqual(clusterCorner, clusteringPC.resolution)))
         return;
 
@@ -166,10 +170,15 @@ void main()
 
     if (leadThread)
     {
-        clusterIndexOffset =
-            imageAtomicAdd(lightIndicesCount, 0, pointCount + spotCount);
+        uint lightCount = pointCount + spotCount;
+        if (lightCount > 0)
+            clusterIndexOffset =
+                imageAtomicAdd(lightIndicesCount, 0, lightCount);
+        else
+            clusterIndexOffset = 0;
+
         imageStore(
-            clusterPointers, ivec2(cluster),
+            clusterPointers, ivec3(cluster),
             packClusterPointer(clusterIndexOffset, pointCount, spotCount));
     }
     barrier();

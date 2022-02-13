@@ -32,8 +32,9 @@ layout(push_constant) uniform MaterialPC
 materialPC;
 
 layout(location = 0) in vec3 fragPosition;
-layout(location = 1) in vec2 fragTexCoord0;
-layout(location = 2) in mat3 fragTBN;
+layout(location = 1) in float fragZCam;
+layout(location = 2) in vec2 fragTexCoord0;
+layout(location = 3) in mat3 fragTBN;
 
 layout(location = 0) out vec4 outColor;
 
@@ -187,12 +188,10 @@ void main()
         color += directionalLight.irradiance.xyz * evalBRDF(normal, v, l, m);
     }
 
-    uvec2 px = uvec2(gl_FragCoord.xy);
-    uvec2 clusterIndex = px / LIGHT_CLUSTER_DIMENSION;
+    uvec3 ci = clusterIndex(uvec2(gl_FragCoord.xy), fragZCam);
 
     uint clusterIndexOffset, pointCount, spotCount;
-    unpackClusterPointer(
-        clusterIndex, clusterIndexOffset, pointCount, spotCount);
+    unpackClusterPointer(ci, clusterIndexOffset, pointCount, spotCount);
 
     for (uint i = 0; i < pointCount; ++i)
     {

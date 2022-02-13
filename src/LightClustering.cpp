@@ -19,8 +19,8 @@ using namespace glm;
 namespace
 {
 // These have to match the shader
-const uint32_t clusterDim = 64;
-const uint32_t groupDim = 16;
+const uint32_t clusterDim = 32;
+const uint32_t zSlices = 16;
 const uint32_t maxPointIndicesPerTile = 128;
 const uint32_t maxSpotIndicesPerTile = 128;
 
@@ -198,11 +198,8 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
         0, // offset
         sizeof(ClusteringPCBlock), &pcBlock);
 
-    const auto groups =
-        ((uvec2{renderArea.extent.width, renderArea.extent.height} - 1u) /
-         groupDim) +
-        1u;
-    buffer.dispatch(groups.x, groups.y, 1);
+    const auto &extent = _resources->buffers.lightClusters.pointers.extent;
+    buffer.dispatch(extent.width, extent.height, extent.depth - 1);
 
     buffer.endDebugUtilsLabelEXT(); // LightClustering
 
@@ -262,11 +259,11 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
     const vk::Extent3D pointersExtent{
         .width = ((swapConfig.extent.width - 1u) / clusterDim) + 1u,
         .height = ((swapConfig.extent.height - 1u) / clusterDim) + 1u,
-        .depth = 1u,
+        .depth = zSlices + 1,
     };
     _resources->buffers.lightClusters.pointers = _device->createImage(
-        "lightClusterPointers", vk::ImageType::e2D, pointersExtent,
-        vk::Format::eR32G32Uint, subresourceRange, vk::ImageViewType::e2D,
+        "lightClusterPointers", vk::ImageType::e3D, pointersExtent,
+        vk::Format::eR32G32Uint, subresourceRange, vk::ImageViewType::e3D,
         vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
         vk::ImageUsageFlagBits::eStorage,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
