@@ -57,8 +57,14 @@ tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
     std::string warn;
     std::string err;
 
-    const bool ret =
-        loader.LoadASCIIFromFile(&model, &err, &warn, path.string());
+    bool ret = false;
+    if (path.extension() == ".gltf")
+        ret = loader.LoadASCIIFromFile(&model, &err, &warn, path.string());
+    else if (path.extension() == ".glb")
+        ret = loader.LoadBinaryFromFile(&model, &err, &warn, path.string());
+    else
+        throw std::runtime_error(
+            "Unknown extension '" + path.extension().string() + "'");
     if (!warn.empty())
         std::cout << "TinyGLTF warning: " << warn << std::endl;
     if (!err.empty())

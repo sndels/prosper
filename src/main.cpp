@@ -31,8 +31,15 @@ int main(int argc, char *argv[])
         }
     }
 
-    App app{scenePath};
-    app.run();
+    try
+    {
+        App app{scenePath};
+        app.run();
+    }
+    catch (std::exception &e)
+    {
+        fprintf(stderr, "Exception thrown: %s\n", e.what());
+    }
 
     return EXIT_SUCCESS;
 }
