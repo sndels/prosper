@@ -133,8 +133,9 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
 
     const std::array<vk::DescriptorSet, 3> descriptorSets{
         scene.lights.descriptorSets[nextImage],
+        cam.descriptorSet(nextImage),
         _resources->buffers.lightClusters.descriptorSets[nextImage],
-        cam.descriptorSet(nextImage)};
+    };
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
@@ -369,8 +370,8 @@ void Renderer::createGraphicsPipelines(
 
     const std::array<vk::DescriptorSetLayout, 5> setLayouts{
         worldDSLayouts.lights,
-        _resources->buffers.lightClusters.descriptorSetLayout,
         camDSLayout,
+        _resources->buffers.lightClusters.descriptorSetLayout,
         worldDSLayouts.modelInstance,
         worldDSLayouts.material,
     };

@@ -6,10 +6,10 @@
 
 #include "ds0_lights.glsl"
 
-#define WRITE_CULLING_BINDS
-#include "ds1_light_clusters.glsl"
+#include "ds1_camera.glsl"
 
-#include "ds2_camera.glsl"
+#define WRITE_CULLING_BINDS
+#include "ds2_light_clusters.glsl"
 
 layout(
     local_size_x = LIGHT_CLUSTER_DIMENSION,

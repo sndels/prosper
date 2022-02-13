@@ -9,9 +9,9 @@
 
 #include "ds0_lights.glsl"
 
-#include "ds1_light_clusters.glsl"
+#include "ds1_camera.glsl"
 
-#include "ds2_camera.glsl"
+#include "ds2_light_clusters.glsl"
 
 layout(set = 4, binding = 0) uniform sampler2D baseColor;
 layout(set = 4, binding = 1) uniform sampler2D metallicRoughness;

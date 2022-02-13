@@ -181,8 +181,8 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
     const std::array<vk::DescriptorSet, 3> descriptorSets{
         scene.lights.descriptorSets[nextImage],
-        _resources->buffers.lightClusters.descriptorSets[nextImage],
         cam.descriptorSet(nextImage),
+        _resources->buffers.lightClusters.descriptorSets[nextImage],
     };
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, _pipelineLayout,
@@ -199,7 +199,7 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
         sizeof(ClusteringPCBlock), &pcBlock);
 
     const auto &extent = _resources->buffers.lightClusters.pointers.extent;
-    buffer.dispatch(extent.width, extent.height, extent.depth - 1);
+    buffer.dispatch(extent.width, extent.height, extent.depth);
 
     buffer.endDebugUtilsLabelEXT(); // LightClustering
 
@@ -340,8 +340,8 @@ void LightClustering::createPipeline(
 {
     const std::array<vk::DescriptorSetLayout, 3> setLayouts{
         worldDSLayouts.lights,
-        _resources->buffers.lightClusters.descriptorSetLayout,
         camDSLayout,
+        _resources->buffers.lightClusters.descriptorSetLayout,
     };
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eCompute,

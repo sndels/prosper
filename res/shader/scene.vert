@@ -4,7 +4,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_GOOGLE_include_directive : require
 
-#include "ds2_camera.glsl"
+#include "ds1_camera.glsl"
 
 layout(set = 3, binding = 0) uniform Object { mat4 modelToWorld; }
 object;
