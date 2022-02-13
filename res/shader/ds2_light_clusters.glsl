@@ -24,8 +24,10 @@ const float Z_BIAS = -4.5;
 
 float sliceStart(uint slice)
 {
-    // Inverse of the slice func from Avalanche's Practical Clustered Shading
-    return pow(2.0, (slice - Z_BIAS) / Z_SCALE);
+    // Inverse of Doom 2016 depth slice func
+    // https://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
+    float sliceFrac = float(slice) / float(LIGHT_CLUSTER_Z_SLICE_COUNT);
+    return camera.near * pow(camera.far / camera.near, sliceFrac);
 }
 
 uvec4 packClusterPointer(uint indexOffset, uint pointCount, uint spotCount)
@@ -37,12 +39,14 @@ uvec4 packClusterPointer(uint indexOffset, uint pointCount, uint spotCount)
 
 uvec3 clusterIndex(uvec2 px, float zCam)
 {
-    // From Avalanche's Practical Clustered Shading
-    // Not the exact slices but close
+    // Doom 2016 depth slice func
+    // https://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
     // -z to match the cam direction
     uint slice =
-        min(max(uint(log2(-zCam) * Z_SCALE + Z_BIAS), 0),
-            LIGHT_CLUSTER_Z_SLICE_COUNT);
+        max(uint(
+                LIGHT_CLUSTER_Z_SLICE_COUNT * log(-zCam / camera.near) /
+                log(camera.far / camera.near)),
+            0);
     return uvec3(px / LIGHT_CLUSTER_DIMENSION, slice);
 }
 
