@@ -22,6 +22,8 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "Build the GLFW test programs")
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build the GLFW documentation")
 set(GLFW_INSTALL OFF CACHE BOOL "Generate installation target")
 add_subdirectory(glfw)
+get_target_property(glfw_include_dirs glfw INTERFACE_INCLUDE_DIRECTORIES)
+set_target_properties(glfw PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${glfw_include_dirs}")
 
 message(STATUS "Sync shaderc dependencies")
 execute_process(COMMAND
@@ -33,6 +35,8 @@ set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip building tests")
 set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "Skip building examples")
 set(SHADERC_SKIP_COPYRIGHT_CHECK ON CACHE BOOL "Skip copyright check")
 add_subdirectory(shaderc)
+get_target_property(shaderc_include_dirs shaderc INTERFACE_INCLUDE_DIRECTORIES)
+set_target_properties(shaderc PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${shaderc_include_dirs}")
 
 add_library(imgui STATIC "")
 target_compile_features(imgui
@@ -49,6 +53,7 @@ target_sources(imgui
     ${CMAKE_CURRENT_LIST_DIR}/imgui/backends/imgui_impl_vulkan.cpp
 )
 target_include_directories(imgui
+    SYSTEM
     PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/imgui
     ${CMAKE_CURRENT_LIST_DIR}/imgui/backends
@@ -61,11 +66,11 @@ target_link_libraries(imgui
 
 # stb_image is header only
 add_library(stb_image INTERFACE)
-target_include_directories(stb_image INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
+target_include_directories(stb_image SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
 
 # tinygltf is header only
 add_library(tinygltf INTERFACE)
-target_include_directories(tinygltf INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
+target_include_directories(tinygltf SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
 
 # vulkan memory allocator is header only
 add_library(vma INTERFACE)
