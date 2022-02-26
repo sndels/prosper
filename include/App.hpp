@@ -59,8 +59,8 @@ class App
     ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;
 
-    bool _useFpsLimit = true;
-    int32_t _fpsLimit = 60;
+    bool _useFpsLimit{true};
+    int32_t _fpsLimit{60};
     bool _recompileShaders{false};
 
     Timer _frameTimer;

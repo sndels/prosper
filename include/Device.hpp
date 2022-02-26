@@ -164,14 +164,14 @@ class Device
     vk::PhysicalDevice _physical;
     vk::Device _logical;
 
-    VmaAllocator _allocator = nullptr;
+    VmaAllocator _allocator{nullptr};
 
     shaderc::CompileOptions _compilerOptions;
     shaderc::Compiler _compiler;
 
     vk::SurfaceKHR _surface;
 
-    QueueFamilies _queueFamilies = {std::nullopt, std::nullopt, std::nullopt};
+    QueueFamilies _queueFamilies;
     vk::Queue _computeQueue;
     vk::Queue _graphicsQueue;
     vk::Queue _presentQueue;

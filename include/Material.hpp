@@ -40,21 +40,20 @@ struct Material
 
     struct TexCoordSets
     {
-        int baseColor = -1;
-        int metallicRoughness = -1;
-        int normal = -1;
+        int baseColor{-1};
+        int metallicRoughness{-1};
+        int normal{-1};
     };
 
-    // TODO: More parameters
-    Texture *_baseColor = nullptr;
-    Texture *_metallicRoughness = nullptr;
-    Texture *_normal = nullptr;
+    Texture *_baseColor{nullptr};
+    Texture *_metallicRoughness{nullptr};
+    Texture *_normal{nullptr};
     TexCoordSets _texCoordSets;
-    glm::vec4 _baseColorFactor = glm::vec4(1);
-    float _metallicFactor = 1.f;
-    float _roughnessFactor = 1.f;
-    AlphaMode _alphaMode = AlphaMode::Opaque;
-    float _alphaCutoff = 0.5f;
+    glm::vec4 _baseColorFactor{glm::vec4(1)};
+    float _metallicFactor{1.f};
+    float _roughnessFactor{1.f};
+    AlphaMode _alphaMode{AlphaMode::Opaque};
+    float _alphaCutoff{0.5f};
     vk::DescriptorSet _descriptorSet;
 
     [[nodiscard]] float alphaModeFloat() const;

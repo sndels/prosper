@@ -59,8 +59,8 @@ class TransparentsRenderer
         const std::vector<Scene::ModelInstance> &instances,
         const std::function<bool(const Mesh &)> &shouldRender) const;
 
-    Device *_device = nullptr;
-    RenderResources *_resources = nullptr;
+    Device *_device{nullptr};
+    RenderResources *_resources{nullptr};
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
 

@@ -49,8 +49,8 @@ class LightClustering
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
-    Device *_device = nullptr;
-    RenderResources *_resources = nullptr;
+    Device *_device{nullptr};
+    RenderResources *_resources{nullptr};
 
     vk::ShaderModule _compSM;
 

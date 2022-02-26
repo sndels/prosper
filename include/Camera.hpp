@@ -102,7 +102,7 @@ class Camera
 
     void updateWorldToCamera();
 
-    Device *_device = nullptr;
+    Device *_device{nullptr};
     CameraParameters _parameters;
     glm::mat4 _worldToClip{1.f};
     glm::mat4 _worldToCamera{1.f};

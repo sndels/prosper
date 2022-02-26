@@ -48,8 +48,8 @@ class SkyboxRenderer
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
-    Device *_device = nullptr;
-    RenderResources *_resources = nullptr;
+    Device *_device{nullptr};
+    RenderResources *_resources{nullptr};
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
 

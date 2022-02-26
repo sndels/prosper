@@ -33,8 +33,8 @@ class ImGuiRenderer
     void destroySwapchainRelated();
     void createDescriptorPool();
 
-    Device *_device = nullptr;
-    RenderResources *_resources = nullptr;
+    Device *_device{nullptr};
+    RenderResources *_resources{nullptr};
     vk::DescriptorPool _descriptorPool;
     vk::RenderPass _renderpass;
     vk::Framebuffer _fbo;

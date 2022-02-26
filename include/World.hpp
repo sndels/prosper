@@ -47,7 +47,7 @@ class World
     std::vector<Model> _models;
     std::vector<Scene::Node> _nodes;
     std::vector<Scene> _scenes;
-    size_t _currentScene = 0;
+    size_t _currentScene{0};
 
     vk::DescriptorPool _descriptorPool;
     DSLayouts _dsLayouts;
@@ -64,7 +64,7 @@ class World
     void createDescriptorPool(uint32_t swapImageCount);
     void createDescriptorSets(uint32_t swapImageCount);
 
-    Device *_device = nullptr;
+    Device *_device{nullptr};
 };
 
 #endif // PROSPER_WORLD_HPP

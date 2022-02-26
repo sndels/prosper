@@ -34,7 +34,7 @@ class Texture
     void destroy();
 
     // Texture with null device is invalid or moved
-    Device *_device = nullptr;
+    Device *_device{nullptr};
     Image _image;
     vk::Sampler _sampler;
 };

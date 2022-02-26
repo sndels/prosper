@@ -30,11 +30,11 @@ class Mesh
     void createVertexBuffer(const std::vector<Vertex> &vertices);
     void createIndexBuffer(const std::vector<uint32_t> &indices);
 
-    Device *_device = nullptr;
-    Material *_material;
+    Device *_device{nullptr};
+    Material *_material{nullptr};
     Buffer _vertexBuffer;
     Buffer _indexBuffer;
-    uint32_t _indexCount;
+    uint32_t _indexCount{0};
 };
 
 #endif // PROSPER_MESH_HPP

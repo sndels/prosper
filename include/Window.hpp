@@ -41,10 +41,10 @@ class Window
         GLFWwindow *window, int width, int height);
 
   private:
-    GLFWwindow *_window = nullptr;
-    uint32_t _width = 0;
-    uint32_t _height = 0;
-    bool _resized = false;
+    GLFWwindow *_window{nullptr};
+    uint32_t _width{0};
+    uint32_t _height{0};
+    bool _resized{false};
 };
 
 #endif // PROSPER_WINDOW_HPP

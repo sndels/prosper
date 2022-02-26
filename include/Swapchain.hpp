@@ -71,14 +71,14 @@ class Swapchain
     void createFences();
 
     // Swapchain with null device is invalid or moved
-    Device *_device = nullptr;
+    Device *_device{nullptr};
     SwapchainConfig _config;
 
     vk::SwapchainKHR _swapchain;
     std::vector<SwapchainImage> _images;
-    uint32_t _nextImage = 0;
+    uint32_t _nextImage{0};
     std::vector<vk::Fence> _inFlightFences;
-    size_t _nextFrame = 0;
+    size_t _nextFrame{0};
 };
 
 #endif // PROSPER_SWAPCHAIN_HPP
