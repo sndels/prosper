@@ -68,6 +68,7 @@ ImGuiRenderer::~ImGuiRenderer()
     ImGui::DestroyContext();
 }
 
+// NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
 void ImGuiRenderer::startFrame() const
 {
     ImGui_ImplVulkan_NewFrame();
@@ -153,7 +154,7 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
 
 void ImGuiRenderer::destroySwapchainRelated()
 {
-    if (_commandBuffers.size() > 0)
+    if (!_commandBuffers.empty())
     {
         _device->logical().freeCommandBuffers(
             _device->graphicsPool(),

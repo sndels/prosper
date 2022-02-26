@@ -23,16 +23,17 @@ class World
         vk::DescriptorSetLayout skybox;
     };
     World(
-        Device *device, const uint32_t swapImageCount,
+        Device *device, uint32_t swapImageCount,
         const std::filesystem::path &scene);
     ~World();
 
     World(const World &other) = delete;
+    World(World &&other) = delete;
     World &operator=(const World &other) = delete;
+    World &operator=(World &&other) = delete;
 
-    const Scene &currentScene() const;
-    void updateUniformBuffers(
-        const Camera &cam, const uint32_t nextImage) const;
+    [[nodiscard]] const Scene &currentScene() const;
+    void updateUniformBuffers(const Camera &cam, uint32_t nextImage) const;
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
     // TODO: Private?
@@ -59,9 +60,9 @@ class World
     void loadMaterials(const tinygltf::Model &gltfModel);
     void loadModels(const tinygltf::Model &gltfModel);
     void loadScenes(const tinygltf::Model &gltfModel);
-    void createBuffers(const uint32_t swapImageCount);
-    void createDescriptorPool(const uint32_t swapImageCount);
-    void createDescriptorSets(const uint32_t swapImageCount);
+    void createBuffers(uint32_t swapImageCount);
+    void createDescriptorPool(uint32_t swapImageCount);
+    void createDescriptorSets(uint32_t swapImageCount);
 
     Device *_device = nullptr;
 };

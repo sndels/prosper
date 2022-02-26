@@ -14,7 +14,7 @@ struct SwapchainSupport
     std::vector<vk::SurfaceFormatKHR> formats;
     std::vector<vk::PresentModeKHR> presentModes;
 
-    SwapchainSupport(vk::PhysicalDevice device, const vk::SurfaceKHR surface);
+    SwapchainSupport(vk::PhysicalDevice device, vk::SurfaceKHR surface);
 };
 
 struct SwapchainConfig
@@ -45,18 +45,22 @@ class Swapchain
     ~Swapchain();
 
     Swapchain(const Swapchain &other) = delete;
+    Swapchain(Swapchain &&other) = delete;
     Swapchain &operator=(const Swapchain &other) = delete;
+    Swapchain &operator=(Swapchain &&other) = delete;
 
-    vk::Format format() const;
-    const vk::Extent2D &extent() const;
-    uint32_t imageCount() const;
-    SwapchainImage image(size_t i) const;
-    size_t nextFrame() const;
-    vk::Fence currentFence() const;
+    [[nodiscard]] vk::Format format() const;
+    [[nodiscard]] const vk::Extent2D &extent() const;
+    [[nodiscard]] uint32_t imageCount() const;
+    [[nodiscard]] SwapchainImage image(size_t i) const;
+    [[nodiscard]] size_t nextFrame() const;
+    [[nodiscard]] vk::Fence currentFence() const;
     // nullopt tells to recreate swapchain
-    std::optional<uint32_t> acquireNextImage(vk::Semaphore signalSemaphore);
+    [[nodiscard]] std::optional<uint32_t> acquireNextImage(
+        vk::Semaphore signalSemaphore);
     // false if swapchain should be recerated
-    bool present(const std::array<vk::Semaphore, 1> &waitSemaphores);
+    [[nodiscard]] bool present(
+        const std::array<vk::Semaphore, 1> &waitSemaphores);
     void recreate(const SwapchainConfig &config);
 
   private:

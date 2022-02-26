@@ -86,7 +86,7 @@ LightClustering::LightClustering(
 
 LightClustering::~LightClustering()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         destroySwapchainRelated();
 
@@ -229,9 +229,9 @@ bool LightClustering::compileShaders()
 
 void LightClustering::destroySwapchainRelated()
 {
-    if (_device)
+    if (_device != nullptr)
     {
-        if (_commandBuffers.size() > 0)
+        if (!_commandBuffers.empty())
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
@@ -269,7 +269,8 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 
     const vk::DeviceSize indicesSize =
-        (maxSpotIndicesPerTile + maxPointIndicesPerTile) *
+        static_cast<vk::DeviceSize>(
+            maxSpotIndicesPerTile + maxPointIndicesPerTile) *
         pointersExtent.width * pointersExtent.height;
     _resources->buffers.lightClusters.indices = _device->createTexelBuffer(
         "lightClusterIndices", vk::Format::eR16Uint,
@@ -291,43 +292,35 @@ void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)
             .pSetLayouts = layouts.data(),
         });
 
+    vk::DescriptorImageInfo pointersInfo{
+        .imageView = _resources->buffers.lightClusters.pointers.view,
+        .imageLayout = vk::ImageLayout::eGeneral,
+    };
     std::vector<vk::WriteDescriptorSet> descriptorWrites;
-    for (size_t i = 0;
-         i < _resources->buffers.lightClusters.descriptorSets.size(); ++i)
+    for (const auto &ds : _resources->buffers.lightClusters.descriptorSets)
     {
-        {
-            vk::DescriptorImageInfo info{
-                .imageView = _resources->buffers.lightClusters.pointers.view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            };
-            descriptorWrites.push_back(vk::WriteDescriptorSet{
-                .dstSet = _resources->buffers.lightClusters.descriptorSets[i],
-                .dstBinding = 0,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eStorageImage,
-                .pImageInfo = &info,
-            });
-        }
-        {
-            descriptorWrites.push_back(vk::WriteDescriptorSet{
-                .dstSet = _resources->buffers.lightClusters.descriptorSets[i],
-                .dstBinding = 1,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-                .pTexelBufferView =
-                    &_resources->buffers.lightClusters.indicesCount.view,
-            });
-        }
-        {
-            descriptorWrites.push_back(vk::WriteDescriptorSet{
-                .dstSet = _resources->buffers.lightClusters.descriptorSets[i],
-                .dstBinding = 2,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-                .pTexelBufferView =
-                    &_resources->buffers.lightClusters.indices.view,
-            });
-        }
+        descriptorWrites.push_back(vk::WriteDescriptorSet{
+            .dstSet = ds,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .pImageInfo = &pointersInfo,
+        });
+        descriptorWrites.push_back(vk::WriteDescriptorSet{
+            .dstSet = ds,
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
+            .pTexelBufferView =
+                &_resources->buffers.lightClusters.indicesCount.view,
+        });
+        descriptorWrites.push_back(vk::WriteDescriptorSet{
+            .dstSet = ds,
+            .dstBinding = 2,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
+            .pTexelBufferView = &_resources->buffers.lightClusters.indices.view,
+        });
     }
     _device->logical().updateDescriptorSets(
         static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),

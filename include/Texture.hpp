@@ -24,11 +24,11 @@ class Texture
     ~Texture();
 
     Texture(const Texture &other) = delete;
-    Texture(Texture &&other);
+    Texture(Texture &&other) noexcept;
     Texture &operator=(const Texture &other) = delete;
-    Texture &operator=(Texture &&other);
+    Texture &operator=(Texture &&other) noexcept;
 
-    vk::DescriptorImageInfo imageInfo() const;
+    [[nodiscard]] vk::DescriptorImageInfo imageInfo() const;
 
   protected:
     void destroy();
@@ -42,21 +42,20 @@ class Texture
 class Texture2D : public Texture
 {
   public:
-    Texture2D(
-        Device *device, const std::filesystem::path &path, const bool mipmap);
+    Texture2D(Device *device, const std::filesystem::path &path, bool mipmap);
     Texture2D(
         Device *device, const tinygltf::Image &image,
-        const tinygltf::Sampler &sampler, const bool mipmap);
+        const tinygltf::Sampler &sampler, bool mipmap);
 
   private:
-    Buffer stagePixels(const uint8_t *pixels, const vk::Extent2D extent) const;
+    [[nodiscard]] Buffer stagePixels(
+        const uint8_t *pixels, const vk::Extent2D &extent) const;
     void createImage(
-        const Buffer &stagingBuffer, const vk::Extent2D extent,
+        const Buffer &stagingBuffer, const vk::Extent2D &extent,
         const vk::ImageSubresourceRange &subresourceRange);
-    void createMipmaps(const vk::Extent2D extent, const uint32_t mipLevels);
-    void createSampler(const uint32_t mipLevels);
-    void createSampler(
-        const tinygltf::Sampler &sampler, const uint32_t mipLevels);
+    void createMipmaps(const vk::Extent2D &extent, uint32_t mipLevels);
+    void createSampler(uint32_t mipLevels);
+    void createSampler(const tinygltf::Sampler &sampler, uint32_t mipLevels);
 };
 
 class TextureCubemap : public Texture

@@ -47,7 +47,7 @@ ToneMap::ToneMap(
 
 ToneMap::~ToneMap()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         destroySwapchainRelated();
 
@@ -144,9 +144,9 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
 
 void ToneMap::destroySwapchainRelated()
 {
-    if (_device)
+    if (_device != nullptr)
     {
-        if (_commandBuffers.size() > 0)
+        if (!_commandBuffers.empty())
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
@@ -210,17 +210,17 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     std::vector<vk::WriteDescriptorSet> descriptorWrites;
-    for (size_t i = 0; i < _descriptorSets.size(); ++i)
+    for (const auto &ds : _descriptorSets)
     {
         descriptorWrites.push_back({
-            .dstSet = _descriptorSets[i],
+            .dstSet = ds,
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &colorInfo,
         });
         descriptorWrites.push_back({
-            .dstSet = _descriptorSets[i],
+            .dstSet = ds,
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,

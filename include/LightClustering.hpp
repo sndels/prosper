@@ -14,29 +14,29 @@ class LightClustering
   public:
     LightClustering(
         Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
+        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~LightClustering();
 
     LightClustering(const LightClustering &other) = delete;
+    LightClustering(LightClustering &&other) = delete;
     LightClustering &operator=(const LightClustering &other) = delete;
+    LightClustering &operator=(LightClustering &&other) = delete;
 
     void recompileShaders(
-        const vk::DescriptorSetLayout camDSLayout,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreateSwapchainRelated(
-        const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
+        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    vk::CommandBuffer recordCommandBuffer(
+    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
-        const uint32_t nextImage);
+        uint32_t nextImage);
 
   private:
-    bool compileShaders();
+    [[nodiscard]] bool compileShaders();
 
     void destroySwapchainRelated();
     void destroyPipeline();
@@ -45,7 +45,7 @@ class LightClustering
     void createOutputs(const SwapchainConfig &swapConfig);
     void createDescriptorSets(const SwapchainConfig &swapConfig);
     void createPipeline(
-        const vk::DescriptorSetLayout camDSLayout,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 

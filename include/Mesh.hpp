@@ -17,14 +17,16 @@ class Mesh
     ~Mesh();
 
     Mesh(const Mesh &other) = delete;
-    Mesh(Mesh &&other);
+    Mesh(Mesh &&other) noexcept;
     Mesh &operator=(const Mesh &other) = delete;
+    Mesh &operator=(Mesh &&other) noexcept;
 
-    const Material &material() const;
+    [[nodiscard]] const Material &material() const;
 
     void draw(vk::CommandBuffer commandBuffer) const;
 
   private:
+    void destroy();
     void createVertexBuffer(const std::vector<Vertex> &vertices);
     void createIndexBuffer(const std::vector<uint32_t> &indices);
 

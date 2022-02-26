@@ -25,30 +25,8 @@ using namespace glm;
 
 namespace
 {
-const std::array<glm::vec3, 36> skyboxVerts{
-    {vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, -1.0f, -1.0f},
-     vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
-     vec3{1.0f, 1.0f, -1.0f},   vec3{-1.0f, 1.0f, -1.0f},
 
-     vec3{-1.0f, -1.0f, 1.0f},  vec3{-1.0f, -1.0f, -1.0f},
-     vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, 1.0f, -1.0f},
-     vec3{-1.0f, 1.0f, 1.0f},   vec3{-1.0f, -1.0f, 1.0f},
-
-     vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, 1.0f},
-     vec3{1.0f, 1.0f, 1.0f},    vec3{1.0f, 1.0f, 1.0f},
-     vec3{1.0f, 1.0f, -1.0f},   vec3{1.0f, -1.0f, -1.0f},
-
-     vec3{-1.0f, -1.0f, 1.0f},  vec3{-1.0f, 1.0f, 1.0f},
-     vec3{1.0f, 1.0f, 1.0f},    vec3{1.0f, 1.0f, 1.0f},
-     vec3{1.0f, -1.0f, 1.0f},   vec3{-1.0f, -1.0f, 1.0f},
-
-     vec3{-1.0f, 1.0f, -1.0f},  vec3{1.0f, 1.0f, -1.0f},
-     vec3{1.0f, 1.0f, 1.0f},    vec3{1.0f, 1.0f, 1.0f},
-     vec3{-1.0f, 1.0f, 1.0f},   vec3{-1.0f, 1.0f, -1.0f},
-
-     vec3{-1.0f, -1.0f, -1.0f}, vec3{-1.0f, -1.0f, 1.0f},
-     vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
-     vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f}}};
+const size_t SKYBOX_VERTS_SIZE = 36;
 
 tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 {
@@ -77,6 +55,33 @@ tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 
 Buffer createSkyboxVertexBuffer(Device *device)
 {
+    // Avoid large global allocation
+    const std::array<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{
+        vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, -1.0f, -1.0f},
+        vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
+        vec3{1.0f, 1.0f, -1.0f},   vec3{-1.0f, 1.0f, -1.0f},
+
+        vec3{-1.0f, -1.0f, 1.0f},  vec3{-1.0f, -1.0f, -1.0f},
+        vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, 1.0f, -1.0f},
+        vec3{-1.0f, 1.0f, 1.0f},   vec3{-1.0f, -1.0f, 1.0f},
+
+        vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, 1.0f},
+        vec3{1.0f, 1.0f, 1.0f},    vec3{1.0f, 1.0f, 1.0f},
+        vec3{1.0f, 1.0f, -1.0f},   vec3{1.0f, -1.0f, -1.0f},
+
+        vec3{-1.0f, -1.0f, 1.0f},  vec3{-1.0f, 1.0f, 1.0f},
+        vec3{1.0f, 1.0f, 1.0f},    vec3{1.0f, 1.0f, 1.0f},
+        vec3{1.0f, -1.0f, 1.0f},   vec3{-1.0f, -1.0f, 1.0f},
+
+        vec3{-1.0f, 1.0f, -1.0f},  vec3{1.0f, 1.0f, -1.0f},
+        vec3{1.0f, 1.0f, 1.0f},    vec3{1.0f, 1.0f, 1.0f},
+        vec3{-1.0f, 1.0f, 1.0f},   vec3{-1.0f, 1.0f, -1.0f},
+
+        vec3{-1.0f, -1.0f, -1.0f}, vec3{-1.0f, -1.0f, 1.0f},
+        vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
+        vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f},
+    };
+
     const vk::DeviceSize bufferSize =
         sizeof(skyboxVerts[0]) * skyboxVerts.size();
     const Buffer stagingBuffer = device->createBuffer(
@@ -86,7 +91,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    void *data;
+    void *data = nullptr;
     device->map(stagingBuffer.allocation, &data);
     memcpy(data, skyboxVerts.data(), static_cast<size_t>(bufferSize));
     device->unmap(stagingBuffer.allocation);
@@ -127,7 +132,7 @@ World::World(
     const auto gltfModel = loadGLTFModel(resPath(scene));
     fprintf(stderr, "glTF model loading took %.2fs\n", t.getSeconds());
 
-    const auto &tl = [&](const char *stage, std::function<void()> fn)
+    const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
         t.reset();
         fn();
@@ -181,7 +186,7 @@ void World::updateUniformBuffers(
 {
     const mat4 worldToClip =
         cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-    void *data;
+    void *data = nullptr;
     _device->map(_skyboxUniformBuffers[nextImage].allocation, &data);
     memcpy(data, &worldToClip, sizeof(mat4));
     _device->unmap(_skyboxUniformBuffers[nextImage].allocation);
@@ -199,7 +204,7 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
 {
     const vk::DeviceSize offset = 0;
     buffer.bindVertexBuffers(0, 1, &_skyboxVertexBuffer.handle, &offset);
-    buffer.draw(static_cast<uint32_t>(skyboxVerts.size()), 1, 0, 0);
+    buffer.draw(static_cast<uint32_t>(SKYBOX_VERTS_SIZE), 1, 0, 0);
 }
 
 void World::loadTextures(const tinygltf::Model &gltfModel)
@@ -280,7 +285,7 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
             mat._alphaCutoff = static_cast<float>(elem->second.Factor());
         }
         // TODO: Support more parameters
-        _materials.push_back(std::move(mat));
+        _materials.push_back(mat);
     }
 }
 
@@ -305,7 +310,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     reinterpret_cast<const float *>(&(data[offset])),
                     accessor.count);
             }();
-            const auto normals = [&]
+            const auto *normals = [&]
             {
                 const auto &attribute = primitive.attributes.find("NORMAL");
                 assert(attribute != primitive.attributes.end());
@@ -315,7 +320,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 const size_t offset = accessor.byteOffset + view.byteOffset;
                 return reinterpret_cast<const float *>(&(data[offset]));
             }();
-            const auto tangents = [&]
+            const auto *tangents = [&]
             {
                 const auto &attribute = primitive.attributes.find("TANGENT");
                 if (attribute == primitive.attributes.end())
@@ -326,7 +331,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 const size_t offset = accessor.byteOffset + view.byteOffset;
                 return reinterpret_cast<const float *>(&(data[offset]));
             }();
-            const auto texCoords0 = [&]
+            const auto *texCoords0 = [&]
             {
                 const auto &attribute = primitive.attributes.find("TEXCOORD_0");
                 if (attribute == primitive.attributes.end())
@@ -348,9 +353,11 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     vs.push_back(
                         {vec4{make_vec3(&positions[v * 3]), 1.f},
                          normalize(make_vec3(&normals[v * 3])),
-                         tangents ? normalize(make_vec4(&tangents[v * 4]))
-                                  : vec4(0),
-                         texCoords0 ? make_vec2(&texCoords0[v * 2]) : vec2(0)});
+                         tangents != nullptr
+                             ? normalize(make_vec4(&tangents[v * 4]))
+                             : vec4(0),
+                         texCoords0 != nullptr ? make_vec2(&texCoords0[v * 2])
+                                               : vec2(0)});
                 }
                 return vs;
             }();
@@ -368,7 +375,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 if (accessor.componentType ==
                     TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
                 {
-                    const auto indexData =
+                    const auto *indexData =
                         reinterpret_cast<const uint32_t *>(&(data[offset]));
                     is = {indexData, indexData + vertexCount};
                 }
@@ -376,7 +383,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     accessor.componentType ==
                     TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
                 {
-                    const auto indexData =
+                    const auto *indexData =
                         reinterpret_cast<const uint16_t *>(&(data[offset]));
                     is.resize(accessor.count);
                     for (size_t i = 0; i < accessor.count; ++i)
@@ -384,7 +391,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 }
                 else
                 {
-                    const auto indexData =
+                    const auto *indexData =
                         reinterpret_cast<const uint8_t *>(&(data[offset]));
                     is.resize(accessor.count);
                     for (size_t i = 0; i < accessor.count; ++i)
@@ -481,7 +488,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
         std::vector<Scene::Node *> nodeStack = scene.nodes;
         while (!nodeStack.empty())
         {
-            const auto node = nodeStack.back();
+            auto *node = nodeStack.back();
             if (visited.find(node) != visited.end())
             {
                 nodeStack.pop_back();
@@ -497,7 +504,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     parentTransforms.back() *
                     translate(mat4{1.f}, node->translation) *
                     mat4_cast(node->rotation) * scale(mat4{1.f}, node->scale);
-                if (node->model)
+                if (node->model != nullptr)
                 {
                     scene.modelInstances.push_back(
                         {node->model, modelToWorld, {}, {}});
@@ -757,11 +764,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             std::array<vk::DescriptorImageInfo, 3> iis{
                 {_emptyTexture.imageInfo(), _emptyTexture.imageInfo(),
                  _emptyTexture.imageInfo()}};
-            if (material._baseColor)
+            if (material._baseColor != nullptr)
                 iis[0] = material._baseColor->imageInfo();
-            if (material._metallicRoughness)
+            if (material._metallicRoughness != nullptr)
                 iis[1] = material._metallicRoughness->imageInfo();
-            if (material._normal)
+            if (material._normal != nullptr)
                 iis[2] = material._normal->imageInfo();
             return iis;
         }();

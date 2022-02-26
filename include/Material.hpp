@@ -57,8 +57,8 @@ struct Material
     float _alphaCutoff = 0.5f;
     vk::DescriptorSet _descriptorSet;
 
-    float alphaModeFloat() const;
-    PCBlock pcBlock() const;
+    [[nodiscard]] float alphaModeFloat() const;
+    [[nodiscard]] PCBlock pcBlock() const;
 };
 
 #endif // PROSPER_MATERIAL_HPP

@@ -1,0 +1,59 @@
+---
+# Why disable some?
+# blanket disables:
+#    mostly very specific warnings, rarely actionable here
+# bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions:
+#    A good warning but I'd like a debug only 'asserted cast'. TODO.
+# cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers:
+#    Requiring a named constant for a default value seems riddiculous
+#    The constant would be named ~identically to the variable
+# cppcoreguidelines-macro-usage:
+#    Situational, for dependencies only
+# cppcoreguidelines-non-private-member-variables-in-classes, misc-non-private-member-variables-in-classes:
+#     Having a trivial public setter is dumb.
+# cppcoregoudelines-pro-bounds-*:
+#    Span could be nice, but the interface is noisy at best and needs a
+#    separate enumeration for index in for-auto
+# cppcoreguidelines-pro-type-reinterpret-cast:
+#    Arbitrary data is stored as uint8_t/unsigned char in e.g. tinygltf
+# cppcoreguidelines-pro-type-union-access:
+#    glm
+# cppcoreguidelines-pro-type-vararg:
+#    fprintf, I really don't like formatting with streams
+# modernize-use-trailing-return-type:
+#    Haven't touched professionally, best not add 'noise'
+# readability-braces-around-statements:
+#    clang-format and indentation makes this moot
+# readability-function-cognitive-complexity:
+#    Arguable false positives in scene parsing
+# readability-uppercase-literal-suffix:
+#    Only really needed for 'l' and my font/highlighting is clear even if I use it
+Checks: "*,
+        -abseil-*,
+        -altera-*,
+        -android-*,
+        -fuchsia-*,
+        -google-*,
+        -hicpp-*,
+        -llvm*,
+        -zircon-*,
+        -bugprone-narrowing-conversions,
+        -cppcoreguidelines-avoid-magic-numbers,
+        -cppcoreguidelines-macro-usage,
+        -cppcoreguidelines-narrowing-conversions,
+        -cppcoreguidelines-non-private-member-variables-in-classes,
+        -cppcoreguidelines-pro-bounds-constant-array-index,
+        -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+        -cppcoreguidelines-pro-type-reinterpret-cast,
+        -cppcoreguidelines-pro-type-union-access,
+        -cppcoreguidelines-pro-type-vararg,
+        -misc-non-private-member-variables-in-classes,
+        -modernize-use-trailing-return-type,
+        -readability-braces-around-statements,
+        -readability-function-cognitive-complexity,
+        -readability-magic-numbers,
+        -readability-uppercase-literal-suffix
+"
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/prosper/include/.*'
+FormatStyle: file

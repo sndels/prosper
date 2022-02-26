@@ -42,7 +42,7 @@ vk::PresentModeKHR selectSwapPresentMode(
             return mode;
         // fifo is not properly supported by some drivers so use immediate if
         // available
-        else if (mode == vk::PresentModeKHR::eImmediate)
+        if (mode == vk::PresentModeKHR::eImmediate)
             bestMode = mode;
     }
 
@@ -154,7 +154,7 @@ std::optional<uint32_t> Swapchain::acquireNextImage(
     if (result == vk::Result::eErrorOutOfDateKHR ||
         result == vk::Result::eSuboptimalKHR)
         return std::nullopt;
-    else if (result != vk::Result::eSuccess)
+    if (result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to acquire swapchain image");
 
     return _nextImage;
@@ -199,7 +199,7 @@ void Swapchain::recreate(const SwapchainConfig &config)
 
 void Swapchain::destroy()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         for (auto fence : _inFlightFences)
             _device->logical().destroy(fence);
@@ -227,11 +227,8 @@ void Swapchain::createSwapchain()
                 static_cast<uint32_t>(queueFamilyIndices.size()),
                 queueFamilyIndices.data());
         }
-        else
-        {
-            return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
-                vk::SharingMode::eExclusive, 0, nullptr);
-        }
+        return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
+            vk::SharingMode::eExclusive, 0, nullptr);
     }();
 
     _swapchain =

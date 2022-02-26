@@ -111,6 +111,44 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "clang-tidy",
+            "type": "shell",
+            "dependsOn": [
+                "cmake clang-tidy"
+            ],
+            "command": "python",
+            "args": [
+                "C:/Program Files/LLVM/bin/run-clang-tidy",
+                "-p='build-analysis'",
+                "'.*\\\\prosper\\\\src\\\\.*.cpp'"
+            ],
+            "group": "build",
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "never"
+            },
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "cmake clang-tidy",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-GNinja",
+                "-S",
+                ".",
+                "-B",
+                "build-analysis",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+            ],
+            "group": "build",
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "silent"
+            }
+        },
+        {
             "label": "cmake",
             "type": "shell",
             "command": "cmake",

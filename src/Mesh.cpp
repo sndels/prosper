@@ -11,16 +11,9 @@ Mesh::Mesh(
     createIndexBuffer(indices);
 }
 
-Mesh::~Mesh()
-{
-    if (_device)
-    {
-        _device->destroy(_indexBuffer);
-        _device->destroy(_vertexBuffer);
-    }
-}
+Mesh::~Mesh() { destroy(); }
 
-Mesh::Mesh(Mesh &&other)
+Mesh::Mesh(Mesh &&other) noexcept
 : _device{other._device}
 , _material{other._material}
 , _vertexBuffer{other._vertexBuffer}
@@ -28,6 +21,23 @@ Mesh::Mesh(Mesh &&other)
 , _indexCount{other._indexCount}
 {
     other._device = nullptr;
+}
+
+Mesh &Mesh::operator=(Mesh &&other) noexcept
+{
+    destroy();
+    if (this != &other)
+    {
+        _device = other._device;
+        _material = other._material;
+        _vertexBuffer = other._vertexBuffer;
+        _indexBuffer = other._indexBuffer;
+        _indexCount = other._indexCount;
+
+        other._device = nullptr;
+    }
+
+    return *this;
 }
 
 const Material &Mesh::material() const { return *_material; }
@@ -42,6 +52,16 @@ void Mesh::draw(vk::CommandBuffer commandBuffer) const
     commandBuffer.drawIndexed(_indexCount, 1, 0, 0, 0);
 }
 
+void Mesh::destroy()
+{
+    if (_device != nullptr)
+    {
+        _device->destroy(_indexBuffer);
+        _device->destroy(_vertexBuffer);
+    }
+    _device = nullptr;
+}
+
 void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
 {
     const vk::DeviceSize bufferSize = sizeof(Vertex) * vertices.size();
@@ -54,7 +74,7 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     // Move vertex data to staging
-    void *data;
+    void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
     memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
     _device->unmap(stagingBuffer.allocation);
@@ -89,7 +109,7 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     // Move index data to staging
-    void *data;
+    void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
     memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
     _device->unmap(stagingBuffer.allocation);

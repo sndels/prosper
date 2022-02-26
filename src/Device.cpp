@@ -13,10 +13,10 @@
 namespace
 {
 
-const std::vector<const char *> validationLayers = {
+const std::array<const char *, 1> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
-const std::vector<const char *> deviceExtensions = {
+const std::array<const char *, 3> deviceExtensions = {
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
@@ -41,7 +41,7 @@ QueueFamilies findQueueFamilies(
                 families.computeFamily = i;
             if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
                 families.graphicsFamily = i;
-            if (presentSupport)
+            if (presentSupport == VK_TRUE)
                 families.presentFamily = i;
         }
 
@@ -110,7 +110,7 @@ std::vector<const char *> getRequiredExtensions()
     return extensions;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     const VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
@@ -129,17 +129,17 @@ void CreateDebugUtilsMessengerEXT(
     const vk::AllocationCallbacks *pAllocator,
     vk::DebugUtilsMessengerEXT *pDebugMessenger)
 {
-    auto vkInstance = static_cast<VkInstance>(instance);
-    auto vkpCreateInfo =
+    auto *vkInstance = static_cast<VkInstance>(instance);
+    const auto *vkpCreateInfo =
         reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT *>(
             pCreateInfo);
-    auto vkpAllocator =
+    const auto *vkpAllocator =
         reinterpret_cast<const VkAllocationCallbacks *>(pAllocator);
-    auto vkpDebugMessenger =
+    auto *vkpDebugMessenger =
         reinterpret_cast<VkDebugUtilsMessengerEXT *>(pDebugMessenger);
 
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        vkInstance, "vkCreateDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+        vkGetInstanceProcAddr(vkInstance, "vkCreateDebugUtilsMessengerEXT"));
     if (func == nullptr ||
         func(vkInstance, vkpCreateInfo, vkpAllocator, vkpDebugMessenger) !=
             VK_SUCCESS)
@@ -151,14 +151,14 @@ void DestroyDebugUtilsMessengerEXT(
     const vk::DebugUtilsMessengerEXT debugMessenger,
     const vk::AllocationCallbacks *pAllocator)
 {
-    auto vkInstance = static_cast<VkInstance>(instance);
-    const auto vkDebugMessenger =
+    auto *vkInstance = static_cast<VkInstance>(instance);
+    auto *vkDebugMessenger =
         static_cast<const VkDebugUtilsMessengerEXT>(debugMessenger);
-    auto vkpAllocator =
+    const auto *vkpAllocator =
         reinterpret_cast<const VkAllocationCallbacks *>(pAllocator);
 
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        vkInstance, "vkDestroyDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+        vkGetInstanceProcAddr(vkInstance, "vkDestroyDebugUtilsMessengerEXT"));
     if (func != nullptr)
         func(vkInstance, vkDebugMessenger, vkpAllocator);
 }
@@ -253,6 +253,7 @@ void Image::transition(
 
 FileIncluder::FileIncluder()
 : _includePath{resPath("shader")}
+
 {
 }
 
@@ -262,26 +263,26 @@ shaderc_include_result *FileIncluder::GetInclude(
 {
     assert(type == shaderc_include_type_relative);
 
-    const auto source = readFileString(_includePath / requested_source);
+    auto content = readFileString(_includePath / requested_source);
+    auto result =
+        std::make_shared<shaderc_include_result>(shaderc_include_result{
+            .source_name = requested_source,
+            .source_name_length = strlen(requested_source),
+            .content = content.c_str(),
+            .content_length = content.size(),
+            .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
+        });
+    static_assert(sizeof(_includeContentID) == sizeof(void *));
 
-    char *content = new char[source.size()];
-    memcpy((void *)content, source.c_str(), source.size());
+    _includeContent[_includeContentID++] =
+        std::make_pair(result, std::move(content));
 
-    auto *result = new shaderc_include_result;
-
-    result->source_name = requested_source;
-    result->source_name_length = strlen(requested_source);
-    result->content = content;
-    result->content_length = source.size();
-    result->user_data = content;
-
-    return result;
+    return result.get();
 }
 
 void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 {
-    delete[] data->user_data;
-    delete data;
+    _includeContent.erase(reinterpret_cast<uint64_t>(data->user_data));
 }
 
 Device::Device(GLFWwindow *window)
@@ -291,7 +292,7 @@ Device::Device(GLFWwindow *window)
     _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
 
     vk::DynamicLoader dl;
-    PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
+    auto vkGetInstanceProcAddr =
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
@@ -406,12 +407,12 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     return sm;
 }
 
-void Device::map(const VmaAllocation allocation, void **data) const
+void Device::map(VmaAllocation allocation, void **data) const
 {
     vmaMapMemory(_allocator, allocation, data);
 }
 
-void Device::unmap(const VmaAllocation allocation) const
+void Device::unmap(VmaAllocation allocation) const
 {
     vmaUnmapMemory(_allocator, allocation);
 }
@@ -432,8 +433,8 @@ Buffer Device::createBuffer(
     };
 
     Buffer buffer;
-    auto vkpBufferInfo = reinterpret_cast<VkBufferCreateInfo *>(&bufferInfo);
-    auto vkpBuffer = reinterpret_cast<VkBuffer *>(&buffer.handle);
+    auto *vkpBufferInfo = reinterpret_cast<VkBufferCreateInfo *>(&bufferInfo);
+    auto *vkpBuffer = reinterpret_cast<VkBuffer *>(&buffer.handle);
     vmaCreateBuffer(
         _allocator, vkpBufferInfo, &allocInfo, vkpBuffer, &buffer.allocation,
         nullptr);
@@ -449,7 +450,7 @@ Buffer Device::createBuffer(
 
 void Device::destroy(const Buffer &buffer) const
 {
-    const auto vkBuffer = static_cast<VkBuffer>(buffer.handle);
+    auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
 }
 
@@ -483,35 +484,35 @@ TexelBuffer Device::createTexelBuffer(
             "Format doesn't support atomics");
     }
 
-    const auto [handle, allocation] =
+    const auto buffer =
         createBuffer(debugName, size, usage, properties, vmaUsage);
 
     const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
-        .buffer = handle,
+        .buffer = buffer.handle,
         .format = format,
         .offset = 0,
         .range = size,
     });
 
     return TexelBuffer{
-        .handle = handle,
+        .handle = buffer.handle,
         .view = view,
         .format = format,
         .size = size,
-        .allocation = allocation,
+        .allocation = buffer.allocation,
     };
 }
 
 void Device::destroy(const TexelBuffer &buffer) const
 {
-    const auto vkBuffer = static_cast<VkBuffer>(buffer.handle);
+    auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     _logical.destroy(buffer.view);
 }
 
 Image Device::createImage(
     const std::string &debugName, const vk::ImageType imageType,
-    const vk::Extent3D extent, const vk::Format format,
+    const vk::Extent3D &extent, const vk::Format format,
     const vk::ImageSubresourceRange &range, const vk::ImageViewType viewType,
     const vk::ImageTiling tiling, const vk::ImageCreateFlags flags,
     const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties,
@@ -534,8 +535,8 @@ Image Device::createImage(
         .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties)};
 
     Image image;
-    auto vkpImageInfo = reinterpret_cast<VkImageCreateInfo *>(&imageInfo);
-    auto vkpImage = reinterpret_cast<VkImage *>(&image.handle);
+    auto *vkpImageInfo = reinterpret_cast<VkImageCreateInfo *>(&imageInfo);
+    auto *vkpImage = reinterpret_cast<VkImage *>(&image.handle);
     vmaCreateImage(
         _allocator, vkpImageInfo, &allocInfo, vkpImage, &image.allocation,
         nullptr);
@@ -560,7 +561,7 @@ Image Device::createImage(
 
 void Device::destroy(const Image &image) const
 {
-    const auto vkImage = static_cast<VkImage>(image.handle);
+    auto *vkImage = static_cast<VkImage>(image.handle);
     vmaDestroyImage(_allocator, vkImage, image.allocation);
     _logical.destroy(image.view);
 }
@@ -632,9 +633,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     }();
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           supportedFeatures.features.samplerAnisotropy &&
-           sync2Features.synchronization2 &&
-           dynamicRenderingFeatures.dynamicRendering;
+           supportedFeatures.features.samplerAnisotropy == VK_TRUE &&
+           sync2Features.synchronization2 == VK_TRUE &&
+           dynamicRenderingFeatures.dynamicRendering == VK_TRUE;
 }
 
 void Device::createInstance()
@@ -675,8 +676,8 @@ void Device::createDebugMessenger()
 
 void Device::createSurface(GLFWwindow *window)
 {
-    auto vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&_surface);
-    auto vkInstance = static_cast<VkInstance>(_instance);
+    auto *vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&_surface);
+    auto *vkInstance = static_cast<VkInstance>(_instance);
     if (glfwCreateWindowSurface(vkInstance, window, nullptr, vkpSurface) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface");
@@ -708,25 +709,28 @@ void Device::createLogicalDevice()
     const float queuePriority = 1;
     const std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]
     {
-        std::vector<vk::DeviceQueueCreateInfo> cis;
         const std::set<uint32_t> uniqueQueueFamilies = {
             computeFamily, graphicsFamily, presentFamily};
-        for (uint32_t family : uniqueQueueFamilies)
+
+        std::vector<vk::DeviceQueueCreateInfo> cis;
+        cis.reserve(uniqueQueueFamilies.size());
+        for (auto family : uniqueQueueFamilies)
         {
             cis.push_back(vk::DeviceQueueCreateInfo{
                 .queueFamilyIndex = family,
                 .queueCount = 1,
                 .pQueuePriorities = &queuePriority});
         }
+
         return cis;
     }();
 
     vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{
-        .dynamicRendering = true,
+        .dynamicRendering = VK_TRUE,
     };
     vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
         .pNext = &dynamicRenderingFeatures,
-        .synchronization2 = true,
+        .synchronization2 = VK_TRUE,
     };
     vk::PhysicalDeviceVulkan12Features vk12Features{
         .pNext = &sync2Features,

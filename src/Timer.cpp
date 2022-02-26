@@ -1,4 +1,4 @@
-#include "timer.hpp"
+#include "Timer.hpp"
 
 Timer::Timer()
 : _start(std::chrono::system_clock::now())

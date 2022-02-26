@@ -16,9 +16,14 @@ class ImGuiRenderer
         const SwapchainConfig &swapConfig);
     ~ImGuiRenderer();
 
+    ImGuiRenderer(const ImGuiRenderer &other) = delete;
+    ImGuiRenderer(ImGuiRenderer &&other) = delete;
+    ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
+    ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
+
     void startFrame() const;
-    vk::CommandBuffer endFrame(
-        const vk::Rect2D &renderArea, const uint32_t nextImage);
+    [[nodiscard]] vk::CommandBuffer endFrame(
+        const vk::Rect2D &renderArea, uint32_t nextImage);
 
     void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
 
@@ -28,7 +33,6 @@ class ImGuiRenderer
     void destroySwapchainRelated();
     void createDescriptorPool();
 
-  private:
     Device *_device = nullptr;
     RenderResources *_resources = nullptr;
     vk::DescriptorPool _descriptorPool;

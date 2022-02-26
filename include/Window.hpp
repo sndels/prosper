@@ -9,17 +9,20 @@ class Window
 {
   public:
     Window(
-        const uint32_t width, const uint32_t height, const std::string &title);
+        const std::pair<uint32_t, uint32_t> &resolution,
+        const std::string &title);
     ~Window();
 
     Window(const Window &other) = delete;
+    Window(Window &&other) = delete;
     Window &operator=(const Window &other) = delete;
+    Window &operator=(Window &&other) = delete;
 
-    GLFWwindow *ptr() const;
-    bool open() const;
-    uint32_t width() const;
-    uint32_t height() const;
-    bool resized() const;
+    [[nodiscard]] GLFWwindow *ptr() const;
+    [[nodiscard]] bool open() const;
+    [[nodiscard]] uint32_t width() const;
+    [[nodiscard]] uint32_t height() const;
+    [[nodiscard]] bool resized() const;
 
     void startFrame();
 

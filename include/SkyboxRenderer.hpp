@@ -19,7 +19,9 @@ class SkyboxRenderer
     ~SkyboxRenderer();
 
     SkyboxRenderer(const SkyboxRenderer &other) = delete;
+    SkyboxRenderer(SkyboxRenderer &&other) = delete;
     SkyboxRenderer &operator=(const SkyboxRenderer &other) = delete;
+    SkyboxRenderer &operator=(SkyboxRenderer &&other) = delete;
 
     void recompileShaders(
         const SwapchainConfig &swapConfig,
@@ -29,12 +31,12 @@ class SkyboxRenderer
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
 
-    vk::CommandBuffer recordCommandBuffer(
+    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const World &world, const vk::Rect2D &renderArea,
-        const uint32_t nextImage) const;
+        uint32_t nextImage) const;
 
   private:
-    bool compileShaders();
+    [[nodiscard]] bool compileShaders();
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();

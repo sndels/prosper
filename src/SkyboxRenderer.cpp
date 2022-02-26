@@ -32,7 +32,7 @@ SkyboxRenderer::SkyboxRenderer(
 
 SkyboxRenderer::~SkyboxRenderer()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         destroySwapchainRelated();
 
@@ -160,9 +160,9 @@ bool SkyboxRenderer::compileShaders()
 
 void SkyboxRenderer::destroySwapchainRelated()
 {
-    if (_device)
+    if (_device != nullptr)
     {
-        if (_commandBuffers.size() > 0)
+        if (!_commandBuffers.empty())
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),

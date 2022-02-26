@@ -16,13 +16,15 @@ class ToneMap
     ~ToneMap();
 
     ToneMap(const ToneMap &other) = delete;
+    ToneMap(ToneMap &&other) = delete;
     ToneMap &operator=(const ToneMap &other) = delete;
+    ToneMap &operator=(ToneMap &&other) = delete;
 
     void recompileShaders();
 
     void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
 
-    vk::CommandBuffer execute(const uint32_t nextImage) const;
+    [[nodiscard]] vk::CommandBuffer execute(uint32_t nextImage) const;
 
   private:
     bool compileShaders();

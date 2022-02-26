@@ -26,10 +26,6 @@
 
 using namespace glm;
 
-using std::cerr;
-using std::cout;
-using std::endl;
-
 namespace
 {
 const uint32_t WIDTH = 1920;
@@ -89,7 +85,7 @@ RenderResources::DescriptorPools createDescriptorPools(
 } // namespace
 
 App::App(const std::filesystem::path & scene)
-: _window{WIDTH, HEIGHT, "prosper"}
+: _window{{WIDTH, HEIGHT}, "prosper"}
 , _device{_window.ptr()}
 , _swapConfig{&_device, {_window.width(), _window.height()}}
 , _swapchain{&_device, _swapConfig}
@@ -193,9 +189,12 @@ void App::recreateSwapchainAndRelated()
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
 
     _cam.perspective(
-        radians(CAMERA_FOV),
-        _window.width() / static_cast<float>(_window.height()), CAMERA_NEAR,
-        CAMERA_FAR);
+        PerspectiveParameters{
+            .fov = radians(CAMERA_FOV),
+            .zN = CAMERA_NEAR,
+            .zF = CAMERA_FAR,
+        },
+        _window.width() / static_cast<float>(_window.height()));
 }
 
 void App::recompileShaders()

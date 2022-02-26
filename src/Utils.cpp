@@ -6,16 +6,14 @@ std::filesystem::path resPath(const std::filesystem::path &path)
 {
     if (path.is_absolute())
         return path;
-    else
-        return std::filesystem::path{RES_PATH} / path;
+    return std::filesystem::path{RES_PATH} / path;
 }
 
 std::filesystem::path binPath(const std::filesystem::path &path)
 {
     if (path.is_absolute())
         return path;
-    else
-        return std::filesystem::path{BIN_PATH} / path;
+    return std::filesystem::path{BIN_PATH} / path;
 }
 
 std::string readFileString(const std::filesystem::path &path)

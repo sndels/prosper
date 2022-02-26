@@ -21,6 +21,13 @@ struct CameraOffset
     bool flipUp{false};
 };
 
+struct PerspectiveParameters
+{
+    float fov{glm::radians(59.f)};
+    float zN{0.1f};
+    float zF{100.f};
+};
+
 struct CameraParameters
 {
     glm::vec3 eye{1.f, 0.5f, 1.f};
@@ -30,7 +37,7 @@ struct CameraParameters
     float zN{0.1f};
     float zF{100.f};
 
-    CameraParameters apply(CameraOffset const &offset) const
+    [[nodiscard]] CameraParameters apply(CameraOffset const &offset) const
     {
         return CameraParameters{
             .eye = eye + offset.eye,
@@ -56,29 +63,30 @@ class Camera
 {
   public:
     Camera(
-        Device *device, const vk::DescriptorPool descriptorPool,
-        const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags);
+        Device *device, vk::DescriptorPool descriptorPool,
+        uint32_t swapImageCount, vk::ShaderStageFlags stageFlags);
     ~Camera();
 
     Camera(const Camera &other) = delete;
+    Camera(Camera &&other) = delete;
     Camera &operator=(const Camera &other) = delete;
+    Camera &operator=(Camera &&other) = delete;
 
     void init(CameraParameters const &params);
 
     void lookAt(
         const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
-    void perspective(
-        const float fov, const float ar, const float zN, const float zF);
-    void perspective(const float ar);
+    void perspective(const PerspectiveParameters &params, float ar);
+    void perspective(float ar);
 
-    void updateBuffer(const uint32_t index, const glm::uvec2 &resolution);
+    void updateBuffer(uint32_t index, const glm::uvec2 &resolution);
 
-    std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
-    const vk::DescriptorSetLayout &descriptorSetLayout() const;
-    const vk::DescriptorSet &descriptorSet(const uint32_t index) const;
-    const glm::mat4 &worldToCamera() const;
-    const glm::mat4 &cameraToClip() const;
-    const CameraParameters &parameters() const;
+    [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
+    [[nodiscard]] const vk::DescriptorSetLayout &descriptorSetLayout() const;
+    [[nodiscard]] const vk::DescriptorSet &descriptorSet(uint32_t index) const;
+    [[nodiscard]] const glm::mat4 &worldToCamera() const;
+    [[nodiscard]] const glm::mat4 &cameraToClip() const;
+    [[nodiscard]] const CameraParameters &parameters() const;
 
     // This offset, if any, is added to internal transformation
     std::optional<CameraOffset> offset;
@@ -86,19 +94,19 @@ class Camera
     void applyOffset();
 
   private:
-    void createUniformBuffers(const uint32_t swapImageCount);
+    void createUniformBuffers(uint32_t swapImageCount);
     // Create uniform buffers first
     void createDescriptorSets(
-        const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount,
-        const vk::ShaderStageFlags stageFlags);
+        vk::DescriptorPool descriptorPool, uint32_t swapImageCount,
+        vk::ShaderStageFlags stageFlags);
 
     void updateWorldToCamera();
 
     Device *_device = nullptr;
     CameraParameters _parameters;
-    glm::mat4 _worldToClip;
-    glm::mat4 _worldToCamera;
-    glm::mat4 _cameraToClip;
+    glm::mat4 _worldToClip{1.f};
+    glm::mat4 _worldToCamera{1.f};
+    glm::mat4 _cameraToClip{1.f};
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     std::vector<vk::DescriptorSet> _descriptorSets;

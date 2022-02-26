@@ -18,8 +18,8 @@
 
 struct Vertex
 {
-    typedef std::array<vk::VertexInputAttributeDescription, 4>
-        AttributeDescriptions;
+    using AttributeDescriptions =
+        std::array<vk::VertexInputAttributeDescription, 4>;
 
     glm::vec3 pos = glm::vec3{0.f};
     glm::vec3 normal = glm::vec3{0.f, 1.f, 0.f};

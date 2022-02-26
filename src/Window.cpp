@@ -8,9 +8,9 @@
 #include "InputHandler.hpp"
 
 Window::Window(
-    const uint32_t width, const uint32_t height, const std::string &title)
-: _width(width)
-, _height(height)
+    const std::pair<uint32_t, uint32_t> &resolution, const std::string &title)
+: _width{resolution.first}
+, _height{resolution.second}
 {
     fprintf(stderr, "Creating window\n");
 
@@ -20,8 +20,9 @@ Window::Window(
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    _window =
-        glfwCreateWindow(_width, _height, title.c_str(), nullptr, nullptr);
+    _window = glfwCreateWindow(
+        static_cast<int>(_width), static_cast<int>(_height), title.c_str(),
+        nullptr, nullptr);
 
     glfwSetWindowUserPointer(_window, this);
     glfwSetKeyCallback(_window, Window::keyCallback);
@@ -41,7 +42,10 @@ Window::~Window()
 
 GLFWwindow *Window::ptr() const { return _window; }
 
-bool Window::open() const { return !glfwWindowShouldClose(_window); }
+bool Window::open() const
+{
+    return glfwWindowShouldClose(_window) == GLFW_FALSE;
+}
 
 uint32_t Window::width() const { return _width; }
 
@@ -126,9 +130,10 @@ void Window::mouseButtonCallback(
         InputHandler::instance().handleMouseButton(button, action, mods);
 }
 
+// NOLINTNEXTLINE mirrors the glfw interface
 void Window::framebufferSizeCallback(GLFWwindow *window, int width, int height)
 {
-    Window *thisPtr = (Window *)glfwGetWindowUserPointer(window);
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
     auto uw = static_cast<uint32_t>(width);
     auto uh = static_cast<uint32_t>(height);
     if (thisPtr->_width != uw || thisPtr->_height != uh)

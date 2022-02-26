@@ -44,15 +44,17 @@ class InputHandler
 {
   public:
     InputHandler(const InputHandler &other) = delete;
+    InputHandler(InputHandler &&other) = delete;
     InputHandler &operator=(const InputHandler &other) = delete;
+    InputHandler &operator=(InputHandler &&other) = delete;
 
     static InputHandler &instance();
 
     void clearSingleFrameGestures();
 
-    const CursorState &cursor() const;
-    const ModifierState &modifiers() const;
-    const std::optional<MouseGesture> &mouseGesture() const;
+    [[nodiscard]] const CursorState &cursor() const;
+    [[nodiscard]] const ModifierState &modifiers() const;
+    [[nodiscard]] const std::optional<MouseGesture> &mouseGesture() const;
 
     void handleCursorEntered(bool entered);
     void handleMouseScroll(double xoffset, double yoffset);
@@ -61,6 +63,7 @@ class InputHandler
 
   private:
     InputHandler() = default;
+    ~InputHandler() = default;
 
     CursorState _cursor;
     ModifierState _modifiers;

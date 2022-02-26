@@ -14,30 +14,29 @@ class Renderer
   public:
     Renderer(
         Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
+        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~Renderer();
 
     Renderer(const Renderer &other) = delete;
+    Renderer(Renderer &&other) = delete;
     Renderer &operator=(const Renderer &other) = delete;
+    Renderer &operator=(Renderer &&other) = delete;
 
     void recompileShaders(
-        const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
+        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreateSwapchainRelated(
-        const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
+        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    vk::CommandBuffer recordCommandBuffer(
+    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
-        const uint32_t nextImage) const;
+        uint32_t nextImage) const;
 
   private:
-    bool compileShaders();
+    [[nodiscard]] bool compileShaders();
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();
@@ -46,13 +45,12 @@ class Renderer
     void createOutputs(const SwapchainConfig &swapConfig);
     void createAttachments();
     void createGraphicsPipelines(
-        const SwapchainConfig &swapConfig,
-        const vk::DescriptorSetLayout camDSLayout,
+        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     void recordModelInstances(
-        const vk::CommandBuffer buffer, const uint32_t nextImage,
+        vk::CommandBuffer buffer, uint32_t nextImage,
         const std::vector<Scene::ModelInstance> &instances,
         const std::function<bool(const Mesh &)> &shouldRender) const;
 

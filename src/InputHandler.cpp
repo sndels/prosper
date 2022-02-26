@@ -59,6 +59,7 @@ void InputHandler::handleMouseScroll(double xoffset, double yoffset)
     }
 }
 
+// NOLINTNEXTLINE mirrors the glfw interface
 void InputHandler::handleMouseButton(int button, int action, int mods)
 {
     if (_cursor.inside)

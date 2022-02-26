@@ -34,7 +34,7 @@ Renderer::Renderer(
 
 Renderer::~Renderer()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         destroySwapchainRelated();
 
@@ -195,9 +195,9 @@ bool Renderer::compileShaders()
 
 void Renderer::destroySwapchainRelated()
 {
-    if (_device)
+    if (_device != nullptr)
     {
-        if (_commandBuffers.size() > 0)
+        if (!_commandBuffers.empty())
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),

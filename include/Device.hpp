@@ -18,7 +18,7 @@ struct QueueFamilies
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
-    bool isComplete() const
+    [[nodiscard]] bool isComplete() const
     {
         return computeFamily.has_value() && graphicsFamily.has_value() &&
                presentFamily.has_value();
@@ -48,8 +48,7 @@ struct TexelBuffer
     VmaAllocation allocation{nullptr};
 
     vk::BufferMemoryBarrier2KHR transitionBarrier(const BufferState &newState);
-    void transition(
-        const vk::CommandBuffer buffer, const BufferState &newState);
+    void transition(vk::CommandBuffer buffer, const BufferState &newState);
 };
 
 struct ImageState
@@ -71,7 +70,7 @@ struct Image
     VmaAllocation allocation{nullptr};
 
     vk::ImageMemoryBarrier2KHR transitionBarrier(const ImageState &newState);
-    void transition(const vk::CommandBuffer buffer, const ImageState &newState);
+    void transition(vk::CommandBuffer buffer, const ImageState &newState);
 };
 
 class FileIncluder : public shaderc::CompileOptions::IncluderInterface
@@ -79,14 +78,20 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
   public:
     FileIncluder();
 
-    virtual shaderc_include_result *GetInclude(
+    shaderc_include_result *GetInclude(
         const char *requested_source, shaderc_include_type type,
-        const char *requesting_source, size_t include_depth);
+        const char *requesting_source, size_t include_depth) override;
 
-    virtual void ReleaseInclude(shaderc_include_result *data);
+    void ReleaseInclude(shaderc_include_result *data) override;
 
   private:
     std::filesystem::path _includePath;
+
+    uint64_t _includeContentID{0};
+    std::unordered_map<
+        uint64_t,
+        std::tuple<std::shared_ptr<shaderc_include_result>, std::string>>
+        _includeContent;
 };
 
 class Device
@@ -96,57 +101,56 @@ class Device
     ~Device();
 
     Device(const Device &other) = delete;
+    Device(Device &&other) = delete;
     Device &operator=(const Device &other) = delete;
+    Device &operator=(Device &&other) = delete;
 
-    vk::Instance instance() const;
-    vk::PhysicalDevice physical() const;
-    vk::Device logical() const;
-    vk::SurfaceKHR surface() const;
-    vk::CommandPool computePool() const;
-    vk::CommandPool graphicsPool() const;
-    vk::Queue computeQueue() const;
-    vk::Queue graphicsQueue() const;
-    vk::Queue presentQueue() const;
-    const QueueFamilies &queueFamilies() const;
+    [[nodiscard]] vk::Instance instance() const;
+    [[nodiscard]] vk::PhysicalDevice physical() const;
+    [[nodiscard]] vk::Device logical() const;
+    [[nodiscard]] vk::SurfaceKHR surface() const;
+    [[nodiscard]] vk::CommandPool computePool() const;
+    [[nodiscard]] vk::CommandPool graphicsPool() const;
+    [[nodiscard]] vk::Queue computeQueue() const;
+    [[nodiscard]] vk::Queue graphicsQueue() const;
+    [[nodiscard]] vk::Queue presentQueue() const;
+    [[nodiscard]] const QueueFamilies &queueFamilies() const;
 
-    std::optional<vk::ShaderModule> compileShaderModule(
+    [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
         const std::string &relPath, const std::string &debugName) const;
-    std::optional<vk::ShaderModule> compileShaderModule(
+    [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
         const std::string &source, const std::string &path,
         const std::string &debugName) const;
 
-    void map(const VmaAllocation allocation, void **data) const;
-    void unmap(const VmaAllocation allocation) const;
+    void map(VmaAllocation allocation, void **data) const;
+    void unmap(VmaAllocation allocation) const;
 
-    Buffer createBuffer(
-        const std::string &debugName, const vk::DeviceSize size,
-        const vk::BufferUsageFlags usage,
-        const vk::MemoryPropertyFlags properties,
-        const VmaMemoryUsage vmaUsage) const;
+    [[nodiscard]] Buffer createBuffer(
+        const std::string &debugName, vk::DeviceSize size,
+        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
+        VmaMemoryUsage vmaUsage) const;
     void destroy(const Buffer &buffer) const;
 
-    TexelBuffer createTexelBuffer(
-        const std::string &debugName, const vk::Format format,
-        const vk::DeviceSize size, const vk::BufferUsageFlags usage,
-        const vk::MemoryPropertyFlags properties, const bool supportAtomics,
-        const VmaMemoryUsage vmaUsage) const;
+    [[nodiscard]] TexelBuffer createTexelBuffer(
+        const std::string &debugName, vk::Format format, vk::DeviceSize size,
+        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
+        bool supportAtomics, VmaMemoryUsage vmaUsage) const;
     void destroy(const TexelBuffer &buffer) const;
 
-    Image createImage(
-        const std::string &debugName, const vk::ImageType imageType,
-        const vk::Extent3D extent, const vk::Format format,
-        const vk::ImageSubresourceRange &range,
-        const vk::ImageViewType viewType, const vk::ImageTiling tiling,
-        const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
-        const vk::MemoryPropertyFlags properties,
-        const VmaMemoryUsage vmaUsage) const;
+    [[nodiscard]] Image createImage(
+        const std::string &debugName, vk::ImageType imageType,
+        const vk::Extent3D &extent, vk::Format format,
+        const vk::ImageSubresourceRange &range, vk::ImageViewType viewType,
+        vk::ImageTiling tiling, vk::ImageCreateFlags flags,
+        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
+        VmaMemoryUsage vmaUsage) const;
     void destroy(const Image &image) const;
 
-    vk::CommandBuffer beginGraphicsCommands() const;
-    void endGraphicsCommands(const vk::CommandBuffer buffer) const;
+    [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
+    void endGraphicsCommands(vk::CommandBuffer buffer) const;
 
   private:
-    bool isDeviceSuitable(const vk::PhysicalDevice device) const;
+    [[nodiscard]] bool isDeviceSuitable(vk::PhysicalDevice device) const;
 
     void createInstance();
     void createDebugMessenger();

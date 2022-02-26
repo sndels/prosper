@@ -36,7 +36,7 @@ struct Scene
     {
         struct UBlock
         {
-            glm::mat4 modelToWorld;
+            glm::mat4 modelToWorld{1.f};
         };
 
         Model *model = nullptr;
@@ -45,10 +45,10 @@ struct Scene
         std::vector<Buffer> uniformBuffers;
         std::vector<vk::DescriptorSet> descriptorSets;
 
-        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const
         {
             std::vector<vk::DescriptorBufferInfo> infos;
-            for (auto &buffer : uniformBuffers)
+            for (const auto &buffer : this->uniformBuffers)
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
@@ -60,12 +60,12 @@ struct Scene
         void updateBuffer(const Device *device, const uint32_t nextImage) const
         {
             UBlock uBlock;
-            uBlock.modelToWorld = modelToWorld;
+            uBlock.modelToWorld = this->modelToWorld;
 
-            void *data;
-            device->map(uniformBuffers[nextImage].allocation, &data);
+            void *data = nullptr;
+            device->map(this->uniformBuffers[nextImage].allocation, &data);
             memcpy(data, &uBlock, sizeof(UBlock));
-            device->unmap(uniformBuffers[nextImage].allocation);
+            device->unmap(this->uniformBuffers[nextImage].allocation);
         }
     };
 
@@ -80,10 +80,10 @@ struct Scene
 
         std::vector<Buffer> uniformBuffers;
 
-        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const
         {
             std::vector<vk::DescriptorBufferInfo> infos;
-            for (auto &buffer : uniformBuffers)
+            for (const auto &buffer : this->uniformBuffers)
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
@@ -94,10 +94,10 @@ struct Scene
 
         void updateBuffer(const Device *device, const uint32_t nextImage) const
         {
-            void *data;
-            device->map(uniformBuffers[nextImage].allocation, &data);
-            memcpy(data, &parameters, sizeof(Parameters));
-            device->unmap(uniformBuffers[nextImage].allocation);
+            void *data = nullptr;
+            device->map(this->uniformBuffers[nextImage].allocation, &data);
+            memcpy(data, &this->parameters, sizeof(Parameters));
+            device->unmap(this->uniformBuffers[nextImage].allocation);
         }
     };
 
@@ -106,22 +106,22 @@ struct Scene
         static const uint32_t max_count = 1024;
         struct PointLight
         {
-            glm::vec4 radianceAndRadius;
-            glm::vec4 position;
+            glm::vec4 radianceAndRadius{0.f};
+            glm::vec4 position{0.f};
         };
 
         struct BufferData
         {
-            PointLight lights[max_count];
+            std::array<PointLight, max_count> lights;
             uint32_t count{0};
         } bufferData;
 
         std::vector<Buffer> storageBuffers;
 
-        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const
         {
             std::vector<vk::DescriptorBufferInfo> infos;
-            for (auto &buffer : storageBuffers)
+            for (const auto &buffer : this->storageBuffers)
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
@@ -132,10 +132,10 @@ struct Scene
 
         void updateBuffer(const Device *device, const uint32_t nextImage) const
         {
-            void *data;
-            device->map(storageBuffers[nextImage].allocation, &data);
-            memcpy(data, &bufferData, sizeof(PointLights::BufferData));
-            device->unmap(storageBuffers[nextImage].allocation);
+            void *data = nullptr;
+            device->map(this->storageBuffers[nextImage].allocation, &data);
+            memcpy(data, &this->bufferData, sizeof(PointLights::BufferData));
+            device->unmap(this->storageBuffers[nextImage].allocation);
         }
     };
 
@@ -144,23 +144,23 @@ struct Scene
         static const uint32_t max_count = 1024;
         struct SpotLight
         {
-            glm::vec4 radianceAndAngleScale;
-            glm::vec4 positionAndAngleOffset;
-            glm::vec4 direction;
+            glm::vec4 radianceAndAngleScale{0.f};
+            glm::vec4 positionAndAngleOffset{0.f};
+            glm::vec4 direction{0.f};
         };
 
         struct BufferData
         {
-            SpotLight lights[max_count];
+            std::array<SpotLight, max_count> lights;
             uint32_t count{0};
         } bufferData;
 
         std::vector<Buffer> storageBuffers;
 
-        std::vector<vk::DescriptorBufferInfo> bufferInfos() const
+        [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const
         {
             std::vector<vk::DescriptorBufferInfo> infos;
-            for (auto &buffer : storageBuffers)
+            for (const auto &buffer : this->storageBuffers)
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
@@ -171,10 +171,10 @@ struct Scene
 
         void updateBuffer(const Device *device, const uint32_t nextImage) const
         {
-            void *data;
-            device->map(storageBuffers[nextImage].allocation, &data);
-            memcpy(data, &bufferData, sizeof(SpotLights::BufferData));
-            device->unmap(storageBuffers[nextImage].allocation);
+            void *data = nullptr;
+            device->map(this->storageBuffers[nextImage].allocation, &data);
+            memcpy(data, &this->bufferData, sizeof(SpotLights::BufferData));
+            device->unmap(this->storageBuffers[nextImage].allocation);
         }
     };
 

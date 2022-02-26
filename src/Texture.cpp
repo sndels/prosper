@@ -18,15 +18,11 @@ vk::Filter getVkFilterMode(int glEnum)
     switch (glEnum)
     {
     case GL_NEAREST:
-        return vk::Filter::eNearest;
-    case GL_LINEAR:
-        return vk::Filter::eLinear;
     case GL_NEAREST_MIPMAP_NEAREST:
-        return vk::Filter::eNearest;
     case GL_NEAREST_MIPMAP_LINEAR:
         return vk::Filter::eNearest;
+    case GL_LINEAR:
     case GL_LINEAR_MIPMAP_NEAREST:
-        return vk::Filter::eLinear;
     case GL_LINEAR_MIPMAP_LINEAR:
         return vk::Filter::eLinear;
     }
@@ -54,7 +50,9 @@ std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
     const std::filesystem::path &path)
 {
     const auto pathString = path.string();
-    int w, h, channels;
+    int w = 0;
+    int h = 0;
+    int channels = 0;
     stbi_uc *pixels =
         stbi_load(pathString.c_str(), &w, &h, &channels, STBI_rgb_alpha);
     if (pixels == nullptr)
@@ -97,7 +95,7 @@ Texture::Texture(Device *device)
 
 Texture::~Texture() { destroy(); }
 
-Texture::Texture(Texture &&other)
+Texture::Texture(Texture &&other) noexcept
 : _device{other._device}
 , _image{other._image}
 , _sampler{other._sampler}
@@ -105,7 +103,7 @@ Texture::Texture(Texture &&other)
     other._device = nullptr;
 }
 
-Texture &Texture::operator=(Texture &&other)
+Texture &Texture::operator=(Texture &&other) noexcept
 {
     destroy();
     if (this != &other)
@@ -129,7 +127,7 @@ vk::DescriptorImageInfo Texture::imageInfo() const
 
 void Texture::destroy()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         _device->logical().destroy(_sampler);
         _device->destroy(_image);
@@ -171,16 +169,17 @@ Texture2D::Texture2D(
     if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
         throw std::runtime_error("Unsupported glTF pixel_type");
 
-    const uint8_t *pixels;
+    const uint8_t *pixels = nullptr;
     std::vector<uint8_t> tmpPixels;
     if (image.component < 3)
         throw std::runtime_error("Image with less than 3 components");
-    else if (image.component == 3)
+
+    if (image.component == 3)
     {
         std::cerr << "3 component texture" << std::endl;
         // Add fourth channel
         // TODO: Do only if rgb-textures are unsupported
-        tmpPixels.resize(image.width * image.height * 4);
+        tmpPixels.resize(static_cast<size_t>(image.width) * image.height * 4);
         const auto *rgb = image.image.data();
         auto *rgba = tmpPixels.data();
         for (int i = 0; i < image.width * image.height; ++i)
@@ -219,9 +218,10 @@ Texture2D::Texture2D(
 }
 
 Buffer Texture2D::stagePixels(
-    const uint8_t *pixels, const vk::Extent2D extent) const
+    const uint8_t *pixels, const vk::Extent2D &extent) const
 {
-    const vk::DeviceSize imageSize = extent.width * extent.height * 4;
+    const vk::DeviceSize imageSize =
+        static_cast<vk::DeviceSize>(extent.width) * extent.height * 4;
 
     const Buffer stagingBuffer = _device->createBuffer(
         "Texture2DStaging", imageSize, vk::BufferUsageFlagBits::eTransferSrc,
@@ -229,7 +229,7 @@ Buffer Texture2D::stagePixels(
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    void *data;
+    void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     _device->unmap(stagingBuffer.allocation);
@@ -238,7 +238,7 @@ Buffer Texture2D::stagePixels(
 }
 
 void Texture2D::createImage(
-    const Buffer &stagingBuffer, const vk::Extent2D extent,
+    const Buffer &stagingBuffer, const vk::Extent2D &extent,
     const vk::ImageSubresourceRange &subresourceRange)
 {
     // Both transfer source and destination as pixels will be transferred to it
@@ -288,7 +288,7 @@ void Texture2D::createImage(
 }
 
 void Texture2D::createMipmaps(
-    const vk::Extent2D extent, const uint32_t mipLevels)
+    const vk::Extent2D &extent, const uint32_t mipLevels)
 {
     // TODO: Check that the texture format supports linear filtering
     const auto buffer = _device->beginGraphicsCommands();
@@ -421,7 +421,7 @@ TextureCubemap::TextureCubemap(
         .height = static_cast<uint32_t>(cube.extent().y),
         .depth = 1u,
     };
-    const uint32_t mipLevels = static_cast<uint32_t>(cube.levels());
+    const auto mipLevels = static_cast<uint32_t>(cube.levels());
 
     const vk::ImageSubresourceRange subresourceRange{
         .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -464,7 +464,7 @@ void TextureCubemap::copyPixels(
             vk::MemoryPropertyFlagBits::eHostCoherent,
         VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    void *data;
+    void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
     memcpy(data, cube.data(), cube.size());
     _device->unmap(stagingBuffer.allocation);

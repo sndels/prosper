@@ -3,6 +3,9 @@
 #pragma warning(push, 0)
 #endif // _MSC_VER
 
+// Block nolints should come with llvm-14
+// NOLINTBEGIN
+
 #define TINYGLTF_IMPLEMENTATION
 #ifdef _WIN32
 #define STBI_MSC_SECURE_CRT
@@ -10,6 +13,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tiny_gltf.h>
+
+// NOLINTEND
 
 #ifdef _MSC_VER
 #pragma warning(pop)

@@ -30,7 +30,7 @@ Camera::Camera(
 
 Camera::~Camera()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         _device->logical().destroy(_descriptorSetLayout);
         for (auto &buffer : _uniformBuffers)
@@ -52,12 +52,11 @@ void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
     updateWorldToCamera();
 }
 
-void Camera::perspective(
-    const float fov, const float ar, const float zN, const float zF)
+void Camera::perspective(const PerspectiveParameters &params, const float ar)
 {
-    _parameters.fov = fov;
-    _parameters.zN = zN;
-    _parameters.zF = zF;
+    _parameters.fov = params.fov;
+    _parameters.zN = params.zN;
+    _parameters.zF = params.zF;
 
     perspective(ar);
 }
@@ -104,7 +103,7 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
         .far = _parameters.zF,
     };
 
-    void *data;
+    void *data = nullptr;
     _device->map(_uniformBuffers[index].allocation, &data);
     memcpy(data, &uniforms, sizeof(CameraUniforms));
     _device->unmap(_uniformBuffers[index].allocation);
@@ -113,7 +112,7 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
 std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
 {
     std::vector<vk::DescriptorBufferInfo> infos;
-    for (auto &buffer : _uniformBuffers)
+    for (const auto &buffer : _uniformBuffers)
         infos.push_back(vk::DescriptorBufferInfo{
             .buffer = buffer.handle,
             .offset = 0,
