@@ -27,9 +27,9 @@ struct QueueFamilies
 
 struct BufferState
 {
-    vk::PipelineStageFlags2KHR stageMask{
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe};
-    vk::AccessFlags2KHR accessMask{vk::AccessFlagBits2KHR::eNone};
+    vk::PipelineStageFlags2 stageMask{
+        vk::PipelineStageFlagBits2::eTopOfPipe};
+    vk::AccessFlags2 accessMask{vk::AccessFlagBits2::eNone};
 };
 
 struct Buffer
@@ -47,15 +47,15 @@ struct TexelBuffer
     BufferState state;
     VmaAllocation allocation{nullptr};
 
-    vk::BufferMemoryBarrier2KHR transitionBarrier(const BufferState &newState);
+    vk::BufferMemoryBarrier2 transitionBarrier(const BufferState &newState);
     void transition(vk::CommandBuffer buffer, const BufferState &newState);
 };
 
 struct ImageState
 {
-    vk::PipelineStageFlags2KHR stageMask{
-        vk::PipelineStageFlagBits2KHR::eTopOfPipe};
-    vk::AccessFlags2KHR accessMask;
+    vk::PipelineStageFlags2 stageMask{
+        vk::PipelineStageFlagBits2::eTopOfPipe};
+    vk::AccessFlags2 accessMask;
     vk::ImageLayout layout{vk::ImageLayout::eUndefined};
 };
 
@@ -69,7 +69,7 @@ struct Image
     ImageState state;
     VmaAllocation allocation{nullptr};
 
-    vk::ImageMemoryBarrier2KHR transitionBarrier(const ImageState &newState);
+    vk::ImageMemoryBarrier2 transitionBarrier(const ImageState &newState);
     void transition(vk::CommandBuffer buffer, const ImageState &newState);
 };
 

@@ -72,20 +72,20 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    const std::array<vk::ImageMemoryBarrier2KHR, 2> barriers{
+    const std::array<vk::ImageMemoryBarrier2, 2> barriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
-            .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentWrite,
+            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
             .layout = vk::ImageLayout::eColorAttachmentOptimal,
         }),
         _resources->images.sceneDepth.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests,
-            .accessMask = vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead,
+            .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+            .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
             .layout = vk::ImageLayout::eDepthAttachmentOptimal,
         }),
     };
 
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+    buffer.pipelineBarrier2(vk::DependencyInfo{
         .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
         .pImageMemoryBarriers = barriers.data(),
     });
@@ -93,7 +93,7 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "Skybox"});
 
-    buffer.beginRenderingKHR(vk::RenderingInfoKHR{
+    buffer.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
         .layerCount = 1,
         .colorAttachmentCount = 1,
@@ -112,7 +112,7 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
 
     world.drawSkybox(buffer);
 
-    buffer.endRenderingKHR();
+    buffer.endRendering();
 
     buffer.endDebugUtilsLabelEXT(); // Skybox
 
@@ -172,8 +172,8 @@ void SkyboxRenderer::destroySwapchainRelated()
 
         destroyGraphicsPipelines();
 
-        _colorAttachment = vk::RenderingAttachmentInfoKHR{};
-        _depthAttachment = vk::RenderingAttachmentInfoKHR{};
+        _colorAttachment = vk::RenderingAttachmentInfo{};
+        _depthAttachment = vk::RenderingAttachmentInfo{};
     }
 }
 
@@ -185,13 +185,13 @@ void SkyboxRenderer::destroyGraphicsPipelines()
 
 void SkyboxRenderer::createAttachments()
 {
-    _colorAttachment = vk::RenderingAttachmentInfoKHR{
+    _colorAttachment = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
     };
-    _depthAttachment = vk::RenderingAttachmentInfoKHR{
+    _depthAttachment = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
@@ -269,7 +269,7 @@ void SkyboxRenderer::createGraphicsPipelines(
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1, .pSetLayouts = &worldDSLayouts.skybox});
 
-    const vk::PipelineRenderingCreateInfoKHR renderingCreateInfo{
+    const vk::PipelineRenderingCreateInfo renderingCreateInfo{
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &_resources->images.sceneColor.format,
         .depthAttachmentFormat = _resources->images.sceneDepth.format,

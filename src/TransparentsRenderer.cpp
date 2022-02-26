@@ -78,37 +78,37 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     buffer.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
-    const std::array<vk::ImageMemoryBarrier2KHR, 3> imageBarriers{
+    const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
-            .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentRead,
+            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
             .layout = vk::ImageLayout::eColorAttachmentOptimal,
         }),
         _resources->images.sceneDepth.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eEarlyFragmentTests,
-            .accessMask = vk::AccessFlagBits2KHR::eDepthStencilAttachmentRead,
+            .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+            .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
             .layout = vk::ImageLayout::eDepthAttachmentOptimal,
         }),
         _resources->buffers.lightClusters.pointers.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eFragmentShader,
-            .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+            .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+            .accessMask = vk::AccessFlagBits2::eShaderRead,
             .layout = vk::ImageLayout::eGeneral,
         }),
     };
 
-    const std::array<vk::BufferMemoryBarrier2KHR, 2> bufferBarriers{
+    const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
         _resources->buffers.lightClusters.indicesCount.transitionBarrier(
             BufferState{
-                .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
-                .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
             }),
         _resources->buffers.lightClusters.indices.transitionBarrier(BufferState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
-            .accessMask = vk::AccessFlagBits2KHR::eShaderRead,
+            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+            .accessMask = vk::AccessFlagBits2::eShaderRead,
         }),
     };
 
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+    buffer.pipelineBarrier2(vk::DependencyInfo{
         .bufferMemoryBarrierCount =
             static_cast<uint32_t>(bufferBarriers.size()),
         .pBufferMemoryBarriers = bufferBarriers.data(),
@@ -119,7 +119,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     buffer.beginDebugUtilsLabelEXT(
         vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
 
-    buffer.beginRenderingKHR(vk::RenderingInfoKHR{
+    buffer.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
         .layerCount = 1,
         .colorAttachmentCount = 1,
@@ -147,7 +147,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
         [](const Mesh &mesh)
         { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
 
-    buffer.endRenderingKHR();
+    buffer.endRendering();
 
     buffer.endDebugUtilsLabelEXT(); // Transparents
 
@@ -207,8 +207,8 @@ void TransparentsRenderer::destroySwapchainRelated()
 
         destroyGraphicsPipeline();
 
-        _colorAttachment = vk::RenderingAttachmentInfoKHR{};
-        _depthAttachment = vk::RenderingAttachmentInfoKHR{};
+        _colorAttachment = vk::RenderingAttachmentInfo{};
+        _depthAttachment = vk::RenderingAttachmentInfo{};
     }
 }
 
@@ -220,13 +220,13 @@ void TransparentsRenderer::destroyGraphicsPipeline()
 
 void TransparentsRenderer::createAttachments()
 {
-    _colorAttachment = vk::RenderingAttachmentInfoKHR{
+    _colorAttachment = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
     };
-    _depthAttachment = vk::RenderingAttachmentInfoKHR{
+    _depthAttachment = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
@@ -312,7 +312,7 @@ void TransparentsRenderer::createGraphicsPipeline(
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = &pcRange});
 
-    const vk::PipelineRenderingCreateInfoKHR renderingCreateInfo{
+    const vk::PipelineRenderingCreateInfo renderingCreateInfo{
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &_resources->images.sceneColor.format,
         .depthAttachmentFormat = _resources->images.sceneDepth.format,

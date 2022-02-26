@@ -64,8 +64,8 @@ class TransparentsRenderer
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
 
-    vk::RenderingAttachmentInfoKHR _colorAttachment;
-    vk::RenderingAttachmentInfoKHR _depthAttachment;
+    vk::RenderingAttachmentInfo _colorAttachment;
+    vk::RenderingAttachmentInfo _depthAttachment;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

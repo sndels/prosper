@@ -16,10 +16,8 @@ namespace
 const std::array<const char *, 1> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
-const std::array<const char *, 3> deviceExtensions = {
-    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+const std::array<const char *, 1> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
 };
 
 QueueFamilies findQueueFamilies(
@@ -192,10 +190,10 @@ const char *statusString(shaderc_compilation_status status)
 
 } // namespace
 
-vk::BufferMemoryBarrier2KHR TexelBuffer::transitionBarrier(
+vk::BufferMemoryBarrier2 TexelBuffer::transitionBarrier(
     const BufferState &newState)
 {
-    const vk::BufferMemoryBarrier2KHR barrier{
+    const vk::BufferMemoryBarrier2 barrier{
         .srcStageMask = state.stageMask,
         .srcAccessMask = state.accessMask,
         .dstStageMask = newState.stageMask,
@@ -216,15 +214,15 @@ void TexelBuffer::transition(
     const vk::CommandBuffer buffer, const BufferState &newState)
 {
     auto barrier = transitionBarrier(newState);
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+    buffer.pipelineBarrier2(vk::DependencyInfo{
         .bufferMemoryBarrierCount = 1,
         .pBufferMemoryBarriers = &barrier,
     });
 }
 
-vk::ImageMemoryBarrier2KHR Image::transitionBarrier(const ImageState &newState)
+vk::ImageMemoryBarrier2 Image::transitionBarrier(const ImageState &newState)
 {
-    const vk::ImageMemoryBarrier2KHR barrier{
+    const vk::ImageMemoryBarrier2 barrier{
         .srcStageMask = state.stageMask,
         .srcAccessMask = state.accessMask,
         .dstStageMask = newState.stageMask,
@@ -245,7 +243,7 @@ void Image::transition(
     const vk::CommandBuffer buffer, const ImageState &newState)
 {
     auto barrier = transitionBarrier(newState);
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+    buffer.pipelineBarrier2(vk::DependencyInfo{
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &barrier,
     });
@@ -313,10 +311,16 @@ Device::Device(GLFWwindow *window)
     {
         const auto properties = _physical.getProperties();
 
-        const auto apiPacked = properties.apiVersion;
-        fprintf(
-            stderr, "Vulkan %u.%u.%u\n", VK_API_VERSION_MAJOR(apiPacked),
-            VK_API_VERSION_MINOR(apiPacked), VK_API_VERSION_PATCH(apiPacked));
+        {
+            const auto apiPacked = properties.apiVersion;
+            const auto major = VK_API_VERSION_MAJOR(apiPacked);
+            const auto minor = VK_API_VERSION_MINOR(apiPacked);
+            const auto patch = VK_API_VERSION_PATCH(apiPacked);
+            fprintf(stderr, "Vulkan %u.%u.%u\n", major, minor, patch);
+
+            if (major < 1 || minor < 3)
+                throw std::runtime_error("Vulkan 1.3 required");
+        }
 
         fprintf(stderr, "%s\n", properties.deviceName.data());
         fprintf(
@@ -599,12 +603,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
 
-    vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{};
-    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
-        .pNext = &dynamicRenderingFeatures,
-    };
     vk::PhysicalDeviceVulkan12Features vk12Features{
-        .pNext = &sync2Features,
         .descriptorIndexing = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
         .runtimeDescriptorArray = VK_TRUE,
@@ -633,9 +632,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     }();
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           supportedFeatures.features.samplerAnisotropy == VK_TRUE &&
-           sync2Features.synchronization2 == VK_TRUE &&
-           dynamicRenderingFeatures.dynamicRendering == VK_TRUE;
+           supportedFeatures.features.samplerAnisotropy == VK_TRUE;
 }
 
 void Device::createInstance()
@@ -648,7 +645,8 @@ void Device::createInstance()
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
         .pEngineName = "prosper",
         .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-        .apiVersion = VK_API_VERSION_1_2};
+        .apiVersion = VK_API_VERSION_1_3,
+    };
 
     const auto extensions = getRequiredExtensions();
 

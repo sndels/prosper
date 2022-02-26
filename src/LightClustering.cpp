@@ -141,24 +141,24 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
     const auto imageBarrier =
         _resources->buffers.lightClusters.pointers.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
-            .accessMask = vk::AccessFlagBits2KHR::eShaderWrite,
+            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+            .accessMask = vk::AccessFlagBits2::eShaderWrite,
             .layout = vk::ImageLayout::eGeneral,
         });
 
-    const std::array<vk::BufferMemoryBarrier2KHR, 2> bufferBarriers{
+    const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
         _resources->buffers.lightClusters.indices.transitionBarrier(BufferState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
-            .accessMask = vk::AccessFlagBits2KHR::eShaderWrite,
+            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+            .accessMask = vk::AccessFlagBits2::eShaderWrite,
         }),
         _resources->buffers.lightClusters.indicesCount.transitionBarrier(
             BufferState{
-                .stageMask = vk::PipelineStageFlagBits2KHR::eTransfer,
-                .accessMask = vk::AccessFlagBits2KHR::eTransferWrite,
+                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                .accessMask = vk::AccessFlagBits2::eTransferWrite,
             }),
     };
 
-    buffer.pipelineBarrier2KHR(vk::DependencyInfoKHR{
+    buffer.pipelineBarrier2(vk::DependencyInfo{
         .bufferMemoryBarrierCount =
             static_cast<uint32_t>(bufferBarriers.size()),
         .pBufferMemoryBarriers = bufferBarriers.data(),
@@ -172,9 +172,9 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
     _resources->buffers.lightClusters.indicesCount.transition(
         buffer, BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2KHR::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2KHR::eShaderRead |
-                                  vk::AccessFlagBits2KHR::eShaderWrite,
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead |
+                                  vk::AccessFlagBits2::eShaderWrite,
                 });
 
     buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);

@@ -94,8 +94,8 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     _resources->images.toneMapped.transition(
         buffer,
         ImageState{
-            .stageMask = vk::PipelineStageFlagBits2KHR::eColorAttachmentOutput,
-            .accessMask = vk::AccessFlagBits2KHR::eColorAttachmentRead,
+            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
             .layout = vk::ImageLayout::eColorAttachmentOptimal,
         });
 
