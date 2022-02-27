@@ -42,7 +42,8 @@ std::vector<vk::CommandBuffer> allocateSwapCommandBuffers(
         vk::CommandBufferAllocateInfo{
             .commandPool = device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapImageCount});
+            .commandBufferCount = swapImageCount,
+        });
 }
 
 vk::DescriptorPool createSwapchainRelatedDescriptorPool(
@@ -52,13 +53,14 @@ vk::DescriptorPool createSwapchainRelatedDescriptorPool(
         .type = vk::DescriptorType::eStorageImage,
         .descriptorCount =
             (2 + 2) *
-            swapImageCount // tonemap input/output, light clustering outputs
+            swapImageCount, // tonemap input/output, light clustering outputs
     };
 
     return device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
         .maxSets = poolSize.descriptorCount,
         .poolSizeCount = 1,
-        .pPoolSizes = &poolSize});
+        .pPoolSizes = &poolSize,
+    });
 }
 
 RenderResources::DescriptorPools createDescriptorPools(
@@ -68,13 +70,14 @@ RenderResources::DescriptorPools createDescriptorPools(
     {
         const vk::DescriptorPoolSize poolSize{
             .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = swapImageCount // camera uniforms
+            .descriptorCount = swapImageCount, // camera uniforms
         };
         pools.constant =
             device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
                 .maxSets = poolSize.descriptorCount,
                 .poolSizeCount = 1,
-                .pPoolSizes = &poolSize});
+                .pPoolSizes = &poolSize,
+            });
     }
 
     pools.swapchainRelated =
@@ -375,7 +378,9 @@ void App::drawFrame()
     }
 
     const vk::Rect2D renderArea{
-        .offset = {0, 0}, .extent = _swapchain.extent()};
+        .offset = {0, 0},
+        .extent = _swapchain.extent(),
+    };
 
     std::vector<vk::CommandBuffer> commandBuffers;
 
@@ -391,11 +396,11 @@ void App::drawFrame()
     commandBuffers.push_back(_lightClustering.recordCommandBuffer(
         scene, _cam, renderArea, nextImage));
 
-    commandBuffers.push_back(_renderer.recordCommandBuffer(
-        _world, _cam, renderArea, nextImage));
+    commandBuffers.push_back(
+        _renderer.recordCommandBuffer(_world, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(_transparentsRenderer.recordCommandBuffer(
-        _world, _cam,  renderArea, nextImage));
+        _world, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(
         _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));
@@ -446,10 +451,14 @@ void App::drawFrame()
                 .mipLevel = 0,
                 .baseArrayLayer = 0,
                 .layerCount = 1};
-            const std::array<vk::Offset3D, 2> offsets{
-                {{0},
-                 {static_cast<int32_t>(_swapConfig.extent.width),
-                  static_cast<int32_t>(_swapConfig.extent.height), 1}}};
+            const std::array<vk::Offset3D, 2> offsets{{
+                vk::Offset3D{0},
+                vk::Offset3D{
+                    static_cast<int32_t>(_swapConfig.extent.width),
+                    static_cast<int32_t>(_swapConfig.extent.height),
+                    1,
+                },
+            }};
             const auto fboBlit = vk::ImageBlit{
                 .srcSubresource = layers,
                 .srcOffsets = offsets,
@@ -474,7 +483,8 @@ void App::drawFrame()
                 .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                 .image = swapImage.handle,
-                .subresourceRange = swapImage.subresourceRange};
+                .subresourceRange = swapImage.subresourceRange,
+            };
 
             commandBuffer.pipelineBarrier2(vk::DependencyInfo{
                 .imageMemoryBarrierCount = 1,
@@ -501,7 +511,8 @@ void App::drawFrame()
         .commandBufferCount = static_cast<uint32_t>(commandBuffers.size()),
         .pCommandBuffers = commandBuffers.data(),
         .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
-        .pSignalSemaphores = signalSemaphores.data()};
+        .pSignalSemaphores = signalSemaphores.data(),
+    };
 
     checkSuccess(
         _device.graphicsQueue().submit(

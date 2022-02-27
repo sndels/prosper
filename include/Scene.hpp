@@ -51,7 +51,8 @@ struct Scene
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
-                    .range = sizeof(UBlock)});
+                    .range = sizeof(UBlock),
+                });
 
             return infos;
         }
@@ -86,7 +87,8 @@ struct Scene
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
-                    .range = sizeof(Parameters)});
+                    .range = sizeof(Parameters),
+                });
 
             return infos;
         }
@@ -124,7 +126,8 @@ struct Scene
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
-                    .range = sizeof(PointLights::BufferData)});
+                    .range = sizeof(PointLights::BufferData),
+                });
 
             return infos;
         }
@@ -163,7 +166,8 @@ struct Scene
                 infos.push_back(vk::DescriptorBufferInfo{
                     .buffer = buffer.handle,
                     .offset = 0,
-                    .range = sizeof(SpotLights::BufferData)});
+                    .range = sizeof(SpotLights::BufferData),
+                });
 
             return infos;
         }

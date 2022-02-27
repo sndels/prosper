@@ -76,7 +76,8 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
 
     const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -116,8 +117,9 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
         .pImageMemoryBarriers = imageBarriers.data(),
     });
 
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Transparents"});
+    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+        .pLabelName = "Transparents",
+    });
 
     buffer.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
@@ -252,10 +254,12 @@ void TransparentsRenderer::createGraphicsPipeline(
         .pVertexBindingDescriptions = &vertexBindingDescription,
         .vertexAttributeDescriptionCount =
             static_cast<uint32_t>(vertexAttributeDescriptions.size()),
-        .pVertexAttributeDescriptions = vertexAttributeDescriptions.data()};
+        .pVertexAttributeDescriptions = vertexAttributeDescriptions.data(),
+    };
 
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList};
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
 
     // TODO: Dynamic viewport state?
     const vk::Viewport viewport{
@@ -264,27 +268,35 @@ void TransparentsRenderer::createGraphicsPipeline(
         .width = static_cast<float>(swapConfig.extent.width),
         .height = static_cast<float>(swapConfig.extent.height),
         .minDepth = 0.f,
-        .maxDepth = 1.f};
-    const vk::Rect2D scissor{.offset = {0, 0}, .extent = swapConfig.extent};
+        .maxDepth = 1.f,
+    };
+    const vk::Rect2D scissor{
+        .offset = {0, 0},
+        .extent = swapConfig.extent,
+    };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,
         .pViewports = &viewport,
         .scissorCount = 1,
-        .pScissors = &scissor};
+        .pScissors = &scissor,
+    };
 
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eNone,
         .frontFace = vk::FrontFace::eCounterClockwise,
-        .lineWidth = 1.0};
+        .lineWidth = 1.0,
+    };
 
     const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1};
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
 
     const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
         .depthTestEnable = VK_TRUE,
         .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLess};
+        .depthCompareOp = vk::CompareOp::eLess,
+    };
 
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         .blendEnable = VK_TRUE,
@@ -296,9 +308,12 @@ void TransparentsRenderer::createGraphicsPipeline(
         .alphaBlendOp = vk::BlendOp::eAdd,
         .colorWriteMask =
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
-        .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+    };
 
     const std::array<vk::DescriptorSetLayout, 5> setLayouts{
         worldDSLayouts.lights,
@@ -310,13 +325,15 @@ void TransparentsRenderer::createGraphicsPipeline(
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(Mesh::PCBlock)};
+        .size = sizeof(Mesh::PCBlock),
+    };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange});
+            .pPushConstantRanges = &pcRange,
+        });
 
     const vk::PipelineRenderingCreateInfo renderingCreateInfo{
         .colorAttachmentCount = 1,
@@ -364,7 +381,8 @@ void TransparentsRenderer::createCommandBuffers(
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount});
+            .commandBufferCount = swapConfig.imageCount,
+        });
 }
 
 void TransparentsRenderer::recordModelInstances(

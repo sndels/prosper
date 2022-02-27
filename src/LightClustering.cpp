@@ -136,8 +136,9 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "LightClustering"});
+    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+        .pLabelName = "LightClustering",
+    });
 
     const auto imageBarrier =
         _resources->buffers.lightClusters.pointers.transitionBarrier(ImageState{

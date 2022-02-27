@@ -77,7 +77,8 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
 
     const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -117,8 +118,9 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         .pImageMemoryBarriers = imageBarriers.data(),
     });
 
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Opaque"});
+    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+        .pLabelName = "Opaque",
+    });
 
     buffer.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
@@ -236,7 +238,8 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,
-            .layerCount = 1};
+            .layerCount = 1,
+        };
 
         _resources->images.sceneColor = _device->createImage(
             "sceneColor", vk::ImageType::e2D,
@@ -275,7 +278,8 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
                 .baseMipLevel = 0,
                 .levelCount = 1,
                 .baseArrayLayer = 0,
-                .layerCount = 1},
+                .layerCount = 1,
+            },
             vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
@@ -326,10 +330,12 @@ void Renderer::createGraphicsPipelines(
         .pVertexBindingDescriptions = &vertexBindingDescription,
         .vertexAttributeDescriptionCount =
             static_cast<uint32_t>(vertexAttributeDescriptions.size()),
-        .pVertexAttributeDescriptions = vertexAttributeDescriptions.data()};
+        .pVertexAttributeDescriptions = vertexAttributeDescriptions.data(),
+    };
 
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList};
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
 
     // TODO: Dynamic viewport state?
     const vk::Viewport viewport{
@@ -338,8 +344,12 @@ void Renderer::createGraphicsPipelines(
         .width = static_cast<float>(swapConfig.extent.width),
         .height = static_cast<float>(swapConfig.extent.height),
         .minDepth = 0.f,
-        .maxDepth = 1.f};
-    const vk::Rect2D scissor{.offset = {0, 0}, .extent = swapConfig.extent};
+        .maxDepth = 1.f,
+    };
+    const vk::Rect2D scissor{
+        .offset = {0, 0},
+        .extent = swapConfig.extent,
+    };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,
         .pViewports = &viewport,
@@ -350,15 +360,18 @@ void Renderer::createGraphicsPipelines(
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eBack,
         .frontFace = vk::FrontFace::eCounterClockwise,
-        .lineWidth = 1.0};
+        .lineWidth = 1.0,
+    };
 
     const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1};
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
 
     const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
         .depthTestEnable = VK_TRUE,
         .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLess};
+        .depthCompareOp = vk::CompareOp::eLess,
+    };
 
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         .blendEnable = VK_FALSE,
@@ -370,9 +383,12 @@ void Renderer::createGraphicsPipelines(
         .alphaBlendOp = vk::BlendOp::eAdd,
         .colorWriteMask =
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
-        .attachmentCount = 1, .pAttachments = &colorBlendAttachment};
+        .attachmentCount = 1,
+        .pAttachments = &colorBlendAttachment,
+    };
 
     const std::array<vk::DescriptorSetLayout, 5> setLayouts{
         worldDSLayouts.lights,
@@ -384,13 +400,15 @@ void Renderer::createGraphicsPipelines(
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(Mesh::PCBlock)};
+        .size = sizeof(Mesh::PCBlock),
+    };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange});
+            .pPushConstantRanges = &pcRange,
+        });
 
     const vk::PipelineRenderingCreateInfo renderingCreateInfo{
         .colorAttachmentCount = 1,
@@ -436,7 +454,8 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount});
+            .commandBufferCount = swapConfig.imageCount,
+        });
 }
 
 void Renderer::recordModelInstances(

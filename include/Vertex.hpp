@@ -42,22 +42,27 @@ struct Vertex
                     .location = 0,
                     .binding = 0,
                     .format = vk::Format::eR32G32B32Sfloat,
-                    .offset = offsetof(Vertex, pos)},
+                    .offset = offsetof(Vertex, pos),
+                },
                 vk::VertexInputAttributeDescription{
                     .location = 1,
                     .binding = 0,
                     .format = vk::Format::eR32G32B32Sfloat,
-                    .offset = offsetof(Vertex, normal)},
+                    .offset = offsetof(Vertex, normal),
+                },
                 vk::VertexInputAttributeDescription{
                     .location = 2,
                     .binding = 0,
                     .format = vk::Format::eR32G32B32A32Sfloat,
-                    .offset = offsetof(Vertex, tangent)},
+                    .offset = offsetof(Vertex, tangent),
+                },
                 vk::VertexInputAttributeDescription{
                     .location = 3,
                     .binding = 0,
                     .format = vk::Format::eR32G32Sfloat,
-                    .offset = offsetof(Vertex, texCoord0)}};
+                    .offset = offsetof(Vertex, texCoord0),
+                },
+            };
 
         return descriptions;
     }

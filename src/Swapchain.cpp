@@ -14,7 +14,10 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     // We're free to take our pick (sRGB output with "regular" 8bit rgba buffer)
     if (availableFormats.size() == 1 &&
         availableFormats[0].format == vk::Format::eUndefined)
-        return {vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear};
+        return {
+            vk::Format::eB8G8R8A8Unorm,
+            vk::ColorSpaceKHR::eSrgbNonlinear,
+        };
 
     // Check if preferred sRGB format is present
     for (const auto &format : availableFormats)
@@ -64,7 +67,8 @@ vk::Extent2D selectSwapExtent(
             capabilities.maxImageExtent.width),
         std::clamp(
             extent.height, capabilities.minImageExtent.height,
-            capabilities.maxImageExtent.height)};
+            capabilities.maxImageExtent.height),
+    };
 
     return actualExtent;
 }
@@ -168,7 +172,8 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores)
         .pWaitSemaphores = waitSemaphores.data(),
         .swapchainCount = 1,
         .pSwapchains = &_swapchain,
-        .pImageIndices = &_nextImage};
+        .pImageIndices = &_nextImage,
+    };
     const vk::Result result = _device->presentQueue().presentKHR(&presentInfo);
 
     // Swapchain should be recreated if out of date or suboptimal
@@ -212,8 +217,10 @@ void Swapchain::destroy()
 void Swapchain::createSwapchain()
 {
     const QueueFamilies indices = _device->queueFamilies();
-    const std::array<uint32_t, 2> queueFamilyIndices = {
-        {indices.graphicsFamily.value(), indices.presentFamily.value()}};
+    const std::array<uint32_t, 2> queueFamilyIndices = {{
+        indices.graphicsFamily.value(),
+        indices.presentFamily.value(),
+    }};
 
     // Handle ownership of images
     const auto [imageSharingMode, queueFamilyIndexCount, pQueueFamilyIndices] =
@@ -257,19 +264,23 @@ void Swapchain::createImages()
         _images.push_back(SwapchainImage{
             .handle = image,
             .extent = _config.extent,
-            .subresourceRange = vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1}});
+            .subresourceRange =
+                vk::ImageSubresourceRange{
+                    .aspectMask = vk::ImageAspectFlagBits::eColor,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        });
     }
 }
 
 void Swapchain::createFences()
 {
     const vk::FenceCreateInfo fenceInfo{
-        .flags = vk::FenceCreateFlagBits::eSignaled};
+        .flags = vk::FenceCreateFlagBits::eSignaled,
+    };
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _inFlightFences.push_back(_device->logical().createFence(fenceInfo));
 }

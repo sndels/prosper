@@ -43,7 +43,8 @@ ImGuiRenderer::ImGuiRenderer(
         .ImageCount = swapConfig.imageCount,
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
         // TODO: Pass in VMA callbacks?
-        .CheckVkResultFn = checkSuccessImGui};
+        .CheckVkResultFn = checkSuccessImGui,
+    };
     ImGui_ImplVulkan_Init(&init_info, _renderpass);
 
     recreateSwapchainRelated(swapConfig);
@@ -86,10 +87,12 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
 
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "ImGui"});
+    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+        .pLabelName = "ImGui",
+    });
 
     _resources->images.toneMapped.transition(
         buffer,
@@ -103,7 +106,8 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
         vk::RenderPassBeginInfo{
             .renderPass = _renderpass,
             .framebuffer = _fbo,
-            .renderArea = renderArea},
+            .renderArea = renderArea,
+        },
         vk::SubpassContents::eInline);
 
     ImGui_ImplVulkan_RenderDrawData(drawData, buffer);
@@ -131,7 +135,9 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
         .finalLayout = vk::ImageLayout::eColorAttachmentOptimal,
     };
     vk::AttachmentReference color_attachment = {
-        .attachment = 0, .layout = vk::ImageLayout::eColorAttachmentOptimal};
+        .attachment = 0,
+        .layout = vk::ImageLayout::eColorAttachmentOptimal,
+    };
     vk::SubpassDescription subpass = {
         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
         .colorAttachmentCount = 1,
@@ -149,7 +155,8 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
             .objectType = vk::ObjectType::eRenderPass,
             .objectHandle = reinterpret_cast<uint64_t>(
                 static_cast<VkRenderPass>(_renderpass)),
-            .pObjectName = "ImGui"});
+            .pObjectName = "ImGui",
+        });
 }
 
 void ImGuiRenderer::destroySwapchainRelated()
@@ -182,36 +189,63 @@ void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount});
+            .commandBufferCount = swapConfig.imageCount,
+        });
 }
 
 void ImGuiRenderer::createDescriptorPool()
 {
     const uint32_t maxSets = 1000;
     const std::array<vk::DescriptorPoolSize, 11> poolSizes{{
-        {.type = vk::DescriptorType::eSampler, .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eCombinedImageSampler,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eSampledImage, .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eStorageImage, .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eUniformTexelBuffer,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eStorageTexelBuffer,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eUniformBuffer,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eStorageBuffer,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eUniformBufferDynamic,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eStorageBufferDynamic,
-         .descriptorCount = maxSets},
-        {.type = vk::DescriptorType::eInputAttachment,
-         .descriptorCount = maxSets},
+        {
+            .type = vk::DescriptorType::eSampler,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eSampledImage,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eStorageImage,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eUniformTexelBuffer,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eStorageTexelBuffer,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eUniformBufferDynamic,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eStorageBufferDynamic,
+            .descriptorCount = maxSets,
+        },
+        {
+            .type = vk::DescriptorType::eInputAttachment,
+            .descriptorCount = maxSets,
+        },
     }};
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .maxSets = maxSets * static_cast<uint32_t>(poolSizes.size()),
             .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-            .pPoolSizes = poolSizes.data()});
+            .pPoolSizes = poolSizes.data(),
+        });
 }

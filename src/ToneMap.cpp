@@ -28,19 +28,25 @@ ToneMap::ToneMap(
     if (!compileShaders())
         throw std::runtime_error("ToneMap shader compilation failed");
 
-    const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
-        {{.binding = 0,
-          .descriptorType = vk::DescriptorType::eStorageImage,
-          .descriptorCount = 1,
-          .stageFlags = vk::ShaderStageFlagBits::eCompute},
-         {.binding = 1,
-          .descriptorType = vk::DescriptorType::eStorageImage,
-          .descriptorCount = 1,
-          .stageFlags = vk::ShaderStageFlagBits::eCompute}}};
+    const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{{
+        {
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        {
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+    }};
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
             .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data()});
+            .pBindings = layoutBindings.data(),
+        });
 
     recreateSwapchainRelated(swapConfig);
 }
@@ -101,10 +107,12 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
 
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "ToneMap"});
+    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+        .pLabelName = "ToneMap",
+    });
 
     const std::array<vk::ImageMemoryBarrier2, 2> barriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -174,7 +182,8 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
         .baseMipLevel = 0,
         .levelCount = 1,
         .baseArrayLayer = 0,
-        .layerCount = 1};
+        .layerCount = 1,
+    };
 
     _resources->images.toneMapped = _device->createImage(
         "toneMapped", vk::ImageType::e2D,
@@ -199,7 +208,8 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = _resources->descriptorPools.swapchainRelated,
             .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data()});
+            .pSetLayouts = layouts.data(),
+        });
 
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,
@@ -236,14 +246,19 @@ void ToneMap::createPipelines()
 {
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = 1, .pSetLayouts = &_descriptorSetLayout});
+            .setLayoutCount = 1,
+            .pSetLayouts = &_descriptorSetLayout,
+        });
 
     const vk::ComputePipelineCreateInfo createInfo{
         .stage =
-            {.stage = vk::ShaderStageFlagBits::eCompute,
-             .module = _compSM,
-             .pName = "main"},
-        .layout = _pipelineLayout};
+            {
+                .stage = vk::ShaderStageFlagBits::eCompute,
+                .module = _compSM,
+                .pName = "main",
+            },
+        .layout = _pipelineLayout,
+    };
 
     {
         auto pipeline = _device->logical().createComputePipeline(
@@ -269,5 +284,6 @@ void ToneMap::createCommandBuffers(const SwapchainConfig &swapConfig)
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount});
+            .commandBufferCount = swapConfig.imageCount,
+        });
 }

@@ -232,7 +232,8 @@ vk::ImageMemoryBarrier2 Image::transitionBarrier(const ImageState &newState)
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = handle,
-        .subresourceRange = subresourceRange};
+        .subresourceRange = subresourceRange,
+    };
 
     state = newState;
 
@@ -251,7 +252,6 @@ void Image::transition(
 
 FileIncluder::FileIncluder()
 : _includePath{resPath("shader")}
-
 {
 }
 
@@ -429,7 +429,8 @@ Buffer Device::createBuffer(
     vk::BufferCreateInfo bufferInfo{
         .size = size,
         .usage = usage,
-        .sharingMode = vk::SharingMode::eExclusive};
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
     // TODO: preferred flags, create mapped
     VmaAllocationCreateInfo allocInfo = {
         .usage = vmaUsage,
@@ -447,7 +448,8 @@ Buffer Device::createBuffer(
         .objectType = vk::ObjectType::eBuffer,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
-        .pObjectName = debugName.c_str()});
+        .pObjectName = debugName.c_str(),
+    });
 
     return buffer;
 }
@@ -532,11 +534,13 @@ Image Device::createImage(
         .samples = vk::SampleCountFlagBits::e1,
         .tiling = tiling,
         .usage = usage,
-        .sharingMode = vk::SharingMode::eExclusive};
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
     // TODO: preferred flags, create mapped
     VmaAllocationCreateInfo allocInfo = {
         .usage = vmaUsage,
-        .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties)};
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
+    };
 
     Image image;
     auto *vkpImageInfo = reinterpret_cast<VkImageCreateInfo *>(&imageInfo);
@@ -549,13 +553,15 @@ Image Device::createImage(
         .objectType = vk::ObjectType::eImage,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
-        .pObjectName = debugName.c_str()});
+        .pObjectName = debugName.c_str(),
+    });
 
     image.view = _logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,
         .viewType = viewType,
         .format = format,
-        .subresourceRange = range});
+        .subresourceRange = range,
+    });
 
     image.extent = extent;
     image.subresourceRange = range;
@@ -579,7 +585,8 @@ vk::CommandBuffer Device::beginGraphicsCommands() const
             .commandBufferCount = 1})[0];
 
     const vk::CommandBufferBeginInfo beginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit};
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    };
     buffer.begin(beginInfo);
 
     return buffer;
@@ -590,7 +597,9 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
     buffer.end();
 
     const vk::SubmitInfo submitInfo{
-        .commandBufferCount = 1, .pCommandBuffers = &buffer};
+        .commandBufferCount = 1,
+        .pCommandBuffers = &buffer,
+    };
     checkSuccess(_graphicsQueue.submit(1, &submitInfo, vk::Fence{}), "submit");
     _graphicsQueue.waitIdle();
 
@@ -655,7 +664,8 @@ void Device::createInstance()
         .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
         .ppEnabledLayerNames = validationLayers.data(),
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data()});
+        .ppEnabledExtensionNames = extensions.data(),
+    });
 }
 
 void Device::createDebugMessenger()
@@ -667,7 +677,8 @@ void Device::createDebugMessenger()
         .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
                        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
                        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-        .pfnUserCallback = debugCallback};
+        .pfnUserCallback = debugCallback,
+    };
     CreateDebugUtilsMessengerEXT(
         _instance, &createInfo, nullptr, &_debugMessenger);
 }
@@ -717,7 +728,8 @@ void Device::createLogicalDevice()
             cis.push_back(vk::DeviceQueueCreateInfo{
                 .queueFamilyIndex = family,
                 .queueCount = 1,
-                .pQueuePriorities = &queuePriority});
+                .pQueuePriorities = &queuePriority,
+            });
         }
 
         return cis;
@@ -766,7 +778,8 @@ void Device::createAllocator()
 {
     VmaAllocatorCreateInfo allocatorInfo{
         .physicalDevice = static_cast<VkPhysicalDevice>(_physical),
-        .device = static_cast<VkDevice>(_logical)};
+        .device = static_cast<VkDevice>(_logical),
+    };
     if (vmaCreateAllocator(&allocatorInfo, &_allocator) != VK_SUCCESS)
         throw std::runtime_error("Failed to create allocator");
 }
@@ -776,14 +789,16 @@ void Device::createCommandPools()
     {
         const vk::CommandPoolCreateInfo poolInfo{
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = _queueFamilies.graphicsFamily.value()};
+            .queueFamilyIndex = _queueFamilies.graphicsFamily.value(),
+        };
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
     }
 
     {
         const vk::CommandPoolCreateInfo poolInfo{
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = _queueFamilies.computeFamily.value()};
+            .queueFamilyIndex = _queueFamilies.computeFamily.value(),
+        };
         _computePool = _logical.createCommandPool(poolInfo, nullptr);
     }
 }

@@ -80,7 +80,8 @@ void transitionImageLayout(
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = image,
-        .subresourceRange = subresourceRange};
+        .subresourceRange = subresourceRange,
+    };
     commandBuffer.pipelineBarrier(
         srcStageMask, dstStageMask, vk::DependencyFlags{}, 0, nullptr, 0,
         nullptr, 1, &barrier);
@@ -122,7 +123,8 @@ vk::DescriptorImageInfo Texture::imageInfo() const
     return vk::DescriptorImageInfo{
         .sampler = _sampler,
         .imageView = _image.view,
-        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal};
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
 }
 
 void Texture::destroy()
@@ -151,7 +153,8 @@ Texture2D::Texture2D(
         .baseMipLevel = 0,
         .levelCount = mipLevels,
         .baseArrayLayer = 0,
-        .layerCount = 1};
+        .layerCount = 1,
+    };
 
     createImage(stagingBuffer, extent, subresourceRange);
     createSampler(mipLevels);
@@ -209,7 +212,8 @@ Texture2D::Texture2D(
         .baseMipLevel = 0,
         .levelCount = mipLevels,
         .baseArrayLayer = 0,
-        .layerCount = 1};
+        .layerCount = 1,
+    };
 
     createImage(stagingBuffer, extent, subresourceRange);
     createSampler(sampler, mipLevels);
@@ -275,9 +279,11 @@ void Texture2D::createImage(
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,
                 .baseArrayLayer = 0,
-                .layerCount = 1},
+                .layerCount = 1,
+            },
         .imageOffset = {0, 0, 0},
-        .imageExtent = {extent.width, extent.height, 1}};
+        .imageExtent = {extent.width, extent.height, 1},
+    };
     commandBuffer.copyBufferToImage(
         stagingBuffer.handle, _image.handle,
         vk::ImageLayout::eTransferDstOptimal, 1, &region);
@@ -298,7 +304,8 @@ void Texture2D::createMipmaps(
         .baseMipLevel = 0,
         .levelCount = 1,
         .baseArrayLayer = 0,
-        .layerCount = 1};
+        .layerCount = 1,
+    };
 
     int32_t mipWidth = extent.width;
     int32_t mipHeight = extent.height;
@@ -321,19 +328,26 @@ void Texture2D::createMipmaps(
                     .aspectMask = vk::ImageAspectFlagBits::eColor,
                     .mipLevel = i - 1,
                     .baseArrayLayer = 0,
-                    .layerCount = 1},
-            .srcOffsets =
-                {{vk::Offset3D{0}, vk::Offset3D{mipWidth, mipHeight, 1}}},
+                    .layerCount = 1,
+                },
+            .srcOffsets = {{
+                vk::Offset3D{0},
+                vk::Offset3D{mipWidth, mipHeight, 1},
+            }},
             .dstSubresource =
                 vk::ImageSubresourceLayers{
                     .aspectMask = vk::ImageAspectFlagBits::eColor,
                     .mipLevel = i,
                     .baseArrayLayer = 0,
-                    .layerCount = 1},
-            .dstOffsets = {
-                {vk::Offset3D{0}, vk::Offset3D{
-                                      mipWidth > 1 ? mipWidth / 2 : 1,
-                                      mipHeight > 1 ? mipHeight / 2 : 1, 1}}}};
+                    .layerCount = 1,
+                },
+            .dstOffsets = {{
+                vk::Offset3D{0},
+                vk::Offset3D{
+                    mipWidth > 1 ? mipWidth / 2 : 1,
+                    mipHeight > 1 ? mipHeight / 2 : 1, 1},
+            }},
+        };
         buffer.blitImage(
             _image.handle, vk::ImageLayout::eTransferSrcOptimal, _image.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
@@ -388,7 +402,8 @@ void Texture2D::createSampler(const uint32_t mipLevels)
         .anisotropyEnable = VK_TRUE,
         .maxAnisotropy = 16,
         .minLod = 0,
-        .maxLod = static_cast<float>(mipLevels)});
+        .maxLod = static_cast<float>(mipLevels),
+    });
 }
 
 void Texture2D::createSampler(
@@ -405,7 +420,8 @@ void Texture2D::createSampler(
         .anisotropyEnable = VK_TRUE,
         .maxAnisotropy = 16,
         .minLod = 0,
-        .maxLod = static_cast<float>(mipLevels)});
+        .maxLod = static_cast<float>(mipLevels),
+    });
 }
 
 TextureCubemap::TextureCubemap(
@@ -428,7 +444,8 @@ TextureCubemap::TextureCubemap(
         .baseMipLevel = 0,
         .levelCount = mipLevels,
         .baseArrayLayer = 0,
-        .layerCount = 6};
+        .layerCount = 6,
+    };
 
     _image = _device->createImage(
         "TextureCubemap", vk::ImageType::e2D, layerExtent,
@@ -450,7 +467,8 @@ TextureCubemap::TextureCubemap(
         .anisotropyEnable = VK_TRUE,
         .maxAnisotropy = 16,
         .minLod = 0,
-        .maxLod = static_cast<float>(mipLevels)});
+        .maxLod = static_cast<float>(mipLevels),
+    });
 }
 
 void TextureCubemap::copyPixels(
@@ -492,10 +510,14 @@ void TextureCubemap::copyPixels(
                             .layerCount = 1,
                         },
                     .imageOffset = vk::Offset3D{0},
-                    .imageExtent = vk::Extent3D{
-                        static_cast<uint32_t>(cube[face][mipLevel].extent().x),
-                        static_cast<uint32_t>(cube[face][mipLevel].extent().y),
-                        1}});
+                    .imageExtent =
+                        vk::Extent3D{
+                            static_cast<uint32_t>(
+                                cube[face][mipLevel].extent().x),
+                            static_cast<uint32_t>(
+                                cube[face][mipLevel].extent().y),
+                            1},
+                });
                 offset += cube[face][mipLevel].size();
             }
         }

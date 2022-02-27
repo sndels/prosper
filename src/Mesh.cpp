@@ -95,7 +95,10 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
     const auto commandBuffer = _device->beginGraphicsCommands();
 
     const vk::BufferCopy copyRegion{
-        .srcOffset = 0, .dstOffset = 0, .size = bufferSize};
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = bufferSize,
+    };
     commandBuffer.copyBuffer(
         stagingBuffer.handle, _vertexBuffer.handle, 1, &copyRegion);
 
@@ -130,7 +133,10 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
     const auto commandBuffer = _device->beginGraphicsCommands();
 
     const vk::BufferCopy copyRegion{
-        .srcOffset = 0, .dstOffset = 0, .size = bufferSize};
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = bufferSize,
+    };
     commandBuffer.copyBuffer(
         stagingBuffer.handle, _indexBuffer.handle, 1, &copyRegion);
 

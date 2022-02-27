@@ -70,7 +70,8 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
 
     const std::array<vk::ImageMemoryBarrier2, 2> barriers{
         _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -90,8 +91,9 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
         .pImageMemoryBarriers = barriers.data(),
     });
 
-    buffer.beginDebugUtilsLabelEXT(
-        vk::DebugUtilsLabelEXT{.pLabelName = "Skybox"});
+    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
+        .pLabelName = "Skybox",
+    });
 
     buffer.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
@@ -145,7 +147,8 @@ bool SkyboxRenderer::compileShaders()
                 .stage = vk::ShaderStageFlagBits::eFragment,
                 .module = *fragSM,
                 .pName = "main",
-            }};
+            },
+        };
 
         return true;
     }
@@ -205,17 +208,20 @@ void SkyboxRenderer::createGraphicsPipelines(
     const vk::VertexInputBindingDescription vertexBindingDescription{
         .binding = 0,
         .stride = sizeof(vec3), // Only position
-        .inputRate = vk::VertexInputRate::eVertex};
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
     const vk::VertexInputAttributeDescription vertexAttributeDescription{
         .location = 0,
         .binding = 0,
         .format = vk::Format::eR32G32B32Sfloat,
-        .offset = 0};
+        .offset = 0,
+    };
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &vertexBindingDescription,
         .vertexAttributeDescriptionCount = 1,
-        .pVertexAttributeDescriptions = &vertexAttributeDescription};
+        .pVertexAttributeDescriptions = &vertexAttributeDescription,
+    };
 
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology = vk::PrimitiveTopology::eTriangleList,
@@ -228,27 +234,35 @@ void SkyboxRenderer::createGraphicsPipelines(
         .width = static_cast<float>(swapConfig.extent.width),
         .height = static_cast<float>(swapConfig.extent.height),
         .minDepth = 0.f,
-        .maxDepth = 1.f};
-    const vk::Rect2D scissor{.offset = {0, 0}, .extent = swapConfig.extent};
+        .maxDepth = 1.f,
+    };
+    const vk::Rect2D scissor{
+        .offset = {0, 0},
+        .extent = swapConfig.extent,
+    };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,
         .pViewports = &viewport,
         .scissorCount = 1,
-        .pScissors = &scissor};
+        .pScissors = &scissor,
+    };
 
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eNone, // Draw the skybox from inside
         .frontFace = vk::FrontFace::eCounterClockwise,
-        .lineWidth = 1.0};
+        .lineWidth = 1.0,
+    };
 
     const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1};
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
 
     const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
         .depthTestEnable = VK_TRUE,
         .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLessOrEqual};
+        .depthCompareOp = vk::CompareOp::eLessOrEqual,
+    };
 
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         .srcColorBlendFactor = vk::BlendFactor::eOne,
@@ -259,15 +273,19 @@ void SkyboxRenderer::createGraphicsPipelines(
         .alphaBlendOp = vk::BlendOp::eAdd,
         .colorWriteMask =
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
     const vk::PipelineColorBlendStateCreateInfo colorBlendState{
         .logicOp = vk::LogicOp::eCopy,
         .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachment};
+        .pAttachments = &colorBlendAttachment,
+    };
 
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = 1, .pSetLayouts = &worldDSLayouts.skybox});
+            .setLayoutCount = 1,
+            .pSetLayouts = &worldDSLayouts.skybox,
+        });
 
     const vk::PipelineRenderingCreateInfo renderingCreateInfo{
         .colorAttachmentCount = 1,
@@ -313,5 +331,6 @@ void SkyboxRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount});
+            .commandBufferCount = swapConfig.imageCount,
+        });
 }

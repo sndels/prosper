@@ -47,7 +47,11 @@ void Camera::init(CameraParameters const &params)
 
 void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
 {
-    _parameters = CameraParameters{.eye = eye, .target = target, .up = up};
+    _parameters = CameraParameters{
+        .eye = eye,
+        .target = target,
+        .up = up,
+    };
 
     updateWorldToCamera();
 }
@@ -116,7 +120,8 @@ std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
         infos.push_back(vk::DescriptorBufferInfo{
             .buffer = buffer.handle,
             .offset = 0,
-            .range = sizeof(CameraUniforms)});
+            .range = sizeof(CameraUniforms),
+        });
 
     return infos;
 }
@@ -177,10 +182,13 @@ void Camera::createDescriptorSets(
         .binding = 0, // binding
         .descriptorType = vk::DescriptorType::eUniformBuffer,
         .descriptorCount = 1, // descriptorCount
-        .stageFlags = stageFlags};
+        .stageFlags = stageFlags,
+    };
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = 1, .pBindings = &layoutBinding});
+            .bindingCount = 1,
+            .pBindings = &layoutBinding,
+        });
 
     const std::vector<vk::DescriptorSetLayout> layouts(
         swapImageCount, _descriptorSetLayout);
@@ -188,7 +196,8 @@ void Camera::createDescriptorSets(
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = descriptorPool,
             .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data()});
+            .pSetLayouts = layouts.data(),
+        });
 
     const auto infos = bufferInfos();
     for (size_t i = 0; i < _descriptorSets.size(); ++i)
@@ -197,7 +206,8 @@ void Camera::createDescriptorSets(
             .dstSet = _descriptorSets[i],
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eUniformBuffer,
-            .pBufferInfo = &infos[i]};
+            .pBufferInfo = &infos[i],
+        };
         _device->logical().updateDescriptorSets(
             1, &descriptorWrite, 0, nullptr);
     }
