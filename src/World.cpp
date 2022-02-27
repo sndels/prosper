@@ -158,6 +158,7 @@ World::~World()
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
+    _device->destroy(_materialsBuffer);
     for (auto &scene : _scenes)
     {
         for (auto &instance : scene.modelInstances)
@@ -240,7 +241,7 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         if (const auto &elem = material.values.find("baseColorTexture");
             elem != material.values.end())
         {
-            mat._baseColor = elem->second.TextureIndex() + 1;
+            mat.baseColor = elem->second.TextureIndex() + 1;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Base color TexCoord isn't 0\n",
@@ -249,7 +250,7 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         if (const auto &elem = material.values.find("metallicRoughnessTexture");
             elem != material.values.end())
         {
-            mat._metallicRoughness = elem->second.TextureIndex() + 1;
+            mat.metallicRoughness = elem->second.TextureIndex() + 1;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Metallic roughness TexCoord isn't 0\n",
@@ -258,7 +259,7 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         if (const auto &elem = material.additionalValues.find("normalTexture");
             elem != material.additionalValues.end())
         {
-            mat._normal = elem->second.TextureIndex() + 1;
+            mat.normal = elem->second.TextureIndex() + 1;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Normal TexCoord isn't 0\n",
@@ -267,34 +268,65 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         if (const auto &elem = material.values.find("baseColorFactor");
             elem != material.values.end())
         {
-            mat._baseColorFactor = make_vec4(elem->second.ColorFactor().data());
+            mat.baseColorFactor = make_vec4(elem->second.ColorFactor().data());
         }
         if (const auto &elem = material.values.find("metallicFactor");
             elem != material.values.end())
         {
-            mat._metallicFactor = static_cast<float>(elem->second.Factor());
+            mat.metallicFactor = static_cast<float>(elem->second.Factor());
         }
         if (const auto &elem = material.values.find("roughnessFactor");
             elem != material.values.end())
         {
-            mat._roughnessFactor = static_cast<float>(elem->second.Factor());
+            mat.roughnessFactor = static_cast<float>(elem->second.Factor());
         }
         if (const auto &elem = material.additionalValues.find("alphaMode");
             elem != material.additionalValues.end())
         {
             if (elem->second.string_value == "MASK")
-                mat._alphaMode = Material::AlphaMode::Mask;
+                mat.alphaMode = Material::AlphaMode::Mask;
             else if (elem->second.string_value == "BLEND")
-                mat._alphaMode = Material::AlphaMode::Blend;
+                mat.alphaMode = Material::AlphaMode::Blend;
         }
         if (const auto &elem = material.additionalValues.find("alphaCutoff");
             elem != material.additionalValues.end())
         {
-            mat._alphaCutoff = static_cast<float>(elem->second.Factor());
+            mat.alphaCutoff = static_cast<float>(elem->second.Factor());
         }
-        // TODO: Support more parameters
         _materials.push_back(mat);
     }
+
+    const vk::DeviceSize bufferSize = _materials.size() * sizeof(_materials[0]);
+    const Buffer stagingBuffer = _device->createBuffer(
+        "MaterialsStagingBuffer", bufferSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent,
+        VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    void *data = nullptr;
+    _device->map(stagingBuffer.allocation, &data);
+    memcpy(data, _materials.data(), static_cast<size_t>(bufferSize));
+    _device->unmap(stagingBuffer.allocation);
+
+    _materialsBuffer = _device->createBuffer(
+        "MaterialsBuffer", bufferSize,
+        vk::BufferUsageFlagBits::eStorageBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    const vk::BufferCopy copyRegion{
+        0, // srcOffset
+        0, // dstOffset
+        bufferSize};
+    commandBuffer.copyBuffer(
+        stagingBuffer.handle, _materialsBuffer.handle, 1, &copyRegion);
+
+    _device->endGraphicsCommands(commandBuffer);
+
+    _device->destroy(stagingBuffer);
 }
 
 void World::loadModels(const tinygltf::Model &gltfModel)
@@ -411,10 +443,10 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 
             // -1 is mapped to the default material
             assert(primitive.material > -2);
-            const int material = primitive.material + 1;
+            const uint32_t material = primitive.material + 1;
 
             _models.back()._meshes.emplace_back(
-                vertices, indices, &_materials[material], _device);
+                vertices, indices, material, _device);
         }
     }
 }
@@ -753,24 +785,35 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             infos.push_back(tex.imageInfo());
         const auto infoCount = static_cast<uint32_t>(infos.size());
 
-        vk::DescriptorSetLayoutBinding layoutBindings{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = infoCount,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
+            vk::DescriptorSetLayoutBinding{
+                .binding = 0,
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .descriptorCount = 1,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+            },
+            vk::DescriptorSetLayoutBinding{
+                .binding = 1,
+                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+                .descriptorCount = infoCount,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+            },
         };
-        vk::DescriptorBindingFlags layoutFlags =
-            vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+        std::array<vk::DescriptorBindingFlags, 2> layoutFlags{
+            vk::DescriptorBindingFlags{},
+            vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
+        };
         vk::DescriptorSetLayoutBindingFlagsCreateInfo flagsInfo{
-            .bindingCount = 1,
-            .pBindingFlags = &layoutFlags,
+            .bindingCount = static_cast<uint32_t>(layoutFlags.size()),
+            .pBindingFlags = layoutFlags.data(),
         };
         _dsLayouts.materialTextures =
             _device->logical().createDescriptorSetLayout(
                 vk::DescriptorSetLayoutCreateInfo{
                     .pNext = &flagsInfo,
-                    .bindingCount = 1,
-                    .pBindings = &layoutBindings,
+                    .bindingCount =
+                        static_cast<uint32_t>(layoutBindings.size()),
+                    .pBindings = layoutBindings.data(),
                 });
 
         vk::DescriptorSetVariableDescriptorCountAllocateInfo vainfo{
@@ -784,12 +827,24 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .descriptorSetCount = 1,
                 .pSetLayouts = &_dsLayouts.materialTextures})[0];
 
+        vk::DescriptorBufferInfo datasInfo{
+            .buffer = _materialsBuffer.handle,
+            .range = VK_WHOLE_SIZE,
+        };
+
         std::vector<vk::WriteDescriptorSet> dss;
-        dss.reserve(infos.size());
+        dss.reserve(infos.size() + 1);
+        dss.push_back(vk::WriteDescriptorSet{
+            .dstSet = _materialTexturesDS,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &datasInfo,
+        });
         for (uint32_t i = 0; i < infos.size(); ++i)
             dss.push_back(vk::WriteDescriptorSet{
                 .dstSet = _materialTexturesDS,
-                .dstBinding = 0,
+                .dstBinding = 1,
                 .dstArrayElement = i,
                 .descriptorCount = 1,
                 .descriptorType = vk::DescriptorType::eCombinedImageSampler,

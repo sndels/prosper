@@ -18,37 +18,23 @@ class Texture;
 
 struct Material
 {
-    enum class AlphaMode
+    enum class AlphaMode : uint32_t
     {
-        Opaque,
-        Mask,
-        Blend
+        Opaque = 0,
+        Mask = 1,
+        Blend = 2,
     };
 
     // Needs to match shader
-    struct PCBlock
-    {
-        glm::vec4 baseColorFactor;
-        float metallicFactor;
-        float roughnessFactor;
-        float alphaMode;
-        float alphaCutoff;
-        uint32_t baseColorTexture;
-        uint32_t metallicRoughnessTexture;
-        uint32_t normalTexture;
-    };
-
-    uint32_t _baseColor{0};
-    uint32_t _metallicRoughness{0};
-    uint32_t _normal{0};
-    glm::vec4 _baseColorFactor{glm::vec4(1)};
-    float _metallicFactor{1.f};
-    float _roughnessFactor{1.f};
-    AlphaMode _alphaMode{AlphaMode::Opaque};
-    float _alphaCutoff{0.5f};
-
-    [[nodiscard]] float alphaModeFloat() const;
-    [[nodiscard]] PCBlock pcBlock() const;
+    glm::vec4 baseColorFactor{1.f};
+    float metallicFactor{1.f};
+    float roughnessFactor{1.f};
+    float alphaCutoff{0.5f};
+    AlphaMode alphaMode{AlphaMode::Opaque};
+    uint32_t baseColor{0};
+    uint32_t metallicRoughness{0};
+    uint32_t normal{0};
+    uint32_t pad{0};
 };
 
 #endif // PROSPER_MATERIAL_HPP

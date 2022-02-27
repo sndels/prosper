@@ -392,10 +392,10 @@ void App::drawFrame()
         scene, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(_renderer.recordCommandBuffer(
-        scene, _cam, _world._materialTexturesDS, renderArea, nextImage));
+        _world, _cam, renderArea, nextImage));
 
     commandBuffers.push_back(_transparentsRenderer.recordCommandBuffer(
-        scene, _cam, _world._materialTexturesDS, renderArea, nextImage));
+        _world, _cam,  renderArea, nextImage));
 
     commandBuffers.push_back(
         _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));

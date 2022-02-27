@@ -69,8 +69,7 @@ void TransparentsRenderer::recreateSwapchainRelated(
 }
 
 vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
-    const Scene &scene, const Camera &cam,
-    const vk::DescriptorSet materialTexturesDS, const vk::Rect2D &renderArea,
+    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
     const auto buffer = _commandBuffers[nextImage];
@@ -131,11 +130,13 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     // Draw transparent geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
+    const auto &scene = world._scenes[world._currentScene];
+
     const std::array<vk::DescriptorSet, 4> descriptorSets{
         scene.lights.descriptorSets[nextImage],
         cam.descriptorSet(nextImage),
         _resources->buffers.lightClusters.descriptorSets[nextImage],
-        materialTexturesDS,
+        world._materialTexturesDS,
     };
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
@@ -146,8 +147,11 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     // TODO: Sort back to front
     recordModelInstances(
         buffer, nextImage, scene.modelInstances,
-        [](const Mesh &mesh)
-        { return mesh.material()._alphaMode == Material::AlphaMode::Blend; });
+        [&world](const Mesh &mesh)
+        {
+            return world._materials[mesh.materialID()].alphaMode ==
+                   Material::AlphaMode::Blend;
+        });
 
     buffer.endRendering();
 
@@ -306,7 +310,7 @@ void TransparentsRenderer::createGraphicsPipeline(
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(Material::PCBlock)};
+        .size = sizeof(Mesh::PCBlock)};
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
@@ -378,11 +382,11 @@ void TransparentsRenderer::recordModelInstances(
         {
             if (shouldRender(mesh))
             {
-                const auto pcBlock = mesh.material().pcBlock();
+                const auto pcBlock = mesh.pcBlock();
                 buffer.pushConstants(
                     _pipelineLayout, vk::ShaderStageFlagBits::eFragment,
                     0, // offset
-                    sizeof(Material::PCBlock), &pcBlock);
+                    sizeof(Mesh::PCBlock), &pcBlock);
                 mesh.draw(buffer);
             }
         }

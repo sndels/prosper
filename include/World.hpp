@@ -50,6 +50,7 @@ class World
     size_t _currentScene{0};
 
     vk::DescriptorPool _descriptorPool;
+    Buffer _materialsBuffer;
     vk::DescriptorSet _materialTexturesDS;
     DSLayouts _dsLayouts;
 

@@ -7,7 +7,6 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.cpp
     ${CMAKE_CURRENT_LIST_DIR}/main.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Material.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp

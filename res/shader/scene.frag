@@ -14,21 +14,32 @@
 
 #include "ds2_light_clusters.glsl"
 
-layout(set = 3, binding = 0) uniform sampler2D materialTextures[];
+const uint AlphaModeOpaque = 0;
+const uint AlphaModeMask = 1;
+const uint AlphaModeBlend = 2;
 
-// Needs to match Material::PCBlock
-layout(push_constant) uniform MaterialPC
+struct MaterialData
 {
     vec4 baseColorFactor;
     float metallicFactor;
     float roughnessFactor;
-    float alphaMode;
     float alphaCutoff;
+    uint alphaMode;
     uint baseColorTexture;
     uint metallicRoughnessTexture;
     uint normalTexture;
+    uint pad;
+};
+
+layout(std430, set = 3, binding = 0) readonly buffer MaterialDatas
+{
+    MaterialData materials[];
 }
-materialPC;
+materialDatas;
+layout(set = 3, binding = 1) uniform sampler2D materialTextures[];
+
+layout(push_constant) uniform MeshPC { uint MaterialID; }
+meshPC;
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in float fragZCam;
@@ -136,40 +147,41 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
+    MaterialData material = materialDatas.materials[meshPC.MaterialID];
+
     vec4 linearBaseColor;
-    uint baseColorTex = materialPC.baseColorTexture;
+    uint baseColorTex = material.baseColorTexture;
     if (baseColorTex > 0)
         linearBaseColor = sRGBtoLinear(
             texture(materialTextures[baseColorTex], fragTexCoord0));
     else
         linearBaseColor = vec4(1);
-    linearBaseColor *= materialPC.baseColorFactor;
+    linearBaseColor *= material.baseColorFactor;
 
-    // Alpha masking is 1.f
-    if (materialPC.alphaMode > 0.f && materialPC.alphaMode < 2.f)
+    if (material.alphaMode == AlphaModeMask)
     {
-        if (linearBaseColor.a < materialPC.alphaCutoff)
+        if (linearBaseColor.a < material.alphaCutoff)
             discard;
     }
 
     float metallic;
     float roughness;
-    uint metallicRoughnessTex = materialPC.metallicRoughnessTexture;
+    uint metallicRoughnessTex = material.metallicRoughnessTexture;
     if (metallicRoughnessTex > 0)
     {
         vec3 mr =
             texture(materialTextures[metallicRoughnessTex], fragTexCoord0).rgb;
-        metallic = mr.b * materialPC.metallicFactor;
-        roughness = mr.g * materialPC.roughnessFactor;
+        metallic = mr.b * material.metallicFactor;
+        roughness = mr.g * material.roughnessFactor;
     }
     else
     {
-        metallic = materialPC.metallicFactor;
-        roughness = materialPC.roughnessFactor;
+        metallic = material.metallicFactor;
+        roughness = material.roughnessFactor;
     }
 
     vec3 normal;
-    uint normalTextureTex = materialPC.normalTexture;
+    uint normalTextureTex = material.normalTexture;
     if (normalTextureTex > 0)
     {
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
@@ -242,8 +254,8 @@ void main()
                  evalBRDF(normal, v, l, m) / d2;
     }
 
-    // Alpha blending is 2.f
-    float alpha = materialPC.alphaMode > 1.f ? linearBaseColor.a : 1.f;
+    float alpha =
+        material.alphaMode == AlphaModeBlend ? linearBaseColor.a : 1.f;
 
     outColor = vec4(color, alpha);
 }
