@@ -23,7 +23,7 @@ Material::PCBlock Material::pcBlock() const
         .roughnessFactor = _roughnessFactor,
         .alphaMode = alphaModeFloat(),
         .alphaCutoff = _alphaCutoff,
-        .baseColorTextureSet = _texCoordSets.baseColor,
-        .metallicRoughnessTextureSet = _texCoordSets.metallicRoughness,
-        .normalTextureSet = _texCoordSets.normal};
+        .baseColorTexture = _baseColor,
+        .metallicRoughnessTexture = _metallicRoughness,
+        .normalTexture = _normal};
 }

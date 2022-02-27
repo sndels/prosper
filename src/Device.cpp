@@ -734,6 +734,7 @@ void Device::createLogicalDevice()
         .pNext = &sync2Features,
         .descriptorIndexing = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        .descriptorBindingVariableDescriptorCount = VK_TRUE,
         .runtimeDescriptorArray = VK_TRUE,
     };
     const vk::PhysicalDeviceFeatures2 deviceFeatures{

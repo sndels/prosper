@@ -6,7 +6,7 @@
 
 #include "ds1_camera.glsl"
 
-layout(set = 3, binding = 0) uniform Object { mat4 modelToWorld; }
+layout(set = 4, binding = 0) uniform Object { mat4 modelToWorld; }
 object;
 
 // These need to match both vertex data and their attribute descriptions

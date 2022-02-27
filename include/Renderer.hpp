@@ -32,7 +32,8 @@ class Renderer
         const World::DSLayouts &worldDSLayouts);
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
+        const Scene &scene, const Camera &cam,
+        vk::DescriptorSet materialTexturesDS, const vk::Rect2D &renderArea,
         uint32_t nextImage) const;
 
   private:

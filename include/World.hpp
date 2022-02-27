@@ -16,7 +16,7 @@ class World
   public:
     struct DSLayouts
     {
-        vk::DescriptorSetLayout material;
+        vk::DescriptorSetLayout materialTextures;
         vk::DescriptorSetLayout modelInstance;
         vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout lightsClustered;
@@ -50,6 +50,7 @@ class World
     size_t _currentScene{0};
 
     vk::DescriptorPool _descriptorPool;
+    vk::DescriptorSet _materialTexturesDS;
     DSLayouts _dsLayouts;
 
     std::vector<Buffer> _skyboxUniformBuffers;

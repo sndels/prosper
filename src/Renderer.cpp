@@ -70,7 +70,8 @@ void Renderer::recreateSwapchainRelated(
 }
 
 vk::CommandBuffer Renderer::recordCommandBuffer(
-    const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
+    const Scene &scene, const Camera &cam,
+    const vk::DescriptorSet materialTexturesDS, const vk::Rect2D &renderArea,
     const uint32_t nextImage) const
 {
     const auto buffer = _commandBuffers[nextImage];
@@ -131,10 +132,11 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     // Draw opaque and alpha masked geometry
     buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-    const std::array<vk::DescriptorSet, 3> descriptorSets{
+    const std::array<vk::DescriptorSet, 4> descriptorSets{
         scene.lights.descriptorSets[nextImage],
         cam.descriptorSet(nextImage),
         _resources->buffers.lightClusters.descriptorSets[nextImage],
+        materialTexturesDS,
     };
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
@@ -371,8 +373,8 @@ void Renderer::createGraphicsPipelines(
         worldDSLayouts.lights,
         camDSLayout,
         _resources->buffers.lightClusters.descriptorSetLayout,
+        worldDSLayouts.materialTextures,
         worldDSLayouts.modelInstance,
-        worldDSLayouts.material,
     };
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eFragment,
@@ -441,16 +443,12 @@ void Renderer::recordModelInstances(
     {
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-            3, // firstSet
+            4, // firstSet
             1, &instance.descriptorSets[nextImage], 0, nullptr);
         for (const auto &mesh : instance.model->_meshes)
         {
             if (shouldRender(mesh))
             {
-                buffer.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-                    4, // firstSet
-                    1, &mesh.material()._descriptorSet, 0, nullptr);
                 const auto pcBlock = mesh.material().pcBlock();
                 buffer.pushConstants(
                     _pipelineLayout, vk::ShaderStageFlagBits::eFragment,

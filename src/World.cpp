@@ -153,7 +153,7 @@ World::World(
 World::~World()
 {
     _device->logical().destroy(_descriptorPool);
-    _device->logical().destroy(_dsLayouts.material);
+    _device->logical().destroy(_dsLayouts.materialTextures);
     _device->logical().destroy(_dsLayouts.modelInstance);
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
@@ -240,21 +240,29 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         if (const auto &elem = material.values.find("baseColorTexture");
             elem != material.values.end())
         {
-            mat._baseColor = &_textures[elem->second.TextureIndex()];
-            mat._texCoordSets.baseColor = elem->second.TextureTexCoord();
+            mat._baseColor = elem->second.TextureIndex() + 1;
+            if (elem->second.TextureTexCoord() != 0)
+                fprintf(
+                    stderr, "%s: Base color TexCoord isn't 0\n",
+                    material.name.c_str());
         }
         if (const auto &elem = material.values.find("metallicRoughnessTexture");
             elem != material.values.end())
         {
-            mat._metallicRoughness = &_textures[elem->second.TextureIndex()];
-            mat._texCoordSets.metallicRoughness =
-                elem->second.TextureTexCoord();
+            mat._metallicRoughness = elem->second.TextureIndex() + 1;
+            if (elem->second.TextureTexCoord() != 0)
+                fprintf(
+                    stderr, "%s: Metallic roughness TexCoord isn't 0\n",
+                    material.name.c_str());
         }
         if (const auto &elem = material.additionalValues.find("normalTexture");
             elem != material.additionalValues.end())
         {
-            mat._normal = &_textures[elem->second.TextureIndex()];
-            mat._texCoordSets.normal = elem->second.TextureTexCoord();
+            mat._normal = elem->second.TextureIndex() + 1;
+            if (elem->second.TextureTexCoord() != 0)
+                fprintf(
+                    stderr, "%s: Normal TexCoord isn't 0\n",
+                    material.name.c_str());
         }
         if (const auto &elem = material.values.find("baseColorFactor");
             elem != material.values.end())
@@ -738,59 +746,58 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             "Tried to create World descriptor sets before loading glTF");
 
     {
-        const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{
-            {{0, vk::DescriptorType::eCombinedImageSampler, 1,
-              vk::ShaderStageFlagBits::eFragment},
-             {1, vk::DescriptorType::eCombinedImageSampler, 1,
-              vk::ShaderStageFlagBits::eFragment},
-             {2, vk::DescriptorType::eCombinedImageSampler, 1,
-              vk::ShaderStageFlagBits::eFragment}}};
-        _dsLayouts.material = _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
-                .pBindings = layoutBindings.data()});
-    }
+        std::vector<vk::DescriptorImageInfo> infos;
+        infos.reserve(_textures.size() + 1);
+        infos.push_back(_emptyTexture.imageInfo());
+        for (const auto &tex : _textures)
+            infos.push_back(tex.imageInfo());
+        const auto infoCount = static_cast<uint32_t>(infos.size());
 
-    for (auto &material : _materials)
-    {
-        material._descriptorSet = _device->logical().allocateDescriptorSets(
+        vk::DescriptorSetLayoutBinding layoutBindings{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = infoCount,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        };
+        vk::DescriptorBindingFlags layoutFlags =
+            vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+        vk::DescriptorSetLayoutBindingFlagsCreateInfo flagsInfo{
+            .bindingCount = 1,
+            .pBindingFlags = &layoutFlags,
+        };
+        _dsLayouts.materialTextures =
+            _device->logical().createDescriptorSetLayout(
+                vk::DescriptorSetLayoutCreateInfo{
+                    .pNext = &flagsInfo,
+                    .bindingCount = 1,
+                    .pBindings = &layoutBindings,
+                });
+
+        vk::DescriptorSetVariableDescriptorCountAllocateInfo vainfo{
+            .descriptorSetCount = 1,
+            .pDescriptorCounts = &infoCount,
+        };
+        _materialTexturesDS = _device->logical().allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo{
+                .pNext = &vainfo,
                 .descriptorPool = _descriptorPool,
                 .descriptorSetCount = 1,
-                .pSetLayouts = &_dsLayouts.material})[0];
+                .pSetLayouts = &_dsLayouts.materialTextures})[0];
 
-        const std::array<vk::DescriptorImageInfo, 3> imageInfos = [&]
-        {
-            std::array<vk::DescriptorImageInfo, 3> iis{
-                {_emptyTexture.imageInfo(), _emptyTexture.imageInfo(),
-                 _emptyTexture.imageInfo()}};
-            if (material._baseColor != nullptr)
-                iis[0] = material._baseColor->imageInfo();
-            if (material._metallicRoughness != nullptr)
-                iis[1] = material._metallicRoughness->imageInfo();
-            if (material._normal != nullptr)
-                iis[2] = material._normal->imageInfo();
-            return iis;
-        }();
-
-        const std::array<vk::WriteDescriptorSet, 3> writeDescriptorSets = [&]
-        {
-            std::array<vk::WriteDescriptorSet, 3> dss;
-            for (size_t i = 0; i < imageInfos.size(); ++i)
-            {
-                dss[i].dstSet = material._descriptorSet;
-                dss[i].dstBinding = static_cast<uint32_t>(i);
-                dss[i].descriptorCount = 1;
-                dss[i].descriptorType =
-                    vk::DescriptorType::eCombinedImageSampler;
-                dss[i].pImageInfo = &imageInfos[i];
-            }
-            return dss;
-        }();
+        std::vector<vk::WriteDescriptorSet> dss;
+        dss.reserve(infos.size());
+        for (uint32_t i = 0; i < infos.size(); ++i)
+            dss.push_back(vk::WriteDescriptorSet{
+                .dstSet = _materialTexturesDS,
+                .dstBinding = 0,
+                .dstArrayElement = i,
+                .descriptorCount = 1,
+                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+                .pImageInfo = &infos[i],
+            });
 
         _device->logical().updateDescriptorSets(
-            static_cast<uint32_t>(writeDescriptorSets.size()),
-            writeDescriptorSets.data(), 0, nullptr);
+            static_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
     }
 
     {

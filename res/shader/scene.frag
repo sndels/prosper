@@ -2,6 +2,7 @@
 #pragma shader_stage(fragment)
 
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
 #define PI 3.14159265
@@ -13,9 +14,7 @@
 
 #include "ds2_light_clusters.glsl"
 
-layout(set = 4, binding = 0) uniform sampler2D baseColor;
-layout(set = 4, binding = 1) uniform sampler2D metallicRoughness;
-layout(set = 4, binding = 2) uniform sampler2D tangentNormal;
+layout(set = 3, binding = 0) uniform sampler2D materialTextures[];
 
 // Needs to match Material::PCBlock
 layout(push_constant) uniform MaterialPC
@@ -25,9 +24,9 @@ layout(push_constant) uniform MaterialPC
     float roughnessFactor;
     float alphaMode;
     float alphaCutoff;
-    int baseColorTextureSet;
-    int metallicRoughnessTextureSet;
-    int normalTextureSet;
+    uint baseColorTexture;
+    uint metallicRoughnessTexture;
+    uint normalTexture;
 }
 materialPC;
 
@@ -138,8 +137,10 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 void main()
 {
     vec4 linearBaseColor;
-    if (materialPC.baseColorTextureSet > -1)
-        linearBaseColor = sRGBtoLinear(texture(baseColor, fragTexCoord0));
+    uint baseColorTex = materialPC.baseColorTexture;
+    if (baseColorTex > 0)
+        linearBaseColor = sRGBtoLinear(
+            texture(materialTextures[baseColorTex], fragTexCoord0));
     else
         linearBaseColor = vec4(1);
     linearBaseColor *= materialPC.baseColorFactor;
@@ -153,9 +154,11 @@ void main()
 
     float metallic;
     float roughness;
-    if (materialPC.metallicRoughnessTextureSet > -1)
+    uint metallicRoughnessTex = materialPC.metallicRoughnessTexture;
+    if (metallicRoughnessTex > 0)
     {
-        vec3 mr = texture(metallicRoughness, fragTexCoord0).rgb;
+        vec3 mr =
+            texture(materialTextures[metallicRoughnessTex], fragTexCoord0).rgb;
         metallic = mr.b * materialPC.metallicFactor;
         roughness = mr.g * materialPC.roughnessFactor;
     }
@@ -166,11 +169,15 @@ void main()
     }
 
     vec3 normal;
-    if (materialPC.normalTextureSet > -1)
+    uint normalTextureTex = materialPC.normalTexture;
+    if (normalTextureTex > 0)
     {
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
         normal = normalize(
-            TBN * (texture(tangentNormal, fragTexCoord0).xyz * 2 - 1));
+            TBN *
+            (texture(materialTextures[normalTextureTex], fragTexCoord0).xyz *
+                 2 -
+             1));
     }
     else
         normal = normalize(fragTBN[2]);
