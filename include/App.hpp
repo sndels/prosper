@@ -60,7 +60,7 @@ class App
     ImGuiRenderer _imguiRenderer;
 
     bool _useFpsLimit{true};
-    int32_t _fpsLimit{60};
+    int32_t _fpsLimit{140};
     bool _recompileShaders{false};
 
     Timer _frameTimer;
