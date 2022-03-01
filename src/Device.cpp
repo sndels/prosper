@@ -288,6 +288,7 @@ Device::Device(GLFWwindow *window)
     fprintf(stderr, "Creating Vulkan device\n");
 
     _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
+    _compilerOptions.SetGenerateDebugInfo();
 
     vk::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
