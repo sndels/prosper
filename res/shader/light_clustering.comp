@@ -125,8 +125,8 @@ void main()
         pointCount = 0;
         spotCount = 0;
     }
+    // Only barrier() since only pointCount/spotCount sync is required
     barrier();
-    groupMemoryBarrier();
 
     // TODO: Split into a separate compute pass to fill the data?
     //       Get from CPU instead?
@@ -165,8 +165,8 @@ void main()
             }
         }
     }
+    // Only barrier() since only pointCount/spotCount sync is required
     barrier();
-    groupMemoryBarrier();
 
     if (leadThread)
     {
@@ -181,8 +181,8 @@ void main()
             clusterPointers, ivec3(cluster),
             packClusterPointer(clusterIndexOffset, pointCount, spotCount));
     }
+    // Only barrier() since only clusterIndexOffset sync is required
     barrier();
-    groupMemoryBarrier();
 
     uint threadPoints = (pointCount - 1) / groupThreads + 1;
     for (uint i = 0; i < threadPoints; ++i)
