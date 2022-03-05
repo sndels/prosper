@@ -337,29 +337,33 @@ void TransparentsRenderer::createGraphicsPipeline(
             .pPushConstantRanges = &pcRange,
         });
 
-    const vk::PipelineRenderingCreateInfo renderingCreateInfo{
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &_resources->images.sceneColor.format,
-        .depthAttachmentFormat = _resources->images.sceneDepth.format,
-    };
+    vk::StructureChain<
+        vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
+        pipelineChain{
+            vk::GraphicsPipelineCreateInfo{
+                .stageCount = static_cast<uint32_t>(_shaderStages.size()),
+                .pStages = _shaderStages.data(),
+                .pVertexInputState = &vertInputInfo,
+                .pInputAssemblyState = &inputAssembly,
+                .pViewportState = &viewportState,
+                .pRasterizationState = &rasterizerState,
+                .pMultisampleState = &multisampleState,
+                .pDepthStencilState = &depthStencilState,
+                .pColorBlendState = &colorBlendState,
+                .layout = _pipelineLayout,
+            },
 
-    const vk::GraphicsPipelineCreateInfo createInfo{
-        .pNext = &renderingCreateInfo,
-        .stageCount = static_cast<uint32_t>(_shaderStages.size()),
-        .pStages = _shaderStages.data(),
-        .pVertexInputState = &vertInputInfo,
-        .pInputAssemblyState = &inputAssembly,
-        .pViewportState = &viewportState,
-        .pRasterizationState = &rasterizerState,
-        .pMultisampleState = &multisampleState,
-        .pDepthStencilState = &depthStencilState,
-        .pColorBlendState = &colorBlendState,
-        .layout = _pipelineLayout,
-    };
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount = 1,
+                .pColorAttachmentFormats =
+                    &_resources->images.sceneColor.format,
+                .depthAttachmentFormat = _resources->images.sceneDepth.format,
+            }};
 
     {
         auto pipeline = _device->logical().createGraphicsPipeline(
-            vk::PipelineCache{}, createInfo);
+            vk::PipelineCache{},
+            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
         if (pipeline.result != vk::Result::eSuccess)
             throw std::runtime_error(
                 "Failed to create pbr alpha blend pipeline");

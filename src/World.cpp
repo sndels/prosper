@@ -830,29 +830,37 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
         };
-        vk::DescriptorSetLayoutBindingFlagsCreateInfo flagsInfo{
-            .bindingCount = static_cast<uint32_t>(layoutFlags.size()),
-            .pBindingFlags = layoutFlags.data(),
-        };
-        _dsLayouts.materialTextures =
-            _device->logical().createDescriptorSetLayout(
+        vk::StructureChain<
+            vk::DescriptorSetLayoutCreateInfo,
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo>
+            layoutChain{
                 vk::DescriptorSetLayoutCreateInfo{
-                    .pNext = &flagsInfo,
                     .bindingCount =
                         static_cast<uint32_t>(layoutBindings.size()),
                     .pBindings = layoutBindings.data(),
-                });
+                },
+                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+                    .bindingCount = static_cast<uint32_t>(layoutFlags.size()),
+                    .pBindingFlags = layoutFlags.data(),
+                }};
+        _dsLayouts.materialTextures =
+            _device->logical().createDescriptorSetLayout(
+                layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 
-        vk::DescriptorSetVariableDescriptorCountAllocateInfo vainfo{
-            .descriptorSetCount = 1,
-            .pDescriptorCounts = &infoCount,
-        };
+        vk::StructureChain<
+            vk::DescriptorSetAllocateInfo,
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo>
+            dsChain{
+                vk::DescriptorSetAllocateInfo{
+                    .descriptorPool = _descriptorPool,
+                    .descriptorSetCount = 1,
+                    .pSetLayouts = &_dsLayouts.materialTextures},
+                vk::DescriptorSetVariableDescriptorCountAllocateInfo{
+                    .descriptorSetCount = 1,
+                    .pDescriptorCounts = &infoCount,
+                }};
         _materialTexturesDS = _device->logical().allocateDescriptorSets(
-            vk::DescriptorSetAllocateInfo{
-                .pNext = &vainfo,
-                .descriptorPool = _descriptorPool,
-                .descriptorSetCount = 1,
-                .pSetLayouts = &_dsLayouts.materialTextures})[0];
+            dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
 
         vk::DescriptorBufferInfo datasInfo{
             .buffer = _materialsBuffer.handle,

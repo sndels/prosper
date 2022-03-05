@@ -613,11 +613,11 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
 
-    vk::PhysicalDeviceVulkan12Features vk12Features;
-    vk::PhysicalDeviceFeatures2 supportedFeatures{
-        .pNext = &vk12Features,
-    };
-    device.getFeatures2(&supportedFeatures);
+    const auto props = device.getFeatures2<
+        vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features>();
+    const auto deviceFeatures =
+        props.get<vk::PhysicalDeviceFeatures2>().features;
+    const auto vk12Features = props.get<vk::PhysicalDeviceVulkan12Features>();
 
     const bool swapChainAdequate = [&]
     {
@@ -633,7 +633,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     }();
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           supportedFeatures.features.samplerAnisotropy == VK_TRUE &&
+           deviceFeatures.samplerAnisotropy == VK_TRUE &&
            vk12Features.descriptorIndexing == VK_TRUE;
 }
 
@@ -728,38 +728,44 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
-    vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{
-        .dynamicRendering = VK_TRUE,
-    };
-    vk::PhysicalDeviceSynchronization2FeaturesKHR sync2Features{
-        .pNext = &dynamicRenderingFeatures,
-        .synchronization2 = VK_TRUE,
-    };
-    vk::PhysicalDeviceVulkan12Features vk12Features{
-        .pNext = &sync2Features,
-        .descriptorIndexing = VK_TRUE,
-        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-        .descriptorBindingVariableDescriptorCount = VK_TRUE,
-        .runtimeDescriptorArray = VK_TRUE,
-    };
-    const vk::PhysicalDeviceFeatures2 deviceFeatures{
-        .pNext = &vk12Features,
-        .features =
-            {
-                .samplerAnisotropy = VK_TRUE,
-                .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
+    const vk::StructureChain<
+        vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan12Features,
+        vk::PhysicalDeviceSynchronization2FeaturesKHR,
+        vk::PhysicalDeviceDynamicRenderingFeaturesKHR>
+        chain{
+            vk::DeviceCreateInfo{
+                .queueCreateInfoCount =
+                    static_cast<uint32_t>(queueCreateInfos.size()),
+                .pQueueCreateInfos = queueCreateInfos.data(),
+                .enabledLayerCount =
+                    static_cast<uint32_t>(validationLayers.size()),
+                .ppEnabledLayerNames = validationLayers.data(),
+                .enabledExtensionCount =
+                    static_cast<uint32_t>(deviceExtensions.size()),
+                .ppEnabledExtensionNames = deviceExtensions.data(),
             },
-    };
+            vk::PhysicalDeviceFeatures2{
+                .features =
+                    {
+                        .samplerAnisotropy = VK_TRUE,
+                        .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
+                    },
+            },
+            vk::PhysicalDeviceVulkan12Features{
+                .descriptorIndexing = VK_TRUE,
+                .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+                .descriptorBindingVariableDescriptorCount = VK_TRUE,
+                .runtimeDescriptorArray = VK_TRUE,
+            },
+            vk::PhysicalDeviceSynchronization2FeaturesKHR{
+                .synchronization2 = VK_TRUE,
+            },
+            vk::PhysicalDeviceDynamicRenderingFeaturesKHR{
+                .dynamicRendering = VK_TRUE,
+            }};
 
-    _logical = _physical.createDevice(vk::DeviceCreateInfo{
-        .pNext = &deviceFeatures,
-        .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
-        .pQueueCreateInfos = queueCreateInfos.data(),
-        .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
-        .ppEnabledLayerNames = validationLayers.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
-        .ppEnabledExtensionNames = deviceExtensions.data(),
-    });
+    _logical = _physical.createDevice(chain.get<vk::DeviceCreateInfo>());
 
     // Get the created queues
     _computeQueue = _logical.getQueue(computeFamily, 0);
