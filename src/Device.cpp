@@ -16,8 +16,12 @@ namespace
 const std::array<const char *, 1> validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation"};
-const std::array<const char *, 1> deviceExtensions = {
+const std::array<const char *, 4> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+
 };
 
 QueueFamilies findQueueFamilies(
