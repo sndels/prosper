@@ -391,14 +391,16 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 std::vector<Vertex> vs;
                 for (size_t v = 0; v < vertexCount; ++v)
                 {
-                    vs.push_back(
-                        {vec4{make_vec3(&positions[v * 3]), 1.f},
-                         normalize(make_vec3(&normals[v * 3])),
-                         tangents != nullptr
-                             ? normalize(make_vec4(&tangents[v * 4]))
-                             : vec4(0),
-                         texCoords0 != nullptr ? make_vec2(&texCoords0[v * 2])
-                                               : vec2(0)});
+                    vs.push_back(Vertex{
+                        .pos = vec4{make_vec3(&positions[v * 3]), 1.f},
+                        .normal = normalize(make_vec3(&normals[v * 3])),
+                        .tangent = tangents != nullptr
+                                       ? normalize(make_vec4(&tangents[v * 4]))
+                                       : vec4(0),
+                        .texCoord0 = texCoords0 != nullptr
+                                         ? make_vec2(&texCoords0[v * 2])
+                                         : vec2(0),
+                    });
                 }
                 return vs;
             }();
