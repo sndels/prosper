@@ -20,8 +20,7 @@ const std::array<const char *, 4> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
-
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 };
 
 QueueFamilies findQueueFamilies(
@@ -617,10 +616,16 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
 
     const auto props = device.getFeatures2<
-        vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features>();
+        vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
     const auto deviceFeatures =
         props.get<vk::PhysicalDeviceFeatures2>().features;
     const auto vk12Features = props.get<vk::PhysicalDeviceVulkan12Features>();
+    const auto asFeatures =
+        props.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>();
+    const auto rtFeatures =
+        props.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
 
     const bool swapChainAdequate = [&]
     {
@@ -637,7 +642,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
            deviceFeatures.samplerAnisotropy == VK_TRUE &&
-           vk12Features.descriptorIndexing == VK_TRUE;
+           vk12Features.descriptorIndexing == VK_TRUE &&
+           asFeatures.accelerationStructure == VK_TRUE &&
+           rtFeatures.rayTracingPipeline == VK_TRUE;
 }
 
 void Device::createInstance()
@@ -735,7 +742,9 @@ void Device::createLogicalDevice()
         vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2,
         vk::PhysicalDeviceVulkan12Features,
         vk::PhysicalDeviceSynchronization2FeaturesKHR,
-        vk::PhysicalDeviceDynamicRenderingFeaturesKHR>
+        vk::PhysicalDeviceDynamicRenderingFeaturesKHR,
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>
         chain{
             vk::DeviceCreateInfo{
                 .queueCreateInfoCount =
@@ -766,6 +775,12 @@ void Device::createLogicalDevice()
             },
             vk::PhysicalDeviceDynamicRenderingFeaturesKHR{
                 .dynamicRendering = VK_TRUE,
+            },
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
+                .accelerationStructure = VK_TRUE,
+            },
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
+                .rayTracingPipeline = VK_TRUE,
             }};
 
     _logical = _physical.createDevice(chain.get<vk::DeviceCreateInfo>());
