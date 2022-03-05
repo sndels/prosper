@@ -613,18 +613,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 
     const auto extensionsSupported = checkDeviceExtensionSupport(device);
 
-    vk::PhysicalDeviceVulkan12Features vk12Features{
-        .descriptorIndexing = VK_TRUE,
-        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-        .runtimeDescriptorArray = VK_TRUE,
-    };
+    vk::PhysicalDeviceVulkan12Features vk12Features;
     vk::PhysicalDeviceFeatures2 supportedFeatures{
         .pNext = &vk12Features,
-        .features =
-            {
-                .samplerAnisotropy = VK_TRUE,
-                .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
-            },
     };
     device.getFeatures2(&supportedFeatures);
 
@@ -642,7 +633,8 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     }();
 
     return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           supportedFeatures.features.samplerAnisotropy == VK_TRUE;
+           supportedFeatures.features.samplerAnisotropy == VK_TRUE &&
+           vk12Features.descriptorIndexing == VK_TRUE;
 }
 
 void Device::createInstance()
