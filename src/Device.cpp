@@ -66,6 +66,13 @@ bool checkDeviceExtensionSupport(const vk::PhysicalDevice device)
         requiredExtensions.erase(extension.extensionName);
     }
 
+    if (!requiredExtensions.empty())
+    {
+        fprintf(stderr, "Missing support for extensions:\n");
+        for (const auto &e : requiredExtensions)
+            fprintf(stderr, "  %s\n", e.c_str());
+    }
+
     return requiredExtensions.empty();
 }
 
@@ -612,8 +619,14 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
 bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 {
     const auto families = findQueueFamilies(device, _surface);
+    if (!families.isComplete())
+    {
+        fprintf(stderr, "Missing required queue families\n");
+        return false;
+    }
 
-    const auto extensionsSupported = checkDeviceExtensionSupport(device);
+    if (!checkDeviceExtensionSupport(device))
+        return false;
 
     const auto props = device.getFeatures2<
         vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,
@@ -627,24 +640,25 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto rtFeatures =
         props.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
 
-    const bool swapChainAdequate = [&]
+    SwapchainSupport swapSupport{device, _surface};
+    if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
     {
-        bool adequate = false;
-        if (extensionsSupported)
-        {
-            SwapchainSupport swapSupport{device, _surface};
-            adequate = !swapSupport.formats.empty() &&
-                       !swapSupport.presentModes.empty();
-        }
+        fprintf(stderr, "Inadequate swap chain\n");
+        return false;
+    }
 
-        return adequate;
-    }();
+    if (deviceFeatures.samplerAnisotropy == VK_FALSE)
+        fprintf(stderr, "Missing sampler anisotropy\n");
+    else if (vk12Features.descriptorIndexing == VK_FALSE)
+        fprintf(stderr, "Missing descriptor indexing\n");
+    else if (asFeatures.accelerationStructure == VK_FALSE)
+        fprintf(stderr, "Missing acceleration structures\n");
+    else if (rtFeatures.rayTracingPipeline == VK_FALSE)
+        fprintf(stderr, "Missing ray tracing pipeline\n");
+    else
+        return true;
 
-    return families.isComplete() && extensionsSupported && swapChainAdequate &&
-           deviceFeatures.samplerAnisotropy == VK_TRUE &&
-           vk12Features.descriptorIndexing == VK_TRUE &&
-           asFeatures.accelerationStructure == VK_TRUE &&
-           rtFeatures.rayTracingPipeline == VK_TRUE;
+    return false;
 }
 
 void Device::createInstance()
@@ -697,10 +711,15 @@ void Device::createSurface(GLFWwindow *window)
 
 void Device::selectPhysicalDevice()
 {
+    fprintf(stderr, "Selecting device\n");
+
     const auto devices = _instance.enumeratePhysicalDevices();
 
     for (const auto &device : devices)
     {
+        fprintf(
+            stderr, "Considering '%s'\n",
+            device.getProperties().deviceName.data());
         if (isDeviceSuitable(device))
         {
             _physical = device;
