@@ -135,6 +135,7 @@
             "type": "shell",
             "command": "cmake",
             "args": [
+                "-DPROSPER_USE_PCH=OFF",
                 "-GNinja",
                 "-S",
                 ".",

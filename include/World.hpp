@@ -9,6 +9,11 @@
 #include <filesystem>
 #include <unordered_map>
 
+namespace tinygltf
+{
+class Model;
+};
+
 class Device;
 
 class World

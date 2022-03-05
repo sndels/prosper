@@ -7,7 +7,12 @@
 #endif // _MSC_VER
 
 #include <gli/gli.hpp>
-#include <tiny_gltf.h>
+
+namespace tinygltf
+{
+struct Image;
+struct Sampler;
+}; // namespace tinygltf
 
 #ifdef _MSC_VER
 #pragma warning(pop)

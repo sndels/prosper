@@ -10,6 +10,7 @@ add_subdirectory(ext)
 add_subdirectory(include)
 add_subdirectory(src)
 
+option(PROSPER_USE_PCH "Use pre-compiled headers" ON)
 
 # Set up project targets
 add_executable(prosper ${PROSPER_SOURCES} ${PROSPER_INCLUDES})
@@ -42,6 +43,7 @@ if (MSVC)
         /w14905
         /w14906
         /w14928
+        /wd4201 # GLM in PCH bleeds warnings into prosper sources
     )
 else()
     target_compile_options(prosper
@@ -70,6 +72,27 @@ target_link_libraries(prosper
 target_compile_definitions(prosper
     PRIVATE
     VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+    VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
     # Set up absolute path to resources and binaries
     RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"
     BIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
+if(PROSPER_USE_PCH)
+target_precompile_headers(prosper
+    PRIVATE
+    [["chrono"]]
+    [["filesystem"]]
+    [["fstream"]]
+    [["map"]]
+    [["set"]]
+    [["unordered_map"]]
+    [["unordered_set"]]
+    [["gli/gli.hpp"]]
+    [["glm/glm.hpp"]]
+    [["glm/gtc/quaternion.hpp"]]
+    [["glm/gtc/matrix_access.hpp"]]
+    [["glm/gtc/matrix_transform.hpp"]]
+    [["glm/gtc/type_ptr.hpp"]]
+    [["glm/gtx/matrix_decompose.hpp"]]
+    [["vulkan/vulkan.hpp"]]
+)
+endif() # PROSPER_USE_PCH

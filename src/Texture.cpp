@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <stb_image.h>
+#include <tiny_gltf.h>
 
 #ifdef _WIN32
 // Windows' header doesn't include these
