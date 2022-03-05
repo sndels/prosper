@@ -314,10 +314,19 @@ Device::Device(GLFWwindow *window)
     createCommandPools();
 
     {
-        const auto properties = _physical.getProperties();
+        const auto props = _physical.getProperties2<
+            vk::PhysicalDeviceProperties2,
+            vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
+            vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
+        _properties.device =
+            props.get<vk::PhysicalDeviceProperties2>().properties;
+        _properties.rtPipeline =
+            props.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
+        _properties.accelerationStructure =
+            props.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
 
         {
-            const auto apiPacked = properties.apiVersion;
+            const auto apiPacked = _properties.device.apiVersion;
             const auto major = VK_API_VERSION_MAJOR(apiPacked);
             const auto minor = VK_API_VERSION_MINOR(apiPacked);
             const auto patch = VK_API_VERSION_PATCH(apiPacked);
@@ -327,19 +336,7 @@ Device::Device(GLFWwindow *window)
                 throw std::runtime_error("Vulkan 1.3 required");
         }
 
-        fprintf(stderr, "%s\n", properties.deviceName.data());
-        fprintf(
-            stderr, "Max per descriptor set samplers: %u\n",
-            properties.limits.maxDescriptorSetSamplers);
-        fprintf(
-            stderr, "Max per stage samplers: %u\n",
-            properties.limits.maxPerStageDescriptorSamplers);
-        fprintf(
-            stderr, "Max per descriptor set sampled images: %u\n",
-            properties.limits.maxDescriptorSetSampledImages);
-        fprintf(
-            stderr, "Max per stage sampled images: %u\n",
-            properties.limits.maxPerStageDescriptorSampledImages);
+        fprintf(stderr, "%s\n", _properties.device.deviceName.data());
     }
 }
 
@@ -375,6 +372,8 @@ vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
 vk::Queue Device::presentQueue() const { return _presentQueue; }
 
 const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
+
+const DeviceProperties &Device::properties() const { return _properties; }
 
 std::optional<vk::ShaderModule> Device::compileShaderModule(
     const std::string &relPath, const std::string &debugName) const

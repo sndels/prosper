@@ -27,8 +27,7 @@ struct QueueFamilies
 
 struct BufferState
 {
-    vk::PipelineStageFlags2 stageMask{
-        vk::PipelineStageFlagBits2::eTopOfPipe};
+    vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
     vk::AccessFlags2 accessMask{vk::AccessFlagBits2::eNone};
 };
 
@@ -53,8 +52,7 @@ struct TexelBuffer
 
 struct ImageState
 {
-    vk::PipelineStageFlags2 stageMask{
-        vk::PipelineStageFlagBits2::eTopOfPipe};
+    vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
     vk::AccessFlags2 accessMask;
     vk::ImageLayout layout{vk::ImageLayout::eUndefined};
 };
@@ -71,6 +69,13 @@ struct Image
 
     vk::ImageMemoryBarrier2 transitionBarrier(const ImageState &newState);
     void transition(vk::CommandBuffer buffer, const ImageState &newState);
+};
+
+struct DeviceProperties
+{
+    vk::PhysicalDeviceProperties device;
+    vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtPipeline;
+    vk::PhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructure;
 };
 
 class FileIncluder : public shaderc::CompileOptions::IncluderInterface
@@ -115,6 +120,7 @@ class Device
     [[nodiscard]] vk::Queue graphicsQueue() const;
     [[nodiscard]] vk::Queue presentQueue() const;
     [[nodiscard]] const QueueFamilies &queueFamilies() const;
+    [[nodiscard]] const DeviceProperties &properties() const;
 
     [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
         const std::string &relPath, const std::string &debugName) const;
@@ -163,6 +169,7 @@ class Device
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
     vk::Device _logical;
+    DeviceProperties _properties;
 
     VmaAllocator _allocator{nullptr};
 
