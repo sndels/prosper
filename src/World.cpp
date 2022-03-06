@@ -309,38 +309,6 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         }
         _materials.push_back(mat);
     }
-
-    const vk::DeviceSize bufferSize = _materials.size() * sizeof(_materials[0]);
-    const Buffer stagingBuffer = _device->createBuffer(
-        "MaterialsStagingBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    void *data = nullptr;
-    _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, _materials.data(), static_cast<size_t>(bufferSize));
-    _device->unmap(stagingBuffer.allocation);
-
-    _materialsBuffer = _device->createBuffer(
-        "MaterialsBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eStorageBuffer |
-            vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
-
-    const auto commandBuffer = _device->beginGraphicsCommands();
-
-    const vk::BufferCopy copyRegion{
-        0, // srcOffset
-        0, // dstOffset
-        bufferSize};
-    commandBuffer.copyBuffer(
-        stagingBuffer.handle, _materialsBuffer.handle, 1, &copyRegion);
-
-    _device->endGraphicsCommands(commandBuffer);
-
-    _device->destroy(stagingBuffer);
 }
 
 void World::loadModels(const tinygltf::Model &gltfModel)
@@ -688,6 +656,42 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
 
 void World::createBuffers(const uint32_t swapImageCount)
 {
+    {
+        const vk::DeviceSize bufferSize =
+            _materials.size() * sizeof(_materials[0]);
+        const Buffer stagingBuffer = _device->createBuffer(
+            "MaterialsStagingBuffer", bufferSize,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+                vk::MemoryPropertyFlagBits::eHostCoherent,
+            VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        void *data = nullptr;
+        _device->map(stagingBuffer.allocation, &data);
+        memcpy(data, _materials.data(), static_cast<size_t>(bufferSize));
+        _device->unmap(stagingBuffer.allocation);
+
+        _materialsBuffer = _device->createBuffer(
+            "MaterialsBuffer", bufferSize,
+            vk::BufferUsageFlagBits::eStorageBuffer |
+                vk::BufferUsageFlagBits::eTransferDst,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+        const auto commandBuffer = _device->beginGraphicsCommands();
+
+        const vk::BufferCopy copyRegion{
+            0, // srcOffset
+            0, // dstOffset
+            bufferSize};
+        commandBuffer.copyBuffer(
+            stagingBuffer.handle, _materialsBuffer.handle, 1, &copyRegion);
+
+        _device->endGraphicsCommands(commandBuffer);
+
+        _device->destroy(stagingBuffer);
+    }
+
     {
         for (auto &scene : _scenes)
         {
