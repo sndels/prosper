@@ -9,6 +9,7 @@
 struct Transforms
 {
     mat4 modelToWorld;
+    mat4 normalToWorld;
 };
 layout(std430, set = 4, binding = 0) readonly buffer ModelInstanceTransforms
 {
@@ -31,17 +32,15 @@ layout(location = 3) out mat3 fragTBN;
 
 void main()
 {
-    mat4 modelToWorld =
-        modelInstanceTransforms.instance[meshPC.ModelInstanceID].modelToWorld;
-    vec4 pos = modelToWorld * vec4(vertPosition, 1.0);
-    // TODO: Store normalToWorld in buffer
-    vec3 normal =
-        normalize(transpose(inverse(mat3(modelToWorld))) * vertNormal);
+    Transforms trfns = modelInstanceTransforms.instance[meshPC.ModelInstanceID];
+
+    vec4 pos = trfns.modelToWorld * vec4(vertPosition, 1.0);
+    vec3 normal = normalize(mat3(trfns.normalToWorld) * vertNormal);
 
     // No point in generating normal basis here if no tangent is supplied
     if (length(vertTangent.xyz) > 0)
     {
-        vec3 tangent = normalize(mat3(modelToWorld) * vertTangent.xyz);
+        vec3 tangent = normalize(mat3(trfns.modelToWorld) * vertTangent.xyz);
         vec3 bitangent = cross(normal, tangent) * vertTangent.w;
         fragTBN = mat3(tangent, bitangent, normal);
     }

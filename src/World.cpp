@@ -528,6 +528,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     parentTransforms.back() *
                     translate(mat4{1.f}, node->translation) *
                     mat4_cast(node->rotation) * scale(mat4{1.f}, node->scale);
+
+                const auto normalToWorld = transpose(inverse(modelToWorld));
                 if (node->model != nullptr)
                 {
                     scene.modelInstances.push_back(
@@ -536,6 +538,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                          .model = node->model,
                          .transforms = {
                              .modelToWorld = modelToWorld,
+                             .normalToWorld = normalToWorld,
                          }});
                 }
                 if (_cameras.contains(node))

@@ -36,6 +36,7 @@ struct Scene
         struct Transforms
         {
             glm::mat4 modelToWorld{1.f};
+            glm::mat4 normalToWorld{1.f};
         };
 
         uint32_t id{0};
