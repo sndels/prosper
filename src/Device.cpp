@@ -786,6 +786,7 @@ void Device::createLogicalDevice()
                 .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
                 .descriptorBindingVariableDescriptorCount = VK_TRUE,
                 .runtimeDescriptorArray = VK_TRUE,
+                .bufferDeviceAddress = VK_TRUE,
             },
             vk::PhysicalDeviceVulkan13Features{
                 .synchronization2 = VK_TRUE,
