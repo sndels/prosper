@@ -759,9 +759,7 @@ void Device::createLogicalDevice()
 
     const vk::StructureChain<
         vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2,
-        vk::PhysicalDeviceVulkan12Features,
-        vk::PhysicalDeviceSynchronization2FeaturesKHR,
-        vk::PhysicalDeviceDynamicRenderingFeaturesKHR,
+        vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>
         chain{
@@ -789,10 +787,8 @@ void Device::createLogicalDevice()
                 .descriptorBindingVariableDescriptorCount = VK_TRUE,
                 .runtimeDescriptorArray = VK_TRUE,
             },
-            vk::PhysicalDeviceSynchronization2FeaturesKHR{
+            vk::PhysicalDeviceVulkan13Features{
                 .synchronization2 = VK_TRUE,
-            },
-            vk::PhysicalDeviceDynamicRenderingFeaturesKHR{
                 .dynamicRendering = VK_TRUE,
             },
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
