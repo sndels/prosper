@@ -42,13 +42,6 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept
 
 uint32_t Mesh::materialID() const { return _materialID; }
 
-Mesh::PCBlock Mesh::pcBlock() const
-{
-    return PCBlock{
-        .materialID = _materialID,
-    };
-}
-
 void Mesh::draw(vk::CommandBuffer commandBuffer) const
 {
     const vk::DeviceSize offset = 0;

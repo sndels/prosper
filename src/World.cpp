@@ -155,18 +155,15 @@ World::~World()
 {
     _device->logical().destroy(_descriptorPool);
     _device->logical().destroy(_dsLayouts.materialTextures);
-    _device->logical().destroy(_dsLayouts.modelInstance);
+    _device->logical().destroy(_dsLayouts.modelInstances);
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
     _device->destroy(_materialsBuffer);
     for (auto &scene : _scenes)
     {
-        for (auto &instance : scene.modelInstances)
-        {
-            for (auto &buffer : instance.uniformBuffers)
-                _device->destroy(buffer);
-        }
+        for (auto &buffer : scene.modelInstanceTransformsBuffers)
+            _device->destroy(buffer);
 
         for (auto &buffer : scene.lights.directionalLight.uniformBuffers)
             _device->destroy(buffer);
@@ -186,16 +183,32 @@ const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 void World::updateUniformBuffers(
     const Camera &cam, const uint32_t nextImage) const
 {
-    const mat4 worldToClip =
-        cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-    void *data = nullptr;
-    _device->map(_skyboxUniformBuffers[nextImage].allocation, &data);
-    memcpy(data, &worldToClip, sizeof(mat4));
-    _device->unmap(_skyboxUniformBuffers[nextImage].allocation);
+    {
+        const mat4 worldToClip =
+            cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
+        void *data = nullptr;
+        _device->map(_skyboxUniformBuffers[nextImage].allocation, &data);
+        memcpy(data, &worldToClip, sizeof(mat4));
+        _device->unmap(_skyboxUniformBuffers[nextImage].allocation);
+    }
 
     const auto &scene = currentScene();
-    for (const auto &instance : scene.modelInstances)
-        instance.updateBuffer(_device, nextImage);
+
+    {
+        std::vector<Scene::ModelInstance::Transforms> transforms;
+        transforms.reserve(scene.modelInstances.size());
+        for (const auto &instance : scene.modelInstances)
+            transforms.push_back(instance.transforms);
+
+        auto *allocation =
+            scene.modelInstanceTransformsBuffers[nextImage].allocation;
+        void *data = nullptr;
+        _device->map(allocation, &data);
+        memcpy(
+            data, transforms.data(),
+            sizeof(Scene::ModelInstance::Transforms) * transforms.size());
+        _device->unmap(allocation);
+    }
 
     scene.lights.directionalLight.updateBuffer(_device, nextImage);
     scene.lights.pointLights.updateBuffer(_device, nextImage);
@@ -550,7 +563,12 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 if (node->model != nullptr)
                 {
                     scene.modelInstances.push_back(
-                        {node->model, modelToWorld, {}, {}});
+                        {.id =
+                             static_cast<uint32_t>(scene.modelInstances.size()),
+                         .model = node->model,
+                         .transforms = {
+                             .modelToWorld = modelToWorld,
+                         }});
                 }
                 if (_cameras.contains(node))
                 {
@@ -675,18 +693,16 @@ void World::createBuffers(const uint32_t swapImageCount)
         {
             {
                 const vk::DeviceSize bufferSize =
-                    sizeof(Scene::ModelInstance::UBlock);
-                for (auto &modelInstance : scene.modelInstances)
-                {
-                    for (size_t i = 0; i < swapImageCount; ++i)
-                        modelInstance.uniformBuffers.push_back(
-                            _device->createBuffer(
-                                "ModelInstanceUniforms", bufferSize,
-                                vk::BufferUsageFlagBits::eUniformBuffer,
-                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                    vk::MemoryPropertyFlagBits::eHostCoherent,
-                                VMA_MEMORY_USAGE_CPU_TO_GPU));
-                }
+                    sizeof(Scene::ModelInstance::Transforms) *
+                    scene.modelInstances.size();
+                for (size_t i = 0; i < swapImageCount; ++i)
+                    scene.modelInstanceTransformsBuffers.push_back(
+                        _device->createBuffer(
+                            "instanceTransforms", bufferSize,
+                            vk::BufferUsageFlagBits::eStorageBuffer,
+                            vk::MemoryPropertyFlagBits::eHostVisible |
+                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            VMA_MEMORY_USAGE_CPU_TO_GPU));
             }
 
             {
@@ -858,19 +874,29 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         _device->logical().updateDescriptorSets(
             static_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
     }
-
     {
         const vk::DescriptorSetLayoutBinding layoutBinding{
             .binding = 0,
-            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eVertex,
         };
-        _dsLayouts.modelInstance = _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = 1,
-                .pBindings = &layoutBinding,
-            });
+        vk::DescriptorBindingFlags layoutFlags{};
+        vk::StructureChain<
+            vk::DescriptorSetLayoutCreateInfo,
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo>
+            layoutChain{
+                vk::DescriptorSetLayoutCreateInfo{
+                    .bindingCount = 1,
+                    .pBindings = &layoutBinding,
+                },
+                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+                    .bindingCount = 1,
+                    .pBindingFlags = &layoutFlags,
+                }};
+        _dsLayouts.modelInstances =
+            _device->logical().createDescriptorSetLayout(
+                layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
     }
 
     {
@@ -907,35 +933,40 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     for (auto &scene : _scenes)
     {
         {
-            const std::vector<vk::DescriptorSetLayout> modelInstanceLayouts(
-                swapImageCount, _dsLayouts.modelInstance);
+            const std::vector<vk::DescriptorSetLayout> layouts(
+                swapImageCount, _dsLayouts.modelInstances);
 
-            for (auto &instance : scene.modelInstances)
-            {
-                instance.descriptorSets =
-                    _device->logical().allocateDescriptorSets(
-                        vk::DescriptorSetAllocateInfo{
-                            .descriptorPool = _descriptorPool,
-                            .descriptorSetCount = static_cast<uint32_t>(
-                                modelInstanceLayouts.size()),
-                            .pSetLayouts = modelInstanceLayouts.data(),
-                        });
+            scene.modelInstancesDescriptorSets =
+                _device->logical().allocateDescriptorSets(
+                    vk::DescriptorSetAllocateInfo{
+                        .descriptorPool = _descriptorPool,
+                        .descriptorSetCount =
+                            static_cast<uint32_t>(layouts.size()),
+                        .pSetLayouts = layouts.data(),
+                    });
 
-                const auto bufferInfos = instance.bufferInfos();
-                for (size_t i = 0; i < instance.descriptorSets.size(); ++i)
-                {
-                    const vk::WriteDescriptorSet descriptorWrite{
-                        .dstSet = instance.descriptorSets[i],
-                        .dstBinding = 0,
-                        .dstArrayElement = 0,
-                        .descriptorCount = 1,
-                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-                        .pBufferInfo = &bufferInfos[i],
-                    };
-                    _device->logical().updateDescriptorSets(
-                        1, &descriptorWrite, 0, nullptr);
-                }
-            }
+            std::vector<vk::DescriptorBufferInfo> infos;
+            infos.reserve(scene.modelInstanceTransformsBuffers.size());
+            for (auto &buffer : scene.modelInstanceTransformsBuffers)
+                infos.push_back({
+                    .buffer = buffer.handle,
+                    .range = VK_WHOLE_SIZE,
+                });
+
+            std::vector<vk::WriteDescriptorSet> dss;
+            dss.reserve(infos.size());
+            for (uint32_t i = 0; i < infos.size(); ++i)
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = scene.modelInstancesDescriptorSets[i],
+                    .dstBinding = 0,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBuffer,
+                    .pBufferInfo = &infos[i],
+                });
+
+            _device->logical().updateDescriptorSets(
+                static_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
         }
 
         {

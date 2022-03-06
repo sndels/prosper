@@ -33,40 +33,14 @@ struct Scene
 
     struct ModelInstance
     {
-        struct UBlock
+        struct Transforms
         {
             glm::mat4 modelToWorld{1.f};
         };
 
+        uint32_t id{0};
         Model *model{nullptr};
-        glm::mat4 modelToWorld{1.f};
-
-        std::vector<Buffer> uniformBuffers;
-        std::vector<vk::DescriptorSet> descriptorSets;
-
-        [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const
-        {
-            std::vector<vk::DescriptorBufferInfo> infos;
-            for (const auto &buffer : this->uniformBuffers)
-                infos.push_back(vk::DescriptorBufferInfo{
-                    .buffer = buffer.handle,
-                    .offset = 0,
-                    .range = sizeof(UBlock),
-                });
-
-            return infos;
-        }
-
-        void updateBuffer(const Device *device, const uint32_t nextImage) const
-        {
-            UBlock uBlock;
-            uBlock.modelToWorld = this->modelToWorld;
-
-            void *data = nullptr;
-            device->map(this->uniformBuffers[nextImage].allocation, &data);
-            memcpy(data, &uBlock, sizeof(UBlock));
-            device->unmap(this->uniformBuffers[nextImage].allocation);
-        }
+        Transforms transforms;
     };
 
     struct DirectionalLight
@@ -191,8 +165,14 @@ struct Scene
     };
 
     CameraParameters camera;
+
     std::vector<Node *> nodes;
+
     std::vector<ModelInstance> modelInstances;
+
+    std::vector<Buffer> modelInstanceTransformsBuffers;
+    std::vector<vk::DescriptorSet> modelInstancesDescriptorSets;
+
     Lights lights;
 };
 

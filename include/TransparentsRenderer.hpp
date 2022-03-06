@@ -55,7 +55,7 @@ class TransparentsRenderer
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     void recordModelInstances(
-        vk::CommandBuffer buffer, uint32_t nextImage,
+        vk::CommandBuffer buffer,
         const std::vector<Scene::ModelInstance> &instances,
         const std::function<bool(const Mesh &)> &shouldRender) const;
 

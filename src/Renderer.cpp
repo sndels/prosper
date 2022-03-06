@@ -135,11 +135,12 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
 
     const auto &scene = world._scenes[world._currentScene];
 
-    const std::array<vk::DescriptorSet, 4> descriptorSets{
+    const std::array<vk::DescriptorSet, 5> descriptorSets{
         scene.lights.descriptorSets[nextImage],
         cam.descriptorSet(nextImage),
         _resources->buffers.lightClusters.descriptorSets[nextImage],
         world._materialTexturesDS,
+        scene.modelInstancesDescriptorSets[nextImage],
     };
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
@@ -148,7 +149,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         nullptr);
 
     recordModelInstances(
-        buffer, nextImage, scene.modelInstances,
+        buffer, scene.modelInstances,
         [&world](const Mesh &mesh)
 
         {
@@ -395,10 +396,11 @@ void Renderer::createGraphicsPipelines(
         camDSLayout,
         _resources->buffers.lightClusters.descriptorSetLayout,
         worldDSLayouts.materialTextures,
-        worldDSLayouts.modelInstance,
+        worldDSLayouts.modelInstances,
     };
     const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                      vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
         .size = sizeof(Mesh::PCBlock),
     };
@@ -459,23 +461,24 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
 }
 
 void Renderer::recordModelInstances(
-    const vk::CommandBuffer buffer, const uint32_t nextImage,
+    const vk::CommandBuffer buffer,
     const std::vector<Scene::ModelInstance> &instances,
     const std::function<bool(const Mesh &)> &shouldRender) const
 {
     for (const auto &instance : instances)
     {
-        buffer.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-            4, // firstSet
-            1, &instance.descriptorSets[nextImage], 0, nullptr);
         for (const auto &mesh : instance.model->_meshes)
         {
             if (shouldRender(mesh))
             {
-                const auto pcBlock = mesh.pcBlock();
+                const Mesh::PCBlock pcBlock{
+                    .modelInstanceID = instance.id,
+                    .materialID = mesh.materialID(),
+                };
                 buffer.pushConstants(
-                    _pipelineLayout, vk::ShaderStageFlagBits::eFragment,
+                    _pipelineLayout,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
                     0, // offset
                     sizeof(Mesh::PCBlock), &pcBlock);
                 mesh.draw(buffer);

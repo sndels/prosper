@@ -12,6 +12,7 @@ class Mesh
   public:
     struct PCBlock
     {
+        uint32_t modelInstanceID{0};
         uint32_t materialID{0};
     };
 
@@ -27,7 +28,6 @@ class Mesh
     Mesh &operator=(Mesh &&other) noexcept;
 
     [[nodiscard]] uint32_t materialID() const;
-    [[nodiscard]] PCBlock pcBlock() const;
 
     void draw(vk::CommandBuffer commandBuffer) const;
 

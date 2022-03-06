@@ -6,8 +6,17 @@
 
 #include "ds1_camera.glsl"
 
-layout(set = 4, binding = 0) uniform Object { mat4 modelToWorld; }
-object;
+struct Transforms
+{
+    mat4 modelToWorld;
+};
+layout(std430, set = 4, binding = 0) readonly buffer ModelInstanceTransforms
+{
+    Transforms instance[];
+}
+modelInstanceTransforms;
+
+#include "pc_mesh.glsl"
 
 // These need to match both vertex data and their attribute descriptions
 layout(location = 0) in vec3 vertPosition;
@@ -22,14 +31,17 @@ layout(location = 3) out mat3 fragTBN;
 
 void main()
 {
-    vec4 pos = object.modelToWorld * vec4(vertPosition, 1.0);
+    mat4 modelToWorld =
+        modelInstanceTransforms.instance[meshPC.ModelInstanceID].modelToWorld;
+    vec4 pos = modelToWorld * vec4(vertPosition, 1.0);
+    // TODO: Store normalToWorld in buffer
     vec3 normal =
-        normalize(transpose(inverse(mat3(object.modelToWorld))) * vertNormal);
+        normalize(transpose(inverse(mat3(modelToWorld))) * vertNormal);
 
     // No point in generating normal basis here if no tangent is supplied
     if (length(vertTangent.xyz) > 0)
     {
-        vec3 tangent = normalize(mat3(object.modelToWorld) * vertTangent.xyz);
+        vec3 tangent = normalize(mat3(modelToWorld) * vertTangent.xyz);
         vec3 bitangent = cross(normal, tangent) * vertTangent.w;
         fragTBN = mat3(tangent, bitangent, normal);
     }

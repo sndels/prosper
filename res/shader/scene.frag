@@ -38,8 +38,7 @@ layout(std430, set = 3, binding = 0) readonly buffer MaterialDatas
 materialDatas;
 layout(set = 3, binding = 1) uniform sampler2D materialTextures[];
 
-layout(push_constant) uniform MeshPC { uint MaterialID; }
-meshPC;
+#include "pc_mesh.glsl"
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in float fragZCam;

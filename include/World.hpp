@@ -22,7 +22,7 @@ class World
     struct DSLayouts
     {
         vk::DescriptorSetLayout materialTextures;
-        vk::DescriptorSetLayout modelInstance;
+        vk::DescriptorSetLayout modelInstances;
         vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout lightsClustered;
         vk::DescriptorSetLayout skybox;

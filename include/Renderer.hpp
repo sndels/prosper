@@ -32,8 +32,8 @@ class Renderer
         const World::DSLayouts &worldDSLayouts);
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextImage) const;
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        uint32_t nextImage) const;
 
   private:
     [[nodiscard]] bool compileShaders();
@@ -50,7 +50,7 @@ class Renderer
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     void recordModelInstances(
-        vk::CommandBuffer buffer, uint32_t nextImage,
+        vk::CommandBuffer buffer,
         const std::vector<Scene::ModelInstance> &instances,
         const std::function<bool(const Mesh &)> &shouldRender) const;
 
