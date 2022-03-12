@@ -42,6 +42,10 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept
 
 uint32_t Mesh::materialID() const { return _materialID; }
 
+vk::Buffer Mesh::vertexBuffer() const { return _vertexBuffer.handle; }
+vk::Buffer Mesh::indexBuffer() const { return _indexBuffer.handle; }
+uint32_t Mesh::indexCount() const { return _indexCount; }
+
 void Mesh::draw(vk::CommandBuffer commandBuffer) const
 {
     const vk::DeviceSize offset = 0;

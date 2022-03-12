@@ -28,6 +28,9 @@ class Mesh
     Mesh &operator=(Mesh &&other) noexcept;
 
     [[nodiscard]] uint32_t materialID() const;
+    [[nodiscard]] vk::Buffer vertexBuffer() const;
+    [[nodiscard]] vk::Buffer indexBuffer() const;
+    [[nodiscard]] uint32_t indexCount() const;
 
     void draw(vk::CommandBuffer commandBuffer) const;
 
