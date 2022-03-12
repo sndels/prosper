@@ -373,7 +373,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 for (size_t v = 0; v < vertexCount; ++v)
                 {
                     vs.push_back(Vertex{
-                        .pos = vec4{make_vec3(&positions[v * 3]), 1.f},
+                        .pos = vec3{make_vec3(&positions[v * 3])},
                         .normal = normalize(make_vec3(&normals[v * 3])),
                         .tangent = tangents != nullptr
                                        ? normalize(make_vec4(&tangents[v * 4]))
