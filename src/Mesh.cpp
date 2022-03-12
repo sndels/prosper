@@ -25,9 +25,9 @@ Mesh::Mesh(Mesh &&other) noexcept
 
 Mesh &Mesh::operator=(Mesh &&other) noexcept
 {
-    destroy();
     if (this != &other)
     {
+        destroy();
         _device = other._device;
         _materialID = other._materialID;
         _vertexBuffer = other._vertexBuffer;
