@@ -148,14 +148,29 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0,
         nullptr);
 
-    recordModelInstances(
-        buffer, scene.modelInstances,
-        [&world](const Mesh &mesh)
-
+    for (const auto &instance : scene.modelInstances)
+    {
+        const auto &model = *instance.model;
+        for (const auto &subModel : model.subModels)
         {
-            return world._materials[mesh.materialID()].alphaMode !=
-                   Material::AlphaMode::Blend;
-        });
+            const auto &material = world._materials[subModel.materialID];
+            const auto &mesh = world._meshes[subModel.meshID];
+            if (material.alphaMode != Material::AlphaMode::Blend)
+            {
+                const Scene::ModelInstance::PCBlock pcBlock{
+                    .modelInstanceID = instance.id,
+                    .materialID = subModel.materialID,
+                };
+                buffer.pushConstants(
+                    _pipelineLayout,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
+                    0, // offset
+                    sizeof(Scene::ModelInstance::PCBlock), &pcBlock);
+                mesh.draw(buffer);
+            }
+        }
+    }
 
     buffer.endRendering();
 
@@ -402,7 +417,7 @@ void Renderer::createGraphicsPipelines(
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(Mesh::PCBlock),
+        .size = sizeof(Scene::ModelInstance::PCBlock),
     };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
@@ -461,31 +476,4 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = swapConfig.imageCount,
         });
-}
-
-void Renderer::recordModelInstances(
-    const vk::CommandBuffer buffer,
-    const std::vector<Scene::ModelInstance> &instances,
-    const std::function<bool(const Mesh &)> &shouldRender) const
-{
-    for (const auto &instance : instances)
-    {
-        for (const auto &mesh : instance.model->_meshes)
-        {
-            if (shouldRender(mesh))
-            {
-                const Mesh::PCBlock pcBlock{
-                    .modelInstanceID = instance.id,
-                    .materialID = mesh.materialID(),
-                };
-                buffer.pushConstants(
-                    _pipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex |
-                        vk::ShaderStageFlagBits::eFragment,
-                    0, // offset
-                    sizeof(Mesh::PCBlock), &pcBlock);
-                mesh.draw(buffer);
-            }
-        }
-    }
 }

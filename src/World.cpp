@@ -315,7 +315,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 {
     for (const auto &model : gltfModel.meshes)
     {
-        _models.push_back({_device, {}});
+        _models.push_back({});
         for (const auto &primitive : model.primitives)
         {
             // TODO: More vertex attributes, different modes, no indices
@@ -429,8 +429,11 @@ void World::loadModels(const tinygltf::Model &gltfModel)
             assert(primitive.material > -2);
             const uint32_t material = primitive.material + 1;
 
-            _models.back()._meshes.emplace_back(
-                vertices, indices, material, _device);
+            _meshes.emplace_back(_device, vertices, indices);
+            _models.back().subModels.push_back({
+                .meshID = static_cast<uint32_t>(_meshes.size() - 1),
+                .materialID = material,
+            });
         }
     }
 }

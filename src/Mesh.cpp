@@ -1,10 +1,9 @@
 #include "Mesh.hpp"
 
 Mesh::Mesh(
-    const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
-    uint32_t materialID, Device *device)
+    Device *device, const std::vector<Vertex> &vertices,
+    const std::vector<uint32_t> &indices)
 : _device{device}
-, _materialID{materialID}
 , _indexCount{static_cast<uint32_t>(indices.size())}
 {
     createVertexBuffer(vertices);
@@ -15,7 +14,6 @@ Mesh::~Mesh() { destroy(); }
 
 Mesh::Mesh(Mesh &&other) noexcept
 : _device{other._device}
-, _materialID{other._materialID}
 , _vertexBuffer{other._vertexBuffer}
 , _indexBuffer{other._indexBuffer}
 , _indexCount{other._indexCount}
@@ -29,7 +27,6 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept
     {
         destroy();
         _device = other._device;
-        _materialID = other._materialID;
         _vertexBuffer = other._vertexBuffer;
         _indexBuffer = other._indexBuffer;
         _indexCount = other._indexCount;
@@ -39,8 +36,6 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept
 
     return *this;
 }
-
-uint32_t Mesh::materialID() const { return _materialID; }
 
 vk::Buffer Mesh::vertexBuffer() const { return _vertexBuffer.handle; }
 vk::Buffer Mesh::indexBuffer() const { return _indexBuffer.handle; }

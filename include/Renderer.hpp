@@ -49,11 +49,6 @@ class Renderer
         const World::DSLayouts &worldDSLayouts);
     void createCommandBuffers(const SwapchainConfig &swapConfig);
 
-    void recordModelInstances(
-        vk::CommandBuffer buffer,
-        const std::vector<Scene::ModelInstance> &instances,
-        const std::function<bool(const Mesh &)> &shouldRender) const;
-
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

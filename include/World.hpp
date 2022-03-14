@@ -2,6 +2,7 @@
 #define PROSPER_WORLD_HPP
 
 #include "Material.hpp"
+#include "Mesh.hpp"
 #include "Model.hpp"
 #include "Scene.hpp"
 #include "Texture.hpp"
@@ -49,6 +50,7 @@ class World
     std::unordered_map<Scene::Node *, CameraParameters> _cameras;
     std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
+    std::vector<Mesh> _meshes;
     std::vector<Model> _models;
     std::vector<Scene::Node> _nodes;
     std::vector<Scene> _scenes;

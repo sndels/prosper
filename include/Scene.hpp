@@ -33,6 +33,12 @@ struct Scene
 
     struct ModelInstance
     {
+        struct PCBlock
+        {
+            uint32_t modelInstanceID{0};
+            uint32_t materialID{0};
+        };
+
         struct Transforms
         {
             glm::mat4 modelToWorld{1.f};

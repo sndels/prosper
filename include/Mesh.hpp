@@ -10,16 +10,9 @@
 class Mesh
 {
   public:
-    struct PCBlock
-    {
-        uint32_t modelInstanceID{0};
-        uint32_t materialID{0};
-    };
-
     Mesh(
-        const std::vector<Vertex> &vertices,
-        const std::vector<uint32_t> &indices, uint32_t materialID,
-        Device *device);
+        Device *device, const std::vector<Vertex> &vertices,
+        const std::vector<uint32_t> &indices);
     ~Mesh();
 
     Mesh(const Mesh &other) = delete;
@@ -27,7 +20,6 @@ class Mesh
     Mesh &operator=(const Mesh &other) = delete;
     Mesh &operator=(Mesh &&other) noexcept;
 
-    [[nodiscard]] uint32_t materialID() const;
     [[nodiscard]] vk::Buffer vertexBuffer() const;
     [[nodiscard]] vk::Buffer indexBuffer() const;
     [[nodiscard]] uint32_t indexCount() const;
@@ -40,7 +32,6 @@ class Mesh
     void createIndexBuffer(const std::vector<uint32_t> &indices);
 
     Device *_device{nullptr};
-    uint32_t _materialID{0};
     Buffer _vertexBuffer;
     Buffer _indexBuffer;
     uint32_t _indexCount{0};
