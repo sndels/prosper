@@ -717,7 +717,7 @@ void World::createBuffers(const uint32_t swapImageCount)
 
             {
                 const vk::DeviceSize bufferSize =
-                    sizeof(Scene::DirectionalLight::Parameters);
+                    sizeof(DirectionalLight::Parameters);
                 for (size_t i = 0; i < swapImageCount; ++i)
                     scene.lights.directionalLight.uniformBuffers.push_back(
                         _device->createBuffer(
@@ -730,7 +730,7 @@ void World::createBuffers(const uint32_t swapImageCount)
 
             {
                 const vk::DeviceSize bufferSize =
-                    sizeof(Scene::PointLights::BufferData);
+                    sizeof(PointLights::BufferData);
                 for (size_t i = 0; i < swapImageCount; ++i)
                     scene.lights.pointLights.storageBuffers.push_back(
                         _device->createBuffer(
@@ -743,7 +743,7 @@ void World::createBuffers(const uint32_t swapImageCount)
 
             {
                 const vk::DeviceSize bufferSize =
-                    sizeof(Scene::SpotLights::BufferData);
+                    sizeof(SpotLights::BufferData);
                 for (size_t i = 0; i < swapImageCount; ++i)
                     scene.lights.spotLights.storageBuffers.push_back(
                         _device->createBuffer(
