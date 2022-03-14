@@ -195,7 +195,7 @@ void World::updateUniformBuffers(
     const auto &scene = currentScene();
 
     {
-        std::vector<Scene::ModelInstance::Transforms> transforms;
+        std::vector<ModelInstance::Transforms> transforms;
         transforms.reserve(scene.modelInstances.size());
         for (const auto &instance : scene.modelInstances)
             transforms.push_back(instance.transforms);
@@ -206,7 +206,7 @@ void World::updateUniformBuffers(
         _device->map(allocation, &data);
         memcpy(
             data, transforms.data(),
-            sizeof(Scene::ModelInstance::Transforms) * transforms.size());
+            sizeof(ModelInstance::Transforms) * transforms.size());
         _device->unmap(allocation);
     }
 
@@ -703,7 +703,7 @@ void World::createBuffers(const uint32_t swapImageCount)
         {
             {
                 const vk::DeviceSize bufferSize =
-                    sizeof(Scene::ModelInstance::Transforms) *
+                    sizeof(ModelInstance::Transforms) *
                     scene.modelInstances.size();
                 for (size_t i = 0; i < swapImageCount; ++i)
                     scene.modelInstanceTransformsBuffers.push_back(

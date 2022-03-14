@@ -157,7 +157,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
             const auto &mesh = world._meshes[subModel.meshID];
             if (material.alphaMode == Material::AlphaMode::Blend)
             {
-                const Scene::ModelInstance::PCBlock pcBlock{
+                const ModelInstance::PCBlock pcBlock{
                     .modelInstanceID = instance.id,
                     .materialID = subModel.materialID,
                 };
@@ -166,7 +166,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
                     vk::ShaderStageFlagBits::eVertex |
                         vk::ShaderStageFlagBits::eFragment,
                     0, // offset
-                    sizeof(Scene::ModelInstance::PCBlock), &pcBlock);
+                    sizeof(ModelInstance::PCBlock), &pcBlock);
                 mesh.draw(buffer);
             }
         }
@@ -343,7 +343,7 @@ void TransparentsRenderer::createGraphicsPipeline(
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(Scene::ModelInstance::PCBlock),
+        .size = sizeof(ModelInstance::PCBlock),
     };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{

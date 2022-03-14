@@ -2,6 +2,7 @@
 #define PROSPER_SCENE_HPP
 
 #include "Camera.hpp"
+#include "Model.hpp"
 
 // CMake doesn't seem to support MSVC /external -stuff yet
 #ifdef _MSC_VER
@@ -17,8 +18,6 @@
 
 #include <vector>
 
-struct Model;
-
 struct Scene
 {
     struct Node
@@ -29,25 +28,6 @@ struct Scene
         glm::vec3 translation{0.f};
         glm::quat rotation{1.f, 0.f, 0.f, 0.f};
         glm::vec3 scale{1.f};
-    };
-
-    struct ModelInstance
-    {
-        struct PCBlock
-        {
-            uint32_t modelInstanceID{0};
-            uint32_t materialID{0};
-        };
-
-        struct Transforms
-        {
-            glm::mat4 modelToWorld{1.f};
-            glm::mat4 normalToWorld{1.f};
-        };
-
-        uint32_t id{0};
-        Model *model{nullptr};
-        Transforms transforms;
     };
 
     struct DirectionalLight
