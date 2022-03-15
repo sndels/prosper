@@ -451,7 +451,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
             std::back_inserter(_nodes[n].children),
             [&](int i) { return &_nodes[i]; });
         if (node.mesh > -1)
-            _nodes[n].model = &_models[node.mesh];
+            _nodes[n].modelID = node.mesh;
         if (node.camera > -1)
         {
             const auto &cam = gltfModel.cameras[node.camera];
@@ -533,12 +533,12 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     mat4_cast(node->rotation) * scale(mat4{1.f}, node->scale);
 
                 const auto normalToWorld = transpose(inverse(modelToWorld));
-                if (node->model != nullptr)
+                if (node->modelID != 0xFFFFFFFF)
                 {
                     scene.modelInstances.push_back(
                         {.id =
                              static_cast<uint32_t>(scene.modelInstances.size()),
-                         .model = node->model,
+                         .modelID = node->modelID,
                          .transforms = {
                              .modelToWorld = modelToWorld,
                              .normalToWorld = normalToWorld,

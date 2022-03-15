@@ -38,7 +38,7 @@ struct ModelInstance
     };
 
     uint32_t id{0};
-    Model *model{nullptr};
+    uint32_t modelID{0xFFFFFFFF};
     Transforms transforms;
 };
 

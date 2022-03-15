@@ -24,7 +24,7 @@ struct Scene
     struct Node
     {
         std::vector<Node *> children;
-        Model *model{nullptr};
+        uint32_t modelID{0xFFFFFFFF};
         CameraParameters camera;
         glm::vec3 translation{0.f};
         glm::quat rotation{1.f, 0.f, 0.f, 0.f};

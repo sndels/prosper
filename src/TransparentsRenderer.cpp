@@ -150,7 +150,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     // TODO: Sort back to front
     for (const auto &instance : scene.modelInstances)
     {
-        const auto &model = *instance.model;
+        const auto &model = world._models[instance.modelID];
         for (const auto &subModel : model.subModels)
         {
             const auto &material = world._materials[subModel.materialID];
