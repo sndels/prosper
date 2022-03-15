@@ -16,8 +16,8 @@ struct Model
 {
     struct SubModel
     {
-        uint32_t meshID{0};
-        uint32_t materialID{0};
+        uint32_t meshID{0xFFFFFFFF};
+        uint32_t materialID{0xFFFFFFFF};
     };
 
     std::vector<SubModel> subModels;
@@ -27,8 +27,8 @@ struct ModelInstance
 {
     struct PCBlock
     {
-        uint32_t modelInstanceID{0};
-        uint32_t materialID{0};
+        uint32_t modelInstanceID{0xFFFFFFFF};
+        uint32_t materialID{0xFFFFFFFF};
     };
 
     struct Transforms
