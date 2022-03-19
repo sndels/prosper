@@ -86,7 +86,9 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
 
     _vertexBuffer = _device->createBuffer(
         "MeshVertexBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eVertexBuffer |
+        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+            vk::BufferUsageFlagBits::eVertexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -124,7 +126,9 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
 
     _indexBuffer = _device->createBuffer(
         "MeshIndexBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eIndexBuffer |
+        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+            vk::BufferUsageFlagBits::eIndexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
         vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
 

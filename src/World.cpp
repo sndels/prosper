@@ -145,6 +145,7 @@ World::World(
     tl("Model loading ", [&]() { loadModels(gltfModel); });
     tl("Scene loading ", [&]() { loadScenes(gltfModel); });
 
+    tl("BLAS creation", [&]() { createBlases(); });
     tl("Buffer creation", [&]() { createBuffers(swapImageCount); });
 
     createDescriptorPool(swapImageCount);
@@ -160,6 +161,11 @@ World::~World()
     _device->logical().destroy(_dsLayouts.skybox);
     _device->destroy(_skyboxVertexBuffer);
     _device->destroy(_materialsBuffer);
+    for (auto &blas : _blases)
+    {
+        _device->logical().destroy(blas.handle);
+        _device->destroy(blas.buffer);
+    }
     for (auto &scene : _scenes)
     {
         for (auto &buffer : scene.modelInstanceTransformsBuffers)
@@ -657,6 +663,97 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
         {
             scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
         }
+    }
+}
+
+void World::createBlases()
+{
+    _blases.resize(_meshes.size());
+    for (auto i = 0; i < _blases.size(); ++i)
+    {
+        const auto &mesh = _meshes[i];
+        auto &blas = _blases[i];
+        // Basics from RT Gems II chapter 16
+
+        const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
+            .vertexFormat = vk::Format::eR32G32B32Sfloat,
+            .vertexData =
+                _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                    .buffer = mesh.vertexBuffer(),
+                }),
+            .vertexStride = sizeof(Vertex),
+            .maxVertex = _meshes[i].vertexCount(),
+            .indexType = vk::IndexType::eUint32,
+            .indexData =
+                _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                    .buffer = mesh.indexBuffer(),
+                }),
+        };
+        const vk::AccelerationStructureGeometryKHR geometry{
+            .geometryType = vk::GeometryTypeKHR::eTriangles,
+            .geometry = triangles,
+            .flags = vk::GeometryFlagBitsKHR::eOpaque,
+        };
+        const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
+            .primitiveCount = mesh.indexCount() / 3,
+            .primitiveOffset = 0,
+            .firstVertex = 0,
+            .transformOffset = 0,
+        };
+        // dst and scratch will be set once allocated
+        vk::AccelerationStructureBuildGeometryInfoKHR buildInfo{
+            .type = vk::AccelerationStructureTypeKHR::eBottomLevel,
+            .flags =
+                vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
+            .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
+            .geometryCount = 1,
+            .pGeometries = &geometry,
+        };
+        const auto sizeInfo =
+            _device->logical().getAccelerationStructureBuildSizesKHR(
+                vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
+                {rangeInfo.primitiveCount});
+
+        blas.buffer = _device->createBuffer(
+            "BLASBuffer", sizeInfo.accelerationStructureSize,
+            vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
+                vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                vk::BufferUsageFlagBits::eStorageBuffer,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+        const vk::AccelerationStructureCreateInfoKHR createInfo{
+            .buffer = blas.buffer.handle,
+            .size = sizeInfo.accelerationStructureSize,
+            .type = buildInfo.type,
+        };
+        blas.handle =
+            _device->logical().createAccelerationStructureKHR(createInfo);
+
+        buildInfo.dstAccelerationStructure = blas.handle;
+
+        // TODO: Reuse and grow scratch
+        const auto scratchBuffer = _device->createBuffer(
+            "ScratchBuffer", sizeInfo.buildScratchSize,
+            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                vk::BufferUsageFlagBits::eStorageBuffer,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+        buildInfo.scratchData =
+            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                .buffer = scratchBuffer.handle,
+            });
+
+        const auto cb = _device->beginGraphicsCommands();
+
+        const auto *pRangeInfo = &rangeInfo;
+        // TODO: Build multiple blas at a time/with the same cb
+        cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
+
+        _device->endGraphicsCommands(cb);
+
+        _device->destroy(scratchBuffer);
     }
 }
 

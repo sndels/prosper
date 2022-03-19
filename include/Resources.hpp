@@ -50,4 +50,10 @@ struct Image
     void transition(vk::CommandBuffer buffer, const ImageState &newState);
 };
 
+struct AccelerationStructure
+{
+    vk::AccelerationStructureKHR handle;
+    Buffer buffer;
+};
+
 #endif // PROSPER_RESOURCES_HPP

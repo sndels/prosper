@@ -51,6 +51,7 @@ class World
     std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
     std::vector<Mesh> _meshes;
+    std::vector<AccelerationStructure> _blases;
     std::vector<Model> _models;
     std::vector<Scene::Node> _nodes;
     std::vector<Scene> _scenes;
@@ -69,6 +70,7 @@ class World
     void loadMaterials(const tinygltf::Model &gltfModel);
     void loadModels(const tinygltf::Model &gltfModel);
     void loadScenes(const tinygltf::Model &gltfModel);
+    void createBlases();
     void createBuffers(uint32_t swapImageCount);
     void createDescriptorPool(uint32_t swapImageCount);
     void createDescriptorSets(uint32_t swapImageCount);
