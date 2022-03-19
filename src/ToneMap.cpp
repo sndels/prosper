@@ -44,7 +44,7 @@ ToneMap::ToneMap(
     }};
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
             .pBindings = layoutBindings.data(),
         });
 
@@ -128,7 +128,7 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
     };
 
     buffer.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
         .pImageMemoryBarriers = barriers.data(),
     });
 
@@ -158,7 +158,7 @@ void ToneMap::destroySwapchainRelated()
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
-                static_cast<uint32_t>(_commandBuffers.size()),
+                asserted_cast<uint32_t>(_commandBuffers.size()),
                 _commandBuffers.data());
         }
 
@@ -207,7 +207,7 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
     _descriptorSets =
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = _resources->descriptorPools.swapchainRelated,
-            .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
             .pSetLayouts = layouts.data(),
         });
 
@@ -238,8 +238,8 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
         });
     }
     _device->logical().updateDescriptorSets(
-        static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
-        0, nullptr);
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
 }
 
 void ToneMap::createPipelines()

@@ -441,7 +441,7 @@ void App::drawFrame()
         };
 
         commandBuffer.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
             .pImageMemoryBarriers = barriers.data(),
         });
 
@@ -454,8 +454,8 @@ void App::drawFrame()
             const std::array<vk::Offset3D, 2> offsets{{
                 vk::Offset3D{0},
                 vk::Offset3D{
-                    static_cast<int32_t>(_swapConfig.extent.width),
-                    static_cast<int32_t>(_swapConfig.extent.height),
+                    asserted_cast<int32_t>(_swapConfig.extent.width),
+                    asserted_cast<int32_t>(_swapConfig.extent.height),
                     1,
                 },
             }};
@@ -505,12 +505,13 @@ void App::drawFrame()
     const std::array<vk::Semaphore, 1> signalSemaphores = {
         _renderFinishedSemaphores[nextFrame]};
     const vk::SubmitInfo submitInfo{
-        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
+        .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
         .pWaitDstStageMask = waitStages.data(),
-        .commandBufferCount = static_cast<uint32_t>(commandBuffers.size()),
+        .commandBufferCount = asserted_cast<uint32_t>(commandBuffers.size()),
         .pCommandBuffers = commandBuffers.data(),
-        .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
+        .signalSemaphoreCount =
+            asserted_cast<uint32_t>(signalSemaphores.size()),
         .pSignalSemaphores = signalSemaphores.data(),
     };
 

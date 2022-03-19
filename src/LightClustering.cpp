@@ -70,7 +70,7 @@ LightClustering::LightClustering(
     _resources->buffers.lightClusters.descriptorSetLayout =
         _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
                 .pBindings = layoutBindings.data(),
             });
 
@@ -161,7 +161,7 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
     buffer.pipelineBarrier2(vk::DependencyInfo{
         .bufferMemoryBarrierCount =
-            static_cast<uint32_t>(bufferBarriers.size()),
+            asserted_cast<uint32_t>(bufferBarriers.size()),
         .pBufferMemoryBarriers = bufferBarriers.data(),
         .imageMemoryBarrierCount = 1,
         .pImageMemoryBarriers = &imageBarrier,
@@ -188,8 +188,8 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, _pipelineLayout,
         0, // firstSet
-        static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0,
-        nullptr);
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        0, nullptr);
 
     const ClusteringPCBlock pcBlock{
         .resolution = uvec2(renderArea.extent.width, renderArea.extent.height),
@@ -236,7 +236,7 @@ void LightClustering::destroySwapchainRelated()
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
-                static_cast<uint32_t>(_commandBuffers.size()),
+                asserted_cast<uint32_t>(_commandBuffers.size()),
                 _commandBuffers.data());
         }
 
@@ -289,7 +289,7 @@ void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)
     _resources->buffers.lightClusters.descriptorSets =
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = _resources->descriptorPools.swapchainRelated,
-            .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
             .pSetLayouts = layouts.data(),
         });
 
@@ -324,8 +324,8 @@ void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)
         });
     }
     _device->logical().updateDescriptorSets(
-        static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
-        0, nullptr);
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
 }
 
 void LightClustering::createPipeline(
@@ -344,7 +344,7 @@ void LightClustering::createPipeline(
     };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+            .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = &pcRange,

@@ -93,7 +93,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
 
     void *data = nullptr;
     device->map(stagingBuffer.allocation, &data);
-    memcpy(data, skyboxVerts.data(), static_cast<size_t>(bufferSize));
+    memcpy(data, skyboxVerts.data(), asserted_cast<size_t>(bufferSize));
     device->unmap(stagingBuffer.allocation);
 
     const auto skyboxVertexBuffer = device->createBuffer(
@@ -219,7 +219,7 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
 {
     const vk::DeviceSize offset = 0;
     buffer.bindVertexBuffers(0, 1, &_skyboxVertexBuffer.handle, &offset);
-    buffer.draw(static_cast<uint32_t>(SKYBOX_VERTS_SIZE), 1, 0, 0);
+    buffer.draw(asserted_cast<uint32_t>(SKYBOX_VERTS_SIZE), 1, 0, 0);
 }
 
 void World::loadTextures(const tinygltf::Model &gltfModel)
@@ -431,7 +431,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 
             _meshes.emplace_back(_device, vertices, indices);
             _models.back().subModels.push_back({
-                .meshID = static_cast<uint32_t>(_meshes.size() - 1),
+                .meshID = asserted_cast<uint32_t>(_meshes.size() - 1),
                 .materialID = material,
             });
         }
@@ -475,7 +475,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
             const auto &light = obj.find("light")->second;
             assert(light.IsInt());
 
-            lights[&_nodes[n]] = static_cast<size_t>(light.GetNumberAsInt());
+            lights[&_nodes[n]] = asserted_cast<size_t>(light.GetNumberAsInt());
         }
         if (node.matrix.size() == 16)
         {
@@ -536,8 +536,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 if (node->modelID != 0xFFFFFFFF)
                 {
                     scene.modelInstances.push_back(
-                        {.id =
-                             static_cast<uint32_t>(scene.modelInstances.size()),
+                        {.id = asserted_cast<uint32_t>(
+                             scene.modelInstances.size()),
                          .modelID = node->modelID,
                          .transforms = {
                              .modelToWorld = modelToWorld,
@@ -674,7 +674,7 @@ void World::createBuffers(const uint32_t swapImageCount)
 
         void *data = nullptr;
         _device->map(stagingBuffer.allocation, &data);
-        memcpy(data, _materials.data(), static_cast<size_t>(bufferSize));
+        memcpy(data, _materials.data(), asserted_cast<size_t>(bufferSize));
         _device->unmap(stagingBuffer.allocation);
 
         _materialsBuffer = _device->createBuffer(
@@ -776,9 +776,9 @@ void World::createDescriptorPool(const uint32_t swapImageCount)
     // Skybox cubemap is also one descriptor per image
     // As is the directional light
     const uint32_t uniformDescriptorCount =
-        swapImageCount * (static_cast<uint32_t>(_nodes.size()) + 2);
+        swapImageCount * (asserted_cast<uint32_t>(_nodes.size()) + 2);
     const uint32_t samplerDescriptorCount =
-        3 * static_cast<uint32_t>(_materials.size()) + swapImageCount;
+        3 * asserted_cast<uint32_t>(_materials.size()) + swapImageCount;
     const std::array<vk::DescriptorPoolSize, 3> poolSizes{
         {{// Dynamic need per frame descriptor sets of one descriptor per UBlock
           vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
@@ -791,12 +791,12 @@ void World::createDescriptorPool(const uint32_t swapImageCount)
     // Per-frame: Nodes, skybox, dirlight, points and spots
     // Single: Materials
     const uint32_t maxSets =
-        swapImageCount * ((static_cast<uint32_t>(_nodes.size()) + 3)) +
-        static_cast<uint32_t>(_materials.size());
+        swapImageCount * ((asserted_cast<uint32_t>(_nodes.size()) + 3)) +
+        asserted_cast<uint32_t>(_materials.size());
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .maxSets = maxSets,
-            .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+            .poolSizeCount = asserted_cast<uint32_t>(poolSizes.size()),
             .pPoolSizes = poolSizes.data(),
         });
 }
@@ -813,7 +813,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         infos.push_back(_emptyTexture.imageInfo());
         for (const auto &tex : _textures)
             infos.push_back(tex.imageInfo());
-        const auto infoCount = static_cast<uint32_t>(infos.size());
+        const auto infoCount = asserted_cast<uint32_t>(infos.size());
 
         std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
             vk::DescriptorSetLayoutBinding{
@@ -839,11 +839,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             layoutChain{
                 vk::DescriptorSetLayoutCreateInfo{
                     .bindingCount =
-                        static_cast<uint32_t>(layoutBindings.size()),
+                        asserted_cast<uint32_t>(layoutBindings.size()),
                     .pBindings = layoutBindings.data(),
                 },
                 vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                    .bindingCount = static_cast<uint32_t>(layoutFlags.size()),
+                    .bindingCount = asserted_cast<uint32_t>(layoutFlags.size()),
                     .pBindingFlags = layoutFlags.data(),
                 }};
         _dsLayouts.materialTextures =
@@ -890,7 +890,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             });
 
         _device->logical().updateDescriptorSets(
-            static_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+            asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
     }
     {
         const vk::DescriptorSetLayoutBinding layoutBinding{
@@ -943,7 +943,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         }};
         _dsLayouts.lights = _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = static_cast<uint32_t>(layoutBindings.size()),
+                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
                 .pBindings = layoutBindings.data(),
             });
     }
@@ -959,7 +959,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                     vk::DescriptorSetAllocateInfo{
                         .descriptorPool = _descriptorPool,
                         .descriptorSetCount =
-                            static_cast<uint32_t>(layouts.size()),
+                            asserted_cast<uint32_t>(layouts.size()),
                         .pSetLayouts = layouts.data(),
                     });
 
@@ -984,7 +984,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 });
 
             _device->logical().updateDescriptorSets(
-                static_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+                asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
         }
 
         {
@@ -996,7 +996,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             lights.descriptorSets = _device->logical().allocateDescriptorSets(
                 vk::DescriptorSetAllocateInfo{
                     .descriptorPool = _descriptorPool,
-                    .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+                    .descriptorSetCount =
+                        asserted_cast<uint32_t>(layouts.size()),
                     .pSetLayouts = layouts.data(),
                 });
 
@@ -1033,7 +1034,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                     },
                 }};
                 _device->logical().updateDescriptorSets(
-                    static_cast<uint32_t>(descriptorWrites.size()),
+                    asserted_cast<uint32_t>(descriptorWrites.size()),
                     descriptorWrites.data(), 0, nullptr);
             }
         }
@@ -1055,7 +1056,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     }};
     _dsLayouts.skybox = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = static_cast<uint32_t>(skyboxLayoutBindings.size()),
+            .bindingCount =
+                asserted_cast<uint32_t>(skyboxLayoutBindings.size()),
             .pBindings = skyboxLayoutBindings.data(),
         });
 
@@ -1064,7 +1066,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     _skyboxDSs =
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = _descriptorPool,
-            .descriptorSetCount = static_cast<uint32_t>(skyboxLayouts.size()),
+            .descriptorSetCount = asserted_cast<uint32_t>(skyboxLayouts.size()),
             .pSetLayouts = skyboxLayouts.data(),
         });
 
@@ -1101,7 +1103,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             },
         }};
         _device->logical().updateDescriptorSets(
-            static_cast<uint32_t>(writeDescriptorSets.size()),
+            asserted_cast<uint32_t>(writeDescriptorSets.size()),
             writeDescriptorSets.data(), 0, nullptr);
     }
 }

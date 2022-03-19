@@ -87,7 +87,7 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     };
 
     buffer.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
+        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
         .pImageMemoryBarriers = barriers.data(),
     });
 
@@ -169,7 +169,7 @@ void SkyboxRenderer::destroySwapchainRelated()
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
-                static_cast<uint32_t>(_commandBuffers.size()),
+                asserted_cast<uint32_t>(_commandBuffers.size()),
                 _commandBuffers.data());
         }
 
@@ -291,7 +291,7 @@ void SkyboxRenderer::createGraphicsPipelines(
         vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
         pipelineChain{
             vk::GraphicsPipelineCreateInfo{
-                .stageCount = static_cast<uint32_t>(_shaderStages.size()),
+                .stageCount = asserted_cast<uint32_t>(_shaderStages.size()),
                 .pStages = _shaderStages.data(),
                 .pVertexInputState = &vertInputInfo,
                 .pInputAssemblyState = &inputAssembly,

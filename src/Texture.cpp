@@ -6,6 +6,8 @@
 #include <stb_image.h>
 #include <tiny_gltf.h>
 
+#include "Utils.hpp"
+
 #ifdef _WIN32
 // Windows' header doesn't include these
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -61,7 +63,7 @@ std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
 
     return std::pair{
         pixels,
-        vk::Extent2D{static_cast<uint32_t>(w), static_cast<uint32_t>(h)}};
+        vk::Extent2D{asserted_cast<uint32_t>(w), asserted_cast<uint32_t>(h)}};
 }
 
 void transitionImageLayout(
@@ -145,7 +147,7 @@ Texture2D::Texture2D(
     const auto stagingBuffer = stagePixels(pixels, extent);
 
     const uint32_t mipLevels =
-        mipmap ? static_cast<uint32_t>(
+        mipmap ? asserted_cast<uint32_t>(
                      floor(log2(std::max(extent.width, extent.height)))) +
                      1
                : 1;
@@ -183,7 +185,7 @@ Texture2D::Texture2D(
         std::cerr << "3 component texture" << std::endl;
         // Add fourth channel
         // TODO: Do only if rgb-textures are unsupported
-        tmpPixels.resize(static_cast<size_t>(image.width) * image.height * 4);
+        tmpPixels.resize(asserted_cast<size_t>(image.width) * image.height * 4);
         const auto *rgb = image.image.data();
         auto *rgba = tmpPixels.data();
         for (int i = 0; i < image.width * image.height; ++i)
@@ -199,12 +201,12 @@ Texture2D::Texture2D(
     else
         pixels = reinterpret_cast<const uint8_t *>(image.image.data());
     const vk::Extent2D extent{
-        static_cast<uint32_t>(image.width),
-        static_cast<uint32_t>(image.height)};
+        asserted_cast<uint32_t>(image.width),
+        asserted_cast<uint32_t>(image.height)};
     const auto stagingBuffer = stagePixels(pixels, extent);
 
     const uint32_t mipLevels =
-        mipmap ? static_cast<uint32_t>(
+        mipmap ? asserted_cast<uint32_t>(
                      floor(log2(std::max(extent.width, extent.height)))) +
                      1
                : 1;
@@ -236,7 +238,7 @@ Buffer Texture2D::stagePixels(
 
     void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    memcpy(data, pixels, asserted_cast<size_t>(imageSize));
     _device->unmap(stagingBuffer.allocation);
 
     return stagingBuffer;
@@ -434,11 +436,11 @@ TextureCubemap::TextureCubemap(
     assert(cube.faces() == 6);
 
     const vk::Extent3D layerExtent{
-        .width = static_cast<uint32_t>(cube.extent().x),
-        .height = static_cast<uint32_t>(cube.extent().y),
+        .width = asserted_cast<uint32_t>(cube.extent().x),
+        .height = asserted_cast<uint32_t>(cube.extent().y),
         .depth = 1u,
     };
-    const auto mipLevels = static_cast<uint32_t>(cube.levels());
+    const auto mipLevels = asserted_cast<uint32_t>(cube.levels());
 
     const vk::ImageSubresourceRange subresourceRange{
         .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -513,9 +515,9 @@ void TextureCubemap::copyPixels(
                     .imageOffset = vk::Offset3D{0},
                     .imageExtent =
                         vk::Extent3D{
-                            static_cast<uint32_t>(
+                            asserted_cast<uint32_t>(
                                 cube[face][mipLevel].extent().x),
-                            static_cast<uint32_t>(
+                            asserted_cast<uint32_t>(
                                 cube[face][mipLevel].extent().y),
                             1},
                 });
@@ -537,7 +539,7 @@ void TextureCubemap::copyPixels(
     copyBuffer.copyBufferToImage(
         stagingBuffer.handle, _image.handle,
         vk::ImageLayout::eTransferDstOptimal,
-        static_cast<uint32_t>(regions.size()), regions.data());
+        asserted_cast<uint32_t>(regions.size()), regions.data());
 
     transitionImageLayout(
         copyBuffer, _image.handle, subresourceRange,

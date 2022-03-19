@@ -168,7 +168,7 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores)
 {
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
-        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
+        .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
         .swapchainCount = 1,
         .pSwapchains = &_swapchain,
@@ -231,7 +231,7 @@ void Swapchain::createSwapchain()
             // Pick concurrent to skip in-depth ownership jazz for now
             return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
                 vk::SharingMode::eConcurrent,
-                static_cast<uint32_t>(queueFamilyIndices.size()),
+                asserted_cast<uint32_t>(queueFamilyIndices.size()),
                 queueFamilyIndices.data());
         }
         return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(

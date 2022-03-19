@@ -111,9 +111,10 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
 
     buffer.pipelineBarrier2(vk::DependencyInfo{
         .bufferMemoryBarrierCount =
-            static_cast<uint32_t>(bufferBarriers.size()),
+            asserted_cast<uint32_t>(bufferBarriers.size()),
         .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount = static_cast<uint32_t>(imageBarriers.size()),
+        .imageMemoryBarrierCount =
+            asserted_cast<uint32_t>(imageBarriers.size()),
         .pImageMemoryBarriers = imageBarriers.data(),
     });
 
@@ -144,8 +145,8 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
-        static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0,
-        nullptr);
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        0, nullptr);
 
     // TODO: Sort back to front
     for (const auto &instance : scene.modelInstances)
@@ -226,7 +227,7 @@ void TransparentsRenderer::destroySwapchainRelated()
         {
             _device->logical().freeCommandBuffers(
                 _device->graphicsPool(),
-                static_cast<uint32_t>(_commandBuffers.size()),
+                asserted_cast<uint32_t>(_commandBuffers.size()),
                 _commandBuffers.data());
         }
 
@@ -270,7 +271,7 @@ void TransparentsRenderer::createGraphicsPipeline(
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &vertexBindingDescription,
         .vertexAttributeDescriptionCount =
-            static_cast<uint32_t>(vertexAttributeDescriptions.size()),
+            asserted_cast<uint32_t>(vertexAttributeDescriptions.size()),
         .pVertexAttributeDescriptions = vertexAttributeDescriptions.data(),
     };
 
@@ -347,7 +348,7 @@ void TransparentsRenderer::createGraphicsPipeline(
     };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+            .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = &pcRange,
@@ -357,7 +358,7 @@ void TransparentsRenderer::createGraphicsPipeline(
         vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
         pipelineChain{
             vk::GraphicsPipelineCreateInfo{
-                .stageCount = static_cast<uint32_t>(_shaderStages.size()),
+                .stageCount = asserted_cast<uint32_t>(_shaderStages.size()),
                 .pStages = _shaderStages.data(),
                 .pVertexInputState = &vertInputInfo,
                 .pInputAssemblyState = &inputAssembly,

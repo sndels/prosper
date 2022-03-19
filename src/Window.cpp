@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "InputHandler.hpp"
+#include "Utils.hpp"
 
 Window::Window(
     const std::pair<uint32_t, uint32_t> &resolution, const std::string &title)
@@ -21,7 +22,7 @@ Window::Window(
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     _window = glfwCreateWindow(
-        static_cast<int>(_width), static_cast<int>(_height), title.c_str(),
+        asserted_cast<int>(_width), asserted_cast<int>(_height), title.c_str(),
         nullptr, nullptr);
 
     glfwSetWindowUserPointer(_window, this);
@@ -134,8 +135,8 @@ void Window::mouseButtonCallback(
 void Window::framebufferSizeCallback(GLFWwindow *window, int width, int height)
 {
     auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
-    auto uw = static_cast<uint32_t>(width);
-    auto uh = static_cast<uint32_t>(height);
+    auto uw = asserted_cast<uint32_t>(width);
+    auto uh = asserted_cast<uint32_t>(height);
     if (thisPtr->_width != uw || thisPtr->_height != uh)
     {
         thisPtr->_width = uw;

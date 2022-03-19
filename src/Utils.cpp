@@ -24,6 +24,7 @@ std::string readFileString(const std::filesystem::path &path)
         throw std::runtime_error(
             std::string{"Failed to open file '"} + path.string() + "'");
 
+    // We won't read a file whose size won't fit size_t on a 64bit system
     const auto fileSize = static_cast<size_t>(file.tellg());
     std::string buffer;
     buffer.resize(fileSize);

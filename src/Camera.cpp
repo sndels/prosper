@@ -15,6 +15,8 @@
 #pragma warning(pop)
 #endif // _MSC_VER
 
+#include "Utils.hpp"
+
 using namespace glm;
 
 Camera::Camera(
@@ -195,7 +197,7 @@ void Camera::createDescriptorSets(
     _descriptorSets =
         _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
             .descriptorPool = descriptorPool,
-            .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
             .pSetLayouts = layouts.data(),
         });
 

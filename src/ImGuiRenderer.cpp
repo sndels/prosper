@@ -4,7 +4,9 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include "Utils.hpp"
 #include "VkUtils.hpp"
+
 
 namespace
 {
@@ -165,7 +167,7 @@ void ImGuiRenderer::destroySwapchainRelated()
     {
         _device->logical().freeCommandBuffers(
             _device->graphicsPool(),
-            static_cast<uint32_t>(_commandBuffers.size()),
+            asserted_cast<uint32_t>(_commandBuffers.size()),
             _commandBuffers.data());
     }
     _device->logical().destroy(_fbo);
@@ -244,8 +246,8 @@ void ImGuiRenderer::createDescriptorPool()
     }};
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
-            .maxSets = maxSets * static_cast<uint32_t>(poolSizes.size()),
-            .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+            .maxSets = maxSets * asserted_cast<uint32_t>(poolSizes.size()),
+            .poolSizeCount = asserted_cast<uint32_t>(poolSizes.size()),
             .pPoolSizes = poolSizes.data(),
         });
 }

@@ -1,10 +1,12 @@
 #include "Mesh.hpp"
 
+#include "Utils.hpp"
+
 Mesh::Mesh(
     Device *device, const std::vector<Vertex> &vertices,
     const std::vector<uint32_t> &indices)
 : _device{device}
-, _indexCount{static_cast<uint32_t>(indices.size())}
+, _indexCount{asserted_cast<uint32_t>(indices.size())}
 {
     createVertexBuffer(vertices);
     createIndexBuffer(indices);
@@ -75,7 +77,7 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
     // Move vertex data to staging
     void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+    memcpy(data, vertices.data(), asserted_cast<size_t>(bufferSize));
     _device->unmap(stagingBuffer.allocation);
 
     _vertexBuffer = _device->createBuffer(
@@ -113,7 +115,7 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
     // Move index data to staging
     void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
+    memcpy(data, indices.data(), asserted_cast<size_t>(bufferSize));
     _device->unmap(stagingBuffer.allocation);
 
     _indexBuffer = _device->createBuffer(

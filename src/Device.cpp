@@ -346,7 +346,7 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     }
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = static_cast<size_t>(result.end() - result.begin()) *
+        .codeSize = asserted_cast<size_t>(result.end() - result.begin()) *
                     sizeof(uint32_t),
         .pCode = result.begin(),
     });
@@ -618,9 +618,9 @@ void Device::createInstance()
 
     _instance = vk::createInstance(vk::InstanceCreateInfo{
         .pApplicationInfo = &appInfo,
-        .enabledLayerCount = static_cast<uint32_t>(validationLayers.size()),
+        .enabledLayerCount = asserted_cast<uint32_t>(validationLayers.size()),
         .ppEnabledLayerNames = validationLayers.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .enabledExtensionCount = asserted_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data(),
     });
 }
@@ -705,13 +705,13 @@ void Device::createLogicalDevice()
         chain{
             vk::DeviceCreateInfo{
                 .queueCreateInfoCount =
-                    static_cast<uint32_t>(queueCreateInfos.size()),
+                    asserted_cast<uint32_t>(queueCreateInfos.size()),
                 .pQueueCreateInfos = queueCreateInfos.data(),
                 .enabledLayerCount =
-                    static_cast<uint32_t>(validationLayers.size()),
+                    asserted_cast<uint32_t>(validationLayers.size()),
                 .ppEnabledLayerNames = validationLayers.data(),
                 .enabledExtensionCount =
-                    static_cast<uint32_t>(deviceExtensions.size()),
+                    asserted_cast<uint32_t>(deviceExtensions.size()),
                 .ppEnabledExtensionNames = deviceExtensions.data(),
             },
             vk::PhysicalDeviceFeatures2{
