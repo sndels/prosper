@@ -75,7 +75,7 @@ target_include_directories(tinygltf SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/t
 # vulkan memory allocator is header only
 add_library(vma INTERFACE)
 # Define as system to suppress warnings
-target_include_directories(vma SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/vma/src)
+target_include_directories(vma SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/vma/include)
 
 # gli is header only
 add_library(gli INTERFACE)

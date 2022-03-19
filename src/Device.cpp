@@ -750,8 +750,10 @@ void Device::createLogicalDevice()
 void Device::createAllocator()
 {
     VmaAllocatorCreateInfo allocatorInfo{
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
         .physicalDevice = static_cast<VkPhysicalDevice>(_physical),
         .device = static_cast<VkDevice>(_logical),
+        .instance = static_cast<VkInstance>(_instance),
     };
     if (vmaCreateAllocator(&allocatorInfo, &_allocator) != VK_SUCCESS)
         throw std::runtime_error("Failed to create allocator");
