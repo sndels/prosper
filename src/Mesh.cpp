@@ -6,6 +6,7 @@ Mesh::Mesh(
     Device *device, const std::vector<Vertex> &vertices,
     const std::vector<uint32_t> &indices)
 : _device{device}
+, _vertexCount{asserted_cast<uint32_t>(vertices.size())}
 , _indexCount{asserted_cast<uint32_t>(indices.size())}
 {
     createVertexBuffer(vertices);
@@ -18,6 +19,7 @@ Mesh::Mesh(Mesh &&other) noexcept
 : _device{other._device}
 , _vertexBuffer{other._vertexBuffer}
 , _indexBuffer{other._indexBuffer}
+, _vertexCount{other._vertexCount}
 , _indexCount{other._indexCount}
 {
     other._device = nullptr;
@@ -31,6 +33,7 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept
         _device = other._device;
         _vertexBuffer = other._vertexBuffer;
         _indexBuffer = other._indexBuffer;
+        _vertexCount = other._vertexCount;
         _indexCount = other._indexCount;
 
         other._device = nullptr;
@@ -41,6 +44,7 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept
 
 vk::Buffer Mesh::vertexBuffer() const { return _vertexBuffer.handle; }
 vk::Buffer Mesh::indexBuffer() const { return _indexBuffer.handle; }
+uint32_t Mesh::vertexCount() const { return _vertexCount; }
 uint32_t Mesh::indexCount() const { return _indexCount; }
 
 void Mesh::draw(vk::CommandBuffer commandBuffer) const

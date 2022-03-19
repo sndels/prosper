@@ -22,6 +22,7 @@ class Mesh
 
     [[nodiscard]] vk::Buffer vertexBuffer() const;
     [[nodiscard]] vk::Buffer indexBuffer() const;
+    [[nodiscard]] uint32_t vertexCount() const;
     [[nodiscard]] uint32_t indexCount() const;
 
     void draw(vk::CommandBuffer commandBuffer) const;
@@ -34,6 +35,7 @@ class Mesh
     Device *_device{nullptr};
     Buffer _vertexBuffer;
     Buffer _indexBuffer;
+    uint32_t _vertexCount{0};
     uint32_t _indexCount{0};
 };
 
