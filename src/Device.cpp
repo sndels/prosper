@@ -374,7 +374,7 @@ void Device::unmap(VmaAllocation allocation) const
 Buffer Device::createBuffer(
     const std::string &debugName, const vk::DeviceSize size,
     const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const VmaMemoryUsage vmaUsage) const
+    const VmaMemoryUsage vmaUsage, void *initialData) const
 {
     vk::BufferCreateInfo bufferInfo{
         .size = size,
@@ -400,6 +400,35 @@ Buffer Device::createBuffer(
             reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
         .pObjectName = debugName.c_str(),
     });
+
+    if (initialData != nullptr)
+    {
+        auto stagingBuffer = createBuffer(
+            debugName + "StagingBuffer", size,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+                vk::MemoryPropertyFlagBits::eHostCoherent,
+            VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        void *mapped = nullptr;
+        map(stagingBuffer.allocation, &mapped);
+        memcpy(mapped, initialData, size);
+        unmap(stagingBuffer.allocation);
+
+        const auto commandBuffer = beginGraphicsCommands();
+
+        const vk::BufferCopy copyRegion{
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = size,
+        };
+        commandBuffer.copyBuffer(
+            stagingBuffer.handle, buffer.handle, 1, &copyRegion);
+
+        endGraphicsCommands(commandBuffer);
+
+        destroy(stagingBuffer);
+    }
 
     return buffer;
 }
