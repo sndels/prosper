@@ -117,6 +117,20 @@ Buffer createSkyboxVertexBuffer(Device *device)
     device->destroy(stagingBuffer);
     return skyboxVertexBuffer;
 }
+
+vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
+{
+    return vk::TransformMatrixKHR{
+        .matrix = {{
+            std::array<float, 4>{
+                trfn[0][0], trfn[1][0], trfn[2][0], trfn[3][0]},
+            std::array<float, 4>{
+                trfn[0][1], trfn[1][1], trfn[2][1], trfn[3][1]},
+            std::array<float, 4>{
+                trfn[0][2], trfn[1][2], trfn[2][2], trfn[3][2]},
+        }},
+    };
+}
 } // namespace
 
 World::World(
@@ -146,6 +160,7 @@ World::World(
     tl("Scene loading ", [&]() { loadScenes(gltfModel); });
 
     tl("BLAS creation", [&]() { createBlases(); });
+    tl("TLAS creation", [&]() { createTlases(); });
     tl("Buffer creation", [&]() { createBuffers(swapImageCount); });
 
     createDescriptorPool(swapImageCount);
@@ -165,6 +180,11 @@ World::~World()
     {
         _device->logical().destroy(blas.handle);
         _device->destroy(blas.buffer);
+    }
+    for (auto &tlas : _tlases)
+    {
+        _device->logical().destroy(tlas.handle);
+        _device->destroy(tlas.buffer);
     }
     for (auto &scene : _scenes)
     {
@@ -709,6 +729,8 @@ void World::createBlases()
             .geometryCount = 1,
             .pGeometries = &geometry,
         };
+
+        // TODO: This stuff is ~the same for TLAS and BLAS
         const auto sizeInfo =
             _device->logical().getAccelerationStructureBuildSizesKHR(
                 vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
@@ -754,6 +776,138 @@ void World::createBlases()
         _device->endGraphicsCommands(cb);
 
         _device->destroy(scratchBuffer);
+    }
+}
+
+void World::createTlases()
+{
+    _tlases.resize(_scenes.size());
+    for (auto i = 0; i < _tlases.size(); ++i)
+    {
+        const auto &scene = _scenes[i];
+        auto &tlas = _tlases[i];
+        // Basics from RT Gems II chapter 16
+
+        std::vector<vk::AccelerationStructureInstanceKHR> instances;
+        std::vector<std::tuple<const Model &, vk::TransformMatrixKHR>>
+            modelInstances;
+        modelInstances.reserve(scene.modelInstances.size());
+
+        size_t instanceCount = 0;
+        for (const auto &mi : scene.modelInstances)
+        {
+            const auto &model = _models[mi.modelID];
+            modelInstances.emplace_back(
+                model, convertTransform(mi.transforms.modelToWorld));
+            instanceCount += model.subModels.size();
+        }
+        instances.reserve(instanceCount);
+
+        for (const auto &[model, trfn] : modelInstances)
+        {
+            for (const auto &sm : model.subModels)
+            {
+                assert(sm.meshID <= 0x7FFF);
+                assert(sm.materialID <= 0x1FF);
+
+                const auto &blas = _blases[sm.meshID];
+                assert(blas.handle != vk::AccelerationStructureKHR{});
+
+                instances.push_back(vk::AccelerationStructureInstanceKHR{
+                    .transform = trfn,
+                    .instanceCustomIndex = (sm.meshID << 9) | sm.materialID,
+                    .mask = 0xFF,
+                    .accelerationStructureReference =
+                        _device->logical().getAccelerationStructureAddressKHR(
+                            vk::AccelerationStructureDeviceAddressInfoKHR{
+                                .accelerationStructure = blas.handle,
+                            }),
+                });
+            }
+        }
+
+        auto instancesBuffer = _device->createBuffer(
+            "InstancesBuffer", sizeof(instances[0]) * instances.size(),
+            vk::BufferUsageFlagBits::eTransferDst |
+                vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                vk::BufferUsageFlagBits::
+                    eAccelerationStructureBuildInputReadOnlyKHR,
+            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY,
+            instances.data());
+
+        // Need a barrier here if a shared command buffer is used so that the
+        // copy happens before the build
+
+        const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
+            .primitiveCount = asserted_cast<uint32_t>(instances.size()),
+            .primitiveOffset = 0,
+        };
+
+        const vk::AccelerationStructureGeometryInstancesDataKHR instancesData{
+            .data =
+                _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                    .buffer = instancesBuffer.handle,
+                }),
+        };
+        const vk::AccelerationStructureGeometryKHR geometry{
+            .geometryType = vk::GeometryTypeKHR::eInstances,
+            .geometry = instancesData,
+        };
+        vk::AccelerationStructureBuildGeometryInfoKHR buildInfo{
+            .type = vk::AccelerationStructureTypeKHR::eTopLevel,
+            .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
+            .geometryCount = 1,
+            .pGeometries = &geometry,
+        };
+
+        // TODO: This stuff is ~the same for TLAS and BLAS
+        const auto sizeInfo =
+            _device->logical().getAccelerationStructureBuildSizesKHR(
+                vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
+                {rangeInfo.primitiveCount});
+
+        tlas.buffer = _device->createBuffer(
+            "TLASBuffer", sizeInfo.accelerationStructureSize,
+            vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
+                vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                vk::BufferUsageFlagBits::eStorageBuffer,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+        const vk::AccelerationStructureCreateInfoKHR createInfo{
+            .buffer = tlas.buffer.handle,
+            .size = sizeInfo.accelerationStructureSize,
+            .type = buildInfo.type,
+        };
+        tlas.handle =
+            _device->logical().createAccelerationStructureKHR(createInfo);
+
+        buildInfo.dstAccelerationStructure = tlas.handle;
+
+        // TODO: Reuse and grow scratch
+        const auto scratchBuffer = _device->createBuffer(
+            "ScratchBuffer", sizeInfo.buildScratchSize,
+            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                vk::BufferUsageFlagBits::eStorageBuffer,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+        buildInfo.scratchData =
+            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                .buffer = scratchBuffer.handle,
+            });
+
+        const auto cb = _device->beginGraphicsCommands();
+
+        const auto *pRangeInfo = &rangeInfo;
+        // TODO: Use a single cb for instance buffer copies and builds for all
+        //       tlases need a barrier after buffer copy and build!
+        cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
+
+        _device->endGraphicsCommands(cb);
+
+        _device->destroy(scratchBuffer);
+        _device->destroy(instancesBuffer);
     }
 }
 
