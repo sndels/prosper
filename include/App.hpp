@@ -20,7 +20,7 @@
 class App
 {
   public:
-    App(const std::filesystem::path &scene);
+    App(const std::filesystem::path &scene, bool enableDebugLayers);
     ~App();
 
     App(const App &other) = delete;

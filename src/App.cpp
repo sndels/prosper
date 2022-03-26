@@ -87,9 +87,9 @@ RenderResources::DescriptorPools createDescriptorPools(
 }
 } // namespace
 
-App::App(const std::filesystem::path & scene)
+App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 : _window{{WIDTH, HEIGHT}, "prosper"}
-, _device{_window.ptr()}
+, _device{_window.ptr(), enableDebugLayers}
 , _swapConfig{&_device, {_window.width(), _window.height()}}
 , _swapchain{&_device, _swapConfig}
 , _swapCommandBuffers{allocateSwapCommandBuffers(&_device, _swapConfig.imageCount)}

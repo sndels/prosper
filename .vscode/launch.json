@@ -9,7 +9,9 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/Release/prosper.exe",
-            "args": [],
+            "args": [
+                "--debugLayers"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
@@ -21,7 +23,9 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/RelWithDebInfo/prosper.exe",
-            "args": [],
+            "args": [
+                "--debugLayers"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
@@ -33,7 +37,9 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/Debug/prosper.exe",
-            "args": [],
+            "args": [
+                "--debugLayers"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

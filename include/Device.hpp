@@ -55,7 +55,7 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
 class Device
 {
   public:
-    Device(GLFWwindow *window);
+    Device(GLFWwindow *window, bool enableDebugLayers);
     ~Device();
 
     Device(const Device &other) = delete;
@@ -111,11 +111,11 @@ class Device
   private:
     [[nodiscard]] bool isDeviceSuitable(vk::PhysicalDevice device) const;
 
-    void createInstance();
+    void createInstance(bool enableDebugLayers);
     void createDebugMessenger();
     void createSurface(GLFWwindow *window);
     void selectPhysicalDevice();
-    void createLogicalDevice();
+    void createLogicalDevice(bool enableDebugLayers);
     void createAllocator();
     void createCommandPools();
 

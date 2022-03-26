@@ -7,22 +7,38 @@
 #include "App.hpp"
 #include "Utils.hpp"
 
+static const char *default_scene_path =
+    "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
+
 int main(int argc, char *argv[])
 {
     try
     {
-        std::filesystem::path scenePath{
-            "glTF/FlightHelmet/glTF/FlightHelmet.gltf"};
+        std::filesystem::path scenePath{default_scene_path};
+        bool enableDebugLayers = false;
         if (argc == 2)
         {
-            scenePath = argv[1];
+            if (std::string{argv[1]} == "--debugLayers")
+                enableDebugLayers = true;
+            else
+                scenePath = argv[1];
+        }
+        else if (argc == 3)
+        {
+            if (std::string{argv[1]} == "--debugLayers")
+                enableDebugLayers = true;
+            else
+                throw std::runtime_error(
+                    "Unexpected argument '" + std::string{argv[1]} + "'");
+            scenePath = argv[2];
         }
         else if (argc != 1)
         {
             throw std::runtime_error(
-                "Expected 0 or 1 cli args, got " + std::to_string(argc - 1));
+                "Expected 0-2 cli args, got " + std::to_string(argc - 1));
         }
-        else
+
+        if (scenePath == default_scene_path)
         {
             const auto sceneConfPath = resPath("scene.txt");
             if (std::filesystem::exists(sceneConfPath))
@@ -34,7 +50,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        App app{scenePath};
+        App app{scenePath, enableDebugLayers};
         app.run();
     }
     catch (std::exception &e)

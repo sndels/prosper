@@ -233,19 +233,20 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
     _includeContent.erase(reinterpret_cast<uint64_t>(data->user_data));
 }
 
-Device::Device(GLFWwindow *window)
+Device::Device(GLFWwindow *window, bool enableDebugLayers)
 {
     fprintf(stderr, "Creating Vulkan device\n");
 
     _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
     _compilerOptions.SetGenerateDebugInfo();
+    _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
 
     vk::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-    createInstance();
+    createInstance(enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
 
     createDebugMessenger();
@@ -253,7 +254,7 @@ Device::Device(GLFWwindow *window)
     selectPhysicalDevice();
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
-    createLogicalDevice();
+    createLogicalDevice(enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
 
     createAllocator();
@@ -630,9 +631,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     return false;
 }
 
-void Device::createInstance()
+void Device::createInstance(bool enableDebugLayers)
 {
-    if (!checkValidationLayerSupport())
+    if (enableDebugLayers && !checkValidationLayerSupport())
         throw std::runtime_error("Validation layers not available");
 
     const vk::ApplicationInfo appInfo{
@@ -647,8 +648,11 @@ void Device::createInstance()
 
     _instance = vk::createInstance(vk::InstanceCreateInfo{
         .pApplicationInfo = &appInfo,
-        .enabledLayerCount = asserted_cast<uint32_t>(validationLayers.size()),
-        .ppEnabledLayerNames = validationLayers.data(),
+        .enabledLayerCount =
+            enableDebugLayers ? asserted_cast<uint32_t>(validationLayers.size())
+                              : 0,
+        .ppEnabledLayerNames =
+            enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount = asserted_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data(),
     });
@@ -699,7 +703,7 @@ void Device::selectPhysicalDevice()
     throw std::runtime_error("Failed to find a suitable GPU");
 }
 
-void Device::createLogicalDevice()
+void Device::createLogicalDevice(bool enableDebugLayers)
 {
     const uint32_t computeFamily = _queueFamilies.computeFamily.value();
     const uint32_t graphicsFamily = _queueFamilies.graphicsFamily.value();
@@ -737,8 +741,11 @@ void Device::createLogicalDevice()
                     asserted_cast<uint32_t>(queueCreateInfos.size()),
                 .pQueueCreateInfos = queueCreateInfos.data(),
                 .enabledLayerCount =
-                    asserted_cast<uint32_t>(validationLayers.size()),
-                .ppEnabledLayerNames = validationLayers.data(),
+                    enableDebugLayers
+                        ? asserted_cast<uint32_t>(validationLayers.size())
+                        : 0,
+                .ppEnabledLayerNames =
+                    enableDebugLayers ? validationLayers.data() : nullptr,
                 .enabledExtensionCount =
                     asserted_cast<uint32_t>(deviceExtensions.size()),
                 .ppEnabledExtensionNames = deviceExtensions.data(),
