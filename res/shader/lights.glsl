@@ -1,4 +1,4 @@
-layout(set = 0, binding = 0) uniform DirectionalLight
+layout(set = LIGHTS_SET, binding = 0) uniform DirectionalLight
 {
     vec4 irradiance;
     vec4 direction;
@@ -14,7 +14,7 @@ struct PointLight
     vec4 position;
 };
 
-layout(set = 0, binding = 1) buffer PointLights
+layout(set = LIGHTS_SET, binding = 1) buffer PointLights
 {
     PointLight lights[MAX_POINT_LIGHT_COUNT];
     uint count;
@@ -31,7 +31,7 @@ struct SpotLight
     vec4 direction;
 };
 
-layout(set = 0, binding = 2) buffer SpotLights
+layout(set = LIGHTS_SET, binding = 2) buffer SpotLights
 {
     SpotLight lights[MAX_SPOT_LIGHT_COUNT];
     uint count;

@@ -8,11 +8,14 @@
 #define PI 3.14159265
 #define saturate(x) clamp(x, 0.0, 1.0)
 
-#include "ds0_lights.glsl"
+#define LIGHTS_SET 0
+#include "lights.glsl"
 
-#include "ds1_camera.glsl"
+#define CAMERA_SET 1
+#include "camera.glsl"
 
-#include "ds2_light_clusters.glsl"
+#define LIGHT_CLUSTERS_SET 2
+#include "light_clusters.glsl"
 
 const uint AlphaModeOpaque = 0;
 const uint AlphaModeMask = 1;

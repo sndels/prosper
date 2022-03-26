@@ -1,4 +1,4 @@
-layout(set = 1, binding = 0) uniform Camera
+layout(set = CAMERA_SET, binding = 0) uniform Camera
 {
     mat4 worldToCamera;
     mat4 cameraToClip;

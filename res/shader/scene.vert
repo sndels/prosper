@@ -4,7 +4,8 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_GOOGLE_include_directive : require
 
-#include "ds1_camera.glsl"
+#define CAMERA_SET 1
+#include "camera.glsl"
 
 struct Transforms
 {

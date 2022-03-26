@@ -10,12 +10,12 @@
 #define UNIFORM_TYPE readonly
 #endif
 
-layout(set = 2, binding = 0, rg32ui) uniform UNIFORM_TYPE uimage3D
-    clusterPointers;
-layout(set = 2, binding = 1, r32ui) uniform COUNT_UNIFORM_TYPE uimageBuffer
-    lightIndicesCount;
-layout(set = 2, binding = 2, r16ui) uniform UNIFORM_TYPE uimageBuffer
-    lightIndices;
+layout(set = LIGHT_CLUSTERS_SET, binding = 0, rg32ui) uniform
+    UNIFORM_TYPE uimage3D clusterPointers;
+layout(set = LIGHT_CLUSTERS_SET, binding = 1, r32ui) uniform COUNT_UNIFORM_TYPE
+    uimageBuffer lightIndicesCount;
+layout(set = LIGHT_CLUSTERS_SET, binding = 2, r16ui) uniform UNIFORM_TYPE
+    uimageBuffer lightIndices;
 
 const float Z_SCALE = 2.4;
 const float Z_BIAS = -4.5;

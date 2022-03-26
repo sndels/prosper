@@ -4,12 +4,15 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_control_flow_attributes : require
 
-#include "ds0_lights.glsl"
+#define LIGHTS_SET 0
+#include "lights.glsl"
 
-#include "ds1_camera.glsl"
+#define CAMERA_SET 1
+#include "camera.glsl"
 
+#define LIGHT_CLUSTERS_SET 2
 #define WRITE_CULLING_BINDS
-#include "ds2_light_clusters.glsl"
+#include "light_clusters.glsl"
 
 layout(
     local_size_x = LIGHT_CLUSTER_DIMENSION,
