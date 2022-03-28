@@ -97,16 +97,21 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
     .descriptorPools =
         createDescriptorPools(&_device, _swapConfig.imageCount)}
 , _cam{&_device, _resources.descriptorPools.constant, _swapConfig.imageCount,
-    vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment| vk::ShaderStageFlagBits::eCompute}
+    vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
+    | vk::ShaderStageFlagBits::eCompute|
+    vk::ShaderStageFlagBits::eRaygenKHR}
 , _world{
     &_device, _swapConfig.imageCount,
     scene}
 , _lightClustering{
+
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _renderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
+, _rtRenderer{
+      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),_world._dsLayouts}
 , _transparentsRenderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
       _world._dsLayouts}
@@ -185,6 +190,8 @@ void App::recreateSwapchainAndRelated()
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _renderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+    _rtRenderer.recreateSwapchainRelated(
+        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _transparentsRenderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _skyboxRenderer.recreateSwapchainRelated(_swapConfig, _world._dsLayouts);
@@ -215,6 +222,8 @@ void App::recompileShaders()
             _cam.descriptorSetLayout(), _world._dsLayouts);
         _renderer.recompileShaders(
             _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+        _rtRenderer.recompileShaders(
+            _cam.descriptorSetLayout(), _world._dsLayouts);
         _transparentsRenderer.recompileShaders(
             _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
         _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
@@ -374,6 +383,8 @@ void App::drawFrame()
 
         _recompileShaders = ImGui::Button("Recompile shaders");
 
+        ImGui::Checkbox("Render RT", &_renderRT);
+
         ImGui::End();
     }
 
@@ -396,14 +407,22 @@ void App::drawFrame()
     commandBuffers.push_back(_lightClustering.recordCommandBuffer(
         scene, _cam, renderArea, nextImage));
 
-    commandBuffers.push_back(
-        _renderer.recordCommandBuffer(_world, _cam, renderArea, nextImage));
+    if (_renderRT)
+    {
+        commandBuffers.push_back(_rtRenderer.recordCommandBuffer(
+            _world, _cam, renderArea, nextImage));
+    }
+    else
+    {
+        commandBuffers.push_back(
+            _renderer.recordCommandBuffer(_world, _cam, renderArea, nextImage));
 
-    commandBuffers.push_back(_transparentsRenderer.recordCommandBuffer(
-        _world, _cam, renderArea, nextImage));
+        commandBuffers.push_back(_transparentsRenderer.recordCommandBuffer(
+            _world, _cam, renderArea, nextImage));
 
-    commandBuffers.push_back(
-        _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));
+        commandBuffers.push_back(
+            _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));
+    }
 
     commandBuffers.push_back(_toneMap.execute(nextImage));
 

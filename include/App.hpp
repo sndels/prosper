@@ -5,6 +5,7 @@
 #include "Device.hpp"
 #include "ImGuiRenderer.hpp"
 #include "LightClustering.hpp"
+#include "RTRenderer.hpp"
 #include "RenderResources.hpp"
 #include "Renderer.hpp"
 #include "SkyboxRenderer.hpp"
@@ -54,6 +55,7 @@ class App
 
     LightClustering _lightClustering;
     Renderer _renderer;
+    RTRenderer _rtRenderer;
     TransparentsRenderer _transparentsRenderer;
     SkyboxRenderer _skyboxRenderer;
     ToneMap _toneMap;
@@ -62,6 +64,7 @@ class App
     bool _useFpsLimit{true};
     int32_t _fpsLimit{140};
     bool _recompileShaders{false};
+    bool _renderRT{false};
 
     Timer _frameTimer;
 

@@ -11,6 +11,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/RTRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TransparentsRenderer.cpp

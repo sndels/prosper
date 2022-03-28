@@ -1,0 +1,64 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : require
+
+#pragma shader_stage(raygen)
+
+#define CAMERA_SET 0
+#include "camera.glsl"
+
+#include "rt/ray.glsl"
+
+layout(set = 1, binding = 0, rgba16f) uniform writeonly image2D colorOut;
+layout(set = 2, binding = 0) uniform accelerationStructureEXT as;
+
+#include "rt/payload.glsl"
+
+layout(location = 0) rayPayloadEXT RayPayload payload;
+
+// TODO: More colors
+vec3 uintToColor(uint x)
+{
+    return vec3(x & 0x1, (x & 0x2) >> 1, (x & 0x4) >> 2);
+}
+
+struct Instance
+{
+    uint meshID;
+    uint materialID;
+};
+
+void unpackInstance(in uint id, out Instance instance)
+{
+    instance.meshID = (id >> 9) & 0x7FFF;
+    instance.materialID = id & 0x1FF;
+}
+
+void main()
+{
+    uvec2 px = gl_LaunchIDEXT.xy;
+    vec2 uv = (px + 0.5) / gl_LaunchSizeEXT.xy;
+
+    Ray ray = pinholeCameraRay(uv);
+
+    uint mask = 0xFF;
+
+    payload.instanceCustomIndex = 0;
+    payload.primitiveID = 0;
+    traceRayEXT(
+        as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
+        ray.tMax, 0);
+
+    Instance instance;
+    unpackInstance(payload.instanceCustomIndex, instance);
+
+    vec3 color;
+    if (uv.x < 0.333)
+        color = uintToColor(payload.primitiveID);
+    else if (uv.x < 0.666)
+        color = uintToColor(instance.meshID);
+    else
+        color = uintToColor(instance.materialID);
+
+    imageStore(colorOut, ivec2(px), vec4(color, 1));
+}
