@@ -234,7 +234,7 @@ Buffer Texture2D::stagePixels(
         "Texture2DStaging", imageSize, vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
+        MemoryAccess::HostSequentialWrite);
 
     void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);
@@ -262,7 +262,7 @@ void Texture2D::createImage(
         vk::ImageUsageFlagBits::eTransferSrc |
             vk::ImageUsageFlagBits::eTransferDst |
             vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
@@ -456,7 +456,7 @@ TextureCubemap::TextureCubemap(
         vk::ImageViewType::eCube, vk::ImageTiling::eOptimal,
         vk::ImageCreateFlagBits::eCubeCompatible,
         vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     copyPixels(cube, subresourceRange);
 
@@ -483,7 +483,7 @@ void TextureCubemap::copyPixels(
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
+        MemoryAccess::HostSequentialWrite);
 
     void *data = nullptr;
     _device->map(stagingBuffer.allocation, &data);

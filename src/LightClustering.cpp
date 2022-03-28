@@ -78,8 +78,7 @@ LightClustering::LightClustering(
         "LightClusteringIndicesCounter", vk::Format::eR32Uint, sizeof(uint32_t),
         vk::BufferUsageFlagBits::eTransferDst |
             vk::BufferUsageFlagBits::eStorageTexelBuffer,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, true,
-        VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal, true);
 
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
@@ -267,7 +266,7 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
         vk::Format::eR32G32Uint, subresourceRange, vk::ImageViewType::e3D,
         vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
         vk::ImageUsageFlagBits::eStorage,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     const vk::DeviceSize indicesSize =
         static_cast<vk::DeviceSize>(
@@ -277,8 +276,7 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
         "lightClusterIndices", vk::Format::eR16Uint,
         indicesSize * sizeof(uint16_t),
         vk::BufferUsageFlagBits::eStorageTexelBuffer,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, false,
-        VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal, false);
 }
 
 void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)

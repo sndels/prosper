@@ -270,8 +270,7 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
             vk::ImageCreateFlagBits{},
             vk::ImageUsageFlagBits::eColorAttachment | // Render
                 vk::ImageUsageFlagBits::eStorage,      // ToneMap
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
     }
     {
         // Check depth buffer without stencil is supported
@@ -300,8 +299,7 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
             vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
             vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 

@@ -197,7 +197,7 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
         vk::ImageUsageFlagBits::eStorage |             // ToneMap
             vk::ImageUsageFlagBits::eColorAttachment | // ImGui
             vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 }
 
 void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)

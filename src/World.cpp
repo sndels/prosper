@@ -89,7 +89,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
+        MemoryAccess::HostSequentialWrite);
 
     void *data = nullptr;
     device->map(stagingBuffer.allocation, &data);
@@ -100,7 +100,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
         "SkyboxVertexBuffer", bufferSize,
         vk::BufferUsageFlagBits::eVertexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     const auto commandBuffer = device->beginGraphicsCommands();
 
@@ -742,8 +742,7 @@ void World::createBlases()
             vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
                 vk::BufferUsageFlagBits::eStorageBuffer,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         const vk::AccelerationStructureCreateInfoKHR createInfo{
             .buffer = blas.buffer.handle,
@@ -760,8 +759,7 @@ void World::createBlases()
             "ScratchBuffer", sizeInfo.buildScratchSize,
             vk::BufferUsageFlagBits::eShaderDeviceAddress |
                 vk::BufferUsageFlagBits::eStorageBuffer,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         buildInfo.scratchData =
             _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
@@ -833,7 +831,7 @@ void World::createTlases()
                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
                 vk::BufferUsageFlagBits::
                     eAccelerationStructureBuildInputReadOnlyKHR,
-            vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY,
+            vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
             instances.data());
 
         // Need a barrier here if a shared command buffer is used so that the
@@ -872,8 +870,7 @@ void World::createTlases()
             vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
                 vk::BufferUsageFlagBits::eStorageBuffer,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         const vk::AccelerationStructureCreateInfoKHR createInfo{
             .buffer = tlas.buffer.handle,
@@ -890,8 +887,7 @@ void World::createTlases()
             "ScratchBuffer", sizeInfo.buildScratchSize,
             vk::BufferUsageFlagBits::eShaderDeviceAddress |
                 vk::BufferUsageFlagBits::eStorageBuffer,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         buildInfo.scratchData =
             _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
@@ -922,7 +918,7 @@ void World::createBuffers(const uint32_t swapImageCount)
             vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible |
                 vk::MemoryPropertyFlagBits::eHostCoherent,
-            VMA_MEMORY_USAGE_CPU_TO_GPU);
+            MemoryAccess::HostSequentialWrite);
 
         void *data = nullptr;
         _device->map(stagingBuffer.allocation, &data);
@@ -933,8 +929,7 @@ void World::createBuffers(const uint32_t swapImageCount)
             "MaterialsBuffer", bufferSize,
             vk::BufferUsageFlagBits::eStorageBuffer |
                 vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 
@@ -964,7 +959,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            VMA_MEMORY_USAGE_CPU_TO_GPU));
+                            MemoryAccess::HostSequentialWrite));
             }
 
             {
@@ -977,7 +972,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eUniformBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            VMA_MEMORY_USAGE_CPU_TO_GPU));
+                            MemoryAccess::HostSequentialWrite));
             }
 
             {
@@ -990,7 +985,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            VMA_MEMORY_USAGE_CPU_TO_GPU));
+                            MemoryAccess::HostSequentialWrite));
             }
 
             {
@@ -1003,7 +998,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            VMA_MEMORY_USAGE_CPU_TO_GPU));
+                            MemoryAccess::HostSequentialWrite));
             }
         }
     }
@@ -1017,7 +1012,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent,
-                VMA_MEMORY_USAGE_CPU_TO_GPU));
+                MemoryAccess::HostSequentialWrite));
         }
     }
 }

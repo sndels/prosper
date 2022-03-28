@@ -198,6 +198,24 @@ const char *statusString(shaderc_compilation_status status)
     }
 }
 
+VmaAllocationCreateFlags intoVmaFlags(MemoryAccess access)
+{
+    VmaAllocationCreateFlags flags = 0;
+    switch (access)
+    {
+    case MemoryAccess::Device:
+        break;
+    case MemoryAccess::HostRandomWrite:
+        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        break;
+    case MemoryAccess::HostSequentialWrite:
+        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        break;
+    }
+
+    return flags;
+}
+
 } // namespace
 
 FileIncluder::FileIncluder()
@@ -375,16 +393,16 @@ void Device::unmap(VmaAllocation allocation) const
 Buffer Device::createBuffer(
     const std::string &debugName, const vk::DeviceSize size,
     const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const VmaMemoryUsage vmaUsage, void *initialData) const
+    const MemoryAccess access, void *initialData) const
 {
     vk::BufferCreateInfo bufferInfo{
         .size = size,
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
-    // TODO: preferred flags, create mapped
     VmaAllocationCreateInfo allocInfo = {
-        .usage = vmaUsage,
+        .flags = intoVmaFlags(access),
+        .usage = VMA_MEMORY_USAGE_AUTO,
         .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
     };
 
@@ -409,7 +427,7 @@ Buffer Device::createBuffer(
             vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible |
                 vk::MemoryPropertyFlagBits::eHostCoherent,
-            VMA_MEMORY_USAGE_CPU_TO_GPU);
+            MemoryAccess::HostSequentialWrite);
 
         void *mapped = nullptr;
         map(stagingBuffer.allocation, &mapped);
@@ -444,7 +462,7 @@ TexelBuffer Device::createTexelBuffer(
     const std::string &debugName, const vk::Format format,
     const vk::DeviceSize size, const vk::BufferUsageFlags usage,
     const vk::MemoryPropertyFlags properties, const bool supportAtomics,
-    const VmaMemoryUsage vmaUsage) const
+    const MemoryAccess access) const
 {
     const auto formatProperties = _physical.getFormatProperties(format);
 
@@ -471,7 +489,7 @@ TexelBuffer Device::createTexelBuffer(
     }
 
     const auto buffer =
-        createBuffer(debugName, size, usage, properties, vmaUsage);
+        createBuffer(debugName, size, usage, properties, access);
 
     const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
         .buffer = buffer.handle,
@@ -502,7 +520,7 @@ Image Device::createImage(
     const vk::ImageSubresourceRange &range, const vk::ImageViewType viewType,
     const vk::ImageTiling tiling, const vk::ImageCreateFlags flags,
     const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const VmaMemoryUsage vmaUsage) const
+    const MemoryAccess access) const
 {
     vk::ImageCreateInfo imageInfo{
         .flags = flags,
@@ -516,9 +534,9 @@ Image Device::createImage(
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
-    // TODO: preferred flags, create mapped
     VmaAllocationCreateInfo allocInfo = {
-        .usage = vmaUsage,
+        .flags = intoVmaFlags(access),
+        .usage = VMA_MEMORY_USAGE_AUTO,
         .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
     };
 

@@ -11,6 +11,13 @@
 #include <unordered_set>
 #include <vector>
 
+enum class MemoryAccess
+{
+    Device,
+    HostSequentialWrite,
+    HostRandomWrite,
+};
+
 struct QueueFamilies
 {
     std::optional<uint32_t> computeFamily;
@@ -87,13 +94,13 @@ class Device
     [[nodiscard]] Buffer createBuffer(
         const std::string &debugName, vk::DeviceSize size,
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-        VmaMemoryUsage vmaUsage, void *initialData = nullptr) const;
+        MemoryAccess access = {}, void *initialData = nullptr) const;
     void destroy(const Buffer &buffer) const;
 
     [[nodiscard]] TexelBuffer createTexelBuffer(
         const std::string &debugName, vk::Format format, vk::DeviceSize size,
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-        bool supportAtomics, VmaMemoryUsage vmaUsage) const;
+        bool supportAtomics, MemoryAccess access = {}) const;
     void destroy(const TexelBuffer &buffer) const;
 
     [[nodiscard]] Image createImage(
@@ -102,7 +109,7 @@ class Device
         const vk::ImageSubresourceRange &range, vk::ImageViewType viewType,
         vk::ImageTiling tiling, vk::ImageCreateFlags flags,
         vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-        VmaMemoryUsage vmaUsage) const;
+        MemoryAccess access = {}) const;
     void destroy(const Image &image) const;
 
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;

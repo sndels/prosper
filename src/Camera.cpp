@@ -172,7 +172,7 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                 vk::MemoryPropertyFlagBits::eHostCoherent,
-            VMA_MEMORY_USAGE_CPU_TO_GPU));
+            MemoryAccess::HostSequentialWrite));
     }
 }
 

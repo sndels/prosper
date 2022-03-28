@@ -343,7 +343,7 @@ void RTRenderer::createShaderBindingTable()
             vk::BufferUsageFlagBits::eShaderBindingTableKHR,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
+        MemoryAccess::HostSequentialWrite);
 
     void *mapped;
     _device->map(_shaderBindingTable.allocation, &mapped);

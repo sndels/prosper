@@ -76,7 +76,7 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
+        MemoryAccess::HostSequentialWrite);
 
     // Move vertex data to staging
     void *data = nullptr;
@@ -90,7 +90,7 @@ void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
             vk::BufferUsageFlagBits::eShaderDeviceAddress |
             vk::BufferUsageFlagBits::eVertexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
@@ -116,7 +116,7 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
         vk::BufferUsageFlagBits::eTransferSrc,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent,
-        VMA_MEMORY_USAGE_CPU_TO_GPU);
+        MemoryAccess::HostSequentialWrite);
 
     // Move index data to staging
     void *data = nullptr;
@@ -130,7 +130,7 @@ void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
             vk::BufferUsageFlagBits::eShaderDeviceAddress |
             vk::BufferUsageFlagBits::eIndexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY);
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
