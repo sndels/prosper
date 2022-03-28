@@ -24,6 +24,7 @@ class World
     {
         vk::DescriptorSetLayout materialTextures;
         vk::DescriptorSetLayout modelInstances;
+        vk::DescriptorSetLayout accelerationStructure;
         vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout lightsClustered;
         vk::DescriptorSetLayout skybox;

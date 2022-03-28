@@ -48,6 +48,7 @@ struct Scene
 
     std::vector<Buffer> modelInstanceTransformsBuffers;
     std::vector<vk::DescriptorSet> modelInstancesDescriptorSets;
+    vk::DescriptorSet accelerationStructureDS;
 
     Lights lights;
 };
