@@ -88,8 +88,10 @@ class Device
         const std::string &source, const std::string &path,
         const std::string &debugName) const;
 
-    void map(VmaAllocation allocation, void **data) const;
-    void unmap(VmaAllocation allocation) const;
+    [[nodiscard]] void *map(Buffer const &buffer) const;
+    void unmap(Buffer const &buffer) const;
+    [[nodiscard]] void *map(Image const &texture) const;
+    void unmap(Image const &texture) const;
 
     [[nodiscard]] Buffer createBuffer(
         const std::string &debugName, vk::DeviceSize size,
@@ -117,6 +119,9 @@ class Device
 
   private:
     [[nodiscard]] bool isDeviceSuitable(vk::PhysicalDevice device) const;
+
+    [[nodiscard]] void *map(VmaAllocation allocation) const;
+    void unmap(VmaAllocation allocation) const;
 
     void createInstance(bool enableDebugLayers);
     void createDebugMessenger();

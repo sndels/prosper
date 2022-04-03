@@ -393,15 +393,16 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     return sm;
 }
 
-void Device::map(VmaAllocation allocation, void **data) const
+void *Device::map(Buffer const &buffer) const { return map(buffer.allocation); }
+
+void Device::unmap(Buffer const &buffer) const { unmap(buffer.allocation); }
+
+void *Device::map(Image const &texture) const
 {
-    vmaMapMemory(_allocator, allocation, data);
+    return map(texture.allocation);
 }
 
-void Device::unmap(VmaAllocation allocation) const
-{
-    vmaUnmapMemory(_allocator, allocation);
-}
+void Device::unmap(Image const &texture) const { unmap(texture.allocation); }
 
 Buffer Device::createBuffer(
     const std::string &debugName, const vk::DeviceSize size,
@@ -443,10 +444,9 @@ Buffer Device::createBuffer(
                 vk::MemoryPropertyFlagBits::eHostCoherent,
             MemoryAccess::HostSequentialWrite);
 
-        void *mapped = nullptr;
-        map(stagingBuffer.allocation, &mapped);
+        void *mapped = map(stagingBuffer);
         memcpy(mapped, initialData, size);
-        unmap(stagingBuffer.allocation);
+        unmap(stagingBuffer);
 
         const auto commandBuffer = beginGraphicsCommands();
 
@@ -662,6 +662,18 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
         return true;
 
     return false;
+}
+
+void *Device::map(VmaAllocation allocation) const
+{
+    void *mapped = nullptr;
+    vmaMapMemory(_allocator, allocation, &mapped);
+    return mapped;
+}
+
+void Device::unmap(VmaAllocation allocation) const
+{
+    vmaUnmapMemory(_allocator, allocation);
 }
 
 void Device::createInstance(bool enableDebugLayers)

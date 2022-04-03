@@ -345,8 +345,7 @@ void RTRenderer::createShaderBindingTable()
             vk::MemoryPropertyFlagBits::eHostCoherent,
         MemoryAccess::HostSequentialWrite);
 
-    void *mapped;
-    _device->map(_shaderBindingTable.allocation, &mapped);
+    void *mapped = _device->map(_shaderBindingTable);
 
     auto *pData = reinterpret_cast<uint8_t *>(mapped);
     for (auto i = 0u; i < groupCount; ++i)
@@ -357,7 +356,7 @@ void RTRenderer::createShaderBindingTable()
         pData += _sbtGroupSize;
     }
 
-    _device->unmap(_shaderBindingTable.allocation);
+    _device->unmap(_shaderBindingTable);
 }
 
 void RTRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)

@@ -109,10 +109,9 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
         .far = _parameters.zF,
     };
 
-    void *data = nullptr;
-    _device->map(_uniformBuffers[index].allocation, &data);
-    memcpy(data, &uniforms, sizeof(CameraUniforms));
-    _device->unmap(_uniformBuffers[index].allocation);
+    void *mapped = _device->map(_uniformBuffers[index]);
+    memcpy(mapped, &uniforms, sizeof(CameraUniforms));
+    _device->unmap(_uniformBuffers[index]);
 }
 
 std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const

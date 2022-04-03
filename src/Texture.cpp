@@ -236,10 +236,9 @@ Buffer Texture2D::stagePixels(
             vk::MemoryPropertyFlagBits::eHostCoherent,
         MemoryAccess::HostSequentialWrite);
 
-    void *data = nullptr;
-    _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, pixels, asserted_cast<size_t>(imageSize));
-    _device->unmap(stagingBuffer.allocation);
+    void *mapped = _device->map(stagingBuffer);
+    memcpy(mapped, pixels, asserted_cast<size_t>(imageSize));
+    _device->unmap(stagingBuffer);
 
     return stagingBuffer;
 }
@@ -485,10 +484,9 @@ void TextureCubemap::copyPixels(
             vk::MemoryPropertyFlagBits::eHostCoherent,
         MemoryAccess::HostSequentialWrite);
 
-    void *data = nullptr;
-    _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, cube.data(), cube.size());
-    _device->unmap(stagingBuffer.allocation);
+    void *mapped = _device->map(stagingBuffer);
+    memcpy(mapped, cube.data(), cube.size());
+    _device->unmap(stagingBuffer);
 
     // Collect memory regions of all faces and their miplevels so their
     // transfers can be submitted together

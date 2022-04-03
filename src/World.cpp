@@ -185,10 +185,11 @@ void World::updateUniformBuffers(
     {
         const mat4 worldToClip =
             cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-        void *data = nullptr;
-        _device->map(_skyboxUniformBuffers[nextImage].allocation, &data);
-        memcpy(data, &worldToClip, sizeof(mat4));
-        _device->unmap(_skyboxUniformBuffers[nextImage].allocation);
+
+        const auto &buffer = _skyboxUniformBuffers[nextImage];
+        void *mapped = _device->map(buffer);
+        memcpy(mapped, &worldToClip, sizeof(mat4));
+        _device->unmap(buffer);
     }
 
     const auto &scene = currentScene();
@@ -199,14 +200,12 @@ void World::updateUniformBuffers(
         for (const auto &instance : scene.modelInstances)
             transforms.push_back(instance.transforms);
 
-        auto *allocation =
-            scene.modelInstanceTransformsBuffers[nextImage].allocation;
-        void *data = nullptr;
-        _device->map(allocation, &data);
+        const auto &buffer = scene.modelInstanceTransformsBuffers[nextImage];
+        void *mapped = _device->map(buffer);
         memcpy(
-            data, transforms.data(),
+            mapped, transforms.data(),
             sizeof(ModelInstance::Transforms) * transforms.size());
-        _device->unmap(allocation);
+        _device->unmap(buffer);
     }
 
     scene.lights.directionalLight.updateBuffer(_device, nextImage);
