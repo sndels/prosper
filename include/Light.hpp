@@ -18,7 +18,7 @@ struct DirectionalLight
 
     [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
 
-    void updateBuffer(const Device *device, const uint32_t nextImage) const;
+    void updateBuffer(uint32_t nextImage) const;
 };
 
 struct PointLights
@@ -40,7 +40,7 @@ struct PointLights
 
     [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
 
-    void updateBuffer(const Device *device, const uint32_t nextImage) const;
+    void updateBuffer(uint32_t nextImage) const;
 };
 
 struct SpotLights
@@ -63,7 +63,7 @@ struct SpotLights
 
     [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
 
-    void updateBuffer(const Device *device, const uint32_t nextImage) const;
+    void updateBuffer(uint32_t nextImage) const;
 };
 
 #endif // PROSPER_LIGHT_HPP

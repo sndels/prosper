@@ -186,10 +186,9 @@ void World::updateUniformBuffers(
         const mat4 worldToClip =
             cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
 
-        const auto &buffer = _skyboxUniformBuffers[nextImage];
-        void *mapped = _device->map(buffer);
-        memcpy(mapped, &worldToClip, sizeof(mat4));
-        _device->unmap(buffer);
+        memcpy(
+            _skyboxUniformBuffers[nextImage].mapped, &worldToClip,
+            sizeof(mat4));
     }
 
     const auto &scene = currentScene();
@@ -200,17 +199,15 @@ void World::updateUniformBuffers(
         for (const auto &instance : scene.modelInstances)
             transforms.push_back(instance.transforms);
 
-        const auto &buffer = scene.modelInstanceTransformsBuffers[nextImage];
-        void *mapped = _device->map(buffer);
         memcpy(
-            mapped, transforms.data(),
+            scene.modelInstanceTransformsBuffers[nextImage].mapped,
+            transforms.data(),
             sizeof(ModelInstance::Transforms) * transforms.size());
-        _device->unmap(buffer);
     }
 
-    scene.lights.directionalLight.updateBuffer(_device, nextImage);
-    scene.lights.pointLights.updateBuffer(_device, nextImage);
-    scene.lights.spotLights.updateBuffer(_device, nextImage);
+    scene.lights.directionalLight.updateBuffer(nextImage);
+    scene.lights.pointLights.updateBuffer(nextImage);
+    scene.lights.spotLights.updateBuffer(nextImage);
 }
 
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
@@ -902,7 +899,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            MemoryAccess::HostSequentialWrite));
+                            MemoryAccess::HostSequentialWrite, nullptr, true));
             }
 
             {
@@ -915,7 +912,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eUniformBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            MemoryAccess::HostSequentialWrite));
+                            MemoryAccess::HostSequentialWrite, nullptr, true));
             }
 
             {
@@ -928,7 +925,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            MemoryAccess::HostSequentialWrite));
+                            MemoryAccess::HostSequentialWrite, nullptr, true));
             }
 
             {
@@ -941,7 +938,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                             vk::BufferUsageFlagBits::eStorageBuffer,
                             vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            MemoryAccess::HostSequentialWrite));
+                            MemoryAccess::HostSequentialWrite, nullptr, true));
             }
         }
     }
@@ -955,7 +952,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent,
-                MemoryAccess::HostSequentialWrite));
+                MemoryAccess::HostSequentialWrite, nullptr, true));
         }
     }
 }

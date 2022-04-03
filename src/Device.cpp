@@ -452,11 +452,9 @@ Buffer Device::createBuffer(
             vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible |
                 vk::MemoryPropertyFlagBits::eHostCoherent,
-            MemoryAccess::HostSequentialWrite);
+            MemoryAccess::HostSequentialWrite, nullptr, true);
 
-        void *mapped = map(stagingBuffer);
-        memcpy(mapped, initialData, size);
-        unmap(stagingBuffer);
+        memcpy(stagingBuffer.mapped, initialData, size);
 
         const auto commandBuffer = beginGraphicsCommands();
 

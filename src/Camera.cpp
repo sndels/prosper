@@ -109,9 +109,7 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
         .far = _parameters.zF,
     };
 
-    void *mapped = _device->map(_uniformBuffers[index]);
-    memcpy(mapped, &uniforms, sizeof(CameraUniforms));
-    _device->unmap(_uniformBuffers[index]);
+    memcpy(_uniformBuffers[index].mapped, &uniforms, sizeof(CameraUniforms));
 }
 
 std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
@@ -171,7 +169,7 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
             vk::BufferUsageFlagBits::eUniformBuffer,
             vk::MemoryPropertyFlagBits::eHostVisible |
                 vk::MemoryPropertyFlagBits::eHostCoherent,
-            MemoryAccess::HostSequentialWrite));
+            MemoryAccess::HostSequentialWrite, nullptr, true));
     }
 }
 

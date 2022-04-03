@@ -14,13 +14,11 @@
     return infos;
 }
 
-void DirectionalLight::updateBuffer(
-    const Device *device, const uint32_t nextImage) const
+void DirectionalLight::updateBuffer(const uint32_t nextImage) const
 {
-    const auto &buffer = this->uniformBuffers[nextImage];
-    void *mapped = device->map(buffer);
-    memcpy(mapped, &this->parameters, sizeof(Parameters));
-    device->unmap(buffer);
+    memcpy(
+        this->uniformBuffers[nextImage].mapped, &this->parameters,
+        sizeof(Parameters));
 }
 
 [[nodiscard]] std::vector<vk::DescriptorBufferInfo> PointLights::bufferInfos()
@@ -37,13 +35,11 @@ void DirectionalLight::updateBuffer(
     return infos;
 }
 
-void PointLights::updateBuffer(
-    const Device *device, const uint32_t nextImage) const
+void PointLights::updateBuffer(const uint32_t nextImage) const
 {
-    const auto &buffer = this->storageBuffers[nextImage];
-    void *mapped = device->map(buffer);
-    memcpy(mapped, &this->bufferData, sizeof(PointLights::BufferData));
-    device->unmap(buffer);
+    memcpy(
+        this->storageBuffers[nextImage].mapped, &this->bufferData,
+        sizeof(PointLights::BufferData));
 }
 
 [[nodiscard]] std::vector<vk::DescriptorBufferInfo> SpotLights::bufferInfos()
@@ -60,11 +56,9 @@ void PointLights::updateBuffer(
     return infos;
 }
 
-void SpotLights::updateBuffer(
-    const Device *device, const uint32_t nextImage) const
+void SpotLights::updateBuffer(const uint32_t nextImage) const
 {
-    const auto &buffer = this->storageBuffers[nextImage];
-    void *mapped = device->map(buffer);
-    memcpy(mapped, &this->bufferData, sizeof(SpotLights::BufferData));
-    device->unmap(buffer);
+    memcpy(
+        this->storageBuffers[nextImage].mapped, &this->bufferData,
+        sizeof(SpotLights::BufferData));
 }
