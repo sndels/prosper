@@ -5,14 +5,14 @@
 #pragma shader_stage(raygen)
 
 #define CAMERA_SET 0
-#include "camera.glsl"
+#include "../camera.glsl"
 
-#include "rt/ray.glsl"
+#include "ray.glsl"
 
 layout(set = 1, binding = 0, rgba16f) uniform writeonly image2D colorOut;
 layout(set = 2, binding = 0) uniform accelerationStructureEXT as;
 
-#include "rt/payload.glsl"
+#include "payload.glsl"
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 

@@ -225,11 +225,17 @@ FileIncluder::FileIncluder()
 
 shaderc_include_result *FileIncluder::GetInclude(
     const char *requested_source, shaderc_include_type type,
-    const char * /*requesting_source*/, size_t /*include_depth*/)
+    const char *requesting_source, size_t /*include_depth*/)
 {
     assert(type == shaderc_include_type_relative);
+    (void)type;
 
-    auto content = readFileString(_includePath / requested_source);
+    const auto requestingDir =
+        (_includePath / std::filesystem::path{requesting_source}).parent_path();
+    const auto requestedSource =
+        (requestingDir / requested_source).lexically_normal();
+
+    auto content = readFileString(requestedSource);
     auto result =
         std::make_shared<shaderc_include_result>(shaderc_include_result{
             .source_name = requested_source,
@@ -343,8 +349,15 @@ const DeviceProperties &Device::properties() const { return _properties; }
 std::optional<vk::ShaderModule> Device::compileShaderModule(
     const std::string &relPath, const std::string &debugName) const
 {
+    assert(relPath.starts_with("shader/"));
+    const auto shaderRelPath = [&relPath]()
+    {
+        auto p = std::string_view(relPath);
+        p.remove_prefix(7);
+        return std::string{p};
+    }();
     return compileShaderModule(
-        readFileString(resPath(relPath)), relPath, debugName);
+        readFileString(resPath(relPath)), shaderRelPath, debugName);
 }
 
 std::optional<vk::ShaderModule> Device::compileShaderModule(

@@ -4,7 +4,7 @@
 
 #pragma shader_stage(closest)
 
-#include "rt/payload.glsl"
+#include "payload.glsl"
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
