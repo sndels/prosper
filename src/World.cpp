@@ -82,40 +82,12 @@ Buffer createSkyboxVertexBuffer(Device *device)
         vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f},
     };
 
-    const vk::DeviceSize bufferSize =
-        sizeof(skyboxVerts[0]) * skyboxVerts.size();
-    const Buffer stagingBuffer = device->createBuffer(
-        "SkyboxVertexStagingBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        MemoryAccess::HostSequentialWrite);
-
-    void *data = nullptr;
-    device->map(stagingBuffer.allocation, &data);
-    memcpy(data, skyboxVerts.data(), asserted_cast<size_t>(bufferSize));
-    device->unmap(stagingBuffer.allocation);
-
-    const auto skyboxVertexBuffer = device->createBuffer(
-        "SkyboxVertexBuffer", bufferSize,
+    return device->createBuffer(
+        "SkyboxVertexBuffer", sizeof(skyboxVerts[0]) * skyboxVerts.size(),
         vk::BufferUsageFlagBits::eVertexBuffer |
             vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-    const auto commandBuffer = device->beginGraphicsCommands();
-
-    const vk::BufferCopy copyRegion{
-        0, // srcOffset
-        0, // dstOffset
-        bufferSize,
-    };
-    commandBuffer.copyBuffer(
-        stagingBuffer.handle, skyboxVertexBuffer.handle, 1, &copyRegion);
-
-    device->endGraphicsCommands(commandBuffer);
-
-    device->destroy(stagingBuffer);
-    return skyboxVertexBuffer;
+        vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
+        skyboxVerts.data());
 }
 
 vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
@@ -910,40 +882,12 @@ void World::createTlases()
 
 void World::createBuffers(const uint32_t swapImageCount)
 {
-    {
-        const vk::DeviceSize bufferSize =
-            _materials.size() * sizeof(_materials[0]);
-        const Buffer stagingBuffer = _device->createBuffer(
-            "MaterialsStagingBuffer", bufferSize,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent,
-            MemoryAccess::HostSequentialWrite);
-
-        void *data = nullptr;
-        _device->map(stagingBuffer.allocation, &data);
-        memcpy(data, _materials.data(), asserted_cast<size_t>(bufferSize));
-        _device->unmap(stagingBuffer.allocation);
-
-        _materialsBuffer = _device->createBuffer(
-            "MaterialsBuffer", bufferSize,
-            vk::BufferUsageFlagBits::eStorageBuffer |
-                vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-        const auto commandBuffer = _device->beginGraphicsCommands();
-
-        const vk::BufferCopy copyRegion{
-            0, // srcOffset
-            0, // dstOffset
-            bufferSize};
-        commandBuffer.copyBuffer(
-            stagingBuffer.handle, _materialsBuffer.handle, 1, &copyRegion);
-
-        _device->endGraphicsCommands(commandBuffer);
-
-        _device->destroy(stagingBuffer);
-    }
+    _materialsBuffer = _device->createBuffer(
+        "MaterialsBuffer", _materials.size() * sizeof(_materials[0]),
+        vk::BufferUsageFlagBits::eStorageBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
+        reinterpret_cast<const void *>(_materials.data()));
 
     {
         for (auto &scene : _scenes)

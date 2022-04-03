@@ -9,8 +9,22 @@ Mesh::Mesh(
 , _vertexCount{asserted_cast<uint32_t>(vertices.size())}
 , _indexCount{asserted_cast<uint32_t>(indices.size())}
 {
-    createVertexBuffer(vertices);
-    createIndexBuffer(indices);
+    _vertexBuffer = _device->createBuffer(
+        "MeshVertexBuffer", sizeof(Vertex) * vertices.size(),
+        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+            vk::BufferUsageFlagBits::eVertexBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
+        vertices.data());
+    _indexBuffer = _device->createBuffer(
+        "MeshIndexBuffer", sizeof(uint32_t) * indices.size(),
+        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
+            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+            vk::BufferUsageFlagBits::eIndexBuffer |
+            vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
+        indices.data());
 }
 
 Mesh::~Mesh() { destroy(); }
@@ -65,84 +79,4 @@ void Mesh::destroy()
         _device->destroy(_vertexBuffer);
     }
     _device = nullptr;
-}
-
-void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices)
-{
-    const vk::DeviceSize bufferSize = sizeof(Vertex) * vertices.size();
-
-    const Buffer stagingBuffer = _device->createBuffer(
-        "MeshVertexStagingBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        MemoryAccess::HostSequentialWrite);
-
-    // Move vertex data to staging
-    void *data = nullptr;
-    _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, vertices.data(), asserted_cast<size_t>(bufferSize));
-    _device->unmap(stagingBuffer.allocation);
-
-    _vertexBuffer = _device->createBuffer(
-        "MeshVertexBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
-            vk::BufferUsageFlagBits::eShaderDeviceAddress |
-            vk::BufferUsageFlagBits::eVertexBuffer |
-            vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-    const auto commandBuffer = _device->beginGraphicsCommands();
-
-    const vk::BufferCopy copyRegion{
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = bufferSize,
-    };
-    commandBuffer.copyBuffer(
-        stagingBuffer.handle, _vertexBuffer.handle, 1, &copyRegion);
-
-    _device->endGraphicsCommands(commandBuffer);
-
-    _device->destroy(stagingBuffer);
-}
-
-void Mesh::createIndexBuffer(const std::vector<uint32_t> &indices)
-{
-    const vk::DeviceSize bufferSize = sizeof(uint32_t) * indices.size();
-
-    const Buffer stagingBuffer = _device->createBuffer(
-        "MeshIndexStagingBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        MemoryAccess::HostSequentialWrite);
-
-    // Move index data to staging
-    void *data = nullptr;
-    _device->map(stagingBuffer.allocation, &data);
-    memcpy(data, indices.data(), asserted_cast<size_t>(bufferSize));
-    _device->unmap(stagingBuffer.allocation);
-
-    _indexBuffer = _device->createBuffer(
-        "MeshIndexBuffer", bufferSize,
-        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
-            vk::BufferUsageFlagBits::eShaderDeviceAddress |
-            vk::BufferUsageFlagBits::eIndexBuffer |
-            vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-    const auto commandBuffer = _device->beginGraphicsCommands();
-
-    const vk::BufferCopy copyRegion{
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = bufferSize,
-    };
-    commandBuffer.copyBuffer(
-        stagingBuffer.handle, _indexBuffer.handle, 1, &copyRegion);
-
-    _device->endGraphicsCommands(commandBuffer);
-
-    _device->destroy(stagingBuffer);
 }

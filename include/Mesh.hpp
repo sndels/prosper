@@ -29,8 +29,6 @@ class Mesh
 
   private:
     void destroy();
-    void createVertexBuffer(const std::vector<Vertex> &vertices);
-    void createIndexBuffer(const std::vector<uint32_t> &indices);
 
     Device *_device{nullptr};
     Buffer _vertexBuffer;
