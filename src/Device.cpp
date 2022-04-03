@@ -406,7 +406,7 @@ void Device::unmap(VmaAllocation allocation) const
 Buffer Device::createBuffer(
     const std::string &debugName, const vk::DeviceSize size,
     const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const MemoryAccess access, void *initialData) const
+    const MemoryAccess access, const void *initialData) const
 {
     const vk::BufferCreateInfo bufferInfo{
         .size = size,
