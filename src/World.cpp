@@ -1,18 +1,9 @@
 #include "World.hpp"
 
-// CMake doesn't seem to support MSVC /external -stuff yet
-#ifdef _MSC_VER
-#pragma warning(push, 0)
-#endif // _MSC_VER
-
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 #include <tiny_gltf.h>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif // _MSC_VER
 
 #include <algorithm>
 #include <iostream>

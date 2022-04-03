@@ -1,4 +1,4 @@
-// CMake doesn't seem to support MSVC /external -stuff yet
+// MSVC /external -stuff doesn't apply here so drop warnings manually
 #ifdef _MSC_VER
 #pragma warning(push, 0)
 #endif // _MSC_VER

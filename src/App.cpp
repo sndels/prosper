@@ -6,17 +6,7 @@
 #include <set>
 #include <stdexcept>
 
-// CMake doesn't seem to support MSVC /external -stuff yet
-#ifdef _MSC_VER
-#pragma warning(push, 0)
-#endif // _MSC_VER
-
 #include <glm/gtx/transform.hpp>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif // _MSC_VER
-
 #include <imgui.h>
 
 #include "InputHandler.hpp"

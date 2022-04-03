@@ -1,15 +1,6 @@
 #include "TransparentsRenderer.hpp"
 
-// CMake doesn't seem to support MSVC /external -stuff yet
-#ifdef _MSC_VER
-#pragma warning(push, 0)
-#endif // _MSC_VER
-
 #include <glm/gtc/matrix_transform.hpp>
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif // _MSC_VER
 
 #include "Utils.hpp"
 #include "VkUtils.hpp"

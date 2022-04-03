@@ -1,26 +1,17 @@
 #ifndef PROSPER_TEXTURE_HPP
 #define PROSPER_TEXTURE_HPP
 
-// CMake doesn't seem to support MSVC /external -stuff yet
-#ifdef _MSC_VER
-#pragma warning(push, 0)
-#endif // _MSC_VER
+#include "Device.hpp"
 
 #include <gli/gli.hpp>
+
+#include <filesystem>
 
 namespace tinygltf
 {
 struct Image;
 struct Sampler;
 }; // namespace tinygltf
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif // _MSC_VER
-
-#include "Device.hpp"
-
-#include <filesystem>
 
 class Texture
 {
