@@ -1062,7 +1062,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             infos.push_back(tex.imageInfo());
         const auto infoCount = asserted_cast<uint32_t>(infos.size());
 
-        std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
+        const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -1076,11 +1076,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .stageFlags = vk::ShaderStageFlagBits::eFragment,
             },
         };
-        std::array<vk::DescriptorBindingFlags, 2> layoutFlags{
+        const std::array<vk::DescriptorBindingFlags, 2> layoutFlags{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
         };
-        vk::StructureChain<
+        const vk::StructureChain<
             vk::DescriptorSetLayoutCreateInfo,
             vk::DescriptorSetLayoutBindingFlagsCreateInfo>
             layoutChain{
@@ -1097,7 +1097,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             _device->logical().createDescriptorSetLayout(
                 layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 
-        vk::StructureChain<
+        const vk::StructureChain<
             vk::DescriptorSetAllocateInfo,
             vk::DescriptorSetVariableDescriptorCountAllocateInfo>
             dsChain{
@@ -1112,7 +1112,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         _materialTexturesDS = _device->logical().allocateDescriptorSets(
             dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
 
-        vk::DescriptorBufferInfo datasInfo{
+        const vk::DescriptorBufferInfo datasInfo{
             .buffer = _materialsBuffer.handle,
             .range = VK_WHOLE_SIZE,
         };
@@ -1162,8 +1162,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eVertex,
         };
-        vk::DescriptorBindingFlags layoutFlags{};
-        vk::StructureChain<
+        const vk::DescriptorBindingFlags layoutFlags{};
+        const vk::StructureChain<
             vk::DescriptorSetLayoutCreateInfo,
             vk::DescriptorSetLayoutBindingFlagsCreateInfo>
             layoutChain{

@@ -408,19 +408,20 @@ Buffer Device::createBuffer(
     const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
     const MemoryAccess access, void *initialData) const
 {
-    vk::BufferCreateInfo bufferInfo{
+    const vk::BufferCreateInfo bufferInfo{
         .size = size,
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
-    VmaAllocationCreateInfo allocInfo = {
+    const VmaAllocationCreateInfo allocInfo = {
         .flags = intoVmaFlags(access),
         .usage = VMA_MEMORY_USAGE_AUTO,
         .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
     };
 
     Buffer buffer;
-    auto *vkpBufferInfo = reinterpret_cast<VkBufferCreateInfo *>(&bufferInfo);
+    const auto *vkpBufferInfo =
+        reinterpret_cast<const VkBufferCreateInfo *>(&bufferInfo);
     auto *vkpBuffer = reinterpret_cast<VkBuffer *>(&buffer.handle);
     vmaCreateBuffer(
         _allocator, vkpBufferInfo, &allocInfo, vkpBuffer, &buffer.allocation,
@@ -435,7 +436,7 @@ Buffer Device::createBuffer(
 
     if (initialData != nullptr)
     {
-        auto stagingBuffer = createBuffer(
+        const auto stagingBuffer = createBuffer(
             debugName + "StagingBuffer", size,
             vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible |
@@ -535,7 +536,7 @@ Image Device::createImage(
     const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties,
     const MemoryAccess access) const
 {
-    vk::ImageCreateInfo imageInfo{
+    const vk::ImageCreateInfo imageInfo{
         .flags = flags,
         .imageType = imageType,
         .format = format,
@@ -547,14 +548,15 @@ Image Device::createImage(
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
-    VmaAllocationCreateInfo allocInfo = {
+    const VmaAllocationCreateInfo allocInfo = {
         .flags = intoVmaFlags(access),
         .usage = VMA_MEMORY_USAGE_AUTO,
         .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
     };
 
     Image image;
-    auto *vkpImageInfo = reinterpret_cast<VkImageCreateInfo *>(&imageInfo);
+    const auto *vkpImageInfo =
+        reinterpret_cast<const VkImageCreateInfo *>(&imageInfo);
     auto *vkpImage = reinterpret_cast<VkImage *>(&image.handle);
     vmaCreateImage(
         _allocator, vkpImageInfo, &allocInfo, vkpImage, &image.allocation,
@@ -816,7 +818,7 @@ void Device::createLogicalDevice(bool enableDebugLayers)
 
 void Device::createAllocator()
 {
-    VmaAllocatorCreateInfo allocatorInfo{
+    const VmaAllocatorCreateInfo allocatorInfo{
         .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
         .physicalDevice = static_cast<VkPhysicalDevice>(_physical),
         .device = static_cast<VkDevice>(_logical),
