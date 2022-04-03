@@ -13,6 +13,7 @@ struct BufferState
 struct Buffer
 {
     vk::Buffer handle;
+    void *mapped{nullptr};
     VmaAllocation allocation{nullptr};
 };
 

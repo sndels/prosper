@@ -96,7 +96,8 @@ class Device
     [[nodiscard]] Buffer createBuffer(
         const std::string &debugName, vk::DeviceSize size,
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-        MemoryAccess access = {}, const void *initialData = nullptr) const;
+        MemoryAccess access = {}, const void *initialData = nullptr,
+        bool createMapped = false) const;
     void destroy(const Buffer &buffer) const;
 
     [[nodiscard]] TexelBuffer createTexelBuffer(

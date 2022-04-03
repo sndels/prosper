@@ -407,26 +407,36 @@ void Device::unmap(Image const &texture) const { unmap(texture.allocation); }
 Buffer Device::createBuffer(
     const std::string &debugName, const vk::DeviceSize size,
     const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const MemoryAccess access, const void *initialData) const
+    const MemoryAccess access, const void *initialData, bool createMapped) const
 {
     const vk::BufferCreateInfo bufferInfo{
         .size = size,
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
+    auto allocFlags = intoVmaFlags(access);
+    if (createMapped)
+        allocFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
     const VmaAllocationCreateInfo allocInfo = {
-        .flags = intoVmaFlags(access),
+        .flags = allocFlags,
         .usage = VMA_MEMORY_USAGE_AUTO,
         .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
     };
 
     Buffer buffer;
+    VmaAllocationInfo info;
     const auto *vkpBufferInfo =
         reinterpret_cast<const VkBufferCreateInfo *>(&bufferInfo);
     auto *vkpBuffer = reinterpret_cast<VkBuffer *>(&buffer.handle);
     vmaCreateBuffer(
         _allocator, vkpBufferInfo, &allocInfo, vkpBuffer, &buffer.allocation,
-        nullptr);
+        &info);
+
+    if (createMapped)
+    {
+        assert(info.pMappedData);
+        buffer.mapped = info.pMappedData;
+    }
 
     _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eBuffer,
