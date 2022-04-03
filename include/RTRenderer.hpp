@@ -63,7 +63,7 @@ class RTRenderer
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 
-    uint32_t _sbtGroupSize{0};
+    vk::DeviceSize _sbtGroupSize{0};
     Buffer _shaderBindingTable;
 
     std::vector<vk::CommandBuffer> _commandBuffers;

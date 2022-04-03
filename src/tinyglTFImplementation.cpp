@@ -3,7 +3,6 @@
 #pragma warning(push, 0)
 #endif // _MSC_VER
 
-// Block nolints should come with llvm-14
 // NOLINTBEGIN
 
 #define TINYGLTF_IMPLEMENTATION

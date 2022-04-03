@@ -4,6 +4,8 @@
 #    mostly very specific warnings, rarely actionable here
 # bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions:
 #    A good warning but I'd like a debug only 'asserted cast'. TODO.
+# cert-err33-c
+#    Only fprintf is used for debug output
 # cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers:
 #    Requiring a named constant for a default value seems riddiculous
 #    The constant would be named ~identically to the variable
@@ -20,12 +22,16 @@
 #    glm
 # cppcoreguidelines-pro-type-vararg:
 #    fprintf, I really don't like formatting with streams
+# misc-no-recursion
+#    I do use recursion in places
 # modernize-use-trailing-return-type:
 #    Haven't touched professionally, best not add 'noise'
 # readability-braces-around-statements:
 #    clang-format and indentation makes this moot
 # readability-function-cognitive-complexity:
 #    Arguable false positives in scene parsing
+# readability-identifier-length
+#    e.g. dt for time deltas, cb for command buffer is readable enough in context
 # readability-uppercase-literal-suffix:
 #    Only really needed for 'l' and my font/highlighting is clear even if I use it
 Checks: "*,
@@ -38,6 +44,7 @@ Checks: "*,
         -llvm*,
         -zircon-*,
         -bugprone-narrowing-conversions,
+        -cert-err33-c,
         -cppcoreguidelines-avoid-magic-numbers,
         -cppcoreguidelines-macro-usage,
         -cppcoreguidelines-narrowing-conversions,
@@ -48,9 +55,11 @@ Checks: "*,
         -cppcoreguidelines-pro-type-union-access,
         -cppcoreguidelines-pro-type-vararg,
         -misc-non-private-member-variables-in-classes,
+        -misc-no-recursion,
         -modernize-use-trailing-return-type,
         -readability-braces-around-statements,
         -readability-function-cognitive-complexity,
+        -readability-identifier-length,
         -readability-magic-numbers,
         -readability-uppercase-literal-suffix
 "

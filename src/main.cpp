@@ -7,7 +7,7 @@
 #include "App.hpp"
 #include "Utils.hpp"
 
-static const char *default_scene_path =
+static const char *const default_scene_path =
     "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
 
 int main(int argc, char *argv[])

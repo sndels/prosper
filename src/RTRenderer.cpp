@@ -325,8 +325,9 @@ void RTRenderer::createShaderBindingTable()
         _device->properties().rtPipeline.shaderGroupHandleSize;
     const auto groupBaseAlignment =
         _device->properties().rtPipeline.shaderGroupBaseAlignment;
-    _sbtGroupSize =
-        (((groupHandleSize - 1) / groupBaseAlignment) + 1) * groupBaseAlignment;
+    _sbtGroupSize = static_cast<vk::DeviceSize>(
+                        ((groupHandleSize - 1) / groupBaseAlignment) + 1) *
+                    groupBaseAlignment;
 
     const auto sbtSize = groupCount * _sbtGroupSize;
 
@@ -348,7 +349,7 @@ void RTRenderer::createShaderBindingTable()
     void *mapped = _device->map(_shaderBindingTable);
 
     auto *pData = reinterpret_cast<uint8_t *>(mapped);
-    for (auto i = 0u; i < groupCount; ++i)
+    for (size_t i = 0; i < groupCount; ++i)
     {
         memcpy(
             pData, shaderHandleStorage.data() + i * groupHandleSize,

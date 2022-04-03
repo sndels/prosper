@@ -658,7 +658,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
 void World::createBlases()
 {
     _blases.resize(_meshes.size());
-    for (auto i = 0; i < _blases.size(); ++i)
+    for (size_t i = 0; i < _blases.size(); ++i)
     {
         const auto &mesh = _meshes[i];
         auto &blas = _blases[i];
@@ -749,7 +749,7 @@ void World::createBlases()
 void World::createTlases()
 {
     _tlases.resize(_scenes.size());
-    for (auto i = 0; i < _tlases.size(); ++i)
+    for (size_t i = 0; i < _tlases.size(); ++i)
     {
         const auto &scene = _scenes[i];
         auto &tlas = _tlases[i];
@@ -1260,11 +1260,6 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                             .descriptorSetCount = 1,
                             .pSetLayouts = &_dsLayouts.accelerationStructure,
                         })[0];
-
-                const vk::DescriptorBufferInfo info{
-                    .buffer = _tlases[sceneI].buffer.handle,
-                    .range = VK_WHOLE_SIZE,
-                };
 
                 const vk::StructureChain<
                     vk::WriteDescriptorSet,
