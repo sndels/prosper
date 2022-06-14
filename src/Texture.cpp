@@ -250,13 +250,12 @@ void Texture2D::createImage(
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
-    // TODO: Just use image's own transition here?
-    transitionImageLayout(
-        commandBuffer, _image.handle, _image.subresourceRange,
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
-        vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
-        vk::PipelineStageFlagBits::eTopOfPipe,
-        vk::PipelineStageFlagBits::eTransfer);
+    _image.transition(
+        commandBuffer, ImageState{
+                           .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                           .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                           .layout = vk::ImageLayout::eTransferDstOptimal,
+                       });
 
     const vk::BufferImageCopy region{
         .bufferOffset = 0,
