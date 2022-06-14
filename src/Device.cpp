@@ -536,29 +536,31 @@ void Device::destroy(const TexelBuffer &buffer) const
     _logical.destroy(buffer.view);
 }
 
-Image Device::createImage(
-    const std::string &debugName, const vk::ImageType imageType,
-    const vk::Extent3D &extent, const vk::Format format,
-    const uint32_t mipCount, const uint32_t layerCount,
-    const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
-    const vk::MemoryPropertyFlags properties, const MemoryAccess access) const
+Image Device::createImage(const ImageCreateInfo &info) const
 {
+
+    const vk::Extent3D extent{
+        .width = info.width,
+        .height = info.height,
+        .depth = info.depth,
+    };
+
     const vk::ImageCreateInfo imageInfo{
-        .flags = flags,
-        .imageType = imageType,
-        .format = format,
+        .flags = info.createFlags,
+        .imageType = info.imageType,
+        .format = info.format,
         .extent = extent,
-        .mipLevels = mipCount,
-        .arrayLayers = layerCount,
+        .mipLevels = info.mipCount,
+        .arrayLayers = info.layerCount,
         .samples = vk::SampleCountFlagBits::e1,
         .tiling = vk::ImageTiling::eOptimal,
-        .usage = usage,
+        .usage = info.usageFlags,
         .sharingMode = vk::SharingMode::eExclusive,
     };
     const VmaAllocationCreateInfo allocInfo = {
-        .flags = intoVmaFlags(access),
+        .flags = {}, // Device only
         .usage = VMA_MEMORY_USAGE_AUTO,
-        .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(info.properties),
     };
 
     Image image;
@@ -573,59 +575,61 @@ Image Device::createImage(
         .objectType = vk::ObjectType::eImage,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
-        .pObjectName = debugName.c_str(),
+        .pObjectName = info.debugName.c_str(),
     });
 
     const vk::ImageSubresourceRange range{
-        .aspectMask = aspectMask(format),
+        .aspectMask = aspectMask(info.format),
         .baseMipLevel = 0,
-        .levelCount = mipCount,
+        .levelCount = info.mipCount,
         .baseArrayLayer = 0,
-        .layerCount = layerCount,
+        .layerCount = info.layerCount,
     };
 
-    const vk::ImageViewType viewType = [imageType, layerCount, flags]()
+    const vk::ImageViewType viewType = [info]()
     {
-        switch (imageType)
+        switch (info.imageType)
         {
         case vk::ImageType::e1D:
-            if (layerCount == 1)
+            if (info.layerCount == 1)
                 return vk::ImageViewType::e1D;
             else
                 return vk::ImageViewType::e1DArray;
         case vk::ImageType::e2D:
-            if (layerCount == 1)
+            if (info.layerCount == 1)
                 return vk::ImageViewType::e2D;
             else
             {
-                if ((flags & vk::ImageCreateFlagBits::eCubeCompatible) ==
+                if ((info.createFlags &
+                     vk::ImageCreateFlagBits::eCubeCompatible) ==
                     vk::ImageCreateFlagBits::eCubeCompatible)
                 {
-                    assert(layerCount == 6 && "Cube arrays not supported");
+                    assert(info.layerCount == 6 && "Cube arrays not supported");
                     return vk::ImageViewType::eCube;
                 }
                 else
                     return vk::ImageViewType::e2DArray;
             }
         case vk::ImageType::e3D:
-            assert(layerCount == 1 && "Can't have 3D image arrays");
+            assert(info.layerCount == 1 && "Can't have 3D image arrays");
             return vk::ImageViewType::e3D;
         default:
             throw std::runtime_error(
-                "Unexpected image type " + to_string(imageType));
+                "Unexpected image type " + to_string(info.imageType));
         }
     }();
 
     image.view = _logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,
         .viewType = viewType,
-        .format = format,
+        .format = info.format,
         .subresourceRange = range,
     });
 
     image.extent = extent;
     image.subresourceRange = range;
-    image.format = format;
+    image.format = info.format;
+
     return image;
 }
 

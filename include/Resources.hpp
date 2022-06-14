@@ -4,6 +4,14 @@
 #include "vulkan.hpp"
 #include <vk_mem_alloc.h>
 
+// TODO: Get rid of these, could be inferred from MemoryPropertyFlags
+enum class MemoryAccess
+{
+    Device,
+    HostSequentialWrite,
+    HostRandomWrite,
+};
+
 struct BufferState
 {
     vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
@@ -35,6 +43,23 @@ struct ImageState
     vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
     vk::AccessFlags2 accessMask;
     vk::ImageLayout layout{vk::ImageLayout::eUndefined};
+};
+
+struct ImageCreateInfo
+{
+    vk::ImageType imageType{vk::ImageType::e2D};
+    vk::Format format{vk::Format::eUndefined};
+    uint32_t width{1};
+    uint32_t height{1};
+    uint32_t depth{1};
+    uint32_t mipCount{1};
+    uint32_t layerCount{1};
+    vk::ImageCreateFlags createFlags;
+    vk::ImageUsageFlags usageFlags;
+    vk::MemoryPropertyFlags properties{
+        vk::MemoryPropertyFlagBits::eDeviceLocal};
+
+    std::string debugName;
 };
 
 struct Image

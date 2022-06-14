@@ -11,13 +11,6 @@
 #include <unordered_set>
 #include <vector>
 
-enum class MemoryAccess
-{
-    Device,
-    HostSequentialWrite,
-    HostRandomWrite,
-};
-
 struct QueueFamilies
 {
     std::optional<uint32_t> computeFamily;
@@ -106,12 +99,7 @@ class Device
         bool supportAtomics, MemoryAccess access = {}) const;
     void destroy(const TexelBuffer &buffer) const;
 
-    [[nodiscard]] Image createImage(
-        const std::string &debugName, vk::ImageType imageType,
-        const vk::Extent3D &extent, vk::Format format, uint32_t mipCount,
-        uint32_t layerCount, vk::ImageCreateFlags flags,
-        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-        MemoryAccess access = {}) const;
+    [[nodiscard]] Image createImage(const ImageCreateInfo &info) const;
     void destroy(const Image &image) const;
 
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;

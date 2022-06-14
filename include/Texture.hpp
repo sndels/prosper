@@ -46,9 +46,7 @@ class Texture2D : public Texture
   private:
     [[nodiscard]] Buffer stagePixels(
         const uint8_t *pixels, const vk::Extent2D &extent) const;
-    void createImage(
-        const Buffer &stagingBuffer, const vk::Extent2D &extent,
-        uint32_t mipCount, uint32_t layerCount);
+    void createImage(const Buffer &stagingBuffer, const ImageCreateInfo &info);
     void createMipmaps(const vk::Extent2D &extent, uint32_t mipLevels);
     void createSampler(uint32_t mipLevels);
     void createSampler(const tinygltf::Sampler &sampler, uint32_t mipLevels);

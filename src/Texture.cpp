@@ -152,7 +152,18 @@ Texture2D::Texture2D(
                      1
                : 1;
 
-    createImage(stagingBuffer, extent, mipLevels, 1);
+    createImage(
+        stagingBuffer, ImageCreateInfo{
+                           .format = vk::Format::eR8G8B8A8Unorm,
+                           .width = extent.width,
+                           .height = extent.height,
+                           .mipCount = mipLevels,
+                           .layerCount = 1,
+                           .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
+                                         vk::ImageUsageFlagBits::eTransferDst |
+                                         vk::ImageUsageFlagBits::eSampled,
+                           .debugName = "Texture2D",
+                       });
     createSampler(mipLevels);
 
     stbi_image_free(pixels);
@@ -204,7 +215,18 @@ Texture2D::Texture2D(
                      1
                : 1;
 
-    createImage(stagingBuffer, extent, mipLevels, 1);
+    createImage(
+        stagingBuffer, ImageCreateInfo{
+                           .format = vk::Format::eR8G8B8A8Unorm,
+                           .width = extent.width,
+                           .height = extent.height,
+                           .mipCount = mipLevels,
+                           .layerCount = 1,
+                           .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
+                                         vk::ImageUsageFlagBits::eTransferDst |
+                                         vk::ImageUsageFlagBits::eSampled,
+                           .debugName = "Texture2D",
+                       });
     createSampler(sampler, mipLevels);
 
     _device->destroy(stagingBuffer);
@@ -228,24 +250,11 @@ Buffer Texture2D::stagePixels(
 }
 
 void Texture2D::createImage(
-    const Buffer &stagingBuffer, const vk::Extent2D &extent,
-    const uint32_t mipCount, const uint32_t layerCount)
+    const Buffer &stagingBuffer, const ImageCreateInfo &info)
 {
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
-    _image = _device->createImage(
-        "Texture2D", vk::ImageType::e2D,
-        vk::Extent3D{
-            .width = extent.width,
-            .height = extent.height,
-            .depth = 1,
-        },
-        vk::Format::eR8G8B8A8Unorm, mipCount, layerCount,
-        vk::ImageCreateFlags{},
-        vk::ImageUsageFlagBits::eTransferSrc |
-            vk::ImageUsageFlagBits::eTransferDst |
-            vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
+    _image = _device->createImage(info);
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
@@ -268,7 +277,7 @@ void Texture2D::createImage(
                 .layerCount = 1,
             },
         .imageOffset = {0, 0, 0},
-        .imageExtent = {extent.width, extent.height, 1},
+        .imageExtent = _image.extent,
     };
     commandBuffer.copyBufferToImage(
         stagingBuffer.handle, _image.handle,
@@ -276,7 +285,12 @@ void Texture2D::createImage(
 
     _device->endGraphicsCommands(commandBuffer);
 
-    createMipmaps(extent, mipCount);
+    createMipmaps(
+        vk::Extent2D{
+            .width = info.width,
+            .height = info.height,
+        },
+        info.mipCount);
 }
 
 void Texture2D::createMipmaps(
@@ -418,19 +432,19 @@ TextureCubemap::TextureCubemap(
     assert(!cube.empty());
     assert(cube.faces() == 6);
 
-    const vk::Extent3D layerExtent{
-        .width = asserted_cast<uint32_t>(cube.extent().x),
-        .height = asserted_cast<uint32_t>(cube.extent().y),
-        .depth = 1u,
-    };
     const auto mipLevels = asserted_cast<uint32_t>(cube.levels());
 
-    _image = _device->createImage(
-        "TextureCubemap", vk::ImageType::e2D, layerExtent,
-        vk::Format::eR16G16B16A16Sfloat, mipLevels, 6,
-        vk::ImageCreateFlagBits::eCubeCompatible,
-        vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
+    _image = _device->createImage(ImageCreateInfo{
+        .format = vk::Format::eR16G16B16A16Sfloat,
+        .width = asserted_cast<uint32_t>(cube.extent().x),
+        .height = asserted_cast<uint32_t>(cube.extent().y),
+        .mipCount = mipLevels,
+        .layerCount = 6,
+        .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
+        .usageFlags = vk::ImageUsageFlagBits::eTransferDst |
+                      vk::ImageUsageFlagBits::eSampled,
+        .debugName = "TextureCubemap",
+    });
 
     copyPixels(cube, _image.subresourceRange);
 

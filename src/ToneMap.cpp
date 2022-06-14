@@ -168,18 +168,16 @@ void ToneMap::destroyPipelines()
 
 void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
 {
-    _resources->images.toneMapped = _device->createImage(
-        "toneMapped", vk::ImageType::e2D,
-        vk::Extent3D{
-            .width = swapConfig.extent.width,
-            .height = swapConfig.extent.height,
-            .depth = 1,
-        },
-        vk::Format::eR8G8B8A8Unorm, 1, 1, vk::ImageCreateFlags{},
-        vk::ImageUsageFlagBits::eStorage |             // ToneMap
+    _resources->images.toneMapped = _device->createImage(ImageCreateInfo{
+        .format = vk::Format::eR8G8B8A8Unorm,
+        .width = swapConfig.extent.width,
+        .height = swapConfig.extent.height,
+        .usageFlags =
+            vk::ImageUsageFlagBits::eStorage |         // ToneMap
             vk::ImageUsageFlagBits::eColorAttachment | // ImGui
             vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
+        .debugName = "toneMapped",
+    });
 }
 
 void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)

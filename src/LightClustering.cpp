@@ -239,21 +239,27 @@ void LightClustering::destroySwapchainRelated()
 
 void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
 {
-    const vk::Extent3D pointersExtent{
-        .width = ((swapConfig.extent.width - 1u) / clusterDim) + 1u,
-        .height = ((swapConfig.extent.height - 1u) / clusterDim) + 1u,
-        .depth = zSlices + 1,
-    };
-    _resources->buffers.lightClusters.pointers = _device->createImage(
-        "lightClusterPointers", vk::ImageType::e3D, pointersExtent,
-        vk::Format::eR32G32Uint, 1, 1, vk::ImageCreateFlags{},
-        vk::ImageUsageFlagBits::eStorage,
-        vk::MemoryPropertyFlagBits::eDeviceLocal);
+    const auto pointersWidth =
+        ((swapConfig.extent.width - 1u) / clusterDim) + 1u;
+    const auto pointersHeight =
+        ((swapConfig.extent.height - 1u) / clusterDim) + 1u;
+    const auto pointersDepth = zSlices + 1;
+
+    _resources->buffers.lightClusters.pointers =
+        _device->createImage(ImageCreateInfo{
+            .imageType = vk::ImageType::e3D,
+            .format = vk::Format::eR32G32Uint,
+            .width = pointersWidth,
+            .height = pointersHeight,
+            .depth = pointersDepth,
+            .usageFlags = vk::ImageUsageFlagBits::eStorage,
+            .debugName = "lightClusterPointers",
+        });
 
     const vk::DeviceSize indicesSize =
         static_cast<vk::DeviceSize>(
             maxSpotIndicesPerTile + maxPointIndicesPerTile) *
-        pointersExtent.width * pointersExtent.height;
+        pointersWidth * pointersHeight;
     _resources->buffers.lightClusters.indices = _device->createTexelBuffer(
         "lightClusterIndices", vk::Format::eR16Uint,
         indicesSize * sizeof(uint16_t),

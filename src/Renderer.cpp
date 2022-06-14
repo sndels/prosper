@@ -241,17 +241,14 @@ void Renderer::destroyGraphicsPipelines()
 void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 {
     {
-        _resources->images.sceneColor = _device->createImage(
-            "sceneColor", vk::ImageType::e2D,
-            vk::Extent3D{
-                .width = swapConfig.extent.width,
-                .height = swapConfig.extent.height,
-                .depth = 1,
-            },
-            vk::Format::eR16G16B16A16Sfloat, 1, 1, vk::ImageCreateFlags{},
-            vk::ImageUsageFlagBits::eColorAttachment | // Render
-                vk::ImageUsageFlagBits::eStorage,      // ToneMap
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
+        _resources->images.sceneColor = _device->createImage(ImageCreateInfo{
+            .format = vk::Format::eR16G16B16A16Sfloat,
+            .width = swapConfig.extent.width,
+            .height = swapConfig.extent.height,
+            .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
+                          vk::ImageUsageFlagBits::eStorage,          // ToneMap
+            .debugName = "sceneColor",
+        });
     }
     {
         // Check depth buffer without stencil is supported
@@ -262,16 +259,13 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
         if ((properties.optimalTilingFeatures & features) != features)
             throw std::runtime_error("Depth format unsupported");
 
-        _resources->images.sceneDepth = _device->createImage(
-            "sceneDepth", vk::ImageType::e2D,
-            vk::Extent3D{
-                .width = swapConfig.extent.width,
-                .height = swapConfig.extent.height,
-                .depth = 1,
-            },
-            swapConfig.depthFormat, 1, 1, vk::ImageCreateFlags{},
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
+        _resources->images.sceneDepth = _device->createImage(ImageCreateInfo{
+            .format = swapConfig.depthFormat,
+            .width = swapConfig.extent.width,
+            .height = swapConfig.extent.height,
+            .usageFlags = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            .debugName = "sceneDepth",
+        });
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 
