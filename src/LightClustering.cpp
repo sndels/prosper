@@ -259,7 +259,7 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
     const vk::DeviceSize indicesSize =
         static_cast<vk::DeviceSize>(
             maxSpotIndicesPerTile + maxPointIndicesPerTile) *
-        pointersWidth * pointersHeight;
+        pointersWidth * pointersHeight * pointersDepth;
     _resources->buffers.lightClusters.indices = _device->createTexelBuffer(
         "lightClusterIndices", vk::Format::eR16Uint,
         indicesSize * sizeof(uint16_t),
