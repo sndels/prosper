@@ -241,7 +241,6 @@ void Texture2D::createImage(
             .depth = 1,
         },
         vk::Format::eR8G8B8A8Unorm, mipCount, layerCount,
-        vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
         vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eTransferSrc |
             vk::ImageUsageFlagBits::eTransferDst |
@@ -428,8 +427,8 @@ TextureCubemap::TextureCubemap(
 
     _image = _device->createImage(
         "TextureCubemap", vk::ImageType::e2D, layerExtent,
-        vk::Format::eR16G16B16A16Sfloat, mipLevels, 6, vk::ImageViewType::eCube,
-        vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits::eCubeCompatible,
+        vk::Format::eR16G16B16A16Sfloat, mipLevels, 6,
+        vk::ImageCreateFlagBits::eCubeCompatible,
         vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::MemoryPropertyFlagBits::eDeviceLocal);
 

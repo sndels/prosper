@@ -540,7 +540,6 @@ Image Device::createImage(
     const std::string &debugName, const vk::ImageType imageType,
     const vk::Extent3D &extent, const vk::Format format,
     const uint32_t mipCount, const uint32_t layerCount,
-    const vk::ImageViewType viewType, const vk::ImageTiling tiling,
     const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
     const vk::MemoryPropertyFlags properties, const MemoryAccess access) const
 {
@@ -552,7 +551,7 @@ Image Device::createImage(
         .mipLevels = mipCount,
         .arrayLayers = layerCount,
         .samples = vk::SampleCountFlagBits::e1,
-        .tiling = tiling,
+        .tiling = vk::ImageTiling::eOptimal,
         .usage = usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
@@ -584,6 +583,38 @@ Image Device::createImage(
         .baseArrayLayer = 0,
         .layerCount = layerCount,
     };
+
+    const vk::ImageViewType viewType = [imageType, layerCount, flags]()
+    {
+        switch (imageType)
+        {
+        case vk::ImageType::e1D:
+            if (layerCount == 1)
+                return vk::ImageViewType::e1D;
+            else
+                return vk::ImageViewType::e1DArray;
+        case vk::ImageType::e2D:
+            if (layerCount == 1)
+                return vk::ImageViewType::e2D;
+            else
+            {
+                if ((flags & vk::ImageCreateFlagBits::eCubeCompatible) ==
+                    vk::ImageCreateFlagBits::eCubeCompatible)
+                {
+                    assert(layerCount == 6 && "Cube arrays not supported");
+                    return vk::ImageViewType::eCube;
+                }
+                else
+                    return vk::ImageViewType::e2DArray;
+            }
+        case vk::ImageType::e3D:
+            assert(layerCount == 1 && "Can't have 3D image arrays");
+            return vk::ImageViewType::e3D;
+        default:
+            throw std::runtime_error(
+                "Unexpected image type " + to_string(imageType));
+        }
+    }();
 
     image.view = _logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,

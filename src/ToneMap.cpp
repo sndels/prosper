@@ -175,8 +175,7 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
             .height = swapConfig.extent.height,
             .depth = 1,
         },
-        vk::Format::eR8G8B8A8Unorm, 1, 1, vk::ImageViewType::e2D,
-        vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
+        vk::Format::eR8G8B8A8Unorm, 1, 1, vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eStorage |             // ToneMap
             vk::ImageUsageFlagBits::eColorAttachment | // ImGui
             vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image

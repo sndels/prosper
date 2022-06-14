@@ -248,8 +248,7 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
                 .height = swapConfig.extent.height,
                 .depth = 1,
             },
-            vk::Format::eR16G16B16A16Sfloat, 1, 1, vk::ImageViewType::e2D,
-            vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
+            vk::Format::eR16G16B16A16Sfloat, 1, 1, vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eColorAttachment | // Render
                 vk::ImageUsageFlagBits::eStorage,      // ToneMap
             vk::MemoryPropertyFlagBits::eDeviceLocal);
@@ -270,8 +269,7 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
                 .height = swapConfig.extent.height,
                 .depth = 1,
             },
-            swapConfig.depthFormat, 1, 1, vk::ImageViewType::e2D,
-            vk::ImageTiling::eOptimal, vk::ImageCreateFlags{},
+            swapConfig.depthFormat, 1, 1, vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::MemoryPropertyFlagBits::eDeviceLocal);
 

@@ -246,8 +246,7 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
     };
     _resources->buffers.lightClusters.pointers = _device->createImage(
         "lightClusterPointers", vk::ImageType::e3D, pointersExtent,
-        vk::Format::eR32G32Uint, 1, 1, vk::ImageViewType::e3D,
-        vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
+        vk::Format::eR32G32Uint, 1, 1, vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eStorage,
         vk::MemoryPropertyFlagBits::eDeviceLocal);
 
