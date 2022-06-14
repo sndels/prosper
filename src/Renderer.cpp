@@ -241,14 +241,6 @@ void Renderer::destroyGraphicsPipelines()
 void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 {
     {
-        const vk::ImageSubresourceRange subresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
-
         _resources->images.sceneColor = _device->createImage(
             "sceneColor", vk::ImageType::e2D,
             vk::Extent3D{
@@ -256,9 +248,8 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
                 .height = swapConfig.extent.height,
                 .depth = 1,
             },
-            vk::Format::eR16G16B16A16Sfloat, subresourceRange,
-            vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-            vk::ImageCreateFlagBits{},
+            vk::Format::eR16G16B16A16Sfloat, 1, 1, vk::ImageViewType::e2D,
+            vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
             vk::ImageUsageFlagBits::eColorAttachment | // Render
                 vk::ImageUsageFlagBits::eStorage,      // ToneMap
             vk::MemoryPropertyFlagBits::eDeviceLocal);
@@ -279,16 +270,8 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
                 .height = swapConfig.extent.height,
                 .depth = 1,
             },
-            swapConfig.depthFormat,
-            vk::ImageSubresourceRange{
-                .aspectMask = vk::ImageAspectFlagBits::eDepth,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-            },
-            vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
-            vk::ImageCreateFlags{},
+            swapConfig.depthFormat, 1, 1, vk::ImageViewType::e2D,
+            vk::ImageTiling::eOptimal, vk::ImageCreateFlags{},
             vk::ImageUsageFlagBits::eDepthStencilAttachment,
             vk::MemoryPropertyFlagBits::eDeviceLocal);
 

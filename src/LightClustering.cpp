@@ -239,14 +239,6 @@ void LightClustering::destroySwapchainRelated()
 
 void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
 {
-    const vk::ImageSubresourceRange subresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-
     const vk::Extent3D pointersExtent{
         .width = ((swapConfig.extent.width - 1u) / clusterDim) + 1u,
         .height = ((swapConfig.extent.height - 1u) / clusterDim) + 1u,
@@ -254,7 +246,7 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
     };
     _resources->buffers.lightClusters.pointers = _device->createImage(
         "lightClusterPointers", vk::ImageType::e3D, pointersExtent,
-        vk::Format::eR32G32Uint, subresourceRange, vk::ImageViewType::e3D,
+        vk::Format::eR32G32Uint, 1, 1, vk::ImageViewType::e3D,
         vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
         vk::ImageUsageFlagBits::eStorage,
         vk::MemoryPropertyFlagBits::eDeviceLocal);

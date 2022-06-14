@@ -168,14 +168,6 @@ void ToneMap::destroyPipelines()
 
 void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
 {
-    const vk::ImageSubresourceRange subresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-
     _resources->images.toneMapped = _device->createImage(
         "toneMapped", vk::ImageType::e2D,
         vk::Extent3D{
@@ -183,7 +175,7 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
             .height = swapConfig.extent.height,
             .depth = 1,
         },
-        vk::Format::eR8G8B8A8Unorm, subresourceRange, vk::ImageViewType::e2D,
+        vk::Format::eR8G8B8A8Unorm, 1, 1, vk::ImageViewType::e2D,
         vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits{},
         vk::ImageUsageFlagBits::eStorage |             // ToneMap
             vk::ImageUsageFlagBits::eColorAttachment | // ImGui

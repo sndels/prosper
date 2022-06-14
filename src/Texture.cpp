@@ -151,15 +151,8 @@ Texture2D::Texture2D(
                      floor(log2(std::max(extent.width, extent.height)))) +
                      1
                : 1;
-    const vk::ImageSubresourceRange subresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = mipLevels,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
 
-    createImage(stagingBuffer, extent, subresourceRange);
+    createImage(stagingBuffer, extent, mipLevels, 1);
     createSampler(mipLevels);
 
     stbi_image_free(pixels);
@@ -210,15 +203,8 @@ Texture2D::Texture2D(
                      floor(log2(std::max(extent.width, extent.height)))) +
                      1
                : 1;
-    const vk::ImageSubresourceRange subresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = mipLevels,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
 
-    createImage(stagingBuffer, extent, subresourceRange);
+    createImage(stagingBuffer, extent, mipLevels, 1);
     createSampler(sampler, mipLevels);
 
     _device->destroy(stagingBuffer);
@@ -243,7 +229,7 @@ Buffer Texture2D::stagePixels(
 
 void Texture2D::createImage(
     const Buffer &stagingBuffer, const vk::Extent2D &extent,
-    const vk::ImageSubresourceRange &subresourceRange)
+    const uint32_t mipCount, const uint32_t layerCount)
 {
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
@@ -254,8 +240,9 @@ void Texture2D::createImage(
             .height = extent.height,
             .depth = 1,
         },
-        vk::Format::eR8G8B8A8Unorm, subresourceRange, vk::ImageViewType::e2D,
-        vk::ImageTiling::eOptimal, vk::ImageCreateFlags{},
+        vk::Format::eR8G8B8A8Unorm, mipCount, layerCount,
+        vk::ImageViewType::e2D, vk::ImageTiling::eOptimal,
+        vk::ImageCreateFlags{},
         vk::ImageUsageFlagBits::eTransferSrc |
             vk::ImageUsageFlagBits::eTransferDst |
             vk::ImageUsageFlagBits::eSampled,
@@ -263,8 +250,9 @@ void Texture2D::createImage(
 
     const auto commandBuffer = _device->beginGraphicsCommands();
 
+    // TODO: Just use image's own transition here?
     transitionImageLayout(
-        commandBuffer, _image.handle, subresourceRange,
+        commandBuffer, _image.handle, _image.subresourceRange,
         vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
         vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
         vk::PipelineStageFlagBits::eTopOfPipe,
@@ -290,7 +278,7 @@ void Texture2D::createImage(
 
     _device->endGraphicsCommands(commandBuffer);
 
-    createMipmaps(extent, subresourceRange.levelCount);
+    createMipmaps(extent, mipCount);
 }
 
 void Texture2D::createMipmaps(
@@ -439,23 +427,14 @@ TextureCubemap::TextureCubemap(
     };
     const auto mipLevels = asserted_cast<uint32_t>(cube.levels());
 
-    const vk::ImageSubresourceRange subresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = mipLevels,
-        .baseArrayLayer = 0,
-        .layerCount = 6,
-    };
-
     _image = _device->createImage(
         "TextureCubemap", vk::ImageType::e2D, layerExtent,
-        vk::Format::eR16G16B16A16Sfloat, subresourceRange,
-        vk::ImageViewType::eCube, vk::ImageTiling::eOptimal,
-        vk::ImageCreateFlagBits::eCubeCompatible,
+        vk::Format::eR16G16B16A16Sfloat, mipLevels, 6, vk::ImageViewType::eCube,
+        vk::ImageTiling::eOptimal, vk::ImageCreateFlagBits::eCubeCompatible,
         vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-    copyPixels(cube, subresourceRange);
+    copyPixels(cube, _image.subresourceRange);
 
     _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,

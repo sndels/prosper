@@ -42,6 +42,8 @@ struct Image
     vk::Image handle;
     vk::ImageView view;
     vk::Format format{vk::Format::eUndefined};
+    // Keep extent and subresource range in full to avoid having to refill them
+    // on every use
     vk::Extent3D extent;
     vk::ImageSubresourceRange subresourceRange;
     ImageState state;

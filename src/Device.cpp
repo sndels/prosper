@@ -539,18 +539,18 @@ void Device::destroy(const TexelBuffer &buffer) const
 Image Device::createImage(
     const std::string &debugName, const vk::ImageType imageType,
     const vk::Extent3D &extent, const vk::Format format,
-    const vk::ImageSubresourceRange &range, const vk::ImageViewType viewType,
-    const vk::ImageTiling tiling, const vk::ImageCreateFlags flags,
-    const vk::ImageUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const MemoryAccess access) const
+    const uint32_t mipCount, const uint32_t layerCount,
+    const vk::ImageViewType viewType, const vk::ImageTiling tiling,
+    const vk::ImageCreateFlags flags, const vk::ImageUsageFlags usage,
+    const vk::MemoryPropertyFlags properties, const MemoryAccess access) const
 {
     const vk::ImageCreateInfo imageInfo{
         .flags = flags,
         .imageType = imageType,
         .format = format,
         .extent = extent,
-        .mipLevels = range.levelCount,
-        .arrayLayers = range.layerCount,
+        .mipLevels = mipCount,
+        .arrayLayers = layerCount,
         .samples = vk::SampleCountFlagBits::e1,
         .tiling = tiling,
         .usage = usage,
@@ -576,6 +576,14 @@ Image Device::createImage(
             reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
         .pObjectName = debugName.c_str(),
     });
+
+    const vk::ImageSubresourceRange range{
+        .aspectMask = aspectMask(format),
+        .baseMipLevel = 0,
+        .levelCount = mipCount,
+        .baseArrayLayer = 0,
+        .layerCount = layerCount,
+    };
 
     image.view = _logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,

@@ -108,11 +108,10 @@ class Device
 
     [[nodiscard]] Image createImage(
         const std::string &debugName, vk::ImageType imageType,
-        const vk::Extent3D &extent, vk::Format format,
-        const vk::ImageSubresourceRange &range, vk::ImageViewType viewType,
-        vk::ImageTiling tiling, vk::ImageCreateFlags flags,
-        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-        MemoryAccess access = {}) const;
+        const vk::Extent3D &extent, vk::Format format, uint32_t mipCount,
+        uint32_t layerCount, vk::ImageViewType viewType, vk::ImageTiling tiling,
+        vk::ImageCreateFlags flags, vk::ImageUsageFlags usage,
+        vk::MemoryPropertyFlags properties, MemoryAccess access = {}) const;
     void destroy(const Image &image) const;
 
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
