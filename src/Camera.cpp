@@ -155,12 +155,15 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
 
     for (uint32_t i = 0; i < swapImageCount; ++i)
     {
-        _uniformBuffers.push_back(_device->createBuffer(
-            "CameraUnfiroms" + std::to_string(i), bufferSize,
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent,
-            MemoryAccess::HostSequentialWrite, nullptr, true));
+        _uniformBuffers.push_back(_device->createBuffer(BufferCreateInfo{
+            .byteSize = bufferSize,
+            .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+            .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                          vk::MemoryPropertyFlagBits::eHostCoherent,
+            .access = MemoryAccess::HostSequentialWrite,
+            .createMapped = true,
+            .debugName = "CameraUnfiroms" + std::to_string(i),
+        }));
     }
 }
 

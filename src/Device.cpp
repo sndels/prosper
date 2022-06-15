@@ -404,64 +404,65 @@ void *Device::map(Image const &texture) const
 
 void Device::unmap(Image const &texture) const { unmap(texture.allocation); }
 
-Buffer Device::createBuffer(
-    const std::string &debugName, const vk::DeviceSize size,
-    const vk::BufferUsageFlags usage, const vk::MemoryPropertyFlags properties,
-    const MemoryAccess access, const void *initialData, bool createMapped) const
+Buffer Device::createBuffer(const BufferCreateInfo &info) const
 {
     const vk::BufferCreateInfo bufferInfo{
-        .size = size,
-        .usage = usage,
+        .size = info.byteSize,
+        .usage = info.usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
-    auto allocFlags = intoVmaFlags(access);
-    if (createMapped)
+
+    auto allocFlags = intoVmaFlags(info.access);
+    if (info.createMapped)
         allocFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    const VmaAllocationCreateInfo allocInfo = {
+    const VmaAllocationCreateInfo allocCreateInfo = {
         .flags = allocFlags,
         .usage = VMA_MEMORY_USAGE_AUTO,
-        .requiredFlags = static_cast<VkMemoryPropertyFlags>(properties),
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(info.properties),
     };
 
     Buffer buffer;
-    VmaAllocationInfo info;
+    VmaAllocationInfo allocInfo;
     const auto *vkpBufferInfo =
         reinterpret_cast<const VkBufferCreateInfo *>(&bufferInfo);
     auto *vkpBuffer = reinterpret_cast<VkBuffer *>(&buffer.handle);
     vmaCreateBuffer(
-        _allocator, vkpBufferInfo, &allocInfo, vkpBuffer, &buffer.allocation,
-        &info);
+        _allocator, vkpBufferInfo, &allocCreateInfo, vkpBuffer,
+        &buffer.allocation, &allocInfo);
 
-    if (createMapped)
+    if (info.createMapped)
     {
-        assert(info.pMappedData);
-        buffer.mapped = info.pMappedData;
+        assert(allocInfo.pMappedData);
+        buffer.mapped = allocInfo.pMappedData;
     }
 
     _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eBuffer,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
-        .pObjectName = debugName.c_str(),
+        .pObjectName = info.debugName.c_str(),
     });
 
-    if (initialData != nullptr)
+    if (info.initialData != nullptr)
     {
-        const auto stagingBuffer = createBuffer(
-            debugName + "StagingBuffer", size,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-                vk::MemoryPropertyFlagBits::eHostCoherent,
-            MemoryAccess::HostSequentialWrite, nullptr, true);
+        const auto stagingBuffer = createBuffer(BufferCreateInfo{
+            .byteSize = info.byteSize,
+            .usage = vk::BufferUsageFlagBits::eTransferSrc,
+            .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                          vk::MemoryPropertyFlagBits::eHostCoherent,
+            .access = MemoryAccess::HostSequentialWrite,
+            .createMapped = true,
+            .debugName = info.debugName + "StagingBuffer",
+        });
 
-        memcpy(stagingBuffer.mapped, initialData, size);
+        memcpy(stagingBuffer.mapped, info.initialData, info.byteSize);
 
         const auto commandBuffer = beginGraphicsCommands();
 
         const vk::BufferCopy copyRegion{
             .srcOffset = 0,
             .dstOffset = 0,
-            .size = size,
+            .size = info.byteSize,
         };
         commandBuffer.copyBuffer(
             stagingBuffer.handle, buffer.handle, 1, &copyRegion);
@@ -480,29 +481,29 @@ void Device::destroy(const Buffer &buffer) const
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
 }
 
-TexelBuffer Device::createTexelBuffer(
-    const std::string &debugName, const vk::Format format,
-    const vk::DeviceSize size, const vk::BufferUsageFlags usage,
-    const vk::MemoryPropertyFlags properties, const bool supportAtomics,
-    const MemoryAccess access) const
+TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info) const
 {
-    const auto formatProperties = _physical.getFormatProperties(format);
+    const auto formatProperties = _physical.getFormatProperties(info.format);
 
-    if (containsFlag(usage, vk::BufferUsageFlagBits::eStorageTexelBuffer))
+    if (containsFlag(
+            info.bufferInfo.usage,
+            vk::BufferUsageFlagBits::eStorageTexelBuffer))
     {
         assertContainsFlag(
             formatProperties.bufferFeatures,
             vk::FormatFeatureFlagBits::eStorageTexelBuffer,
             "Format doesn't support storage texel buffer");
     }
-    if (containsFlag(usage, vk::BufferUsageFlagBits::eUniformTexelBuffer))
+    if (containsFlag(
+            info.bufferInfo.usage,
+            vk::BufferUsageFlagBits::eUniformTexelBuffer))
     {
         assertContainsFlag(
             formatProperties.bufferFeatures,
             vk::FormatFeatureFlagBits::eUniformTexelBuffer,
             "Format doesn't support uniform texel buffer");
     }
-    if (supportAtomics)
+    if (info.supportAtomics)
     {
         assertContainsFlag(
             formatProperties.bufferFeatures,
@@ -510,21 +511,25 @@ TexelBuffer Device::createTexelBuffer(
             "Format doesn't support atomics");
     }
 
-    const auto buffer =
-        createBuffer(debugName, size, usage, properties, access);
+    assert(!info.bufferInfo.createMapped && "Mapped texel buffers not tested");
+    assert(
+        !info.bufferInfo.initialData &&
+        "Texel buffers with initial data not tested");
+
+    const auto buffer = createBuffer(info.bufferInfo);
 
     const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
         .buffer = buffer.handle,
-        .format = format,
+        .format = info.format,
         .offset = 0,
-        .range = size,
+        .range = info.bufferInfo.byteSize,
     });
 
     return TexelBuffer{
         .handle = buffer.handle,
         .view = view,
-        .format = format,
-        .size = size,
+        .format = info.format,
+        .size = info.bufferInfo.byteSize,
         .allocation = buffer.allocation,
     };
 }

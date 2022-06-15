@@ -238,11 +238,15 @@ Buffer Texture2D::stagePixels(
     const vk::DeviceSize imageSize =
         static_cast<vk::DeviceSize>(extent.width) * extent.height * 4;
 
-    const Buffer stagingBuffer = _device->createBuffer(
-        "Texture2DStaging", imageSize, vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        MemoryAccess::HostSequentialWrite, nullptr, true);
+    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
+        .byteSize = imageSize,
+        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                      vk::MemoryPropertyFlagBits::eHostCoherent,
+        .access = MemoryAccess::HostSequentialWrite,
+        .createMapped = true,
+        .debugName = "Texture2DStaging",
+    });
 
     memcpy(stagingBuffer.mapped, pixels, asserted_cast<size_t>(imageSize));
 
@@ -466,12 +470,15 @@ void TextureCubemap::copyPixels(
     const gli::texture_cube &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
-    const Buffer stagingBuffer = _device->createBuffer(
-        "TextureCubemapStaging", cube.size(),
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        MemoryAccess::HostSequentialWrite, nullptr, true);
+    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
+        .byteSize = cube.size(),
+        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                      vk::MemoryPropertyFlagBits::eHostCoherent,
+        .access = MemoryAccess::HostSequentialWrite,
+        .createMapped = true,
+        .debugName = "TextureCubemapStaging",
+    });
 
     memcpy(stagingBuffer.mapped, cube.data(), cube.size());
 

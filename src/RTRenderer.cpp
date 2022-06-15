@@ -337,14 +337,16 @@ void RTRenderer::createShaderBindingTable()
             _pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),
         "getRayTracingShaderGroupHandlesKHR");
 
-    _shaderBindingTable = _device->createBuffer(
-        "ShaderBindingTable", sbtSize,
-        vk::BufferUsageFlagBits::eTransferSrc |
-            vk::BufferUsageFlagBits::eShaderDeviceAddress |
-            vk::BufferUsageFlagBits::eShaderBindingTableKHR,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent,
-        MemoryAccess::HostSequentialWrite);
+    _shaderBindingTable = _device->createBuffer(BufferCreateInfo{
+        .byteSize = sbtSize,
+        .usage = vk::BufferUsageFlagBits::eTransferSrc |
+                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                 vk::BufferUsageFlagBits::eShaderBindingTableKHR,
+        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                      vk::MemoryPropertyFlagBits::eHostCoherent,
+        .access = MemoryAccess::HostSequentialWrite,
+        .debugName = "ShaderBindingTable",
+    });
 
     void *mapped = _device->map(_shaderBindingTable);
 

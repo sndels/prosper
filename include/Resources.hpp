@@ -18,11 +18,29 @@ struct BufferState
     vk::AccessFlags2 accessMask{vk::AccessFlagBits2::eNone};
 };
 
+struct BufferCreateInfo
+{
+    vk::DeviceSize byteSize{0};
+    vk::BufferUsageFlags usage;
+    vk::MemoryPropertyFlags properties;
+    MemoryAccess access{MemoryAccess::Device};
+    const void *initialData{nullptr};
+    bool createMapped{false};
+    std::string debugName;
+};
+
 struct Buffer
 {
     vk::Buffer handle;
     void *mapped{nullptr};
     VmaAllocation allocation{nullptr};
+};
+
+struct TexelBufferCreateInfo
+{
+    BufferCreateInfo bufferInfo;
+    vk::Format format;
+    bool supportAtomics{false};
 };
 
 struct TexelBuffer

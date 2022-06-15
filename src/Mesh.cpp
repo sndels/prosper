@@ -9,22 +9,28 @@ Mesh::Mesh(
 , _vertexCount{asserted_cast<uint32_t>(vertices.size())}
 , _indexCount{asserted_cast<uint32_t>(indices.size())}
 {
-    _vertexBuffer = _device->createBuffer(
-        "MeshVertexBuffer", sizeof(Vertex) * vertices.size(),
-        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
-            vk::BufferUsageFlagBits::eShaderDeviceAddress |
-            vk::BufferUsageFlagBits::eVertexBuffer |
-            vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
-        vertices.data());
-    _indexBuffer = _device->createBuffer(
-        "MeshIndexBuffer", sizeof(uint32_t) * indices.size(),
-        vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
-            vk::BufferUsageFlagBits::eShaderDeviceAddress |
-            vk::BufferUsageFlagBits::eIndexBuffer |
-            vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, MemoryAccess::Device,
-        indices.data());
+    _vertexBuffer = _device->createBuffer(BufferCreateInfo{
+        .byteSize = sizeof(Vertex) * vertices.size(),
+        .usage = vk::BufferUsageFlagBits::
+                     eAccelerationStructureBuildInputReadOnlyKHR |
+                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                 vk::BufferUsageFlagBits::eVertexBuffer |
+                 vk::BufferUsageFlagBits::eTransferDst,
+        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        .initialData = vertices.data(),
+        .debugName = "MeshVertexBuffer",
+    });
+    _indexBuffer = _device->createBuffer(BufferCreateInfo{
+        .byteSize = sizeof(uint32_t) * indices.size(),
+        .usage = vk::BufferUsageFlagBits::
+                     eAccelerationStructureBuildInputReadOnlyKHR |
+                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                 vk::BufferUsageFlagBits::eIndexBuffer |
+                 vk::BufferUsageFlagBits::eTransferDst,
+        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        .initialData = indices.data(),
+        .debugName = "MeshIndexBuffer",
+    });
 }
 
 Mesh::~Mesh() { destroy(); }

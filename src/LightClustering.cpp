@@ -65,11 +65,19 @@ LightClustering::LightClustering(
                 .pBindings = layoutBindings.data(),
             });
 
-    _resources->buffers.lightClusters.indicesCount = _device->createTexelBuffer(
-        "LightClusteringIndicesCounter", vk::Format::eR32Uint, sizeof(uint32_t),
-        vk::BufferUsageFlagBits::eTransferDst |
-            vk::BufferUsageFlagBits::eStorageTexelBuffer,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, true);
+    _resources->buffers.lightClusters.indicesCount =
+        _device->createTexelBuffer(TexelBufferCreateInfo{
+            .bufferInfo =
+                BufferCreateInfo{
+                    .byteSize = sizeof(uint32_t),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst |
+                             vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    .debugName = "LightClusteringIndicesCounter",
+                },
+            .format = vk::Format::eR32Uint,
+            .supportAtomics = true,
+        });
 
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
 }
@@ -260,11 +268,17 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
         static_cast<vk::DeviceSize>(
             maxSpotIndicesPerTile + maxPointIndicesPerTile) *
         pointersWidth * pointersHeight * pointersDepth;
-    _resources->buffers.lightClusters.indices = _device->createTexelBuffer(
-        "lightClusterIndices", vk::Format::eR16Uint,
-        indicesSize * sizeof(uint16_t),
-        vk::BufferUsageFlagBits::eStorageTexelBuffer,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, false);
+    _resources->buffers.lightClusters.indices =
+        _device->createTexelBuffer(TexelBufferCreateInfo{
+            .bufferInfo =
+                BufferCreateInfo{
+                    .byteSize = indicesSize * sizeof(uint16_t),
+                    .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    .debugName = "lightClusterIndices",
+                },
+            .format = vk::Format::eR16Uint,
+        });
 }
 
 void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)

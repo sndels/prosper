@@ -86,17 +86,11 @@ class Device
     [[nodiscard]] void *map(Image const &texture) const;
     void unmap(Image const &texture) const;
 
-    [[nodiscard]] Buffer createBuffer(
-        const std::string &debugName, vk::DeviceSize size,
-        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-        MemoryAccess access = {}, const void *initialData = nullptr,
-        bool createMapped = false) const;
+    [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info) const;
     void destroy(const Buffer &buffer) const;
 
     [[nodiscard]] TexelBuffer createTexelBuffer(
-        const std::string &debugName, vk::Format format, vk::DeviceSize size,
-        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-        bool supportAtomics, MemoryAccess access = {}) const;
+        const TexelBufferCreateInfo &info) const;
     void destroy(const TexelBuffer &buffer) const;
 
     [[nodiscard]] Image createImage(const ImageCreateInfo &info) const;
