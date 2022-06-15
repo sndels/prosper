@@ -344,7 +344,6 @@ void RTRenderer::createShaderBindingTable()
                  vk::BufferUsageFlagBits::eShaderBindingTableKHR,
         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                       vk::MemoryPropertyFlagBits::eHostCoherent,
-        .access = MemoryAccess::HostSequentialWrite,
         .debugName = "ShaderBindingTable",
     });
 

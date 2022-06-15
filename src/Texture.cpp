@@ -243,7 +243,6 @@ Buffer Texture2D::stagePixels(
         .usage = vk::BufferUsageFlagBits::eTransferSrc,
         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                       vk::MemoryPropertyFlagBits::eHostCoherent,
-        .access = MemoryAccess::HostSequentialWrite,
         .createMapped = true,
         .debugName = "Texture2DStaging",
     });
@@ -475,7 +474,6 @@ void TextureCubemap::copyPixels(
         .usage = vk::BufferUsageFlagBits::eTransferSrc,
         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                       vk::MemoryPropertyFlagBits::eHostCoherent,
-        .access = MemoryAccess::HostSequentialWrite,
         .createMapped = true,
         .debugName = "TextureCubemapStaging",
     });

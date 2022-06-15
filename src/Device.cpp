@@ -198,24 +198,6 @@ const char *statusString(shaderc_compilation_status status)
     }
 }
 
-VmaAllocationCreateFlags intoVmaFlags(MemoryAccess access)
-{
-    VmaAllocationCreateFlags flags = 0;
-    switch (access)
-    {
-    case MemoryAccess::Device:
-        break;
-    case MemoryAccess::HostRandomWrite:
-        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-        break;
-    case MemoryAccess::HostSequentialWrite:
-        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-        break;
-    }
-
-    return flags;
-}
-
 } // namespace
 
 FileIncluder::FileIncluder()
@@ -412,9 +394,14 @@ Buffer Device::createBuffer(const BufferCreateInfo &info) const
         .sharingMode = vk::SharingMode::eExclusive,
     };
 
-    auto allocFlags = intoVmaFlags(info.access);
+    VmaAllocationCreateFlags allocFlags = 0;
+    if ((info.properties & vk::MemoryPropertyFlagBits::eHostVisible) ==
+        vk::MemoryPropertyFlagBits::eHostVisible)
+        // Readback is not used yet so assume this is for staging
+        allocFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     if (info.createMapped)
         allocFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
     const VmaAllocationCreateInfo allocCreateInfo = {
         .flags = allocFlags,
         .usage = VMA_MEMORY_USAGE_AUTO,
@@ -450,7 +437,6 @@ Buffer Device::createBuffer(const BufferCreateInfo &info) const
             .usage = vk::BufferUsageFlagBits::eTransferSrc,
             .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                           vk::MemoryPropertyFlagBits::eHostCoherent,
-            .access = MemoryAccess::HostSequentialWrite,
             .createMapped = true,
             .debugName = info.debugName + "StagingBuffer",
         });

@@ -907,7 +907,6 @@ void World::createBuffers(const uint32_t swapImageCount)
                             .properties =
                                 vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            .access = MemoryAccess::HostSequentialWrite,
                             .createMapped = true,
                             .debugName = "InstanceTransforms",
                         }));
@@ -924,7 +923,6 @@ void World::createBuffers(const uint32_t swapImageCount)
                             .properties =
                                 vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            .access = MemoryAccess::HostSequentialWrite,
                             .createMapped = true,
                             .debugName = "DirectionalLightUniforms",
                         }));
@@ -941,7 +939,6 @@ void World::createBuffers(const uint32_t swapImageCount)
                             .properties =
                                 vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            .access = MemoryAccess::HostSequentialWrite,
                             .createMapped = true,
                             .debugName = "PointLightsBuffer",
                         }));
@@ -958,7 +955,6 @@ void World::createBuffers(const uint32_t swapImageCount)
                             .properties =
                                 vk::MemoryPropertyFlagBits::eHostVisible |
                                 vk::MemoryPropertyFlagBits::eHostCoherent,
-                            .access = MemoryAccess::HostSequentialWrite,
                             .createMapped = true,
                             .debugName = "SpotLightsBuffer",
                         }));
@@ -976,7 +972,6 @@ void World::createBuffers(const uint32_t swapImageCount)
                     .usage = vk::BufferUsageFlagBits::eUniformBuffer,
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
-                    .access = MemoryAccess::HostSequentialWrite,
                     .createMapped = true,
                     .debugName = "SkyboxUniforms" + std::to_string(i),
                 }));

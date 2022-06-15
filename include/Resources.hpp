@@ -4,14 +4,6 @@
 #include "vulkan.hpp"
 #include <vk_mem_alloc.h>
 
-// TODO: Get rid of these, could be inferred from MemoryPropertyFlags
-enum class MemoryAccess
-{
-    Device,
-    HostSequentialWrite,
-    HostRandomWrite,
-};
-
 struct BufferState
 {
     vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
@@ -23,7 +15,8 @@ struct BufferCreateInfo
     vk::DeviceSize byteSize{0};
     vk::BufferUsageFlags usage;
     vk::MemoryPropertyFlags properties;
-    MemoryAccess access{MemoryAccess::Device};
+    // TODO: When readback is needed, add enum for gpuonly, staging, readback to
+    // select vma allocation mode accordingly
     const void *initialData{nullptr};
     bool createMapped{false};
     std::string debugName;

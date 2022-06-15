@@ -160,7 +160,6 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
             .usage = vk::BufferUsageFlagBits::eUniformBuffer,
             .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                           vk::MemoryPropertyFlagBits::eHostCoherent,
-            .access = MemoryAccess::HostSequentialWrite,
             .createMapped = true,
             .debugName = "CameraUnfiroms" + std::to_string(i),
         }));
