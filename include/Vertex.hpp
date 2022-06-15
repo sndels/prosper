@@ -1,7 +1,7 @@
 #ifndef PROSPER_VERTEX_HPP
 #define PROSPER_VERTEX_HPP
 
-#include "vulkan.hpp"
+#include <vulkan/vulkan.hpp>
 
 #include <glm/glm.hpp>
 

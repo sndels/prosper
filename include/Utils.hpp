@@ -1,8 +1,6 @@
 #ifndef PROSPER_CONSTANTS_HPP
 #define PROSPER_CONSTANTS_HPP
 
-#include "vulkan.hpp"
-
 #include <cstddef>
 #include <filesystem>
 #include <limits>

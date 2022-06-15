@@ -1,8 +1,8 @@
 #ifndef PROSPER_RESOURCES_HPP
 #define PROSPER_RESOURCES_HPP
 
-#include "vulkan.hpp"
 #include <vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 
 struct BufferState
 {
