@@ -71,8 +71,11 @@ target_link_libraries(prosper
 )
 target_compile_definitions(prosper
     PRIVATE
-    VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
     VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+    VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+    VULKAN_HPP_NO_SETTERS
+    VULKAN_HPP_NO_SMART_HANDLE
+    VULKAN_HPP_NO_SPACESHIP_OPERATOR
     # Set up absolute path to resources and binaries
     RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"
     BIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
