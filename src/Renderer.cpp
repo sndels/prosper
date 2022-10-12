@@ -17,7 +17,7 @@ Renderer::Renderer(
 {
     fprintf(stderr, "Creating Renderer\n");
 
-    if (!compileShaders())
+    if (!compileShaders(worldDSLayouts))
         throw std::runtime_error("Renderer shader compilation failed");
 
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
@@ -39,7 +39,7 @@ void Renderer::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders())
+    if (compileShaders(worldDSLayouts))
     {
         destroyGraphicsPipelines();
         createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
@@ -173,7 +173,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     return buffer;
 }
 
-bool Renderer::compileShaders()
+bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
 {
     fprintf(stderr, "Compiling Renderer shaders\n");
 
@@ -186,6 +186,9 @@ bool Renderer::compileShaders()
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",
             .debugName = "opaquePS",
+            .defines = "#define NUM_MATERIAL_SAMPLERS " +
+                       std::to_string(worldDSLayouts.materialSamplerCount) +
+                       '\n',
         });
 
     if (vertSM && fragSM)

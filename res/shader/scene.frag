@@ -33,7 +33,6 @@ struct MaterialData
     uint pad;
 };
 
-#define NUM_MATERIAL_SAMPLERS 1 // TODO: Supply as compiler arg from engine
 layout(std430, set = 3, binding = 0) readonly buffer MaterialDatas
 {
     MaterialData materials[];

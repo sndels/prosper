@@ -36,7 +36,7 @@ class Renderer
         uint32_t nextImage) const;
 
   private:
-    [[nodiscard]] bool compileShaders();
+    [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();

@@ -1046,10 +1046,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             samplerInfos.push_back(vk::DescriptorImageInfo{.sampler = s});
         const auto samplerInfoCount =
             asserted_cast<uint32_t>(samplerInfos.size());
-        assert(
-            samplerInfoCount == 1 &&
-            "Shader assumes one sampler, need to implement defines to compiler "
-            "for 'dynamic' count");
+        _dsLayouts.materialSamplerCount = samplerInfoCount;
 
         std::vector<vk::DescriptorImageInfo> imageInfos;
         imageInfos.reserve(_textures.size() + 1);

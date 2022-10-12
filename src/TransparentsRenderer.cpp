@@ -17,7 +17,7 @@ TransparentsRenderer::TransparentsRenderer(
 {
     fprintf(stderr, "Creating TransparentsRenderer\n");
 
-    if (!compileShaders())
+    if (!compileShaders(worldDSLayouts))
         throw std::runtime_error(
             "TransparentsRenderer shader compilation failed");
     recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
@@ -39,7 +39,7 @@ void TransparentsRenderer::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders())
+    if (compileShaders(worldDSLayouts))
     {
         destroyGraphicsPipeline();
         createGraphicsPipeline(swapConfig, camDSLayout, worldDSLayouts);
@@ -173,7 +173,8 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
     return buffer;
 }
 
-bool TransparentsRenderer::compileShaders()
+bool TransparentsRenderer::compileShaders(
+    const World::DSLayouts &worldDSLayouts)
 {
     fprintf(stderr, "Compiling TransparentsRenderer shaders\n");
 
@@ -186,6 +187,9 @@ bool TransparentsRenderer::compileShaders()
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",
             .debugName = "transparentsPS",
+            .defines = "#define NUM_MATERIAL_SAMPLERS " +
+                       std::to_string(worldDSLayouts.materialSamplerCount) +
+                       '\n',
         });
 
     if (vertSM && fragSM)

@@ -42,7 +42,7 @@ class TransparentsRenderer
         uint32_t nextImage) const;
 
   private:
-    bool compileShaders();
+    bool compileShaders(const World::DSLayouts &worldDSLayouts);
 
     void destroySwapchainRelated();
     void destroyGraphicsPipeline();

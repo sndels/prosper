@@ -22,6 +22,7 @@ class World
   public:
     struct DSLayouts
     {
+        uint32_t materialSamplerCount{0};
         vk::DescriptorSetLayout materialTextures;
         vk::DescriptorSetLayout modelInstances;
         vk::DescriptorSetLayout accelerationStructure;
