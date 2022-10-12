@@ -79,6 +79,8 @@ class Device
     {
         const std::string &relPath;
         const std::string &debugName;
+        // Default value lives for the duration of the object
+        const std::string &defines{""};
     };
     [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
         const CompileShaderModuleArgs &info) const;

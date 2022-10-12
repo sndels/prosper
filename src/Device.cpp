@@ -338,7 +338,9 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
         p.remove_prefix(7);
         return std::string{p};
     }();
-    const auto source = readFileString(resPath(info.relPath));
+
+    const auto source =
+        "#version 460\n" + info.defines + readFileString(resPath(info.relPath));
 
     const auto result = _compiler.CompileGlslToSpv(
         source, shaderc_glsl_infer_from_source, shaderRelPath.c_str(),
