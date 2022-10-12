@@ -34,12 +34,16 @@ struct MaterialData
     uint pad;
 };
 
+#define NUM_MATERIAL_SAMPLERS 1 // TODO: Supply as compiler arg from engine
 layout(std430, set = 3, binding = 0) readonly buffer MaterialDatas
 {
     MaterialData materials[];
 }
 materialDatas;
-layout(set = 3, binding = 1) uniform sampler2D materialTextures[];
+layout(set = 3, binding = 1) uniform sampler
+    materialSamplers[NUM_MATERIAL_SAMPLERS];
+layout(set = 3, binding = 1 + NUM_MATERIAL_SAMPLERS) uniform texture2D
+    materialTextures[];
 
 #include "pc_mesh.glsl"
 
@@ -154,8 +158,9 @@ void main()
     vec4 linearBaseColor;
     uint baseColorTex = material.baseColorTexture;
     if (baseColorTex > 0)
-        linearBaseColor = sRGBtoLinear(
-            texture(materialTextures[baseColorTex], fragTexCoord0));
+        linearBaseColor = sRGBtoLinear(texture(
+            sampler2D(materialTextures[baseColorTex], materialSamplers[0]),
+            fragTexCoord0));
     else
         linearBaseColor = vec4(1);
     linearBaseColor *= material.baseColorFactor;
@@ -171,8 +176,12 @@ void main()
     uint metallicRoughnessTex = material.metallicRoughnessTexture;
     if (metallicRoughnessTex > 0)
     {
-        vec3 mr =
-            texture(materialTextures[metallicRoughnessTex], fragTexCoord0).rgb;
+        vec3 mr = texture(
+                      sampler2D(
+                          materialTextures[metallicRoughnessTex],
+                          materialSamplers[0]),
+                      fragTexCoord0)
+                      .rgb;
         metallic = mr.b * material.metallicFactor;
         roughness = mr.g * material.roughnessFactor;
     }
@@ -189,7 +198,11 @@ void main()
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
         normal = normalize(
             TBN *
-            (texture(materialTextures[normalTextureTex], fragTexCoord0).xyz *
+            (texture(
+                 sampler2D(
+                     materialTextures[normalTextureTex], materialSamplers[0]),
+                 fragTexCoord0)
+                     .xyz *
                  2 -
              1));
     }

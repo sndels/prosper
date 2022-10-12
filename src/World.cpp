@@ -168,6 +168,8 @@ World::~World()
     }
     for (auto &buffer : _skyboxUniformBuffers)
         _device->destroy(buffer);
+    for (auto &sampler : _samplers)
+        _device->logical().destroy(sampler);
 }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
@@ -212,24 +214,41 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
 
 void World::loadTextures(const tinygltf::Model &gltfModel)
 {
+
+    {
+        vk::SamplerCreateInfo info{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eLinear, // TODO
+            .addressModeU = vk::SamplerAddressMode::eRepeat,
+            .addressModeV = vk::SamplerAddressMode::eRepeat,
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+            .anisotropyEnable = VK_TRUE,
+            .maxAnisotropy = 16,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+        };
+        _samplers.push_back(_device->logical().createSampler(info));
+    }
     for (const auto &texture : gltfModel.textures)
     {
         const auto &image = gltfModel.images[texture.source];
-        const tinygltf::Sampler sampler = [&]
-        {
-            tinygltf::Sampler s;
-            if (texture.sampler == -1)
-            {
-                s.minFilter = GL_LINEAR;
-                s.magFilter = GL_LINEAR;
-                s.wrapS = GL_REPEAT;
-                s.wrapT = GL_REPEAT;
-            }
-            else
-                s = gltfModel.samplers[texture.sampler];
-            return s;
-        }();
-        _textures.emplace_back(_device, image, sampler, true);
+        // const tinygltf::Sampler sampler = [&]
+        // {
+        //     tinygltf::Sampler s;
+        //     if (texture.sampler == -1)
+        //     {
+        //         s.minFilter = GL_LINEAR;
+        //         s.magFilter = GL_LINEAR;
+        //         s.wrapS = GL_REPEAT;
+        //         s.wrapT = GL_REPEAT;
+        //     }
+        //     else
+        //         s = gltfModel.samplers[texture.sampler];
+        //     return s;
+        // }();
+        // TODO: Update samplers
+        _textures.emplace_back(_device, image, true);
     }
 }
 
@@ -986,14 +1005,18 @@ void World::createDescriptorPool(const uint32_t swapImageCount)
     // As is the directional light
     const uint32_t uniformDescriptorCount =
         swapImageCount * (asserted_cast<uint32_t>(_nodes.size()) + 2);
-    const uint32_t samplerDescriptorCount =
+    const uint32_t samplerDescriptorCount = 1; // TODO: Actual coutn
+    const uint32_t sampledImageDescriptorCount =
         3 * asserted_cast<uint32_t>(_materials.size()) + swapImageCount;
-    const std::array<vk::DescriptorPoolSize, 3> poolSizes{
+    const std::array<vk::DescriptorPoolSize, 4> poolSizes{
         {{// Dynamic need per frame descriptor sets of one descriptor per UBlock
           vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
+         {// Samplers need one descriptor per texture as they are constant
+          // between frames
+          vk::DescriptorType::eSampler, samplerDescriptorCount},
          {// Materials need one descriptor per texture as they are constant
           // between frames
-          vk::DescriptorType::eCombinedImageSampler, samplerDescriptorCount},
+          vk::DescriptorType::eSampledImage, sampledImageDescriptorCount},
          {// Lights require per frame descriptors for points, spots
           vk::DescriptorType::eStorageBuffer, 2 * swapImageCount}},
     };
@@ -1017,14 +1040,25 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             "Tried to create World descriptor sets before loading glTF");
 
     {
-        std::vector<vk::DescriptorImageInfo> infos;
-        infos.reserve(_textures.size() + 1);
-        infos.push_back(_emptyTexture.imageInfo());
-        for (const auto &tex : _textures)
-            infos.push_back(tex.imageInfo());
-        const auto infoCount = asserted_cast<uint32_t>(infos.size());
+        std::vector<vk::DescriptorImageInfo> samplerInfos;
+        samplerInfos.reserve(_samplers.size());
+        for (const auto &s : _samplers)
+            samplerInfos.push_back(vk::DescriptorImageInfo{.sampler = s});
+        const auto samplerInfoCount =
+            asserted_cast<uint32_t>(samplerInfos.size());
+        assert(
+            samplerInfoCount == 1 &&
+            "Shader assumes one sampler, need to implement defines to compiler "
+            "for 'dynamic' count");
 
-        const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
+        std::vector<vk::DescriptorImageInfo> imageInfos;
+        imageInfos.reserve(_textures.size() + 1);
+        imageInfos.push_back(_emptyTexture.imageInfo());
+        for (const auto &tex : _textures)
+            imageInfos.push_back(tex.imageInfo());
+        const auto imageInfoCount = asserted_cast<uint32_t>(imageInfos.size());
+
+        const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -1033,12 +1067,19 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1,
-                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                .descriptorCount = infoCount,
+                .descriptorType = vk::DescriptorType::eSampler,
+                .descriptorCount = samplerInfoCount,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+            },
+            vk::DescriptorSetLayoutBinding{
+                .binding = 1 + samplerInfoCount,
+                .descriptorType = vk::DescriptorType::eSampledImage,
+                .descriptorCount = imageInfoCount,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment,
             },
         };
-        const std::array<vk::DescriptorBindingFlags, 2> layoutFlags{
+        const std::array<vk::DescriptorBindingFlags, 3> layoutFlags{
+            vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
         };
@@ -1069,7 +1110,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                     .pSetLayouts = &_dsLayouts.materialTextures},
                 vk::DescriptorSetVariableDescriptorCountAllocateInfo{
                     .descriptorSetCount = 1,
-                    .pDescriptorCounts = &infoCount,
+                    .pDescriptorCounts = &imageInfoCount,
                 }};
         _materialTexturesDS = _device->logical().allocateDescriptorSets(
             dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
@@ -1080,7 +1121,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         };
 
         std::vector<vk::WriteDescriptorSet> dss;
-        dss.reserve(infos.size() + 1);
+        dss.reserve(imageInfos.size() + 1);
         dss.push_back(vk::WriteDescriptorSet{
             .dstSet = _materialTexturesDS,
             .dstBinding = 0,
@@ -1088,14 +1129,23 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .pBufferInfo = &datasInfo,
         });
-        for (uint32_t i = 0; i < infos.size(); ++i)
+        for (uint32_t i = 0; i < samplerInfos.size(); ++i)
             dss.push_back(vk::WriteDescriptorSet{
                 .dstSet = _materialTexturesDS,
                 .dstBinding = 1,
                 .dstArrayElement = i,
                 .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                .pImageInfo = &infos[i],
+                .descriptorType = vk::DescriptorType::eSampler,
+                .pImageInfo = &samplerInfos[i],
+            });
+        for (uint32_t i = 0; i < imageInfos.size(); ++i)
+            dss.push_back(vk::WriteDescriptorSet{
+                .dstSet = _materialTexturesDS,
+                .dstBinding = 1 + asserted_cast<uint32_t>(samplerInfos.size()),
+                .dstArrayElement = i,
+                .descriptorCount = 1,
+                .descriptorType = vk::DescriptorType::eSampledImage,
+                .pImageInfo = &imageInfos[i],
             });
 
         _device->logical().updateDescriptorSets(

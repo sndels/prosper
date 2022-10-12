@@ -102,7 +102,6 @@ Texture::~Texture() { destroy(); }
 Texture::Texture(Texture &&other) noexcept
 : _device{other._device}
 , _image{other._image}
-, _sampler{other._sampler}
 {
     other._device = nullptr;
 }
@@ -114,29 +113,16 @@ Texture &Texture::operator=(Texture &&other) noexcept
     {
         _device = other._device;
         _image = other._image;
-        _sampler = other._sampler;
 
         other._device = nullptr;
     }
     return *this;
 }
 
-vk::DescriptorImageInfo Texture::imageInfo() const
-{
-    return vk::DescriptorImageInfo{
-        .sampler = _sampler,
-        .imageView = _image.view,
-        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-    };
-}
-
 void Texture::destroy()
 {
     if (_device != nullptr)
-    {
-        _device->logical().destroy(_sampler);
         _device->destroy(_image);
-    }
 }
 
 Texture2D::Texture2D(
@@ -164,15 +150,13 @@ Texture2D::Texture2D(
                                          vk::ImageUsageFlagBits::eSampled,
                            .debugName = "Texture2D",
                        });
-    createSampler(mipLevels);
 
     stbi_image_free(pixels);
     _device->destroy(stagingBuffer);
 }
 
 Texture2D::Texture2D(
-    Device *device, const tinygltf::Image &image,
-    const tinygltf::Sampler &sampler, const bool mipmap)
+    Device *device, const tinygltf::Image &image, const bool mipmap)
 : Texture(device)
 {
     // TODO: support
@@ -227,9 +211,16 @@ Texture2D::Texture2D(
                                          vk::ImageUsageFlagBits::eSampled,
                            .debugName = "Texture2D",
                        });
-    createSampler(sampler, mipLevels);
 
     _device->destroy(stagingBuffer);
+}
+
+vk::DescriptorImageInfo Texture2D::imageInfo() const
+{
+    return vk::DescriptorImageInfo{
+        .imageView = _image.view,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
 }
 
 Buffer Texture2D::stagePixels(
@@ -392,41 +383,6 @@ void Texture2D::createMipmaps(
     _device->endGraphicsCommands(buffer);
 }
 
-void Texture2D::createSampler(const uint32_t mipLevels)
-{
-    // TODO: Use shared samplers
-    _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_TRUE,
-        .maxAnisotropy = 16,
-        .minLod = 0,
-        .maxLod = static_cast<float>(mipLevels),
-    });
-}
-
-void Texture2D::createSampler(
-    const tinygltf::Sampler &sampler, const uint32_t mipLevels)
-{
-    // TODO: Use shared samplers
-    _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
-        .magFilter = getVkFilterMode(sampler.magFilter),
-        .minFilter = getVkFilterMode(sampler.minFilter),
-        .mipmapMode = vk::SamplerMipmapMode::eLinear, // TODO
-        .addressModeU = getVkAddressMode(sampler.wrapS),
-        .addressModeV = getVkAddressMode(sampler.wrapT),
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_TRUE,
-        .maxAnisotropy = 16,
-        .minLod = 0,
-        .maxLod = static_cast<float>(mipLevels),
-    });
-}
-
 TextureCubemap::TextureCubemap(
     Device *device, const std::filesystem::path &path)
 : Texture(device)
@@ -463,6 +419,21 @@ TextureCubemap::TextureCubemap(
         .minLod = 0,
         .maxLod = static_cast<float>(mipLevels),
     });
+}
+
+TextureCubemap::~TextureCubemap()
+{
+    if (_device != nullptr)
+        _device->logical().destroy(_sampler);
+}
+
+vk::DescriptorImageInfo TextureCubemap::imageInfo() const
+{
+    return vk::DescriptorImageInfo{
+        .sampler = _sampler,
+        .imageView = _image.view,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
 }
 
 void TextureCubemap::copyPixels(

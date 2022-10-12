@@ -49,6 +49,7 @@ class World
     Buffer _skyboxVertexBuffer;
 
     std::unordered_map<Scene::Node *, CameraParameters> _cameras;
+    std::vector<vk::Sampler> _samplers;
     std::vector<Texture2D> _textures;
     std::vector<Material> _materials;
     std::vector<Mesh> _meshes;
@@ -61,6 +62,7 @@ class World
 
     vk::DescriptorPool _descriptorPool;
     Buffer _materialsBuffer;
+    std::string _materialsDSDefines;
     vk::DescriptorSet _materialTexturesDS;
     DSLayouts _dsLayouts;
 
