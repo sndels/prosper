@@ -211,8 +211,11 @@ bool LightClustering::compileShaders()
 {
     fprintf(stderr, "Compiling LightClustering shaders\n");
 
-    const auto compSM = _device->compileShaderModule(
-        "shader/light_clustering.comp", "lightClusteringCS");
+    const auto compSM =
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/light_clustering.comp",
+            .debugName = "lightClusteringCS",
+        });
 
     if (compSM)
     {

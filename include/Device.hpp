@@ -75,11 +75,13 @@ class Device
     [[nodiscard]] const QueueFamilies &queueFamilies() const;
     [[nodiscard]] const DeviceProperties &properties() const;
 
+    struct CompileShaderModuleArgs
+    {
+        const std::string &relPath;
+        const std::string &debugName;
+    };
     [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
-        const std::string &relPath, const std::string &debugName) const;
-    [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
-        const std::string &source, const std::string &path,
-        const std::string &debugName) const;
+        const CompileShaderModuleArgs &info) const;
 
     [[nodiscard]] void *map(Buffer const &buffer) const;
     void unmap(Buffer const &buffer) const;

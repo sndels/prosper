@@ -119,9 +119,15 @@ bool SkyboxRenderer::compileShaders()
     fprintf(stderr, "Compiling SkyboxRenderer shaders\n");
 
     const auto vertSM =
-        _device->compileShaderModule("shader/skybox.vert", "skyboxVS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/skybox.vert",
+            .debugName = "skyboxVS",
+        });
     const auto fragSM =
-        _device->compileShaderModule("shader/skybox.frag", "skyboxPS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/skybox.frag",
+            .debugName = "skyboxPS",
+        });
 
     if (vertSM && fragSM)
     {

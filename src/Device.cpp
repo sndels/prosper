@@ -329,32 +329,27 @@ const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 const DeviceProperties &Device::properties() const { return _properties; }
 
 std::optional<vk::ShaderModule> Device::compileShaderModule(
-    const std::string &relPath, const std::string &debugName) const
+    CompileShaderModuleArgs const &info) const
 {
-    assert(relPath.starts_with("shader/"));
-    const auto shaderRelPath = [&relPath]()
+    assert(info.relPath.starts_with("shader/"));
+    const auto shaderRelPath = [&info]()
     {
-        auto p = std::string_view(relPath);
+        auto p = std::string_view(info.relPath);
         p.remove_prefix(7);
         return std::string{p};
     }();
-    return compileShaderModule(
-        readFileString(resPath(relPath)), shaderRelPath, debugName);
-}
+    const auto source = readFileString(resPath(info.relPath));
 
-std::optional<vk::ShaderModule> Device::compileShaderModule(
-    const std::string &source, const std::string &path,
-    const std::string &debugName) const
-{
     const auto result = _compiler.CompileGlslToSpv(
-        source, shaderc_glsl_infer_from_source, path.c_str(), _compilerOptions);
+        source, shaderc_glsl_infer_from_source, shaderRelPath.c_str(),
+        _compilerOptions);
 
     if (const auto status = result.GetCompilationStatus(); status)
     {
         const auto err = result.GetErrorMessage();
         if (!err.empty())
             fprintf(stderr, "%s\n", err.c_str());
-        fprintf(stderr, "Compilation of '%s' failed\n", path.c_str());
+        fprintf(stderr, "Compilation of '%s' failed\n", shaderRelPath.c_str());
         fprintf(stderr, "%s\n", statusString(status));
         return {};
     }
@@ -369,7 +364,7 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
         .objectType = vk::ObjectType::eShaderModule,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
-        .pObjectName = debugName.c_str(),
+        .pObjectName = info.debugName.c_str(),
     });
 
     return sm;

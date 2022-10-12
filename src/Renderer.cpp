@@ -178,9 +178,15 @@ bool Renderer::compileShaders()
     fprintf(stderr, "Compiling Renderer shaders\n");
 
     const auto vertSM =
-        _device->compileShaderModule("shader/scene.vert", "opaqueVS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/scene.vert",
+            .debugName = "opaqueVS",
+        });
     const auto fragSM =
-        _device->compileShaderModule("shader/scene.frag", "opaquePS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/scene.frag",
+            .debugName = "opaquePS",
+        });
 
     if (vertSM && fragSM)
     {

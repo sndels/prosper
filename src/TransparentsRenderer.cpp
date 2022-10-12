@@ -178,9 +178,15 @@ bool TransparentsRenderer::compileShaders()
     fprintf(stderr, "Compiling TransparentsRenderer shaders\n");
 
     const auto vertSM =
-        _device->compileShaderModule("shader/scene.vert", "transparentsVS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/scene.vert",
+            .debugName = "transparentsVS",
+        });
     const auto fragSM =
-        _device->compileShaderModule("shader/scene.frag", "transparentsPS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/scene.frag",
+            .debugName = "transparentsPS",
+        });
 
     if (vertSM && fragSM)
     {

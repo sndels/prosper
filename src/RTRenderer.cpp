@@ -184,11 +184,20 @@ bool RTRenderer::compileShaders()
     fprintf(stderr, "Compiling RTRenderer shaders\n");
 
     const auto raygenSM =
-        _device->compileShaderModule("shader/rt/scene.rgen", "sceneRGEN");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/rt/scene.rgen",
+            .debugName = "sceneRGEN",
+        });
     const auto rayMissSM =
-        _device->compileShaderModule("shader/rt/scene.rmiss", "sceneRMISS");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/rt/scene.rmiss",
+            .debugName = "sceneRMISS",
+        });
     const auto closestHitSM =
-        _device->compileShaderModule("shader/rt/scene.rchit", "sceneRCHIT");
+        _device->compileShaderModule(Device::CompileShaderModuleArgs{
+            .relPath = "shader/rt/scene.rchit",
+            .debugName = "sceneRCHIT",
+        });
 
     if (raygenSM && rayMissSM && closestHitSM)
     {
