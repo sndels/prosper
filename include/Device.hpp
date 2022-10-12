@@ -77,9 +77,14 @@ class Device
 
     struct CompileShaderModuleArgs
     {
+        // Potential temporaries (and default values) referred to live for the
+        // duration of the object as binding to the const lvalue ref extends
+        // the lifetimes of temporaries to match the object.
+        // Note that the full extension requires {}-initialization and doesn't
+        // work if 'new' is involved.
+        // Don't know if this is a neat way to do named args or a footgun.
         const std::string &relPath;
         const std::string &debugName;
-        // Default value lives for the duration of the object
         const std::string &defines{""};
     };
     [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
