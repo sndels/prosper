@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(prosper)
 
-if (MSVC)
-add_compile_options(/MP)
+if(MSVC)
+    add_compile_options(/MP)
 endif() # MSVC
 
 # Set up sub-builds and sources
@@ -18,7 +18,8 @@ target_compile_features(prosper
     PRIVATE
     cxx_std_20
 )
-if (MSVC)
+
+if(MSVC)
     # From cppbestpractices
     target_compile_options(prosper
         PRIVATE
@@ -54,6 +55,7 @@ else()
         -Wunused
     )
 endif() # NOT MSVC
+
 target_include_directories(prosper
     PRIVATE
     ${PROSPER_INCLUDE_DIR}
@@ -76,26 +78,29 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SETTERS
     VULKAN_HPP_NO_SMART_HANDLE
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
+
     # Set up absolute path to resources and binaries
     RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"
     BIN_PATH="${CMAKE_CURRENT_BINARY_DIR}/")
+
 if(PROSPER_USE_PCH)
-target_precompile_headers(prosper
-    PRIVATE
-    [["chrono"]]
-    [["filesystem"]]
-    [["fstream"]]
-    [["map"]]
-    [["set"]]
-    [["unordered_map"]]
-    [["unordered_set"]]
-    [["gli/gli.hpp"]]
-    [["glm/glm.hpp"]]
-    [["glm/gtc/quaternion.hpp"]]
-    [["glm/gtc/matrix_access.hpp"]]
-    [["glm/gtc/matrix_transform.hpp"]]
-    [["glm/gtc/type_ptr.hpp"]]
-    [["glm/gtx/matrix_decompose.hpp"]]
-    [["vulkan/vulkan.hpp"]]
-)
+    target_precompile_headers(prosper
+        PRIVATE
+        [["chrono"]]
+        [["filesystem"]]
+        [["fstream"]]
+        [["map"]]
+        [["set"]]
+        [["unordered_map"]]
+        [["unordered_set"]]
+        [["gli/gli.hpp"]]
+        [["glm/glm.hpp"]]
+        [["glm/gtc/quaternion.hpp"]]
+        [["glm/gtc/matrix_access.hpp"]]
+        [["glm/gtc/matrix_transform.hpp"]]
+        [["glm/gtc/type_ptr.hpp"]]
+        [["glm/gtx/matrix_decompose.hpp"]]
+        [["vulkan/vulkan.hpp"]]
+        [["vulkan/vulkan_hash.hpp"]]
+    )
 endif() # PROSPER_USE_PCH

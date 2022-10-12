@@ -14,6 +14,12 @@
 
 using namespace glm;
 
+#ifdef _WIN32
+// Windows' header doesn't include these
+#define GL_CLAMP_TO_EDGE 0x812F
+#define GL_MIRRORED_REPEAT 0x8370
+#endif // _WIN32 or _WIN64
+
 namespace
 {
 
@@ -96,6 +102,40 @@ vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
         }},
     };
 }
+
+vk::Filter getVkFilterMode(int glEnum)
+{
+    switch (glEnum)
+    {
+    case GL_NEAREST:
+    case GL_NEAREST_MIPMAP_NEAREST:
+    case GL_NEAREST_MIPMAP_LINEAR:
+        return vk::Filter::eNearest;
+    case GL_LINEAR:
+    case GL_LINEAR_MIPMAP_NEAREST:
+    case GL_LINEAR_MIPMAP_LINEAR:
+        return vk::Filter::eLinear;
+    }
+
+    std::cerr << "Invalid gl filter " << glEnum << std::endl;
+    return vk::Filter::eLinear;
+}
+
+vk::SamplerAddressMode getVkAddressMode(int glEnum)
+{
+    switch (glEnum)
+    {
+    case GL_CLAMP_TO_EDGE:
+        return vk::SamplerAddressMode::eClampToEdge;
+    case GL_MIRRORED_REPEAT:
+        return vk::SamplerAddressMode::eMirroredRepeat;
+    case GL_REPEAT:
+        return vk::SamplerAddressMode::eRepeat;
+    }
+    std::cerr << "Invalid gl wrapping mode " << glEnum << std::endl;
+    return vk::SamplerAddressMode::eClampToEdge;
+}
+
 } // namespace
 
 World::World(
@@ -214,7 +254,6 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
 
 void World::loadTextures(const tinygltf::Model &gltfModel)
 {
-
     {
         vk::SamplerCreateInfo info{
             .magFilter = vk::Filter::eLinear,
@@ -228,27 +267,51 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
+        _samplerMap.insert(std::make_pair(info, 0));
         _samplers.push_back(_device->logical().createSampler(info));
     }
     for (const auto &texture : gltfModel.textures)
     {
         const auto &image = gltfModel.images[texture.source];
-        // const tinygltf::Sampler sampler = [&]
-        // {
-        //     tinygltf::Sampler s;
-        //     if (texture.sampler == -1)
-        //     {
-        //         s.minFilter = GL_LINEAR;
-        //         s.magFilter = GL_LINEAR;
-        //         s.wrapS = GL_REPEAT;
-        //         s.wrapT = GL_REPEAT;
-        //     }
-        //     else
-        //         s = gltfModel.samplers[texture.sampler];
-        //     return s;
-        // }();
-        // TODO: Update samplers
-        _textures.emplace_back(_device, image, true);
+
+        const tinygltf::Sampler sampler = [&]
+        {
+            tinygltf::Sampler s;
+            if (texture.sampler == -1)
+            {
+                s.minFilter = GL_LINEAR;
+                s.magFilter = GL_LINEAR;
+                s.wrapS = GL_REPEAT;
+                s.wrapT = GL_REPEAT;
+            }
+            else
+                s = gltfModel.samplers[texture.sampler];
+            return s;
+        }();
+
+        const vk::SamplerCreateInfo info{
+            .magFilter = getVkFilterMode(sampler.magFilter),
+            .minFilter = getVkFilterMode(sampler.minFilter),
+            .mipmapMode = vk::SamplerMipmapMode::eLinear, // TODO
+            .addressModeU = getVkAddressMode(sampler.wrapS),
+            .addressModeV = getVkAddressMode(sampler.wrapT),
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+            .anisotropyEnable = VK_TRUE, // TODO: Is there a gltf flag?
+            .maxAnisotropy = 16,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+        };
+        if (!_samplerMap.contains(info))
+        {
+            _samplerMap.insert(std::make_pair(
+                info, asserted_cast<uint32_t>(_samplers.size())));
+            _samplers.push_back(_device->logical().createSampler(info));
+            assert(
+                _samplers.size() < 0xFF &&
+                "Too many samplers to pack in u32 texture index");
+        }
+
+        _textures.emplace_back(_device, image, true, _samplerMap[info]);
     }
 }
 
@@ -267,6 +330,8 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
                 fprintf(
                     stderr, "%s: Base color TexCoord isn't 0\n",
                     material.name.c_str());
+            assert(mat.baseColor < 0x00FFFFFF && "Sampler index won't fit");
+            mat.baseColor |= _textures[mat.baseColor - 1].sampler << 24;
         }
         if (const auto &elem = material.values.find("metallicRoughnessTexture");
             elem != material.values.end())
@@ -276,6 +341,11 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
                 fprintf(
                     stderr, "%s: Metallic roughness TexCoord isn't 0\n",
                     material.name.c_str());
+            assert(
+                mat.metallicRoughness < 0x00FFFFFF &&
+                "Sampler index won't fit");
+            mat.metallicRoughness |=
+                _textures[mat.metallicRoughness - 1].sampler << 24;
         }
         if (const auto &elem = material.additionalValues.find("normalTexture");
             elem != material.additionalValues.end())
@@ -285,6 +355,8 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
                 fprintf(
                     stderr, "%s: Normal TexCoord isn't 0\n",
                     material.name.c_str());
+            assert(mat.normal < 0x00FFFFFF && "Sampler index won't fit");
+            mat.normal |= _textures[mat.normal - 1].sampler << 24;
         }
         if (const auto &elem = material.values.find("baseColorFactor");
             elem != material.values.end())
@@ -1051,7 +1123,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         std::vector<vk::DescriptorImageInfo> imageInfos;
         imageInfos.reserve(_textures.size() + 1);
         imageInfos.push_back(_emptyTexture.imageInfo());
-        for (const auto &tex : _textures)
+        for (const auto &[tex, _] : _textures)
             imageInfos.push_back(tex.imageInfo());
         const auto imageInfoCount = asserted_cast<uint32_t>(imageInfos.size());
 

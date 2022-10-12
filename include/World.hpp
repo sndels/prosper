@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <unordered_map>
+#include <vulkan/vulkan_hash.hpp>
 
 namespace tinygltf
 {
@@ -50,8 +51,23 @@ class World
     Buffer _skyboxVertexBuffer;
 
     std::unordered_map<Scene::Node *, CameraParameters> _cameras;
+    std::unordered_map<vk::SamplerCreateInfo, uint32_t> _samplerMap;
     std::vector<vk::Sampler> _samplers;
-    std::vector<Texture2D> _textures;
+    struct Texture2DSampler
+    {
+
+        Texture2D tex;
+        uint32_t sampler{0};
+
+        Texture2DSampler(
+            Device *device, const tinygltf::Image &image, const bool mipmap,
+            uint32_t sampler)
+        : tex{device, image, mipmap}
+        , sampler{sampler}
+        {
+        }
+    };
+    std::vector<Texture2DSampler> _textures;
     std::vector<Material> _materials;
     std::vector<Mesh> _meshes;
     std::vector<AccelerationStructure> _blases;

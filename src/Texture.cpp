@@ -8,46 +8,8 @@
 
 #include "Utils.hpp"
 
-#ifdef _WIN32
-// Windows' header doesn't include these
-#define GL_CLAMP_TO_EDGE 0x812F
-#define GL_MIRRORED_REPEAT 0x8370
-#endif // _WIN32 or _WIN64
-
 namespace
 {
-vk::Filter getVkFilterMode(int glEnum)
-{
-    switch (glEnum)
-    {
-    case GL_NEAREST:
-    case GL_NEAREST_MIPMAP_NEAREST:
-    case GL_NEAREST_MIPMAP_LINEAR:
-        return vk::Filter::eNearest;
-    case GL_LINEAR:
-    case GL_LINEAR_MIPMAP_NEAREST:
-    case GL_LINEAR_MIPMAP_LINEAR:
-        return vk::Filter::eLinear;
-    }
-
-    std::cerr << "Invalid gl filter " << glEnum << std::endl;
-    return vk::Filter::eLinear;
-}
-
-vk::SamplerAddressMode getVkAddressMode(int glEnum)
-{
-    switch (glEnum)
-    {
-    case GL_CLAMP_TO_EDGE:
-        return vk::SamplerAddressMode::eClampToEdge;
-    case GL_MIRRORED_REPEAT:
-        return vk::SamplerAddressMode::eMirroredRepeat;
-    case GL_REPEAT:
-        return vk::SamplerAddressMode::eRepeat;
-    }
-    std::cerr << "Invalid gl wrapping mode " << glEnum << std::endl;
-    return vk::SamplerAddressMode::eClampToEdge;
-}
 
 std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
     const std::filesystem::path &path)
