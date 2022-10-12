@@ -154,10 +154,13 @@ void main()
     MaterialData material = materialDatas.materials[meshPC.MaterialID];
 
     vec4 linearBaseColor;
-    uint baseColorTex = material.baseColorTexture;
+    uint baseColorTex = material.baseColorTexture & 0xFFFFFF;
+    uint baseColorSampler = material.baseColorTexture >> 24;
     if (baseColorTex > 0)
         linearBaseColor = sRGBtoLinear(texture(
-            sampler2D(materialTextures[baseColorTex], materialSamplers[0]),
+            sampler2D(
+                materialTextures[baseColorTex],
+                materialSamplers[baseColorSampler]),
             fragTexCoord0));
     else
         linearBaseColor = vec4(1);
@@ -171,13 +174,14 @@ void main()
 
     float metallic;
     float roughness;
-    uint metallicRoughnessTex = material.metallicRoughnessTexture;
+    uint metallicRoughnessTex = material.metallicRoughnessTexture & 0xFFFFFF;
+    uint metallicRoughnessSampler = material.metallicRoughnessTexture >> 24;
     if (metallicRoughnessTex > 0)
     {
         vec3 mr = texture(
                       sampler2D(
                           materialTextures[metallicRoughnessTex],
-                          materialSamplers[0]),
+                          materialSamplers[metallicRoughnessSampler]),
                       fragTexCoord0)
                       .rgb;
         metallic = mr.b * material.metallicFactor;
@@ -190,19 +194,20 @@ void main()
     }
 
     vec3 normal;
-    uint normalTextureTex = material.normalTexture;
+    uint normalTextureTex = material.normalTexture & 0xFFFFFF;
+    uint normalTextureSampler = material.normalTexture >> 24;
     if (normalTextureTex > 0)
     {
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
         normal = normalize(
-            TBN *
-            (texture(
-                 sampler2D(
-                     materialTextures[normalTextureTex], materialSamplers[0]),
-                 fragTexCoord0)
-                     .xyz *
-                 2 -
-             1));
+            TBN * (texture(
+                       sampler2D(
+                           materialTextures[normalTextureTex],
+                           materialSamplers[normalTextureSampler]),
+                       fragTexCoord0)
+                           .xyz *
+                       2 -
+                   1));
     }
     else
         normal = normalize(fragTBN[2]);
