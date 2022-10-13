@@ -70,9 +70,9 @@ Texture::Texture(Texture &&other) noexcept
 
 Texture &Texture::operator=(Texture &&other) noexcept
 {
-    destroy();
     if (this != &other)
     {
+        destroy();
         _device = other._device;
         _image = other._image;
 
@@ -387,6 +387,27 @@ TextureCubemap::~TextureCubemap()
 {
     if (_device != nullptr)
         _device->logical().destroy(_sampler);
+}
+
+TextureCubemap::TextureCubemap(TextureCubemap &&other) noexcept
+: Texture{std::move(other)}
+, _sampler{other._sampler}
+{
+}
+
+TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
+{
+
+    if (this != &other)
+    {
+        destroy();
+        _device = other._device;
+        _image = other._image;
+        _sampler = other._sampler;
+
+        other._device = nullptr;
+    }
+    return *this;
 }
 
 vk::DescriptorImageInfo TextureCubemap::imageInfo() const

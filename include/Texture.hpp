@@ -10,7 +10,6 @@
 namespace tinygltf
 {
 struct Image;
-struct Sampler;
 }; // namespace tinygltf
 
 class Texture
@@ -40,7 +39,7 @@ class Texture2D : public Texture
     Texture2D(Device *device, const std::filesystem::path &path, bool mipmap);
     Texture2D(Device *device, const tinygltf::Image &image, bool mipmap);
 
-    [[nodiscard]] virtual vk::DescriptorImageInfo imageInfo() const override;
+    [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
   private:
     [[nodiscard]] Buffer stagePixels(
@@ -53,9 +52,14 @@ class TextureCubemap : public Texture
 {
   public:
     TextureCubemap(Device *device, const std::filesystem::path &path);
-    ~TextureCubemap();
+    ~TextureCubemap() override;
 
-    [[nodiscard]] virtual vk::DescriptorImageInfo imageInfo() const override;
+    TextureCubemap(const TextureCubemap &other) = delete;
+    TextureCubemap(TextureCubemap &&other) noexcept;
+    TextureCubemap &operator=(const TextureCubemap &other) = delete;
+    TextureCubemap &operator=(TextureCubemap &&other) noexcept;
+
+    [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
   private:
     void copyPixels(

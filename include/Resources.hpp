@@ -32,7 +32,7 @@ struct Buffer
 struct TexelBufferCreateInfo
 {
     BufferCreateInfo bufferInfo;
-    vk::Format format;
+    vk::Format format{vk::Format::eUndefined};
     bool supportAtomics{false};
 };
 

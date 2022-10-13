@@ -595,8 +595,7 @@ Image Device::createImage(const ImageCreateInfo &info) const
                     assert(info.layerCount == 6 && "Cube arrays not supported");
                     return vk::ImageViewType::eCube;
                 }
-                else
-                    return vk::ImageViewType::e2DArray;
+                return vk::ImageViewType::e2DArray;
             }
         case vk::ImageType::e3D:
             assert(info.layerCount == 1 && "Can't have 3D image arrays");
