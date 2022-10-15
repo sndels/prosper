@@ -80,7 +80,6 @@ class World
 
     vk::DescriptorPool _descriptorPool;
     Buffer _materialsBuffer;
-    std::string _materialsDSDefines;
     vk::DescriptorSet _materialTexturesDS;
     vk::DescriptorSet _vertexBuffersDS;
     vk::DescriptorSet _indexBuffersDS;
