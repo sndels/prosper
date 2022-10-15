@@ -359,6 +359,7 @@ void App::drawFrame()
     _imguiRenderer.startFrame();
 
     {
+        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
         ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         ImGui::Text(
