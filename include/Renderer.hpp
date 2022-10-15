@@ -12,6 +12,15 @@
 class Renderer
 {
   public:
+    enum class DrawType : uint32_t
+    {
+        Default = 0,
+        PrimitiveID = 1,
+        MeshID = 2,
+        MaterialID = 3,
+        Count = 4,
+    };
+
     Renderer(
         Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
@@ -30,6 +39,8 @@ class Renderer
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
+
+    void drawUi();
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
@@ -61,6 +72,8 @@ class Renderer
     std::array<vk::Pipeline, 2> _pipelines{};
 
     std::vector<vk::CommandBuffer> _commandBuffers;
+
+    DrawType _drawType{DrawType::Default};
 };
 
 #endif // PROSPER_RENDERER_HPP

@@ -696,6 +696,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
         fprintf(stderr, "Missing acceleration structures\n");
     else if (rtFeatures.rayTracingPipeline == VK_FALSE)
         fprintf(stderr, "Missing ray tracing pipeline\n");
+    else if (deviceFeatures.geometryShader == VK_FALSE)
+        // Required by GLSL to have gl_PrimitiveID in frag
+        fprintf(stderr, "Missing geometry shader\n");
     else
         return true;
 
@@ -836,6 +839,7 @@ void Device::createLogicalDevice(bool enableDebugLayers)
             vk::PhysicalDeviceFeatures2{
                 .features =
                     {
+                        .geometryShader = VK_TRUE,
                         .samplerAnisotropy = VK_TRUE,
                         .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
                     },

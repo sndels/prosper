@@ -19,7 +19,7 @@ layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
 }
 modelInstanceTransforms;
 
-#include "pc_mesh.glsl"
+#include "scene_pc.glsl"
 
 layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out float fragZCam;
@@ -28,8 +28,9 @@ layout(location = 3) out mat3 fragTBN;
 
 void main()
 {
-    Transforms trfns = modelInstanceTransforms.instance[meshPC.ModelInstanceID];
-    Vertex vertex = loadVertex(meshPC.MeshID, gl_VertexIndex);
+    Transforms trfns =
+        modelInstanceTransforms.instance[scenePC.ModelInstanceID];
+    Vertex vertex = loadVertex(scenePC.MeshID, gl_VertexIndex);
 
     vec4 pos = trfns.modelToWorld * vec4(vertex.Position, 1.0);
     vec3 normal = normalize(mat3(trfns.normalToWorld) * vertex.Normal);

@@ -398,6 +398,8 @@ void App::drawFrame()
     }
     else
     {
+        _renderer.drawUi();
+
         // Opaque
         commandBuffers.push_back(_renderer.recordCommandBuffer(
             _world, _cam, renderArea, nextImage, false));

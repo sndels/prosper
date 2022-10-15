@@ -16,13 +16,6 @@ struct Model
 
 struct ModelInstance
 {
-    struct PCBlock
-    {
-        uint32_t modelInstanceID{0xFFFFFFFF};
-        uint32_t meshID{0xFFFFFFFF};
-        uint32_t materialID{0xFFFFFFFF};
-    };
-
     struct Transforms
     {
         glm::mat4 modelToWorld{1.f};

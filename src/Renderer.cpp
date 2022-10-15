@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <imgui.h>
 
 #include "Utils.hpp"
 #include "VkUtils.hpp"
@@ -17,6 +18,24 @@ constexpr uint32_t sMaterialsBindingSet = 3;
 constexpr uint32_t sVertexBuffersBindingSet = 4;
 constexpr uint32_t sIndexBuffersBindingSet = 5;
 constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
+
+struct PCBlock
+{
+    uint32_t modelInstanceID{0xFFFFFFFF};
+    uint32_t meshID{0xFFFFFFFF};
+    uint32_t materialID{0xFFFFFFFF};
+    uint32_t drawType{0};
+};
+
+const char *sDrawTypeName[] = {
+    "Default",
+    "PrimitiveID",
+    "MeshID",
+    "MaterialID",
+};
+static_assert(
+    std::size(sDrawTypeName) == static_cast<size_t>(Renderer::DrawType::Count),
+    "All RTRenderer::DrawType values should have a corresponding name string");
 
 } // namespace
 
@@ -71,6 +90,27 @@ void Renderer::recreateSwapchainRelated(
     createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
     // Each command buffer binds to specific swapchain image
     createCommandBuffers(swapConfig);
+}
+
+void Renderer::drawUi()
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 210.f}, ImGuiCond_Appearing);
+    ImGui::Begin(
+        "Renderer settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
+    if (ImGui::BeginCombo("Draw type", sDrawTypeName[*currentType]))
+    {
+        for (auto i = 0u; i < static_cast<uint32_t>(DrawType::Count); ++i)
+        {
+            bool selected = *currentType == i;
+            if (ImGui::Selectable(sDrawTypeName[i], &selected))
+                _drawType = static_cast<DrawType>(i);
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::End();
 }
 
 vk::CommandBuffer Renderer::recordCommandBuffer(
@@ -172,17 +212,18 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
             if ((render_transparents && isTransparent) ||
                 (!render_transparents && !isTransparent))
             {
-                const ModelInstance::PCBlock pcBlock{
+                const PCBlock pcBlock{
                     .modelInstanceID = instance.id,
                     .meshID = subModel.meshID,
                     .materialID = subModel.materialID,
+                    .drawType = static_cast<uint32_t>(_drawType),
                 };
                 buffer.pushConstants(
                     _pipelineLayout,
                     vk::ShaderStageFlagBits::eVertex |
                         vk::ShaderStageFlagBits::eFragment,
                     0, // offset
-                    sizeof(ModelInstance::PCBlock), &pcBlock);
+                    sizeof(PCBlock), &pcBlock);
 
                 buffer.draw(mesh.indexCount(), 1, 0, 0);
             }
@@ -438,7 +479,7 @@ void Renderer::createGraphicsPipelines(
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(ModelInstance::PCBlock),
+        .size = sizeof(PCBlock),
     };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{

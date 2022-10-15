@@ -11,7 +11,8 @@
 #include "light_clusters.glsl"
 #include "lights.glsl"
 #include "materials.glsl"
-#include "pc_mesh.glsl"
+#include "random.glsl"
+#include "scene_pc.glsl"
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in float fragZCam;
@@ -101,7 +102,26 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    Material material = sampleMaterial(meshPC.MaterialID, fragTexCoord0);
+    if (scenePC.DrawType != DrawType_Default)
+    {
+        if (scenePC.DrawType == DrawType_PrimitiveID)
+        {
+            outColor = vec4(uintToColor(gl_PrimitiveID), 1);
+            return;
+        }
+        else if (scenePC.DrawType == DrawType_MeshID)
+        {
+            outColor = vec4(uintToColor(scenePC.MeshID), 1);
+            return;
+        }
+        else if (scenePC.DrawType == DrawType_MaterialID)
+        {
+            outColor = vec4(uintToColor(scenePC.MaterialID), 1);
+            return;
+        }
+    }
+
+    Material material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)
@@ -174,5 +194,9 @@ void main()
 
     float alpha = material.alpha > 0 ? material.alpha : 1.0;
 
-    outColor = vec4(color, alpha);
+    if (scenePC.DrawType == DrawType_Default)
+        outColor = vec4(color, alpha);
+    else
+        // Other draw types should early out with their outcolor
+        outColor = vec4(1, 0, 1, 1);
 }
