@@ -28,10 +28,8 @@ struct PCBlock
 };
 
 const char *sDrawTypeName[] = {
-    "Default",
-    "PrimitiveID",
-    "MeshID",
-    "MaterialID",
+    "Default", "PrimitiveID",   "MeshID",    "MaterialID",
+    "Albedo",  "ShadingNormal", "Roughness", "Metallic",
 };
 static_assert(
     std::size(sDrawTypeName) == static_cast<size_t>(Renderer::DrawType::Count),

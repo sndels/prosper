@@ -18,7 +18,11 @@ class Renderer
         PrimitiveID = 1,
         MeshID = 2,
         MaterialID = 3,
-        Count = 4,
+        Albedo = 4,
+        ShadingNormal = 5,
+        Roughness = 6,
+        Metallic = 7,
+        Count = 8,
     };
 
     Renderer(

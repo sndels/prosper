@@ -102,23 +102,20 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    if (scenePC.DrawType != DrawType_Default)
+    if (scenePC.DrawType == DrawType_PrimitiveID)
     {
-        if (scenePC.DrawType == DrawType_PrimitiveID)
-        {
-            outColor = vec4(uintToColor(gl_PrimitiveID), 1);
-            return;
-        }
-        else if (scenePC.DrawType == DrawType_MeshID)
-        {
-            outColor = vec4(uintToColor(scenePC.MeshID), 1);
-            return;
-        }
-        else if (scenePC.DrawType == DrawType_MaterialID)
-        {
-            outColor = vec4(uintToColor(scenePC.MaterialID), 1);
-            return;
-        }
+        outColor = vec4(uintToColor(gl_PrimitiveID), 1);
+        return;
+    }
+    if (scenePC.DrawType == DrawType_MeshID)
+    {
+        outColor = vec4(uintToColor(scenePC.MeshID), 1);
+        return;
+    }
+    if (scenePC.DrawType == DrawType_MaterialID)
+    {
+        outColor = vec4(uintToColor(scenePC.MaterialID), 1);
+        return;
     }
 
     Material material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
@@ -126,6 +123,22 @@ void main()
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)
         discard;
+
+    if (scenePC.DrawType == DrawType_Albedo)
+    {
+        outColor = vec4(material.albedo, 1);
+        return;
+    }
+    if (scenePC.DrawType == DrawType_Roughness)
+    {
+        outColor = vec4(vec3(material.roughness), 1);
+        return;
+    }
+    if (scenePC.DrawType == DrawType_Metallic)
+    {
+        outColor = vec4(vec3(material.metallic), 1);
+        return;
+    }
 
     vec3 normal;
     if (material.normal.x != -2) // -2 signals no material normal
@@ -135,6 +148,12 @@ void main()
     }
     else
         normal = normalize(fragTBN[2]);
+
+    if (scenePC.DrawType == DrawType_ShadingNormal)
+    {
+        outColor = vec4(vec3(fragTBN[2]) * 0.5 + 0.5, 1);
+        return;
+    }
 
     vec3 v = normalize(camera.eye.xyz - fragPosition);
 
