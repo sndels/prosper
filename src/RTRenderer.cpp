@@ -10,6 +10,10 @@
 namespace
 {
 
+constexpr uint32_t sCameraBindingSet = 0;
+constexpr uint32_t sAccelerationStructureBindingSet = 1;
+constexpr uint32_t sOutputBindingSet = 2;
+
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
     vk::ShaderStageFlagBits::eClosestHitKHR |
@@ -146,11 +150,12 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
 
     const auto &scene = world._scenes[world._currentScene];
 
-    const std::array<vk::DescriptorSet, 3> descriptorSets{
-        cam.descriptorSet(nextImage),
-        _descriptorSets[nextImage],
-        scene.accelerationStructureDS,
-    };
+    std::array<vk::DescriptorSet, 3> descriptorSets = {};
+    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+    descriptorSets[sAccelerationStructureBindingSet] =
+        scene.accelerationStructureDS;
+    descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
+
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
@@ -234,10 +239,16 @@ bool RTRenderer::compileShaders()
 {
     fprintf(stderr, "Compiling RTRenderer shaders\n");
 
+    std::string raygenDefines;
+    raygenDefines += defineStr("CAMERA_SET", sCameraBindingSet);
+    raygenDefines += defineStr(
+        "ACCELERATION_STRUCTURE_SET", sAccelerationStructureBindingSet);
+    raygenDefines += defineStr("OUTPUT_SET", sOutputBindingSet);
     const auto raygenSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/rt/scene.rgen",
             .debugName = "sceneRGEN",
+            .defines = raygenDefines,
         });
     const auto rayMissSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
@@ -339,11 +350,13 @@ void RTRenderer::createDescriptorSets(const SwapchainConfig &swapConfig)
 void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
-    const std::array<vk::DescriptorSetLayout, 3> setLayouts{
-        camDSLayout,
-        _descriptorSetLayout,
-        worldDSLayouts.accelerationStructure,
-    };
+
+    std::array<vk::DescriptorSetLayout, 3> setLayouts = {};
+    setLayouts[sCameraBindingSet] = camDSLayout;
+    setLayouts[sAccelerationStructureBindingSet] =
+        worldDSLayouts.accelerationStructure;
+    setLayouts[sOutputBindingSet] = _descriptorSetLayout;
+
     const vk::PushConstantRange pcRange{
         .stageFlags = sVkShaderStageFlagsAllRt,
         .offset = 0,

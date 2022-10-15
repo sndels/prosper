@@ -15,15 +15,15 @@ struct MaterialData
     uint pad;
 };
 
-layout(std430, set = 3, binding = 0) readonly buffer MaterialDatas
+layout(std430, set = MATERIALS_SET, binding = 0) readonly buffer MaterialDatas
 {
     MaterialData materials[];
 }
 materialDatas;
-layout(set = 3, binding = 1) uniform sampler
+layout(set = MATERIALS_SET, binding = 1) uniform sampler
     materialSamplers[NUM_MATERIAL_SAMPLERS];
-layout(set = 3, binding = 1 + NUM_MATERIAL_SAMPLERS) uniform texture2D
-    materialTextures[];
+layout(set = MATERIALS_SET, binding = 1 + NUM_MATERIAL_SAMPLERS)
+    uniform texture2D materialTextures[];
 
 struct Material
 {

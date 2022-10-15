@@ -3,13 +3,9 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_control_flow_attributes : require
 
-#define LIGHTS_SET 0
+#include "camera.glsl"
 #include "lights.glsl"
 
-#define CAMERA_SET 1
-#include "camera.glsl"
-
-#define LIGHT_CLUSTERS_SET 2
 #define WRITE_CULLING_BINDS
 #include "light_clusters.glsl"
 

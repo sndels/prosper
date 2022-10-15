@@ -7,6 +7,19 @@
 
 using namespace glm;
 
+namespace
+{
+
+constexpr uint32_t sLightsBindingSet = 0;
+constexpr uint32_t sLightClustersBindingSet = 1;
+constexpr uint32_t sCameraBindingSet = 2;
+constexpr uint32_t sMaterialsBindingSet = 3;
+constexpr uint32_t sVertexBuffersBindingSet = 4;
+constexpr uint32_t sIndexBuffersBindingSet = 5;
+constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
+
+} // namespace
+
 TransparentsRenderer::TransparentsRenderer(
     Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig,
@@ -126,15 +139,17 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
 
     const auto &scene = world._scenes[world._currentScene];
 
-    const std::array<vk::DescriptorSet, 7> descriptorSets{
-        scene.lights.descriptorSets[nextImage],
-        cam.descriptorSet(nextImage),
-        _resources->buffers.lightClusters.descriptorSets[nextImage],
-        world._materialTexturesDS,
-        world._vertexBuffersDS,
-        world._indexBuffersDS,
-        scene.modelInstancesDescriptorSets[nextImage],
-    };
+    std::array<vk::DescriptorSet, 7> descriptorSets = {};
+    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextImage];
+    descriptorSets[sLightClustersBindingSet] =
+        _resources->buffers.lightClusters.descriptorSets[nextImage];
+    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+    descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
+    descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
+    descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
+    descriptorSets[sModelInstanceTrfnsBindingSet] =
+        scene.modelInstancesDescriptorSets[nextImage];
+
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
@@ -182,17 +197,31 @@ bool TransparentsRenderer::compileShaders(
 {
     fprintf(stderr, "Compiling TransparentsRenderer shaders\n");
 
+    std::string vertDefines;
+    vertDefines += defineStr("CAMERA_SET", sCameraBindingSet);
+    vertDefines += defineStr("VERTEX_BUFFERS_SET", sVertexBuffersBindingSet);
+    vertDefines += defineStr("INDEX_BUFFERS_SET", sIndexBuffersBindingSet);
+    vertDefines +=
+        defineStr("MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
     const auto vertSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.vert",
-            .debugName = "transparentsVS",
+            .debugName = "opaqueVS",
+            .defines = vertDefines,
         });
+
+    std::string fragDefines;
+    fragDefines += defineStr("LIGHTS_SET", sLightsBindingSet);
+    fragDefines += defineStr("LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
+    fragDefines += defineStr("CAMERA_SET", sCameraBindingSet);
+    fragDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
+    fragDefines +=
+        defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
     const auto fragSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",
-            .debugName = "transparentsPS",
-            .defines = defineStr(
-                "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount),
+            .debugName = "opaquePS",
+            .defines = fragDefines,
         });
 
     if (vertSM && fragSM)
@@ -330,15 +359,15 @@ void TransparentsRenderer::createGraphicsPipeline(
         .pAttachments = &colorBlendAttachment,
     };
 
-    const std::array<vk::DescriptorSetLayout, 7> setLayouts{
-        worldDSLayouts.lights,
-        camDSLayout,
-        _resources->buffers.lightClusters.descriptorSetLayout,
-        worldDSLayouts.materialTextures,
-        worldDSLayouts.vertexBuffers,
-        worldDSLayouts.indexBuffers,
-        worldDSLayouts.modelInstances,
-    };
+    std::array<vk::DescriptorSetLayout, 7> setLayouts = {};
+    setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
+    setLayouts[sLightClustersBindingSet] =
+        _resources->buffers.lightClusters.descriptorSetLayout;
+    setLayouts[sCameraBindingSet] = camDSLayout;
+    setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
+    setLayouts[sVertexBuffersBindingSet] = worldDSLayouts.vertexBuffers;
+    setLayouts[sIndexBuffersBindingSet] = worldDSLayouts.indexBuffers;
+    setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
                       vk::ShaderStageFlagBits::eFragment,

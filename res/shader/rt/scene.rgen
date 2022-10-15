@@ -3,13 +3,13 @@
 
 #pragma shader_stage(raygen)
 
-#define CAMERA_SET 0
 #include "../camera.glsl"
-
 #include "ray.glsl"
 
-layout(set = 1, binding = 0, rgba16f) uniform writeonly image2D colorOut;
-layout(set = 2, binding = 0) uniform accelerationStructureEXT as;
+layout(set = ACCELERATION_STRUCTURE_SET, binding = 0) uniform
+    accelerationStructureEXT as;
+layout(
+    set = OUTPUT_SET, binding = 0, rgba16f) uniform writeonly image2D colorOut;
 
 #include "rtpc.glsl"
 

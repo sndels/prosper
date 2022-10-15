@@ -7,17 +7,10 @@
 #define PI 3.14159265
 #define saturate(x) clamp(x, 0.0, 1.0)
 
-#define LIGHTS_SET 0
-#include "lights.glsl"
-
-#define CAMERA_SET 1
 #include "camera.glsl"
-
-#define LIGHT_CLUSTERS_SET 2
 #include "light_clusters.glsl"
-
+#include "lights.glsl"
 #include "materials.glsl"
-
 #include "pc_mesh.glsl"
 
 layout(location = 0) in vec3 fragPosition;

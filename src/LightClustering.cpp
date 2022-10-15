@@ -15,6 +15,10 @@ const uint32_t zSlices = 16;
 const uint32_t maxPointIndicesPerTile = 128;
 const uint32_t maxSpotIndicesPerTile = 128;
 
+constexpr uint32_t sLightsBindingSet = 0;
+constexpr uint32_t sLightClustersBindingSet = 1;
+constexpr uint32_t sCameraBindingSet = 2;
+
 struct ClusteringPCBlock
 {
     uvec2 resolution;
@@ -178,11 +182,12 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
     buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-    const std::array<vk::DescriptorSet, 3> descriptorSets{
-        scene.lights.descriptorSets[nextImage],
-        cam.descriptorSet(nextImage),
-        _resources->buffers.lightClusters.descriptorSets[nextImage],
-    };
+    std::array<vk::DescriptorSet, 3> descriptorSets = {};
+    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextImage];
+    descriptorSets[sLightClustersBindingSet] =
+        _resources->buffers.lightClusters.descriptorSets[nextImage];
+    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+
     buffer.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, _pipelineLayout,
         0, // firstSet
@@ -211,10 +216,15 @@ bool LightClustering::compileShaders()
 {
     fprintf(stderr, "Compiling LightClustering shaders\n");
 
+    std::string defines;
+    defines += defineStr("LIGHTS_SET", sLightsBindingSet);
+    defines += defineStr("LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
+    defines += defineStr("CAMERA_SET", sCameraBindingSet);
     const auto compSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/light_clustering.comp",
             .debugName = "lightClusteringCS",
+            .defines = defines,
         });
 
     if (compSM)
@@ -335,11 +345,12 @@ void LightClustering::createPipeline(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    const std::array<vk::DescriptorSetLayout, 3> setLayouts{
-        worldDSLayouts.lights,
-        camDSLayout,
-        _resources->buffers.lightClusters.descriptorSetLayout,
-    };
+    std::array<vk::DescriptorSetLayout, 3> setLayouts = {};
+    setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
+    setLayouts[sLightClustersBindingSet] =
+        _resources->buffers.lightClusters.descriptorSetLayout;
+    setLayouts[sCameraBindingSet] = camDSLayout;
+
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eCompute,
         .offset = 0,

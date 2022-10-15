@@ -4,9 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
-#define CAMERA_SET 1
 #include "camera.glsl"
-
 #include "geometry.glsl"
 
 struct Transforms
@@ -14,7 +12,8 @@ struct Transforms
     mat4 modelToWorld;
     mat4 normalToWorld;
 };
-layout(std430, set = 6, binding = 0) readonly buffer ModelInstanceTransforms
+layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
+    ModelInstanceTransforms
 {
     Transforms instance[];
 }

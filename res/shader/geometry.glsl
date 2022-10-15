@@ -1,6 +1,7 @@
 // Unbounded array requires GL_EXT_nonuniform_qualifier even if it is indexed
 // with a uniform index
-layout(std430, set = 4, binding = 0) readonly buffer VertexBuffers
+layout(std430, set = VERTEX_BUFFERS_SET, binding = 0) readonly buffer
+    VertexBuffers
 {
     float data[];
 }
@@ -8,7 +9,8 @@ vertexBuffers[];
 
 // Unbounded array requires GL_EXT_nonuniform_qualifier even if it is indexed
 // with a uniform index
-layout(std430, set = 5, binding = 0) readonly buffer IndexBuffers
+layout(std430, set = INDEX_BUFFERS_SET, binding = 0) readonly buffer
+    IndexBuffers
 {
     uint data[];
 }
