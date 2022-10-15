@@ -16,32 +16,7 @@
 #define LIGHT_CLUSTERS_SET 2
 #include "light_clusters.glsl"
 
-const uint AlphaModeOpaque = 0;
-const uint AlphaModeMask = 1;
-const uint AlphaModeBlend = 2;
-
-struct MaterialData
-{
-    vec4 baseColorFactor;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaCutoff;
-    uint alphaMode;
-    uint baseColorTexture;
-    uint metallicRoughnessTexture;
-    uint normalTexture;
-    uint pad;
-};
-
-layout(std430, set = 3, binding = 0) readonly buffer MaterialDatas
-{
-    MaterialData materials[];
-}
-materialDatas;
-layout(set = 3, binding = 1) uniform sampler
-    materialSamplers[NUM_MATERIAL_SAMPLERS];
-layout(set = 3, binding = 1 + NUM_MATERIAL_SAMPLERS) uniform texture2D
-    materialTextures[];
+#include "materials.glsl"
 
 #include "pc_mesh.glsl"
 
@@ -51,24 +26,6 @@ layout(location = 2) in vec2 fragTexCoord0;
 layout(location = 3) in mat3 fragTBN;
 
 layout(location = 0) out vec4 outColor;
-
-struct Material
-{
-    vec3 albedo;
-    float metallic;
-    float roughness;
-};
-
-float sRGBtoLinear(float x)
-{
-    return x <= 0.04045 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4);
-}
-vec3 sRGBtoLinear(vec3 v)
-{
-    return vec3(sRGBtoLinear(v.r), sRGBtoLinear(v.g), sRGBtoLinear(v.b));
-}
-// Alpha shouldn't be converted
-vec4 sRGBtoLinear(vec4 v) { return vec4(sRGBtoLinear(v.rgb), v.a); }
 
 mat3 generateTBN()
 {
@@ -139,10 +96,10 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
     float VoH = saturate(dot(v, h));
 
     // Use standard approximation of default fresnel
-    vec3 f0 = mix(vec3(0.04), m.albedo, m.metallic);
+    vec3 f0 = mix(vec3(0.04), m.albedo.rgb, m.metallic);
 
     // Match glTF spec
-    vec3 c_diff = mix(m.albedo * (1 - 0.04), vec3(0), m.metallic);
+    vec3 c_diff = mix(m.albedo.rgb * (1 - 0.04), vec3(0), m.metallic);
 
     return (lambertBRFD(c_diff) +
             cookTorranceBRDF(NoL, NoV, NoH, VoH, f0, m.roughness)) *
@@ -151,78 +108,28 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
 
 void main()
 {
-    MaterialData material = materialDatas.materials[meshPC.MaterialID];
+    Material material = sampleMaterial(meshPC.MaterialID, fragTexCoord0);
 
-    vec4 linearBaseColor;
-    uint baseColorTex = material.baseColorTexture & 0xFFFFFF;
-    uint baseColorSampler = material.baseColorTexture >> 24;
-    if (baseColorTex > 0)
-        linearBaseColor = sRGBtoLinear(texture(
-            sampler2D(
-                materialTextures[baseColorTex],
-                materialSamplers[baseColorSampler]),
-            fragTexCoord0));
-    else
-        linearBaseColor = vec4(1);
-    linearBaseColor *= material.baseColorFactor;
-
-    if (material.alphaMode == AlphaModeMask)
-    {
-        if (linearBaseColor.a < material.alphaCutoff)
-            discard;
-    }
-
-    float metallic;
-    float roughness;
-    uint metallicRoughnessTex = material.metallicRoughnessTexture & 0xFFFFFF;
-    uint metallicRoughnessSampler = material.metallicRoughnessTexture >> 24;
-    if (metallicRoughnessTex > 0)
-    {
-        vec3 mr = texture(
-                      sampler2D(
-                          materialTextures[metallicRoughnessTex],
-                          materialSamplers[metallicRoughnessSampler]),
-                      fragTexCoord0)
-                      .rgb;
-        metallic = mr.b * material.metallicFactor;
-        roughness = mr.g * material.roughnessFactor;
-    }
-    else
-    {
-        metallic = material.metallicFactor;
-        roughness = material.roughnessFactor;
-    }
+    // Early out if alpha test failed / zero alpha
+    if (material.alpha == 0)
+        discard;
 
     vec3 normal;
-    uint normalTextureTex = material.normalTexture & 0xFFFFFF;
-    uint normalTextureSampler = material.normalTexture >> 24;
-    if (normalTextureTex > 0)
+    if (material.normal.x != -2) // -2 signals no material normal
     {
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
-        normal = normalize(
-            TBN * (texture(
-                       sampler2D(
-                           materialTextures[normalTextureTex],
-                           materialSamplers[normalTextureSampler]),
-                       fragTexCoord0)
-                           .xyz *
-                       2 -
-                   1));
+        normal = normalize(TBN * material.normal.xyz);
     }
     else
         normal = normalize(fragTBN[2]);
-
-    Material m;
-    m.albedo = linearBaseColor.rgb;
-    m.metallic = metallic;
-    m.roughness = roughness;
 
     vec3 v = normalize(camera.eye.xyz - fragPosition);
 
     vec3 color = vec3(0);
     {
         vec3 l = -normalize(directionalLight.direction.xyz);
-        color += directionalLight.irradiance.xyz * evalBRDF(normal, v, l, m);
+        color +=
+            directionalLight.irradiance.xyz * evalBRDF(normal, v, l, material);
     }
 
     uvec3 ci = clusterIndex(uvec2(gl_FragCoord.xy), fragZCam);
@@ -249,7 +156,7 @@ void main()
         float dPerR4 = dPerR2 * dPerR2;
         float attenuation = max(min(1.0 - dPerR4, 1), 0) / d2;
 
-        color += radiance * attenuation * evalBRDF(normal, v, l, m);
+        color += radiance * attenuation * evalBRDF(normal, v, l, material);
     }
 
     for (uint i = 0; i < spotCount; ++i)
@@ -269,11 +176,10 @@ void main()
         angularAttenuation *= angularAttenuation;
 
         color += angularAttenuation * light.radianceAndAngleScale.xyz *
-                 evalBRDF(normal, v, l, m) / d2;
+                 evalBRDF(normal, v, l, material) / d2;
     }
 
-    float alpha =
-        material.alphaMode == AlphaModeBlend ? linearBaseColor.a : 1.f;
+    float alpha = material.alpha > 0 ? material.alpha : 1.0;
 
     outColor = vec4(color, alpha);
 }
