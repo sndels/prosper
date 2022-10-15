@@ -19,6 +19,7 @@ struct ModelInstance
     struct PCBlock
     {
         uint32_t modelInstanceID{0xFFFFFFFF};
+        uint32_t meshID{0xFFFFFFFF};
         uint32_t materialID{0xFFFFFFFF};
     };
 

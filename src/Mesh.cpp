@@ -14,7 +14,7 @@ Mesh::Mesh(
         .usage = vk::BufferUsageFlagBits::
                      eAccelerationStructureBuildInputReadOnlyKHR |
                  vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                 vk::BufferUsageFlagBits::eVertexBuffer |
+                 vk::BufferUsageFlagBits::eStorageBuffer |
                  vk::BufferUsageFlagBits::eTransferDst,
         .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
         .initialData = vertices.data(),
@@ -25,7 +25,7 @@ Mesh::Mesh(
         .usage = vk::BufferUsageFlagBits::
                      eAccelerationStructureBuildInputReadOnlyKHR |
                  vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                 vk::BufferUsageFlagBits::eIndexBuffer |
+                 vk::BufferUsageFlagBits::eStorageBuffer |
                  vk::BufferUsageFlagBits::eTransferDst,
         .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
         .initialData = indices.data(),
@@ -66,16 +66,6 @@ vk::Buffer Mesh::vertexBuffer() const { return _vertexBuffer.handle; }
 vk::Buffer Mesh::indexBuffer() const { return _indexBuffer.handle; }
 uint32_t Mesh::vertexCount() const { return _vertexCount; }
 uint32_t Mesh::indexCount() const { return _indexCount; }
-
-void Mesh::draw(vk::CommandBuffer commandBuffer) const
-{
-    const vk::DeviceSize offset = 0;
-    commandBuffer.bindVertexBuffers(0, 1, &_vertexBuffer.handle, &offset);
-    commandBuffer.bindIndexBuffer(
-        _indexBuffer.handle, 0, vk::IndexType::eUint32);
-
-    commandBuffer.drawIndexed(_indexCount, 1, 0, 0, 0);
-}
 
 void Mesh::destroy()
 {

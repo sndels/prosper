@@ -175,13 +175,18 @@ World::World(
 World::~World()
 {
     _device->logical().destroy(_descriptorPool);
-    _device->logical().destroy(_dsLayouts.accelerationStructure);
-    _device->logical().destroy(_dsLayouts.materialTextures);
-    _device->logical().destroy(_dsLayouts.modelInstances);
+
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
+    _device->logical().destroy(_dsLayouts.accelerationStructure);
+    _device->logical().destroy(_dsLayouts.modelInstances);
+    _device->logical().destroy(_dsLayouts.indexBuffers);
+    _device->logical().destroy(_dsLayouts.vertexBuffers);
+    _device->logical().destroy(_dsLayouts.materialTextures);
+
     _device->destroy(_skyboxVertexBuffer);
     _device->destroy(_materialsBuffer);
+
     for (auto &blas : _blases)
     {
         _device->logical().destroy(blas.handle);
@@ -881,18 +886,16 @@ void World::createTlases()
             }
         }
 
-        auto instancesBuffer =
-
-            _device->createBuffer(BufferCreateInfo{
-                .byteSize = sizeof(instances[0]) * instances.size(),
-                .usage = vk::BufferUsageFlagBits::eTransferDst |
-                         vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                         vk::BufferUsageFlagBits::
-                             eAccelerationStructureBuildInputReadOnlyKHR,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                .initialData = instances.data(),
-                .debugName = "InstancesBuffer",
-            });
+        auto instancesBuffer = _device->createBuffer(BufferCreateInfo{
+            .byteSize = sizeof(instances[0]) * instances.size(),
+            .usage = vk::BufferUsageFlagBits::eTransferDst |
+                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                     vk::BufferUsageFlagBits::
+                         eAccelerationStructureBuildInputReadOnlyKHR,
+            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .initialData = instances.data(),
+            .debugName = "InstancesBuffer",
+        });
 
         // Need a barrier here if a shared command buffer is used so that the
         // copy happens before the build
@@ -1072,6 +1075,9 @@ void World::createBuffers(const uint32_t swapImageCount)
 
 void World::createDescriptorPool(const uint32_t swapImageCount)
 {
+    // TODO:
+    // Pool sizes and max set's don't seem to make sense. Re-read and rework.
+
     // TODO: Tight bound for node descriptor count by nodes with a mesh
     // Skybox cubemap is also one descriptor per image
     // As is the directional light
@@ -1199,6 +1205,10 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .pBufferInfo = &datasInfo,
         });
         for (uint32_t i = 0; i < samplerInfos.size(); ++i)
+            // TODO:
+            // Can this be done with
+            // .descriptorCount = samplerInfos.size()
+            // .pImagInfo = samplerInfos.data()
             dss.push_back(vk::WriteDescriptorSet{
                 .dstSet = _materialTexturesDS,
                 .dstBinding = 1,
@@ -1208,6 +1218,10 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .pImageInfo = &samplerInfos[i],
             });
         for (uint32_t i = 0; i < imageInfos.size(); ++i)
+            // TODO:
+            // Can this be done with
+            // .descriptorCount = imageInfos.size()
+            // .pImagInfo = imageInfos.data()
             dss.push_back(vk::WriteDescriptorSet{
                 .dstSet = _materialTexturesDS,
                 .dstBinding = 1 + asserted_cast<uint32_t>(samplerInfos.size()),
@@ -1217,8 +1231,116 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .pImageInfo = &imageInfos[i],
             });
 
+        // TODO:
+        // We could do all ds updates with a single call
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+    }
+
+    {
+        std::vector<vk::DescriptorBufferInfo> vertexBufferInfos;
+        vertexBufferInfos.reserve(_meshes.size());
+        std::vector<vk::DescriptorBufferInfo> indexBufferInfos;
+        vertexBufferInfos.reserve(_meshes.size());
+        for (const auto &m : _meshes)
+        {
+            vertexBufferInfos.push_back(vk::DescriptorBufferInfo{
+                .buffer = m.vertexBuffer(),
+                .range = VK_WHOLE_SIZE,
+            });
+            indexBufferInfos.push_back(vk::DescriptorBufferInfo{
+                .buffer = m.indexBuffer(),
+                .range = VK_WHOLE_SIZE,
+            });
+        }
+        const auto vertexBuffersCount =
+            asserted_cast<uint32_t>(vertexBufferInfos.size());
+        const auto indexBuffersCount =
+            asserted_cast<uint32_t>(indexBufferInfos.size());
+
+        const auto createDSLayout =
+            [this](vk::DescriptorSetLayout *layout, uint32_t descriptorCount)
+        {
+            const vk::DescriptorSetLayoutBinding layoutBinding{
+                .binding = 0,
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .descriptorCount = descriptorCount,
+                .stageFlags = vk::ShaderStageFlagBits::eVertex,
+            };
+            const vk::DescriptorBindingFlags variableDescriptorsFlag =
+                vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
+            const vk::StructureChain<
+                vk::DescriptorSetLayoutCreateInfo,
+                vk::DescriptorSetLayoutBindingFlagsCreateInfo>
+                layoutChain{
+                    vk::DescriptorSetLayoutCreateInfo{
+                        .bindingCount = 1,
+                        .pBindings = &layoutBinding,
+                    },
+                    vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+                        .bindingCount = 1,
+                        .pBindingFlags = &variableDescriptorsFlag,
+                    }};
+            *layout = _device->logical().createDescriptorSetLayout(
+                layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
+        };
+        createDSLayout(&_dsLayouts.vertexBuffers, vertexBuffersCount);
+        createDSLayout(&_dsLayouts.indexBuffers, indexBuffersCount);
+
+        const auto createDS = [this](
+                                  vk::DescriptorSet *ds,
+                                  vk::DescriptorSetLayout layout,
+                                  uint32_t descriptorCount)
+        {
+            const vk::StructureChain<
+                vk::DescriptorSetAllocateInfo,
+                vk::DescriptorSetVariableDescriptorCountAllocateInfo>
+                dsChain{
+                    vk::DescriptorSetAllocateInfo{
+                        .descriptorPool = _descriptorPool,
+                        .descriptorSetCount = 1,
+                        .pSetLayouts = &layout},
+                    vk::DescriptorSetVariableDescriptorCountAllocateInfo{
+                        .descriptorSetCount = 1,
+                        .pDescriptorCounts = &descriptorCount,
+                    }};
+            *ds = _device->logical().allocateDescriptorSets(
+                dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
+        };
+        createDS(
+            &_vertexBuffersDS, _dsLayouts.vertexBuffers, vertexBuffersCount);
+        createDS(&_indexBuffersDS, _dsLayouts.indexBuffers, indexBuffersCount);
+
+        const auto updateDescriptors =
+            [this](
+                vk::DescriptorSet ds,
+                const std::vector<vk::DescriptorBufferInfo> &infos)
+        {
+            std::vector<vk::WriteDescriptorSet> dss;
+            dss.reserve(_meshes.size());
+            for (auto i = 0u; i < infos.size(); ++i)
+            {
+                // TODO:
+                // Can this be done with
+                // .descriptorCount = infos.size()
+                // .pBufferInfo = infos.data()
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = ds,
+                    .dstBinding = 0,
+                    .dstArrayElement = i,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBuffer,
+                    .pBufferInfo = &infos[i],
+                });
+            }
+            // TODO:
+            // We could do all ds updates with a single call
+            _device->logical().updateDescriptorSets(
+                asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+        };
+
+        updateDescriptors(_vertexBuffersDS, vertexBufferInfos);
+        updateDescriptors(_indexBuffersDS, indexBufferInfos);
     }
 
     {
@@ -1320,6 +1442,10 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 std::vector<vk::WriteDescriptorSet> dss;
                 dss.reserve(infos.size());
                 for (uint32_t i = 0; i < infos.size(); ++i)
+                    // TODO:
+                    // Can this be done with
+                    // .descriptorCount = infos.size()
+                    // .pBufferInfo = infos.data()
                     dss.push_back(vk::WriteDescriptorSet{
                         .dstSet = scene.modelInstancesDescriptorSets[i],
                         .dstBinding = 0,
@@ -1329,6 +1455,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                         .pBufferInfo = &infos[i],
                     });
 
+                // TODO:
+                // We could do all ds updates with a single call
                 _device->logical().updateDescriptorSets(
                     asserted_cast<uint32_t>(dss.size()), dss.data(), 0,
                     nullptr);
@@ -1386,6 +1514,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                                 .pBufferInfo = &spotLightInfos[i],
                             },
                         }};
+                    // TODO:
+                    // We could do all ds updates with a single call
                     _device->logical().updateDescriptorSets(
                         asserted_cast<uint32_t>(descriptorWrites.size()),
                         descriptorWrites.data(), 0, nullptr);
@@ -1420,6 +1550,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                         },
                     };
 
+                // TODO:
+                // We could do all ds updates with a single call
                 _device->logical().updateDescriptorSets(
                     {dsChain.get<vk::WriteDescriptorSet>()}, {});
             }
@@ -1489,6 +1621,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .pImageInfo = &skyboxImageInfo,
             },
         }};
+        // TODO:
+        // We could do all ds updates with a single call
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(writeDescriptorSets.size()),
             writeDescriptorSets.data(), 0, nullptr);

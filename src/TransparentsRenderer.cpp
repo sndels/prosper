@@ -126,11 +126,13 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
 
     const auto &scene = world._scenes[world._currentScene];
 
-    const std::array<vk::DescriptorSet, 5> descriptorSets{
+    const std::array<vk::DescriptorSet, 7> descriptorSets{
         scene.lights.descriptorSets[nextImage],
         cam.descriptorSet(nextImage),
         _resources->buffers.lightClusters.descriptorSets[nextImage],
         world._materialTexturesDS,
+        world._vertexBuffersDS,
+        world._indexBuffersDS,
         scene.modelInstancesDescriptorSets[nextImage],
     };
     buffer.bindDescriptorSets(
@@ -151,6 +153,7 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
             {
                 const ModelInstance::PCBlock pcBlock{
                     .modelInstanceID = instance.id,
+                    .meshID = subModel.meshID,
                     .materialID = subModel.materialID,
                 };
                 buffer.pushConstants(
@@ -159,7 +162,8 @@ vk::CommandBuffer TransparentsRenderer::recordCommandBuffer(
                         vk::ShaderStageFlagBits::eFragment,
                     0, // offset
                     sizeof(ModelInstance::PCBlock), &pcBlock);
-                mesh.draw(buffer);
+
+                buffer.draw(mesh.indexCount(), 1, 0, 0);
             }
         }
     }
@@ -266,15 +270,8 @@ void TransparentsRenderer::createGraphicsPipeline(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    const auto vertexBindingDescription = Vertex::bindingDescription();
-    const auto vertexAttributeDescriptions = Vertex::attributeDescriptions();
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo{
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &vertexBindingDescription,
-        .vertexAttributeDescriptionCount =
-            asserted_cast<uint32_t>(vertexAttributeDescriptions.size()),
-        .pVertexAttributeDescriptions = vertexAttributeDescriptions.data(),
-    };
+    // Empty as we'll load vertices manually from a buffer
+    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology = vk::PrimitiveTopology::eTriangleList,
@@ -334,11 +331,13 @@ void TransparentsRenderer::createGraphicsPipeline(
         .pAttachments = &colorBlendAttachment,
     };
 
-    const std::array<vk::DescriptorSetLayout, 5> setLayouts{
+    const std::array<vk::DescriptorSetLayout, 7> setLayouts{
         worldDSLayouts.lights,
         camDSLayout,
         _resources->buffers.lightClusters.descriptorSetLayout,
         worldDSLayouts.materialTextures,
+        worldDSLayouts.vertexBuffers,
+        worldDSLayouts.indexBuffers,
         worldDSLayouts.modelInstances,
     };
     const vk::PushConstantRange pcRange{

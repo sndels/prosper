@@ -25,10 +25,11 @@ class World
     {
         uint32_t materialSamplerCount{0};
         vk::DescriptorSetLayout materialTextures;
+        vk::DescriptorSetLayout vertexBuffers;
+        vk::DescriptorSetLayout indexBuffers;
         vk::DescriptorSetLayout modelInstances;
         vk::DescriptorSetLayout accelerationStructure;
         vk::DescriptorSetLayout lights;
-        vk::DescriptorSetLayout lightsClustered;
         vk::DescriptorSetLayout skybox;
     };
     World(
@@ -81,6 +82,8 @@ class World
     Buffer _materialsBuffer;
     std::string _materialsDSDefines;
     vk::DescriptorSet _materialTexturesDS;
+    vk::DescriptorSet _vertexBuffersDS;
+    vk::DescriptorSet _indexBuffersDS;
     DSLayouts _dsLayouts;
 
     std::vector<Buffer> _skyboxUniformBuffers;

@@ -1,62 +1,20 @@
 #ifndef PROSPER_VERTEX_HPP
 #define PROSPER_VERTEX_HPP
 
-#include <vulkan/vulkan.hpp>
-
 #include <glm/glm.hpp>
-
-#include <array>
 
 struct Vertex
 {
-    using AttributeDescriptions =
-        std::array<vk::VertexInputAttributeDescription, 4>;
-
     glm::vec3 pos{0.f};
     glm::vec3 normal{0.f, 1.f, 0.f};
     glm::vec4 tangent{0.f, 0.f, 1.f, 0.f};
     glm::vec2 texCoord0{0.5f};
-
-    static const vk::VertexInputBindingDescription &bindingDescription()
-    {
-        static const vk::VertexInputBindingDescription description{
-            0, sizeof(Vertex), vk::VertexInputRate::eVertex};
-
-        return description;
-    }
-
-    static const AttributeDescriptions &attributeDescriptions()
-    {
-        static const std::array<vk::VertexInputAttributeDescription, 4>
-            descriptions{
-                vk::VertexInputAttributeDescription{
-                    .location = 0,
-                    .binding = 0,
-                    .format = vk::Format::eR32G32B32Sfloat,
-                    .offset = offsetof(Vertex, pos),
-                },
-                vk::VertexInputAttributeDescription{
-                    .location = 1,
-                    .binding = 0,
-                    .format = vk::Format::eR32G32B32Sfloat,
-                    .offset = offsetof(Vertex, normal),
-                },
-                vk::VertexInputAttributeDescription{
-                    .location = 2,
-                    .binding = 0,
-                    .format = vk::Format::eR32G32B32A32Sfloat,
-                    .offset = offsetof(Vertex, tangent),
-                },
-                vk::VertexInputAttributeDescription{
-                    .location = 3,
-                    .binding = 0,
-                    .format = vk::Format::eR32G32Sfloat,
-                    .offset = offsetof(Vertex, texCoord0),
-                },
-            };
-
-        return descriptions;
-    }
 };
+// Make Vertex packs tightly and the fields are also tight
+static_assert(alignof(Vertex) == sizeof(float));
+static_assert(offsetof(Vertex, pos) == 0);
+static_assert(offsetof(Vertex, normal) == 3 * sizeof(float));
+static_assert(offsetof(Vertex, tangent) == 6 * sizeof(float));
+static_assert(offsetof(Vertex, texCoord0) == 10 * sizeof(float));
 
 #endif // PROSPER_VERTEX_HPP

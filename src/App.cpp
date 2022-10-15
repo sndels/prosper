@@ -11,7 +11,6 @@
 
 #include "InputHandler.hpp"
 #include "Utils.hpp"
-#include "Vertex.hpp"
 #include "VkUtils.hpp"
 
 using namespace glm;
