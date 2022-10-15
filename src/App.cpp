@@ -101,9 +101,6 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
       _world._dsLayouts}
 , _rtRenderer{
       &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),_world._dsLayouts}
-, _transparentsRenderer{
-      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
-      _world._dsLayouts}
 , _skyboxRenderer{
       &_device, &_resources, _swapConfig,
       _world._dsLayouts}
@@ -181,8 +178,6 @@ void App::recreateSwapchainAndRelated()
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recreateSwapchainRelated(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _transparentsRenderer.recreateSwapchainRelated(
-        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _skyboxRenderer.recreateSwapchainRelated(_swapConfig, _world._dsLayouts);
     _toneMap.recreateSwapchainRelated(_swapConfig);
     _imguiRenderer.recreateSwapchainRelated(_swapConfig);
@@ -213,8 +208,6 @@ void App::recompileShaders()
             _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
         _rtRenderer.recompileShaders(
             _cam.descriptorSetLayout(), _world._dsLayouts);
-        _transparentsRenderer.recompileShaders(
-            _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
         _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
         _toneMap.recompileShaders();
 
@@ -405,11 +398,13 @@ void App::drawFrame()
     }
     else
     {
-        commandBuffers.push_back(
-            _renderer.recordCommandBuffer(_world, _cam, renderArea, nextImage));
+        // Opaque
+        commandBuffers.push_back(_renderer.recordCommandBuffer(
+            _world, _cam, renderArea, nextImage, false));
 
-        commandBuffers.push_back(_transparentsRenderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage));
+        // Transparent
+        commandBuffers.push_back(_renderer.recordCommandBuffer(
+            _world, _cam, renderArea, nextImage, true));
 
         commandBuffers.push_back(
             _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));

@@ -75,9 +75,12 @@ void Renderer::recreateSwapchainRelated(
 
 vk::CommandBuffer Renderer::recordCommandBuffer(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage) const
+    const uint32_t nextImage, bool render_transparents) const
 {
-    const auto buffer = _commandBuffers[nextImage];
+    const auto pipelineIndex = render_transparents ? 1 : 0;
+    // Separate buffers for opaque and transparent
+    // opaque uses 0, 2,... and transparent 1,3,...
+    const auto buffer = _commandBuffers[nextImage * 2 + pipelineIndex];
     buffer.reset();
 
     buffer.begin(vk::CommandBufferBeginInfo{
@@ -124,19 +127,19 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     });
 
     buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = "Opaque",
+        .pLabelName = render_transparents ? "Transparent" : "Opaque",
     });
 
     buffer.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
         .layerCount = 1,
         .colorAttachmentCount = 1,
-        .pColorAttachments = &_colorAttachment,
-        .pDepthAttachment = &_depthAttachment,
+        .pColorAttachments = &_colorAttachments[pipelineIndex],
+        .pDepthAttachment = &_depthAttachments[pipelineIndex],
     });
 
-    // Draw opaque and alpha masked geometry
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+    buffer.bindPipeline(
+        vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
 
     const auto &scene = world._scenes[world._currentScene];
 
@@ -164,7 +167,10 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         {
             const auto &material = world._materials[subModel.materialID];
             const auto &mesh = world._meshes[subModel.meshID];
-            if (material.alphaMode != Material::AlphaMode::Blend)
+            const auto isTransparent =
+                material.alphaMode == Material::AlphaMode::Blend;
+            if ((render_transparents && isTransparent) ||
+                (!render_transparents && !isTransparent))
             {
                 const ModelInstance::PCBlock pcBlock{
                     .modelInstanceID = instance.id,
@@ -205,7 +211,7 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     const auto vertSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.vert",
-            .debugName = "opaqueVS",
+            .debugName = "geometryVS",
             .defines = vertDefines,
         });
 
@@ -219,7 +225,7 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     const auto fragSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",
-            .debugName = "opaquePS",
+            .debugName = "geometryPS",
             .defines = fragDefines,
         });
 
@@ -268,14 +274,15 @@ void Renderer::destroySwapchainRelated()
         _device->destroy(_resources->images.sceneColor);
         _device->destroy(_resources->images.sceneDepth);
 
-        _colorAttachment = vk::RenderingAttachmentInfo{};
-        _depthAttachment = vk::RenderingAttachmentInfo{};
+        _colorAttachments = {};
+        _depthAttachments = {};
     }
 }
 
 void Renderer::destroyGraphicsPipelines()
 {
-    _device->logical().destroy(_pipeline);
+    for (auto &p : _pipelines)
+        _device->logical().destroy(p);
     _device->logical().destroy(_pipelineLayout);
 }
 
@@ -324,19 +331,31 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 
 void Renderer::createAttachments()
 {
-    _colorAttachment = vk::RenderingAttachmentInfo{
+    _colorAttachments[0] = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}},
     };
-    _depthAttachment = vk::RenderingAttachmentInfo{
+    _colorAttachments[1] = vk::RenderingAttachmentInfo{
+        .imageView = _resources->images.sceneColor.view,
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eLoad,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    };
+    _depthAttachments[0] = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = vk::ClearValue{std::array<float, 4>{1.f, 0.f, 0.f, 0.f}},
+    };
+    _depthAttachments[1] = vk::RenderingAttachmentInfo{
+        .imageView = _resources->images.sceneDepth.view,
+        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eLoad,
+        .storeOp = vk::AttachmentStoreOp::eStore,
     };
 }
 
@@ -388,7 +407,7 @@ void Renderer::createGraphicsPipelines(
         .depthCompareOp = vk::CompareOp::eLess,
     };
 
-    const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+    const vk::PipelineColorBlendAttachmentState opaqueColorBlendAttachment{
         .blendEnable = VK_FALSE,
         .srcColorBlendFactor = vk::BlendFactor::eOne,
         .dstColorBlendFactor = vk::BlendFactor::eZero,
@@ -400,9 +419,9 @@ void Renderer::createGraphicsPipelines(
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
             vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
     };
-    const vk::PipelineColorBlendStateCreateInfo colorBlendState{
+    const vk::PipelineColorBlendStateCreateInfo opaqueColorBlendState{
         .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachment,
+        .pAttachments = &opaqueColorBlendAttachment,
     };
 
     std::array<vk::DescriptorSetLayout, 7> setLayouts = {};
@@ -441,7 +460,7 @@ void Renderer::createGraphicsPipelines(
                 .pRasterizationState = &rasterizerState,
                 .pMultisampleState = &multisampleState,
                 .pDepthStencilState = &depthStencilState,
-                .pColorBlendState = &colorBlendState,
+                .pColorBlendState = &opaqueColorBlendState,
                 .layout = _pipelineLayout,
             },
             vk::PipelineRenderingCreateInfo{
@@ -458,14 +477,50 @@ void Renderer::createGraphicsPipelines(
         if (pipeline.result != vk::Result::eSuccess)
             throw std::runtime_error("Failed to create pbr pipeline");
 
-        _pipeline = pipeline.value;
+        _pipelines[0] = pipeline.value;
 
         _device->logical().setDebugUtilsObjectNameEXT(
             vk::DebugUtilsObjectNameInfoEXT{
                 .objectType = vk::ObjectType::ePipeline,
                 .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "Renderer",
+                    static_cast<VkPipeline>(_pipelines[0])),
+                .pObjectName = "Renderer::Opaque",
+            });
+    }
+
+    const vk::PipelineColorBlendAttachmentState transparentColorBlendAttachment{
+        .blendEnable = VK_TRUE,
+        .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
+        .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
+        .colorBlendOp = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .alphaBlendOp = vk::BlendOp::eAdd,
+        .colorWriteMask =
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
+    const vk::PipelineColorBlendStateCreateInfo transparentColorBlendState{
+        .attachmentCount = 1,
+        .pAttachments = &transparentColorBlendAttachment,
+    };
+    pipelineChain.get<vk::GraphicsPipelineCreateInfo>().pColorBlendState =
+        &transparentColorBlendState;
+    {
+        auto pipeline = _device->logical().createGraphicsPipeline(
+            vk::PipelineCache{},
+            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
+        if (pipeline.result != vk::Result::eSuccess)
+            throw std::runtime_error("Failed to create pbr pipeline");
+
+        _pipelines[1] = pipeline.value;
+
+        _device->logical().setDebugUtilsObjectNameEXT(
+            vk::DebugUtilsObjectNameInfoEXT{
+                .objectType = vk::ObjectType::ePipeline,
+                .objectHandle = reinterpret_cast<uint64_t>(
+                    static_cast<VkPipeline>(_pipelines[1])),
+                .pObjectName = "Renderer::Transparent",
             });
     }
 }
@@ -476,6 +531,7 @@ void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
         _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _device->graphicsPool(),
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount,
+            // Separate buffers for opaque and transparent
+            .commandBufferCount = swapConfig.imageCount * 2,
         });
 }

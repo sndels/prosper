@@ -12,7 +12,6 @@
 #include "Swapchain.hpp"
 #include "Timer.hpp"
 #include "ToneMap.hpp"
-#include "TransparentsRenderer.hpp"
 #include "Window.hpp"
 #include "World.hpp"
 
@@ -56,7 +55,6 @@ class App
     LightClustering _lightClustering;
     Renderer _renderer;
     RTRenderer _rtRenderer;
-    TransparentsRenderer _transparentsRenderer;
     SkyboxRenderer _skyboxRenderer;
     ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;

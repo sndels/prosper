@@ -33,7 +33,7 @@ class Renderer
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextImage) const;
+        uint32_t nextImage, bool transparents) const;
 
   private:
     [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);
@@ -52,13 +52,13 @@ class Renderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
+    std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
 
-    vk::RenderingAttachmentInfo _colorAttachment;
-    vk::RenderingAttachmentInfo _depthAttachment;
+    std::array<vk::RenderingAttachmentInfo, 2> _colorAttachments{};
+    std::array<vk::RenderingAttachmentInfo, 2> _depthAttachments{};
 
     vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    std::array<vk::Pipeline, 2> _pipelines{};
 
     std::vector<vk::CommandBuffer> _commandBuffers;
 };
