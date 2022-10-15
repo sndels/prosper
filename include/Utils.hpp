@@ -62,4 +62,9 @@ std::filesystem::path binPath(const std::filesystem::path &path);
 
 std::string readFileString(const std::filesystem::path &path);
 
+template <typename T> std::string defineStr(const std::string &name, T value)
+{
+    return "#define " + name + " " + std::to_string(value) + '\n';
+}
+
 #endif // PROSPER_CONSTANTS_HPP
