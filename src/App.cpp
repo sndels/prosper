@@ -106,6 +106,7 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
       _world._dsLayouts}
 , _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
+,_recompileTime{std::chrono::file_clock::now()}
 {
     _cam.init(_world._scenes[_world._currentScene].camera);
     _cam.perspective(_window.width() / static_cast<float>(_window.height()));
@@ -193,28 +194,47 @@ void App::recreateSwapchainAndRelated()
 
 void App::recompileShaders()
 {
-    if (_recompileShaders)
+    if (!_recompileShaders)
+        return;
+
+    Timer checkTime;
+    bool shadersChanged = false;
+    auto shadersIterator =
+        std::filesystem::recursive_directory_iterator(resPath("shader"));
+    for (const auto &entry : shadersIterator)
     {
-        // Wait for resources to be out of use
-        _device.logical().waitIdle();
-
-        fprintf(stderr, "Recompiling shaders\n");
-
-        Timer t;
-
-        _lightClustering.recompileShaders(
-            _cam.descriptorSetLayout(), _world._dsLayouts);
-        _renderer.recompileShaders(
-            _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
-        _rtRenderer.recompileShaders(
-            _cam.descriptorSetLayout(), _world._dsLayouts);
-        _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
-        _toneMap.recompileShaders();
-
-        fprintf(stderr, "Shaders recompiled in %.2fs\n", t.getSeconds());
-
-        _recompileShaders = false;
+        if (entry.last_write_time() > _recompileTime)
+        {
+            shadersChanged = true;
+            break;
+        }
     }
+    if (checkTime.getSeconds() > 0.001f)
+        fprintf(
+            stderr, "Shader timestamp check is laggy: %.1fms\n",
+            checkTime.getSeconds() * 1000.f);
+
+    if (!shadersChanged)
+        return;
+
+    // Wait for resources to be out of use
+    _device.logical().waitIdle();
+
+    fprintf(stderr, "Recompiling shaders\n");
+
+    Timer t;
+
+    _lightClustering.recompileShaders(
+        _cam.descriptorSetLayout(), _world._dsLayouts);
+    _renderer.recompileShaders(
+        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+    _rtRenderer.recompileShaders(_cam.descriptorSetLayout(), _world._dsLayouts);
+    _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
+    _toneMap.recompileShaders();
+
+    fprintf(stderr, "Shaders recompiled in %.2fs\n", t.getSeconds());
+
+    _recompileTime = std::chrono::file_clock::now();
 }
 
 void App::handleMouseGestures()
@@ -364,7 +384,7 @@ void App::drawFrame()
             ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
         }
 
-        _recompileShaders = ImGui::Button("Recompile shaders");
+        ImGui::Checkbox("Recompile shaders", &_recompileShaders);
 
         ImGui::Checkbox("Render RT", &_renderRT);
 

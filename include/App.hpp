@@ -65,6 +65,7 @@ class App
     bool _renderRT{false};
 
     Timer _frameTimer;
+    std::chrono::time_point<std::chrono::file_clock> _recompileTime;
 
     std::vector<vk::Semaphore> _imageAvailableSemaphores;
     std::vector<vk::Semaphore> _renderFinishedSemaphores;
