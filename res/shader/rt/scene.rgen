@@ -16,10 +16,26 @@ layout(set = 2, binding = 0) uniform accelerationStructureEXT as;
 #include "payload.glsl"
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
-// TODO: More colors
+// From Supplement to Hash Functions for GPU Rendering
+// By Jarzynski & Olano
+// https://jcgt.org/published/0009/03/02/supplementary.pdf
+uint pcg(uint v)
+{
+    uint state = v * 747796405 + 2891336453;
+    uint word = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
+    return (word >> 22) ^ word;
+}
+
 vec3 uintToColor(uint x)
 {
-    return vec3(x & 0x1, (x & 0x2) >> 1, (x & 0x4) >> 2);
+    // Hashing should, on average, favor pastellish colors that are easy on the
+    // eyes. Numerically and spatially adjacent indices should also have a
+    // decent probability of getting distinct colors.
+    uint xr = pcg(x);
+    uint r = (xr >> 20) & 0x3FF;
+    uint g = (xr >> 10) & 0x3FF;
+    uint b = xr & 0x3FF;
+    return vec3(r, g, b) / 0x3FF;
 }
 
 struct Instance
@@ -43,8 +59,9 @@ void main()
 
     uint mask = 0xFF;
 
-    payload.instanceCustomIndex = 0;
-    payload.primitiveID = 0;
+    const uint missIndex = 0xFFFFFFFF;
+    payload.instanceCustomIndex = missIndex;
+    payload.primitiveID = missIndex;
     traceRayEXT(
         as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
         ray.tMax, 0);
@@ -52,15 +69,18 @@ void main()
     Instance instance;
     unpackInstance(payload.instanceCustomIndex, instance);
 
-    vec3 color;
-    if (rtPC.drawType == DrawType_PrimitiveID)
-        color = uintToColor(payload.primitiveID);
-    else if (rtPC.drawType == DrawType_MeshID)
-        color = uintToColor(instance.meshID);
-    else if (rtPC.drawType == DrawType_MaterialID)
-        color = uintToColor(instance.materialID);
-    else
-        color = vec3(1, 0, 1);
+    vec3 color = vec3(0);
+    if (payload.instanceCustomIndex != missIndex)
+    {
+        if (rtPC.drawType == DrawType_PrimitiveID)
+            color = uintToColor(payload.primitiveID);
+        else if (rtPC.drawType == DrawType_MeshID)
+            color = uintToColor(instance.meshID);
+        else if (rtPC.drawType == DrawType_MaterialID)
+            color = uintToColor(instance.materialID);
+        else
+            color = vec3(1, 0, 1);
+    }
 
     imageStore(colorOut, ivec2(px), vec4(color, 1));
 }
