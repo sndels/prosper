@@ -672,7 +672,8 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     const auto props = device.getFeatures2<
         vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
+        vk::PhysicalDeviceMaintenance4Features>();
     const auto deviceFeatures =
         props.get<vk::PhysicalDeviceFeatures2>().features;
     const auto vk12Features = props.get<vk::PhysicalDeviceVulkan12Features>();
@@ -680,6 +681,8 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
         props.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>();
     const auto rtFeatures =
         props.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
+    const auto maintenance4Features =
+        props.get<vk::PhysicalDeviceMaintenance4Features>();
 
     SwapchainSupport swapSupport{device, _surface};
     if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
@@ -699,6 +702,9 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     else if (deviceFeatures.geometryShader == VK_FALSE)
         // Required by GLSL to have gl_PrimitiveID in frag
         fprintf(stderr, "Missing geometry shader\n");
+    else if (maintenance4Features.maintenance4 == VK_FALSE)
+        // Required by light clustering using a define in local size x,y
+        fprintf(stderr, "Missing maintenance4\n");
     else
         return true;
 
@@ -854,13 +860,15 @@ void Device::createLogicalDevice(bool enableDebugLayers)
             vk::PhysicalDeviceVulkan13Features{
                 .synchronization2 = VK_TRUE,
                 .dynamicRendering = VK_TRUE,
+                .maintenance4 = VK_TRUE,
             },
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
                 .accelerationStructure = VK_TRUE,
             },
             vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
                 .rayTracingPipeline = VK_TRUE,
-            }};
+            },
+        };
 
     _logical = _physical.createDevice(chain.get<vk::DeviceCreateInfo>());
 
