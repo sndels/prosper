@@ -191,9 +191,8 @@ bool TransparentsRenderer::compileShaders(
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",
             .debugName = "transparentsPS",
-            .defines = "#define NUM_MATERIAL_SAMPLERS " +
-                       std::to_string(worldDSLayouts.materialSamplerCount) +
-                       '\n',
+            .defines = defineStr(
+                "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount),
         });
 
     if (vertSM && fragSM)
