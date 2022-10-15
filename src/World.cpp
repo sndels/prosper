@@ -1196,7 +1196,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         };
 
         std::vector<vk::WriteDescriptorSet> dss;
-        dss.reserve(imageInfos.size() + 1);
+        dss.reserve(3);
         dss.push_back(vk::WriteDescriptorSet{
             .dstSet = _materialTexturesDS,
             .dstBinding = 0,
@@ -1204,32 +1204,22 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .pBufferInfo = &datasInfo,
         });
-        for (uint32_t i = 0; i < samplerInfos.size(); ++i)
-            // TODO:
-            // Can this be done with
-            // .descriptorCount = samplerInfos.size()
-            // .pImagInfo = samplerInfos.data()
-            dss.push_back(vk::WriteDescriptorSet{
-                .dstSet = _materialTexturesDS,
-                .dstBinding = 1,
-                .dstArrayElement = i,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eSampler,
-                .pImageInfo = &samplerInfos[i],
-            });
-        for (uint32_t i = 0; i < imageInfos.size(); ++i)
-            // TODO:
-            // Can this be done with
-            // .descriptorCount = imageInfos.size()
-            // .pImagInfo = imageInfos.data()
-            dss.push_back(vk::WriteDescriptorSet{
-                .dstSet = _materialTexturesDS,
-                .dstBinding = 1 + asserted_cast<uint32_t>(samplerInfos.size()),
-                .dstArrayElement = i,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eSampledImage,
-                .pImageInfo = &imageInfos[i],
-            });
+        dss.push_back(vk::WriteDescriptorSet{
+            .dstSet = _materialTexturesDS,
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = asserted_cast<uint32_t>(samplerInfos.size()),
+            .descriptorType = vk::DescriptorType::eSampler,
+            .pImageInfo = samplerInfos.data(),
+        });
+        dss.push_back(vk::WriteDescriptorSet{
+            .dstSet = _materialTexturesDS,
+            .dstBinding = 1 + asserted_cast<uint32_t>(samplerInfos.size()),
+            .dstArrayElement = 0,
+            .descriptorCount = asserted_cast<uint32_t>(imageInfos.size()),
+            .descriptorType = vk::DescriptorType::eSampledImage,
+            .pImageInfo = imageInfos.data(),
+        });
 
         // TODO:
         // We could do all ds updates with a single call
@@ -1316,27 +1306,17 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 vk::DescriptorSet ds,
                 const std::vector<vk::DescriptorBufferInfo> &infos)
         {
-            std::vector<vk::WriteDescriptorSet> dss;
-            dss.reserve(_meshes.size());
-            for (auto i = 0u; i < infos.size(); ++i)
-            {
-                // TODO:
-                // Can this be done with
-                // .descriptorCount = infos.size()
-                // .pBufferInfo = infos.data()
-                dss.push_back(vk::WriteDescriptorSet{
-                    .dstSet = ds,
-                    .dstBinding = 0,
-                    .dstArrayElement = i,
-                    .descriptorCount = 1,
-                    .descriptorType = vk::DescriptorType::eStorageBuffer,
-                    .pBufferInfo = &infos[i],
-                });
-            }
+            vk::WriteDescriptorSet wds{
+                .dstSet = ds,
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = asserted_cast<uint32_t>(infos.size()),
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .pBufferInfo = infos.data(),
+            };
             // TODO:
             // We could do all ds updates with a single call
-            _device->logical().updateDescriptorSets(
-                asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+            _device->logical().updateDescriptorSets(1, &wds, 0, nullptr);
         };
 
         updateDescriptors(_vertexBuffersDS, vertexBufferInfos);
@@ -1442,10 +1422,6 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 std::vector<vk::WriteDescriptorSet> dss;
                 dss.reserve(infos.size());
                 for (uint32_t i = 0; i < infos.size(); ++i)
-                    // TODO:
-                    // Can this be done with
-                    // .descriptorCount = infos.size()
-                    // .pBufferInfo = infos.data()
                     dss.push_back(vk::WriteDescriptorSet{
                         .dstSet = scene.modelInstancesDescriptorSets[i],
                         .dstBinding = 0,
