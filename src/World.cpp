@@ -1119,6 +1119,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     std::vector<vk::WriteDescriptorSet> dss;
 
+    // Materials layout and descriptors set
     // Define outside the helper scope to keep alive until updateDescriptorSets
     const vk::DescriptorBufferInfo materialDatasInfo{
         .buffer = _materialsBuffer.handle,
@@ -1228,6 +1229,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         });
     }
 
+    // Geometry layouts and descriptor set
     // Define outside the helper scope to keep alive until updateDescriptorSets
     std::vector<vk::DescriptorBufferInfo> vertexBufferInfos;
     std::vector<vk::DescriptorBufferInfo> indexBufferInfos;
@@ -1323,6 +1325,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         });
     }
 
+    // Acceleration structure layout
     {
         const vk::DescriptorSetLayoutBinding layoutBinding{
             .binding = 0,
@@ -1338,6 +1341,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             _device->logical().createDescriptorSetLayout(createInfo);
     }
 
+    // Model instances layout
     {
         const vk::DescriptorSetLayoutBinding layoutBinding{
             .binding = 0,
@@ -1363,6 +1367,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
     }
 
+    // Lights layout
     {
         const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{{
             {
@@ -1394,6 +1399,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             });
     }
 
+    // Scene descriptor sets
     // Define outside the helper scope to keep alive until updateDescriptorSets
     std::vector<vk::DescriptorBufferInfo> modelInstanceInfos;
     std::vector<vk::DescriptorBufferInfo> lightInfos;
@@ -1546,6 +1552,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         }
     }
 
+    // Skybox layout and descriptor sets
     std::vector<vk::DescriptorBufferInfo> skyboxBufferInfos;
     vk::DescriptorImageInfo skyboxImageInfo;
     {
