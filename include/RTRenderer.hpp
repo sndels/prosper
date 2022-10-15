@@ -12,6 +12,14 @@
 class RTRenderer
 {
   public:
+    enum class DrawType : uint32_t
+    {
+        PrimitiveID = 0,
+        MeshID = 1,
+        MaterialID = 2,
+        Count = 3,
+    };
+
     RTRenderer(
         Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
@@ -30,6 +38,8 @@ class RTRenderer
     void recreateSwapchainRelated(
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
+
+    void drawUi();
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
@@ -67,6 +77,8 @@ class RTRenderer
     Buffer _shaderBindingTable;
 
     std::vector<vk::CommandBuffer> _commandBuffers;
+
+    DrawType _drawType{DrawType::PrimitiveID};
 };
 
 #endif // PROSPER_RT_RENDERER_HPP

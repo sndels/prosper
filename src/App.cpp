@@ -400,6 +400,7 @@ void App::drawFrame()
 
     if (_renderRT)
     {
+        _rtRenderer.drawUi();
         commandBuffers.push_back(_rtRenderer.recordCommandBuffer(
             _world, _cam, renderArea, nextImage));
     }

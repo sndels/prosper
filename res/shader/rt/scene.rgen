@@ -11,8 +11,9 @@
 layout(set = 1, binding = 0, rgba16f) uniform writeonly image2D colorOut;
 layout(set = 2, binding = 0) uniform accelerationStructureEXT as;
 
-#include "payload.glsl"
+#include "rtpc.glsl"
 
+#include "payload.glsl"
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
 // TODO: More colors
@@ -52,12 +53,14 @@ void main()
     unpackInstance(payload.instanceCustomIndex, instance);
 
     vec3 color;
-    if (uv.x < 0.333)
+    if (rtPC.drawType == DrawType_PrimitiveID)
         color = uintToColor(payload.primitiveID);
-    else if (uv.x < 0.666)
+    else if (rtPC.drawType == DrawType_MeshID)
         color = uintToColor(instance.meshID);
-    else
+    else if (rtPC.drawType == DrawType_MaterialID)
         color = uintToColor(instance.materialID);
+    else
+        color = vec3(1, 0, 1);
 
     imageStore(colorOut, ivec2(px), vec4(color, 1));
 }

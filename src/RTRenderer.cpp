@@ -3,10 +3,18 @@
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
+#include <imgui.h>
+
 // Based on RT Gems II chapter 16
 
 namespace
 {
+
+constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
+    vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
+    vk::ShaderStageFlagBits::eClosestHitKHR |
+    vk::ShaderStageFlagBits::eMissKHR |
+    vk::ShaderStageFlagBits::eIntersectionKHR;
 
 enum StageIndex : uint32_t
 {
@@ -15,7 +23,22 @@ enum StageIndex : uint32_t
     Miss,
 };
 
-}
+struct PCBlock
+{
+    uint32_t drawType{0};
+};
+
+const char *sDrawTypeName[] = {
+    "PrimitiveID",
+    "MeshID",
+    "MaterialID",
+};
+static_assert(
+    std::size(sDrawTypeName) ==
+        static_cast<size_t>(RTRenderer::DrawType::Count),
+    "All RTRenderer::DrawType values should have a corresponding name string");
+
+} // namespace
 
 RTRenderer::RTRenderer(
     Device *device, RenderResources *resources,
@@ -76,6 +99,27 @@ void RTRenderer::recreateSwapchainRelated(
     createCommandBuffers(swapConfig);
 }
 
+void RTRenderer::drawUi()
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 210.f}, ImGuiCond_Appearing);
+    ImGui::Begin("RT settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
+    if (ImGui::BeginCombo("Draw type", sDrawTypeName[*currentType]))
+    {
+        for (auto i = 0u;
+             i < static_cast<uint32_t>(RTRenderer::DrawType::Count); ++i)
+        {
+            bool selected = *currentType == i;
+            if (ImGui::Selectable(sDrawTypeName[i], &selected))
+                _drawType = static_cast<DrawType>(i);
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::End();
+}
+
 vk::CommandBuffer RTRenderer::recordCommandBuffer(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
     uint32_t nextImage) const
@@ -111,6 +155,13 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
         vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         0, nullptr);
+
+    const PCBlock pcBlock{
+        .drawType = static_cast<uint32_t>(_drawType),
+    };
+    cb.pushConstants(
+        _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
+        &pcBlock);
 
     const auto sbtAddr =
         _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
@@ -293,10 +344,17 @@ void RTRenderer::createPipeline(
         _descriptorSetLayout,
         worldDSLayouts.accelerationStructure,
     };
+    const vk::PushConstantRange pcRange{
+        .stageFlags = sVkShaderStageFlagsAllRt,
+        .offset = 0,
+        .size = sizeof(PCBlock),
+    };
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &pcRange,
         });
 
     const vk::RayTracingPipelineCreateInfoKHR pipelineInfo{
