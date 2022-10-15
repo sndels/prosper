@@ -100,45 +100,38 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
            NoL;
 }
 
+bool handleDebugDraw(Material m, vec3 normal)
+{
+    if (scenePC.DrawType == DrawType_Default)
+        return false;
+
+    if (scenePC.DrawType == DrawType_PrimitiveID)
+        outColor = vec4(uintToColor(gl_PrimitiveID), 1);
+    else if (scenePC.DrawType == DrawType_MeshID)
+        outColor = vec4(uintToColor(scenePC.MeshID), 1);
+    else if (scenePC.DrawType == DrawType_MaterialID)
+        outColor = vec4(uintToColor(scenePC.MaterialID), 1);
+    else if (scenePC.DrawType == DrawType_Albedo)
+        outColor = vec4(m.albedo, 1);
+    else if (scenePC.DrawType == DrawType_ShadingNormal)
+        outColor = vec4(normal * 0.5 + 0.5, 1);
+    else if (scenePC.DrawType == DrawType_Roughness)
+        outColor = vec4(vec3(m.roughness), 1);
+    else if (scenePC.DrawType == DrawType_Metallic)
+        outColor = vec4(vec3(m.metallic), 1);
+    else
+        outColor = vec4(1, 0, 1, 1);
+
+    return true;
+}
+
 void main()
 {
-    if (scenePC.DrawType == DrawType_PrimitiveID)
-    {
-        outColor = vec4(uintToColor(gl_PrimitiveID), 1);
-        return;
-    }
-    if (scenePC.DrawType == DrawType_MeshID)
-    {
-        outColor = vec4(uintToColor(scenePC.MeshID), 1);
-        return;
-    }
-    if (scenePC.DrawType == DrawType_MaterialID)
-    {
-        outColor = vec4(uintToColor(scenePC.MaterialID), 1);
-        return;
-    }
-
     Material material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)
         discard;
-
-    if (scenePC.DrawType == DrawType_Albedo)
-    {
-        outColor = vec4(material.albedo, 1);
-        return;
-    }
-    if (scenePC.DrawType == DrawType_Roughness)
-    {
-        outColor = vec4(vec3(material.roughness), 1);
-        return;
-    }
-    if (scenePC.DrawType == DrawType_Metallic)
-    {
-        outColor = vec4(vec3(material.metallic), 1);
-        return;
-    }
 
     vec3 normal;
     if (material.normal.x != -2) // -2 signals no material normal
@@ -148,12 +141,6 @@ void main()
     }
     else
         normal = normalize(fragTBN[2]);
-
-    if (scenePC.DrawType == DrawType_ShadingNormal)
-    {
-        outColor = vec4(vec3(fragTBN[2]) * 0.5 + 0.5, 1);
-        return;
-    }
 
     vec3 v = normalize(camera.eye.xyz - fragPosition);
 
@@ -213,9 +200,8 @@ void main()
 
     float alpha = material.alpha > 0 ? material.alpha : 1.0;
 
-    if (scenePC.DrawType == DrawType_Default)
-        outColor = vec4(color, alpha);
-    else
-        // Other draw types should early out with their outcolor
-        outColor = vec4(1, 0, 1, 1);
+    if (handleDebugDraw(material, normal))
+        return;
+
+    outColor = vec4(color, alpha);
 }
