@@ -24,6 +24,7 @@ if(MSVC)
     target_compile_options(prosper
         PRIVATE
         /permissive-
+        /Zc:preprocessor
         /W4
         /w14242
         /w14254

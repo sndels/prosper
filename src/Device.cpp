@@ -10,6 +10,49 @@
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
+// FOR_EACH by David Mazières
+// https://www.scs.stanford.edu/~dm/blog/va-opt.html
+// Adapted to work on pairs of args
+#define PARENS ()
+
+// Over 300 args
+#define EXPAND(...) EXPAND4(EXPAND4(EXPAND4(EXPAND4(__VA_ARGS__))))
+#define EXPAND4(...) EXPAND3(EXPAND3(EXPAND3(EXPAND3(__VA_ARGS__))))
+#define EXPAND3(...) EXPAND2(EXPAND2(EXPAND2(EXPAND2(__VA_ARGS__))))
+#define EXPAND2(...) EXPAND1(EXPAND1(EXPAND1(EXPAND1(__VA_ARGS__))))
+#define EXPAND1(...) __VA_ARGS__
+
+#define FOR_EACH_PAIR(macro, ...)                                              \
+    __VA_OPT__(EXPAND(FOR_EACH_PAIR_HELPER(macro, __VA_ARGS__)))
+#define FOR_EACH_PAIR_HELPER(macro, a1, a2, ...)                               \
+    macro(a1, a2) __VA_OPT__(FOR_EACH_PAIR_AGAIN PARENS(macro, __VA_ARGS__))
+#define FOR_EACH_PAIR_AGAIN() FOR_EACH_PAIR_HELPER
+
+#define ALL_FEATURE_STRUCTS_LIST                                               \
+    vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,           \
+        vk::PhysicalDeviceVulkan13Features,                                    \
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR
+
+#define REQUIRED_FEATURES                                                      \
+    vk::PhysicalDeviceFeatures2, features.geometryShader,                      \
+        vk::PhysicalDeviceFeatures2, features.samplerAnisotropy,               \
+        vk::PhysicalDeviceFeatures2,                                           \
+        features.shaderSampledImageArrayDynamicIndexing,                       \
+        vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                \
+        vk::PhysicalDeviceVulkan12Features,                                    \
+        shaderSampledImageArrayNonUniformIndexing,                             \
+        vk::PhysicalDeviceVulkan12Features,                                    \
+        descriptorBindingVariableDescriptorCount,                              \
+        vk::PhysicalDeviceVulkan12Features, runtimeDescriptorArray,            \
+        vk::PhysicalDeviceVulkan12Features, bufferDeviceAddress,               \
+        vk::PhysicalDeviceVulkan13Features, synchronization2,                  \
+        vk::PhysicalDeviceVulkan13Features, dynamicRendering,                  \
+        vk::PhysicalDeviceVulkan13Features, maintenance4,                      \
+        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
+        accelerationStructure,                                                 \
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline
+
 namespace
 {
 
@@ -680,21 +723,6 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
     if (!checkDeviceExtensionSupport(device))
         return false;
 
-    const auto props = device.getFeatures2<
-        vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,
-        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
-        vk::PhysicalDeviceMaintenance4Features>();
-    const auto deviceFeatures =
-        props.get<vk::PhysicalDeviceFeatures2>().features;
-    const auto vk12Features = props.get<vk::PhysicalDeviceVulkan12Features>();
-    const auto asFeatures =
-        props.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>();
-    const auto rtFeatures =
-        props.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
-    const auto maintenance4Features =
-        props.get<vk::PhysicalDeviceMaintenance4Features>();
-
     SwapchainSupport swapSupport{device, _surface};
     if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
     {
@@ -702,24 +730,24 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
         return false;
     }
 
-    if (deviceFeatures.samplerAnisotropy == VK_FALSE)
-        fprintf(stderr, "Missing sampler anisotropy\n");
-    else if (vk12Features.descriptorIndexing == VK_FALSE)
-        fprintf(stderr, "Missing descriptor indexing\n");
-    else if (asFeatures.accelerationStructure == VK_FALSE)
-        fprintf(stderr, "Missing acceleration structures\n");
-    else if (rtFeatures.rayTracingPipeline == VK_FALSE)
-        fprintf(stderr, "Missing ray tracing pipeline\n");
-    else if (deviceFeatures.geometryShader == VK_FALSE)
-        // Required by GLSL to have gl_PrimitiveID in frag
-        fprintf(stderr, "Missing geometry shader\n");
-    else if (maintenance4Features.maintenance4 == VK_FALSE)
-        // Required by light clustering using a define in local size x,y
-        fprintf(stderr, "Missing maintenance4\n");
-    else
-        return true;
+    fprintf(stderr, "Checking feature support\n");
 
-    return false;
+    const auto features = device.getFeatures2<ALL_FEATURE_STRUCTS_LIST>();
+
+#define CHECK_REQUIRED_FEATURES(container, feature)                            \
+    if (features.get<container>().feature == VK_FALSE)                         \
+    {                                                                          \
+        fprintf(stderr, "Missing %s\n", #feature);                             \
+        return false;                                                          \
+    }
+
+    FOR_EACH_PAIR(CHECK_REQUIRED_FEATURES, REQUIRED_FEATURES);
+
+#undef CHECK_REQUIRED_FEATURES
+
+    fprintf(stderr, "Required features are supported\n");
+
+    return true;
 }
 
 void *Device::map(VmaAllocation allocation) const
@@ -833,55 +861,31 @@ void Device::createLogicalDevice(bool enableDebugLayers)
         return cis;
     }();
 
-    const vk::StructureChain<
-        vk::DeviceCreateInfo, vk::PhysicalDeviceFeatures2,
-        vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features,
-        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>
-        chain{
-            vk::DeviceCreateInfo{
-                .queueCreateInfoCount =
-                    asserted_cast<uint32_t>(queueCreateInfos.size()),
-                .pQueueCreateInfos = queueCreateInfos.data(),
-                .enabledLayerCount =
-                    enableDebugLayers
-                        ? asserted_cast<uint32_t>(validationLayers.size())
-                        : 0,
-                .ppEnabledLayerNames =
-                    enableDebugLayers ? validationLayers.data() : nullptr,
-                .enabledExtensionCount =
-                    asserted_cast<uint32_t>(deviceExtensions.size()),
-                .ppEnabledExtensionNames = deviceExtensions.data(),
-            },
-            vk::PhysicalDeviceFeatures2{
-                .features =
-                    {
-                        .geometryShader = VK_TRUE,
-                        .samplerAnisotropy = VK_TRUE,
-                        .shaderSampledImageArrayDynamicIndexing = VK_TRUE,
-                    },
-            },
-            vk::PhysicalDeviceVulkan12Features{
-                .descriptorIndexing = VK_TRUE,
-                .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-                .descriptorBindingVariableDescriptorCount = VK_TRUE,
-                .runtimeDescriptorArray = VK_TRUE,
-                .bufferDeviceAddress = VK_TRUE,
-            },
-            vk::PhysicalDeviceVulkan13Features{
-                .synchronization2 = VK_TRUE,
-                .dynamicRendering = VK_TRUE,
-                .maintenance4 = VK_TRUE,
-            },
-            vk::PhysicalDeviceAccelerationStructureFeaturesKHR{
-                .accelerationStructure = VK_TRUE,
-            },
-            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{
-                .rayTracingPipeline = VK_TRUE,
-            },
-        };
+    vk::StructureChain<vk::DeviceCreateInfo, ALL_FEATURE_STRUCTS_LIST>
+        createChain;
+    createChain.get<vk::DeviceCreateInfo>() = vk::DeviceCreateInfo{
+        .pNext = &createChain.get<vk::PhysicalDeviceFeatures2>(),
+        .queueCreateInfoCount =
+            asserted_cast<uint32_t>(queueCreateInfos.size()),
+        .pQueueCreateInfos = queueCreateInfos.data(),
+        .enabledLayerCount =
+            enableDebugLayers ? asserted_cast<uint32_t>(validationLayers.size())
+                              : 0,
+        .ppEnabledLayerNames =
+            enableDebugLayers ? validationLayers.data() : nullptr,
+        .enabledExtensionCount =
+            asserted_cast<uint32_t>(deviceExtensions.size()),
+        .ppEnabledExtensionNames = deviceExtensions.data(),
+    };
 
-    _logical = _physical.createDevice(chain.get<vk::DeviceCreateInfo>());
+#define TOGGLE_REQUIRED_FEATURES(container, feature)                           \
+    createChain.get<container>().feature = VK_TRUE;
+
+    FOR_EACH_PAIR(TOGGLE_REQUIRED_FEATURES, REQUIRED_FEATURES);
+
+#undef TOGGLE_REQUIRED_FEATURES
+
+    _logical = _physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
 
     // Get the created queues
     _computeQueue = _logical.getQueue(computeFamily, 0);
