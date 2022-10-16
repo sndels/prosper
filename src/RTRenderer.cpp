@@ -126,7 +126,7 @@ void RTRenderer::drawUi()
 
 vk::CommandBuffer RTRenderer::recordCommandBuffer(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    uint32_t nextImage) const
+    uint32_t nextImage, Profiler *profiler) const
 {
     const auto cb = _commandBuffers[nextImage];
     cb.reset();
@@ -135,70 +135,69 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    _resources->images.sceneColor.transition(
-        cb, ImageState{
+    {
+        const auto _s = profiler->createScope(cb, "RT");
+
+        _resources->images.sceneColor.transition(
+            cb,
+            ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
                 .accessMask = vk::AccessFlagBits2::eShaderStorageWrite,
                 .layout = vk::ImageLayout::eGeneral,
             });
 
-    cb.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = "RT",
-    });
+        cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
 
-    cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
+        const auto &scene = world._scenes[world._currentScene];
 
-    const auto &scene = world._scenes[world._currentScene];
+        std::array<vk::DescriptorSet, 3> descriptorSets = {};
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+        descriptorSets[sAccelerationStructureBindingSet] =
+            scene.accelerationStructureDS;
+        descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
 
-    std::array<vk::DescriptorSet, 3> descriptorSets = {};
-    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
-    descriptorSets[sAccelerationStructureBindingSet] =
-        scene.accelerationStructureDS;
-    descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
+        cb.bindDescriptorSets(
+            vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
+            asserted_cast<uint32_t>(descriptorSets.size()),
+            descriptorSets.data(), 0, nullptr);
 
-    cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
-        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
+        const PCBlock pcBlock{
+            .drawType = static_cast<uint32_t>(_drawType),
+        };
+        cb.pushConstants(
+            _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
+            &pcBlock);
 
-    const PCBlock pcBlock{
-        .drawType = static_cast<uint32_t>(_drawType),
-    };
-    cb.pushConstants(
-        _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
-        &pcBlock);
+        const auto sbtAddr =
+            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                .buffer = _shaderBindingTable.handle,
+            });
 
-    const auto sbtAddr =
-        _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-            .buffer = _shaderBindingTable.handle,
-        });
+        const vk::StridedDeviceAddressRegionKHR rayGenRegion{
+            .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::RayGen,
+            .stride = _sbtGroupSize,
+            .size = _sbtGroupSize,
+        };
 
-    const vk::StridedDeviceAddressRegionKHR rayGenRegion{
-        .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::RayGen,
-        .stride = _sbtGroupSize,
-        .size = _sbtGroupSize,
-    };
+        const vk::StridedDeviceAddressRegionKHR missRegion{
+            .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::Miss,
+            .stride = _sbtGroupSize,
+            .size = _sbtGroupSize,
+        };
 
-    const vk::StridedDeviceAddressRegionKHR missRegion{
-        .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::Miss,
-        .stride = _sbtGroupSize,
-        .size = _sbtGroupSize,
-    };
+        const vk::StridedDeviceAddressRegionKHR hitRegion{
+            .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::ClosestHit,
+            .stride = _sbtGroupSize,
+            .size = _sbtGroupSize,
+        };
 
-    const vk::StridedDeviceAddressRegionKHR hitRegion{
-        .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::ClosestHit,
-        .stride = _sbtGroupSize,
-        .size = _sbtGroupSize,
-    };
+        const vk::StridedDeviceAddressRegionKHR callableRegion;
 
-    const vk::StridedDeviceAddressRegionKHR callableRegion;
-
-    assert(renderArea.offset.x == 0 && renderArea.offset.y == 0);
-    cb.traceRaysKHR(
-        &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
-        renderArea.extent.width, renderArea.extent.height, 1);
-
-    cb.endDebugUtilsLabelEXT(); // RT
+        assert(renderArea.offset.x == 0 && renderArea.offset.y == 0);
+        cb.traceRaysKHR(
+            &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
+            renderArea.extent.width, renderArea.extent.height, 1);
+    }
 
     cb.end();
 

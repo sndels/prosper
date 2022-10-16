@@ -106,6 +106,7 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
       _world._dsLayouts}
 , _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
+,_profiler{&_device,_swapConfig.imageCount}
 ,_recompileTime{std::chrono::file_clock::now()}
 {
     _cam.init(_world._scenes[_world._currentScene].camera);
@@ -159,8 +160,11 @@ void App::recreateSwapchainAndRelated()
     // Wait for resources to be out of use
     _device.logical().waitIdle();
 
+    const auto prevImageCount = _swapConfig.imageCount;
     _swapConfig =
         SwapchainConfig{&_device, {_window.width(), _window.height()}};
+    // Allow assumption that image count doesn't change while running
+    assert(prevImageCount == _swapConfig.imageCount);
 
     _swapchain.recreate(_swapConfig);
 
@@ -355,6 +359,8 @@ void App::drawFrame()
         return nextImage.value();
     }();
 
+    const auto profilerTimes = _profiler.startFrame(nextImage);
+
     // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
     // Note that this is always based on the previous frame so it only limits
     // fps and doesn't help actual frame timing
@@ -391,6 +397,17 @@ void App::drawFrame()
         ImGui::End();
     }
 
+    {
+        ImGui::SetNextWindowPos(
+            ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
+        ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        for (const auto &t : profilerTimes)
+            ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
+
+        ImGui::End();
+    }
+
     const vk::Rect2D renderArea{
         .offset = {0, 0},
         .extent = _swapchain.extent(),
@@ -408,13 +425,13 @@ void App::drawFrame()
     const auto &scene = _world.currentScene();
 
     commandBuffers.push_back(_lightClustering.recordCommandBuffer(
-        scene, _cam, renderArea, nextImage));
+        scene, _cam, renderArea, nextImage, &_profiler));
 
     if (_renderRT)
     {
         _rtRenderer.drawUi();
         commandBuffers.push_back(_rtRenderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage));
+            _world, _cam, renderArea, nextImage, &_profiler));
     }
     else
     {
@@ -422,19 +439,20 @@ void App::drawFrame()
 
         // Opaque
         commandBuffers.push_back(_renderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage, false));
+            _world, _cam, renderArea, nextImage, false, &_profiler));
 
         // Transparent
         commandBuffers.push_back(_renderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage, true));
+            _world, _cam, renderArea, nextImage, true, &_profiler));
 
-        commandBuffers.push_back(
-            _skyboxRenderer.recordCommandBuffer(_world, renderArea, nextImage));
+        commandBuffers.push_back(_skyboxRenderer.recordCommandBuffer(
+            _world, renderArea, nextImage, &_profiler));
     }
 
-    commandBuffers.push_back(_toneMap.execute(nextImage));
+    commandBuffers.push_back(_toneMap.execute(nextImage, &_profiler));
 
-    commandBuffers.push_back(_imguiRenderer.endFrame(renderArea, nextImage));
+    commandBuffers.push_back(
+        _imguiRenderer.endFrame(renderArea, nextImage, &_profiler));
 
     {
         // Blit to support different internal rendering resolution (and color
@@ -518,6 +536,8 @@ void App::drawFrame()
                 .pImageMemoryBarriers = &barrier,
             });
         }
+
+        _profiler.endFrame(commandBuffer);
 
         commandBuffer.end();
 

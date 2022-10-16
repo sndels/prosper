@@ -5,6 +5,7 @@
 #include "Device.hpp"
 #include "ImGuiRenderer.hpp"
 #include "LightClustering.hpp"
+#include "Profiler.hpp"
 #include "RTRenderer.hpp"
 #include "RenderResources.hpp"
 #include "Renderer.hpp"
@@ -58,6 +59,8 @@ class App
     SkyboxRenderer _skyboxRenderer;
     ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;
+
+    Profiler _profiler;
 
     bool _useFpsLimit{true};
     int32_t _fpsLimit{140};

@@ -3,8 +3,10 @@
 #define PROSPER_IMGUI_RENDERER_HPP
 
 #include "Device.hpp"
+#include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
+
 
 #include <GLFW/glfw3.h>
 
@@ -23,7 +25,7 @@ class ImGuiRenderer
 
     void startFrame() const;
     [[nodiscard]] vk::CommandBuffer endFrame(
-        const vk::Rect2D &renderArea, uint32_t nextImage);
+        const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler);
 
     void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
 

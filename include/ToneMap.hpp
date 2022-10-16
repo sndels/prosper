@@ -4,8 +4,10 @@
 #include <functional>
 
 #include "Device.hpp"
+#include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
+
 
 class ToneMap
 {
@@ -24,7 +26,8 @@ class ToneMap
 
     void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
 
-    [[nodiscard]] vk::CommandBuffer execute(uint32_t nextImage) const;
+    [[nodiscard]] vk::CommandBuffer execute(
+        uint32_t nextImage, Profiler *profiler) const;
 
   private:
     bool compileShaders();

@@ -95,7 +95,8 @@ void ToneMap::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
     createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
+vk::CommandBuffer ToneMap::execute(
+    const uint32_t nextImage, Profiler *profiler) const
 {
     const auto buffer = _commandBuffers[nextImage];
     buffer.reset();
@@ -104,40 +105,38 @@ vk::CommandBuffer ToneMap::execute(const uint32_t nextImage) const
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = "ToneMap",
-    });
+    {
+        const auto _s = profiler->createScope(buffer, "ToneMap");
 
-    const std::array<vk::ImageMemoryBarrier2, 2> barriers{
-        _resources->images.sceneColor.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .accessMask = vk::AccessFlagBits2::eShaderRead,
-            .layout = vk::ImageLayout::eGeneral,
-        }),
-        _resources->images.toneMapped.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .accessMask = vk::AccessFlagBits2::eShaderWrite,
-            .layout = vk::ImageLayout::eGeneral,
-        }),
-    };
+        const std::array<vk::ImageMemoryBarrier2, 2> barriers{
+            _resources->images.sceneColor.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+            _resources->images.toneMapped.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+        };
 
-    buffer.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
+        buffer.pipelineBarrier2(vk::DependencyInfo{
+            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+            .pImageMemoryBarriers = barriers.data(),
+        });
 
-    buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+        buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
-        &_descriptorSets[nextImage], 0, nullptr);
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
+            &_descriptorSets[nextImage], 0, nullptr);
 
-    const auto &extent = _resources->images.sceneColor.extent;
-    const auto groups =
-        (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
-    buffer.dispatch(groups.x, groups.y, 1);
-
-    buffer.endDebugUtilsLabelEXT(); // ToneMap
+        const auto &extent = _resources->images.sceneColor.extent;
+        const auto groups =
+            (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
+        buffer.dispatch(groups.x, groups.y, 1);
+    }
 
     buffer.end();
 

@@ -7,7 +7,6 @@
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
-
 namespace
 {
 
@@ -80,7 +79,7 @@ void ImGuiRenderer::startFrame() const
 }
 
 vk::CommandBuffer ImGuiRenderer::endFrame(
-    const vk::Rect2D &renderArea, const uint32_t nextImage)
+    const vk::Rect2D &renderArea, const uint32_t nextImage, Profiler *profiler)
 {
     ImGui::Render();
     ImDrawData *drawData = ImGui::GetDrawData();
@@ -92,31 +91,29 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = "ImGui",
-    });
+    {
+        const auto _s = profiler->createScope(buffer, "ImGui");
 
-    _resources->images.toneMapped.transition(
-        buffer,
-        ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-            .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
-            .layout = vk::ImageLayout::eColorAttachmentOptimal,
-        });
+        _resources->images.toneMapped.transition(
+            buffer,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
+                .layout = vk::ImageLayout::eColorAttachmentOptimal,
+            });
 
-    buffer.beginRenderPass(
-        vk::RenderPassBeginInfo{
-            .renderPass = _renderpass,
-            .framebuffer = _fbo,
-            .renderArea = renderArea,
-        },
-        vk::SubpassContents::eInline);
+        buffer.beginRenderPass(
+            vk::RenderPassBeginInfo{
+                .renderPass = _renderpass,
+                .framebuffer = _fbo,
+                .renderArea = renderArea,
+            },
+            vk::SubpassContents::eInline);
 
-    ImGui_ImplVulkan_RenderDrawData(drawData, buffer);
+        ImGui_ImplVulkan_RenderDrawData(drawData, buffer);
 
-    buffer.endRenderPass();
-
-    buffer.endDebugUtilsLabelEXT(); // ImGui
+        buffer.endRenderPass();
+    }
 
     buffer.end();
 

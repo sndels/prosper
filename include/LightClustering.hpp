@@ -5,9 +5,11 @@
 
 #include "Camera.hpp"
 #include "Device.hpp"
+#include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
+
 
 class LightClustering
 {
@@ -33,7 +35,7 @@ class LightClustering
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextImage);
+        uint32_t nextImage, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders();

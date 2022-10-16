@@ -5,6 +5,7 @@
 
 #include "Camera.hpp"
 #include "Device.hpp"
+#include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
@@ -48,7 +49,7 @@ class Renderer
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextImage, bool transparents) const;
+        uint32_t nextImage, bool transparents, Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);

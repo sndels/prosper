@@ -113,7 +113,8 @@ void Renderer::drawUi()
 
 vk::CommandBuffer Renderer::recordCommandBuffer(
     const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage, bool render_transparents) const
+    const uint32_t nextImage, bool render_transparents,
+    Profiler *profiler) const
 {
     const auto pipelineIndex = render_transparents ? 1 : 0;
     // Separate buffers for opaque and transparent
@@ -125,112 +126,114 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
-        _resources->images.sceneColor.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-            .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-            .layout = vk::ImageLayout::eColorAttachmentOptimal,
-        }),
-        _resources->images.sceneDepth.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-            .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-            .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-        }),
-        _resources->buffers.lightClusters.pointers.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-            .accessMask = vk::AccessFlagBits2::eShaderRead,
-            .layout = vk::ImageLayout::eGeneral,
-        }),
-    };
-
-    const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
-        _resources->buffers.lightClusters.indicesCount.transitionBarrier(
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-            }),
-        _resources->buffers.lightClusters.indices.transitionBarrier(BufferState{
-            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .accessMask = vk::AccessFlagBits2::eShaderRead,
-        }),
-    };
-
-    buffer.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount =
-            asserted_cast<uint32_t>(bufferBarriers.size()),
-        .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
-
-    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = render_transparents ? "Transparent" : "Opaque",
-    });
-
-    buffer.beginRendering(vk::RenderingInfo{
-        .renderArea = renderArea,
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &_colorAttachments[pipelineIndex],
-        .pDepthAttachment = &_depthAttachments[pipelineIndex],
-    });
-
-    buffer.bindPipeline(
-        vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
-
-    const auto &scene = world._scenes[world._currentScene];
-
-    std::array<vk::DescriptorSet, 7> descriptorSets = {};
-    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextImage];
-    descriptorSets[sLightClustersBindingSet] =
-        _resources->buffers.lightClusters.descriptorSets[nextImage];
-    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
-    descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
-    descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
-    descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
-    descriptorSets[sModelInstanceTrfnsBindingSet] =
-        scene.modelInstancesDescriptorSets[nextImage];
-
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        0, // firstSet
-        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
-
-    for (const auto &instance : scene.modelInstances)
     {
-        const auto &model = world._models[instance.modelID];
-        for (const auto &subModel : model.subModels)
-        {
-            const auto &material = world._materials[subModel.materialID];
-            const auto &mesh = world._meshes[subModel.meshID];
-            const auto isTransparent =
-                material.alphaMode == Material::AlphaMode::Blend;
-            if ((render_transparents && isTransparent) ||
-                (!render_transparents && !isTransparent))
-            {
-                const PCBlock pcBlock{
-                    .modelInstanceID = instance.id,
-                    .meshID = subModel.meshID,
-                    .materialID = subModel.materialID,
-                    .drawType = static_cast<uint32_t>(_drawType),
-                };
-                buffer.pushConstants(
-                    _pipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex |
-                        vk::ShaderStageFlagBits::eFragment,
-                    0, // offset
-                    sizeof(PCBlock), &pcBlock);
+        const auto _s = profiler->createScope(
+            buffer, render_transparents ? "Transparent" : "Opaque");
 
-                buffer.draw(mesh.indexCount(), 1, 0, 0);
+        const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
+            _resources->images.sceneColor.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .layout = vk::ImageLayout::eColorAttachmentOptimal,
+            }),
+            _resources->images.sceneDepth.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+            }),
+            _resources->buffers.lightClusters.pointers.transitionBarrier(
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
+        };
+
+        const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
+            _resources->buffers.lightClusters.indicesCount.transitionBarrier(
+                BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                }),
+            _resources->buffers.lightClusters.indices.transitionBarrier(
+                BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                }),
+        };
+
+        buffer.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(bufferBarriers.size()),
+            .pBufferMemoryBarriers = bufferBarriers.data(),
+            .imageMemoryBarrierCount =
+                asserted_cast<uint32_t>(imageBarriers.size()),
+            .pImageMemoryBarriers = imageBarriers.data(),
+        });
+
+        buffer.beginRendering(vk::RenderingInfo{
+            .renderArea = renderArea,
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &_colorAttachments[pipelineIndex],
+            .pDepthAttachment = &_depthAttachments[pipelineIndex],
+        });
+
+        buffer.bindPipeline(
+            vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
+
+        const auto &scene = world._scenes[world._currentScene];
+
+        std::array<vk::DescriptorSet, 7> descriptorSets = {};
+        descriptorSets[sLightsBindingSet] =
+            scene.lights.descriptorSets[nextImage];
+        descriptorSets[sLightClustersBindingSet] =
+            _resources->buffers.lightClusters.descriptorSets[nextImage];
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+        descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
+        descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
+        descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
+        descriptorSets[sModelInstanceTrfnsBindingSet] =
+            scene.modelInstancesDescriptorSets[nextImage];
+
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+            0, // firstSet
+            asserted_cast<uint32_t>(descriptorSets.size()),
+            descriptorSets.data(), 0, nullptr);
+
+        for (const auto &instance : scene.modelInstances)
+        {
+            const auto &model = world._models[instance.modelID];
+            for (const auto &subModel : model.subModels)
+            {
+                const auto &material = world._materials[subModel.materialID];
+                const auto &mesh = world._meshes[subModel.meshID];
+                const auto isTransparent =
+                    material.alphaMode == Material::AlphaMode::Blend;
+                if ((render_transparents && isTransparent) ||
+                    (!render_transparents && !isTransparent))
+                {
+                    const PCBlock pcBlock{
+                        .modelInstanceID = instance.id,
+                        .meshID = subModel.meshID,
+                        .materialID = subModel.materialID,
+                        .drawType = static_cast<uint32_t>(_drawType),
+                    };
+                    buffer.pushConstants(
+                        _pipelineLayout,
+                        vk::ShaderStageFlagBits::eVertex |
+                            vk::ShaderStageFlagBits::eFragment,
+                        0, // offset
+                        sizeof(PCBlock), &pcBlock);
+
+                    buffer.draw(mesh.indexCount(), 1, 0, 0);
+                }
             }
         }
+
+        buffer.endRendering();
     }
-
-    buffer.endRendering();
-
-    buffer.endDebugUtilsLabelEXT(); // Opaque
 
     buffer.end();
 

@@ -45,6 +45,7 @@
         vk::PhysicalDeviceVulkan12Features,                                    \
         descriptorBindingVariableDescriptorCount,                              \
         vk::PhysicalDeviceVulkan12Features, runtimeDescriptorArray,            \
+        vk::PhysicalDeviceVulkan12Features, hostQueryReset,                    \
         vk::PhysicalDeviceVulkan12Features, bufferDeviceAddress,               \
         vk::PhysicalDeviceVulkan13Features, synchronization2,                  \
         vk::PhysicalDeviceVulkan13Features, dynamicRendering,                  \
@@ -92,6 +93,19 @@ QueueFamilies findQueueFamilies(
         if (families.isComplete())
             break;
     }
+
+    assert(
+        (!families.graphicsFamily ||
+         (allFamilies[*families.graphicsFamily].timestampValidBits == 64)) &&
+        "All bits assumed to be valid for simplicity in profiler");
+    assert(
+        (!families.computeFamily ||
+         (allFamilies[*families.computeFamily].timestampValidBits == 64)) &&
+        "All bits assumed to be valid for simplicity in profiler");
+    assert(
+        (!families.presentFamily ||
+         (allFamilies[*families.presentFamily].timestampValidBits == 64)) &&
+        "All bits assumed to be valid for simplicity in profiler");
 
     return families;
 }

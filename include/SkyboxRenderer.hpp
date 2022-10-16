@@ -5,6 +5,7 @@
 
 #include "Camera.hpp"
 #include "Device.hpp"
+#include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
@@ -32,8 +33,8 @@ class SkyboxRenderer
         const World::DSLayouts &worldDSLayouts);
 
     [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const World &world, const vk::Rect2D &renderArea,
-        uint32_t nextImage) const;
+        const World &world, const vk::Rect2D &renderArea, uint32_t nextImage,
+        Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders();

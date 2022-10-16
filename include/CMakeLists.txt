@@ -14,6 +14,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Material.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Model.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Profiler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.hpp

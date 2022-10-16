@@ -126,7 +126,7 @@ void LightClustering::recreateSwapchainRelated(
 
 vk::CommandBuffer LightClustering::recordCommandBuffer(
     const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage)
+    const uint32_t nextImage, Profiler *profiler)
 {
     if (renderArea.offset != vk::Offset2D{})
         throw std::runtime_error("Offset area not implemented!");
@@ -138,74 +138,76 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = "LightClustering",
-    });
+    {
+        const auto _s = profiler->createScope(buffer, "LightClustering");
 
-    const auto imageBarrier =
-        _resources->buffers.lightClusters.pointers.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .accessMask = vk::AccessFlagBits2::eShaderWrite,
-            .layout = vk::ImageLayout::eGeneral,
-        });
-
-    const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
-        _resources->buffers.lightClusters.indices.transitionBarrier(BufferState{
-            .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-            .accessMask = vk::AccessFlagBits2::eShaderWrite,
-        }),
-        _resources->buffers.lightClusters.indicesCount.transitionBarrier(
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .accessMask = vk::AccessFlagBits2::eTransferWrite,
-            }),
-    };
-
-    buffer.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount =
-            asserted_cast<uint32_t>(bufferBarriers.size()),
-        .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &imageBarrier,
-    });
-
-    buffer.fillBuffer(
-        _resources->buffers.lightClusters.indicesCount.handle, 0,
-        _resources->buffers.lightClusters.indicesCount.size, 0);
-
-    _resources->buffers.lightClusters.indicesCount.transition(
-        buffer, BufferState{
+        const auto imageBarrier =
+            _resources->buffers.lightClusters.pointers.transitionBarrier(
+                ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead |
-                                  vk::AccessFlagBits2::eShaderWrite,
+                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                    .layout = vk::ImageLayout::eGeneral,
                 });
 
-    buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+        const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
+            _resources->buffers.lightClusters.indices.transitionBarrier(
+                BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                }),
+            _resources->buffers.lightClusters.indicesCount.transitionBarrier(
+                BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                    .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                }),
+        };
 
-    std::array<vk::DescriptorSet, 3> descriptorSets = {};
-    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextImage];
-    descriptorSets[sLightClustersBindingSet] =
-        _resources->buffers.lightClusters.descriptorSets[nextImage];
-    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+        buffer.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(bufferBarriers.size()),
+            .pBufferMemoryBarriers = bufferBarriers.data(),
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &imageBarrier,
+        });
 
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _pipelineLayout,
-        0, // firstSet
-        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
+        buffer.fillBuffer(
+            _resources->buffers.lightClusters.indicesCount.handle, 0,
+            _resources->buffers.lightClusters.indicesCount.size, 0);
 
-    const ClusteringPCBlock pcBlock{
-        .resolution = uvec2(renderArea.extent.width, renderArea.extent.height),
-    };
-    buffer.pushConstants(
-        _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
-        0, // offset
-        sizeof(ClusteringPCBlock), &pcBlock);
+        _resources->buffers.lightClusters.indicesCount.transition(
+            buffer, BufferState{
+                        .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                        .accessMask = vk::AccessFlagBits2::eShaderRead |
+                                      vk::AccessFlagBits2::eShaderWrite,
+                    });
 
-    const auto &extent = _resources->buffers.lightClusters.pointers.extent;
-    buffer.dispatch(extent.width, extent.height, extent.depth);
+        buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-    buffer.endDebugUtilsLabelEXT(); // LightClustering
+        std::array<vk::DescriptorSet, 3> descriptorSets = {};
+        descriptorSets[sLightsBindingSet] =
+            scene.lights.descriptorSets[nextImage];
+        descriptorSets[sLightClustersBindingSet] =
+            _resources->buffers.lightClusters.descriptorSets[nextImage];
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eCompute, _pipelineLayout,
+            0, // firstSet
+            asserted_cast<uint32_t>(descriptorSets.size()),
+            descriptorSets.data(), 0, nullptr);
+
+        const ClusteringPCBlock pcBlock{
+            .resolution =
+                uvec2(renderArea.extent.width, renderArea.extent.height),
+        };
+        buffer.pushConstants(
+            _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
+            0, // offset
+            sizeof(ClusteringPCBlock), &pcBlock);
+
+        const auto &extent = _resources->buffers.lightClusters.pointers.extent;
+        buffer.dispatch(extent.width, extent.height, extent.depth);
+    }
 
     buffer.end();
 

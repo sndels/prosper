@@ -54,8 +54,8 @@ void SkyboxRenderer::recreateSwapchainRelated(
 }
 
 vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
-    const World &world, const vk::Rect2D &renderArea,
-    const uint32_t nextImage) const
+    const World &world, const vk::Rect2D &renderArea, const uint32_t nextImage,
+    Profiler *profiler) const
 {
     const auto buffer = _commandBuffers[nextImage];
     buffer.reset();
@@ -64,50 +64,48 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    const std::array<vk::ImageMemoryBarrier2, 2> barriers{
-        _resources->images.sceneColor.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-            .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-            .layout = vk::ImageLayout::eColorAttachmentOptimal,
-        }),
-        _resources->images.sceneDepth.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-            .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
-            .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-        }),
-    };
+    {
+        const auto _s = profiler->createScope(buffer, "Skybox");
 
-    buffer.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
+        const std::array<vk::ImageMemoryBarrier2, 2> barriers{
+            _resources->images.sceneColor.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .layout = vk::ImageLayout::eColorAttachmentOptimal,
+            }),
+            _resources->images.sceneDepth.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
+                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+            }),
+        };
 
-    buffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = "Skybox",
-    });
+        buffer.pipelineBarrier2(vk::DependencyInfo{
+            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+            .pImageMemoryBarriers = barriers.data(),
+        });
 
-    buffer.beginRendering(vk::RenderingInfo{
-        .renderArea = renderArea,
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &_colorAttachment,
-        .pDepthAttachment = &_depthAttachment,
-    });
+        buffer.beginRendering(vk::RenderingInfo{
+            .renderArea = renderArea,
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &_colorAttachment,
+            .pDepthAttachment = &_depthAttachment,
+        });
 
-    // Skybox doesn't need to be drawn under opaque geometry but should be
-    // before transparents
-    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+        // Skybox doesn't need to be drawn under opaque geometry but should be
+        // before transparents
+        buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        0, // firstSet
-        1, &world._skyboxDSs[nextImage], 0, nullptr);
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+            0, // firstSet
+            1, &world._skyboxDSs[nextImage], 0, nullptr);
 
-    world.drawSkybox(buffer);
+        world.drawSkybox(buffer);
 
-    buffer.endRendering();
-
-    buffer.endDebugUtilsLabelEXT(); // Skybox
+        buffer.endRendering();
+    }
 
     buffer.end();
 
