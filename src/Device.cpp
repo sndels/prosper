@@ -127,8 +127,19 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     (void)messageType;
     (void)pUserData;
 
+    // VK_TRUE is reserved
+    constexpr auto ret = VK_FALSE;
+
+    // Skip extension dump noise
+    constexpr char deviceExtensionStr[] = "Device Extension: ";
+    if (strncmp(
+            deviceExtensionStr, pCallbackData->pMessage,
+            sizeof(deviceExtensionStr) - 1) == 0)
+        return ret;
+
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-    return VK_FALSE; // Don't fail the causing command
+
+    return ret;
 }
 
 void CreateDebugUtilsMessengerEXT(
