@@ -402,8 +402,12 @@ void App::drawFrame()
             ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
         ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
+        ImGui::Text("GPU");
         for (const auto &t : profilerTimes)
             ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
+        ImGui::Text("CPU");
+        for (const auto &t : profilerTimes)
+            ImGui::Text("%s %.3fms", t.name.c_str(), t.cpuMillis);
 
         ImGui::End();
     }

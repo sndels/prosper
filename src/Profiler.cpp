@@ -122,6 +122,10 @@ void GpuFrameProfiler::endFrame(vk::CommandBuffer cb)
 GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
     vk::CommandBuffer cb, const std::string &name, uint32_t index)
 {
+    assert(
+        index == _writtenQueries / 2 &&
+        "GpuFrameProfiler currently expects that all indices have a scope "
+        "attached");
     _writtenQueries += 2; // Assume both start and end are written
     return Scope{cb, _queryPool, name, index};
 }
@@ -153,25 +157,107 @@ std::vector<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes()
     return times;
 }
 
+CpuFrameProfiler::Scope::Scope(std::chrono::nanoseconds *output)
+: _start{std::chrono::high_resolution_clock::now()}
+, _output{output}
+{
+}
+
+CpuFrameProfiler::Scope::~Scope()
+{
+    if (_output)
+        *_output = std::chrono::high_resolution_clock::now() - _start;
+}
+
+CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other)
+: _start{other._start}
+, _output{other._output}
+{
+    other._output = nullptr;
+}
+
+CpuFrameProfiler::Scope &CpuFrameProfiler::Scope::operator=(
+    CpuFrameProfiler::Scope &&other)
+{
+    if (this != &other)
+    {
+        _start = other._start;
+        _output = other._output;
+
+        other._output = nullptr;
+    }
+    return *this;
+}
+
+CpuFrameProfiler::CpuFrameProfiler() { _nanos.reserve(sMaxScopeCount); }
+
+CpuFrameProfiler::CpuFrameProfiler(CpuFrameProfiler &&other)
+: _nanos{std::move(other._nanos)}
+{
+}
+
+CpuFrameProfiler &CpuFrameProfiler::operator=(CpuFrameProfiler &&other)
+{
+    if (this != &other)
+        _nanos = std::move(other._nanos);
+    return *this;
+}
+
+void CpuFrameProfiler::startFrame() { _nanos.clear(); }
+
+[[nodiscard]] CpuFrameProfiler::Scope CpuFrameProfiler::createScope(
+    uint32_t index)
+{
+    assert(
+        index == _nanos.size() &&
+        "CpuFrameProfiler expects that all indices have a scope attached");
+    (void)index;
+
+    _nanos.push_back({});
+
+    return Scope{&_nanos.back()};
+}
+
+std::vector<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes()
+{
+    std::vector<ScopeTime> times;
+    times.reserve(_nanos.size());
+    for (auto i = 0u; i < _nanos.size(); ++i)
+    {
+        times.push_back(ScopeTime{
+            .index = i,
+            .millis =
+                std::chrono::duration<float, std::milli>(_nanos[i]).count(),
+        });
+    };
+
+    return times;
+}
+
 Profiler::Profiler(Device *device, uint32_t maxFrameCount)
 {
     for (auto i = 0u; i < maxFrameCount; ++i)
+    {
         _gpuFrameProfilers.emplace_back(device);
+        _cpuFrameProfilers.emplace_back();
+    }
 
-    _scopeNames.resize(maxFrameCount);
+    _frameScopeNames.resize(maxFrameCount);
 }
 
 std::vector<Profiler::ScopeTime> Profiler::startFrame(uint32_t index)
 {
     assert(index < _gpuFrameProfilers.size());
-    assert(index < _scopeNames.size());
+    assert(index < _cpuFrameProfilers.size());
+    assert(index < _frameScopeNames.size());
 
     const auto times = getTimes(index);
 
     _currentFrame = index;
-    _scopeNames[_currentFrame].clear();
+    _frameScopeNames[_currentFrame].clear();
 
     _gpuFrameProfilers[_currentFrame].startFrame();
+    _cpuFrameProfilers[_currentFrame].startFrame();
 
     return times;
 }
@@ -185,35 +271,43 @@ Profiler::Scope Profiler::createScope(
     vk::CommandBuffer cb, std::string const &name)
 {
     const auto index =
-        asserted_cast<uint32_t>(_scopeNames[_currentFrame].size());
+        asserted_cast<uint32_t>(_frameScopeNames[_currentFrame].size());
     assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _scopeNames[_currentFrame].push_back(name);
+    _frameScopeNames[_currentFrame].push_back(name);
 
-    return Scope{std::move(
-        _gpuFrameProfilers[_currentFrame].createScope(cb, name, index))};
+    return Scope{
+        std::move(
+            _gpuFrameProfilers[_currentFrame].createScope(cb, name, index)),
+        std::move(_cpuFrameProfilers[_currentFrame].createScope(index))};
 }
 
 std::vector<Profiler::ScopeTime> Profiler::getTimes(uint32_t frameIndex)
 {
-    // This also handles the first calls before any scopes are recorded and
-    // data is garbage. Rest of the calls should be with valid data as we have
-    // waited for swap with the corresponding frame index
-    const auto &scopeNames = _scopeNames[frameIndex];
+    // This also handles the first calls before any scopes are recorded when
+    // gpu data is garbage. Rest of the calls should be with valid data as we
+    // have waited for swap with the corresponding frame index
+    const auto &scopeNames = _frameScopeNames[frameIndex];
     if (scopeNames.size() == 0)
         return {};
 
     const auto gpuTimes = _gpuFrameProfilers[frameIndex].getTimes();
+    const auto cpuTimes = _cpuFrameProfilers[frameIndex].getTimes();
+    assert(gpuTimes.size() == scopeNames.size());
+    assert(cpuTimes.size() == scopeNames.size());
 
     std::vector<ScopeTime> times;
-    times.reserve(gpuTimes.size());
-    for (const auto &t : gpuTimes)
-    {
+    times.reserve(scopeNames.size());
+    for (auto i = 0u; i < scopeNames.size(); ++i)
         times.push_back(ScopeTime{
-            .name = scopeNames[t.index],
-            .gpuMillis = t.millis,
+            .name = scopeNames[i],
         });
-    }
+
+    for (const auto &t : gpuTimes)
+        times[t.index].gpuMillis = t.millis;
+
+    for (const auto &t : cpuTimes)
+        times[t.index].cpuMillis = t.millis;
 
     return times;
 }
