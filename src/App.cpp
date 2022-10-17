@@ -167,7 +167,9 @@ void App::recreateSwapchainAndRelated()
     // Wait for resources to be out of use
     _device.logical().waitIdle();
 
+#ifndef NDEBUG
     const auto prevImageCount = _swapConfig.imageCount;
+#endif // NDEBUG
     _swapConfig =
         SwapchainConfig{&_device, {_window.width(), _window.height()}};
     // Allow assumption that image count doesn't change while running

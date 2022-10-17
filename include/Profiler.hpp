@@ -14,9 +14,9 @@ class GpuFrameProfiler
         ~Scope();
 
         Scope(Scope const &) = delete;
-        Scope(Scope &&other);
+        Scope(Scope &&other) noexcept;
         Scope &operator=(Scope const &) = delete;
-        Scope &operator=(Scope &&other);
+        Scope &operator=(Scope &&other) noexcept;
 
       protected:
         Scope(
@@ -41,9 +41,9 @@ class GpuFrameProfiler
     ~GpuFrameProfiler();
 
     GpuFrameProfiler(GpuFrameProfiler const &) = delete;
-    GpuFrameProfiler(GpuFrameProfiler &&other);
+    GpuFrameProfiler(GpuFrameProfiler &&other) noexcept;
     GpuFrameProfiler &operator=(GpuFrameProfiler const &) = delete;
-    GpuFrameProfiler &operator=(GpuFrameProfiler &&other);
+    GpuFrameProfiler &operator=(GpuFrameProfiler &&other) noexcept;
 
   protected:
     void startFrame();
@@ -74,9 +74,9 @@ class CpuFrameProfiler
         ~Scope();
 
         Scope(Scope const &) = delete;
-        Scope(Scope &&other);
+        Scope(Scope &&other) noexcept;
         Scope &operator=(Scope const &) = delete;
-        Scope &operator=(Scope &&other);
+        Scope &operator=(Scope &&other) noexcept;
 
       protected:
         Scope(std::chrono::nanoseconds *output);
@@ -96,6 +96,11 @@ class CpuFrameProfiler
 
     CpuFrameProfiler();
     ~CpuFrameProfiler() = default;
+
+    CpuFrameProfiler(CpuFrameProfiler const &) = delete;
+    CpuFrameProfiler(CpuFrameProfiler &&) = delete;
+    CpuFrameProfiler &operator=(CpuFrameProfiler const &) = delete;
+    CpuFrameProfiler &operator=(CpuFrameProfiler &&) = delete;
 
   protected:
     void startFrame();
@@ -117,6 +122,11 @@ class Profiler
     {
       public:
         ~Scope() = default;
+
+        Scope(Scope const &) = delete;
+        Scope(Scope &&other) = delete;
+        Scope &operator=(Scope const &) = delete;
+        Scope &operator=(Scope &&other) = delete;
 
       private:
         Scope(
@@ -155,11 +165,11 @@ class Profiler
     Profiler &operator=(Profiler &&) = delete;
 
     // Should be called before startGpuFrame, whenever the cpu frame loop starts
-    [[nodiscard]] void startCpuFrame();
+    void startCpuFrame();
     // Should be called before any command buffer recording. Frame index is the
     // swapchain image index as that tells us which previous frame's profiling
     // data we use
-    [[nodiscard]] void startGpuFrame(uint32_t frameIndex);
+    void startGpuFrame(uint32_t frameIndex);
 
     // Should be called with the frame's presenting cb after the present barrier
     // to piggyback gpu readback sync on it.
@@ -176,7 +186,7 @@ class Profiler
 
     // Can be called after startGpuFrame to get the times from the last
     // iteration of the active frame index.
-    std::vector<Profiler::ScopeTime> getPreviousTimes();
+    [[nodiscard]] std::vector<Profiler::ScopeTime> getPreviousTimes();
 
   private:
 #ifndef NDEBUG

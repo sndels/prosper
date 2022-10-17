@@ -32,15 +32,12 @@ struct PCBlock
     uint32_t drawType{0};
 };
 
-const char *sDrawTypeName[] = {
-    "PrimitiveID",
-    "MeshID",
-    "MaterialID",
+const std::array<const char *, static_cast<size_t>(RTRenderer::DrawType::Count)>
+    sDrawTypeName = {
+        "PrimitiveID",
+        "MeshID",
+        "MaterialID",
 };
-static_assert(
-    std::size(sDrawTypeName) ==
-        static_cast<size_t>(RTRenderer::DrawType::Count),
-    "All RTRenderer::DrawType values should have a corresponding name string");
 
 } // namespace
 

@@ -1528,22 +1528,18 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                             .pSetLayouts = &_dsLayouts.accelerationStructure,
                         })[0];
 
-                asDSChains.push_back(
-                    vk::StructureChain<
-                        vk::WriteDescriptorSet,
-                        vk::WriteDescriptorSetAccelerationStructureKHR>{
-                        vk::WriteDescriptorSet{
-                            .dstSet = scene.accelerationStructureDS,
-                            .dstBinding = 0,
-                            .dstArrayElement = 0,
-                            .descriptorCount = 1,
-                            .descriptorType =
-                                vk::DescriptorType::eAccelerationStructureKHR,
-                        },
-                        vk::WriteDescriptorSetAccelerationStructureKHR{
-                            .accelerationStructureCount = 1,
-                            .pAccelerationStructures = &_tlases[0].handle,
-                        },
+                asDSChains.emplace_back(
+                    vk::WriteDescriptorSet{
+                        .dstSet = scene.accelerationStructureDS,
+                        .dstBinding = 0,
+                        .dstArrayElement = 0,
+                        .descriptorCount = 1,
+                        .descriptorType =
+                            vk::DescriptorType::eAccelerationStructureKHR,
+                    },
+                    vk::WriteDescriptorSetAccelerationStructureKHR{
+                        .accelerationStructureCount = 1,
+                        .pAccelerationStructures = &_tlases[0].handle,
                     });
 
                 dss.push_back(asDSChains.back().get<vk::WriteDescriptorSet>());

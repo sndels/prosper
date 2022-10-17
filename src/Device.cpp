@@ -187,12 +187,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     // VK_TRUE is reserved
     constexpr auto ret = VK_FALSE;
 
+#define DEVICE_EXTENSION_STR "Device Extension: "
     // Skip extension dump noise
-    constexpr char deviceExtensionStr[] = "Device Extension: ";
     if (strncmp(
-            deviceExtensionStr, pCallbackData->pMessage,
-            sizeof(deviceExtensionStr) - 1) == 0)
+            DEVICE_EXTENSION_STR, pCallbackData->pMessage,
+            sizeof(DEVICE_EXTENSION_STR) - 1) == 0)
         return ret;
+#undef DEVICE_EXTENSION_STR
 
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 

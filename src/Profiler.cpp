@@ -36,7 +36,7 @@ GpuFrameProfiler::Scope::~Scope()
     }
 }
 
-GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other)
+GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
 : _cb{other._cb}
 , _queryPool{other._queryPool}
 , _queryIndex{other._queryIndex}
@@ -45,7 +45,7 @@ GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other)
 }
 
 GpuFrameProfiler::Scope &GpuFrameProfiler::Scope::operator=(
-    GpuFrameProfiler::Scope &&other)
+    GpuFrameProfiler::Scope &&other) noexcept
 {
     if (this != &other)
     {
@@ -75,14 +75,14 @@ GpuFrameProfiler::GpuFrameProfiler(Device *device)
 
 GpuFrameProfiler::~GpuFrameProfiler()
 {
-    if (_device)
+    if (_device != nullptr)
     {
         _device->logical().destroyQueryPool(_queryPool);
         _device->destroy(_buffer);
     }
 }
 
-GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other)
+GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
 : _device{other._device}
 , _buffer{other._buffer}
 , _queryPool{other._queryPool}
@@ -91,7 +91,7 @@ GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other)
     other._device = nullptr;
 }
 
-GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other)
+GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
 {
     if (this != &other)
     {
@@ -142,8 +142,8 @@ std::vector<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes()
     for (auto i = 0u; i < _queryScopeIndices.size(); ++i)
     {
         // All bits valid should have been asserted on device creation
-        auto start = mapped[i * 2];
-        auto end = mapped[i * 2 + 1];
+        auto start = mapped[static_cast<size_t>(i) * 2];
+        auto end = mapped[static_cast<size_t>(i) * 2 + 1];
         auto nanos = (end - start) * timestampPeriodNanos;
 
         times.push_back(ScopeTime{
@@ -163,11 +163,11 @@ CpuFrameProfiler::Scope::Scope(std::chrono::nanoseconds *output)
 
 CpuFrameProfiler::Scope::~Scope()
 {
-    if (_output)
+    if (_output != nullptr)
         *_output = std::chrono::high_resolution_clock::now() - _start;
 }
 
-CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other)
+CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other) noexcept
 : _start{other._start}
 , _output{other._output}
 {
@@ -175,7 +175,7 @@ CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other)
 }
 
 CpuFrameProfiler::Scope &CpuFrameProfiler::Scope::operator=(
-    CpuFrameProfiler::Scope &&other)
+    CpuFrameProfiler::Scope &&other) noexcept
 {
     if (this != &other)
     {
@@ -199,7 +199,7 @@ void CpuFrameProfiler::startFrame() { _nanos.clear(); }
         "CpuFrameProfiler expects that all indices have a scope attached");
     (void)index;
 
-    _nanos.push_back({});
+    _nanos.emplace_back();
 
     return Scope{&_nanos.back()};
 }
@@ -307,9 +307,8 @@ Profiler::Scope Profiler::createCpuGpuScope(
     _currentFrameScopeNames.push_back(name);
 
     return Scope{
-        std::move(
-            _gpuFrameProfilers[_currentFrame].createScope(cb, name, index)),
-        std::move(_cpuFrameProfiler.createScope(index))};
+        _gpuFrameProfilers[_currentFrame].createScope(cb, name, index),
+        _cpuFrameProfiler.createScope(index)};
 }
 
 Profiler::Scope Profiler::createCpuScope(std::string const &name)
@@ -323,7 +322,7 @@ Profiler::Scope Profiler::createCpuScope(std::string const &name)
 
     _currentFrameScopeNames.push_back(name);
 
-    return Scope{std::move(_cpuFrameProfiler.createScope(index))};
+    return Scope{_cpuFrameProfiler.createScope(index)};
 }
 
 std::vector<Profiler::ScopeTime> Profiler::getPreviousTimes()
@@ -334,21 +333,27 @@ std::vector<Profiler::ScopeTime> Profiler::getPreviousTimes()
     // This also handles the first calls before any scopes are recorded for the
     // frame index and the gpu data is garbage. Rest of the calls should be with
     // valid data as we have waited for swap with the corresponding frame index
-    if (scopeNames.size() == 0)
+    if (scopeNames.empty())
         return {};
 
     std::vector<ScopeTime> times;
     times.reserve(scopeNames.size());
-    for (auto i = 0u; i < scopeNames.size(); ++i)
+    for (const auto &n : scopeNames)
         times.push_back(ScopeTime{
-            .name = scopeNames[i],
+            .name = n,
         });
 
     for (const auto &t : _previousGpuScopeTimes)
+    {
+        assert(t.index < times.size());
         times[t.index].gpuMillis = t.millis;
+    }
 
     for (const auto &t : _previousCpuScopeTimes[_currentFrame])
+    {
+        assert(t.index < times.size());
         times[t.index].cpuMillis = t.millis;
+    }
 
     return times;
 }
