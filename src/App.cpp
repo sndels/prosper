@@ -137,7 +137,10 @@ void App::run()
     {
         _profiler.startCpuFrame();
 
-        _window.startFrame();
+        {
+            const auto _s = _profiler.createCpuScope("Window::startFrame");
+            _window.startFrame();
+        }
 
         handleMouseGestures();
 
@@ -202,6 +205,8 @@ void App::recreateSwapchainAndRelated()
 
 void App::recompileShaders()
 {
+    const auto _s = _profiler.createCpuScope("App::recompileShaders");
+
     if (!_recompileShaders)
         return;
 
@@ -247,6 +252,8 @@ void App::recompileShaders()
 
 void App::handleMouseGestures()
 {
+    const auto _s = _profiler.createCpuScope("App::handleMouseGestures");
+
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
@@ -383,46 +390,41 @@ void App::drawFrame()
     _imguiRenderer.startFrame();
 
     {
-        const auto _s = _profiler.createCpuScope("ImGui record");
+        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
+        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
+        ImGui::Text(
+            "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+            ImGui::GetIO().Framerate);
+
+        ImGui::Checkbox("Limit FPS", &_useFpsLimit);
+        if (_useFpsLimit)
         {
-            ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
-            ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-            ImGui::Text(
-                "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                ImGui::GetIO().Framerate);
-
-            ImGui::Checkbox("Limit FPS", &_useFpsLimit);
-            if (_useFpsLimit)
-            {
-                ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
-            }
-
-            ImGui::Checkbox("Recompile shaders", &_recompileShaders);
-
-            ImGui::Checkbox("Render RT", &_renderRT);
-
-            ImGui::End();
+            ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
         }
 
-        {
-            ImGui::SetNextWindowPos(
-                ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
-            ImGui::Begin(
-                "Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Checkbox("Recompile shaders", &_recompileShaders);
 
-            ImGui::Text("GPU");
-            for (const auto &t : profilerTimes)
-                if (t.gpuMillis > 0.f)
-                    ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
-            ImGui::Text("CPU");
-            for (const auto &t : profilerTimes)
-                if (t.cpuMillis > 0.f)
-                    ImGui::Text("%s %.3fms", t.name.c_str(), t.cpuMillis);
+        ImGui::Checkbox("Render RT", &_renderRT);
 
-            ImGui::End();
-        }
+        ImGui::End();
+    }
+
+    {
+        ImGui::SetNextWindowPos(
+            ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
+        ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        ImGui::Text("GPU");
+        for (const auto &t : profilerTimes)
+            if (t.gpuMillis >= 0.f)
+                ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
+        ImGui::Text("CPU");
+        for (const auto &t : profilerTimes)
+            if (t.cpuMillis >= 0.f)
+                ImGui::Text("%s %.3fms", t.name.c_str(), t.cpuMillis);
+
+        ImGui::End();
     }
 
     const vk::Rect2D renderArea{
