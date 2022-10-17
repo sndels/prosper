@@ -377,39 +377,46 @@ void App::drawFrame()
     _imguiRenderer.startFrame();
 
     {
-        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
-        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        const auto _s = _profiler.createCpuScope("ImGui record");
 
-        ImGui::Text(
-            "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-            ImGui::GetIO().Framerate);
-
-        ImGui::Checkbox("Limit FPS", &_useFpsLimit);
-        if (_useFpsLimit)
         {
-            ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
+            ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
+            ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+            ImGui::Text(
+                "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+                ImGui::GetIO().Framerate);
+
+            ImGui::Checkbox("Limit FPS", &_useFpsLimit);
+            if (_useFpsLimit)
+            {
+                ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
+            }
+
+            ImGui::Checkbox("Recompile shaders", &_recompileShaders);
+
+            ImGui::Checkbox("Render RT", &_renderRT);
+
+            ImGui::End();
         }
 
-        ImGui::Checkbox("Recompile shaders", &_recompileShaders);
+        {
+            ImGui::SetNextWindowPos(
+                ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
+            ImGui::Begin(
+                "Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        ImGui::Checkbox("Render RT", &_renderRT);
+            ImGui::Text("GPU");
+            for (const auto &t : profilerTimes)
+                if (t.gpuMillis > 0.f)
+                    ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
+            ImGui::Text("CPU");
+            for (const auto &t : profilerTimes)
+                if (t.cpuMillis > 0.f)
+                    ImGui::Text("%s %.3fms", t.name.c_str(), t.cpuMillis);
 
-        ImGui::End();
-    }
-
-    {
-        ImGui::SetNextWindowPos(
-            ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
-        ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        ImGui::Text("GPU");
-        for (const auto &t : profilerTimes)
-            ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
-        ImGui::Text("CPU");
-        for (const auto &t : profilerTimes)
-            ImGui::Text("%s %.3fms", t.name.c_str(), t.cpuMillis);
-
-        ImGui::End();
+            ImGui::End();
+        }
     }
 
     const vk::Rect2D renderArea{

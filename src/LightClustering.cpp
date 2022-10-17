@@ -139,7 +139,7 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
     });
 
     {
-        const auto _s = profiler->createScope(buffer, "LightClustering");
+        const auto _s = profiler->createCpuGpuScope(buffer, "LightClustering");
 
         const auto imageBarrier =
             _resources->buffers.lightClusters.pointers.transitionBarrier(

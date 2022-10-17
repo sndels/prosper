@@ -127,7 +127,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
     });
 
     {
-        const auto _s = profiler->createScope(
+        const auto _s = profiler->createCpuGpuScope(
             buffer, render_transparents ? "Transparent" : "Opaque");
 
         const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{

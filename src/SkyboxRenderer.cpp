@@ -65,7 +65,7 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
     });
 
     {
-        const auto _s = profiler->createScope(buffer, "Skybox");
+        const auto _s = profiler->createCpuGpuScope(buffer, "Skybox");
 
         const std::array<vk::ImageMemoryBarrier2, 2> barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{

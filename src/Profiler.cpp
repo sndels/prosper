@@ -265,7 +265,7 @@ void Profiler::endFrame(vk::CommandBuffer cb)
     _gpuFrameProfilers[_currentFrame].endFrame(cb);
 }
 
-Profiler::Scope Profiler::createScope(
+Profiler::Scope Profiler::createCpuGpuScope(
     vk::CommandBuffer cb, std::string const &name)
 {
     const auto index =
@@ -280,6 +280,18 @@ Profiler::Scope Profiler::createScope(
         std::move(_cpuFrameProfilers[_currentFrame].createScope(index))};
 }
 
+Profiler::Scope Profiler::createCpuScope(std::string const &name)
+{
+    const auto index =
+        asserted_cast<uint32_t>(_frameScopeNames[_currentFrame].size());
+    assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
+
+    _frameScopeNames[_currentFrame].push_back(name);
+
+    return Scope{
+        std::move(_cpuFrameProfilers[_currentFrame].createScope(index))};
+}
+
 std::vector<Profiler::ScopeTime> Profiler::getTimes(uint32_t frameIndex)
 {
     // This also handles the first calls before any scopes are recorded when
@@ -289,11 +301,6 @@ std::vector<Profiler::ScopeTime> Profiler::getTimes(uint32_t frameIndex)
     if (scopeNames.size() == 0)
         return {};
 
-    const auto gpuTimes = _gpuFrameProfilers[frameIndex].getTimes();
-    const auto cpuTimes = _cpuFrameProfilers[frameIndex].getTimes();
-    assert(gpuTimes.size() == scopeNames.size());
-    assert(cpuTimes.size() == scopeNames.size());
-
     std::vector<ScopeTime> times;
     times.reserve(scopeNames.size());
     for (auto i = 0u; i < scopeNames.size(); ++i)
@@ -301,10 +308,10 @@ std::vector<Profiler::ScopeTime> Profiler::getTimes(uint32_t frameIndex)
             .name = scopeNames[i],
         });
 
-    for (const auto &t : gpuTimes)
+    for (const auto &t : _gpuFrameProfilers[frameIndex].getTimes())
         times[t.index].gpuMillis = t.millis;
 
-    for (const auto &t : cpuTimes)
+    for (const auto &t : _cpuFrameProfilers[frameIndex].getTimes())
         times[t.index].cpuMillis = t.millis;
 
     return times;

@@ -92,7 +92,7 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
     });
 
     {
-        const auto _s = profiler->createScope(buffer, "ImGui");
+        const auto _s = profiler->createCpuGpuScope(buffer, "ImGui");
 
         _resources->images.toneMapped.transition(
             buffer,

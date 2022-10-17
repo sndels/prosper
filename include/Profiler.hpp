@@ -132,8 +132,13 @@ class Profiler
         {
         }
 
-        GpuFrameProfiler::Scope _gpuScope;
-        CpuFrameProfiler::Scope _cpuScope;
+        Scope(CpuFrameProfiler::Scope &&cpuScope)
+        : _cpuScope{std::move(cpuScope)}
+        {
+        }
+
+        std::optional<GpuFrameProfiler::Scope> _gpuScope;
+        std::optional<CpuFrameProfiler::Scope> _cpuScope;
 
         friend class Profiler;
     };
@@ -141,8 +146,8 @@ class Profiler
     struct ScopeTime
     {
         std::string name;
-        float gpuMillis{0.f};
-        float cpuMillis{0.f};
+        float gpuMillis{-1.f};
+        float cpuMillis{-1.f};
     };
 
     Profiler(Device *device, uint32_t maxFrameCount);
@@ -162,7 +167,8 @@ class Profiler
     // Note: All scopes should end before the present barrier.
     void endFrame(vk::CommandBuffer cb);
 
-    [[nodiscard]] Scope createScope(
+    [[nodiscard]] Scope createCpuScope(std::string const &name);
+    [[nodiscard]] Scope createCpuGpuScope(
         vk::CommandBuffer cb, std::string const &name);
 
   private:

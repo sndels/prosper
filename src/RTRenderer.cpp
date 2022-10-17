@@ -136,7 +136,7 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
     });
 
     {
-        const auto _s = profiler->createScope(cb, "RT");
+        const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
         _resources->images.sceneColor.transition(
             cb,
