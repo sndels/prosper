@@ -189,18 +189,6 @@ CpuFrameProfiler::Scope &CpuFrameProfiler::Scope::operator=(
 
 CpuFrameProfiler::CpuFrameProfiler() { _nanos.reserve(sMaxScopeCount); }
 
-CpuFrameProfiler::CpuFrameProfiler(CpuFrameProfiler &&other)
-: _nanos{std::move(other._nanos)}
-{
-}
-
-CpuFrameProfiler &CpuFrameProfiler::operator=(CpuFrameProfiler &&other)
-{
-    if (this != &other)
-        _nanos = std::move(other._nanos);
-    return *this;
-}
-
 void CpuFrameProfiler::startFrame() { _nanos.clear(); }
 
 [[nodiscard]] CpuFrameProfiler::Scope CpuFrameProfiler::createScope(
@@ -234,70 +222,118 @@ std::vector<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes()
 
 Profiler::Profiler(Device *device, uint32_t maxFrameCount)
 {
+    _previousScopeNames.resize(maxFrameCount);
+    _previousCpuScopeTimes.resize(maxFrameCount);
+
+    _currentFrameScopeNames.reserve(sMaxScopeCount);
+
     for (auto i = 0u; i < maxFrameCount; ++i)
     {
         _gpuFrameProfilers.emplace_back(device);
-        _cpuFrameProfilers.emplace_back();
+        _previousScopeNames[i].reserve(sMaxScopeCount);
+        _previousCpuScopeTimes[i].reserve(sMaxScopeCount);
     }
-
-    _frameScopeNames.resize(maxFrameCount);
 }
 
-std::vector<Profiler::ScopeTime> Profiler::startFrame(uint32_t index)
+void Profiler::startCpuFrame()
 {
-    assert(index < _gpuFrameProfilers.size());
-    assert(index < _cpuFrameProfilers.size());
-    assert(index < _frameScopeNames.size());
+    assert(_debugState == DebugState::NewFrame);
 
-    const auto times = getTimes(index);
+    // Only clear transients for this profiling frame. We'll figure out which
+    // frame's data we'll overwrite in endCpuFrame, when we know the gpu frame
+    // index of this frame
+    _currentFrameScopeNames.clear();
 
-    _currentFrame = index;
-    _frameScopeNames[_currentFrame].clear();
+    _cpuFrameProfiler.startFrame();
+
+#ifndef NDEBUG
+    _debugState = DebugState::StartCpuCalled;
+#endif // NDEBUG
+}
+
+void Profiler::startGpuFrame(uint32_t frameIndex)
+{
+    assert(_debugState == DebugState::StartCpuCalled);
+    assert(frameIndex < _gpuFrameProfilers.size());
+
+    _currentFrame = frameIndex;
+
+    // Store times from the previous iteration of this gpu frame index. We need
+    // to read these before startFrame as that will reset the queries.
+    _previousGpuScopeTimes = _gpuFrameProfilers[_currentFrame].getTimes();
 
     _gpuFrameProfilers[_currentFrame].startFrame();
-    _cpuFrameProfilers[_currentFrame].startFrame();
 
-    return times;
+#ifndef NDEBUG
+    _debugState = DebugState::StartGpuCalled;
+#endif // NDEBUG
 }
 
-void Profiler::endFrame(vk::CommandBuffer cb)
+void Profiler::endGpuFrame(vk::CommandBuffer cb)
 {
+    assert(_debugState == DebugState::StartGpuCalled);
+
     _gpuFrameProfilers[_currentFrame].endFrame(cb);
+
+#ifndef NDEBUG
+    _debugState = DebugState::EndGpuCalled;
+#endif // NDEBUG
+}
+
+void Profiler::endCpuFrame()
+{
+    assert(_debugState == DebugState::EndGpuCalled);
+    assert(_currentFrame < _previousScopeNames.size());
+    assert(_currentFrame < _previousCpuScopeTimes.size());
+
+    // We now know which frame's data we gave out in getTimes() so let's
+    // overwrite them
+    _previousScopeNames[_currentFrame] = _currentFrameScopeNames;
+    _previousCpuScopeTimes[_currentFrame] = _cpuFrameProfiler.getTimes();
+
+#ifndef NDEBUG
+    _debugState = DebugState::NewFrame;
+#endif // NDEBUG
 }
 
 Profiler::Scope Profiler::createCpuGpuScope(
     vk::CommandBuffer cb, std::string const &name)
 {
-    const auto index =
-        asserted_cast<uint32_t>(_frameScopeNames[_currentFrame].size());
+    assert(_debugState == DebugState::StartGpuCalled);
+
+    const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
     assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _frameScopeNames[_currentFrame].push_back(name);
+    _currentFrameScopeNames.push_back(name);
 
     return Scope{
         std::move(
             _gpuFrameProfilers[_currentFrame].createScope(cb, name, index)),
-        std::move(_cpuFrameProfilers[_currentFrame].createScope(index))};
+        std::move(_cpuFrameProfiler.createScope(index))};
 }
 
 Profiler::Scope Profiler::createCpuScope(std::string const &name)
 {
-    const auto index =
-        asserted_cast<uint32_t>(_frameScopeNames[_currentFrame].size());
+    assert(
+        _debugState == DebugState::StartCpuCalled ||
+        _debugState == DebugState::StartGpuCalled);
+
+    const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
     assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _frameScopeNames[_currentFrame].push_back(name);
+    _currentFrameScopeNames.push_back(name);
 
-    return Scope{
-        std::move(_cpuFrameProfilers[_currentFrame].createScope(index))};
+    return Scope{std::move(_cpuFrameProfiler.createScope(index))};
 }
 
-std::vector<Profiler::ScopeTime> Profiler::getTimes(uint32_t frameIndex)
+std::vector<Profiler::ScopeTime> Profiler::getPreviousTimes()
 {
-    // This also handles the first calls before any scopes are recorded when
-    // gpu data is garbage. Rest of the calls should be with valid data as we
-    // have waited for swap with the corresponding frame index
-    const auto &scopeNames = _frameScopeNames[frameIndex];
+    assert(_debugState == DebugState::StartGpuCalled);
+
+    const auto &scopeNames = _previousScopeNames[_currentFrame];
+    // This also handles the first calls before any scopes are recorded for the
+    // frame index and the gpu data is garbage. Rest of the calls should be with
+    // valid data as we have waited for swap with the corresponding frame index
     if (scopeNames.size() == 0)
         return {};
 
@@ -308,10 +344,10 @@ std::vector<Profiler::ScopeTime> Profiler::getTimes(uint32_t frameIndex)
             .name = scopeNames[i],
         });
 
-    for (const auto &t : _gpuFrameProfilers[frameIndex].getTimes())
+    for (const auto &t : _previousGpuScopeTimes)
         times[t.index].gpuMillis = t.millis;
 
-    for (const auto &t : _cpuFrameProfilers[frameIndex].getTimes())
+    for (const auto &t : _previousCpuScopeTimes[_currentFrame])
         times[t.index].cpuMillis = t.millis;
 
     return times;

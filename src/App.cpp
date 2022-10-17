@@ -135,6 +135,8 @@ void App::run()
 {
     while (_window.open())
     {
+        _profiler.startCpuFrame();
+
         _window.startFrame();
 
         handleMouseGestures();
@@ -144,6 +146,8 @@ void App::run()
         drawFrame();
 
         InputHandler::instance().clearSingleFrameGestures();
+
+        _profiler.endCpuFrame();
     }
 
     // Wait for in flight rendering actions to finish
@@ -359,7 +363,9 @@ void App::drawFrame()
         return nextImage.value();
     }();
 
-    const auto profilerTimes = _profiler.startFrame(nextImage);
+    _profiler.startGpuFrame(nextImage);
+
+    const auto profilerTimes = _profiler.getPreviousTimes();
 
     // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
     // Note that this is always based on the previous frame so it only limits
@@ -548,7 +554,7 @@ void App::drawFrame()
             });
         }
 
-        _profiler.endFrame(commandBuffer);
+        _profiler.endGpuFrame(commandBuffer);
 
         commandBuffer.end();
 

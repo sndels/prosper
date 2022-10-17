@@ -97,11 +97,6 @@ class CpuFrameProfiler
     CpuFrameProfiler();
     ~CpuFrameProfiler() = default;
 
-    CpuFrameProfiler(CpuFrameProfiler const &) = delete;
-    CpuFrameProfiler(CpuFrameProfiler &&other);
-    CpuFrameProfiler &operator=(CpuFrameProfiler const &) = delete;
-    CpuFrameProfiler &operator=(CpuFrameProfiler &&other);
-
   protected:
     void startFrame();
 
@@ -159,26 +154,58 @@ class Profiler
     Profiler &operator=(Profiler const &) = delete;
     Profiler &operator=(Profiler &&) = delete;
 
-    // Should be called before any command buffer recording
-    // Returns times from previous frame 'index', if any
-    [[nodiscard]] std::vector<ScopeTime> startFrame(uint32_t index);
+    // Should be called before startGpuFrame, whenever the cpu frame loop starts
+    [[nodiscard]] void startCpuFrame();
+    // Should be called before any command buffer recording. Frame index is the
+    // swapchain image index as that tells us which previous frame's profiling
+    // data we use
+    [[nodiscard]] void startGpuFrame(uint32_t frameIndex);
+
     // Should be called with the frame's presenting cb after the present barrier
     // to piggyback gpu readback sync on it.
-    // Note: All scopes should end before the present barrier.
-    void endFrame(vk::CommandBuffer cb);
+    // Note: All gpu scopes should end before the present barrier.
+    void endGpuFrame(vk::CommandBuffer cb);
+    // Should be called after endGpuFrame, whenever the cpu frame loop ends
+    // Note: All cpu scopes should end before this call
+    void endCpuFrame();
 
+    // Scopes can be created between the startFrame and endFrame -calls
     [[nodiscard]] Scope createCpuScope(std::string const &name);
     [[nodiscard]] Scope createCpuGpuScope(
         vk::CommandBuffer cb, std::string const &name);
 
+    // Can be called after startGpuFrame to get the times from the last
+    // iteration of the active frame index.
+    std::vector<Profiler::ScopeTime> getPreviousTimes();
+
   private:
-    std::vector<Profiler::ScopeTime> getTimes(uint32_t frameIndex);
+#ifndef NDEBUG
+    // Do validation of the calls as it's easy to do things in the wrong order
+    enum class DebugState
+    {
+        NewFrame,
+        StartCpuCalled,
+        StartGpuCalled,
+        EndGpuCalled,
+    };
 
+    DebugState _debugState{DebugState::NewFrame};
+#endif // NDEBUG
+
+    CpuFrameProfiler _cpuFrameProfiler;
     std::vector<GpuFrameProfiler> _gpuFrameProfilers;
-    std::vector<CpuFrameProfiler> _cpuFrameProfilers;
 
+    // There should be a 1:1 mapping between swap images and profiler frames so
+    // that we know our gpu data has been filled when we read it back the next
+    // time the same index comes up. We should also have 1:1 mapping between gpu
+    // frames and the cpu frames that recorded them.
     uint32_t _currentFrame{0};
-    std::vector<std::vector<std::string>> _frameScopeNames;
+    std::vector<std::string> _currentFrameScopeNames;
+
+    std::vector<std::vector<std::string>> _previousScopeNames;
+    std::vector<std::vector<CpuFrameProfiler::ScopeTime>>
+        _previousCpuScopeTimes;
+    std::vector<GpuFrameProfiler::ScopeTime> _previousGpuScopeTimes;
 };
 
 #endif // PROSPER_PROFILER_HPP
