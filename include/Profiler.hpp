@@ -21,12 +21,12 @@ class GpuFrameProfiler
       protected:
         Scope(
             vk::CommandBuffer cb, vk::QueryPool queryPool,
-            const std::string &name, uint32_t index);
+            const std::string &name, uint32_t queryIndex);
 
       private:
         vk::CommandBuffer _cb;
         vk::QueryPool _queryPool;
-        uint32_t _index{0};
+        uint32_t _queryIndex{0};
 
         friend class GpuFrameProfiler;
     };
@@ -60,7 +60,7 @@ class GpuFrameProfiler
     Device *_device;
     Buffer _buffer;
     vk::QueryPool _queryPool;
-    uint32_t _writtenQueries{0};
+    std::vector<uint32_t> _queryScopeIndices;
 
     friend class Profiler;
 };

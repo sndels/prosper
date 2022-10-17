@@ -13,16 +13,16 @@ constexpr uint32_t sMaxQueryCount = sMaxScopeCount * 2;
 
 GpuFrameProfiler::Scope::Scope(
     vk::CommandBuffer cb, vk::QueryPool queryPool, const std::string &name,
-    uint32_t index)
+    uint32_t queryIndex)
 : _cb{cb}
 , _queryPool{queryPool}
-, _index{index}
+, _queryIndex{queryIndex}
 {
     cb.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
         .pLabelName = name.c_str(),
     });
     cb.writeTimestamp2(
-        vk::PipelineStageFlagBits2::eTopOfPipe, _queryPool, index * 2);
+        vk::PipelineStageFlagBits2::eTopOfPipe, _queryPool, _queryIndex * 2);
 }
 
 GpuFrameProfiler::Scope::~Scope()
@@ -31,7 +31,7 @@ GpuFrameProfiler::Scope::~Scope()
     {
         _cb.writeTimestamp2(
             vk::PipelineStageFlagBits2::eBottomOfPipe, _queryPool,
-            _index * 2 + 1);
+            _queryIndex * 2 + 1);
         _cb.endDebugUtilsLabelEXT();
     }
 }
@@ -39,7 +39,7 @@ GpuFrameProfiler::Scope::~Scope()
 GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other)
 : _cb{other._cb}
 , _queryPool{other._queryPool}
-, _index{other._index}
+, _queryIndex{other._queryIndex}
 {
     other._cb = vk::CommandBuffer{};
 }
@@ -51,7 +51,7 @@ GpuFrameProfiler::Scope &GpuFrameProfiler::Scope::operator=(
     {
         _cb = other._cb;
         _queryPool = other._queryPool;
-        _index = other._index;
+        _queryIndex = other._queryIndex;
 
         other._cb = vk::CommandBuffer{};
     }
@@ -68,6 +68,7 @@ GpuFrameProfiler::GpuFrameProfiler(Device *device)
       .createMapped = true,
       .debugName = "GpuProfilerReadback"})}
 {
+    _queryScopeIndices.reserve(sMaxScopeCount);
     _queryPool = _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
         .queryType = vk::QueryType::eTimestamp, .queryCount = sMaxQueryCount});
 }
@@ -85,7 +86,7 @@ GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other)
 : _device{other._device}
 , _buffer{other._buffer}
 , _queryPool{other._queryPool}
-, _writtenQueries{other._writtenQueries}
+, _queryScopeIndices{std::move(other._queryScopeIndices)}
 {
     other._device = nullptr;
 }
@@ -97,7 +98,7 @@ GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other)
         _device = other._device;
         _buffer = other._buffer;
         _queryPool = other._queryPool;
-        _writtenQueries = other._writtenQueries;
+        _queryScopeIndices = std::move(other._queryScopeIndices);
 
         other._device = nullptr;
     }
@@ -106,28 +107,25 @@ GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other)
 
 void GpuFrameProfiler::startFrame()
 {
-    _writtenQueries = 0;
     // Might be more optimal to do this in a command buffer if we had some other
     // use that was ensured to happen before all other command buffers.
     _device->logical().resetQueryPool(_queryPool, 0, sMaxQueryCount);
+    _queryScopeIndices.clear();
 }
 
 void GpuFrameProfiler::endFrame(vk::CommandBuffer cb)
 {
     cb.copyQueryPoolResults(
-        _queryPool, 0, _writtenQueries, _buffer.handle, 0, sizeof(uint64_t),
-        vk::QueryResultFlagBits::e64);
+        _queryPool, 0, asserted_cast<uint32_t>(_queryScopeIndices.size() * 2),
+        _buffer.handle, 0, sizeof(uint64_t), vk::QueryResultFlagBits::e64);
 }
 
 GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
     vk::CommandBuffer cb, const std::string &name, uint32_t index)
 {
-    assert(
-        index == _writtenQueries / 2 &&
-        "GpuFrameProfiler currently expects that all indices have a scope "
-        "attached");
-    _writtenQueries += 2; // Assume both start and end are written
-    return Scope{cb, _queryPool, name, index};
+    const auto queryIndex = asserted_cast<uint32_t>(_queryScopeIndices.size());
+    _queryScopeIndices.push_back(index);
+    return Scope{cb, _queryPool, name, queryIndex};
 }
 
 std::vector<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes()
@@ -140,16 +138,16 @@ std::vector<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes()
     auto *mapped = reinterpret_cast<uint64_t *>(_buffer.mapped);
 
     std::vector<ScopeTime> times;
-    times.reserve(_writtenQueries / 2);
-    for (auto i = 0u; i < _writtenQueries; i += 2)
+    times.reserve(_queryScopeIndices.size());
+    for (auto i = 0u; i < _queryScopeIndices.size(); ++i)
     {
         // All bits valid should have been asserted on device creation
-        auto start = mapped[i];
-        auto end = mapped[i + 1];
+        auto start = mapped[i * 2];
+        auto end = mapped[i * 2 + 1];
         auto nanos = (end - start) * timestampPeriodNanos;
 
         times.push_back(ScopeTime{
-            .index = i / 2,
+            .index = _queryScopeIndices[i],
             .millis = static_cast<float>(nanos * 1e-6),
         });
     };
