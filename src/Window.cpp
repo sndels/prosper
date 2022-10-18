@@ -13,7 +13,7 @@ Window::Window(
 : _width{resolution.first}
 , _height{resolution.second}
 {
-    fprintf(stderr, "Creating window\n");
+    printf("Creating window\n");
 
     glfwSetErrorCallback(Window::errorCallback);
 

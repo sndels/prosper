@@ -43,7 +43,7 @@ Renderer::Renderer(
 : _device{device}
 , _resources{resources}
 {
-    fprintf(stderr, "Creating Renderer\n");
+    printf("Creating Renderer\n");
 
     if (!compileShaders(worldDSLayouts))
         throw std::runtime_error("Renderer shader compilation failed");
@@ -240,7 +240,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
 
 bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
 {
-    fprintf(stderr, "Compiling Renderer shaders\n");
+    printf("Compiling Renderer shaders\n");
 
     std::string vertDefines;
     vertDefines += defineStr("CAMERA_SET", sCameraBindingSet);

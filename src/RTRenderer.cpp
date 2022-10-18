@@ -48,7 +48,7 @@ RTRenderer::RTRenderer(
 : _device{device}
 , _resources{resources}
 {
-    fprintf(stderr, "Creating RTRenderer\n");
+    printf("Creating RTRenderer\n");
 
     if (!compileShaders())
         throw std::runtime_error("RTRenderer shader compilation failed");
@@ -233,7 +233,7 @@ void RTRenderer::destroyPipeline()
 
 bool RTRenderer::compileShaders()
 {
-    fprintf(stderr, "Compiling RTRenderer shaders\n");
+    printf("Compiling RTRenderer shaders\n");
 
     std::string raygenDefines;
     raygenDefines += defineStr("CAMERA_SET", sCameraBindingSet);

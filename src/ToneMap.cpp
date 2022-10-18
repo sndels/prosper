@@ -14,7 +14,7 @@ ToneMap::ToneMap(
 : _device{device}
 , _resources{resources}
 {
-    fprintf(stderr, "Creating ToneMap\n");
+    printf("Creating ToneMap\n");
 
     if (!compileShaders())
         throw std::runtime_error("ToneMap shader compilation failed");
@@ -65,7 +65,7 @@ void ToneMap::recompileShaders()
 
 bool ToneMap::compileShaders()
 {
-    fprintf(stderr, "Compiling ToneMap shaders\n");
+    printf("Compiling ToneMap shaders\n");
 
     const auto compSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{

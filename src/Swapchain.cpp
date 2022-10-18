@@ -111,7 +111,7 @@ Swapchain::Swapchain(Device *device, const SwapchainConfig &config)
 : _device{device}
 , _config{config}
 {
-    fprintf(stderr, "Creating Swapchain\n");
+    printf("Creating Swapchain\n");
 
     recreate(config);
 }

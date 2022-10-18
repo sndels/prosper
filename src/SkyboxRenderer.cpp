@@ -13,7 +13,7 @@ SkyboxRenderer::SkyboxRenderer(
 : _device{device}
 , _resources{resources}
 {
-    fprintf(stderr, "Creating SkyboxRenderer\n");
+    printf("Creating SkyboxRenderer\n");
 
     if (!compileShaders())
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
@@ -114,7 +114,7 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
 
 bool SkyboxRenderer::compileShaders()
 {
-    fprintf(stderr, "Compiling SkyboxRenderer shaders\n");
+    printf("Compiling SkyboxRenderer shaders\n");
 
     const auto vertSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{

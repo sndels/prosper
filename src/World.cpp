@@ -146,17 +146,17 @@ World::World(
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
 {
-    fprintf(stderr, "Loading world\n");
+    printf("Loading world\n");
 
     Timer t;
     const auto gltfModel = loadGLTFModel(resPath(scene));
-    fprintf(stderr, "glTF model loading took %.2fs\n", t.getSeconds());
+    printf("glTF model loading took %.2fs\n", t.getSeconds());
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
         t.reset();
         fn();
-        fprintf(stderr, "%s took %.2fs\n", stage, t.getSeconds());
+        printf("%s took %.2fs\n", stage, t.getSeconds());
     };
 
     tl("Texture loading", [&]() { loadTextures(gltfModel); });

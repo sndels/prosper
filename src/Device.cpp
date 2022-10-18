@@ -310,7 +310,7 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 
 Device::Device(GLFWwindow *window, bool enableDebugLayers)
 {
-    fprintf(stderr, "Creating Vulkan device\n");
+    printf("Creating Vulkan device\n");
 
     _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
     _compilerOptions.SetGenerateDebugInfo();
@@ -352,13 +352,13 @@ Device::Device(GLFWwindow *window, bool enableDebugLayers)
             const auto major = VK_API_VERSION_MAJOR(apiPacked);
             const auto minor = VK_API_VERSION_MINOR(apiPacked);
             const auto patch = VK_API_VERSION_PATCH(apiPacked);
-            fprintf(stderr, "Vulkan %u.%u.%u\n", major, minor, patch);
+            printf("Vulkan %u.%u.%u\n", major, minor, patch);
 
             if (major < 1 || minor < 3)
                 throw std::runtime_error("Vulkan 1.3 required");
         }
 
-        fprintf(stderr, "%s\n", _properties.device.deviceName.data());
+        printf("%s\n", _properties.device.deviceName.data());
     }
 }
 
@@ -745,7 +745,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
         return false;
     }
 
-    fprintf(stderr, "Checking feature support\n");
+    printf("Checking feature support\n");
 
     const auto features = device.getFeatures2<ALL_FEATURE_STRUCTS_LIST>();
 
@@ -760,7 +760,7 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
 
 #undef CHECK_REQUIRED_FEATURES
 
-    fprintf(stderr, "Required features are supported\n");
+    printf("Required features are supported\n");
 
     return true;
 }
@@ -830,15 +830,13 @@ void Device::createSurface(GLFWwindow *window)
 
 void Device::selectPhysicalDevice()
 {
-    fprintf(stderr, "Selecting device\n");
+    printf("Selecting device\n");
 
     const auto devices = _instance.enumeratePhysicalDevices();
 
     for (const auto &device : devices)
     {
-        fprintf(
-            stderr, "Considering '%s'\n",
-            device.getProperties().deviceName.data());
+        printf("Considering '%s'\n", device.getProperties().deviceName.data());
         if (isDeviceSuitable(device))
         {
             _physical = device;

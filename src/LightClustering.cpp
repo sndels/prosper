@@ -34,7 +34,7 @@ LightClustering::LightClustering(
 : _device{device}
 , _resources{resources}
 {
-    fprintf(stderr, "Creating LightClustering\n");
+    printf("Creating LightClustering\n");
 
     if (!compileShaders())
         throw std::runtime_error("LightClustering shader compilation failed");
@@ -216,7 +216,7 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
 
 bool LightClustering::compileShaders()
 {
-    fprintf(stderr, "Compiling LightClustering shaders\n");
+    printf("Compiling LightClustering shaders\n");
 
     std::string defines;
     defines += defineStr("LIGHTS_SET", sLightsBindingSet);

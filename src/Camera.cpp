@@ -15,7 +15,7 @@ Camera::Camera(
     const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags)
 : _device{device}
 {
-    fprintf(stderr, "Creating Camera\n");
+    printf("Creating Camera\n");
 
     createUniformBuffers(swapImageCount);
     createDescriptorSets(descriptorPool, swapImageCount, stageFlags);

@@ -235,7 +235,7 @@ void App::recompileShaders()
     // Wait for resources to be out of use
     _device.logical().waitIdle();
 
-    fprintf(stderr, "Recompiling shaders\n");
+    printf("Recompiling shaders\n");
 
     Timer t;
 
@@ -247,7 +247,7 @@ void App::recompileShaders()
     _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
     _toneMap.recompileShaders();
 
-    fprintf(stderr, "Shaders recompiled in %.2fs\n", t.getSeconds());
+    printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
     _recompileTime = std::chrono::file_clock::now();
 }
