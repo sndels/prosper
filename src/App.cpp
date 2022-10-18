@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <stdexcept>
 
@@ -417,14 +418,47 @@ void App::drawFrame()
             ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
         ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        ImGui::Text("GPU");
-        for (const auto &t : profilerTimes)
-            if (t.gpuMillis >= 0.f)
-                ImGui::Text("%s %.3fms", t.name.c_str(), t.gpuMillis);
-        ImGui::Text("CPU");
-        for (const auto &t : profilerTimes)
-            if (t.cpuMillis >= 0.f)
-                ImGui::Text("%s %.3fms", t.name.c_str(), t.cpuMillis);
+        {
+            // Having names longer than 255 characters is an error
+            uint8_t longestNameLength = 0;
+            for (const auto &t : profilerTimes)
+                if (t.name.length() > longestNameLength)
+                    longestNameLength = asserted_cast<uint8_t>(t.name.length());
+
+            // Double the maximum name length for headroom
+            std::vector<char> tmp;
+            tmp.resize(
+                static_cast<size_t>(std::numeric_limits<uint8_t>::max()) * 2);
+            const auto leftJustified =
+                [&tmp, longestNameLength](
+                    const std::string &str, uint8_t extraWidth = 0)
+            {
+                assert(longestNameLength <= 255 - extraWidth);
+                snprintf(
+                    tmp.data(), tmp.size(), "%-*s",
+                    longestNameLength + extraWidth, str.c_str());
+                return tmp.data();
+            };
+
+            // Force minimum window size with whitespace
+            if (ImGui::CollapsingHeader(
+                    leftJustified("GPU", 5), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                for (const auto &t : profilerTimes)
+                    if (t.gpuMillis >= 0.f)
+                        ImGui::Text(
+                            "%s %.3fms", leftJustified(t.name), t.gpuMillis);
+            }
+
+            if (ImGui::CollapsingHeader(
+                    leftJustified("CPU", 5), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                for (const auto &t : profilerTimes)
+                    if (t.cpuMillis >= 0.f)
+                        ImGui::Text(
+                            "%s %.3fms", leftJustified(t.name), t.cpuMillis);
+            }
+        }
 
         ImGui::End();
     }
