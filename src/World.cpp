@@ -6,6 +6,7 @@
 #include <tiny_gltf.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <set>
 
@@ -733,6 +734,37 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 parentTransforms.emplace_back(modelToWorld);
             }
         }
+
+        // Scatter random lights in the scene
+        // {
+        //     const vec3 minBounds{-10.f, 0.5f, -5.f};
+        //     const vec3 maxBounds{10.f, 7.f, 5.f};
+        //     auto rando = [](float min, float max) -> float {
+        //         return std::rand() / static_cast<float>(RAND_MAX) *
+        //                    (max - min) +
+        //                min;
+        //     };
+        //     for (auto i = 0; i < 64; ++i)
+        //     {
+        //         // rando W -> radiance
+        //         auto radiance =
+        //             vec3{rando(1.f, 5.f), rando(1.f, 5.f), rando(1.f, 5.f)} /
+        //             (4.f * glm::pi<float>());
+        //         const auto luminance =
+        //             dot(radiance, vec3{0.2126, 0.7152, 0.0722});
+        //         const auto minLuminance = 0.01f;
+        //         const auto radius = sqrt(luminance / minLuminance);
+
+        //         auto &data = scene.lights.pointLights.bufferData;
+        //         const auto li = data.count++;
+        //         auto &sceneLight = data.lights[li];
+        //         sceneLight.radianceAndRadius = vec4{radiance, radius};
+        //         sceneLight.position = vec4{
+        //             rando(minBounds.x, maxBounds.x),
+        //             rando(minBounds.y, maxBounds.y),
+        //             rando(minBounds.z, maxBounds.z), 1.f};
+        //     }
+        // }
 
         // Honor scene lighting
         if (!directionalLightFound &&
