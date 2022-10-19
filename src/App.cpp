@@ -434,6 +434,9 @@ void App::drawFrame()
                     const std::string &str, uint8_t extraWidth = 0)
             {
                 assert(longestNameLength <= 255 - extraWidth);
+                // std::vformat could do the same without the tmp memory, but
+                // only msvc currently supports <format> in mainline. fmtlib
+                // seems overkill for one use site
                 snprintf(
                     tmp.data(), tmp.size(), "%-*s",
                     longestNameLength + extraWidth, str.c_str());
