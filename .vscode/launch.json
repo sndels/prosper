@@ -15,7 +15,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "internalConsole",
+            "console": "integratedTerminal",
             "preLaunchTask": ""
         },
         {
@@ -29,7 +29,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "internalConsole",
+            "console": "integratedTerminal",
             "preLaunchTask": ""
         },
         {
@@ -43,7 +43,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "console": "internalConsole",
+            "console": "integratedTerminal",
             "preLaunchTask": ""
         }
     ]
