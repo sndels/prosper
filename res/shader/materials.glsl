@@ -1,6 +1,8 @@
 #ifndef MATERIALS_GLSL
 #define MATERIALS_GLSL
 
+#include "material.glsl"
+
 const uint AlphaModeOpaque = 0;
 const uint AlphaModeMask = 1;
 const uint AlphaModeBlend = 2;
@@ -27,20 +29,6 @@ layout(set = MATERIALS_SET, binding = 1) uniform sampler
     materialSamplers[NUM_MATERIAL_SAMPLERS];
 layout(set = MATERIALS_SET, binding = 1 + NUM_MATERIAL_SAMPLERS)
     uniform texture2D materialTextures[];
-
-struct Material
-{
-    // albedo.r < 0 will signal that alpha was under cutoff
-    vec3 albedo;
-    // normal.x == -2 will signal that material doesn't include a surface normal
-    vec3 normal;
-    float roughness;
-    float metallic;
-    // alpha < 0 will signal opaque
-    // alpha == 0 will signal alpha was under cutoff (or blend value was 0)
-    // alpha > 0 will signal alpha testing should be used
-    float alpha;
-};
 
 float sRGBtoLinear(float x)
 {
