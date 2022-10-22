@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "Camera.hpp"
+#include "DebugDrawTypes.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -16,14 +17,7 @@ class Renderer
     enum class DrawType : uint32_t
     {
         Default = 0,
-        PrimitiveID = 1,
-        MeshID = 2,
-        MaterialID = 3,
-        Albedo = 4,
-        ShadingNormal = 5,
-        Roughness = 6,
-        Metallic = 7,
-        Count = 8,
+        DEBUG_DRAW_TYPES_AND_COUNT
     };
 
     Renderer(

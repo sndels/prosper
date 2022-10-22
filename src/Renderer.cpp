@@ -7,7 +7,6 @@
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
-
 using namespace glm;
 
 namespace
@@ -30,10 +29,7 @@ struct PCBlock
 };
 
 const std::array<const char *, static_cast<size_t>(Renderer::DrawType::Count)>
-    sDrawTypeName = {
-        "Default", "PrimitiveID",   "MeshID",    "MaterialID",
-        "Albedo",  "ShadingNormal", "Roughness", "Metallic",
-};
+    sDrawTypeName = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 } // namespace
 
