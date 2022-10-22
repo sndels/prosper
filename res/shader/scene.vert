@@ -35,8 +35,7 @@ void main()
     vec4 pos = trfns.modelToWorld * vec4(vertex.Position, 1.0);
     vec3 normal = normalize(mat3(trfns.normalToWorld) * vertex.Normal);
 
-    // No point in generating normal basis here if no tangent is supplied
-    if (length(vertex.Tangent.xyz) > 0)
+    if (vertex.Tangent.w == 0)
     {
         vec3 tangent = normalize(mat3(trfns.modelToWorld) * vertex.Tangent.xyz);
         vec3 bitangent = cross(normal, tangent) * vertex.Tangent.w;
