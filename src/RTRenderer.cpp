@@ -11,7 +11,7 @@ namespace
 {
 
 constexpr uint32_t sCameraBindingSet = 0;
-constexpr uint32_t sAccelerationStructureBindingSet = 1;
+constexpr uint32_t sRTBindingSet = 1;
 constexpr uint32_t sOutputBindingSet = 2;
 constexpr uint32_t sMaterialsBindingSet = 3;
 constexpr uint32_t sVertexBuffersBindingSet = 4;
@@ -148,8 +148,7 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
 
         std::array<vk::DescriptorSet, 6> descriptorSets = {};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
-        descriptorSets[sAccelerationStructureBindingSet] =
-            scene.accelerationStructureDS;
+        descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
@@ -239,8 +238,7 @@ bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
 
     std::string raygenDefines;
     raygenDefines += defineStr("CAMERA_SET", sCameraBindingSet);
-    raygenDefines += defineStr(
-        "ACCELERATION_STRUCTURE_SET", sAccelerationStructureBindingSet);
+    raygenDefines += defineStr("RAY_TRACING_SET", sRTBindingSet);
     raygenDefines += defineStr("OUTPUT_SET", sOutputBindingSet);
     raygenDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
     raygenDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
@@ -357,8 +355,7 @@ void RTRenderer::createPipeline(
 
     std::array<vk::DescriptorSetLayout, 6> setLayouts = {};
     setLayouts[sCameraBindingSet] = camDSLayout;
-    setLayouts[sAccelerationStructureBindingSet] =
-        worldDSLayouts.accelerationStructure;
+    setLayouts[sRTBindingSet] = worldDSLayouts.rayTracing;
     setLayouts[sOutputBindingSet] = _descriptorSetLayout;
     setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[sVertexBuffersBindingSet] = worldDSLayouts.vertexBuffers;

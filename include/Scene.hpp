@@ -37,9 +37,17 @@ struct Scene
 
     std::vector<ModelInstance> modelInstances;
 
+    struct RTInstance
+    {
+        uint32_t modelInstanceID{0};
+        uint32_t meshID{0xFFFFFFFF};
+        uint32_t materialID{0xFFFFFFFF};
+    };
+    uint32_t rtInstanceCount{0};
+    Buffer rtInstancesBuffer;
     std::vector<Buffer> modelInstanceTransformsBuffers;
     std::vector<vk::DescriptorSet> modelInstancesDescriptorSets;
-    vk::DescriptorSet accelerationStructureDS;
+    vk::DescriptorSet rtDescriptorSet;
 
     Lights lights;
 };

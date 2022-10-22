@@ -11,8 +11,18 @@
 #include "../random.glsl"
 #include "ray.glsl"
 
-layout(set = ACCELERATION_STRUCTURE_SET, binding = 0) uniform
-    accelerationStructureEXT as;
+layout(set = RAY_TRACING_SET, binding = 0) uniform accelerationStructureEXT as;
+struct RTInstance
+{
+    uint modelInstanceID;
+    uint meshID;
+    uint materialID;
+};
+layout(std430, set = RAY_TRACING_SET, binding = 1) readonly buffer RTInstances
+{
+    RTInstance data[];
+}
+rtInstances;
 layout(
     set = OUTPUT_SET, binding = 0, rgba16f) uniform writeonly image2D colorOut;
 
@@ -20,18 +30,6 @@ layout(
 
 #include "payload.glsl"
 layout(location = 0) rayPayloadEXT RayPayload payload;
-
-struct Instance
-{
-    uint meshID;
-    uint materialID;
-};
-
-void unpackInstance(in uint id, out Instance instance)
-{
-    instance.meshID = (id >> 9) & 0x7FFF;
-    instance.materialID = id & 0x1FF;
-}
 
 void main()
 {
@@ -49,8 +47,7 @@ void main()
         as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
         ray.tMax, 0);
 
-    Instance instance;
-    unpackInstance(payload.instanceCustomIndex, instance);
+    RTInstance instance = rtInstances.data[payload.instanceCustomIndex];
 
     vec3 color = vec3(0);
     if (payload.instanceCustomIndex != missIndex)

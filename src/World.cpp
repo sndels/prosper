@@ -179,7 +179,7 @@ World::~World()
 
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
-    _device->logical().destroy(_dsLayouts.accelerationStructure);
+    _device->logical().destroy(_dsLayouts.rayTracing);
     _device->logical().destroy(_dsLayouts.modelInstances);
     _device->logical().destroy(_dsLayouts.indexBuffers);
     _device->logical().destroy(_dsLayouts.vertexBuffers);
@@ -202,6 +202,8 @@ World::~World()
     {
         for (auto &buffer : scene.modelInstanceTransformsBuffers)
             _device->destroy(buffer);
+
+        _device->destroy(scene.rtInstancesBuffer);
 
         for (auto &buffer : scene.lights.directionalLight.uniformBuffers)
             _device->destroy(buffer);
@@ -235,15 +237,35 @@ void World::updateUniformBuffers(
     const auto &scene = currentScene();
 
     {
+        std::vector<Scene::RTInstance> rtInstances;
+        rtInstances.reserve(scene.rtInstanceCount);
         std::vector<ModelInstance::Transforms> transforms;
         transforms.reserve(scene.modelInstances.size());
-        for (const auto &instance : scene.modelInstances)
+
+        // The RTInstances generated here have to match the indices that get
+        // assigned to tlas instances
+        for (auto mi = 0u; mi < scene.modelInstances.size(); ++mi)
+        {
+            const auto &instance = scene.modelInstances[mi];
             transforms.push_back(instance.transforms);
+            for (const auto &model : _models[instance.modelID].subModels)
+            {
+                rtInstances.push_back(Scene::RTInstance{
+                    .modelInstanceID = mi,
+                    .meshID = model.meshID,
+                    .materialID = model.materialID,
+                });
+            }
+        }
 
         memcpy(
             scene.modelInstanceTransformsBuffers[nextImage].mapped,
             transforms.data(),
             sizeof(ModelInstance::Transforms) * transforms.size());
+
+        memcpy(
+            scene.rtInstancesBuffer.mapped, rtInstances.data(),
+            sizeof(Scene::RTInstance) * rtInstances.size());
     }
 
     scene.lights.directionalLight.updateBuffer(nextImage);
@@ -628,6 +650,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                              .modelToWorld = modelToWorld,
                              .normalToWorld = normalToWorld,
                          }});
+                    scene.rtInstanceCount += asserted_cast<uint32_t>(
+                        _models[node->modelID].subModels.size());
                 }
                 if (_cameras.contains(node))
                 {
@@ -881,33 +905,30 @@ void World::createTlases()
         // Basics from RT Gems II chapter 16
 
         std::vector<vk::AccelerationStructureInstanceKHR> instances;
+        instances.reserve(scene.rtInstanceCount);
         std::vector<std::tuple<const Model &, vk::TransformMatrixKHR>>
             modelInstances;
         modelInstances.reserve(scene.modelInstances.size());
 
-        size_t instanceCount = 0;
         for (const auto &mi : scene.modelInstances)
         {
             const auto &model = _models[mi.modelID];
             modelInstances.emplace_back(
                 model, convertTransform(mi.transforms.modelToWorld));
-            instanceCount += model.subModels.size();
         }
-        instances.reserve(instanceCount);
 
-        for (const auto &[model, trfn] : modelInstances)
+        uint32_t rti = 0;
+        for (auto mi = 0u; mi < modelInstances.size(); ++mi)
         {
+            const auto &[model, trfn] = modelInstances[mi];
             for (const auto &sm : model.subModels)
             {
-                assert(sm.meshID <= 0x7FFF);
-                assert(sm.materialID <= 0x1FF);
-
                 const auto &blas = _blases[sm.meshID];
                 assert(blas.handle != vk::AccelerationStructureKHR{});
 
                 instances.push_back(vk::AccelerationStructureInstanceKHR{
                     .transform = trfn,
-                    .instanceCustomIndex = (sm.meshID << 9) | sm.materialID,
+                    .instanceCustomIndex = rti++,
                     .mask = 0xFF,
                     .accelerationStructureReference =
                         _device->logical().getAccelerationStructureAddressKHR(
@@ -1037,6 +1058,15 @@ void World::createBuffers(const uint32_t swapImageCount)
                             .debugName = "InstanceTransforms",
                         }));
             }
+
+            scene.rtInstancesBuffer = _device->createBuffer(BufferCreateInfo{
+                .byteSize = sizeof(Scene::RTInstance) * scene.rtInstanceCount,
+                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+                .createMapped = true,
+                .debugName = "RTInstances",
+            });
 
             {
                 const vk::DeviceSize bufferSize =
@@ -1361,19 +1391,27 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         });
     }
 
-    // Acceleration structure layout
+    // RT layout
     {
-        const vk::DescriptorSetLayoutBinding layoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+        std::array<const vk::DescriptorSetLayoutBinding, 2> layoutBindings = {
+            vk::DescriptorSetLayoutBinding{
+                .binding = 0,
+                .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
+                .descriptorCount = 1,
+                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+            },
+            vk::DescriptorSetLayoutBinding{
+                .binding = 1,
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .descriptorCount = 1,
+                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+            },
         };
         const vk::DescriptorSetLayoutCreateInfo createInfo{
-            .bindingCount = 1,
-            .pBindings = &layoutBinding,
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+            .pBindings = layoutBindings.data(),
         };
-        _dsLayouts.accelerationStructure =
+        _dsLayouts.rayTracing =
             _device->logical().createDescriptorSetLayout(createInfo);
     }
 
@@ -1438,6 +1476,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     // Scene descriptor sets
     // Define outside the helper scope to keep alive until updateDescriptorSets
     std::vector<vk::DescriptorBufferInfo> modelInstanceInfos;
+    std::vector<vk::DescriptorBufferInfo> rtInstancesInfos;
     std::vector<vk::DescriptorBufferInfo> lightInfos;
     std::vector<vk::StructureChain<
         vk::WriteDescriptorSet, vk::WriteDescriptorSetAccelerationStructureKHR>>
@@ -1483,7 +1522,6 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                         .pBufferInfo = &modelInstanceInfos[i],
                     });
             }
-
             {
                 const std::vector<vk::DescriptorSetLayout> layouts(
                     swapImageCount, _dsLayouts.lights);
@@ -1555,18 +1593,17 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             }
 
             {
-                // TODO: DS per frame when TLAS is updated
-                scene.accelerationStructureDS =
+                scene.rtDescriptorSet =
                     _device->logical().allocateDescriptorSets(
                         vk::DescriptorSetAllocateInfo{
                             .descriptorPool = _descriptorPool,
                             .descriptorSetCount = 1,
-                            .pSetLayouts = &_dsLayouts.accelerationStructure,
+                            .pSetLayouts = &_dsLayouts.rayTracing,
                         })[0];
 
                 asDSChains.emplace_back(
                     vk::WriteDescriptorSet{
-                        .dstSet = scene.accelerationStructureDS,
+                        .dstSet = scene.rtDescriptorSet,
                         .dstBinding = 0,
                         .dstArrayElement = 0,
                         .descriptorCount = 1,
@@ -1579,6 +1616,18 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                     });
 
                 dss.push_back(asDSChains.back().get<vk::WriteDescriptorSet>());
+
+                rtInstancesInfos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = scene.rtInstancesBuffer.handle,
+                    .range = VK_WHOLE_SIZE});
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = scene.rtDescriptorSet,
+                    .dstBinding = 1,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBuffer,
+                    .pBufferInfo = &rtInstancesInfos.back(),
+                });
             }
             sceneI++;
         }

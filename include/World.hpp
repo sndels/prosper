@@ -28,7 +28,7 @@ class World
         vk::DescriptorSetLayout vertexBuffers;
         vk::DescriptorSetLayout indexBuffers;
         vk::DescriptorSetLayout modelInstances;
-        vk::DescriptorSetLayout accelerationStructure;
+        vk::DescriptorSetLayout rayTracing;
         vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout skybox;
     };
@@ -71,6 +71,7 @@ class World
     std::vector<Texture2DSampler> _textures;
     std::vector<Material> _materials;
     std::vector<Mesh> _meshes;
+    std::vector<Buffer> _modelInstances;
     std::vector<AccelerationStructure> _blases;
     std::vector<AccelerationStructure> _tlases;
     std::vector<Model> _models;
