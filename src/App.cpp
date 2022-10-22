@@ -25,7 +25,7 @@ const float CAMERA_FOV = 59.f;
 const float CAMERA_NEAR = 0.001f;
 const float CAMERA_FAR = 512.f;
 
-std::vector<vk::CommandBuffer> allocateSwapCommandBuffers(
+std::vector<vk::CommandBuffer> allocateCommandBuffers(
     Device *device, const uint32_t swapImageCount)
 {
     return device->logical().allocateCommandBuffers(
@@ -82,7 +82,7 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 , _device{_window.ptr(), enableDebugLayers}
 , _swapConfig{&_device, {_window.width(), _window.height()}}
 , _swapchain{&_device, _swapConfig}
-, _swapCommandBuffers{allocateSwapCommandBuffers(&_device, _swapConfig.imageCount)}
+, _commandBuffers{allocateCommandBuffers(&_device, _swapConfig.imageCount)}
 , _resources{
     .descriptorPools =
         createDescriptorPools(&_device, _swapConfig.imageCount)}
@@ -197,7 +197,7 @@ void App::recreateSwapchainAndRelated()
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _skyboxRenderer.recreateSwapchainRelated(_swapConfig, _world._dsLayouts);
     _toneMap.recreateSwapchainRelated(_swapConfig);
-    _imguiRenderer.recreateSwapchainRelated(_swapConfig);
+    _imguiRenderer.recreateSwapchainRelated();
 
     _cam.perspective(
         PerspectiveParameters{
@@ -473,8 +473,6 @@ void App::drawFrame()
         .extent = _swapchain.extent(),
     };
 
-    std::vector<vk::CommandBuffer> commandBuffers;
-
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
@@ -484,46 +482,43 @@ void App::drawFrame()
 
     const auto &scene = _world.currentScene();
 
-    commandBuffers.push_back(_lightClustering.recordCommandBuffer(
-        scene, _cam, renderArea, nextImage, &_profiler));
+    const auto cb = _commandBuffers[nextImage];
+    cb.reset();
+
+    cb.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+
+    _lightClustering.record(cb, scene, _cam, renderArea, nextImage, &_profiler);
 
     if (_renderRT)
     {
         _rtRenderer.drawUi();
-        commandBuffers.push_back(_rtRenderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage, &_profiler));
+        _rtRenderer.record(cb, _world, _cam, renderArea, nextImage, &_profiler);
     }
     else
     {
         _renderer.drawUi();
 
         // Opaque
-        commandBuffers.push_back(_renderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage, false, &_profiler));
+        _renderer.record(
+            cb, _world, _cam, renderArea, nextImage, false, &_profiler);
 
         // Transparent
-        commandBuffers.push_back(_renderer.recordCommandBuffer(
-            _world, _cam, renderArea, nextImage, true, &_profiler));
+        _renderer.record(
+            cb, _world, _cam, renderArea, nextImage, true, &_profiler);
 
-        commandBuffers.push_back(_skyboxRenderer.recordCommandBuffer(
-            _world, renderArea, nextImage, &_profiler));
+        _skyboxRenderer.record(cb, _world, renderArea, nextImage, &_profiler);
     }
 
-    commandBuffers.push_back(_toneMap.execute(nextImage, &_profiler));
+    _toneMap.record(cb, nextImage, &_profiler);
 
-    commandBuffers.push_back(
-        _imguiRenderer.endFrame(renderArea, nextImage, &_profiler));
+    _imguiRenderer.endFrame(cb, renderArea, &_profiler);
 
     {
         // Blit to support different internal rendering resolution (and color
         // format?) the future
         const auto &swapImage = _swapchain.image(nextImage);
-
-        const auto commandBuffer = _swapCommandBuffers[nextImage];
-        commandBuffer.reset();
-
-        commandBuffer.begin(vk::CommandBufferBeginInfo{
-            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
         const std::array<vk::ImageMemoryBarrier2, 2> barriers{
             _resources.images.toneMapped.transitionBarrier(ImageState{
@@ -545,7 +540,7 @@ void App::drawFrame()
             },
         };
 
-        commandBuffer.pipelineBarrier2(vk::DependencyInfo{
+        cb.pipelineBarrier2(vk::DependencyInfo{
             .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
             .pImageMemoryBarriers = barriers.data(),
         });
@@ -570,7 +565,7 @@ void App::drawFrame()
                 .dstSubresource = layers,
                 .dstOffsets = offsets,
             };
-            commandBuffer.blitImage(
+            cb.blitImage(
                 _resources.images.toneMapped.handle,
                 vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
                 vk::ImageLayout::eTransferDstOptimal, 1, &fboBlit,
@@ -591,17 +586,15 @@ void App::drawFrame()
                 .subresourceRange = swapImage.subresourceRange,
             };
 
-            commandBuffer.pipelineBarrier2(vk::DependencyInfo{
+            cb.pipelineBarrier2(vk::DependencyInfo{
                 .imageMemoryBarrierCount = 1,
                 .pImageMemoryBarriers = &barrier,
             });
         }
 
-        _profiler.endGpuFrame(commandBuffer);
+        _profiler.endGpuFrame(cb);
 
-        commandBuffer.end();
-
-        commandBuffers.push_back(commandBuffer);
+        cb.end();
     }
 
     // Submit queue
@@ -615,8 +608,8 @@ void App::drawFrame()
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
         .pWaitDstStageMask = waitStages.data(),
-        .commandBufferCount = asserted_cast<uint32_t>(commandBuffers.size()),
-        .pCommandBuffers = commandBuffers.data(),
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cb,
         .signalSemaphoreCount =
             asserted_cast<uint32_t>(signalSemaphores.size()),
         .pSignalSemaphores = signalSemaphores.data(),

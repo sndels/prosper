@@ -34,6 +34,7 @@ class App
   private:
     void recompileShaders();
     void recreateSwapchainAndRelated();
+    void createCommandBuffers();
 
     void handleMouseGestures();
     void drawFrame();
@@ -43,7 +44,7 @@ class App
 
     SwapchainConfig _swapConfig;
     Swapchain _swapchain;
-    std::vector<vk::CommandBuffer> _swapCommandBuffers;
+    std::vector<vk::CommandBuffer> _commandBuffers;
 
     // Stored here, managed by (earliest) passes that write to them
     RenderResources _resources;

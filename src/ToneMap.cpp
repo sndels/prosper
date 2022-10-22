@@ -91,22 +91,13 @@ void ToneMap::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
     createOutputImage(swapConfig);
     createDescriptorSet(swapConfig);
     createPipelines();
-    // Each command buffer binds to specific swapchain image
-    createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer ToneMap::execute(
-    const uint32_t nextImage, Profiler *profiler) const
+void ToneMap::record(
+    vk::CommandBuffer cb, const uint32_t nextImage, Profiler *profiler) const
 {
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     {
-        const auto _s = profiler->createCpuGpuScope(buffer, "ToneMap");
+        const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
         const std::array<vk::ImageMemoryBarrier2, 2> barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -121,40 +112,28 @@ vk::CommandBuffer ToneMap::execute(
             }),
         };
 
-        buffer.pipelineBarrier2(vk::DependencyInfo{
+        cb.pipelineBarrier2(vk::DependencyInfo{
             .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
             .pImageMemoryBarriers = barriers.data(),
         });
 
-        buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+        cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-        buffer.bindDescriptorSets(
+        cb.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
             &_descriptorSets[nextImage], 0, nullptr);
 
         const auto &extent = _resources->images.sceneColor.extent;
         const auto groups =
             (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
-        buffer.dispatch(groups.x, groups.y, 1);
+        cb.dispatch(groups.x, groups.y, 1);
     }
-
-    buffer.end();
-
-    return buffer;
 }
 
 void ToneMap::destroySwapchainRelated()
 {
     if (_device != nullptr)
     {
-        if (!_commandBuffers.empty())
-        {
-            _device->logical().freeCommandBuffers(
-                _device->graphicsPool(),
-                asserted_cast<uint32_t>(_commandBuffers.size()),
-                _commandBuffers.data());
-        }
-
         destroyPipelines();
 
         // Descriptor sets are cleaned up when the pool is destroyed
@@ -258,14 +237,4 @@ void ToneMap::createPipelines()
                 .pObjectName = "ToneMap",
             });
     }
-}
-
-void ToneMap::createCommandBuffers(const SwapchainConfig &swapConfig)
-{
-    _commandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount,
-        });
 }

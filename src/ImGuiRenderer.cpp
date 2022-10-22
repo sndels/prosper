@@ -48,7 +48,7 @@ ImGuiRenderer::ImGuiRenderer(
     };
     ImGui_ImplVulkan_Init(&init_info, _renderpass);
 
-    recreateSwapchainRelated(swapConfig);
+    recreateSwapchainRelated();
 
     auto buffer = _device->beginGraphicsCommands();
 
@@ -78,31 +78,24 @@ void ImGuiRenderer::startFrame() const
     ImGui::NewFrame();
 }
 
-vk::CommandBuffer ImGuiRenderer::endFrame(
-    const vk::Rect2D &renderArea, const uint32_t nextImage, Profiler *profiler)
+void ImGuiRenderer::endFrame(
+    vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler)
 {
     ImGui::Render();
     ImDrawData *drawData = ImGui::GetDrawData();
 
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     {
-        const auto _s = profiler->createCpuGpuScope(buffer, "ImGui");
+        const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
 
         _resources->images.toneMapped.transition(
-            buffer,
+            cb,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
                 .layout = vk::ImageLayout::eColorAttachmentOptimal,
             });
 
-        buffer.beginRenderPass(
+        cb.beginRenderPass(
             vk::RenderPassBeginInfo{
                 .renderPass = _renderpass,
                 .framebuffer = _fbo,
@@ -110,14 +103,10 @@ vk::CommandBuffer ImGuiRenderer::endFrame(
             },
             vk::SubpassContents::eInline);
 
-        ImGui_ImplVulkan_RenderDrawData(drawData, buffer);
+        ImGui_ImplVulkan_RenderDrawData(drawData, cb);
 
-        buffer.endRenderPass();
+        cb.endRenderPass();
     }
-
-    buffer.end();
-
-    return buffer;
 }
 
 void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
@@ -160,17 +149,10 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
 
 void ImGuiRenderer::destroySwapchainRelated()
 {
-    if (!_commandBuffers.empty())
-    {
-        _device->logical().freeCommandBuffers(
-            _device->graphicsPool(),
-            asserted_cast<uint32_t>(_commandBuffers.size()),
-            _commandBuffers.data());
-    }
     _device->logical().destroy(_fbo);
 }
 
-void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
+void ImGuiRenderer::recreateSwapchainRelated()
 {
     destroySwapchainRelated();
 
@@ -183,13 +165,6 @@ void ImGuiRenderer::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
         .height = image.extent.height,
         .layers = 1,
     });
-
-    _commandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount,
-        });
 }
 
 void ImGuiRenderer::createDescriptorPool()

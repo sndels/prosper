@@ -8,7 +8,6 @@
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 
-
 class ToneMap
 {
   public:
@@ -26,8 +25,8 @@ class ToneMap
 
     void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
 
-    [[nodiscard]] vk::CommandBuffer execute(
-        uint32_t nextImage, Profiler *profiler) const;
+    void record(
+        vk::CommandBuffer cb, uint32_t nextImage, Profiler *profiler) const;
 
   private:
     bool compileShaders();
@@ -38,7 +37,6 @@ class ToneMap
     void createOutputImage(const SwapchainConfig &swapConfig);
     void createDescriptorSet(const SwapchainConfig &swapConfig);
     void createPipelines();
-    void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
@@ -49,8 +47,6 @@ class ToneMap
     std::vector<vk::DescriptorSet> _descriptorSets;
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
-
-    std::vector<vk::CommandBuffer> _commandBuffers;
 
     vk::Framebuffer _fbo;
 };

@@ -40,9 +40,10 @@ class RTRenderer
 
     void drawUi();
 
-    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextImage, Profiler *profiler) const;
+    void record(
+        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        const vk::Rect2D &renderArea, uint32_t nextImage,
+        Profiler *profiler) const;
 
   private:
     void destroyShaders();
@@ -58,7 +59,6 @@ class RTRenderer
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     void createShaderBindingTable();
-    void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
@@ -74,8 +74,6 @@ class RTRenderer
 
     vk::DeviceSize _sbtGroupSize{0};
     Buffer _shaderBindingTable;
-
-    std::vector<vk::CommandBuffer> _commandBuffers;
 
     DrawType _drawType{DrawType::PrimitiveID};
 };

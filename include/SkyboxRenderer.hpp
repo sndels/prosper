@@ -32,9 +32,9 @@ class SkyboxRenderer
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
 
-    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const World &world, const vk::Rect2D &renderArea, uint32_t nextImage,
-        Profiler *profiler) const;
+    void record(
+        vk::CommandBuffer cb, const World &world, const vk::Rect2D &renderArea,
+        uint32_t nextImage, Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders();
@@ -47,7 +47,6 @@ class SkyboxRenderer
     void createGraphicsPipelines(
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
-    void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
@@ -59,8 +58,6 @@ class SkyboxRenderer
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
-
-    std::vector<vk::CommandBuffer> _commandBuffers;
 };
 
 #endif // PROSPER_SKYBOXRENDERER_HPP

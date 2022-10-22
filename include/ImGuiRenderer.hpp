@@ -7,7 +7,6 @@
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 
-
 #include <GLFW/glfw3.h>
 
 class ImGuiRenderer
@@ -24,10 +23,10 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
     void startFrame() const;
-    [[nodiscard]] vk::CommandBuffer endFrame(
-        const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler);
+    void endFrame(
+        vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler);
 
-    void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
+    void recreateSwapchainRelated();
 
   private:
     void createRenderPass(const vk::Format &colorFormat);
@@ -40,7 +39,6 @@ class ImGuiRenderer
     vk::DescriptorPool _descriptorPool;
     vk::RenderPass _renderpass;
     vk::Framebuffer _fbo;
-    std::vector<vk::CommandBuffer> _commandBuffers;
 };
 
 #endif // PROSPER_IMGUI_RENDERER_HPP

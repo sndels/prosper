@@ -40,9 +40,9 @@ class LightClustering
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextImage, Profiler *profiler);
+    void record(
+        vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
+        const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders();
@@ -56,7 +56,6 @@ class LightClustering
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
@@ -65,8 +64,6 @@ class LightClustering
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
-
-    std::vector<vk::CommandBuffer> _commandBuffers;
 };
 
 #endif // PROSPER_LIGHT_CLUSTERING_HPP

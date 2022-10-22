@@ -118,25 +118,17 @@ void LightClustering::recreateSwapchainRelated(
     createOutputs(swapConfig);
     createDescriptorSets(swapConfig);
     createPipeline(camDSLayout, worldDSLayouts);
-    createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer LightClustering::recordCommandBuffer(
-    const Scene &scene, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage, Profiler *profiler)
+void LightClustering::record(
+    vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
+    const vk::Rect2D &renderArea, const uint32_t nextImage, Profiler *profiler)
 {
     if (renderArea.offset != vk::Offset2D{})
         throw std::runtime_error("Offset area not implemented!");
 
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     {
-        const auto _s = profiler->createCpuGpuScope(buffer, "LightClustering");
+        const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
 
         const auto imageBarrier =
             _resources->buffers.lightClusters.pointers.transitionBarrier(
@@ -159,7 +151,7 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
                 }),
         };
 
-        buffer.pipelineBarrier2(vk::DependencyInfo{
+        cb.pipelineBarrier2(vk::DependencyInfo{
             .bufferMemoryBarrierCount =
                 asserted_cast<uint32_t>(bufferBarriers.size()),
             .pBufferMemoryBarriers = bufferBarriers.data(),
@@ -167,18 +159,18 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
             .pImageMemoryBarriers = &imageBarrier,
         });
 
-        buffer.fillBuffer(
+        cb.fillBuffer(
             _resources->buffers.lightClusters.indicesCount.handle, 0,
             _resources->buffers.lightClusters.indicesCount.size, 0);
 
         _resources->buffers.lightClusters.indicesCount.transition(
-            buffer, BufferState{
-                        .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                        .accessMask = vk::AccessFlagBits2::eShaderRead |
-                                      vk::AccessFlagBits2::eShaderWrite,
-                    });
+            cb, BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead |
+                                  vk::AccessFlagBits2::eShaderWrite,
+                });
 
-        buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+        cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
         std::array<vk::DescriptorSet, 3> descriptorSets = {};
         descriptorSets[sLightsBindingSet] =
@@ -187,7 +179,7 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
             _resources->buffers.lightClusters.descriptorSets[nextImage];
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
 
-        buffer.bindDescriptorSets(
+        cb.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, _pipelineLayout,
             0, // firstSet
             asserted_cast<uint32_t>(descriptorSets.size()),
@@ -197,18 +189,14 @@ vk::CommandBuffer LightClustering::recordCommandBuffer(
             .resolution =
                 uvec2(renderArea.extent.width, renderArea.extent.height),
         };
-        buffer.pushConstants(
+        cb.pushConstants(
             _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
             0, // offset
             sizeof(ClusteringPCBlock), &pcBlock);
 
         const auto &extent = _resources->buffers.lightClusters.pointers.extent;
-        buffer.dispatch(extent.width, extent.height, extent.depth);
+        cb.dispatch(extent.width, extent.height, extent.depth);
     }
-
-    buffer.end();
-
-    return buffer;
 }
 
 bool LightClustering::compileShaders()
@@ -245,14 +233,6 @@ void LightClustering::destroySwapchainRelated()
 {
     if (_device != nullptr)
     {
-        if (!_commandBuffers.empty())
-        {
-            _device->logical().freeCommandBuffers(
-                _device->graphicsPool(),
-                asserted_cast<uint32_t>(_commandBuffers.size()),
-                _commandBuffers.data());
-        }
-
         destroyPipeline();
 
         _device->destroy(_resources->buffers.lightClusters.pointers);
@@ -398,14 +378,4 @@ void LightClustering::destroyPipeline()
 {
     _device->logical().destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
-}
-
-void LightClustering::createCommandBuffers(const SwapchainConfig &swapConfig)
-{
-    _commandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount,
-        });
 }

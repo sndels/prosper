@@ -49,23 +49,14 @@ void SkyboxRenderer::recreateSwapchainRelated(
 
     createAttachments();
     createGraphicsPipelines(swapConfig, worldDSLayouts);
-    // Each command buffer binds to specific swapchain image
-    createCommandBuffers(swapConfig);
 }
 
-vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
-    const World &world, const vk::Rect2D &renderArea, const uint32_t nextImage,
-    Profiler *profiler) const
+void SkyboxRenderer::record(
+    vk::CommandBuffer cb, const World &world, const vk::Rect2D &renderArea,
+    const uint32_t nextImage, Profiler *profiler) const
 {
-    const auto buffer = _commandBuffers[nextImage];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     {
-        const auto _s = profiler->createCpuGpuScope(buffer, "Skybox");
+        const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
         const std::array<vk::ImageMemoryBarrier2, 2> barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -80,12 +71,12 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
             }),
         };
 
-        buffer.pipelineBarrier2(vk::DependencyInfo{
+        cb.pipelineBarrier2(vk::DependencyInfo{
             .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
             .pImageMemoryBarriers = barriers.data(),
         });
 
-        buffer.beginRendering(vk::RenderingInfo{
+        cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
             .colorAttachmentCount = 1,
@@ -95,21 +86,17 @@ vk::CommandBuffer SkyboxRenderer::recordCommandBuffer(
 
         // Skybox doesn't need to be drawn under opaque geometry but should be
         // before transparents
-        buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-        buffer.bindDescriptorSets(
+        cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
             1, &world._skyboxDSs[nextImage], 0, nullptr);
 
-        world.drawSkybox(buffer);
+        world.drawSkybox(cb);
 
-        buffer.endRendering();
+        cb.endRendering();
     }
-
-    buffer.end();
-
-    return buffer;
 }
 
 bool SkyboxRenderer::compileShaders()
@@ -160,14 +147,6 @@ void SkyboxRenderer::destroySwapchainRelated()
 {
     if (_device != nullptr)
     {
-        if (!_commandBuffers.empty())
-        {
-            _device->logical().freeCommandBuffers(
-                _device->graphicsPool(),
-                asserted_cast<uint32_t>(_commandBuffers.size()),
-                _commandBuffers.data());
-        }
-
         destroyGraphicsPipelines();
 
         _colorAttachment = vk::RenderingAttachmentInfo{};
@@ -321,14 +300,4 @@ void SkyboxRenderer::createGraphicsPipelines(
                 .pObjectName = "SkyboxRenderer",
             });
     }
-}
-
-void SkyboxRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)
-{
-    _commandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount,
-        });
 }

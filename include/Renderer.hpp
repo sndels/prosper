@@ -41,9 +41,10 @@ class Renderer
 
     void drawUi();
 
-    [[nodiscard]] vk::CommandBuffer recordCommandBuffer(
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextImage, bool transparents, Profiler *profiler) const;
+    void record(
+        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        const vk::Rect2D &renderArea, uint32_t nextImage, bool transparents,
+        Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);
@@ -57,7 +58,6 @@ class Renderer
     void createGraphicsPipelines(
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    void createCommandBuffers(const SwapchainConfig &swapConfig);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
@@ -69,8 +69,6 @@ class Renderer
 
     vk::PipelineLayout _pipelineLayout;
     std::array<vk::Pipeline, 2> _pipelines{};
-
-    std::vector<vk::CommandBuffer> _commandBuffers;
 
     DrawType _drawType{DrawType::Default};
 };

@@ -82,8 +82,6 @@ void Renderer::recreateSwapchainRelated(
     createOutputs(swapConfig);
     createAttachments();
     createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
-    // Each command buffer binds to specific swapchain image
-    createCommandBuffers(swapConfig);
 }
 
 void Renderer::drawUi()
@@ -107,24 +105,15 @@ void Renderer::drawUi()
     ImGui::End();
 }
 
-vk::CommandBuffer Renderer::recordCommandBuffer(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage, bool render_transparents,
-    Profiler *profiler) const
+void Renderer::record(
+    vk::CommandBuffer cb, const World &world, const Camera &cam,
+    const vk::Rect2D &renderArea, const uint32_t nextImage,
+    bool render_transparents, Profiler *profiler) const
 {
     const auto pipelineIndex = render_transparents ? 1 : 0;
-    // Separate buffers for opaque and transparent
-    // opaque uses 0, 2,... and transparent 1,3,...
-    const auto buffer = _commandBuffers[nextImage * 2 + pipelineIndex];
-    buffer.reset();
-
-    buffer.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     {
         const auto _s = profiler->createCpuGpuScope(
-            buffer, render_transparents ? "Transparent" : "Opaque");
+            cb, render_transparents ? "Transparent" : "Opaque");
 
         const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
@@ -158,7 +147,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
                 }),
         };
 
-        buffer.pipelineBarrier2(vk::DependencyInfo{
+        cb.pipelineBarrier2(vk::DependencyInfo{
             .bufferMemoryBarrierCount =
                 asserted_cast<uint32_t>(bufferBarriers.size()),
             .pBufferMemoryBarriers = bufferBarriers.data(),
@@ -167,7 +156,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
             .pImageMemoryBarriers = imageBarriers.data(),
         });
 
-        buffer.beginRendering(vk::RenderingInfo{
+        cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
             .colorAttachmentCount = 1,
@@ -175,7 +164,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
             .pDepthAttachment = &_depthAttachments[pipelineIndex],
         });
 
-        buffer.bindPipeline(
+        cb.bindPipeline(
             vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
 
         const auto &scene = world._scenes[world._currentScene];
@@ -192,7 +181,7 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
         descriptorSets[sModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextImage];
 
-        buffer.bindDescriptorSets(
+        cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
             asserted_cast<uint32_t>(descriptorSets.size()),
@@ -216,24 +205,20 @@ vk::CommandBuffer Renderer::recordCommandBuffer(
                         .materialID = subModel.materialID,
                         .drawType = static_cast<uint32_t>(_drawType),
                     };
-                    buffer.pushConstants(
+                    cb.pushConstants(
                         _pipelineLayout,
                         vk::ShaderStageFlagBits::eVertex |
                             vk::ShaderStageFlagBits::eFragment,
                         0, // offset
                         sizeof(PCBlock), &pcBlock);
 
-                    buffer.draw(mesh.indexCount(), 1, 0, 0);
+                    cb.draw(mesh.indexCount(), 1, 0, 0);
                 }
             }
         }
 
-        buffer.endRendering();
+        cb.endRendering();
     }
-
-    buffer.end();
-
-    return buffer;
 }
 
 bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
@@ -303,14 +288,6 @@ void Renderer::destroySwapchainRelated()
 {
     if (_device != nullptr)
     {
-        if (!_commandBuffers.empty())
-        {
-            _device->logical().freeCommandBuffers(
-                _device->graphicsPool(),
-                asserted_cast<uint32_t>(_commandBuffers.size()),
-                _commandBuffers.data());
-        }
-
         destroyGraphicsPipelines();
 
         _device->destroy(_resources->images.sceneColor);
@@ -565,15 +542,4 @@ void Renderer::createGraphicsPipelines(
                 .pObjectName = "Renderer::Transparent",
             });
     }
-}
-
-void Renderer::createCommandBuffers(const SwapchainConfig &swapConfig)
-{
-    _commandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            // Separate buffers for opaque and transparent
-            .commandBufferCount = swapConfig.imageCount * 2,
-        });
 }

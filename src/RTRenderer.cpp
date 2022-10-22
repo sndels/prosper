@@ -97,7 +97,6 @@ void RTRenderer::recreateSwapchainRelated(
     createDescriptorSets(swapConfig);
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable();
-    createCommandBuffers(swapConfig);
 }
 
 void RTRenderer::drawUi()
@@ -121,17 +120,10 @@ void RTRenderer::drawUi()
     ImGui::End();
 }
 
-vk::CommandBuffer RTRenderer::recordCommandBuffer(
-    const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-    uint32_t nextImage, Profiler *profiler) const
+void RTRenderer::record(
+    vk::CommandBuffer cb, const World &world, const Camera &cam,
+    const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler) const
 {
-    const auto cb = _commandBuffers[nextImage];
-    cb.reset();
-
-    cb.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     {
         const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
@@ -199,10 +191,6 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
     }
-
-    cb.end();
-
-    return cb;
 }
 
 void RTRenderer::destroyShaders()
@@ -215,14 +203,6 @@ void RTRenderer::destroySwapchainRelated()
 {
     if (_device != nullptr)
     {
-        if (!_commandBuffers.empty())
-        {
-            _device->logical().freeCommandBuffers(
-                _device->graphicsPool(),
-                asserted_cast<uint32_t>(_commandBuffers.size()),
-                _commandBuffers.data());
-        }
-
         destroyPipeline();
 
         _device->destroy(_shaderBindingTable);
@@ -449,14 +429,4 @@ void RTRenderer::createShaderBindingTable()
     }
 
     _device->unmap(_shaderBindingTable);
-}
-
-void RTRenderer::createCommandBuffers(const SwapchainConfig &swapConfig)
-{
-    _commandBuffers =
-        _device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapConfig.imageCount,
-        });
 }
