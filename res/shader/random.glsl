@@ -1,3 +1,6 @@
+#ifndef RANDOM_GLSL
+#define RANDOM_GLSL
+
 // From Supplement to Hash Functions for GPU Rendering
 // By Jarzynski & Olano
 // https://jcgt.org/published/0009/03/02/supplementary.pdf
@@ -19,3 +22,5 @@ vec3 uintToColor(uint x)
     uint b = xr & 0x3FF;
     return vec3(r, g, b) / 0x3FF;
 }
+
+#endif // RANDOM_GLSL

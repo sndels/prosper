@@ -1,3 +1,6 @@
+#ifndef LIGHT_CLUSTERS_GLSL
+#define LIGHT_CLUSTERS_GLSL
+
 #ifdef WRITE_CULLING_BINDS
 #define UNIFORM_TYPE writeonly
 #define COUNT_UNIFORM_TYPE
@@ -56,3 +59,5 @@ void unpackClusterPointer(
 }
 
 #endif // WRITE_CULLING_BINDS
+
+#endif // LIGHT_CLUSTERS_GLSL

@@ -1,3 +1,6 @@
+#ifndef CAMERA_GLSL
+#define CAMERA_GLSL
+
 layout(set = CAMERA_SET, binding = 0) uniform Camera
 {
     mat4 worldToCamera;
@@ -8,3 +11,5 @@ layout(set = CAMERA_SET, binding = 0) uniform Camera
     float far;
 }
 camera;
+
+#endif // CAMERA_GLSL

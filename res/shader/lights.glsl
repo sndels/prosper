@@ -1,3 +1,6 @@
+#ifndef LIGHTS_GLSL
+#define LIGHTS_GLSL
+
 layout(set = LIGHTS_SET, binding = 0) uniform DirectionalLight
 {
     vec4 irradiance;
@@ -37,3 +40,5 @@ layout(set = LIGHTS_SET, binding = 2) buffer SpotLights
     uint count;
 }
 spotLights;
+
+#endif // LIGHTS_GLSL

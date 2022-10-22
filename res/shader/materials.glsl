@@ -1,3 +1,6 @@
+#ifndef MATERIALS_GLSL
+#define MATERIALS_GLSL
+
 const uint AlphaModeOpaque = 0;
 const uint AlphaModeMask = 1;
 const uint AlphaModeBlend = 2;
@@ -120,3 +123,5 @@ Material sampleMaterial(uint index, vec2 uv)
 
     return ret;
 }
+
+#endif // MATERIALS_GLSL

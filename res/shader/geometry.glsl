@@ -1,3 +1,6 @@
+#ifndef GEOMETRY_GLSL
+#define GEOMETRY_GLSL
+
 // Unbounded array requires GL_EXT_nonuniform_qualifier even if it is indexed
 // with a uniform index
 layout(std430, set = VERTEX_BUFFERS_SET, binding = 0) readonly buffer
@@ -64,3 +67,5 @@ Vertex loadVertex(uint meshID, uint index)
 
     return ret;
 }
+
+#endif // GEOMETRY_GLSL
