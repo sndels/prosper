@@ -46,9 +46,13 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
     std::filesystem::path _includePath;
 
     uint64_t _includeContentID{0};
-    std::unordered_map<
-        uint64_t, std::tuple<shaderc_include_result *, std::string *>>
-        _includeContent;
+    struct IncludeContent
+    {
+        shaderc_include_result *result{nullptr};
+        std::string *content{nullptr};
+        std::string *path{nullptr};
+    };
+    std::unordered_map<uint64_t, IncludeContent> _includeContent;
 };
 
 class Device

@@ -290,33 +290,42 @@ shaderc_include_result *FileIncluder::GetInclude(
     (void)type;
 
     const auto requestingDir =
-        (_includePath / std::filesystem::path{requesting_source}).parent_path();
+        std::filesystem::path{requesting_source}.parent_path();
     const auto requestedSource =
         (requestingDir / requested_source).lexically_normal();
+    assert(std::filesystem::exists(requestedSource));
 
-    auto content = new std::string{};
-    *content = readFileString(requestedSource);
-    auto result = new shaderc_include_result{
-        .source_name = requested_source,
-        .source_name_length = strlen(requested_source),
-        .content = content->c_str(),
-        .content_length = content->size(),
+    IncludeContent content;
+    content.path = new std::string{};
+    *content.path = requestedSource.generic_string();
+
+    content.content = new std::string{};
+    *content.content = readFileString(requestedSource);
+
+    content.result = new shaderc_include_result{
+        .source_name = content.path->c_str(),
+        .source_name_length = content.path->size(),
+        .content = content.content->c_str(),
+        .content_length = content.content->size(),
         .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
     };
 
     static_assert(sizeof(_includeContentID) == sizeof(void *));
-    _includeContent[_includeContentID++] = std::make_pair(result, content);
+    _includeContent[_includeContentID++] = content;
 
-    return result;
+    return content.result;
 }
 
 void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 {
     auto id = reinterpret_cast<uint64_t>(data->user_data);
-    auto [result, content] = _includeContent[id];
+    auto content = _includeContent[id];
+
     _includeContent.erase(id);
-    delete result;
-    delete content;
+
+    delete content.result;
+    delete content.content;
+    delete content.path;
 }
 
 Device::Device(GLFWwindow *window, bool enableDebugLayers)
@@ -412,18 +421,13 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     CompileShaderModuleArgs const &info) const
 {
     assert(info.relPath.starts_with("shader/"));
-    const auto shaderRelPath = [&info]()
-    {
-        auto p = std::string_view(info.relPath);
-        p.remove_prefix(7);
-        return std::string{p};
-    }();
+    const auto shaderPath = resPath(info.relPath);
 
     const auto source =
-        "#version 460\n" + info.defines + readFileString(resPath(info.relPath));
+        "#version 460\n" + info.defines + readFileString(shaderPath);
 
     const auto result = _compiler.CompileGlslToSpv(
-        source, shaderc_glsl_infer_from_source, shaderRelPath.c_str(),
+        source, shaderc_glsl_infer_from_source, shaderPath.string().c_str(),
         _compilerOptions);
 
     if (const auto status = result.GetCompilationStatus(); status)
@@ -431,7 +435,9 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
         const auto err = result.GetErrorMessage();
         if (!err.empty())
             fprintf(stderr, "%s\n", err.c_str());
-        fprintf(stderr, "Compilation of '%s' failed\n", shaderRelPath.c_str());
+        fprintf(
+            stderr, "Compilation of '%s' failed\n",
+            shaderPath.string().c_str());
         fprintf(stderr, "%s\n", statusString(status));
         return {};
     }
