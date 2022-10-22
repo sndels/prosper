@@ -8,6 +8,7 @@
 #define saturate(x) clamp(x, 0.0, 1.0)
 
 #include "camera.glsl"
+#include "debug.glsl"
 #include "light_clusters.glsl"
 #include "lights.glsl"
 #include "materials.glsl"
@@ -100,31 +101,6 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
            NoL;
 }
 
-bool handleDebugDraw(Material m, vec3 normal)
-{
-    if (scenePC.DrawType == DrawType_Default)
-        return false;
-
-    if (scenePC.DrawType == DrawType_PrimitiveID)
-        outColor = vec4(uintToColor(gl_PrimitiveID), 1);
-    else if (scenePC.DrawType == DrawType_MeshID)
-        outColor = vec4(uintToColor(scenePC.MeshID), 1);
-    else if (scenePC.DrawType == DrawType_MaterialID)
-        outColor = vec4(uintToColor(scenePC.MaterialID), 1);
-    else if (scenePC.DrawType == DrawType_Albedo)
-        outColor = vec4(m.albedo, 1);
-    else if (scenePC.DrawType == DrawType_ShadingNormal)
-        outColor = vec4(normal * 0.5 + 0.5, 1);
-    else if (scenePC.DrawType == DrawType_Roughness)
-        outColor = vec4(vec3(m.roughness), 1);
-    else if (scenePC.DrawType == DrawType_Metallic)
-        outColor = vec4(vec3(m.metallic), 1);
-    else
-        outColor = vec4(1, 0, 1, 1);
-
-    return true;
-}
-
 void main()
 {
     Material material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
@@ -200,8 +176,17 @@ void main()
 
     float alpha = material.alpha > 0 ? material.alpha : 1.0;
 
-    if (handleDebugDraw(material, normal))
+    if (scenePC.DrawType >= CommonDebugDrawTypeOffset)
+    {
+        DebugInputs di;
+        di.meshID = scenePC.MeshID;
+        di.primitiveID = gl_PrimitiveID;
+        di.materialID = scenePC.MaterialID;
+        di.normal = normal;
+        uint drawType = scenePC.DrawType - CommonDebugDrawTypeOffset;
+        outColor = vec4(commonDebugDraw(drawType, di, material), 1);
         return;
+    }
 
     outColor = vec4(color, alpha);
 }
