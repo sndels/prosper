@@ -49,7 +49,7 @@ class RTRenderer
     void destroySwapchainRelated();
     void destroyPipeline();
 
-    [[nodiscard]] bool compileShaders();
+    [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);
 
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig

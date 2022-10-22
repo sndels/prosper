@@ -1,10 +1,13 @@
 #extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
 #pragma shader_stage(raygen)
 
 #include "../camera.glsl"
 #include "../debug.glsl"
+#include "../geometry.glsl"
+#include "../materials.glsl"
 #include "../random.glsl"
 #include "ray.glsl"
 
@@ -52,6 +55,18 @@ void main()
     vec3 color = vec3(0);
     if (payload.instanceCustomIndex != missIndex)
     {
+        Vertex v0 = loadVertex(instance.meshID, payload.primitiveID * 3 + 0);
+        Vertex v1 = loadVertex(instance.meshID, payload.primitiveID * 3 + 1);
+        Vertex v2 = loadVertex(instance.meshID, payload.primitiveID * 3 + 2);
+
+        Vertex v = interpolate(v0, v1, v2, payload.baryCoord);
+
+        // TODO: Transform vertex
+
+        Material m = sampleMaterial(instance.materialID, v.TexCoord0);
+
+        // TODO: Normal mapping
+
         if (rtPC.drawType >= DrawType_PrimitiveID)
         {
             DebugInputs di;
@@ -59,7 +74,6 @@ void main()
             di.primitiveID = payload.primitiveID;
             di.materialID = instance.materialID;
             di.normal = normalize(vec3(1, 1, 1));
-            Material m;
             color = commonDebugDraw(rtPC.drawType, di, m);
         }
         else

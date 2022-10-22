@@ -13,6 +13,9 @@ namespace
 constexpr uint32_t sCameraBindingSet = 0;
 constexpr uint32_t sAccelerationStructureBindingSet = 1;
 constexpr uint32_t sOutputBindingSet = 2;
+constexpr uint32_t sMaterialsBindingSet = 3;
+constexpr uint32_t sVertexBuffersBindingSet = 4;
+constexpr uint32_t sIndexBuffersBindingSet = 5;
 
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
@@ -46,7 +49,7 @@ RTRenderer::RTRenderer(
 {
     printf("Creating RTRenderer\n");
 
-    if (!compileShaders())
+    if (!compileShaders(worldDSLayouts))
         throw std::runtime_error("RTRenderer shader compilation failed");
 
     const vk::DescriptorSetLayoutBinding layoutBinding{
@@ -77,7 +80,7 @@ RTRenderer::~RTRenderer()
 void RTRenderer::recompileShaders(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders())
+    if (compileShaders(worldDSLayouts))
     {
         destroyPipeline();
         createPipeline(camDSLayout, worldDSLayouts);
@@ -105,7 +108,7 @@ void RTRenderer::drawUi()
     if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
         for (auto i = 0u;
-             i < static_cast<uint32_t>(RTRenderer::DrawType::Albedo); ++i)
+             i < static_cast<uint32_t>(RTRenderer::DrawType::Count); ++i)
         {
             bool selected = *currentType == i;
             if (ImGui::Selectable(sDrawTypeNames[i], &selected))
@@ -143,11 +146,14 @@ vk::CommandBuffer RTRenderer::recordCommandBuffer(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        std::array<vk::DescriptorSet, 3> descriptorSets = {};
+        std::array<vk::DescriptorSet, 6> descriptorSets = {};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sAccelerationStructureBindingSet] =
             scene.accelerationStructureDS;
         descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
+        descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
+        descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
+        descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
@@ -227,7 +233,7 @@ void RTRenderer::destroyPipeline()
     _device->logical().destroy(_pipelineLayout);
 }
 
-bool RTRenderer::compileShaders()
+bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
 {
     printf("Compiling RTRenderer shaders\n");
 
@@ -237,6 +243,11 @@ bool RTRenderer::compileShaders()
         "ACCELERATION_STRUCTURE_SET", sAccelerationStructureBindingSet);
     raygenDefines += defineStr("OUTPUT_SET", sOutputBindingSet);
     raygenDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
+    raygenDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
+    raygenDefines +=
+        defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
+    raygenDefines += defineStr("VERTEX_BUFFERS_SET", sVertexBuffersBindingSet);
+    raygenDefines += defineStr("INDEX_BUFFERS_SET", sIndexBuffersBindingSet);
     const auto raygenSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/rt/scene.rgen",
@@ -344,11 +355,14 @@ void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
-    std::array<vk::DescriptorSetLayout, 3> setLayouts = {};
+    std::array<vk::DescriptorSetLayout, 6> setLayouts = {};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sAccelerationStructureBindingSet] =
         worldDSLayouts.accelerationStructure;
     setLayouts[sOutputBindingSet] = _descriptorSetLayout;
+    setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
+    setLayouts[sVertexBuffersBindingSet] = worldDSLayouts.vertexBuffers;
+    setLayouts[sIndexBuffersBindingSet] = worldDSLayouts.indexBuffers;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = sVkShaderStageFlagsAllRt,

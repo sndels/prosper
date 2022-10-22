@@ -1180,19 +1180,22 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1,
                 .descriptorType = vk::DescriptorType::eSampler,
                 .descriptorCount = samplerInfoCount,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1 + samplerInfoCount,
                 .descriptorType = vk::DescriptorType::eSampledImage,
                 .descriptorCount = imageInfoCount,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
         };
         const std::array<vk::DescriptorBindingFlags, 3> layoutFlags{
@@ -1291,7 +1294,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = descriptorCount,
-                .stageFlags = vk::ShaderStageFlagBits::eVertex,
+                .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             };
             const vk::DescriptorBindingFlags variableDescriptorsFlag =
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount;

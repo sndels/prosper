@@ -316,7 +316,8 @@ void Texture2D::createMipmaps(
             vk::ImageLayout::eShaderReadOnlyOptimal,
             vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eShaderRead,
             vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eFragmentShader);
+            vk::PipelineStageFlagBits::eFragmentShader |
+                vk::PipelineStageFlagBits::eRayTracingShaderKHR);
 
         if (mipWidth > 1)
             mipWidth /= 2;
@@ -332,12 +333,14 @@ void Texture2D::createMipmaps(
         vk::ImageLayout::eShaderReadOnlyOptimal,
         vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
         vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eFragmentShader);
+        vk::PipelineStageFlagBits::eFragmentShader |
+            vk::PipelineStageFlagBits::eRayTracingShaderKHR);
 
     // We went around the state management since it doesn't support
     // per-subresource barriers
     _image.state = ImageState{
-        .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+        .stageMask = vk::PipelineStageFlagBits2::eFragmentShader |
+                     vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
         .accessMask = vk::AccessFlagBits2::eShaderRead,
         .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
