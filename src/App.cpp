@@ -110,6 +110,8 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 ,_profiler{&_device,_swapConfig.imageCount}
 ,_recompileTime{std::chrono::file_clock::now()}
 {
+    printf("GPU passs init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
+
     _cam.init(_world._scenes[_world._currentScene].camera);
     _cam.perspective(_window.width() / static_cast<float>(_window.height()));
 

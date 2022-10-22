@@ -53,6 +53,7 @@ class App
     Camera _cam;
     World _world;
 
+    Timer _gpuPassesInitTimer;
     LightClustering _lightClustering;
     Renderer _renderer;
     RTRenderer _rtRenderer;
