@@ -9,6 +9,7 @@
 #include "../geometry.glsl"
 #include "../materials.glsl"
 #include "../random.glsl"
+#include "../transforms.glsl"
 #include "ray.glsl"
 
 layout(set = RAY_TRACING_SET, binding = 0) uniform accelerationStructureEXT as;
@@ -52,17 +53,20 @@ void main()
     vec3 color = vec3(0);
     if (payload.instanceCustomIndex != missIndex)
     {
+        Transforms trfn =
+            modelInstanceTransforms.instance[instance.modelInstanceID];
+
         Vertex v0 = loadVertex(instance.meshID, payload.primitiveID * 3 + 0);
         Vertex v1 = loadVertex(instance.meshID, payload.primitiveID * 3 + 1);
         Vertex v2 = loadVertex(instance.meshID, payload.primitiveID * 3 + 2);
 
-        Vertex v = interpolate(v0, v1, v2, payload.baryCoord);
-
-        // TODO: Transform vertex
+        Vertex vi = interpolate(v0, v1, v2, payload.baryCoord);
+        Vertex v = transform(vi, trfn);
 
         Material m = sampleMaterial(instance.materialID, v.TexCoord0);
 
-        // TODO: Normal mapping
+        vec3 normal = v.Normal;
+        // TODO: Tangent space, normal mapping
 
         if (rtPC.drawType >= DrawType_PrimitiveID)
         {
@@ -70,7 +74,7 @@ void main()
             di.meshID = instance.meshID;
             di.primitiveID = payload.primitiveID;
             di.materialID = instance.materialID;
-            di.normal = normalize(vec3(1, 1, 1));
+            di.normal = normal;
             color = commonDebugDraw(rtPC.drawType, di, m);
         }
         else

@@ -1421,7 +1421,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .binding = 0,
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eVertex,
+            .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                          vk::ShaderStageFlagBits::eRaygenKHR,
         };
         const vk::DescriptorBindingFlags layoutFlags{};
         const vk::StructureChain<
