@@ -4,9 +4,9 @@
 #pragma shader_stage(raygen)
 
 #include "../camera.glsl"
+#include "../debug.glsl"
 #include "../random.glsl"
 #include "ray.glsl"
-
 
 layout(set = ACCELERATION_STRUCTURE_SET, binding = 0) uniform
     accelerationStructureEXT as;
@@ -52,12 +52,17 @@ void main()
     vec3 color = vec3(0);
     if (payload.instanceCustomIndex != missIndex)
     {
-        if (rtPC.drawType == DrawType_PrimitiveID)
-            color = uintToColor(payload.primitiveID);
-        else if (rtPC.drawType == DrawType_MeshID)
-            color = uintToColor(instance.meshID);
-        else if (rtPC.drawType == DrawType_MaterialID)
-            color = uintToColor(instance.materialID);
+        if (rtPC.drawType >= CommonDebugDrawTypeOffset)
+        {
+            DebugInputs di;
+            di.meshID = instance.meshID;
+            di.primitiveID = payload.primitiveID;
+            di.materialID = instance.materialID;
+            di.normal = normalize(vec3(1, 1, 1));
+            Material m;
+            uint drawType = rtPC.drawType - CommonDebugDrawTypeOffset;
+            color = commonDebugDraw(drawType, di, m);
+        }
         else
             color = vec3(1, 0, 1);
     }
