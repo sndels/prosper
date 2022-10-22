@@ -68,4 +68,34 @@ Vertex loadVertex(uint meshID, uint index)
     return ret;
 }
 
+vec2 baryInterpolate(vec2 v0, vec2 v1, vec2 v2, float a, float b, float c)
+{
+    return v0 * a + v1 * b + v2 * c;
+}
+vec3 baryInterpolate(vec3 v0, vec3 v1, vec3 v2, float a, float b, float c)
+{
+    return v0 * a + v1 * b + v2 * c;
+}
+vec4 baryInterpolate(vec4 v0, vec4 v1, vec4 v2, float a, float b, float c)
+{
+    return v0 * a + v1 * b + v2 * c;
+}
+
+Vertex interpolate(Vertex v0, Vertex v1, Vertex v2, vec2 baryCoord)
+{
+    float a = 1 - baryCoord.x - baryCoord.y;
+    float b = baryCoord.x;
+    float c = baryCoord.y;
+
+    Vertex ret;
+    ret.Position =
+        baryInterpolate(v0.Position, v1.Position, v2.Position, a, b, c);
+    ret.Normal = baryInterpolate(v0.Normal, v1.Normal, v2.Normal, a, b, c);
+    ret.Tangent = baryInterpolate(v0.Tangent, v1.Tangent, v2.Tangent, a, b, c);
+    ret.TexCoord0 =
+        baryInterpolate(v0.TexCoord0, v1.TexCoord0, v2.TexCoord0, a, b, c);
+
+    return ret;
+}
+
 #endif // GEOMETRY_GLSL
