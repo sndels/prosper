@@ -423,8 +423,9 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     assert(info.relPath.starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
-    const auto source =
-        "#version 460\n" + info.defines + readFileString(shaderPath);
+    // Prepend version, defines and reset line offset before the actual source
+    const auto source = "#version 460\n" + info.defines + "#line 1\n" +
+                        readFileString(shaderPath);
 
     const auto result = _compiler.CompileGlslToSpv(
         source, shaderc_glsl_infer_from_source, shaderPath.string().c_str(),
