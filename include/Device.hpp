@@ -47,8 +47,7 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
 
     uint64_t _includeContentID{0};
     std::unordered_map<
-        uint64_t,
-        std::tuple<std::shared_ptr<shaderc_include_result>, std::string>>
+        uint64_t, std::tuple<shaderc_include_result *, std::string *>>
         _includeContent;
 };
 

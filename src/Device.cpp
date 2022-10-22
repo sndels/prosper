@@ -294,26 +294,29 @@ shaderc_include_result *FileIncluder::GetInclude(
     const auto requestedSource =
         (requestingDir / requested_source).lexically_normal();
 
-    auto content = readFileString(requestedSource);
-    auto result =
-        std::make_shared<shaderc_include_result>(shaderc_include_result{
-            .source_name = requested_source,
-            .source_name_length = strlen(requested_source),
-            .content = content.c_str(),
-            .content_length = content.size(),
-            .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
-        });
+    auto content = new std::string{};
+    *content = readFileString(requestedSource);
+    auto result = new shaderc_include_result{
+        .source_name = requested_source,
+        .source_name_length = strlen(requested_source),
+        .content = content->c_str(),
+        .content_length = content->size(),
+        .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
+    };
+
     static_assert(sizeof(_includeContentID) == sizeof(void *));
+    _includeContent[_includeContentID++] = std::make_pair(result, content);
 
-    _includeContent[_includeContentID++] =
-        std::make_pair(result, std::move(content));
-
-    return result.get();
+    return result;
 }
 
 void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 {
-    _includeContent.erase(reinterpret_cast<uint64_t>(data->user_data));
+    auto id = reinterpret_cast<uint64_t>(data->user_data);
+    auto [result, content] = _includeContent[id];
+    _includeContent.erase(id);
+    delete result;
+    delete content;
 }
 
 Device::Device(GLFWwindow *window, bool enableDebugLayers)
