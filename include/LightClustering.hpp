@@ -10,10 +10,17 @@
 #include "Swapchain.hpp"
 #include "World.hpp"
 
-
 class LightClustering
 {
   public:
+    static const uint32_t clusterDim = 32;
+    static const uint32_t zSlices = 16;
+    static std::string shaderDefines()
+    {
+        return defineStr("LIGHT_CLUSTER_DIMENSION", clusterDim) +
+               defineStr("LIGHT_CLUSTER_Z_SLICE_COUNT", zSlices);
+    };
+
     LightClustering(
         Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,

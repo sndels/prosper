@@ -3,8 +3,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
+#include "LightClustering.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
+
 
 using namespace glm;
 
@@ -262,6 +264,7 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     fragDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
     fragDefines +=
         defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
+    fragDefines += LightClustering::shaderDefines();
     const auto fragSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",

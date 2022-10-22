@@ -1,7 +1,3 @@
-// These needs to match engine
-#define LIGHT_CLUSTER_DIMENSION 32
-#define LIGHT_CLUSTER_Z_SLICE_COUNT 16
-
 #ifdef WRITE_CULLING_BINDS
 #define UNIFORM_TYPE writeonly
 #define COUNT_UNIFORM_TYPE

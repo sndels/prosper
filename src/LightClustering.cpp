@@ -9,9 +9,6 @@ using namespace glm;
 
 namespace
 {
-// These have to match the shader
-const uint32_t clusterDim = 32;
-const uint32_t zSlices = 16;
 const uint32_t maxPointIndicesPerTile = 128;
 const uint32_t maxSpotIndicesPerTile = 128;
 
@@ -222,6 +219,7 @@ bool LightClustering::compileShaders()
     defines += defineStr("LIGHTS_SET", sLightsBindingSet);
     defines += defineStr("LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
     defines += defineStr("CAMERA_SET", sCameraBindingSet);
+    defines += shaderDefines();
     const auto compSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/light_clustering.comp",
