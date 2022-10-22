@@ -453,7 +453,14 @@ void World::loadModels(const tinygltf::Model &gltfModel)
             {
                 const auto &attribute = primitive.attributes.find("TANGENT");
                 if (attribute == primitive.attributes.end())
+                {
+                    fprintf(
+                        stderr,
+                        "Missing tangents for '%s'. RT won't have normal "
+                        "maps.\n",
+                        model.name.c_str());
                     return static_cast<const float *>(nullptr);
+                }
                 const auto &accessor = gltfModel.accessors[attribute->second];
                 const auto &view = gltfModel.bufferViews[accessor.bufferView];
                 const auto &data = gltfModel.buffers[view.buffer].data;
