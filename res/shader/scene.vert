@@ -6,20 +6,8 @@
 
 #include "camera.glsl"
 #include "geometry.glsl"
-
-struct Transforms
-{
-    mat4 modelToWorld;
-    mat4 normalToWorld;
-};
-layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
-    ModelInstanceTransforms
-{
-    Transforms instance[];
-}
-modelInstanceTransforms;
-
 #include "scene_pc.glsl"
+#include "transforms.glsl"
 
 layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out float fragZCam;
@@ -28,26 +16,19 @@ layout(location = 3) out mat3 fragTBN;
 
 void main()
 {
-    Transforms trfns =
-        modelInstanceTransforms.instance[scenePC.ModelInstanceID];
-    Vertex vertex = loadVertex(scenePC.MeshID, gl_VertexIndex);
+    Vertex vertex = transform(
+        loadVertex(scenePC.MeshID, gl_VertexIndex),
+        modelInstanceTransforms.instance[scenePC.ModelInstanceID]);
 
-    vec4 pos = trfns.modelToWorld * vec4(vertex.Position, 1.0);
-    vec3 normal = normalize(mat3(trfns.normalToWorld) * vertex.Normal);
-
-    if (vertex.Tangent.w == 0)
-    {
-        vec3 tangent = normalize(mat3(trfns.modelToWorld) * vertex.Tangent.xyz);
-        vec3 bitangent = cross(normal, tangent) * vertex.Tangent.w;
-        fragTBN = mat3(tangent, bitangent, normal);
-    }
+    if (vertex.Tangent.w != 0)
+        fragTBN = generateTBN(vertex.Normal, vertex.Tangent);
     else
-        fragTBN = mat3(vec3(0), vec3(0), normal);
+        fragTBN = mat3(vec3(0), vec3(0), vertex.Normal);
 
-    fragPosition = pos.xyz / pos.w;
+    fragPosition = vertex.Position;
     fragTexCoord0 = vertex.TexCoord0;
 
-    vec4 posCam = camera.worldToCamera * pos;
+    vec4 posCam = camera.worldToCamera * vec4(vertex.Position, 1);
     fragZCam = posCam.z;
 
     gl_Position = camera.cameraToClip * posCam;
