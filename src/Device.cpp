@@ -276,8 +276,16 @@ FileIncluder::FileIncluder()
 
 shaderc_include_result *FileIncluder::GetInclude(
     const char *requested_source, shaderc_include_type type,
-    const char *requesting_source, size_t /*include_depth*/)
+    const char *requesting_source, size_t include_depth)
 {
+    if (include_depth > 100)
+    {
+        throw std::runtime_error(
+            std::string{
+                "Deep shader include recursion with requested source '"} +
+            requested_source + "'. Cycle?");
+    }
+
     assert(type == shaderc_include_type_relative);
     (void)type;
 
