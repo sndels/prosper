@@ -1,5 +1,7 @@
 #include "Light.hpp"
 
+#include "Utils.hpp"
+
 [[nodiscard]] std::vector<vk::DescriptorBufferInfo> DirectionalLight::
     bufferInfos() const
 {

@@ -219,6 +219,8 @@ bool LightClustering::compileShaders()
     defines += defineStr("LIGHTS_SET", sLightsBindingSet);
     defines += defineStr("LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
     defines += defineStr("CAMERA_SET", sCameraBindingSet);
+    defines += PointLights::shaderDefines();
+    defines += SpotLights::shaderDefines();
     defines += shaderDefines();
     const auto compSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{

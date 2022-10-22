@@ -2,6 +2,7 @@
 #define PROSPER_LIGHT_HPP
 
 #include "Device.hpp"
+#include "Utils.hpp"
 
 #include <glm/glm.hpp>
 
@@ -26,6 +27,11 @@ struct DirectionalLight
 struct PointLights
 {
     static const uint32_t max_count = 1024;
+    static std::string shaderDefines()
+    {
+        return defineStr("MAX_POINT_LIGHT_COUNT", PointLights::max_count);
+    };
+
     struct PointLight
     {
         glm::vec4 radianceAndRadius{0.f};
@@ -48,6 +54,11 @@ struct PointLights
 struct SpotLights
 {
     static const uint32_t max_count = 1024;
+    static std::string shaderDefines()
+    {
+        return defineStr("MAX_SPOT_LIGHT_COUNT", SpotLights::max_count);
+    }
+
     struct SpotLight
     {
         glm::vec4 radianceAndAngleScale{0.f};

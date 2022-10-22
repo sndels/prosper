@@ -8,9 +8,6 @@ layout(set = LIGHTS_SET, binding = 0) uniform DirectionalLight
 }
 directionalLight;
 
-// This needs to match the engine
-#define MAX_POINT_LIGHT_COUNT 1024
-
 struct PointLight
 {
     vec4 radianceAndRadius;
@@ -23,9 +20,6 @@ layout(set = LIGHTS_SET, binding = 1) buffer PointLights
     uint count;
 }
 pointLights;
-
-// This needs to match the engine
-#define MAX_SPOT_LIGHT_COUNT 1024
 
 struct SpotLight
 {

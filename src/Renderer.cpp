@@ -262,6 +262,8 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
         defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
     fragDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
     fragDefines += LightClustering::shaderDefines();
+    fragDefines += PointLights::shaderDefines();
+    fragDefines += SpotLights::shaderDefines();
     const auto fragSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/scene.frag",
