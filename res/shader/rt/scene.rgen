@@ -74,7 +74,9 @@ void main()
             di.meshID = instance.meshID;
             di.primitiveID = payload.primitiveID;
             di.materialID = instance.materialID;
-            di.normal = normal;
+            di.position = v.Position;
+            di.shadingNormal = normal;
+            di.texCoord0 = v.TexCoord0;
             color = commonDebugDraw(rtPC.drawType, di, m);
         }
         else

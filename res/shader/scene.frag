@@ -182,7 +182,9 @@ void main()
         di.meshID = scenePC.MeshID;
         di.primitiveID = gl_PrimitiveID;
         di.materialID = scenePC.MaterialID;
-        di.normal = normal;
+        di.position = fragPosition;
+        di.shadingNormal = normal;
+        di.texCoord0 = fragTexCoord0;
         outColor = vec4(commonDebugDraw(scenePC.DrawType, di, material), 1);
         return;
     }
