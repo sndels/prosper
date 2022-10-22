@@ -48,9 +48,9 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
     uint64_t _includeContentID{0};
     struct IncludeContent
     {
-        shaderc_include_result *result{nullptr};
-        std::string *content{nullptr};
-        std::string *path{nullptr};
+        std::unique_ptr<shaderc_include_result> result{nullptr};
+        std::unique_ptr<std::string> content{nullptr};
+        std::unique_ptr<std::string> path{nullptr};
     };
     std::unordered_map<uint64_t, IncludeContent> _includeContent;
 };

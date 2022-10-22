@@ -11,7 +11,6 @@
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
-
 #define ALL_FEATURE_STRUCTS_LIST                                               \
     vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,           \
         vk::PhysicalDeviceVulkan13Features,                                    \
@@ -280,36 +279,32 @@ shaderc_include_result *FileIncluder::GetInclude(
     assert(std::filesystem::exists(requestedSource));
 
     IncludeContent content;
-    content.path = new std::string{};
+    content.path = std::make_unique<std::string>();
     *content.path = requestedSource.generic_string();
 
-    content.content = new std::string{};
+    content.content = std::make_unique<std::string>();
     *content.content = readFileString(requestedSource);
 
-    content.result = new shaderc_include_result{
-        .source_name = content.path->c_str(),
-        .source_name_length = content.path->size(),
-        .content = content.content->c_str(),
-        .content_length = content.content->size(),
-        .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
-    };
+    content.result =
+        std::make_unique<shaderc_include_result>(shaderc_include_result{
+            .source_name = content.path->c_str(),
+            .source_name_length = content.path->size(),
+            .content = content.content->c_str(),
+            .content_length = content.content->size(),
+            .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
+        });
+    auto *result_ptr = content.result.get();
 
     static_assert(sizeof(_includeContentID) == sizeof(void *));
-    _includeContent[_includeContentID++] = content;
+    _includeContent[_includeContentID++] = std::move(content);
 
-    return content.result;
+    return result_ptr;
 }
 
 void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 {
     auto id = reinterpret_cast<uint64_t>(data->user_data);
-    auto content = _includeContent[id];
-
     _includeContent.erase(id);
-
-    delete content.result;
-    delete content.content;
-    delete content.path;
 }
 
 Device::Device(GLFWwindow *window, bool enableDebugLayers)

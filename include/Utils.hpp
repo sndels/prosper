@@ -53,7 +53,7 @@ template <typename T, typename V> constexpr T asserted_cast(V a)
             }
         }
     }
-#endif NDEBUG
+#endif // NDEBUG
     return static_cast<T>(a);
 }
 

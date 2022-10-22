@@ -925,9 +925,8 @@ void World::createTlases()
         }
 
         uint32_t rti = 0;
-        for (auto mi = 0u; mi < modelInstances.size(); ++mi)
+        for (const auto &[model, trfn] : modelInstances)
         {
-            const auto &[model, trfn] = modelInstances[mi];
             for (const auto &sm : model.subModels)
             {
                 const auto &blas = _blases[sm.meshID];
