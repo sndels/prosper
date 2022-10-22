@@ -10,7 +10,4 @@ layout(push_constant) uniform ScenePC
 }
 scenePC;
 
-#define CommonDebugDrawTypeDefault 0
-#define CommonDebugDrawTypeOffset 1
-
 #endif // SCENE_PC_GLSL

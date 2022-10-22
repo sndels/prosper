@@ -176,15 +176,14 @@ void main()
 
     float alpha = material.alpha > 0 ? material.alpha : 1.0;
 
-    if (scenePC.DrawType >= CommonDebugDrawTypeOffset)
+    if (scenePC.DrawType >= DrawType_PrimitiveID)
     {
         DebugInputs di;
         di.meshID = scenePC.MeshID;
         di.primitiveID = gl_PrimitiveID;
         di.materialID = scenePC.MaterialID;
         di.normal = normal;
-        uint drawType = scenePC.DrawType - CommonDebugDrawTypeOffset;
-        outColor = vec4(commonDebugDraw(drawType, di, material), 1);
+        outColor = vec4(commonDebugDraw(scenePC.DrawType, di, material), 1);
         return;
     }
 

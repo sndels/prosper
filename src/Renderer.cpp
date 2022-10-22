@@ -29,7 +29,7 @@ struct PCBlock
 };
 
 const std::array<const char *, static_cast<size_t>(Renderer::DrawType::Count)>
-    sDrawTypeName = {"Default", DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 } // namespace
 
@@ -93,12 +93,12 @@ void Renderer::drawUi()
         "Renderer settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
-    if (ImGui::BeginCombo("Draw type", sDrawTypeName[*currentType]))
+    if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
         for (auto i = 0u; i < static_cast<uint32_t>(DrawType::Count); ++i)
         {
             bool selected = *currentType == i;
-            if (ImGui::Selectable(sDrawTypeName[i], &selected))
+            if (ImGui::Selectable(sDrawTypeNames[i], &selected))
                 _drawType = static_cast<DrawType>(i);
         }
         ImGui::EndCombo();
@@ -260,6 +260,7 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     fragDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
     fragDefines +=
         defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
+    fragDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
     fragDefines += LightClustering::shaderDefines();
     const auto fragSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{

@@ -52,7 +52,7 @@ void main()
     vec3 color = vec3(0);
     if (payload.instanceCustomIndex != missIndex)
     {
-        if (rtPC.drawType >= CommonDebugDrawTypeOffset)
+        if (rtPC.drawType >= DrawType_PrimitiveID)
         {
             DebugInputs di;
             di.meshID = instance.meshID;
@@ -60,8 +60,7 @@ void main()
             di.materialID = instance.materialID;
             di.normal = normalize(vec3(1, 1, 1));
             Material m;
-            uint drawType = rtPC.drawType - CommonDebugDrawTypeOffset;
-            color = commonDebugDraw(drawType, di, m);
+            color = commonDebugDraw(rtPC.drawType, di, m);
         }
         else
             color = vec3(1, 0, 1);

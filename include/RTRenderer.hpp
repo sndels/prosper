@@ -4,22 +4,19 @@
 #include <functional>
 
 #include "Camera.hpp"
+#include "DebugDrawTypes.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
 
-
 class RTRenderer
 {
   public:
     enum class DrawType : uint32_t
     {
-        PrimitiveID = 0,
-        MeshID = 1,
-        MaterialID = 2,
-        Count = 3,
+        DEBUG_DRAW_TYPES_AND_COUNT
     };
 
     RTRenderer(

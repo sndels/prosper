@@ -33,11 +33,7 @@ struct PCBlock
 };
 
 const std::array<const char *, static_cast<size_t>(RTRenderer::DrawType::Count)>
-    sDrawTypeName = {
-        "PrimitiveID",
-        "MeshID",
-        "MaterialID",
-};
+    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
 
 } // namespace
 
@@ -106,13 +102,13 @@ void RTRenderer::drawUi()
     ImGui::Begin("RT settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
-    if (ImGui::BeginCombo("Draw type", sDrawTypeName[*currentType]))
+    if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
         for (auto i = 0u;
-             i < static_cast<uint32_t>(RTRenderer::DrawType::Count); ++i)
+             i < static_cast<uint32_t>(RTRenderer::DrawType::Albedo); ++i)
         {
             bool selected = *currentType == i;
-            if (ImGui::Selectable(sDrawTypeName[i], &selected))
+            if (ImGui::Selectable(sDrawTypeNames[i], &selected))
                 _drawType = static_cast<DrawType>(i);
         }
         ImGui::EndCombo();
@@ -240,6 +236,7 @@ bool RTRenderer::compileShaders()
     raygenDefines += defineStr(
         "ACCELERATION_STRUCTURE_SET", sAccelerationStructureBindingSet);
     raygenDefines += defineStr("OUTPUT_SET", sOutputBindingSet);
+    raygenDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
     const auto raygenSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/rt/scene.rgen",

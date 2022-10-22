@@ -67,4 +67,16 @@ template <typename T> std::string defineStr(const std::string &name, T value)
     return "#define " + name + " " + std::to_string(value) + '\n';
 }
 
+template <size_t Count>
+std::string enumVariantsAsDefines(
+    const std::string &prefix, const std::array<const char *, Count> &names)
+{
+    std::string ret;
+    for (auto i = 0u; i < names.size(); ++i)
+        ret += "#define " + prefix + '_' + names[i] + " " + std::to_string(i) +
+               '\n';
+
+    return ret;
+}
+
 #endif // PROSPER_CONSTANTS_HPP
