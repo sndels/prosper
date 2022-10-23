@@ -132,9 +132,7 @@ Texture2D::Texture2D(
 
     if (image.component == 3)
     {
-        std::cerr << "3 component texture" << std::endl;
-        // Add fourth channel
-        // TODO: Do only if rgb-textures are unsupported
+        // Add fourth channel as 3 channel optimal tiling is rarely supported
         tmpPixels.resize(asserted_cast<size_t>(image.width) * image.height * 4);
         const auto *rgb = image.image.data();
         auto *rgba = tmpPixels.data();

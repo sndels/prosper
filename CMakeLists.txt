@@ -80,6 +80,7 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SMART_HANDLE
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
+    TINYGLTF_NO_EXTERNAL_IMAGE
 
     # Set up absolute path to resources and binaries
     RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"

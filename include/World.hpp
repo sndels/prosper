@@ -46,6 +46,8 @@ class World
     void updateUniformBuffers(const Camera &cam, uint32_t nextImage) const;
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
+    std::filesystem::path _sceneDir;
+
     // TODO: Private?
     Texture2D _emptyTexture;
     TextureCubemap _skyboxTexture;
@@ -56,17 +58,8 @@ class World
     std::vector<vk::Sampler> _samplers;
     struct Texture2DSampler
     {
-
         Texture2D tex;
         uint32_t sampler{0};
-
-        Texture2DSampler(
-            Device *device, const tinygltf::Image &image, const bool mipmap,
-            uint32_t sampler)
-        : tex{device, image, mipmap}
-        , sampler{sampler}
-        {
-        }
     };
     std::vector<Texture2DSampler> _textures;
     std::vector<Material> _materials;

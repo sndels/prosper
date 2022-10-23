@@ -142,7 +142,8 @@ vk::SamplerAddressMode getVkAddressMode(int glEnum)
 World::World(
     Device *device, const uint32_t swapImageCount,
     const std::filesystem::path &scene)
-: _emptyTexture{device, resPath("texture/empty.png"), false}
+: _sceneDir{resPath(scene.parent_path())}
+, _emptyTexture{device, resPath("texture/empty.png"), false}
 , _skyboxTexture{device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
@@ -339,7 +340,16 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
                 "Too many samplers to pack in u32 texture index");
         }
 
-        _textures.emplace_back(_device, image, true, _samplerMap[info]);
+        if (image.uri.empty())
+            _textures.push_back(Texture2DSampler{
+                .tex = Texture2D{_device, image, true},
+                .sampler = _samplerMap[info],
+            });
+        else
+            _textures.push_back(Texture2DSampler{
+                .tex = Texture2D{_device, _sceneDir / image.uri, true},
+                .sampler = _samplerMap[info],
+            });
     }
 }
 
@@ -665,8 +675,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                     scene.camera = _cameras[node];
                     scene.camera.eye =
                         vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
-                    // TODO: Halfway from camera to scene bb end if inside bb /
-                    // halfway of bb if outside of bb?
+                    // TODO: Halfway from camera to scene bb end if inside
+                    // bb / halfway of bb if outside of bb?
                     scene.camera.target =
                         vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
@@ -680,7 +690,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                         {
                             fprintf(
                                 stderr,
-                                "Found second directional light for a scene."
+                                "Found second directional light for a "
+                                "scene."
                                 " Ignoring since only one is supported\n");
                         }
                         auto &parameters =
@@ -779,8 +790,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
         //     {
         //         // rando W -> radiance
         //         auto radiance =
-        //             vec3{rando(1.f, 5.f), rando(1.f, 5.f), rando(1.f, 5.f)} /
-        //             (4.f * glm::pi<float>());
+        //             vec3{rando(1.f, 5.f), rando(1.f, 5.f),
+        //             rando(1.f, 5.f)} / (4.f * glm::pi<float>());
         //         const auto luminance =
         //             dot(radiance, vec3{0.2126, 0.7152, 0.0722});
         //         const auto minLuminance = 0.01f;
@@ -956,8 +967,8 @@ void World::createTlases()
             .debugName = "InstancesBuffer",
         });
 
-        // Need a barrier here if a shared command buffer is used so that the
-        // copy happens before the build
+        // Need a barrier here if a shared command buffer is used so that
+        // the copy happens before the build
 
         const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
             .primitiveCount = asserted_cast<uint32_t>(instances.size()),
@@ -1023,7 +1034,8 @@ void World::createTlases()
         const auto cb = _device->beginGraphicsCommands();
 
         const auto *pRangeInfo = &rangeInfo;
-        // TODO: Use a single cb for instance buffer copies and builds for all
+        // TODO: Use a single cb for instance buffer copies and builds for
+        // all
         //       tlases need a barrier after buffer copy and build!
         cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
 
@@ -1144,7 +1156,8 @@ void World::createBuffers(const uint32_t swapImageCount)
 void World::createDescriptorPool(const uint32_t swapImageCount)
 {
     // TODO:
-    // Pool sizes and max set's don't seem to make sense. Re-read and rework.
+    // Pool sizes and max set's don't seem to make sense. Re-read and
+    // rework.
 
     // TODO: Tight bound for node descriptor count by nodes with a mesh
     // Skybox cubemap is also one descriptor per image
@@ -1155,7 +1168,8 @@ void World::createDescriptorPool(const uint32_t swapImageCount)
     const uint32_t sampledImageDescriptorCount =
         3 * asserted_cast<uint32_t>(_materials.size()) + swapImageCount;
     const std::array<vk::DescriptorPoolSize, 4> poolSizes{
-        {{// Dynamic need per frame descriptor sets of one descriptor per UBlock
+        {{// Dynamic need per frame descriptor sets of one descriptor per
+          // UBlock
           vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
          {// Samplers need one descriptor per texture as they are constant
           // between frames
@@ -1188,7 +1202,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     std::vector<vk::WriteDescriptorSet> dss;
 
     // Materials layout and descriptors set
-    // Define outside the helper scope to keep alive until updateDescriptorSets
+    // Define outside the helper scope to keep alive until
+    // updateDescriptorSets
     const vk::DescriptorBufferInfo materialDatasInfo{
         .buffer = _materialsBuffer.handle,
         .range = VK_WHOLE_SIZE,
@@ -1301,7 +1316,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     }
 
     // Geometry layouts and descriptor set
-    // Define outside the helper scope to keep alive until updateDescriptorSets
+    // Define outside the helper scope to keep alive until
+    // updateDescriptorSets
     std::vector<vk::DescriptorBufferInfo> vertexBufferInfos;
     std::vector<vk::DescriptorBufferInfo> indexBufferInfos;
     {
@@ -1481,7 +1497,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     }
 
     // Scene descriptor sets
-    // Define outside the helper scope to keep alive until updateDescriptorSets
+    // Define outside the helper scope to keep alive until
+    // updateDescriptorSets
     std::vector<vk::DescriptorBufferInfo> modelInstanceInfos;
     std::vector<vk::DescriptorBufferInfo> rtInstancesInfos;
     std::vector<vk::DescriptorBufferInfo> lightInfos;
