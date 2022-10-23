@@ -48,11 +48,11 @@ void main()
         as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
         ray.tMax, 0);
 
-    RTInstance instance = rtInstances.data[payload.instanceCustomIndex];
-
     vec3 color = vec3(0);
     if (payload.instanceCustomIndex != missIndex)
     {
+        RTInstance instance = rtInstances.data[payload.instanceCustomIndex];
+
         Transforms trfn =
             modelInstanceTransforms.instance[instance.modelInstanceID];
 
