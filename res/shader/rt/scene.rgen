@@ -7,6 +7,7 @@
 #include "../camera.glsl"
 #include "../debug.glsl"
 #include "../geometry.glsl"
+#include "../lights.glsl"
 #include "../materials.glsl"
 #include "../random.glsl"
 #include "../transforms.glsl"
@@ -32,35 +33,61 @@ layout(
 #include "payload.glsl"
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
+#define MISS_INDEX 0xFFFFFFFF
+
+float shadow(vec3 p, vec3 l, float tMin, float lDist)
+{
+    uint mask = 0xFF;
+
+    // TODO: simpler shaders for shadow rays
+    payload.instanceCustomIndex = MISS_INDEX;
+    traceRayEXT(as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, p, tMin, l, lDist, 0);
+
+    return float(payload.instanceCustomIndex == MISS_INDEX);
+}
+
+RayPayload traceClosest(Ray ray)
+{
+    uint mask = 0xFF;
+
+    // Tight scope for payload use as having it dangle seems to prevent reuse
+    payload.instanceCustomIndex = MISS_INDEX;
+    payload.primitiveID = MISS_INDEX;
+    payload.baryCoord = vec2(0);
+
+    traceRayEXT(
+        as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
+        ray.tMax, 0);
+
+    RayPayload ret;
+    ret.instanceCustomIndex = payload.instanceCustomIndex;
+    ret.primitiveID = payload.primitiveID;
+    ret.baryCoord = payload.baryCoord;
+
+    return ret;
+}
+
 void main()
 {
     uvec2 px = gl_LaunchIDEXT.xy;
     vec2 uv = (px + 0.5) / gl_LaunchSizeEXT.xy;
 
     Ray ray = pinholeCameraRay(uv);
-
-    uint mask = 0xFF;
-
-    const uint missIndex = 0xFFFFFFFF;
-    payload.instanceCustomIndex = missIndex;
-    payload.primitiveID = missIndex;
-    traceRayEXT(
-        as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
-        ray.tMax, 0);
+    RayPayload hit = traceClosest(ray);
 
     vec3 color = vec3(0);
-    if (payload.instanceCustomIndex != missIndex)
+    if (hit.instanceCustomIndex != MISS_INDEX)
     {
-        RTInstance instance = rtInstances.data[payload.instanceCustomIndex];
+        RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
 
         Transforms trfn =
             modelInstanceTransforms.instance[instance.modelInstanceID];
 
-        Vertex v0 = loadVertex(instance.meshID, payload.primitiveID * 3 + 0);
-        Vertex v1 = loadVertex(instance.meshID, payload.primitiveID * 3 + 1);
-        Vertex v2 = loadVertex(instance.meshID, payload.primitiveID * 3 + 2);
+        Vertex v0 = loadVertex(instance.meshID, hit.primitiveID * 3 + 0);
+        Vertex v1 = loadVertex(instance.meshID, hit.primitiveID * 3 + 1);
+        Vertex v2 = loadVertex(instance.meshID, hit.primitiveID * 3 + 2);
 
-        Vertex vi = interpolate(v0, v1, v2, payload.baryCoord);
+        Vertex vi = interpolate(v0, v1, v2, hit.baryCoord);
         Vertex v = transform(vi, trfn);
 
         Material m = sampleMaterial(instance.materialID, v.TexCoord0);
@@ -75,19 +102,29 @@ void main()
         else
             normal = v.Normal;
 
+        // Alpha hits don't have a valid surface
+        if (m.alpha != 0)
+        {
+            { // Sun
+                vec3 l = -normalize(directionalLight.direction.xyz);
+
+                color += directionalLight.irradiance.xyz *
+                         evalBRDF(normal, -ray.d, l, m) *
+                         shadow(v.Position, l, 0.1, 100);
+            }
+        }
+
         if (rtPC.drawType >= DrawType_PrimitiveID)
         {
             DebugInputs di;
             di.meshID = instance.meshID;
-            di.primitiveID = payload.primitiveID;
+            di.primitiveID = hit.primitiveID;
             di.materialID = instance.materialID;
             di.position = v.Position;
             di.shadingNormal = normal;
             di.texCoord0 = v.TexCoord0;
             color = commonDebugDraw(rtPC.drawType, di, m);
         }
-        else
-            color = vec3(1, 0, 1);
     }
 
     imageStore(colorOut, ivec2(px), vec4(color, 1));

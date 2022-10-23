@@ -17,6 +17,7 @@ constexpr uint32_t sMaterialsBindingSet = 3;
 constexpr uint32_t sVertexBuffersBindingSet = 4;
 constexpr uint32_t sIndexBuffersBindingSet = 5;
 constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
+constexpr uint32_t sLightsBindingSet = 7;
 
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
@@ -37,7 +38,7 @@ struct PCBlock
 };
 
 const std::array<const char *, static_cast<size_t>(RTRenderer::DrawType::Count)>
-    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 } // namespace
 
@@ -139,7 +140,7 @@ void RTRenderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        std::array<vk::DescriptorSet, 7> descriptorSets = {};
+        std::array<vk::DescriptorSet, 8> descriptorSets = {};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
@@ -148,6 +149,8 @@ void RTRenderer::record(
         descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
         descriptorSets[sModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextImage];
+        descriptorSets[sLightsBindingSet] =
+            scene.lights.descriptorSets[nextImage];
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
@@ -231,6 +234,9 @@ bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     raygenDefines += defineStr("INDEX_BUFFERS_SET", sIndexBuffersBindingSet);
     raygenDefines +=
         defineStr("MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
+    raygenDefines += defineStr("LIGHTS_SET", sLightsBindingSet);
+    raygenDefines += PointLights::shaderDefines();
+    raygenDefines += SpotLights::shaderDefines();
     const auto raygenSM =
         _device->compileShaderModule(Device::CompileShaderModuleArgs{
             .relPath = "shader/rt/scene.rgen",
@@ -338,7 +344,7 @@ void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
-    std::array<vk::DescriptorSetLayout, 7> setLayouts = {};
+    std::array<vk::DescriptorSetLayout, 8> setLayouts = {};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sRTBindingSet] = worldDSLayouts.rayTracing;
     setLayouts[sOutputBindingSet] = _descriptorSetLayout;
@@ -346,6 +352,7 @@ void RTRenderer::createPipeline(
     setLayouts[sVertexBuffersBindingSet] = worldDSLayouts.vertexBuffers;
     setLayouts[sIndexBuffersBindingSet] = worldDSLayouts.indexBuffers;
     setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
+    setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = sVkShaderStageFlagsAllRt,

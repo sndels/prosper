@@ -1472,21 +1472,24 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .descriptorType = vk::DescriptorType::eUniformBuffer,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eCompute,
+                              vk::ShaderStageFlagBits::eCompute |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
             {
                 .binding = 1,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eCompute,
+                              vk::ShaderStageFlagBits::eCompute |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
             {
                 .binding = 2,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eCompute,
+                              vk::ShaderStageFlagBits::eCompute |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
         }};
         _dsLayouts.lights = _device->logical().createDescriptorSetLayout(

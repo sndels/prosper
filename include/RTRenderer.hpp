@@ -16,6 +16,7 @@ class RTRenderer
   public:
     enum class DrawType : uint32_t
     {
+        Default = 0,
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
@@ -75,7 +76,7 @@ class RTRenderer
     vk::DeviceSize _sbtGroupSize{0};
     Buffer _shaderBindingTable;
 
-    DrawType _drawType{DrawType::PrimitiveID};
+    DrawType _drawType{DrawType::Default};
 };
 
 #endif // PROSPER_RT_RENDERER_HPP
