@@ -417,12 +417,11 @@ void RTRenderer::createShaderBindingTable()
                  vk::BufferUsageFlagBits::eShaderBindingTableKHR,
         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                       vk::MemoryPropertyFlagBits::eHostCoherent,
+        .createMapped = true,
         .debugName = "ShaderBindingTable",
     });
 
-    void *mapped = _device->map(_shaderBindingTable);
-
-    auto *pData = reinterpret_cast<uint8_t *>(mapped);
+    auto *pData = reinterpret_cast<uint8_t *>(_shaderBindingTable.mapped);
     for (size_t i = 0; i < groupCount; ++i)
     {
         memcpy(
@@ -430,6 +429,4 @@ void RTRenderer::createShaderBindingTable()
             groupHandleSize);
         pData += _sbtGroupSize;
     }
-
-    _device->unmap(_shaderBindingTable);
 }

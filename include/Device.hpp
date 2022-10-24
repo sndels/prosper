@@ -93,11 +93,6 @@ class Device
     [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
         const CompileShaderModuleArgs &info) const;
 
-    [[nodiscard]] void *map(Buffer const &buffer) const;
-    void unmap(Buffer const &buffer) const;
-    [[nodiscard]] void *map(Image const &texture) const;
-    void unmap(Image const &texture) const;
-
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info) const;
     void destroy(const Buffer &buffer) const;
 

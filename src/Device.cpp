@@ -438,17 +438,6 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     return sm;
 }
 
-void *Device::map(Buffer const &buffer) const { return map(buffer.allocation); }
-
-void Device::unmap(Buffer const &buffer) const { unmap(buffer.allocation); }
-
-void *Device::map(Image const &texture) const
-{
-    return map(texture.allocation);
-}
-
-void Device::unmap(Image const &texture) const { unmap(texture.allocation); }
-
 Buffer Device::createBuffer(const BufferCreateInfo &info) const
 {
     const vk::BufferCreateInfo bufferInfo{
