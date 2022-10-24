@@ -25,8 +25,7 @@ class World
     {
         uint32_t materialSamplerCount{0};
         vk::DescriptorSetLayout materialTextures;
-        vk::DescriptorSetLayout vertexBuffers;
-        vk::DescriptorSetLayout indexBuffers;
+        vk::DescriptorSetLayout geometry;
         vk::DescriptorSetLayout modelInstances;
         vk::DescriptorSetLayout rayTracing;
         vk::DescriptorSetLayout lights;
@@ -62,8 +61,11 @@ class World
         uint32_t sampler{0};
     };
     std::vector<Texture2DSampler> _textures;
+    std::vector<Buffer> _geometryBuffers;
+    Buffer _meshBuffersBuffer;
     std::vector<Material> _materials;
-    std::vector<Mesh> _meshes;
+    std::vector<MeshBuffers> _meshBuffers;
+    std::vector<MeshInfo> _meshInfos;
     std::vector<Buffer> _modelInstances;
     std::vector<AccelerationStructure> _blases;
     std::vector<AccelerationStructure> _tlases;
@@ -75,8 +77,7 @@ class World
     vk::DescriptorPool _descriptorPool;
     Buffer _materialsBuffer;
     vk::DescriptorSet _materialTexturesDS;
-    vk::DescriptorSet _vertexBuffersDS;
-    vk::DescriptorSet _indexBuffersDS;
+    vk::DescriptorSet _geometryDS;
     DSLayouts _dsLayouts;
 
     std::vector<Buffer> _skyboxUniformBuffers;

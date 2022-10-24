@@ -1,23 +1,75 @@
 #ifndef GEOMETRY_GLSL
 #define GEOMETRY_GLSL
 
-// Unbounded array requires GL_EXT_nonuniform_qualifier even if it is indexed
-// with a uniform index
-layout(std430, set = VERTEX_BUFFERS_SET, binding = 0) readonly buffer
-    VertexBuffers
+struct MeshBuffer
 {
-    float data[];
-}
-vertexBuffers[];
+    uint index;
+    uint offset;
+};
 
+struct MeshBuffers
+{
+    MeshBuffer indices;
+    MeshBuffer positions;
+    MeshBuffer normals;
+    MeshBuffer tangents;
+    MeshBuffer texCoord0s;
+    uint usesShortIndices;
+};
+layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
+    MeshBuffersBuffer
+{
+    MeshBuffers data[];
+}
+meshBuffersBuffer;
 // Unbounded array requires GL_EXT_nonuniform_qualifier even if it is indexed
 // with a uniform index
-layout(std430, set = INDEX_BUFFERS_SET, binding = 0) readonly buffer
-    IndexBuffers
+layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer GeometryBuffers
 {
     uint data[];
 }
-indexBuffers[];
+geometryBuffers[];
+
+uint loadIndex(MeshBuffer b, uint index, uint usesShortIndices)
+{
+    if (usesShortIndices == 1)
+    {
+        uint i = geometryBuffers[b.index].data[b.offset + (index / 2)];
+        return (i >> ((index & 1) * 16)) & 0xFFFF;
+    }
+    else
+        return geometryBuffers[b.index].data[b.offset + index];
+}
+
+float loadFloat(MeshBuffer b, uint index)
+{
+    return uintBitsToFloat(geometryBuffers[b.index].data[b.offset + index]);
+}
+
+vec2 loadVec2(MeshBuffer b, uint index)
+{
+    return b.index < 0xFFFFFFF
+               ? vec2(loadFloat(b, 2 * index), loadFloat(b, 2 * index + 1))
+               : vec2(0);
+}
+
+vec3 loadVec3(MeshBuffer b, uint index)
+{
+    return b.index < 0xFFFFFFF
+               ? vec3(
+                     loadFloat(b, 3 * index), loadFloat(b, 3 * index + 1),
+                     loadFloat(b, 3 * index + 2))
+               : vec3(0);
+}
+
+vec4 loadVec4(MeshBuffer b, uint index)
+{
+    return b.index < 0xFFFFFFF
+               ? vec4(
+                     loadFloat(b, 4 * index), loadFloat(b, 4 * index + 1),
+                     loadFloat(b, 4 * index + 2), loadFloat(b, 4 * index + 3))
+               : vec4(0);
+}
 
 struct Vertex
 {
@@ -26,44 +78,20 @@ struct Vertex
     vec4 Tangent;
     vec2 TexCoord0;
 };
-#define VERTEX_FLOATS (3 + 3 + 4 + 2)
-#define VERTEX_POS_FLOAT_OFFSET 0
-#define VERTEX_NORMAL_FLOAT_OFFSET 3
-#define VERTEX_TANGENT_FLOAT_OFFSET (3 + 3)
-#define VERTEX_TEXCOORD0_FLOAT_OFFSET (3 + 3 + 4)
 
 Vertex loadVertex(uint meshID, uint index)
 {
-    uint vertexIndex = indexBuffers[meshID].data[index];
-    uint vertexOffset = vertexIndex * VERTEX_FLOATS;
+    MeshBuffers buffers = meshBuffersBuffer.data[meshID];
+
+    uint vertexIndex =
+        loadIndex(buffers.indices, index, buffers.usesShortIndices);
 
     Vertex ret;
 
-    ret.Position = vec3(
-        vertexBuffers[meshID].data[vertexOffset + VERTEX_POS_FLOAT_OFFSET + 0],
-        vertexBuffers[meshID].data[vertexOffset + VERTEX_POS_FLOAT_OFFSET + 1],
-        vertexBuffers[meshID].data[vertexOffset + VERTEX_POS_FLOAT_OFFSET + 2]);
-    ret.Normal = vec3(
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_NORMAL_FLOAT_OFFSET + 0],
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_NORMAL_FLOAT_OFFSET + 1],
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_NORMAL_FLOAT_OFFSET + 2]);
-    ret.Tangent = vec4(
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_TANGENT_FLOAT_OFFSET + 0],
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_TANGENT_FLOAT_OFFSET + 1],
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_TANGENT_FLOAT_OFFSET + 2],
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_TANGENT_FLOAT_OFFSET + 3]);
-    ret.TexCoord0 = vec2(
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_TEXCOORD0_FLOAT_OFFSET + 0],
-        vertexBuffers[meshID]
-            .data[vertexOffset + VERTEX_TEXCOORD0_FLOAT_OFFSET + 1]);
+    ret.Position = loadVec3(buffers.positions, vertexIndex);
+    ret.Normal = loadVec3(buffers.normals, vertexIndex);
+    ret.Tangent = loadVec4(buffers.tangents, vertexIndex);
+    ret.TexCoord0 = loadVec2(buffers.texCoord0s, vertexIndex);
 
     return ret;
 }

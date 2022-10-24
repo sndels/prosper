@@ -16,9 +16,8 @@ constexpr uint32_t sLightsBindingSet = 0;
 constexpr uint32_t sLightClustersBindingSet = 1;
 constexpr uint32_t sCameraBindingSet = 2;
 constexpr uint32_t sMaterialsBindingSet = 3;
-constexpr uint32_t sVertexBuffersBindingSet = 4;
-constexpr uint32_t sIndexBuffersBindingSet = 5;
-constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
+constexpr uint32_t sGeometryBuffersBindingSet = 4;
+constexpr uint32_t sModelInstanceTrfnsBindingSet = 5;
 
 struct PCBlock
 {
@@ -169,15 +168,14 @@ void Renderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        std::array<vk::DescriptorSet, 7> descriptorSets = {};
+        std::array<vk::DescriptorSet, 6> descriptorSets = {};
         descriptorSets[sLightsBindingSet] =
             scene.lights.descriptorSets[nextImage];
         descriptorSets[sLightClustersBindingSet] =
             _resources->buffers.lightClusters.descriptorSets[nextImage];
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
-        descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
-        descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
+        descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;
         descriptorSets[sModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextImage];
 
@@ -193,12 +191,13 @@ void Renderer::record(
             for (const auto &subModel : model.subModels)
             {
                 const auto &material = world._materials[subModel.materialID];
-                const auto &mesh = world._meshes[subModel.meshID];
+                const auto &info = world._meshInfos[subModel.meshID];
                 const auto isTransparent =
                     material.alphaMode == Material::AlphaMode::Blend;
                 if ((render_transparents && isTransparent) ||
                     (!render_transparents && !isTransparent))
                 {
+                    // TODO: Push buffers and offsets
                     const PCBlock pcBlock{
                         .modelInstanceID = instance.id,
                         .meshID = subModel.meshID,
@@ -212,7 +211,7 @@ void Renderer::record(
                         0, // offset
                         sizeof(PCBlock), &pcBlock);
 
-                    cb.draw(mesh.indexCount(), 1, 0, 0);
+                    cb.draw(info.indexCount, 1, 0, 0);
                 }
             }
         }
@@ -227,8 +226,7 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
 
     std::string vertDefines;
     vertDefines += defineStr("CAMERA_SET", sCameraBindingSet);
-    vertDefines += defineStr("VERTEX_BUFFERS_SET", sVertexBuffersBindingSet);
-    vertDefines += defineStr("INDEX_BUFFERS_SET", sIndexBuffersBindingSet);
+    vertDefines += defineStr("GEOMETRY_SET", sGeometryBuffersBindingSet);
     vertDefines +=
         defineStr("MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
     const auto vertSM =
@@ -443,14 +441,13 @@ void Renderer::createGraphicsPipelines(
         .pAttachments = &opaqueColorBlendAttachment,
     };
 
-    std::array<vk::DescriptorSetLayout, 7> setLayouts = {};
+    std::array<vk::DescriptorSetLayout, 6> setLayouts = {};
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
     setLayouts[sLightClustersBindingSet] =
         _resources->buffers.lightClusters.descriptorSetLayout;
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
-    setLayouts[sVertexBuffersBindingSet] = worldDSLayouts.vertexBuffers;
-    setLayouts[sIndexBuffersBindingSet] = worldDSLayouts.indexBuffers;
+    setLayouts[sGeometryBuffersBindingSet] = worldDSLayouts.geometry;
     setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
 
     const vk::PushConstantRange pcRange{

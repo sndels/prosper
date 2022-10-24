@@ -5,36 +5,30 @@
 
 #include "Device.hpp"
 #include "Material.hpp"
-#include "Vertex.hpp"
 
-class Mesh
+struct MeshBuffers
 {
-  public:
-    Mesh(
-        Device *device, const std::vector<Vertex> &vertices,
-        const std::vector<uint32_t> &indices);
-    ~Mesh();
+    struct Buffer
+    {
+        uint32_t index{0xFFFFFFFF};
+        uint32_t offset{0};
+    };
 
-    Mesh(const Mesh &other) = delete;
-    Mesh(Mesh &&other) noexcept;
-    Mesh &operator=(const Mesh &other) = delete;
-    Mesh &operator=(Mesh &&other) noexcept;
+    Buffer indices;
+    Buffer positions;
+    Buffer normals;
+    Buffer tangents;
+    Buffer texCoord0s;
+    uint32_t usesShortIndices{0};
+};
+// These are uploaded onto the gpu and tight packing is assumed
+static_assert(sizeof(MeshBuffers) == (5 * 2 + 1) * sizeof(uint32_t));
+static_assert(alignof(MeshBuffers) == sizeof(uint32_t));
 
-    [[nodiscard]] vk::Buffer vertexBuffer() const;
-    [[nodiscard]] vk::Buffer indexBuffer() const;
-    [[nodiscard]] uint32_t vertexCount() const;
-    [[nodiscard]] uint32_t indexCount() const;
-
-    void draw(vk::CommandBuffer commandBuffer) const;
-
-  private:
-    void destroy();
-
-    Device *_device{nullptr};
-    Buffer _vertexBuffer;
-    Buffer _indexBuffer;
-    uint32_t _vertexCount{0};
-    uint32_t _indexCount{0};
+struct MeshInfo
+{
+    uint32_t vertexCount{0};
+    uint32_t indexCount{0};
 };
 
 #endif // PROSPER_MESH_HPP

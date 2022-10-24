@@ -14,10 +14,9 @@ constexpr uint32_t sCameraBindingSet = 0;
 constexpr uint32_t sRTBindingSet = 1;
 constexpr uint32_t sOutputBindingSet = 2;
 constexpr uint32_t sMaterialsBindingSet = 3;
-constexpr uint32_t sVertexBuffersBindingSet = 4;
-constexpr uint32_t sIndexBuffersBindingSet = 5;
-constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
-constexpr uint32_t sLightsBindingSet = 7;
+constexpr uint32_t sGeometryBindingSet = 4;
+constexpr uint32_t sModelInstanceTrfnsBindingSet = 5;
+constexpr uint32_t sLightsBindingSet = 6;
 
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
@@ -140,13 +139,12 @@ void RTRenderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        std::array<vk::DescriptorSet, 8> descriptorSets = {};
+        std::array<vk::DescriptorSet, 7> descriptorSets = {};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
-        descriptorSets[sVertexBuffersBindingSet] = world._vertexBuffersDS;
-        descriptorSets[sIndexBuffersBindingSet] = world._indexBuffersDS;
+        descriptorSets[sGeometryBindingSet] = world._geometryDS;
         descriptorSets[sModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextImage];
         descriptorSets[sLightsBindingSet] =
@@ -230,8 +228,7 @@ bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     raygenDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
     raygenDefines +=
         defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
-    raygenDefines += defineStr("VERTEX_BUFFERS_SET", sVertexBuffersBindingSet);
-    raygenDefines += defineStr("INDEX_BUFFERS_SET", sIndexBuffersBindingSet);
+    raygenDefines += defineStr("GEOMETRY_SET", sGeometryBindingSet);
     raygenDefines +=
         defineStr("MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
     raygenDefines += defineStr("LIGHTS_SET", sLightsBindingSet);
@@ -344,13 +341,12 @@ void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
-    std::array<vk::DescriptorSetLayout, 8> setLayouts = {};
+    std::array<vk::DescriptorSetLayout, 7> setLayouts = {};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sRTBindingSet] = worldDSLayouts.rayTracing;
     setLayouts[sOutputBindingSet] = _descriptorSetLayout;
     setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
-    setLayouts[sVertexBuffersBindingSet] = worldDSLayouts.vertexBuffers;
-    setLayouts[sIndexBuffersBindingSet] = worldDSLayouts.indexBuffers;
+    setLayouts[sGeometryBindingSet] = worldDSLayouts.geometry;
     setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
 

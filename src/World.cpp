@@ -182,8 +182,7 @@ World::~World()
     _device->logical().destroy(_dsLayouts.skybox);
     _device->logical().destroy(_dsLayouts.rayTracing);
     _device->logical().destroy(_dsLayouts.modelInstances);
-    _device->logical().destroy(_dsLayouts.indexBuffers);
-    _device->logical().destroy(_dsLayouts.vertexBuffers);
+    _device->logical().destroy(_dsLayouts.geometry);
     _device->logical().destroy(_dsLayouts.materialTextures);
 
     _device->destroy(_skyboxVertexBuffer);
@@ -215,6 +214,9 @@ World::~World()
         for (auto &buffer : scene.lights.spotLights.storageBuffers)
             _device->destroy(buffer);
     }
+    for (auto &buffer : _geometryBuffers)
+        _device->destroy(buffer);
+    _device->destroy(_meshBuffersBuffer);
     for (auto &buffer : _skyboxUniformBuffers)
         _device->destroy(buffer);
     for (auto &sampler : _samplers)
@@ -430,136 +432,136 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
 
 void World::loadModels(const tinygltf::Model &gltfModel)
 {
+    for (const auto &b : gltfModel.buffers)
+        _geometryBuffers.push_back(_device->createBuffer(BufferCreateInfo{
+            .byteSize = asserted_cast<uint32_t>(b.data.size()),
+            .usage = vk::BufferUsageFlagBits::
+                         eAccelerationStructureBuildInputReadOnlyKHR |
+                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                     vk::BufferUsageFlagBits::eStorageBuffer |
+                     vk::BufferUsageFlagBits::eTransferDst,
+            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .initialData = b.data.data(),
+            .debugName = "GeometryBuffer",
+        }));
     for (const auto &model : gltfModel.meshes)
     {
         _models.push_back({});
         for (const auto &primitive : model.primitives)
         {
-            // TODO: More vertex attributes, different modes, no indices
+            auto assertedGetAttr =
+                [&](const std::string &name,
+                    bool shouldHave =
+                        false) -> std::pair<MeshBuffers::Buffer, uint32_t>
+            {
+                const auto &attribute = primitive.attributes.find(name);
+                if (attribute == primitive.attributes.end())
+                {
+                    if (shouldHave)
+                        throw std::runtime_error(
+                            "Primitive attribute '" + name + "' missing");
+                    return std::make_pair(MeshBuffers::Buffer{}, 0);
+                }
+
+                const auto &accessor = gltfModel.accessors[attribute->second];
+                const auto &view = gltfModel.bufferViews[accessor.bufferView];
+                const auto offset = asserted_cast<uint32_t>(
+                    accessor.byteOffset + view.byteOffset);
+                assert(
+                    offset % sizeof(uint32_t) == 0 &&
+                    "Shader binds buffers as uint");
+
+                return std::make_pair(
+                    MeshBuffers::Buffer{
+                        .index = asserted_cast<uint32_t>(view.buffer),
+                        .offset =
+                            offset / static_cast<uint32_t>(sizeof(uint32_t)),
+                    },
+                    asserted_cast<uint32_t>(accessor.count));
+            };
+
             // Retrieve attribute buffers
-            const auto [positions, vertexCount] = [&]
-            {
-                const auto &attribute = primitive.attributes.find("POSITION");
-                assert(attribute != primitive.attributes.end());
-                const auto &accessor = gltfModel.accessors[attribute->second];
-                const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto &data = gltfModel.buffers[view.buffer].data;
-                const size_t offset = accessor.byteOffset + view.byteOffset;
-                return std::make_tuple(
-                    reinterpret_cast<const float *>(&(data[offset])),
-                    accessor.count);
-            }();
-            const auto *normals = [&]
-            {
-                const auto &attribute = primitive.attributes.find("NORMAL");
-                assert(attribute != primitive.attributes.end());
-                const auto &accessor = gltfModel.accessors[attribute->second];
-                const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto &data = gltfModel.buffers[view.buffer].data;
-                const size_t offset = accessor.byteOffset + view.byteOffset;
-                return reinterpret_cast<const float *>(&(data[offset]));
-            }();
-            const auto *tangents = [&]
-            {
-                const auto &attribute = primitive.attributes.find("TANGENT");
-                if (attribute == primitive.attributes.end())
-                {
-                    fprintf(
-                        stderr,
-                        "Missing tangents for '%s'. RT won't have normal "
-                        "maps.\n",
-                        model.name.c_str());
-                    return static_cast<const float *>(nullptr);
-                }
-                const auto &accessor = gltfModel.accessors[attribute->second];
-                const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto &data = gltfModel.buffers[view.buffer].data;
-                const size_t offset = accessor.byteOffset + view.byteOffset;
-                return reinterpret_cast<const float *>(&(data[offset]));
-            }();
-            const auto *texCoords0 = [&]
-            {
-                const auto &attribute = primitive.attributes.find("TEXCOORD_0");
-                if (attribute == primitive.attributes.end())
-                    return static_cast<const float *>(nullptr);
-                const auto &accessor = gltfModel.accessors[attribute->second];
-                const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto &data = gltfModel.buffers[view.buffer].data;
-                const size_t offset = accessor.byteOffset + view.byteOffset;
-                return reinterpret_cast<const float *>(&(data[offset]));
-            }();
+            const auto [positions, positionsCount] =
+                assertedGetAttr("POSITION", true);
+            const auto [normals, normalsCount] =
+                assertedGetAttr("NORMAL", true);
+            const auto [tangents, tangentsCount] = assertedGetAttr("TANGENT");
+            const auto [texCoord0s, texCoord0sCount] =
+                assertedGetAttr("TEXCOORD_0");
+            assert(positionsCount == normalsCount);
+            assert(tangentsCount == 0 || tangentsCount == positionsCount);
+            assert(texCoord0sCount == 0 || texCoord0sCount == positionsCount);
 
-            // Clang doesn't support capture of structured bindings (yet?)
-            const std::vector<Vertex> vertices =
-                [&, vertexCount = vertexCount, positions = positions]
-            {
-                std::vector<Vertex> vs;
-                for (size_t v = 0; v < vertexCount; ++v)
-                {
-                    vs.push_back(Vertex{
-                        .pos = vec3{make_vec3(&positions[v * 3])},
-                        .normal = normalize(make_vec3(&normals[v * 3])),
-                        .tangent = tangents != nullptr
-                                       ? normalize(make_vec4(&tangents[v * 4]))
-                                       : vec4(0),
-                        .texCoord0 = texCoords0 != nullptr
-                                         ? make_vec2(&texCoords0[v * 2])
-                                         : vec2(0),
-                    });
-                }
-                return vs;
-            }();
+            if (tangentsCount == 0)
+                fprintf(
+                    stderr,
+                    "Missing tangents for '%s'. RT won't have normal "
+                    "maps.\n",
+                    model.name.c_str());
 
-            const std::vector<uint32_t> indices = [&, vertexCount = vertexCount]
+            const auto [indices, indexCount, usesShortIndices] = [&]
             {
-                std::vector<uint32_t> is;
-                // TODO: Other index types
                 assert(primitive.indices > -1);
                 const auto &accessor = gltfModel.accessors[primitive.indices];
                 const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto &data = gltfModel.buffers[view.buffer].data;
-                const size_t offset = accessor.byteOffset + view.byteOffset;
+                const auto offset = asserted_cast<uint32_t>(
+                    accessor.byteOffset + view.byteOffset);
+                assert(
+                    offset % sizeof(uint32_t) == 0 &&
+                    "Shader binds buffers as uint");
 
-                if (accessor.componentType ==
-                    TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
-                {
-                    const auto *indexData =
-                        reinterpret_cast<const uint32_t *>(&(data[offset]));
-                    is = {indexData, indexData + vertexCount};
-                }
-                else if (
+                assert(
                     accessor.componentType ==
-                    TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-                {
-                    const auto *indexData =
-                        reinterpret_cast<const uint16_t *>(&(data[offset]));
-                    is.resize(accessor.count);
-                    for (size_t i = 0; i < accessor.count; ++i)
-                        is[i] = indexData[i];
-                }
-                else
-                {
-                    const auto *indexData =
-                        reinterpret_cast<const uint8_t *>(&(data[offset]));
-                    is.resize(accessor.count);
-                    for (size_t i = 0; i < accessor.count; ++i)
-                        is[i] = indexData[i];
-                }
+                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT ||
+                    accessor.componentType ==
+                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
 
-                return is;
+                return std::make_tuple(
+                    MeshBuffers::Buffer{
+                        .index = asserted_cast<uint32_t>(view.buffer),
+                        .offset =
+                            offset / static_cast<uint32_t>(sizeof(uint32_t)),
+                    },
+                    asserted_cast<uint32_t>(accessor.count),
+                    static_cast<uint32_t>(
+                        accessor.componentType ==
+                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT));
             }();
 
             // -1 is mapped to the default material
             assert(primitive.material > -2);
             const uint32_t material = primitive.material + 1;
 
-            _meshes.emplace_back(_device, vertices, indices);
+            _meshBuffers.push_back(MeshBuffers{
+                .indices = indices,
+                .positions = positions,
+                .normals = normals,
+                .tangents = tangents,
+                .texCoord0s = texCoord0s,
+                .usesShortIndices = usesShortIndices,
+            });
+            _meshInfos.push_back(MeshInfo{
+                .vertexCount = positionsCount,
+                .indexCount = indexCount,
+            });
             _models.back().subModels.push_back({
-                .meshID = asserted_cast<uint32_t>(_meshes.size() - 1),
+                .meshID = asserted_cast<uint32_t>(_meshBuffers.size() - 1),
                 .materialID = material,
             });
         }
     }
+    _meshBuffersBuffer = _device->createBuffer(BufferCreateInfo{
+        .byteSize =
+            asserted_cast<uint32_t>(_meshBuffers.size() * sizeof(MeshBuffers)),
+        .usage = vk::BufferUsageFlagBits::
+                     eAccelerationStructureBuildInputReadOnlyKHR |
+                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                 vk::BufferUsageFlagBits::eStorageBuffer |
+                 vk::BufferUsageFlagBits::eTransferDst,
+        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        .initialData = _meshBuffers.data(),
+        .debugName = "MeshBuffersBuffer",
+    });
 }
 
 void World::loadScenes(const tinygltf::Model &gltfModel)
@@ -820,26 +822,37 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
 
 void World::createBlases()
 {
-    _blases.resize(_meshes.size());
+    assert(_meshBuffers.size() == _meshInfos.size());
+    _blases.resize(_meshBuffers.size());
     for (size_t i = 0; i < _blases.size(); ++i)
     {
-        const auto &mesh = _meshes[i];
+        const auto &buffers = _meshBuffers[i];
+        const auto &info = _meshInfos[i];
         auto &blas = _blases[i];
         // Basics from RT Gems II chapter 16
 
+        const auto positionsAddr =
+            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                .buffer = _geometryBuffers[buffers.positions.index].handle,
+            });
+        const auto positionsOffset =
+            buffers.positions.offset * sizeof(uint32_t);
+
+        const auto indicesAddr =
+            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+                .buffer = _geometryBuffers[buffers.indices.index].handle,
+            });
+        const auto indicesOffset = buffers.indices.offset * sizeof(uint32_t);
+
         const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
             .vertexFormat = vk::Format::eR32G32B32Sfloat,
-            .vertexData =
-                _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                    .buffer = mesh.vertexBuffer(),
-                }),
-            .vertexStride = sizeof(Vertex),
-            .maxVertex = _meshes[i].vertexCount(),
-            .indexType = vk::IndexType::eUint32,
-            .indexData =
-                _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                    .buffer = mesh.indexBuffer(),
-                }),
+            .vertexData = positionsAddr + positionsOffset,
+            .vertexStride = 3 * sizeof(float),
+            .maxVertex = info.vertexCount,
+            .indexType = buffers.usesShortIndices == 1u
+                             ? vk::IndexType::eUint16
+                             : vk::IndexType::eUint32,
+            .indexData = indicesAddr + indicesOffset,
         };
         const vk::AccelerationStructureGeometryKHR geometry{
             .geometryType = vk::GeometryTypeKHR::eTriangles,
@@ -847,7 +860,7 @@ void World::createBlases()
             .flags = vk::GeometryFlagBitsKHR::eOpaque,
         };
         const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
-            .primitiveCount = mesh.indexCount() / 3,
+            .primitiveCount = info.indexCount / 3,
             .primitiveOffset = 0,
             .firstVertex = 0,
             .transformOffset = 0,
@@ -1318,98 +1331,90 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     // Geometry layouts and descriptor set
     // Define outside the helper scope to keep alive until
     // updateDescriptorSets
-    std::vector<vk::DescriptorBufferInfo> vertexBufferInfos;
-    std::vector<vk::DescriptorBufferInfo> indexBufferInfos;
+    std::vector<vk::DescriptorBufferInfo> bufferInfos;
     {
-        vertexBufferInfos.reserve(_meshes.size());
-        vertexBufferInfos.reserve(_meshes.size());
-        for (const auto &m : _meshes)
-        {
-            vertexBufferInfos.push_back(vk::DescriptorBufferInfo{
-                .buffer = m.vertexBuffer(),
+        bufferInfos.reserve(_geometryBuffers.size() + 1);
+        for (const auto &b : _geometryBuffers)
+            bufferInfos.push_back(vk::DescriptorBufferInfo{
+                .buffer = b.handle,
                 .range = VK_WHOLE_SIZE,
             });
-            indexBufferInfos.push_back(vk::DescriptorBufferInfo{
-                .buffer = m.indexBuffer(),
-                .range = VK_WHOLE_SIZE,
-            });
-        }
-        const auto vertexBuffersCount =
-            asserted_cast<uint32_t>(vertexBufferInfos.size());
-        const auto indexBuffersCount =
-            asserted_cast<uint32_t>(indexBufferInfos.size());
+        const auto bufferCount = asserted_cast<uint32_t>(bufferInfos.size());
 
-        const auto createDSLayout =
-            [this](vk::DescriptorSetLayout *layout, uint32_t descriptorCount)
-        {
-            const vk::DescriptorSetLayoutBinding layoutBinding{
+        bufferInfos.push_back(vk::DescriptorBufferInfo{
+            .buffer = _meshBuffersBuffer.handle,
+            .range = VK_WHOLE_SIZE,
+        });
+
+        const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
+            vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
-                .descriptorCount = descriptorCount,
+                .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eVertex |
                               vk::ShaderStageFlagBits::eRaygenKHR,
+            },
+            vk::DescriptorSetLayoutBinding{
+                .binding = 1,
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .descriptorCount = bufferCount,
+                .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
+            },
+        };
+        const std::array<vk::DescriptorBindingFlags, 2> descriptorFlags = {
+            vk::DescriptorBindingFlags{},
+            vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
+        };
+        const vk::StructureChain<
+            vk::DescriptorSetLayoutCreateInfo,
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo>
+            layoutChain{
+                vk::DescriptorSetLayoutCreateInfo{
+                    .bindingCount =
+                        asserted_cast<uint32_t>(layoutBindings.size()),
+                    .pBindings = layoutBindings.data(),
+                },
+                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+                    .bindingCount =
+                        asserted_cast<uint32_t>(descriptorFlags.size()),
+                    .pBindingFlags = descriptorFlags.data(),
+                }};
+        _dsLayouts.geometry = _device->logical().createDescriptorSetLayout(
+            layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
+
+        const vk::StructureChain<
+            vk::DescriptorSetAllocateInfo,
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo>
+            dsChain{
+                vk::DescriptorSetAllocateInfo{
+                    .descriptorPool = _descriptorPool,
+                    .descriptorSetCount = 1,
+                    .pSetLayouts = &_dsLayouts.geometry,
+                },
+                vk::DescriptorSetVariableDescriptorCountAllocateInfo{
+                    .descriptorSetCount = 1,
+                    .pDescriptorCounts = &bufferCount,
+                },
             };
-            const vk::DescriptorBindingFlags variableDescriptorsFlag =
-                vk::DescriptorBindingFlagBits::eVariableDescriptorCount;
-            const vk::StructureChain<
-                vk::DescriptorSetLayoutCreateInfo,
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo>
-                layoutChain{
-                    vk::DescriptorSetLayoutCreateInfo{
-                        .bindingCount = 1,
-                        .pBindings = &layoutBinding,
-                    },
-                    vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                        .bindingCount = 1,
-                        .pBindingFlags = &variableDescriptorsFlag,
-                    }};
-            *layout = _device->logical().createDescriptorSetLayout(
-                layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
-        };
-        createDSLayout(&_dsLayouts.vertexBuffers, vertexBuffersCount);
-        createDSLayout(&_dsLayouts.indexBuffers, indexBuffersCount);
+        _geometryDS = _device->logical().allocateDescriptorSets(
+            dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
 
-        const auto createDS = [this](
-                                  vk::DescriptorSet *ds,
-                                  vk::DescriptorSetLayout layout,
-                                  uint32_t descriptorCount)
-        {
-            const vk::StructureChain<
-                vk::DescriptorSetAllocateInfo,
-                vk::DescriptorSetVariableDescriptorCountAllocateInfo>
-                dsChain{
-                    vk::DescriptorSetAllocateInfo{
-                        .descriptorPool = _descriptorPool,
-                        .descriptorSetCount = 1,
-                        .pSetLayouts = &layout},
-                    vk::DescriptorSetVariableDescriptorCountAllocateInfo{
-                        .descriptorSetCount = 1,
-                        .pDescriptorCounts = &descriptorCount,
-                    }};
-            *ds = _device->logical().allocateDescriptorSets(
-                dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
-        };
-        createDS(
-            &_vertexBuffersDS, _dsLayouts.vertexBuffers, vertexBuffersCount);
-        createDS(&_indexBuffersDS, _dsLayouts.indexBuffers, indexBuffersCount);
-
-        dss.reserve(dss.size() + 2);
         dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _vertexBuffersDS,
+            .dstSet = _geometryDS,
             .dstBinding = 0,
             .dstArrayElement = 0,
-            .descriptorCount =
-                asserted_cast<uint32_t>(vertexBufferInfos.size()),
+            .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = vertexBufferInfos.data(),
+            .pBufferInfo = &bufferInfos.back(),
         });
         dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _indexBuffersDS,
-            .dstBinding = 0,
+            .dstSet = _geometryDS,
+            .dstBinding = 1,
             .dstArrayElement = 0,
-            .descriptorCount = asserted_cast<uint32_t>(indexBufferInfos.size()),
+            .descriptorCount = asserted_cast<uint32_t>(bufferInfos.size() - 1),
             .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = indexBufferInfos.data(),
+            .pBufferInfo = bufferInfos.data(),
         });
     }
 
