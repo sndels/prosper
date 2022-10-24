@@ -65,8 +65,6 @@ QueueFamilies findQueueFamilies(
                 device.getSurfaceSupportKHR(i, surface);
 
             // Set index to matching families
-            if (allFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
-                families.computeFamily = i;
             if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
                 families.graphicsFamily = i;
             if (presentSupport == VK_TRUE)
@@ -80,10 +78,6 @@ QueueFamilies findQueueFamilies(
     assert(
         (!families.graphicsFamily ||
          (allFamilies[*families.graphicsFamily].timestampValidBits == 64)) &&
-        "All bits assumed to be valid for simplicity in profiler");
-    assert(
-        (!families.computeFamily ||
-         (allFamilies[*families.computeFamily].timestampValidBits == 64)) &&
         "All bits assumed to be valid for simplicity in profiler");
     assert(
         (!families.presentFamily ||
@@ -365,7 +359,6 @@ Device::~Device()
 {
     // Also cleans up associated command buffers
     _logical.destroy(_graphicsPool);
-    _logical.destroy(_computePool);
     vmaDestroyAllocator(_allocator);
     // Implicitly cleans up associated queues as well
     _logical.destroy();
@@ -382,11 +375,7 @@ vk::Device Device::logical() const { return _logical; }
 
 vk::SurfaceKHR Device::surface() const { return _surface; }
 
-vk::CommandPool Device::computePool() const { return _graphicsPool; }
-
 vk::CommandPool Device::graphicsPool() const { return _graphicsPool; }
-
-vk::Queue Device::computeQueue() const { return _computeQueue; }
 
 vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
 
@@ -835,7 +824,6 @@ void Device::selectPhysicalDevice()
 
 void Device::createLogicalDevice(bool enableDebugLayers)
 {
-    const uint32_t computeFamily = _queueFamilies.computeFamily.value();
     const uint32_t graphicsFamily = _queueFamilies.graphicsFamily.value();
     const uint32_t presentFamily = _queueFamilies.presentFamily.value();
 
@@ -844,7 +832,7 @@ void Device::createLogicalDevice(bool enableDebugLayers)
     const std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]
     {
         const std::set<uint32_t> uniqueQueueFamilies = {
-            computeFamily, graphicsFamily, presentFamily};
+            graphicsFamily, presentFamily};
 
         std::vector<vk::DeviceQueueCreateInfo> cis;
         cis.reserve(uniqueQueueFamilies.size());
@@ -887,7 +875,6 @@ void Device::createLogicalDevice(bool enableDebugLayers)
     _logical = _physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
 
     // Get the created queues
-    _computeQueue = _logical.getQueue(computeFamily, 0);
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
     _presentQueue = _logical.getQueue(presentFamily, 0);
 }
@@ -912,13 +899,5 @@ void Device::createCommandPools()
             .queueFamilyIndex = _queueFamilies.graphicsFamily.value(),
         };
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
-    }
-
-    {
-        const vk::CommandPoolCreateInfo poolInfo{
-            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = _queueFamilies.computeFamily.value(),
-        };
-        _computePool = _logical.createCommandPool(poolInfo, nullptr);
     }
 }

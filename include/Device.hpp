@@ -13,14 +13,12 @@
 
 struct QueueFamilies
 {
-    std::optional<uint32_t> computeFamily;
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
     [[nodiscard]] bool isComplete() const
     {
-        return computeFamily.has_value() && graphicsFamily.has_value() &&
-               presentFamily.has_value();
+        return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
 
@@ -70,9 +68,7 @@ class Device
     [[nodiscard]] vk::PhysicalDevice physical() const;
     [[nodiscard]] vk::Device logical() const;
     [[nodiscard]] vk::SurfaceKHR surface() const;
-    [[nodiscard]] vk::CommandPool computePool() const;
     [[nodiscard]] vk::CommandPool graphicsPool() const;
-    [[nodiscard]] vk::Queue computeQueue() const;
     [[nodiscard]] vk::Queue graphicsQueue() const;
     [[nodiscard]] vk::Queue presentQueue() const;
     [[nodiscard]] const QueueFamilies &queueFamilies() const;
@@ -133,11 +129,9 @@ class Device
     vk::SurfaceKHR _surface;
 
     QueueFamilies _queueFamilies;
-    vk::Queue _computeQueue;
     vk::Queue _graphicsQueue;
     vk::Queue _presentQueue;
 
-    vk::CommandPool _computePool;
     vk::CommandPool _graphicsPool;
 
     vk::DebugUtilsMessengerEXT _debugMessenger;
