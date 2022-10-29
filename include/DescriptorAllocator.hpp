@@ -22,6 +22,10 @@ class DescriptorAllocator
 
     void resetPools();
 
+    vk::DescriptorSet allocate(const vk::DescriptorSetLayout &layout);
+    vk::DescriptorSet allocate(
+        const vk::DescriptorSetLayout &layout,
+        uint32_t variableDescriptorCount);
     template <size_t N>
     std::vector<vk::DescriptorSet> allocate(
         std::span<const vk::DescriptorSetLayout, N> layouts);

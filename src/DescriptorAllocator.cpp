@@ -90,6 +90,24 @@ void DescriptorAllocator::resetPools()
     _activePool = 0;
 }
 
+vk::DescriptorSet DescriptorAllocator::allocate(
+    const vk::DescriptorSetLayout &layout)
+{
+    return allocate(std::span{&layout, 1})[0];
+}
+
+vk::DescriptorSet DescriptorAllocator::allocate(
+    const vk::DescriptorSetLayout &layout, uint32_t variableDescriptorCount)
+{
+    const vk::DescriptorSetVariableDescriptorCountAllocateInfo variableCounts{
+        .descriptorSetCount = 1,
+        .pDescriptorCounts = &variableDescriptorCount,
+    };
+    return allocate(
+        std::span{&layout, 1},
+        reinterpret_cast<const void *>(&variableCounts))[0];
+}
+
 void DescriptorAllocator::nextPool()
 {
     // initially -1 so this makes it 0 and allocates the first pool
