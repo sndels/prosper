@@ -144,6 +144,7 @@ World::World(
 , _skyboxTexture{device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
+, _descriptorAllocator{device}
 {
     printf("Loading world\n");
 
@@ -167,14 +168,11 @@ World::World(
     tl("TLAS creation", [&]() { createTlases(); });
     tl("Buffer creation", [&]() { createBuffers(swapImageCount); });
 
-    createDescriptorPool(swapImageCount);
     createDescriptorSets(swapImageCount);
 }
 
 World::~World()
 {
-    _device->logical().destroy(_descriptorPool);
-
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->logical().destroy(_dsLayouts.rayTracing);
@@ -1163,50 +1161,6 @@ void World::createBuffers(const uint32_t swapImageCount)
     }
 }
 
-void World::createDescriptorPool(const uint32_t swapImageCount)
-{
-    // TODO:
-    // Pool sizes and max set's don't seem to make sense. Re-read and
-    // rework.
-
-    // TODO: Tight bound for node descriptor count by nodes with a mesh
-    // Skybox cubemap is also one descriptor per image
-    // As is the directional light
-    const uint32_t uniformDescriptorCount =
-        swapImageCount * (asserted_cast<uint32_t>(_nodes.size()) + 2);
-    const uint32_t samplerDescriptorCount = 1; // TODO: Actual coutn
-    const uint32_t sampledImageDescriptorCount =
-        3 * asserted_cast<uint32_t>(_materials.size()) + swapImageCount;
-    const std::array poolSizes{
-        vk::DescriptorPoolSize{
-            // Dynamic need per frame descriptor sets of one descriptor per
-            // UBlock
-            vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
-        vk::DescriptorPoolSize{
-            // Samplers need one descriptor per texture as they are constant
-            // between frames
-            vk::DescriptorType::eSampler, samplerDescriptorCount},
-        vk::DescriptorPoolSize{
-            // Materials need one descriptor per texture as they are constant
-            // between frames
-            vk::DescriptorType::eSampledImage, sampledImageDescriptorCount},
-        vk::DescriptorPoolSize{
-            // Lights require per frame descriptors for points, spots
-            vk::DescriptorType::eStorageBuffer, 2 * swapImageCount},
-    };
-    // Per-frame: Nodes, skybox, dirlight, points and spots
-    // Single: Materials
-    const uint32_t maxSets =
-        swapImageCount * ((asserted_cast<uint32_t>(_nodes.size()) + 3)) +
-        asserted_cast<uint32_t>(_materials.size());
-    _descriptorPool =
-        _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
-            .maxSets = maxSets,
-            .poolSizeCount = asserted_cast<uint32_t>(poolSizes.size()),
-            .pPoolSizes = poolSizes.data(),
-        });
-}
-
 void World::createDescriptorSets(const uint32_t swapImageCount)
 {
     if (_device == nullptr)
@@ -1286,20 +1240,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             _device->logical().createDescriptorSetLayout(
                 layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 
-        const vk::StructureChain<
-            vk::DescriptorSetAllocateInfo,
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo>
-            dsChain{
-                vk::DescriptorSetAllocateInfo{
-                    .descriptorPool = _descriptorPool,
-                    .descriptorSetCount = 1,
-                    .pSetLayouts = &_dsLayouts.materialTextures},
-                vk::DescriptorSetVariableDescriptorCountAllocateInfo{
-                    .descriptorSetCount = 1,
-                    .pDescriptorCounts = &imageInfoCount,
-                }};
-        _materialTexturesDS = _device->logical().allocateDescriptorSets(
-            dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
+        _materialTexturesDS = _descriptorAllocator.allocate(
+            _dsLayouts.materialTextures, imageInfoCount);
 
         dss.reserve(dss.size() + 3);
         dss.push_back(vk::WriteDescriptorSet{
@@ -1386,22 +1328,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         _dsLayouts.geometry = _device->logical().createDescriptorSetLayout(
             layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 
-        const vk::StructureChain<
-            vk::DescriptorSetAllocateInfo,
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo>
-            dsChain{
-                vk::DescriptorSetAllocateInfo{
-                    .descriptorPool = _descriptorPool,
-                    .descriptorSetCount = 1,
-                    .pSetLayouts = &_dsLayouts.geometry,
-                },
-                vk::DescriptorSetVariableDescriptorCountAllocateInfo{
-                    .descriptorSetCount = 1,
-                    .pDescriptorCounts = &bufferCount,
-                },
-            };
-        _geometryDS = _device->logical().allocateDescriptorSets(
-            dsChain.get<vk::DescriptorSetAllocateInfo>())[0];
+        _geometryDS =
+            _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
 
         dss.push_back(vk::WriteDescriptorSet{
             .dstSet = _geometryDS,
@@ -1525,13 +1453,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                     swapImageCount, _dsLayouts.modelInstances);
 
                 scene.modelInstancesDescriptorSets =
-                    _device->logical().allocateDescriptorSets(
-                        vk::DescriptorSetAllocateInfo{
-                            .descriptorPool = _descriptorPool,
-                            .descriptorSetCount =
-                                asserted_cast<uint32_t>(layouts.size()),
-                            .pSetLayouts = layouts.data(),
-                        });
+                    _descriptorAllocator.allocate(std::span{layouts});
 
                 modelInstanceInfos.reserve(
                     modelInstanceInfos.size() +
@@ -1564,13 +1486,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 auto &lights = scene.lights;
 
                 lights.descriptorSets =
-                    _device->logical().allocateDescriptorSets(
-                        vk::DescriptorSetAllocateInfo{
-                            .descriptorPool = _descriptorPool,
-                            .descriptorSetCount =
-                                asserted_cast<uint32_t>(layouts.size()),
-                            .pSetLayouts = layouts.data(),
-                        });
+                    _descriptorAllocator.allocate(std::span{layouts});
 
                 const auto dirLightInfos =
                     lights.directionalLight.bufferInfos();
@@ -1629,12 +1545,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
             {
                 scene.rtDescriptorSet =
-                    _device->logical().allocateDescriptorSets(
-                        vk::DescriptorSetAllocateInfo{
-                            .descriptorPool = _descriptorPool,
-                            .descriptorSetCount = 1,
-                            .pSetLayouts = &_dsLayouts.rayTracing,
-                        })[0];
+                    _descriptorAllocator.allocate(_dsLayouts.rayTracing);
 
                 asDSChains.emplace_back(
                     vk::WriteDescriptorSet{
@@ -1695,13 +1606,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
         const std::vector<vk::DescriptorSetLayout> skyboxLayouts(
             swapImageCount, _dsLayouts.skybox);
-        _skyboxDSs = _device->logical().allocateDescriptorSets(
-            vk::DescriptorSetAllocateInfo{
-                .descriptorPool = _descriptorPool,
-                .descriptorSetCount =
-                    asserted_cast<uint32_t>(skyboxLayouts.size()),
-                .pSetLayouts = skyboxLayouts.data(),
-            });
+        _skyboxDSs = _descriptorAllocator.allocate(std::span{skyboxLayouts});
 
         skyboxBufferInfos.reserve(_skyboxUniformBuffers.size());
         for (auto &buffer : _skyboxUniformBuffers)

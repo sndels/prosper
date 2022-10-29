@@ -74,7 +74,6 @@ class World
     std::vector<Scene> _scenes;
     size_t _currentScene{0};
 
-    vk::DescriptorPool _descriptorPool;
     Buffer _materialsBuffer;
     vk::DescriptorSet _materialTexturesDS;
     vk::DescriptorSet _geometryDS;
@@ -95,6 +94,7 @@ class World
     void createDescriptorSets(uint32_t swapImageCount);
 
     Device *_device{nullptr};
+    DescriptorAllocator _descriptorAllocator;
 };
 
 #endif // PROSPER_WORLD_HPP
