@@ -27,7 +27,8 @@ struct PCBlock
     uint32_t drawType{0};
 };
 
-const std::array<const char *, static_cast<size_t>(Renderer::DrawType::Count)>
+constexpr std::array<
+    const char *, static_cast<size_t>(Renderer::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 } // namespace

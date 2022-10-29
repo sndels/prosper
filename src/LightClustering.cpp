@@ -9,8 +9,9 @@ using namespace glm;
 
 namespace
 {
-const uint32_t maxPointIndicesPerTile = 128;
-const uint32_t maxSpotIndicesPerTile = 128;
+
+constexpr uint32_t maxPointIndicesPerTile = 128;
+constexpr uint32_t maxSpotIndicesPerTile = 128;
 
 constexpr uint32_t sLightsBindingSet = 0;
 constexpr uint32_t sLightClustersBindingSet = 1;

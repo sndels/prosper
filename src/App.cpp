@@ -18,12 +18,12 @@ using namespace glm;
 
 namespace
 {
-const uint32_t WIDTH = 1920;
-const uint32_t HEIGHT = 1080;
+constexpr uint32_t WIDTH = 1920;
+constexpr uint32_t HEIGHT = 1080;
 
-const float CAMERA_FOV = 59.f;
-const float CAMERA_NEAR = 0.001f;
-const float CAMERA_FAR = 512.f;
+constexpr float CAMERA_FOV = 59.f;
+constexpr float CAMERA_NEAR = 0.001f;
+constexpr float CAMERA_FAR = 512.f;
 
 std::vector<vk::CommandBuffer> allocateCommandBuffers(
     Device *device, const uint32_t swapImageCount)

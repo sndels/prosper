@@ -40,11 +40,11 @@
 namespace
 {
 
-const std::array validationLayers = {
+constexpr std::array validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation",
 };
-const std::array deviceExtensions = {
+constexpr std::array deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,

@@ -24,7 +24,7 @@ using namespace glm;
 namespace
 {
 
-const size_t SKYBOX_VERTS_SIZE = 36;
+constexpr size_t SKYBOX_VERTS_SIZE = 36;
 
 tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 {
