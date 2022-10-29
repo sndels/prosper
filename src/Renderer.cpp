@@ -114,7 +114,7 @@ void Renderer::record(
         const auto _s = profiler->createCpuGpuScope(
             cb, render_transparents ? "Transparent" : "Opaque");
 
-        const std::array<vk::ImageMemoryBarrier2, 3> imageBarriers{
+        const std::array imageBarriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -133,7 +133,7 @@ void Renderer::record(
                 }),
         };
 
-        const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
+        const std::array bufferBarriers{
             _resources->buffers.lightClusters.indicesCount.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
@@ -353,7 +353,7 @@ void Renderer::createAttachments()
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = vk::ClearValue{std::array<float, 4>{0.f, 0.f, 0.f, 0.f}},
+        .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
     };
     _colorAttachments[1] = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneColor.view,
@@ -366,7 +366,7 @@ void Renderer::createAttachments()
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = vk::ClearValue{std::array<float, 4>{1.f, 0.f, 0.f, 0.f}},
+        .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
     };
     _depthAttachments[1] = vk::RenderingAttachmentInfo{
         .imageView = _resources->images.sceneDepth.view,

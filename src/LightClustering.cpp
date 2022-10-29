@@ -36,29 +36,29 @@ LightClustering::LightClustering(
     if (!compileShaders())
         throw std::runtime_error("LightClustering shader compilation failed");
 
-    const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{{
-        {
+    const std::array layoutBindings{
+        vk::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eFragment |
                           vk::ShaderStageFlagBits::eCompute,
         },
-        {
+        vk::DescriptorSetLayoutBinding{
             .binding = 1,
             .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eFragment |
                           vk::ShaderStageFlagBits::eCompute,
         },
-        {
+        vk::DescriptorSetLayoutBinding{
             .binding = 2,
             .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eFragment |
                           vk::ShaderStageFlagBits::eCompute,
         },
-    }};
+    };
     _resources->buffers.lightClusters.descriptorSetLayout =
         _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
@@ -138,7 +138,7 @@ void LightClustering::record(
                     .layout = vk::ImageLayout::eGeneral,
                 });
 
-        const std::array<vk::BufferMemoryBarrier2, 2> bufferBarriers{
+        const std::array bufferBarriers{
             _resources->buffers.lightClusters.indices.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,

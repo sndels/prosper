@@ -170,52 +170,52 @@ void ImGuiRenderer::recreateSwapchainRelated()
 void ImGuiRenderer::createDescriptorPool()
 {
     const uint32_t maxSets = 1000;
-    const std::array<vk::DescriptorPoolSize, 11> poolSizes{{
-        {
+    const std::array poolSizes{
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eSampler,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eCombinedImageSampler,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eSampledImage,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eStorageImage,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformTexelBuffer,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eStorageTexelBuffer,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eStorageBuffer,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformBufferDynamic,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eStorageBufferDynamic,
             .descriptorCount = maxSets,
         },
-        {
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eInputAttachment,
             .descriptorCount = maxSets,
         },
-    }};
+    };
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .maxSets = maxSets * asserted_cast<uint32_t>(poolSizes.size()),

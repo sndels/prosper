@@ -94,12 +94,9 @@ vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
 {
     return vk::TransformMatrixKHR{
         .matrix = {{
-            std::array<float, 4>{
-                trfn[0][0], trfn[1][0], trfn[2][0], trfn[3][0]},
-            std::array<float, 4>{
-                trfn[0][1], trfn[1][1], trfn[2][1], trfn[3][1]},
-            std::array<float, 4>{
-                trfn[0][2], trfn[1][2], trfn[2][2], trfn[3][2]},
+            std::array{trfn[0][0], trfn[1][0], trfn[2][0], trfn[3][0]},
+            std::array{trfn[0][1], trfn[1][1], trfn[2][1], trfn[3][1]},
+            std::array{trfn[0][2], trfn[1][2], trfn[2][2], trfn[3][2]},
         }},
     };
 }
@@ -1180,18 +1177,22 @@ void World::createDescriptorPool(const uint32_t swapImageCount)
     const uint32_t samplerDescriptorCount = 1; // TODO: Actual coutn
     const uint32_t sampledImageDescriptorCount =
         3 * asserted_cast<uint32_t>(_materials.size()) + swapImageCount;
-    const std::array<vk::DescriptorPoolSize, 4> poolSizes{
-        {{// Dynamic need per frame descriptor sets of one descriptor per
-          // UBlock
-          vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
-         {// Samplers need one descriptor per texture as they are constant
-          // between frames
-          vk::DescriptorType::eSampler, samplerDescriptorCount},
-         {// Materials need one descriptor per texture as they are constant
-          // between frames
-          vk::DescriptorType::eSampledImage, sampledImageDescriptorCount},
-         {// Lights require per frame descriptors for points, spots
-          vk::DescriptorType::eStorageBuffer, 2 * swapImageCount}},
+    const std::array poolSizes{
+        vk::DescriptorPoolSize{
+            // Dynamic need per frame descriptor sets of one descriptor per
+            // UBlock
+            vk::DescriptorType::eUniformBuffer, uniformDescriptorCount},
+        vk::DescriptorPoolSize{
+            // Samplers need one descriptor per texture as they are constant
+            // between frames
+            vk::DescriptorType::eSampler, samplerDescriptorCount},
+        vk::DescriptorPoolSize{
+            // Materials need one descriptor per texture as they are constant
+            // between frames
+            vk::DescriptorType::eSampledImage, sampledImageDescriptorCount},
+        vk::DescriptorPoolSize{
+            // Lights require per frame descriptors for points, spots
+            vk::DescriptorType::eStorageBuffer, 2 * swapImageCount},
     };
     // Per-frame: Nodes, skybox, dirlight, points and spots
     // Single: Materials
@@ -1239,7 +1240,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
 
-        const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{
+        const std::array layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -1262,10 +1263,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
         };
-        const std::array<vk::DescriptorBindingFlags, 3> layoutFlags{
+        const std::array layoutFlags{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{},
-            vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
+            vk::DescriptorBindingFlags{
+                vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
         };
         const vk::StructureChain<
             vk::DescriptorSetLayoutCreateInfo,
@@ -1346,7 +1348,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .range = VK_WHOLE_SIZE,
         });
 
-        const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{
+        const std::array layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -1362,9 +1364,10 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
         };
-        const std::array<vk::DescriptorBindingFlags, 2> descriptorFlags = {
+        const std::array descriptorFlags = {
             vk::DescriptorBindingFlags{},
-            vk::DescriptorBindingFlagBits::eVariableDescriptorCount,
+            vk::DescriptorBindingFlags{
+                vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
         };
         const vk::StructureChain<
             vk::DescriptorSetLayoutCreateInfo,
@@ -1420,7 +1423,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     // RT layout
     {
-        std::array<const vk::DescriptorSetLayoutBinding, 2> layoutBindings = {
+        const std::array layoutBindings = {
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
@@ -1471,8 +1474,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     // Lights layout
     {
-        const std::array<vk::DescriptorSetLayoutBinding, 3> layoutBindings{{
-            {
+        const std::array layoutBindings{
+            vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eUniformBuffer,
                 .descriptorCount = 1,
@@ -1480,7 +1483,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eCompute |
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
-            {
+            vk::DescriptorSetLayoutBinding{
                 .binding = 1,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
@@ -1488,7 +1491,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eCompute |
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
-            {
+            vk::DescriptorSetLayoutBinding{
                 .binding = 2,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
@@ -1496,7 +1499,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eCompute |
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
-        }};
+        };
         _dsLayouts.lights = _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
                 .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
@@ -1669,21 +1672,20 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     std::vector<vk::DescriptorBufferInfo> skyboxBufferInfos;
     vk::DescriptorImageInfo skyboxImageInfo;
     {
-        const std::array<vk::DescriptorSetLayoutBinding, 2>
-            skyboxLayoutBindings{{
-                {
-                    .binding = 0,
-                    .descriptorType = vk::DescriptorType::eUniformBuffer,
-                    .descriptorCount = 1,
-                    .stageFlags = vk::ShaderStageFlagBits::eVertex,
-                },
-                {
-                    .binding = 1,
-                    .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                    .descriptorCount = 1,
-                    .stageFlags = vk::ShaderStageFlagBits::eFragment,
-                },
-            }};
+        const std::array skyboxLayoutBindings{
+            vk::DescriptorSetLayoutBinding{
+                .binding = 0,
+                .descriptorType = vk::DescriptorType::eUniformBuffer,
+                .descriptorCount = 1,
+                .stageFlags = vk::ShaderStageFlagBits::eVertex,
+            },
+            vk::DescriptorSetLayoutBinding{
+                .binding = 1,
+                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+                .descriptorCount = 1,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+            },
+        };
         _dsLayouts.skybox = _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
                 .bindingCount =

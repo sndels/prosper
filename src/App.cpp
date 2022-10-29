@@ -520,7 +520,7 @@ void App::drawFrame()
         // format?) the future
         const auto &swapImage = _swapchain.image(nextImage);
 
-        const std::array<vk::ImageMemoryBarrier2, 2> barriers{
+        const std::array barriers{
             _resources.images.toneMapped.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                 .accessMask = vk::AccessFlagBits2::eTransferRead,
@@ -551,14 +551,14 @@ void App::drawFrame()
                 .mipLevel = 0,
                 .baseArrayLayer = 0,
                 .layerCount = 1};
-            const std::array<vk::Offset3D, 2> offsets{{
+            const std::array offsets{
                 vk::Offset3D{0},
                 vk::Offset3D{
                     asserted_cast<int32_t>(_swapConfig.extent.width),
                     asserted_cast<int32_t>(_swapConfig.extent.height),
                     1,
                 },
-            }};
+            };
             const auto fboBlit = vk::ImageBlit{
                 .srcSubresource = layers,
                 .srcOffsets = offsets,
@@ -598,12 +598,16 @@ void App::drawFrame()
     }
 
     // Submit queue
-    const std::array<vk::Semaphore, 1> waitSemaphores = {
-        _imageAvailableSemaphores[nextFrame]};
-    const std::array<vk::PipelineStageFlags, 1> waitStages = {
-        vk::PipelineStageFlagBits::eColorAttachmentOutput};
-    const std::array<vk::Semaphore, 1> signalSemaphores = {
-        _renderFinishedSemaphores[nextFrame]};
+    const std::array waitSemaphores = {
+        _imageAvailableSemaphores[nextFrame],
+    };
+    const std::array waitStages = {
+        vk::PipelineStageFlags{
+            vk::PipelineStageFlagBits::eColorAttachmentOutput},
+    };
+    const std::array signalSemaphores = {
+        _renderFinishedSemaphores[nextFrame],
+    };
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),

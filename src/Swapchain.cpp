@@ -217,10 +217,10 @@ void Swapchain::destroy()
 void Swapchain::createSwapchain()
 {
     const QueueFamilies indices = _device->queueFamilies();
-    const std::array<uint32_t, 2> queueFamilyIndices = {{
+    const std::array queueFamilyIndices = {
         indices.graphicsFamily.value(),
         indices.presentFamily.value(),
-    }};
+    };
 
     // Handle ownership of images
     const auto [imageSharingMode, queueFamilyIndexCount, pQueueFamilyIndices] =

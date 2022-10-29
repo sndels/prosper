@@ -19,20 +19,20 @@ ToneMap::ToneMap(
     if (!compileShaders())
         throw std::runtime_error("ToneMap shader compilation failed");
 
-    const std::array<vk::DescriptorSetLayoutBinding, 2> layoutBindings{{
-        {
+    const std::array layoutBindings{
+        vk::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
-        {
+        vk::DescriptorSetLayoutBinding{
             .binding = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
-    }};
+    };
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
             .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
@@ -99,7 +99,7 @@ void ToneMap::record(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
-        const std::array<vk::ImageMemoryBarrier2, 2> barriers{
+        const std::array barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,

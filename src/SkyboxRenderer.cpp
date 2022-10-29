@@ -58,7 +58,7 @@ void SkyboxRenderer::record(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
-        const std::array<vk::ImageMemoryBarrier2, 2> barriers{
+        const std::array barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
