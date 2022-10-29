@@ -2,6 +2,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/App.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
     ${CMAKE_CURRENT_LIST_DIR}/InputHandler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.cpp
