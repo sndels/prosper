@@ -81,7 +81,7 @@ LightClustering::LightClustering(
             .supportAtomics = true,
         });
 
-    recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(swapConfig, camDSLayout, worldDSLayouts);
 }
 
 LightClustering::~LightClustering()
@@ -109,7 +109,7 @@ void LightClustering::recompileShaders(
     }
 }
 
-void LightClustering::recreateSwapchainRelated(
+void LightClustering::recreate(
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
@@ -283,11 +283,7 @@ void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)
         swapConfig.imageCount,
         _resources->buffers.lightClusters.descriptorSetLayout);
     _resources->buffers.lightClusters.descriptorSets =
-        _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
-            .descriptorPool = _resources->descriptorPools.swapchainRelated,
-            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data(),
-        });
+        _resources->descriptorAllocator.allocate(std::span{layouts});
 
     vk::DescriptorImageInfo pointersInfo{
         .imageView = _resources->buffers.lightClusters.pointers.view,

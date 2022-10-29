@@ -46,7 +46,7 @@ Renderer::Renderer(
     if (!compileShaders(worldDSLayouts))
         throw std::runtime_error("Renderer shader compilation failed");
 
-    recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(swapConfig, camDSLayout, worldDSLayouts);
 }
 
 Renderer::~Renderer()
@@ -72,7 +72,7 @@ void Renderer::recompileShaders(
     }
 }
 
-void Renderer::recreateSwapchainRelated(
+void Renderer::recreate(
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)

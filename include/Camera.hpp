@@ -2,6 +2,7 @@
 #define PROSPER_CAMERA_HPP
 
 #include "Device.hpp"
+#include "RenderResources.hpp"
 
 #include <glm/glm.hpp>
 
@@ -54,14 +55,16 @@ class Camera
 {
   public:
     Camera(
-        Device *device, vk::DescriptorPool descriptorPool,
-        uint32_t swapImageCount, vk::ShaderStageFlags stageFlags);
+        Device *device, RenderResources *renderResources,
+        uint32_t swapImageCount);
     ~Camera();
 
     Camera(const Camera &other) = delete;
     Camera(Camera &&other) = delete;
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
+
+    void recreate(uint32_t swapImageCount);
 
     void init(CameraParameters const &params);
 
@@ -85,15 +88,15 @@ class Camera
     void applyOffset();
 
   private:
+    void destroy();
     void createUniformBuffers(uint32_t swapImageCount);
     // Create uniform buffers first
-    void createDescriptorSets(
-        vk::DescriptorPool descriptorPool, uint32_t swapImageCount,
-        vk::ShaderStageFlags stageFlags);
+    void createDescriptorSets(uint32_t swapImageCount);
 
     void updateWorldToCamera();
 
     Device *_device{nullptr};
+    RenderResources *_renderResources{nullptr};
     CameraParameters _parameters;
     glm::mat4 _worldToClip{1.f};
     glm::mat4 _worldToCamera{1.f};

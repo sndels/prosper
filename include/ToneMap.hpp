@@ -23,7 +23,7 @@ class ToneMap
 
     void recompileShaders();
 
-    void recreateSwapchainRelated(const SwapchainConfig &swapConfig);
+    void recreate(const SwapchainConfig &swapConfig);
 
     void record(
         vk::CommandBuffer cb, uint32_t nextImage, Profiler *profiler) const;

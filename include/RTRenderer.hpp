@@ -35,7 +35,7 @@ class RTRenderer
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreateSwapchainRelated(
+    void recreate(
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 

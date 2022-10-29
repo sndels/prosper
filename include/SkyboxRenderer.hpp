@@ -28,7 +28,7 @@ class SkyboxRenderer
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreateSwapchainRelated(
+    void recreate(
         const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
 

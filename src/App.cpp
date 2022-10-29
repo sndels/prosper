@@ -18,6 +18,7 @@ using namespace glm;
 
 namespace
 {
+
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
@@ -36,45 +37,6 @@ std::vector<vk::CommandBuffer> allocateCommandBuffers(
         });
 }
 
-vk::DescriptorPool createSwapchainRelatedDescriptorPool(
-    const Device *device, const uint32_t swapImageCount)
-{
-    const vk::DescriptorPoolSize poolSize{
-        .type = vk::DescriptorType::eStorageImage,
-        .descriptorCount =
-            (2 + 2) *
-            swapImageCount, // tonemap input/output, light clustering outputs
-    };
-
-    return device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
-        .maxSets = poolSize.descriptorCount,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize,
-    });
-}
-
-RenderResources::DescriptorPools createDescriptorPools(
-    const Device *device, const uint32_t swapImageCount)
-{
-    RenderResources::DescriptorPools pools;
-    {
-        const vk::DescriptorPoolSize poolSize{
-            .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = swapImageCount, // camera uniforms
-        };
-        pools.constant =
-            device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
-                .maxSets = poolSize.descriptorCount,
-                .poolSizeCount = 1,
-                .pPoolSizes = &poolSize,
-            });
-    }
-
-    pools.swapchainRelated =
-        createSwapchainRelatedDescriptorPool(device, swapImageCount);
-
-    return pools;
-}
 } // namespace
 
 App::App(const std::filesystem::path & scene, bool enableDebugLayers)
@@ -83,13 +45,8 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 , _swapConfig{&_device, {_window.width(), _window.height()}}
 , _swapchain{&_device, _swapConfig}
 , _commandBuffers{allocateCommandBuffers(&_device, _swapConfig.imageCount)}
-, _resources{
-    .descriptorPools =
-        createDescriptorPools(&_device, _swapConfig.imageCount)}
-, _cam{&_device, _resources.descriptorPools.constant, _swapConfig.imageCount,
-    vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
-    | vk::ShaderStageFlagBits::eCompute|
-    vk::ShaderStageFlagBits::eRaygenKHR}
+, _resources{&_device}
+, _cam{&_device, &_resources, _swapConfig.imageCount}
 , _world{
     &_device, _swapConfig.imageCount,
     scene}
@@ -130,8 +87,6 @@ App::~App()
         _device.logical().destroy(semaphore);
     for (auto &semaphore : _imageAvailableSemaphores)
         _device.logical().destroy(semaphore);
-    _device.logical().destroy(_resources.descriptorPools.constant);
-    _device.logical().destroy(_resources.descriptorPools.swapchainRelated);
 }
 
 void App::run()
@@ -180,24 +135,23 @@ void App::recreateSwapchainAndRelated()
 
     _swapchain.recreate(_swapConfig);
 
-    // We could free and recreate the individual sets but destroying the pool is
+    // We could free and recreate the individual sets but reseting the pools is
     // cleaner
-    _device.logical().destroyDescriptorPool(
-        _resources.descriptorPools.swapchainRelated);
-    _resources.descriptorPools.swapchainRelated =
-        createSwapchainRelatedDescriptorPool(&_device, _swapConfig.imageCount);
+    _resources.descriptorAllocator.resetPools();
+
+    _cam.recreate(_swapConfig.imageCount);
 
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
-    _lightClustering.recreateSwapchainRelated(
+    _lightClustering.recreate(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _renderer.recreateSwapchainRelated(
+    _renderer.recreate(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _rtRenderer.recreateSwapchainRelated(
+    _rtRenderer.recreate(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _skyboxRenderer.recreateSwapchainRelated(_swapConfig, _world._dsLayouts);
-    _toneMap.recreateSwapchainRelated(_swapConfig);
-    _imguiRenderer.recreateSwapchainRelated();
+    _skyboxRenderer.recreate(_swapConfig, _world._dsLayouts);
+    _toneMap.recreate(_swapConfig);
+    _imguiRenderer.recreate();
 
     _cam.perspective(
         PerspectiveParameters{

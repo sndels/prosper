@@ -49,8 +49,6 @@ class App
     // Stored here, managed by (earliest) passes that write to them
     RenderResources _resources;
 
-    vk::DescriptorPool _descriptorPool;
-
     Camera _cam;
     World _world;
 

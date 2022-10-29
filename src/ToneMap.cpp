@@ -39,7 +39,7 @@ ToneMap::ToneMap(
             .pBindings = layoutBindings.data(),
         });
 
-    recreateSwapchainRelated(swapConfig);
+    recreate(swapConfig);
 }
 
 ToneMap::~ToneMap()
@@ -85,7 +85,7 @@ bool ToneMap::compileShaders()
     return false;
 }
 
-void ToneMap::recreateSwapchainRelated(const SwapchainConfig &swapConfig)
+void ToneMap::recreate(const SwapchainConfig &swapConfig)
 {
     destroySwapchainRelated();
     createOutputImage(swapConfig);
@@ -166,11 +166,7 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
     const std::vector<vk::DescriptorSetLayout> layouts(
         swapConfig.imageCount, _descriptorSetLayout);
     _descriptorSets =
-        _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
-            .descriptorPool = _resources->descriptorPools.swapchainRelated,
-            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data(),
-        });
+        _resources->descriptorAllocator.allocate(std::span{layouts});
 
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,

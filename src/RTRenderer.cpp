@@ -66,7 +66,7 @@ RTRenderer::RTRenderer(
             .pBindings = &layoutBinding,
         });
 
-    recreateSwapchainRelated(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(swapConfig, camDSLayout, worldDSLayouts);
 }
 
 RTRenderer::~RTRenderer()
@@ -89,7 +89,7 @@ void RTRenderer::recompileShaders(
     }
 }
 
-void RTRenderer::recreateSwapchainRelated(
+void RTRenderer::recreate(
     const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
@@ -312,11 +312,7 @@ void RTRenderer::createDescriptorSets(const SwapchainConfig &swapConfig)
     const std::vector<vk::DescriptorSetLayout> layouts(
         swapConfig.imageCount, _descriptorSetLayout);
     _descriptorSets =
-        _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
-            .descriptorPool = _resources->descriptorPools.swapchainRelated,
-            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data(),
-        });
+        _resources->descriptorAllocator.allocate(std::span{layouts});
 
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,

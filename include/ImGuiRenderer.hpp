@@ -26,7 +26,7 @@ class ImGuiRenderer
     void endFrame(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler);
 
-    void recreateSwapchainRelated();
+    void recreate();
 
   private:
     void createRenderPass(const vk::Format &colorFormat);

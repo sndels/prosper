@@ -11,24 +11,26 @@
 using namespace glm;
 
 Camera::Camera(
-    Device *device, const vk::DescriptorPool descriptorPool,
-    const uint32_t swapImageCount, const vk::ShaderStageFlags stageFlags)
+    Device *device, RenderResources *renderResources,
+    const uint32_t swapImageCount)
 : _device{device}
+, _renderResources{renderResources}
 {
+    assert(_device != nullptr);
+    assert(_renderResources != nullptr);
+
     printf("Creating Camera\n");
 
-    createUniformBuffers(swapImageCount);
-    createDescriptorSets(descriptorPool, swapImageCount, stageFlags);
+    recreate(swapImageCount);
 }
 
-Camera::~Camera()
+Camera::~Camera() { destroy(); }
+
+void Camera::recreate(const uint32_t swapImageCount)
 {
-    if (_device != nullptr)
-    {
-        _device->logical().destroy(_descriptorSetLayout);
-        for (auto &buffer : _uniformBuffers)
-            _device->destroy(buffer);
-    }
+    destroy();
+    createUniformBuffers(swapImageCount);
+    createDescriptorSets(swapImageCount);
 }
 
 void Camera::init(CameraParameters const &params)
@@ -149,6 +151,19 @@ void Camera::applyOffset()
     updateWorldToCamera();
 }
 
+void Camera::destroy()
+{
+    if (_device != nullptr)
+    {
+        _device->logical().destroy(_descriptorSetLayout);
+        for (auto &buffer : _uniformBuffers)
+            _device->destroy(buffer);
+
+        _descriptorSets.clear();
+        _uniformBuffers.clear();
+    }
+}
+
 void Camera::createUniformBuffers(const uint32_t swapImageCount)
 {
     const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
@@ -166,15 +181,16 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
     }
 }
 
-void Camera::createDescriptorSets(
-    const vk::DescriptorPool descriptorPool, const uint32_t swapImageCount,
-    const vk::ShaderStageFlags stageFlags)
+void Camera::createDescriptorSets(const uint32_t swapImageCount)
 {
     const vk::DescriptorSetLayoutBinding layoutBinding{
         .binding = 0, // binding
         .descriptorType = vk::DescriptorType::eUniformBuffer,
         .descriptorCount = 1, // descriptorCount
-        .stageFlags = stageFlags,
+        .stageFlags = vk::ShaderStageFlagBits::eVertex |
+                      vk::ShaderStageFlagBits::eFragment |
+                      vk::ShaderStageFlagBits::eCompute |
+                      vk::ShaderStageFlagBits::eRaygenKHR,
     };
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
@@ -185,11 +201,7 @@ void Camera::createDescriptorSets(
     const std::vector<vk::DescriptorSetLayout> layouts(
         swapImageCount, _descriptorSetLayout);
     _descriptorSets =
-        _device->logical().allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
-            .descriptorPool = descriptorPool,
-            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
-            .pSetLayouts = layouts.data(),
-        });
+        _renderResources->descriptorAllocator.allocate(std::span{layouts});
 
     const auto infos = bufferInfos();
     for (size_t i = 0; i < _descriptorSets.size(); ++i)

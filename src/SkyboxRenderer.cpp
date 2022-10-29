@@ -18,7 +18,7 @@ SkyboxRenderer::SkyboxRenderer(
     if (!compileShaders())
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 
-    recreateSwapchainRelated(swapConfig, worldDSLayouts);
+    recreate(swapConfig, worldDSLayouts);
 }
 
 SkyboxRenderer::~SkyboxRenderer()
@@ -42,7 +42,7 @@ void SkyboxRenderer::recompileShaders(
     }
 }
 
-void SkyboxRenderer::recreateSwapchainRelated(
+void SkyboxRenderer::recreate(
     const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();

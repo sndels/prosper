@@ -48,7 +48,7 @@ ImGuiRenderer::ImGuiRenderer(
     };
     ImGui_ImplVulkan_Init(&init_info, _renderpass);
 
-    recreateSwapchainRelated();
+    recreate();
 
     auto buffer = _device->beginGraphicsCommands();
 
@@ -152,7 +152,7 @@ void ImGuiRenderer::destroySwapchainRelated()
     _device->logical().destroy(_fbo);
 }
 
-void ImGuiRenderer::recreateSwapchainRelated()
+void ImGuiRenderer::recreate()
 {
     destroySwapchainRelated();
 
