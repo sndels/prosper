@@ -8,7 +8,8 @@
 
 namespace
 {
-vk::SurfaceFormatKHR selectSwapSurfaceFormat(
+
+constexpr vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR> &availableFormats)
 {
     // We're free to take our pick (sRGB output with "regular" 8bit rgba buffer)
@@ -32,7 +33,7 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     return availableFormats[0];
 }
 
-vk::PresentModeKHR selectSwapPresentMode(
+constexpr vk::PresentModeKHR selectSwapPresentMode(
     const std::vector<vk::PresentModeKHR> &availablePresentModes)
 {
     // Default to fifo (double buffering)
@@ -52,7 +53,7 @@ vk::PresentModeKHR selectSwapPresentMode(
     return bestMode;
 }
 
-vk::Extent2D selectSwapExtent(
+constexpr vk::Extent2D selectSwapExtent(
     const vk::Extent2D &extent, const vk::SurfaceCapabilitiesKHR &capabilities)
 {
     // Check if we have a fixed extent
@@ -72,6 +73,7 @@ vk::Extent2D selectSwapExtent(
 
     return actualExtent;
 }
+
 } // namespace
 
 SwapchainSupport::SwapchainSupport(
@@ -196,6 +198,9 @@ bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores)
 void Swapchain::recreate(const SwapchainConfig &config)
 {
     destroy();
+    assert(
+        config.imageCount == _config.imageCount &&
+        "Swap image count should not change during a run");
     _config = config;
     createSwapchain();
     createImages();

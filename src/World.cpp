@@ -90,7 +90,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
     });
 }
 
-vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
+constexpr vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
 {
     return vk::TransformMatrixKHR{
         .matrix = {{
@@ -101,7 +101,7 @@ vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
     };
 }
 
-vk::Filter getVkFilterMode(int glEnum)
+constexpr vk::Filter getVkFilterMode(int glEnum)
 {
     switch (glEnum)
     {
@@ -119,7 +119,7 @@ vk::Filter getVkFilterMode(int glEnum)
     return vk::Filter::eLinear;
 }
 
-vk::SamplerAddressMode getVkAddressMode(int glEnum)
+constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 {
     switch (glEnum)
     {

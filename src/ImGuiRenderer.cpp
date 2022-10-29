@@ -10,7 +10,7 @@
 namespace
 {
 
-void checkSuccessImGui(VkResult err)
+constexpr void checkSuccessImGui(VkResult err)
 {
     checkSuccess(static_cast<vk::Result>(err), "ImGui");
 }

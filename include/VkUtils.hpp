@@ -3,15 +3,22 @@
 
 #include <vulkan/vulkan.hpp>
 
-void checkSuccess(vk::Result result, const char *source);
+constexpr void checkSuccess(vk::Result result, const char *source)
+{
+    if (result != vk::Result::eSuccess)
+    {
+        throw std::runtime_error(
+            std::string(source) + " failed: " + vk::to_string(result) + "!");
+    }
+}
 
-template <typename T, typename V> bool containsFlag(T mask, V flag)
+template <typename T, typename V> constexpr bool containsFlag(T mask, V flag)
 {
     return (mask & flag) == flag;
 }
 
 template <typename T, typename V>
-void assertContainsFlag(T mask, V flag, const char *errMsg)
+constexpr void assertContainsFlag(T mask, V flag, const char *errMsg)
 {
     if (!containsFlag(mask, flag))
         throw std::runtime_error(errMsg);
