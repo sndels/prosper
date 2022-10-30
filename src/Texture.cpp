@@ -9,6 +9,9 @@
 
 #include "Utils.hpp"
 
+// Can be used to force re-caching for all textures
+// #define INVALIDATE_CACHE
+
 namespace
 {
 
@@ -44,6 +47,36 @@ UncompressedPixelData pixelsFromFile(const std::filesystem::path &path)
     };
 }
 
+// Returns path of the corresponding cached file, creating the folders up to it
+// if those don't exists
+std::filesystem::path cachePath(const std::filesystem::path &source)
+{
+    const auto cacheFolder = source.parent_path() / "prosper_cache";
+    if (!std::filesystem::exists(cacheFolder))
+        std::filesystem::create_directories(cacheFolder);
+
+    auto cacheFile = source.filename();
+    cacheFile.replace_extension("dds");
+    return cacheFolder / cacheFile;
+}
+
+void compress(
+    const std::filesystem::path &targetPath,
+    const UncompressedPixelData &pixels)
+{
+    gli::texture2d tex{
+        gli::FORMAT_RGBA8_UNORM_PACK8,
+        glm::ivec2{pixels.extent.width, pixels.extent.height}, 1};
+    memcpy(
+        tex.data(), pixels.data,
+        pixels.extent.width * pixels.extent.height * pixels.channels);
+
+    // TODO: Mips
+    // TODO: Compression
+
+    assert(gli::save(tex, targetPath.string()) && "GLI save failed");
+}
+
 void transitionImageLayout(
     const vk::CommandBuffer &commandBuffer, const vk::Image &image,
     const vk::ImageSubresourceRange &subresourceRange,
@@ -68,11 +101,12 @@ void transitionImageLayout(
         nullptr, 1, &barrier);
 }
 
-Buffer stagePixels(Device *device, const UncompressedPixelData &pixels)
+Buffer stagePixels(
+    Device *device, const void *data, vk::Extent2D extent,
+    uint32_t bytesPerPixel)
 {
-    const vk::DeviceSize imageSize =
-        static_cast<vk::DeviceSize>(pixels.extent.width) *
-        pixels.extent.height * pixels.channels;
+    const vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(extent.width) *
+                                     extent.height * bytesPerPixel;
 
     const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
         .byteSize = imageSize,
@@ -83,7 +117,7 @@ Buffer stagePixels(Device *device, const UncompressedPixelData &pixels)
         .debugName = "Texture2DStaging",
     });
 
-    memcpy(stagingBuffer.mapped, pixels.data, asserted_cast<size_t>(imageSize));
+    memcpy(stagingBuffer.mapped, data, asserted_cast<size_t>(imageSize));
 
     return stagingBuffer;
 }
@@ -127,45 +161,70 @@ Texture2D::Texture2D(
     Device *device, const std::filesystem::path &path, const bool mipmap)
 : Texture(device)
 {
-    auto pixels = pixelsFromFile(path);
-
-    std::vector<uint8_t> tmpPixels;
-    if (pixels.channels < 3)
-        throw std::runtime_error("Image with less than 3 components");
-
-    if (pixels.channels == 3)
+    const auto cached = cachePath(path);
+#ifndef INVALIDATE_CACHE
+    if (!std::filesystem::exists(cached))
+#endif // INVALIDATE_CACHE
     {
-        // Add fourth channel as 3 channel optimal tiling is rarely supported
-        tmpPixels.resize(
-            asserted_cast<size_t>(pixels.extent.width) * pixels.extent.height *
-            4);
-        const auto *rgb = pixels.data;
-        auto *rgba = tmpPixels.data();
-        for (auto i = 0u; i < pixels.extent.width * pixels.extent.height; ++i)
+        auto pixels = pixelsFromFile(path);
+
+        std::vector<uint8_t> tmpPixels;
+        if (pixels.channels < 3)
+            throw std::runtime_error("Image with less than 3 components");
+
+        if (pixels.channels == 3)
         {
-            rgba[0] = rgb[0];
-            rgba[1] = rgb[1];
-            rgba[2] = rgb[2];
-            rgb += 3;
-            rgba += 4;
+            // Add fourth channel as 3 channel optimal tiling is rarely
+            // supported
+            tmpPixels.resize(
+                asserted_cast<size_t>(pixels.extent.width) *
+                pixels.extent.height * 4);
+            const auto *rgb = pixels.data;
+            auto *rgba = tmpPixels.data();
+            for (auto i = 0u; i < pixels.extent.width * pixels.extent.height;
+                 ++i)
+            {
+                rgba[0] = rgb[0];
+                rgba[1] = rgb[1];
+                rgba[2] = rgb[2];
+                rgb += 3;
+                rgba += 4;
+            }
+            pixels.data = tmpPixels.data();
+            pixels.channels = 4;
         }
-        pixels.data = tmpPixels.data();
-        pixels.channels = 4;
+
+        compress(cached, pixels);
+
+        stbi_image_free(pixels.dataOwned);
     }
 
-    const auto stagingBuffer = stagePixels(_device, pixels);
+    const gli::texture2d tex(gli::load(cached.string()));
+    assert(!tex.empty());
+
+    assert(tex.format() == gli::FORMAT_RGBA8_UNORM_PACK8);
+    const uint32_t bytesPerPixel = 4;
+
+    const vk::Extent2D extent{
+
+        asserted_cast<uint32_t>(tex.extent().x),
+        asserted_cast<uint32_t>(tex.extent().y),
+    };
+
+    const auto stagingBuffer =
+        stagePixels(_device, tex.data(), extent, bytesPerPixel);
 
     const uint32_t mipLevels =
-        mipmap ? asserted_cast<uint32_t>(floor(log2(
-                     std::max(pixels.extent.width, pixels.extent.height)))) +
+        mipmap ? asserted_cast<uint32_t>(
+                     floor(log2(std::max(extent.width, extent.height)))) +
                      1
                : 1;
 
     createImage(
         stagingBuffer, ImageCreateInfo{
                            .format = vk::Format::eR8G8B8A8Unorm,
-                           .width = pixels.extent.width,
-                           .height = pixels.extent.height,
+                           .width = extent.width,
+                           .height = extent.height,
                            .mipCount = mipLevels,
                            .layerCount = 1,
                            .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
@@ -174,7 +233,6 @@ Texture2D::Texture2D(
                            .debugName = "Texture2D",
                        });
 
-    stbi_image_free(pixels.dataOwned);
     _device->destroy(stagingBuffer);
 }
 
@@ -217,7 +275,8 @@ Texture2D::Texture2D(
     else
         pixels.data = reinterpret_cast<const uint8_t *>(image.image.data());
 
-    const auto stagingBuffer = stagePixels(_device, pixels);
+    const auto stagingBuffer =
+        stagePixels(_device, pixels.data, pixels.extent, pixels.channels);
 
     const uint32_t mipLevels =
         mipmap ? asserted_cast<uint32_t>(floor(log2(
