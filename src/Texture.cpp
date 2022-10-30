@@ -4,11 +4,13 @@
 #include <iostream>
 #include <variant>
 
-#include <gli/generate_mipmaps.hpp>
+#include <compressonator.h>
 #include <gli/gli.hpp>
 #include <stb_image.h>
+#include <thread>
 #include <tiny_gltf.h>
 
+#include "Timer.hpp"
 #include "Utils.hpp"
 
 // Can be used to force re-caching for all textures
@@ -16,6 +18,40 @@
 
 namespace
 {
+
+constexpr float sCompressionQuality = 0.05f; // Range is [0.05, 1.0]
+
+constexpr const char *sCompressonatorErrorStrs[] = {
+    "CMP_OK",
+    "CMP_ABORTED",
+    "CMP_ERR_INVALID_SOURCE_TEXTURE",
+    "CMP_ERR_INVALID_DEST_TEXTURE",
+    "CMP_ERR_UNSUPPORTED_SOURCE_FORMAT",
+    "CMP_ERR_UNSUPPORTED_DEST_FORMAT",
+    "CMP_ERR_UNSUPPORTED_GPU_ASTC_DECODE",
+    "CMP_ERR_UNSUPPORTED_GPU_BASIS_DECODE",
+    "CMP_ERR_SIZE_MISMATCH",
+    "CMP_ERR_UNABLE_TO_INIT_CODEC",
+    "CMP_ERR_UNABLE_TO_INIT_DECOMPRESSLIB",
+    "CMP_ERR_UNABLE_TO_INIT_COMPUTELIB",
+    "CMP_ERR_CMP_DESTINATION",
+    "CMP_ERR_MEM_ALLOC_FOR_MIPSET",
+    "CMP_ERR_UNKNOWN_DESTINATION_FORMAT",
+    "CMP_ERR_FAILED_HOST_SETUP",
+    "CMP_ERR_PLUGIN_FILE_NOT_FOUND",
+    "CMP_ERR_UNABLE_TO_LOAD_FILE",
+    "CMP_ERR_UNABLE_TO_CREATE_ENCODER",
+    "CMP_ERR_UNABLE_TO_LOAD_ENCODER",
+    "CMP_ERR_NOSHADER_CODE_DEFINED",
+    "CMP_ERR_GPU_DOESNOT_SUPPORT_COMPUTE",
+    "CMP_ERR_NOPERFSTATS",
+    "CMP_ERR_GPU_DOESNOT_SUPPORT_CMP_EXT",
+    "CMP_ERR_GAMMA_OUTOFRANGE",
+    "CMP_ERR_PLUGIN_SHAREDIO_NOT_SET",
+    "CMP_ERR_UNABLE_TO_INIT_D3DX",
+    "CMP_FRAMEWORK_NOT_INITIALIZED",
+    "CMP_ERR_GENERIC",
+};
 
 struct UncompressedPixelData
 {
@@ -51,7 +87,7 @@ UncompressedPixelData pixelsFromFile(const std::filesystem::path &path)
 
 // Returns path of the corresponding cached file, creating the folders up to it
 // if those don't exists
-std::filesystem::path cachePath(const std::filesystem::path &source)
+std::filesystem::path getCachePath(const std::filesystem::path &source)
 {
     const auto cacheFolder = source.parent_path() / "prosper_cache";
     if (!std::filesystem::exists(cacheFolder))
@@ -62,30 +98,101 @@ std::filesystem::path cachePath(const std::filesystem::path &source)
     return cacheFolder / cacheFile;
 }
 
-void compress(
-    const std::filesystem::path &targetPath,
-    const UncompressedPixelData &pixels, bool generateMips)
+bool cmpCallback(
+    float fProgress, CMP_DWORD_PTR /*pUser1*/, CMP_DWORD_PTR /*pUser2*/)
 {
-    const auto maxLevel =
-        generateMips
-            ? asserted_cast<uint32_t>(floor(
-                  log2(std::max(pixels.extent.width, pixels.extent.height)))) +
-                  1
-            : 1;
+    printf("\r%3.0f", fProgress);
+    // Return true to abort compression
+    return false;
+}
 
-    gli::texture2d tex{
-        gli::FORMAT_RGBA8_UNORM_PACK8,
-        glm::ivec2{pixels.extent.width, pixels.extent.height}, maxLevel};
-    memcpy(
-        tex.data(), pixels.data,
-        pixels.extent.width * pixels.extent.height * pixels.channels);
+CMP_MipSet getMips(const std::filesystem::path &path)
+{
+    CMP_ERROR status;
+    auto throwStatus = [](const std::string &msg, CMP_ERROR status)
+    {
+        throw std::runtime_error(
+            msg + ": " +
+            sCompressonatorErrorStrs[static_cast<uint32_t>(status)]);
+    };
 
-    if (generateMips)
-        tex = gli::generate_mipmaps(tex, gli::FILTER_LINEAR);
+    const auto cachePath = getCachePath(path);
+#ifndef INVALIDATE_CACHE
+    if (!std::filesystem::exists(cachePath))
+#endif // INVALIDATE_CACHE
+    {
+        // TODO: Should move this code to world and process all missing images
+        // at once with the parallel cmp interface
 
-    // TODO: Compression
+        CMP_MipSet srcMips = {};
+        status = CMP_LoadTexture(path.string().c_str(), &srcMips);
+        if (status != CMP_OK)
+            throwStatus("CMP_LoadTexture (source)", status);
 
-    assert(gli::save(tex, targetPath.string()) && "GLI save failed");
+        assert(
+            (srcMips.m_format == CMP_FORMAT_RGBA_8888 ||
+             srcMips.m_format == CMP_FORMAT_RGB_888) &&
+            "BC7 only works for RGB or RGBA");
+
+        CMP_INT minMip =
+            CMP_CalcMaxMipLevel(srcMips.m_nHeight, srcMips.m_nWidth, true);
+        if (minMip > srcMips.m_nMipLevels)
+        {
+            status =
+                static_cast<CMP_ERROR>(CMP_GenerateMIPLevels(&srcMips, minMip));
+            if (status != CMP_OK)
+            {
+                CMP_FreeMipSet(&srcMips);
+                throwStatus("CMP_GenerateMipLevels", status);
+            }
+        }
+
+        // TODO: Need to force linear?
+        KernelOptions options = {
+            .fquality = sCompressionQuality,
+            .format = CMP_FORMAT_BC7,
+            .encodeWith = CMP_HPC,
+            // Don't saturate the cpu as that seems to cause contention here
+            .threads =
+                asserted_cast<CMP_INT>(std::thread::hardware_concurrency() - 6),
+        };
+
+        CMP_MipSet outMips = {};
+        printf("Processing %s\n", path.string().c_str());
+        Timer t;
+        status = CMP_ProcessTexture(&srcMips, &outMips, options, &cmpCallback);
+        if (status != CMP_OK)
+        {
+            CMP_FreeMipSet(&srcMips);
+            throwStatus("CMP_ProcessTexture", status);
+        }
+        // Compressonator 4.2 leaves its global encoder plugin alive, causing
+        // the stack pointer for the first CMP_ProcessTexture options to be used
+        // for all further ones. That of course goes to town on unrelated stack
+        // when calls are made with non-identical call paths. This can be
+        // avoided by manually destroying the plugin
+        status = CMP_DestroyComputeLibrary(true);
+        if (status != CMP_OK)
+        {
+            CMP_FreeMipSet(&srcMips);
+            throwStatus("CMP_DestroyComputeLibrary", status);
+        }
+        printf("\r%.2fs\n", t.getSeconds());
+
+        status = CMP_SaveTexture(cachePath.string().c_str(), &outMips);
+        CMP_FreeMipSet(&srcMips);
+        CMP_FreeMipSet(&outMips);
+        if (status != CMP_OK)
+            throwStatus("CMP_SaveTexture", status);
+    }
+
+    CMP_MipSet outMips = {};
+    // Load from file to make sure what we wrote is good
+    status = CMP_LoadTexture(cachePath.string().c_str(), &outMips);
+    if (status != CMP_OK)
+        throwStatus("CMP_LoadTexture (cached)", status);
+
+    return outMips;
 }
 
 void transitionImageLayout(
@@ -168,76 +275,24 @@ void Texture::destroy()
         _device->destroy(_image);
 }
 
-Texture2D::Texture2D(
-    Device *device, const std::filesystem::path &path, const bool mipmap)
+Texture2D::Texture2D(Device *device, const std::filesystem::path &path)
 : Texture(device)
 {
-    const auto cached = cachePath(path);
-#ifndef INVALIDATE_CACHE
-    if (!std::filesystem::exists(cached))
-#endif // INVALIDATE_CACHE
-    {
-        auto pixels = pixelsFromFile(path);
+    auto mips = getMips(path);
 
-        std::vector<uint8_t> tmpPixels;
-        if (pixels.channels < 3)
-            throw std::runtime_error("Image with less than 3 components");
+    assert(mips.m_format == CMP_FORMAT_BC7);
 
-        if (pixels.channels == 3)
-        {
-            // Add fourth channel as 3 channel optimal tiling is rarely
-            // supported
-            tmpPixels.resize(
-                asserted_cast<size_t>(pixels.extent.width) *
-                pixels.extent.height * 4);
-            const auto *rgb = pixels.data;
-            auto *rgba = tmpPixels.data();
-            for (auto i = 0u; i < pixels.extent.width * pixels.extent.height;
-                 ++i)
-            {
-                rgba[0] = rgb[0];
-                rgba[1] = rgb[1];
-                rgba[2] = rgb[2];
-                rgb += 3;
-                rgba += 4;
-            }
-            pixels.data = tmpPixels.data();
-            pixels.channels = 4;
-        }
-
-        compress(cached, pixels, mipmap);
-
-        stbi_image_free(pixels.dataOwned);
-    }
-
-    const gli::texture2d tex(gli::load(cached.string()));
-    assert(!tex.empty());
-    assert(tex.base_level() == 0 && "Incomplete mip chains aren't supported");
-    assert(tex.format() == gli::FORMAT_RGBA8_UNORM_PACK8);
-
-    const vk::Extent2D extent{
-        asserted_cast<uint32_t>(tex.extent().x),
-        asserted_cast<uint32_t>(tex.extent().y),
-    };
-
-    const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
-        .byteSize = tex.size(),
-        .usage = vk::BufferUsageFlagBits::eTransferSrc,
-        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                      vk::MemoryPropertyFlagBits::eHostCoherent,
-        .createMapped = true,
-        .debugName = "Texture2DStaging",
-    });
-
-    memcpy(stagingBuffer.mapped, tex.data(), tex.size());
+    const auto width = asserted_cast<uint32_t>(mips.m_nWidth);
+    const auto height = asserted_cast<uint32_t>(mips.m_nHeight);
+    const auto levels = asserted_cast<uint32_t>(mips.m_nMipLevels);
 
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
     _image = _device->createImage(ImageCreateInfo{
-        .format = vk::Format::eR8G8B8A8Unorm,
-        .width = extent.width,
-        .height = extent.height,
-        .mipCount = asserted_cast<uint32_t>(tex.levels()),
+        .format = vk::Format::eBc7UnormBlock,
+        .width = width,
+        .height = height,
+        .mipCount = levels,
         .layerCount = 1,
         .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
                       vk::ImageUsageFlagBits::eTransferDst |
@@ -245,23 +300,28 @@ Texture2D::Texture2D(
         .debugName = "Texture2D",
     });
 
-    const auto commandBuffer = _device->beginGraphicsCommands();
+    const auto rawByteSize = device->rawByteSize(_image);
 
-    _image.transition(
-        commandBuffer, ImageState{
-                           .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                           .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                           .layout = vk::ImageLayout::eTransferDstOptimal,
-                       });
+    const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
+        .byteSize = rawByteSize,
+        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                      vk::MemoryPropertyFlagBits::eHostCoherent,
+        .createMapped = true,
+        .debugName = "Texture2DStaging",
+    });
+
+    memcpy(stagingBuffer.mapped, mips.pData, mips.dwDataSize);
 
     std::vector<vk::BufferImageCopy> regions;
-    regions.reserve(tex.levels());
-    for (auto i = 0; i < tex.levels(); ++i)
+    regions.reserve(levels);
+    size_t writeOffset = 0;
+    for (auto i = 0; i < mips.m_nMipLevels; ++i)
     {
+        const auto w = std::max(width >> i, 1u);
+        const auto h = std::max(height >> i, 1u);
         regions.push_back(vk::BufferImageCopy{
-            .bufferOffset = asserted_cast<vk::DeviceSize>(
-                reinterpret_cast<const std::byte *>(tex.data(0, 0, i)) -
-                reinterpret_cast<const std::byte *>(tex.data())),
+            .bufferOffset = writeOffset,
             .bufferRowLength = 0,
             .bufferImageHeight = 0,
             .imageSubresource =
@@ -272,14 +332,26 @@ Texture2D::Texture2D(
                     .layerCount = 1,
                 },
             .imageOffset = {0, 0, 0},
-            .imageExtent =
-                {
-                    std::max(extent.width >> i, 1u),
-                    std::max(extent.height >> i, 1u),
-                    1u,
-                },
+            .imageExtent = {w, h, 1u},
         });
+
+        // TODO: Calculate offset to mip
+        assert(mips.m_format == CMP_FORMAT_BC7);
+        // BC7 is 128b for 4x4
+        const auto pixels = w * h;
+        const auto blocks = (pixels - 1) / 16 + 1;
+        const auto offset = blocks * 16;
+        writeOffset += offset;
     }
+
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    _image.transition(
+        commandBuffer, ImageState{
+                           .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                           .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                           .layout = vk::ImageLayout::eTransferDstOptimal,
+                       });
 
     commandBuffer.copyBufferToImage(
         stagingBuffer.handle, _image.handle,
@@ -298,6 +370,7 @@ Texture2D::Texture2D(
     _device->endGraphicsCommands(commandBuffer);
 
     _device->destroy(stagingBuffer);
+    CMP_FreeMipSet(&mips);
 }
 
 Texture2D::Texture2D(

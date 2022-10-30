@@ -140,7 +140,7 @@ World::World(
     Device *device, const uint32_t swapImageCount,
     const std::filesystem::path &scene)
 : _sceneDir{resPath(scene.parent_path())}
-, _emptyTexture{device, resPath("texture/empty.png"), false}
+, _emptyTexture{device, resPath("texture/empty.png")}
 , _skyboxTexture{device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
@@ -344,7 +344,7 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
             });
         else
             _textures.push_back(Texture2DSampler{
-                .tex = Texture2D{_device, _sceneDir / image.uri, true},
+                .tex = Texture2D{_device, _sceneDir / image.uri},
                 .sampler = _samplerMap[info],
             });
     }

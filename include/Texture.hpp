@@ -39,7 +39,7 @@ class Texture
 class Texture2D : public Texture
 {
   public:
-    Texture2D(Device *device, const std::filesystem::path &path, bool mipmap);
+    Texture2D(Device *device, const std::filesystem::path &path);
     Texture2D(Device *device, const tinygltf::Image &image, bool mipmap);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
