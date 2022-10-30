@@ -1,6 +1,7 @@
 #include "DescriptorAllocator.hpp"
 
 #include "Utils.hpp"
+#include "VkUtils.hpp"
 
 namespace
 {
@@ -109,6 +110,12 @@ vk::DescriptorSet DescriptorAllocator::allocate(
         reinterpret_cast<const void *>(&variableCounts))[0];
 }
 
+std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
+    std::span<const vk::DescriptorSetLayout> layouts)
+{
+    return allocate(layouts, nullptr);
+}
+
 void DescriptorAllocator::nextPool()
 {
     // initially -1 so this makes it 0 and allocates the first pool
@@ -116,4 +123,35 @@ void DescriptorAllocator::nextPool()
     if (asserted_cast<size_t>(_activePool) >= _pools.size())
         _pools.push_back(
             _device->logical().createDescriptorPool(sDefaultPoolInfo));
+}
+
+std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
+    std::span<const vk::DescriptorSetLayout> layouts, const void *allocatePNext)
+{
+    std::vector<vk::DescriptorSet> ret;
+    ret.resize(layouts.size());
+
+    auto tryAllocate = [&]() -> vk::Result
+    {
+        const vk::DescriptorSetAllocateInfo info{
+            .pNext = allocatePNext,
+            .descriptorPool = _pools[_activePool],
+            .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
+            .pSetLayouts = layouts.data(),
+        };
+        return _device->logical().allocateDescriptorSets(&info, ret.data());
+    };
+
+    auto result = tryAllocate();
+    // Get a new pool if we run out of the current one, just accept
+    // failure if we run out of host or device memory
+    if (result == vk::Result::eErrorFragmentedPool ||
+        result == vk::Result::eErrorOutOfPoolMemory)
+    {
+        nextPool();
+        result = tryAllocate();
+    }
+    checkSuccess(result, "allocateDescriptorSets");
+
+    return ret;
 }
