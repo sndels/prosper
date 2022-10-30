@@ -3,9 +3,12 @@
 
 #include "Device.hpp"
 
-#include <gli/gli.hpp>
-
 #include <filesystem>
+
+namespace gli
+{
+class texture_cube;
+}
 
 namespace tinygltf
 {
