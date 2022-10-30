@@ -1,6 +1,7 @@
 #include "Texture.hpp"
 
 #include <cmath>
+#include <fstream>
 #include <iostream>
 #include <variant>
 
@@ -15,6 +16,9 @@ using namespace wheels;
 
 namespace
 {
+
+// This should be incremented when breaking changes are made to what's cached
+const uint32_t sShaderCacheVersion = 0;
 
 struct UncompressedPixelData
 {
@@ -48,6 +52,91 @@ UncompressedPixelData pixelsFromFile(const std::filesystem::path &path)
     };
 }
 
+// Returns path of the corresponding cached file, creating the folders up to
+// it if those don't exist
+std::filesystem::path cachePath(const std::filesystem::path &source)
+{
+    const auto cacheFolder = source.parent_path() / "prosper_cache";
+    if (!std::filesystem::exists(cacheFolder))
+        std::filesystem::create_directory(cacheFolder, source.parent_path());
+
+    auto cacheFile = source.filename();
+    cacheFile.replace_extension("dds");
+    return cacheFolder / cacheFile;
+}
+
+std::filesystem::path cacheTagPath(const std::filesystem::path &cacheFile)
+{
+    std::filesystem::path tagPath = cacheFile;
+    tagPath.replace_extension("prosper_cache_tag");
+    return tagPath;
+}
+
+bool cacheValid(const std::filesystem::path &cacheFile)
+{
+    try
+    {
+        if (!std::filesystem::exists(cacheFile))
+            return false;
+
+        const std::filesystem::path tagPath = cacheTagPath(cacheFile);
+        if (!std::filesystem::exists(tagPath))
+            return false;
+
+        std::ifstream tagFile{tagPath};
+        uint32_t cacheVersion;
+        assert(sizeof(cacheVersion) == sizeof(sShaderCacheVersion));
+        // NOTE:
+        // Caches aren't supposed to be portable so this doesn't pay attention
+        // to endianness.
+        tagFile.read(
+            reinterpret_cast<char *>(&cacheVersion), sizeof(cacheVersion));
+
+        if (sShaderCacheVersion != cacheVersion)
+            return false;
+    }
+    catch (std::exception)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void compress(
+    const std::filesystem::path &targetPath,
+    const UncompressedPixelData &pixels)
+{
+    gli::texture2d tex{
+        gli::FORMAT_RGBA8_UNORM_PACK8,
+        glm::ivec2{pixels.extent.width, pixels.extent.height}, 1};
+    memcpy(
+        tex.data(), pixels.data,
+        pixels.extent.width * pixels.extent.height * pixels.channels);
+
+    // TODO: Mips
+    // TODO: Compression
+
+    assert(gli::save(tex, targetPath.string()) && "GLI save failed");
+
+    const std::filesystem::path tagPath = cacheTagPath(targetPath);
+    std::ofstream tagFile{tagPath, std::ios_base::binary};
+    // NOTE:
+    // Caches aren't supposed to be portable so this doesn't pay attention to
+    // endianness.
+    tagFile.write(
+        reinterpret_cast<const char *>(&sShaderCacheVersion),
+        sizeof(sShaderCacheVersion));
+    tagFile.close();
+
+    // Make sure we have rw permissions for the user to be nice
+    const std::filesystem::perms initialPerms =
+        std::filesystem::status(tagPath).permissions();
+    std::filesystem::permissions(
+        tagPath, initialPerms | std::filesystem::perms::owner_read |
+                     std::filesystem::perms::owner_write);
+}
+
 void transitionImageLayout(
     const vk::CommandBuffer &commandBuffer, const vk::Image &image,
     const vk::ImageSubresourceRange &subresourceRange,
@@ -73,17 +162,17 @@ void transitionImageLayout(
 }
 
 void stagePixels(
-    const Buffer &stagingBuffer, const UncompressedPixelData &pixels)
+    const Buffer &stagingBuffer, const void *data, vk::Extent2D extent,
+    uint32_t bytesPerPixel)
 {
     assert(stagingBuffer.mapped != nullptr);
-    assert(pixels.data != nullptr);
+    assert(data != nullptr);
 
-    const vk::DeviceSize imageSize =
-        static_cast<vk::DeviceSize>(pixels.extent.width) *
-        pixels.extent.height * pixels.channels;
+    const vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(extent.width) *
+                                     extent.height * bytesPerPixel;
     assert(imageSize <= stagingBuffer.byteSize);
 
-    memcpy(stagingBuffer.mapped, pixels.data, asserted_cast<size_t>(imageSize));
+    memcpy(stagingBuffer.mapped, data, asserted_cast<size_t>(imageSize));
 }
 
 } // namespace
@@ -122,41 +211,63 @@ void Texture::destroy()
 }
 
 Texture2D::Texture2D(
-    Device *device, const std::filesystem::path &path, vk::CommandBuffer cb,
-    const Buffer &stagingBuffer, const bool mipmap)
+    ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
+    vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap)
 : Texture(device)
 {
-    auto pixels = pixelsFromFile(path);
-
-    std::vector<uint8_t> tmpPixels;
-    if (pixels.channels < 3)
-        throw std::runtime_error("Image with less than 3 components");
-
-    if (pixels.channels == 3)
+    const auto cached = cachePath(path);
+    if (!cacheValid(cached))
     {
-        // Add fourth channel as 3 channel optimal tiling is rarely supported
-        tmpPixels.resize(
-            asserted_cast<size_t>(pixels.extent.width) * pixels.extent.height *
-            4);
-        const auto *rgb = pixels.data;
-        auto *rgba = tmpPixels.data();
-        for (auto i = 0u; i < pixels.extent.width * pixels.extent.height; ++i)
+        auto pixels = pixelsFromFile(path);
+
+        Array<uint8_t> tmpPixels{scopeAlloc};
+        if (pixels.channels < 3)
+            throw std::runtime_error("Image with less than 3 components");
+
+        if (pixels.channels == 3)
         {
-            rgba[0] = rgb[0];
-            rgba[1] = rgb[1];
-            rgba[2] = rgb[2];
-            rgb += 3;
-            rgba += 4;
+            // Add fourth channel as 3 channel optimal tiling is rarely
+            // supported
+            tmpPixels.resize(
+                asserted_cast<size_t>(pixels.extent.width) *
+                pixels.extent.height * 4);
+            const auto *rgb = pixels.data;
+            auto *rgba = tmpPixels.data();
+            for (auto i = 0u; i < pixels.extent.width * pixels.extent.height;
+                 ++i)
+            {
+                rgba[0] = rgb[0];
+                rgba[1] = rgb[1];
+                rgba[2] = rgb[2];
+                rgb += 3;
+                rgba += 4;
+            }
+            pixels.data = tmpPixels.data();
+            pixels.channels = 4;
         }
-        pixels.data = tmpPixels.data();
-        pixels.channels = 4;
+
+        compress(cached, pixels);
+
+        stbi_image_free(pixels.dataOwned);
     }
 
-    stagePixels(stagingBuffer, pixels);
+    const gli::texture2d tex(gli::load(cached.string()));
+    assert(!tex.empty());
+
+    assert(tex.format() == gli::FORMAT_RGBA8_UNORM_PACK8);
+    const uint32_t bytesPerPixel = 4;
+
+    const vk::Extent2D extent{
+
+        asserted_cast<uint32_t>(tex.extent().x),
+        asserted_cast<uint32_t>(tex.extent().y),
+    };
+
+    stagePixels(stagingBuffer, tex.data(), extent, bytesPerPixel);
 
     const uint32_t mipLevels =
-        mipmap ? asserted_cast<uint32_t>(floor(log2(
-                     std::max(pixels.extent.width, pixels.extent.height)))) +
+        mipmap ? asserted_cast<uint32_t>(
+                     floor(log2(std::max(extent.width, extent.height)))) +
                      1
                : 1;
 
@@ -166,8 +277,8 @@ Texture2D::Texture2D(
             .desc =
                 ImageDescription{
                     .format = vk::Format::eR8G8B8A8Unorm,
-                    .width = pixels.extent.width,
-                    .height = pixels.extent.height,
+                    .width = extent.width,
+                    .height = extent.height,
                     .mipCount = mipLevels,
                     .layerCount = 1,
                     .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
@@ -176,8 +287,6 @@ Texture2D::Texture2D(
                 },
             .debugName = "Texture2D",
         });
-
-    stbi_image_free(pixels.dataOwned);
 }
 
 Texture2D::Texture2D(
@@ -222,7 +331,7 @@ Texture2D::Texture2D(
     else
         pixels.data = reinterpret_cast<const uint8_t *>(image.image.data());
 
-    stagePixels(stagingBuffer, pixels);
+    stagePixels(stagingBuffer, pixels.data, pixels.extent, pixels.channels);
 
     const uint32_t mipLevels =
         mipmap ? asserted_cast<uint32_t>(floor(log2(

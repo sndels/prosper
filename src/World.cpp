@@ -323,8 +323,8 @@ void World::handleDeferredLoading(
             ctx.stagingBuffers[nextFrame], true);
     else
         _texture2Ds.emplace_back(
-            _device, _sceneDir / image.uri, cb, ctx.stagingBuffers[nextFrame],
-            true);
+            scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
+            ctx.stagingBuffers[nextFrame], true);
 
     const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
     const vk::WriteDescriptorSet descriptorWrite{
@@ -473,7 +473,8 @@ void World::loadTextures(
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
         _texture2Ds.emplace_back(
-            _device, resPath("texture/empty.png"), cb, stagingBuffer, false);
+            scopeAlloc.child_scope(), _device, resPath("texture/empty.png"), cb,
+            stagingBuffer, false);
         _device->endGraphicsCommands(cb);
 
         texture2DSamplers.emplace_back();
@@ -493,7 +494,8 @@ void World::loadTextures(
                     true);
             else
                 _texture2Ds.emplace_back(
-                    _device, _sceneDir / image.uri, cb, stagingBuffer, true);
+                    scopeAlloc.child_scope(), _device, _sceneDir / image.uri,
+                    cb, stagingBuffer, true);
             _device->endGraphicsCommands(cb);
         }
     }

@@ -40,7 +40,8 @@ class Texture2D : public Texture
     // The image is ready and stagingBuffer can be freed once cb is submitted
     // and has finished executing.
     Texture2D(
-        Device *device, const std::filesystem::path &path, vk::CommandBuffer cb,
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const std::filesystem::path &path, vk::CommandBuffer cb,
         const Buffer &stagingBuffer, bool mipmap);
     // The image is ready and stagingBuffer can be freed once cb is submitted
     // and has finished executing.
