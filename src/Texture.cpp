@@ -5,6 +5,7 @@
 #include <iostream>
 #include <variant>
 
+#include <gli/gli.hpp>
 #include <stb_image.h>
 #include <tiny_gltf.h>
 #include <wheels/containers/array.hpp>

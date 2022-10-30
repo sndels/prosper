@@ -5,7 +5,9 @@
 #include <limits>
 #include <stdexcept>
 
+#include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/transform.hpp>
+#include <glm/vector_relational.hpp>
 #include <imgui.h>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>

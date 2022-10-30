@@ -3,10 +3,14 @@
 
 #include "Device.hpp"
 
-#include <gli/gli.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 
 #include <filesystem>
+
+namespace gli
+{
+class texture_cube;
+}
 
 namespace tinygltf
 {

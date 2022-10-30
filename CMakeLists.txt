@@ -100,13 +100,7 @@ if(PROSPER_USE_PCH)
         [["set"]]
         [["unordered_map"]]
         [["unordered_set"]]
-        [["gli/gli.hpp"]]
-        [["glm/glm.hpp"]]
-        [["glm/gtc/quaternion.hpp"]]
-        [["glm/gtc/matrix_access.hpp"]]
-        [["glm/gtc/matrix_transform.hpp"]]
-        [["glm/gtc/type_ptr.hpp"]]
-        [["glm/gtx/matrix_decompose.hpp"]]
+        [["glm/glm.hpp"]] # Don't include glm/gtc/type_ptr as gli implements its own make_vec4 and having a header in pch makes it visible everywhere
         [["vulkan/vulkan.hpp"]]
         [["vulkan/vulkan_hash.hpp"]]
     )
