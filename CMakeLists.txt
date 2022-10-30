@@ -63,12 +63,13 @@ target_include_directories(prosper
 )
 target_link_libraries(prosper
     PRIVATE
+    CMP_Framework
     glfw
     gli
     glm
     imgui
     shaderc
-    stb_image
+    tinygltf
     vma
     vulkan
 )
@@ -80,6 +81,8 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SMART_HANDLE
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
+    TINYGLTF_NO_STB_IMAGE
+    TINYGLTF_NO_STB_IMAGE_WRITE
     TINYGLTF_NO_EXTERNAL_IMAGE
 
     # Set up absolute path to resources and binaries
