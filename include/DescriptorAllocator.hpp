@@ -13,6 +13,8 @@ class DescriptorAllocator
 {
   public:
     DescriptorAllocator(Device *device);
+    // Descriptors allocated by this allocator are implicitly freed when the
+    // pools are destroyed
     ~DescriptorAllocator();
 
     DescriptorAllocator(DescriptorAllocator const &) = delete;
@@ -20,8 +22,12 @@ class DescriptorAllocator
     DescriptorAllocator &operator=(DescriptorAllocator const &) = delete;
     DescriptorAllocator &operator=(DescriptorAllocator &&) = delete;
 
+    // Reset frees all allocated descriptors/sets and makes the pools available
+    // for new allocations
     void resetPools();
 
+    // Free is not allowed for individual descriptors. resetPools() can be used
+    // to free all descriptors allocated by this allocator.
     vk::DescriptorSet allocate(const vk::DescriptorSetLayout &layout);
     vk::DescriptorSet allocate(
         const vk::DescriptorSetLayout &layout,
@@ -71,7 +77,7 @@ std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
 
     auto result = tryAllocate();
     // Get a new pool if we run out of the current one, just accept
-    // failure if we run out of host or devie memory
+    // failure if we run out of host or device memory
     if (result == vk::Result::eErrorFragmentedPool ||
         result == vk::Result::eErrorOutOfPoolMemory)
     {
