@@ -42,8 +42,6 @@ class Texture2D : public Texture
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
   private:
-    [[nodiscard]] Buffer stagePixels(
-        const uint8_t *pixels, const vk::Extent2D &extent) const;
     void createImage(const Buffer &stagingBuffer, const ImageCreateInfo &info);
     void createMipmaps(const vk::Extent2D &extent, uint32_t mipLevels);
 };

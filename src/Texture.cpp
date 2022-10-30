@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <variant>
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -11,21 +12,36 @@
 namespace
 {
 
-std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
-    const std::filesystem::path &path)
+struct UncompressedPixelData
+{
+    // 'dataOwned', if not null, needs to be freed with stbi_image_free
+    // 'data' may or may not be == 'dataOwned'
+    const uint8_t *data{nullptr};
+    stbi_uc *dataOwned{nullptr};
+    vk::Extent2D extent{0};
+    uint32_t channels{0};
+};
+UncompressedPixelData pixelsFromFile(const std::filesystem::path &path)
 {
     const auto pathString = path.string();
     int w = 0;
     int h = 0;
     int channels = 0;
-    stbi_uc *pixels =
-        stbi_load(pathString.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+    stbi_uc *pixels = stbi_load(pathString.c_str(), &w, &h, &channels, 0);
     if (pixels == nullptr)
         throw std::runtime_error("Failed to load texture '" + pathString + "'");
 
-    return std::pair{
-        pixels,
-        vk::Extent2D{asserted_cast<uint32_t>(w), asserted_cast<uint32_t>(h)}};
+    assert(sizeof(uint8_t) == sizeof(stbi_uc));
+    return UncompressedPixelData{
+        .data = reinterpret_cast<uint8_t *>(pixels),
+        .dataOwned = pixels,
+        .extent =
+            vk::Extent2D{
+                asserted_cast<uint32_t>(w),
+                asserted_cast<uint32_t>(h),
+            },
+        .channels = asserted_cast<uint32_t>(channels),
+    };
 }
 
 void transitionImageLayout(
@@ -50,6 +66,26 @@ void transitionImageLayout(
     commandBuffer.pipelineBarrier(
         srcStageMask, dstStageMask, vk::DependencyFlags{}, 0, nullptr, 0,
         nullptr, 1, &barrier);
+}
+
+Buffer stagePixels(Device *device, const UncompressedPixelData &pixels)
+{
+    const vk::DeviceSize imageSize =
+        static_cast<vk::DeviceSize>(pixels.extent.width) *
+        pixels.extent.height * pixels.channels;
+
+    const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
+        .byteSize = imageSize,
+        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                      vk::MemoryPropertyFlagBits::eHostCoherent,
+        .createMapped = true,
+        .debugName = "Texture2DStaging",
+    });
+
+    memcpy(stagingBuffer.mapped, pixels.data, asserted_cast<size_t>(imageSize));
+
+    return stagingBuffer;
 }
 
 } // namespace
@@ -91,20 +127,45 @@ Texture2D::Texture2D(
     Device *device, const std::filesystem::path &path, const bool mipmap)
 : Texture(device)
 {
-    const auto [pixels, extent] = pixelsFromFile(path);
-    const auto stagingBuffer = stagePixels(pixels, extent);
+    auto pixels = pixelsFromFile(path);
+
+    std::vector<uint8_t> tmpPixels;
+    if (pixels.channels < 3)
+        throw std::runtime_error("Image with less than 3 components");
+
+    if (pixels.channels == 3)
+    {
+        // Add fourth channel as 3 channel optimal tiling is rarely supported
+        tmpPixels.resize(
+            asserted_cast<size_t>(pixels.extent.width) * pixels.extent.height *
+            4);
+        const auto *rgb = pixels.data;
+        auto *rgba = tmpPixels.data();
+        for (auto i = 0u; i < pixels.extent.width * pixels.extent.height; ++i)
+        {
+            rgba[0] = rgb[0];
+            rgba[1] = rgb[1];
+            rgba[2] = rgb[2];
+            rgb += 3;
+            rgba += 4;
+        }
+        pixels.data = tmpPixels.data();
+        pixels.channels = 4;
+    }
+
+    const auto stagingBuffer = stagePixels(_device, pixels);
 
     const uint32_t mipLevels =
-        mipmap ? asserted_cast<uint32_t>(
-                     floor(log2(std::max(extent.width, extent.height)))) +
+        mipmap ? asserted_cast<uint32_t>(floor(log2(
+                     std::max(pixels.extent.width, pixels.extent.height)))) +
                      1
                : 1;
 
     createImage(
         stagingBuffer, ImageCreateInfo{
                            .format = vk::Format::eR8G8B8A8Unorm,
-                           .width = extent.width,
-                           .height = extent.height,
+                           .width = pixels.extent.width,
+                           .height = pixels.extent.height,
                            .mipCount = mipLevels,
                            .layerCount = 1,
                            .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
@@ -113,7 +174,7 @@ Texture2D::Texture2D(
                            .debugName = "Texture2D",
                        });
 
-    stbi_image_free(pixels);
+    stbi_image_free(pixels.dataOwned);
     _device->destroy(stagingBuffer);
 }
 
@@ -125,7 +186,13 @@ Texture2D::Texture2D(
     if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
         throw std::runtime_error("Unsupported glTF pixel_type");
 
-    const uint8_t *pixels = nullptr;
+    UncompressedPixelData pixels{
+        .extent =
+            vk::Extent2D{
+                asserted_cast<uint32_t>(image.width),
+                asserted_cast<uint32_t>(image.height),
+            },
+    };
     std::vector<uint8_t> tmpPixels;
     if (image.component < 3)
         throw std::runtime_error("Image with less than 3 components");
@@ -144,26 +211,25 @@ Texture2D::Texture2D(
             rgb += 3;
             rgba += 4;
         }
-        pixels = tmpPixels.data();
+        pixels.data = tmpPixels.data();
+        pixels.channels = 4;
     }
     else
-        pixels = reinterpret_cast<const uint8_t *>(image.image.data());
-    const vk::Extent2D extent{
-        asserted_cast<uint32_t>(image.width),
-        asserted_cast<uint32_t>(image.height)};
-    const auto stagingBuffer = stagePixels(pixels, extent);
+        pixels.data = reinterpret_cast<const uint8_t *>(image.image.data());
+
+    const auto stagingBuffer = stagePixels(_device, pixels);
 
     const uint32_t mipLevels =
-        mipmap ? asserted_cast<uint32_t>(
-                     floor(log2(std::max(extent.width, extent.height)))) +
+        mipmap ? asserted_cast<uint32_t>(floor(log2(
+                     std::max(pixels.extent.width, pixels.extent.height)))) +
                      1
                : 1;
 
     createImage(
         stagingBuffer, ImageCreateInfo{
                            .format = vk::Format::eR8G8B8A8Unorm,
-                           .width = extent.width,
-                           .height = extent.height,
+                           .width = pixels.extent.width,
+                           .height = pixels.extent.height,
                            .mipCount = mipLevels,
                            .layerCount = 1,
                            .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
@@ -181,26 +247,6 @@ vk::DescriptorImageInfo Texture2D::imageInfo() const
         .imageView = _image.view,
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
-}
-
-Buffer Texture2D::stagePixels(
-    const uint8_t *pixels, const vk::Extent2D &extent) const
-{
-    const vk::DeviceSize imageSize =
-        static_cast<vk::DeviceSize>(extent.width) * extent.height * 4;
-
-    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
-        .byteSize = imageSize,
-        .usage = vk::BufferUsageFlagBits::eTransferSrc,
-        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                      vk::MemoryPropertyFlagBits::eHostCoherent,
-        .createMapped = true,
-        .debugName = "Texture2DStaging",
-    });
-
-    memcpy(stagingBuffer.mapped, pixels, asserted_cast<size_t>(imageSize));
-
-    return stagingBuffer;
 }
 
 void Texture2D::createImage(
