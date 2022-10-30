@@ -52,9 +52,6 @@ class Texture2D : public Texture
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
   private:
-    void stagePixels(
-        const Buffer &stagingBuffer, const uint8_t *pixels,
-        const vk::Extent2D &extent) const;
     void createImage(
         vk::CommandBuffer cb, const Buffer &stagingBuffer,
         const ImageCreateInfo &info);
