@@ -5,6 +5,7 @@
 namespace
 {
 
+// On Turing, these defaults require ~2MB of host memory per pool
 constexpr auto sDefaultAccelerationStructureCount = 100;
 constexpr auto sDefaultSamplerDescriptorCount = 100;
 constexpr auto sDefaultDescriptorCount = 1000;
