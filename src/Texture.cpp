@@ -4,6 +4,7 @@
 #include <iostream>
 #include <variant>
 
+#include <gli/generate_mipmaps.hpp>
 #include <gli/gli.hpp>
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -63,16 +64,25 @@ std::filesystem::path cachePath(const std::filesystem::path &source)
 
 void compress(
     const std::filesystem::path &targetPath,
-    const UncompressedPixelData &pixels)
+    const UncompressedPixelData &pixels, bool generateMips)
 {
+    const auto maxLevel =
+        generateMips
+            ? asserted_cast<uint32_t>(floor(
+                  log2(std::max(pixels.extent.width, pixels.extent.height)))) +
+                  1
+            : 1;
+
     gli::texture2d tex{
         gli::FORMAT_RGBA8_UNORM_PACK8,
-        glm::ivec2{pixels.extent.width, pixels.extent.height}, 1};
+        glm::ivec2{pixels.extent.width, pixels.extent.height}, maxLevel};
     memcpy(
         tex.data(), pixels.data,
         pixels.extent.width * pixels.extent.height * pixels.channels);
 
-    // TODO: Mips
+    if (generateMips)
+        tex = gli::generate_mipmaps(tex, gli::FILTER_LINEAR);
+
     // TODO: Compression
 
     assert(gli::save(tex, targetPath.string()) && "GLI save failed");
@@ -195,44 +205,97 @@ Texture2D::Texture2D(
             pixels.channels = 4;
         }
 
-        compress(cached, pixels);
+        compress(cached, pixels, mipmap);
 
         stbi_image_free(pixels.dataOwned);
     }
 
     const gli::texture2d tex(gli::load(cached.string()));
     assert(!tex.empty());
-
+    assert(tex.base_level() == 0 && "Incomplete mip chains aren't supported");
     assert(tex.format() == gli::FORMAT_RGBA8_UNORM_PACK8);
-    const uint32_t bytesPerPixel = 4;
 
     const vk::Extent2D extent{
-
         asserted_cast<uint32_t>(tex.extent().x),
         asserted_cast<uint32_t>(tex.extent().y),
     };
 
-    const auto stagingBuffer =
-        stagePixels(_device, tex.data(), extent, bytesPerPixel);
+    const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
+        .byteSize = tex.size(),
+        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                      vk::MemoryPropertyFlagBits::eHostCoherent,
+        .createMapped = true,
+        .debugName = "Texture2DStaging",
+    });
 
-    const uint32_t mipLevels =
-        mipmap ? asserted_cast<uint32_t>(
-                     floor(log2(std::max(extent.width, extent.height)))) +
-                     1
-               : 1;
+    memcpy(stagingBuffer.mapped, tex.data(), tex.size());
 
-    createImage(
-        stagingBuffer, ImageCreateInfo{
-                           .format = vk::Format::eR8G8B8A8Unorm,
-                           .width = extent.width,
-                           .height = extent.height,
-                           .mipCount = mipLevels,
-                           .layerCount = 1,
-                           .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
-                                         vk::ImageUsageFlagBits::eTransferDst |
-                                         vk::ImageUsageFlagBits::eSampled,
-                           .debugName = "Texture2D",
+    // Both transfer source and destination as pixels will be transferred to it
+    // and mipmaps will be generated from it
+    _image = _device->createImage(ImageCreateInfo{
+        .format = vk::Format::eR8G8B8A8Unorm,
+        .width = extent.width,
+        .height = extent.height,
+        .mipCount = asserted_cast<uint32_t>(tex.levels()),
+        .layerCount = 1,
+        .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
+                      vk::ImageUsageFlagBits::eTransferDst |
+                      vk::ImageUsageFlagBits::eSampled,
+        .debugName = "Texture2D",
+    });
+
+    const auto commandBuffer = _device->beginGraphicsCommands();
+
+    _image.transition(
+        commandBuffer, ImageState{
+                           .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                           .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                           .layout = vk::ImageLayout::eTransferDstOptimal,
                        });
+
+    std::vector<vk::BufferImageCopy> regions;
+    regions.reserve(tex.levels());
+    for (auto i = 0; i < tex.levels(); ++i)
+    {
+        regions.push_back(vk::BufferImageCopy{
+            .bufferOffset = asserted_cast<vk::DeviceSize>(
+                reinterpret_cast<const std::byte *>(tex.data(0, 0, i)) -
+                reinterpret_cast<const std::byte *>(tex.data())),
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource =
+                vk::ImageSubresourceLayers{
+                    .aspectMask = vk::ImageAspectFlagBits::eColor,
+                    .mipLevel = asserted_cast<uint32_t>(i),
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+            .imageOffset = {0, 0, 0},
+            .imageExtent =
+                {
+                    std::max(extent.width >> i, 1u),
+                    std::max(extent.height >> i, 1u),
+                    1u,
+                },
+        });
+    }
+
+    commandBuffer.copyBufferToImage(
+        stagingBuffer.handle, _image.handle,
+        vk::ImageLayout::eTransferDstOptimal,
+        asserted_cast<uint32_t>(regions.size()), regions.data());
+
+    _image.transition(
+        commandBuffer,
+        ImageState{
+            .stageMask = vk::PipelineStageFlagBits2::eFragmentShader |
+                         vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+            .accessMask = vk::AccessFlagBits2::eShaderRead,
+            .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+        });
+
+    _device->endGraphicsCommands(commandBuffer);
 
     _device->destroy(stagingBuffer);
 }
