@@ -665,6 +665,13 @@ Image Device::createImage(const ImageCreateInfo &info) const
     return image;
 }
 
+vk::DeviceSize Device::rawByteSize(const Image &image) const
+{
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, image.allocation, &info);
+    return info.size;
+}
+
 void Device::destroy(const Image &image) const
 {
     auto *vkImage = static_cast<VkImage>(image.handle);

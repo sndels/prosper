@@ -97,6 +97,7 @@ class Device
     void destroy(const TexelBuffer &buffer) const;
 
     [[nodiscard]] Image createImage(const ImageCreateInfo &info) const;
+    [[nodiscard]] vk::DeviceSize rawByteSize(const Image &image) const;
     void destroy(const Image &image) const;
 
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
