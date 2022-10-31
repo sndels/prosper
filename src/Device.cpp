@@ -841,6 +841,12 @@ Image Device::createImage(const ImageCreateInfo &info)
     image.subresourceRange = range;
     image.format = desc.format;
 
+    {
+        VmaAllocationInfo info;
+        vmaGetAllocationInfo(_allocator, image.allocation, &info);
+        image.rawByteSize = info.size;
+    }
+
     trackImage(image);
 
     return image;

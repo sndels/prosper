@@ -152,6 +152,7 @@ struct Image
     vk::ImageSubresourceRange subresourceRange;
     ImageState state;
     VmaAllocation allocation{nullptr};
+    vk::DeviceSize rawByteSize{0};
 
     [[nodiscard]] vk::ImageMemoryBarrier2 transitionBarrier(
         const ImageState &newState);
