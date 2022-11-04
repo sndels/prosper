@@ -53,6 +53,13 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
     std::unordered_map<uint64_t, IncludeContent> _includeContent;
 };
 
+struct MemoryAllocationBytes
+{
+    vk::DeviceSize images{0};
+    vk::DeviceSize buffers{0};
+    vk::DeviceSize texelBuffers{0};
+};
+
 class Device
 {
   public:
@@ -89,18 +96,20 @@ class Device
     [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
         const CompileShaderModuleArgs &info) const;
 
-    [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info) const;
-    void destroy(const Buffer &buffer) const;
+    [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);
+    void destroy(const Buffer &buffer);
 
     [[nodiscard]] TexelBuffer createTexelBuffer(
-        const TexelBufferCreateInfo &info) const;
-    void destroy(const TexelBuffer &buffer) const;
+        const TexelBufferCreateInfo &info);
+    void destroy(const TexelBuffer &buffer);
 
-    [[nodiscard]] Image createImage(const ImageCreateInfo &info) const;
-    void destroy(const Image &image) const;
+    [[nodiscard]] Image createImage(const ImageCreateInfo &info);
+    void destroy(const Image &image);
 
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
     void endGraphicsCommands(vk::CommandBuffer buffer) const;
+
+    const MemoryAllocationBytes &memoryAllocations() const;
 
   private:
     [[nodiscard]] bool isDeviceSuitable(vk::PhysicalDevice device) const;
@@ -115,6 +124,13 @@ class Device
     void createLogicalDevice(bool enableDebugLayers);
     void createAllocator();
     void createCommandPools();
+
+    void trackBuffer(const Buffer &buffer);
+    void untrackBuffer(const Buffer &buffer);
+    void trackTexelBuffer(const TexelBuffer &buffer);
+    void untrackTexelBuffer(const TexelBuffer &buffer);
+    void trackImage(const Image &image);
+    void untrackImage(const Image &image);
 
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
@@ -135,6 +151,8 @@ class Device
     vk::CommandPool _graphicsPool;
 
     vk::DebugUtilsMessengerEXT _debugMessenger;
+
+    MemoryAllocationBytes _memoryAllocations;
 };
 
 #endif // PROSPER_DEVICE_HPP

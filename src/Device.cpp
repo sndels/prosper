@@ -428,7 +428,7 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
     return sm;
 }
 
-Buffer Device::createBuffer(const BufferCreateInfo &info) const
+Buffer Device::createBuffer(const BufferCreateInfo &info)
 {
     const vk::BufferCreateInfo bufferInfo{
         .size = info.byteSize,
@@ -500,16 +500,20 @@ Buffer Device::createBuffer(const BufferCreateInfo &info) const
         destroy(stagingBuffer);
     }
 
+    trackBuffer(buffer);
+
     return buffer;
 }
 
-void Device::destroy(const Buffer &buffer) const
+void Device::destroy(const Buffer &buffer)
 {
+    untrackBuffer(buffer);
+
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
 }
 
-TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info) const
+TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 {
     const auto formatProperties = _physical.getFormatProperties(info.format);
 
@@ -562,14 +566,16 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info) const
     };
 }
 
-void Device::destroy(const TexelBuffer &buffer) const
+void Device::destroy(const TexelBuffer &buffer)
 {
+    untrackTexelBuffer(buffer);
+
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     _logical.destroy(buffer.view);
 }
 
-Image Device::createImage(const ImageCreateInfo &info) const
+Image Device::createImage(const ImageCreateInfo &info)
 {
 
     const vk::Extent3D extent{
@@ -662,11 +668,15 @@ Image Device::createImage(const ImageCreateInfo &info) const
     image.subresourceRange = range;
     image.format = info.format;
 
+    trackImage(image);
+
     return image;
 }
 
-void Device::destroy(const Image &image) const
+void Device::destroy(const Image &image)
 {
+    untrackImage(image);
+
     auto *vkImage = static_cast<VkImage>(image.handle);
     vmaDestroyImage(_allocator, vkImage, image.allocation);
     _logical.destroy(image.view);
@@ -700,6 +710,11 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
     _graphicsQueue.waitIdle();
 
     _logical.freeCommandBuffers(_graphicsPool, 1, &buffer);
+}
+
+const MemoryAllocationBytes &Device::memoryAllocations() const
+{
+    return _memoryAllocations;
 }
 
 bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
@@ -901,4 +916,61 @@ void Device::createCommandPools()
         };
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
     }
+}
+
+void Device::trackBuffer(const Buffer &buffer)
+{
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+
+    _memoryAllocations.buffers += info.size;
+}
+
+void Device::untrackBuffer(const Buffer &buffer)
+{
+    if (buffer.allocation == nullptr)
+        return;
+
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+
+    _memoryAllocations.buffers -= info.size;
+}
+
+void Device::trackTexelBuffer(const TexelBuffer &buffer)
+{
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+
+    _memoryAllocations.texelBuffers += info.size;
+}
+
+void Device::untrackTexelBuffer(const TexelBuffer &buffer)
+{
+    if (buffer.allocation == nullptr)
+        return;
+
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+
+    _memoryAllocations.texelBuffers -= info.size;
+}
+
+void Device::trackImage(const Image &image)
+{
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, image.allocation, &info);
+
+    _memoryAllocations.images += info.size;
+}
+
+void Device::untrackImage(const Image &image)
+{
+    if (image.allocation == nullptr)
+        return;
+
+    VmaAllocationInfo info;
+    vmaGetAllocationInfo(_allocator, image.allocation, &info);
+
+    _memoryAllocations.images -= info.size;
 }

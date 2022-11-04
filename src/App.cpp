@@ -67,7 +67,13 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 ,_profiler{&_device,_swapConfig.imageCount}
 ,_recompileTime{std::chrono::file_clock::now()}
 {
-    printf("GPU passs init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
+    printf("GPU pass init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
+
+    const auto &allocs = _device.memoryAllocations();
+    printf("Active GPU allocations:\n");
+    printf("  Buffers: %lluMB\n", allocs.buffers / 1024 / 1024);
+    printf("  TexelBuffers: %lluMB\n", allocs.texelBuffers / 1024 / 1024);
+    printf("  Images: %lluMB\n", allocs.images / 1024 / 1024);
 
     _cam.init(_world._scenes[_world._currentScene].camera);
     _cam.perspective(_window.width() / static_cast<float>(_window.height()));
