@@ -140,7 +140,6 @@ World::World(
     Device *device, const uint32_t swapImageCount,
     const std::filesystem::path &scene)
 : _sceneDir{resPath(scene.parent_path())}
-, _emptyTexture{device, resPath("texture/empty.png"), false}
 , _skyboxTexture{device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
@@ -293,28 +292,13 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
-        _samplerMap.insert(std::make_pair(info, 0));
         _samplers.push_back(_device->logical().createSampler(info));
     }
-    for (const auto &texture : gltfModel.textures)
+    assert(
+        gltfModel.samplers.size() < 0xFE &&
+        "Too many samplers to pack in u32 texture index");
+    for (const auto &sampler : gltfModel.samplers)
     {
-        const auto &image = gltfModel.images[texture.source];
-
-        const tinygltf::Sampler sampler = [&]
-        {
-            tinygltf::Sampler s;
-            if (texture.sampler == -1)
-            {
-                s.minFilter = GL_LINEAR;
-                s.magFilter = GL_LINEAR;
-                s.wrapS = GL_REPEAT;
-                s.wrapT = GL_REPEAT;
-            }
-            else
-                s = gltfModel.samplers[texture.sampler];
-            return s;
-        }();
-
         const vk::SamplerCreateInfo info{
             .magFilter = getVkFilterMode(sampler.magFilter),
             .minFilter = getVkFilterMode(sampler.minFilter),
@@ -327,27 +311,33 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
-        if (!_samplerMap.contains(info))
-        {
-            _samplerMap.insert(std::make_pair(
-                info, asserted_cast<uint32_t>(_samplers.size())));
-            _samplers.push_back(_device->logical().createSampler(info));
-            assert(
-                _samplers.size() < 0xFF &&
-                "Too many samplers to pack in u32 texture index");
-        }
-
-        if (image.uri.empty())
-            _textures.push_back(Texture2DSampler{
-                .tex = Texture2D{_device, image, true},
-                .sampler = _samplerMap[info],
-            });
-        else
-            _textures.push_back(Texture2DSampler{
-                .tex = Texture2D{_device, _sceneDir / image.uri, true},
-                .sampler = _samplerMap[info],
-            });
+        _samplers.push_back(_device->logical().createSampler(info));
     }
+
+    {
+        _texture2Ds.emplace_back(_device, resPath("texture/empty.png"), false);
+        _texture2DSamplers.push_back(Texture2DSampler{
+            .texture = 0,
+            .sampler = 0,
+        });
+    }
+
+    assert(
+        gltfModel.images.size() < 0xFFFFFE &&
+        "Too many textures to pack in u32 texture index");
+    for (const auto &image : gltfModel.images)
+    {
+        if (image.uri.empty())
+            _texture2Ds.emplace_back(_device, image, true);
+        else
+            _texture2Ds.emplace_back(_device, _sceneDir / image.uri, true);
+    }
+
+    for (const auto &texture : gltfModel.textures)
+        _texture2DSamplers.push_back(Texture2DSampler{
+            .texture = asserted_cast<uint32_t>(texture.source) + 1,
+            .sampler = asserted_cast<uint32_t>(texture.sampler) + 1,
+        });
 }
 
 void World::loadMaterials(const tinygltf::Model &gltfModel)
@@ -360,38 +350,35 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         if (const auto &elem = material.values.find("baseColorTexture");
             elem != material.values.end())
         {
-            mat.baseColor = elem->second.TextureIndex() + 1;
+            const auto &tex =
+                _texture2DSamplers[elem->second.TextureIndex() + 1];
+            mat.baseColor = (tex.sampler << 24) | tex.texture;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Base color TexCoord isn't 0\n",
                     material.name.c_str());
-            assert(mat.baseColor < 0x00FFFFFF && "Sampler index won't fit");
-            mat.baseColor |= _textures[mat.baseColor - 1].sampler << 24;
         }
         if (const auto &elem = material.values.find("metallicRoughnessTexture");
             elem != material.values.end())
         {
-            mat.metallicRoughness = elem->second.TextureIndex() + 1;
+            const auto &tex =
+                _texture2DSamplers[elem->second.TextureIndex() + 1];
+            mat.metallicRoughness = (tex.sampler << 24) | tex.texture;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Metallic roughness TexCoord isn't 0\n",
                     material.name.c_str());
-            assert(
-                mat.metallicRoughness < 0x00FFFFFF &&
-                "Sampler index won't fit");
-            mat.metallicRoughness |=
-                _textures[mat.metallicRoughness - 1].sampler << 24;
         }
         if (const auto &elem = material.additionalValues.find("normalTexture");
             elem != material.additionalValues.end())
         {
-            mat.normal = elem->second.TextureIndex() + 1;
+            const auto &tex =
+                _texture2DSamplers[elem->second.TextureIndex() + 1];
+            mat.normal = (tex.sampler << 24) | tex.texture;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Normal TexCoord isn't 0\n",
                     material.name.c_str());
-            assert(mat.normal < 0x00FFFFFF && "Sampler index won't fit");
-            mat.normal |= _textures[mat.normal - 1].sampler << 24;
         }
         if (const auto &elem = material.values.find("baseColorFactor");
             elem != material.values.end())
@@ -1187,9 +1174,8 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             asserted_cast<uint32_t>(materialSamplerInfos.size());
         _dsLayouts.materialSamplerCount = samplerInfoCount;
 
-        materialImageInfos.reserve(_textures.size() + 1);
-        materialImageInfos.push_back(_emptyTexture.imageInfo());
-        for (const auto &[tex, _] : _textures)
+        materialImageInfos.reserve(_texture2Ds.size() + 1);
+        for (const auto &tex : _texture2Ds)
             materialImageInfos.push_back(tex.imageInfo());
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());

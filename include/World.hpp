@@ -48,19 +48,18 @@ class World
     std::filesystem::path _sceneDir;
 
     // TODO: Private?
-    Texture2D _emptyTexture;
     TextureCubemap _skyboxTexture;
     Buffer _skyboxVertexBuffer;
 
     std::unordered_map<Scene::Node *, CameraParameters> _cameras;
-    std::unordered_map<vk::SamplerCreateInfo, uint32_t> _samplerMap;
     std::vector<vk::Sampler> _samplers;
+    std::vector<Texture2D> _texture2Ds;
     struct Texture2DSampler
     {
-        Texture2D tex;
+        uint32_t texture{0};
         uint32_t sampler{0};
     };
-    std::vector<Texture2DSampler> _textures;
+    std::vector<Texture2DSampler> _texture2DSamplers;
     std::vector<Buffer> _geometryBuffers;
     Buffer _meshBuffersBuffer;
     std::vector<Material> _materials;
