@@ -91,6 +91,8 @@ Texture2D::Texture2D(
     Device *device, const std::filesystem::path &path, const bool mipmap)
 : Texture(device)
 {
+    assert(device != nullptr);
+
     const auto [pixels, extent] = pixelsFromFile(path);
     const auto stagingBuffer = stagePixels(pixels, extent);
 
@@ -121,6 +123,8 @@ Texture2D::Texture2D(
     Device *device, const tinygltf::Image &image, const bool mipmap)
 : Texture(device)
 {
+    assert(device != nullptr);
+
     // TODO: support
     if (image.pixel_type != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
         throw std::runtime_error("Unsupported glTF pixel_type");
@@ -186,6 +190,8 @@ vk::DescriptorImageInfo Texture2D::imageInfo() const
 Buffer Texture2D::stagePixels(
     const uint8_t *pixels, const vk::Extent2D &extent) const
 {
+    assert(pixels != nullptr);
+
     const vk::DeviceSize imageSize =
         static_cast<vk::DeviceSize>(extent.width) * extent.height * 4;
 
@@ -350,6 +356,8 @@ TextureCubemap::TextureCubemap(
     Device *device, const std::filesystem::path &path)
 : Texture(device)
 {
+    assert(device != nullptr);
+
     const gli::texture_cube cube(gli::load(path.string()));
     assert(!cube.empty());
     assert(cube.faces() == 6);

@@ -49,6 +49,9 @@ RTRenderer::RTRenderer(
 : _device{device}
 , _resources{resources}
 {
+    assert(_device != nullptr);
+    assert(_resources != nullptr);
+
     printf("Creating RTRenderer\n");
 
     if (!compileShaders(worldDSLayouts))

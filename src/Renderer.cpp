@@ -41,6 +41,9 @@ Renderer::Renderer(
 : _device{device}
 , _resources{resources}
 {
+    assert(_device != nullptr);
+    assert(_resources != nullptr);
+
     printf("Creating Renderer\n");
 
     if (!compileShaders(worldDSLayouts))
@@ -110,6 +113,8 @@ void Renderer::record(
     const vk::Rect2D &renderArea, const uint32_t nextImage,
     bool render_transparents, Profiler *profiler) const
 {
+    assert(profiler != nullptr);
+
     const auto pipelineIndex = render_transparents ? 1 : 0;
     {
         const auto _s = profiler->createCpuGpuScope(

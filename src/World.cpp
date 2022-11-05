@@ -53,6 +53,8 @@ tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 
 Buffer createSkyboxVertexBuffer(Device *device)
 {
+    assert(device != nullptr);
+
     // Avoid large global allocation
     const std::array<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{
         vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, -1.0f, -1.0f},
@@ -145,6 +147,8 @@ World::World(
 , _device{device}
 , _descriptorAllocator{device}
 {
+    assert(_device != nullptr);
+
     printf("Loading world\n");
 
     Timer t;

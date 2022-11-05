@@ -23,6 +23,10 @@ ImGuiRenderer::ImGuiRenderer(
 : _device{device}
 , _resources{resources}
 {
+    assert(_device != nullptr);
+    assert(_resources != nullptr);
+    assert(window != nullptr);
+
     printf("Creating ImGuiRenderer\n");
 
     createDescriptorPool();
@@ -81,6 +85,8 @@ void ImGuiRenderer::startFrame() const
 void ImGuiRenderer::endFrame(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler)
 {
+    assert(profiler != nullptr);
+
     ImGui::Render();
     ImDrawData *drawData = ImGui::GetDrawData();
 

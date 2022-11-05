@@ -87,6 +87,8 @@ SwapchainSupport::SwapchainSupport(
 SwapchainConfig::SwapchainConfig(
     Device *device, const vk::Extent2D &preferredExtent)
 {
+    assert(device != nullptr);
+
     const SwapchainSupport support(device->physical(), device->surface());
 
     // Needed to blit into, not supported by all implementations
@@ -113,6 +115,8 @@ Swapchain::Swapchain(Device *device, const SwapchainConfig &config)
 : _device{device}
 , _config{config}
 {
+    assert(_device != nullptr);
+
     printf("Creating Swapchain\n");
 
     recreate(config);

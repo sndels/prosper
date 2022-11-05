@@ -812,6 +812,8 @@ void Device::createDebugMessenger()
 
 void Device::createSurface(GLFWwindow *window)
 {
+    assert(window != nullptr);
+
     auto *vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&_surface);
     auto *vkInstance = static_cast<VkInstance>(_instance);
     if (glfwCreateWindowSurface(vkInstance, window, nullptr, vkpSurface) !=

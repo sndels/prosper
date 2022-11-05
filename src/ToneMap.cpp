@@ -14,6 +14,9 @@ ToneMap::ToneMap(
 : _device{device}
 , _resources{resources}
 {
+    assert(_device != nullptr);
+    assert(_resources != nullptr);
+
     printf("Creating ToneMap\n");
 
     if (!compileShaders())
@@ -96,6 +99,8 @@ void ToneMap::recreate(const SwapchainConfig &swapConfig)
 void ToneMap::record(
     vk::CommandBuffer cb, const uint32_t nextImage, Profiler *profiler) const
 {
+    assert(profiler != nullptr);
+
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 

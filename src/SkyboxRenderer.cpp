@@ -13,6 +13,9 @@ SkyboxRenderer::SkyboxRenderer(
 : _device{device}
 , _resources{resources}
 {
+    assert(_device != nullptr);
+    assert(_resources != nullptr);
+
     printf("Creating SkyboxRenderer\n");
 
     if (!compileShaders())
@@ -55,6 +58,8 @@ void SkyboxRenderer::record(
     vk::CommandBuffer cb, const World &world, const vk::Rect2D &renderArea,
     const uint32_t nextImage, Profiler *profiler) const
 {
+    assert(profiler != nullptr);
+
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
