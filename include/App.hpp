@@ -2,6 +2,7 @@
 #define PROSPER_APP_HPP
 
 #include "Camera.hpp"
+#include "DebugRenderer.hpp"
 #include "Device.hpp"
 #include "ImGuiRenderer.hpp"
 #include "LightClustering.hpp"
@@ -57,6 +58,7 @@ class App
     Renderer _renderer;
     RTRenderer _rtRenderer;
     SkyboxRenderer _skyboxRenderer;
+    DebugRenderer _debugRenderer;
     ToneMap _toneMap;
     ImGuiRenderer _imguiRenderer;
 

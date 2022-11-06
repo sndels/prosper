@@ -62,6 +62,7 @@ App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 , _skyboxRenderer{
       &_device, &_resources, _swapConfig,
       _world._dsLayouts}
+, _debugRenderer{&_device, &_resources, _swapConfig, _cam.descriptorSetLayout()}
 , _toneMap{&_device, &_resources, _swapConfig}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
 ,_profiler{&_device,_swapConfig.imageCount}
@@ -156,6 +157,7 @@ void App::recreateSwapchainAndRelated()
     _rtRenderer.recreate(
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _skyboxRenderer.recreate(_swapConfig, _world._dsLayouts);
+    _debugRenderer.recreate(_swapConfig, _cam.descriptorSetLayout());
     _toneMap.recreate(_swapConfig);
     _imguiRenderer.recreate();
 
@@ -208,6 +210,7 @@ void App::recompileShaders()
         _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recompileShaders(_cam.descriptorSetLayout(), _world._dsLayouts);
     _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
+    _debugRenderer.recompileShaders(_swapConfig, _cam.descriptorSetLayout());
     _toneMap.recompileShaders();
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
@@ -442,6 +445,40 @@ void App::drawFrame()
 
     const auto &scene = _world.currentScene();
 
+    auto &debugLines = _resources.buffers.debugLines[nextImage];
+    debugLines.reset();
+    { // Add debug geom for lights
+        constexpr auto debugLineLength = 0.2f;
+        constexpr auto debugRed = vec3{1.f, 0.05f, 0.05f};
+        constexpr auto debugGreen = vec3{0.05f, 1.f, 0.05f};
+        constexpr auto debugBlue = vec3{0.05f, 0.05f, 1.f};
+        for (auto i = 0u; i < scene.lights.pointLights.bufferData.count; ++i)
+        {
+            const auto &pl = scene.lights.pointLights.bufferData.lights[i];
+            const auto pos = vec3{pl.position};
+            debugLines.addLine(
+                pos, pos + vec3{debugLineLength, 0.f, 0.f}, debugRed);
+            debugLines.addLine(
+                pos, pos + vec3{0.f, debugLineLength, 0.f}, debugGreen);
+            debugLines.addLine(
+                pos, pos + vec3{0.f, 0.f, debugLineLength}, debugBlue);
+        }
+
+        for (auto i = 0u; i < scene.lights.spotLights.bufferData.count; ++i)
+        {
+            const auto &sl = scene.lights.spotLights.bufferData.lights[i];
+            const auto pos = vec3{sl.positionAndAngleOffset};
+            const auto fwd = vec3{sl.direction};
+            const auto right = abs(1 - sl.direction.y) < 0.1
+                                   ? normalize(cross(fwd, vec3{0.f, 0.f, -1.f}))
+                                   : normalize(cross(fwd, vec3{0.f, 1.f, 0.f}));
+            const auto up = normalize(cross(right, fwd));
+            debugLines.addLine(pos, pos + right * debugLineLength, debugRed);
+            debugLines.addLine(pos, pos + up * debugLineLength, debugGreen);
+            debugLines.addLine(pos, pos + fwd * debugLineLength, debugBlue);
+        }
+    }
+
     const auto cb = _commandBuffers[nextImage];
     cb.reset();
 
@@ -470,6 +507,8 @@ void App::drawFrame()
 
         _skyboxRenderer.record(cb, _world, renderArea, nextImage, &_profiler);
     }
+
+    _debugRenderer.record(cb, _cam, renderArea, nextImage, &_profiler);
 
     _toneMap.record(cb, nextImage, &_profiler);
 
