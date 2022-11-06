@@ -2,8 +2,8 @@
 #define PROSPER_RENDER_RESOURCES_HPP
 
 #include "DescriptorAllocator.hpp"
+#include "DebugGeometry.hpp"
 #include "Device.hpp"
-
 
 // Renderpasses that create the resources are responsible for their recreation,
 // lifetime
@@ -26,6 +26,8 @@ struct RenderResources
             vk::DescriptorSetLayout descriptorSetLayout;
             std::vector<vk::DescriptorSet> descriptorSets;
         } lightClusters;
+        // One lines buffer per swap image to leave mapped
+        std::vector<DebugLines> debugLines;
     };
 
     RenderResources(Device *device)
