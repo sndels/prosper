@@ -1,6 +1,7 @@
 #ifndef PROSPER_CONSTANTS_HPP
 #define PROSPER_CONSTANTS_HPP
 
+#include <cassert>
 #include <cstddef>
 #include <filesystem>
 #include <limits>
