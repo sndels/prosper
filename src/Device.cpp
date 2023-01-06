@@ -318,6 +318,22 @@ Device::Device(GLFWwindow *window, bool enableDebugLayers)
     createInstance(enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
 
+    {
+        // 1.0 doesn't have the check function
+        bool api_support_missing =
+            VULKAN_HPP_DEFAULT_DISPATCHER.vkEnumerateInstanceVersion == nullptr;
+
+        if (!api_support_missing)
+            api_support_missing =
+                vk::enumerateInstanceVersion() < VK_VERSION_1_3;
+
+        if (api_support_missing)
+        {
+            throw std::runtime_error(
+                "Vulkan 1.3 required, missing support on instance");
+        }
+    }
+
     createDebugMessenger();
     createSurface(window);
     selectPhysicalDevice();
@@ -349,7 +365,8 @@ Device::Device(GLFWwindow *window, bool enableDebugLayers)
             printf("Vulkan %u.%u.%u\n", major, minor, patch);
 
             if (major < 1 || minor < 3)
-                throw std::runtime_error("Vulkan 1.3 required");
+                throw std::runtime_error(
+                    "Vulkan 1.3 required, missing support on device");
         }
 
         printf("%s\n", _properties.device.deviceName.data());
