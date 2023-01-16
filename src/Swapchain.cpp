@@ -9,7 +9,7 @@
 namespace
 {
 
-constexpr vk::SurfaceFormatKHR selectSwapSurfaceFormat(
+vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR> &availableFormats)
 {
     // We're free to take our pick (sRGB output with "regular" 8bit rgba buffer)
@@ -33,7 +33,7 @@ constexpr vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     return availableFormats[0];
 }
 
-constexpr vk::PresentModeKHR selectSwapPresentMode(
+vk::PresentModeKHR selectSwapPresentMode(
     const std::vector<vk::PresentModeKHR> &availablePresentModes)
 {
     // Default to fifo (double buffering)
