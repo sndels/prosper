@@ -339,8 +339,8 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
 
     for (const auto &texture : gltfModel.textures)
         _texture2DSamplers.push_back(Texture2DSampler{
-            .texture = asserted_cast<uint32_t>(texture.source) + 1,
-            .sampler = asserted_cast<uint32_t>(texture.sampler) + 1,
+            .texture = asserted_cast<uint32_t>(texture.source + 1),
+            .sampler = asserted_cast<uint32_t>(texture.sampler + 1),
         });
 }
 
