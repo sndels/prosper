@@ -169,7 +169,11 @@
                 ".."
             ],
             "options": {
-                "cwd": "${workspaceRoot}/build"
+                "cwd": "${workspaceRoot}/build",
+                "env": {
+                    "CC": "clang",
+                    "CXX": "clang++",
+                }
             },
             "presentation": {
                 // Reveal the output only if unrecognized errors occur.
