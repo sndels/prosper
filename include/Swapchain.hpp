@@ -49,6 +49,7 @@ class Swapchain
     Swapchain &operator=(const Swapchain &other) = delete;
     Swapchain &operator=(Swapchain &&other) = delete;
 
+    [[nodiscard]] SwapchainConfig const &config() const;
     [[nodiscard]] vk::Format format() const;
     [[nodiscard]] const vk::Extent2D &extent() const;
     [[nodiscard]] uint32_t imageCount() const;

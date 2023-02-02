@@ -43,7 +43,6 @@ class App
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
 
-    SwapchainConfig _swapConfig;
     Swapchain _swapchain;
     std::vector<vk::CommandBuffer> _commandBuffers;
 

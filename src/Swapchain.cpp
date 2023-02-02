@@ -124,6 +124,8 @@ Swapchain::Swapchain(Device *device, const SwapchainConfig &config)
 
 Swapchain::~Swapchain() { destroy(); }
 
+SwapchainConfig const &Swapchain::config() const { return _config; }
+
 vk::Format Swapchain::format() const { return _config.surfaceFormat.format; }
 
 const vk::Extent2D &Swapchain::extent() const { return _config.extent; }

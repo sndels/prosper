@@ -42,30 +42,29 @@ std::vector<vk::CommandBuffer> allocateCommandBuffers(
 App::App(const std::filesystem::path & scene, bool enableDebugLayers)
 : _window{{WIDTH, HEIGHT}, "prosper"}
 , _device{_window.ptr(), enableDebugLayers}
-, _swapConfig{&_device, {_window.width(), _window.height()}}
-, _swapchain{&_device, _swapConfig}
-, _commandBuffers{allocateCommandBuffers(&_device, _swapConfig.imageCount)}
+, _swapchain{&_device, SwapchainConfig{&_device, {_window.width(), _window.height()}}}
+, _commandBuffers{allocateCommandBuffers(&_device, _swapchain.imageCount())}
 , _resources{&_device}
-, _cam{&_device, &_resources, _swapConfig.imageCount}
+, _cam{&_device, &_resources, _swapchain.imageCount()}
 , _world{
-    &_device, _swapConfig.imageCount,
+    &_device, _swapchain.imageCount(),
     scene}
 , _lightClustering{
 
-      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _renderer{
-      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),
+      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _rtRenderer{
-      &_device, &_resources, _swapConfig, _cam.descriptorSetLayout(),_world._dsLayouts}
+      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),_world._dsLayouts}
 , _skyboxRenderer{
-      &_device, &_resources, _swapConfig,
+      &_device, &_resources, _swapchain.config(),
       _world._dsLayouts}
-, _debugRenderer{&_device, &_resources, _swapConfig, _cam.descriptorSetLayout()}
-, _toneMap{&_device, &_resources, _swapConfig}
-, _imguiRenderer{&_device, &_resources, _window.ptr(), _swapConfig}
-,_profiler{&_device,_swapConfig.imageCount}
+, _debugRenderer{&_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout()}
+, _toneMap{&_device, &_resources, _swapchain.config()}
+, _imguiRenderer{&_device, &_resources, _window.ptr(), _swapchain.config()}
+,_profiler{&_device,_swapchain.imageCount()}
 ,_recompileTime{std::chrono::file_clock::now()}
 {
     printf("GPU pass init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
@@ -133,32 +132,36 @@ void App::recreateSwapchainAndRelated()
     _device.logical().waitIdle();
 
 #ifndef NDEBUG
-    const auto prevImageCount = _swapConfig.imageCount;
+    const auto prevImageCount = _swapchain.imageCount();
 #endif // NDEBUG
-    _swapConfig =
-        SwapchainConfig{&_device, {_window.width(), _window.height()}};
-    // Allow assumption that image count doesn't change while running
-    assert(prevImageCount == _swapConfig.imageCount);
 
-    _swapchain.recreate(_swapConfig);
+    { // Drop the config as we should always use swapchain's active config
+        SwapchainConfig config{&_device, {_window.width(), _window.height()}};
+        _swapchain.recreate(config);
+    }
+
+#ifndef NDEBUG
+    // Allow the assumption that image count doesn't change while running
+    assert(prevImageCount == _swapchain.imageCount());
+#endif // NDEBUG
 
     // We could free and recreate the individual sets but reseting the pools is
     // cleaner
     _resources.descriptorAllocator.resetPools();
 
-    _cam.recreate(_swapConfig.imageCount);
+    _cam.recreate(_swapchain.imageCount());
 
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
     _lightClustering.recreate(
-        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
     _renderer.recreate(
-        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recreate(
-        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _skyboxRenderer.recreate(_swapConfig, _world._dsLayouts);
-    _debugRenderer.recreate(_swapConfig, _cam.descriptorSetLayout());
-    _toneMap.recreate(_swapConfig);
+        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+    _skyboxRenderer.recreate(_swapchain.config(), _world._dsLayouts);
+    _debugRenderer.recreate(_swapchain.config(), _cam.descriptorSetLayout());
+    _toneMap.recreate(_swapchain.config());
     _imguiRenderer.recreate();
 
     _cam.perspective(
@@ -207,10 +210,11 @@ void App::recompileShaders()
     _lightClustering.recompileShaders(
         _cam.descriptorSetLayout(), _world._dsLayouts);
     _renderer.recompileShaders(
-        _swapConfig, _cam.descriptorSetLayout(), _world._dsLayouts);
+        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recompileShaders(_cam.descriptorSetLayout(), _world._dsLayouts);
-    _skyboxRenderer.recompileShaders(_swapConfig, _world._dsLayouts);
-    _debugRenderer.recompileShaders(_swapConfig, _cam.descriptorSetLayout());
+    _skyboxRenderer.recompileShaders(_swapchain.config(), _world._dsLayouts);
+    _debugRenderer.recompileShaders(
+        _swapchain.config(), _cam.descriptorSetLayout());
     _toneMap.recompileShaders();
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
@@ -553,8 +557,8 @@ void App::drawFrame()
             const std::array offsets{
                 vk::Offset3D{0},
                 vk::Offset3D{
-                    asserted_cast<int32_t>(_swapConfig.extent.width),
-                    asserted_cast<int32_t>(_swapConfig.extent.height),
+                    asserted_cast<int32_t>(_swapchain.config().extent.width),
+                    asserted_cast<int32_t>(_swapchain.config().extent.height),
                     1,
                 },
             };
