@@ -225,6 +225,7 @@ bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
     printf("Compiling RTRenderer shaders\n");
 
     std::string raygenDefines;
+    raygenDefines += defineStr("NON_UNIFORM_MATERIAL_INDICES");
     raygenDefines += defineStr("CAMERA_SET", sCameraBindingSet);
     raygenDefines += defineStr("RAY_TRACING_SET", sRTBindingSet);
     raygenDefines += defineStr("OUTPUT_SET", sOutputBindingSet);

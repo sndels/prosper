@@ -41,6 +41,24 @@ vec3 sRGBtoLinear(vec3 v)
 // Alpha shouldn't be converted
 vec4 sRGBtoLinear(vec4 v) { return vec4(sRGBtoLinear(v.rgb), v.a); }
 
+texture2D getMaterialTexture(uint index)
+{
+#ifdef NON_UNIFORM_MATERIAL_INDICES
+    return materialTextures[nonuniformEXT(index)];
+#else  // !NON_UNIFORM_MATERIAL_INDICES
+    return materialTextures[index];
+#endif // NON_UNIFORM_MATERIAL_INDICES
+}
+
+sampler getMaterialSampler(uint index)
+{
+#ifdef NON_UNIFORM_MATERIAL_INDICES
+    return materialSamplers[nonuniformEXT(index)];
+#else  // !NON_UNIFORM_MATERIAL_INDICES
+    return materialSamplers[index];
+#endif // NON_UNIFORM_MATERIAL_INDICES
+}
+
 Material sampleMaterial(uint index, vec2 uv)
 {
     MaterialData data = materialDatas.materials[index];
@@ -52,8 +70,8 @@ Material sampleMaterial(uint index, vec2 uv)
     if (baseColorTex > 0)
         linearBaseColor = sRGBtoLinear(texture(
             sampler2D(
-                materialTextures[baseColorTex],
-                materialSamplers[baseColorSampler]),
+                getMaterialTexture(baseColorTex),
+                getMaterialSampler(baseColorSampler)),
             uv));
     else
         linearBaseColor = vec4(1);
@@ -81,8 +99,8 @@ Material sampleMaterial(uint index, vec2 uv)
     {
         vec3 mr = texture(
                       sampler2D(
-                          materialTextures[metallicRoughnessTex],
-                          materialSamplers[metallicRoughnessSampler]),
+                          getMaterialTexture(metallicRoughnessTex),
+                          getMaterialSampler(metallicRoughnessSampler)),
                       uv)
                       .rgb;
         ret.roughness = mr.g * data.roughnessFactor;
@@ -100,8 +118,8 @@ Material sampleMaterial(uint index, vec2 uv)
     {
         vec3 texture_normal = texture(
                                   sampler2D(
-                                      materialTextures[normalTextureTex],
-                                      materialSamplers[normalTextureSampler]),
+                                      getMaterialTexture(normalTextureTex),
+                                      getMaterialSampler(normalTextureSampler)),
                                   uv)
                                   .xyz;
         ret.normal = texture_normal * 2 - 1;
