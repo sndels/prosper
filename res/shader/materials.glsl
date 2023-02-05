@@ -41,23 +41,17 @@ vec3 sRGBtoLinear(vec3 v)
 // Alpha shouldn't be converted
 vec4 sRGBtoLinear(vec4 v) { return vec4(sRGBtoLinear(v.rgb), v.a); }
 
-texture2D getMaterialTexture(uint index)
-{
 #ifdef NON_UNIFORM_MATERIAL_INDICES
-    return materialTextures[nonuniformEXT(index)];
-#else  // !NON_UNIFORM_MATERIAL_INDICES
-    return materialTextures[index];
+#define GET_MATERIAL_TEXTURE(index) materialTextures[nonuniformEXT(index)]
+#else // !NON_UNIFORM_MATERIAL_INDICES
+#define GET_MATERIAL_TEXTURE(index) materialTextures[index]
 #endif // NON_UNIFORM_MATERIAL_INDICES
-}
 
-sampler getMaterialSampler(uint index)
-{
 #ifdef NON_UNIFORM_MATERIAL_INDICES
-    return materialSamplers[nonuniformEXT(index)];
-#else  // !NON_UNIFORM_MATERIAL_INDICES
-    return materialSamplers[index];
+#define GET_MATERIAL_SAMPLER(index) materialSamplers[nonuniformEXT(index)]
+#else // !NON_UNIFORM_MATERIAL_INDICES
+#define GET_MATERIAL_SAMPLER(index) materialSamplers[index]
 #endif // NON_UNIFORM_MATERIAL_INDICES
-}
 
 Material sampleMaterial(uint index, vec2 uv)
 {
@@ -70,8 +64,8 @@ Material sampleMaterial(uint index, vec2 uv)
     if (baseColorTex > 0)
         linearBaseColor = sRGBtoLinear(texture(
             sampler2D(
-                getMaterialTexture(baseColorTex),
-                getMaterialSampler(baseColorSampler)),
+                GET_MATERIAL_TEXTURE(baseColorTex),
+                GET_MATERIAL_SAMPLER(baseColorSampler)),
             uv));
     else
         linearBaseColor = vec4(1);
@@ -99,8 +93,8 @@ Material sampleMaterial(uint index, vec2 uv)
     {
         vec3 mr = texture(
                       sampler2D(
-                          getMaterialTexture(metallicRoughnessTex),
-                          getMaterialSampler(metallicRoughnessSampler)),
+                          GET_MATERIAL_TEXTURE(metallicRoughnessTex),
+                          GET_MATERIAL_SAMPLER(metallicRoughnessSampler)),
                       uv)
                       .rgb;
         ret.roughness = mr.g * data.roughnessFactor;
@@ -116,12 +110,13 @@ Material sampleMaterial(uint index, vec2 uv)
     uint normalTextureSampler = data.normalTexture >> 24;
     if (normalTextureTex > 0)
     {
-        vec3 texture_normal = texture(
-                                  sampler2D(
-                                      getMaterialTexture(normalTextureTex),
-                                      getMaterialSampler(normalTextureSampler)),
-                                  uv)
-                                  .xyz;
+        vec3 texture_normal =
+            texture(
+                sampler2D(
+                    GET_MATERIAL_TEXTURE(normalTextureTex),
+                    GET_MATERIAL_SAMPLER(normalTextureSampler)),
+                uv)
+                .xyz;
         ret.normal = texture_normal * 2 - 1;
     }
     else
