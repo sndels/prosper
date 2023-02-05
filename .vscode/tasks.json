@@ -84,6 +84,34 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "MSBuild (Debug)",
+            "type": "shell",
+            "dependsOn": [
+                "cmake"
+            ],
+            "command": "msbuild",
+            "args": [
+                // Ask msbuild to generate full paths for file names.
+                "/property:GenerateFullPaths=true",
+                "/p:BuildProjectReferences=false",
+                "/t:build",
+                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+                "/consoleloggerparameters:NoSummary",
+                "/property:Configuration=Debug",
+                "prosper.vcxproj"
+            ],
+            "group": "build",
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "never"
+            },
+            "options": {
+                "cwd": "${workspaceRoot}/build",
+            },
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "Ninja (Debug)",
             "type": "shell",
             "dependsOn": [
