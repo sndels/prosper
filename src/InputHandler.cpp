@@ -61,7 +61,9 @@ void InputHandler::handleMouseButton(int button, int action, int mods)
         }
         else
         {
-            if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS)
+            if ((button == GLFW_MOUSE_BUTTON_MIDDLE ||
+                 button == GLFW_MOUSE_BUTTON_RIGHT) &&
+                action == GLFW_PRESS)
             {
                 if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
                 {
