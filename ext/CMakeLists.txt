@@ -12,6 +12,7 @@ target_link_libraries(vulkan INTERFACE ${Vulkan_LIBRARY})
 
 # GLM is header only
 add_library(glm INTERFACE)
+
 # Define as system to suppress warnings
 target_include_directories(glm SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/glm)
 
@@ -27,7 +28,7 @@ set_target_properties(glfw PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${gl
 
 message(STATUS "Sync shaderc dependencies")
 execute_process(COMMAND
-    python utils/git-sync-deps
+    utils/git-sync-deps
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/shaderc
 )
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Skip installation")
@@ -74,10 +75,12 @@ target_include_directories(tinygltf SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/t
 
 # vulkan memory allocator is header only
 add_library(vma INTERFACE)
+
 # Define as system to suppress warnings
 target_include_directories(vma SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/vma/include)
 
 # gli is header only
 add_library(gli INTERFACE)
+
 # Define as system to suppress warnings
 target_include_directories(gli SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/gli)
