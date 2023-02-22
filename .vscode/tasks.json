@@ -174,11 +174,9 @@
             "type": "shell",
             "command": "cmake",
             "args": [
-                ".."
+                "-B",
+                "build",
             ],
-            "options": {
-                "cwd": "${workspaceRoot}/build"
-            },
             "presentation": {
                 // Reveal the output only if unrecognized errors occur.
                 "reveal": "silent"
@@ -194,10 +192,10 @@
                 "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
                 "-G",
                 "Ninja",
-                ".."
+                "-B",
+                "build",
             ],
             "options": {
-                "cwd": "${workspaceRoot}/build",
                 "env": {
                     "CC": "clang",
                     "CXX": "clang++",
