@@ -63,19 +63,19 @@ std::filesystem::path binPath(const std::filesystem::path &path);
 
 std::string readFileString(const std::filesystem::path &path);
 
-constexpr std::string defineStr(const std::string &name)
+static std::string defineStr(const std::string &name)
 {
     return "#define " + name + '\n';
 }
 
 template <typename T>
-constexpr std::string defineStr(const std::string &name, T value)
+std::string defineStr(const std::string &name, T value)
 {
     return "#define " + name + " " + std::to_string(value) + '\n';
 }
 
 template <size_t Count>
-constexpr std::string enumVariantsAsDefines(
+std::string enumVariantsAsDefines(
     const std::string &prefix, const std::array<const char *, Count> &names)
 {
     std::string ret;
