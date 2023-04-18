@@ -1,8 +1,6 @@
 #ifndef PROSPER_RT_RENDERER_HPP
 #define PROSPER_RT_RENDERER_HPP
 
-#include <functional>
-
 #include "Camera.hpp"
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
@@ -10,6 +8,9 @@
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
+
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
 
 class RTRenderer
 {
@@ -21,8 +22,9 @@ class RTRenderer
     };
 
     RTRenderer(
-        Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~RTRenderer();
 
@@ -32,11 +34,12 @@ class RTRenderer
     RTRenderer &operator=(RTRenderer &&other) = delete;
 
     void recompileShaders(
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -51,7 +54,9 @@ class RTRenderer
     void destroySwapchainRelated();
     void destroyPipeline();
 
-    [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);
+    [[nodiscard]] bool compileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const World::DSLayouts &worldDSLayouts);
 
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
@@ -59,16 +64,18 @@ class RTRenderer
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    void createShaderBindingTable();
+    void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    std::array<vk::PipelineShaderStageCreateInfo, 3> _shaderStages;
-    std::array<vk::RayTracingShaderGroupCreateInfoKHR, 3> _shaderGroups;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 3> _shaderStages{{}};
+    wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>
+        _shaderGroups{{}};
 
     vk::DescriptorSetLayout _descriptorSetLayout;
-    std::vector<vk::DescriptorSet> _descriptorSets;
+    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
+        _descriptorSets;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

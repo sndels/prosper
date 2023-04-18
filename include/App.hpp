@@ -18,11 +18,15 @@
 #include "World.hpp"
 
 #include <filesystem>
+#include <wheels/allocators/cstdlib_allocator.hpp>
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
 
 class App
 {
   public:
-    App(const std::filesystem::path &scene, bool enableDebugLayers);
+    App(wheels::ScopedScratch scopeAlloc, const std::filesystem::path &scene,
+        bool enableDebugLayers);
     ~App();
 
     App(const App &other) = delete;
@@ -33,18 +37,21 @@ class App
     void run();
 
   private:
-    void recompileShaders();
-    void recreateSwapchainAndRelated();
+    void recompileShaders(wheels::ScopedScratch scopeALloc);
+    void recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc);
     void createCommandBuffers();
 
     void handleMouseGestures();
-    void drawFrame();
+    void drawFrame(wheels::ScopedScratch scopeAlloc);
+
+    wheels::CstdlibAllocator _generalAlloc;
 
     Window _window; // Needs to be valid before and after everything else
     Device _device; // Needs to be valid before and after all other vk resources
 
     Swapchain _swapchain;
-    std::vector<vk::CommandBuffer> _commandBuffers;
+    wheels::StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES>
+        _commandBuffers;
 
     // Stored here, managed by (earliest) passes that write to them
     RenderResources _resources;
@@ -71,8 +78,10 @@ class App
     Timer _frameTimer;
     std::chrono::time_point<std::chrono::file_clock> _recompileTime;
 
-    std::vector<vk::Semaphore> _imageAvailableSemaphores;
-    std::vector<vk::Semaphore> _renderFinishedSemaphores;
+    wheels::StaticArray<vk::Semaphore, MAX_SWAPCHAIN_IMAGES>
+        _imageAvailableSemaphores;
+    wheels::StaticArray<vk::Semaphore, MAX_SWAPCHAIN_IMAGES>
+        _renderFinishedSemaphores;
 };
 
 #endif // PROSPER_APP_HPP

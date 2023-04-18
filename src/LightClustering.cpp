@@ -1,11 +1,14 @@
 #include "LightClustering.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <wheels/containers/span.hpp>
+#include <wheels/containers/static_array.hpp>
 
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 namespace
 {
@@ -25,7 +28,7 @@ struct ClusteringPCBlock
 } // namespace
 
 LightClustering::LightClustering(
-    Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
@@ -34,10 +37,10 @@ LightClustering::LightClustering(
 {
     printf("Creating LightClustering\n");
 
-    if (!compileShaders())
+    if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("LightClustering shader compilation failed");
 
-    const std::array layoutBindings{
+    const StaticArray layoutBindings{
         vk::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vk::DescriptorType::eStorageImage,
@@ -99,10 +102,10 @@ LightClustering::~LightClustering()
 }
 
 void LightClustering::recompileShaders(
-    const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders())
+    if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyPipeline();
         createPipeline(camDSLayout, worldDSLayouts);
@@ -139,7 +142,7 @@ void LightClustering::record(
                     .layout = vk::ImageLayout::eGeneral,
                 });
 
-        const std::array bufferBarriers{
+        const StaticArray bufferBarriers{
             _resources->buffers.lightClusters.indices.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
@@ -173,7 +176,7 @@ void LightClustering::record(
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-        std::array<vk::DescriptorSet, 3> descriptorSets = {};
+        StaticArray<vk::DescriptorSet, 3> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sLightsBindingSet] =
             scene.lights.descriptorSets[nextImage];
         descriptorSets[sLightClustersBindingSet] =
@@ -200,25 +203,26 @@ void LightClustering::record(
     }
 }
 
-bool LightClustering::compileShaders()
+bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling LightClustering shaders\n");
 
-    std::string defines;
-    defines += defineStr("LIGHTS_SET", sLightsBindingSet);
-    defines += defineStr("LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
-    defines += defineStr("CAMERA_SET", sCameraBindingSet);
-    defines += PointLights::shaderDefines();
-    defines += SpotLights::shaderDefines();
-    defines += shaderDefines();
-    const auto compSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/light_clustering.comp",
-            .debugName = "lightClusteringCS",
-            .defines = defines,
-        });
+    String defines{scopeAlloc, 256};
+    appendDefineStr(defines, "LIGHTS_SET", sLightsBindingSet);
+    appendDefineStr(defines, "LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
+    appendDefineStr(defines, "CAMERA_SET", sCameraBindingSet);
+    PointLights::appendShaderDefines(defines);
+    SpotLights::appendShaderDefines(defines);
+    appendShaderDefines(defines);
 
-    if (compSM)
+    const auto compSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/light_clustering.comp",
+                                      .debugName = "lightClusteringCS",
+                                      .defines = defines,
+                                  });
+
+    if (compSM.has_value())
     {
         _device->logical().destroy(_compSM);
 
@@ -279,17 +283,23 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
 
 void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)
 {
-    const std::vector<vk::DescriptorSetLayout> layouts(
+    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
+    layouts.resize(
         swapConfig.imageCount,
         _resources->buffers.lightClusters.descriptorSetLayout);
-    _resources->buffers.lightClusters.descriptorSets =
-        _resources->descriptorAllocator.allocate(std::span{layouts});
+    _resources->buffers.lightClusters.descriptorSets.resize(
+        swapConfig.imageCount);
+    _resources->descriptorAllocator.allocate(
+        layouts, Span{
+                     _resources->buffers.lightClusters.descriptorSets.data(),
+                     _resources->buffers.lightClusters.descriptorSets.size()});
 
     vk::DescriptorImageInfo pointersInfo{
         .imageView = _resources->buffers.lightClusters.pointers.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    std::vector<vk::WriteDescriptorSet> descriptorWrites;
+    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES * 3>
+        descriptorWrites;
     for (const auto &ds : _resources->buffers.lightClusters.descriptorSets)
     {
         descriptorWrites.push_back(vk::WriteDescriptorSet{
@@ -324,7 +334,7 @@ void LightClustering::createPipeline(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    std::array<vk::DescriptorSetLayout, 3> setLayouts = {};
+    StaticArray<vk::DescriptorSetLayout, 3> setLayouts{VK_NULL_HANDLE};
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
     setLayouts[sLightClustersBindingSet] =
         _resources->buffers.lightClusters.descriptorSetLayout;

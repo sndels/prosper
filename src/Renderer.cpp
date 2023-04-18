@@ -8,6 +8,7 @@
 #include "VkUtils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 namespace
 {
@@ -34,7 +35,7 @@ constexpr std::array<
 } // namespace
 
 Renderer::Renderer(
-    Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
@@ -46,7 +47,7 @@ Renderer::Renderer(
 
     printf("Creating Renderer\n");
 
-    if (!compileShaders(worldDSLayouts))
+    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("Renderer shader compilation failed");
 
     recreate(swapConfig, camDSLayout, worldDSLayouts);
@@ -64,11 +65,11 @@ Renderer::~Renderer()
 }
 
 void Renderer::recompileShaders(
-    const SwapchainConfig &swapConfig,
+    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders(worldDSLayouts))
+    if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyGraphicsPipelines();
         createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
@@ -120,7 +121,7 @@ void Renderer::record(
         const auto _s = profiler->createCpuGpuScope(
             cb, render_transparents ? "Transparent" : "Opaque");
 
-        const std::array imageBarriers{
+        const StaticArray imageBarriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -139,7 +140,7 @@ void Renderer::record(
                 }),
         };
 
-        const std::array bufferBarriers{
+        const StaticArray bufferBarriers{
             _resources->buffers.lightClusters.indicesCount.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
@@ -174,7 +175,7 @@ void Renderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        std::array<vk::DescriptorSet, 6> descriptorSets = {};
+        StaticArray<vk::DescriptorSet, 6> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sLightsBindingSet] =
             scene.lights.descriptorSets[nextImage];
         descriptorSets[sLightClustersBindingSet] =
@@ -226,41 +227,47 @@ void Renderer::record(
     }
 }
 
-bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
+bool Renderer::compileShaders(
+    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
     printf("Compiling Renderer shaders\n");
 
-    std::string vertDefines;
-    vertDefines += defineStr("CAMERA_SET", sCameraBindingSet);
-    vertDefines += defineStr("GEOMETRY_SET", sGeometryBuffersBindingSet);
-    vertDefines +=
-        defineStr("MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
-    const auto vertSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/scene.vert",
-            .debugName = "geometryVS",
-            .defines = vertDefines,
-        });
+    String vertDefines{scopeAlloc, 128};
+    appendDefineStr(vertDefines, "CAMERA_SET", sCameraBindingSet);
+    appendDefineStr(vertDefines, "GEOMETRY_SET", sGeometryBuffersBindingSet);
+    appendDefineStr(
+        vertDefines, "MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
+    const auto vertSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/scene.vert",
+                                      .debugName = "geometryVS",
+                                      .defines = vertDefines,
+                                  });
 
-    std::string fragDefines;
-    fragDefines += defineStr("LIGHTS_SET", sLightsBindingSet);
-    fragDefines += defineStr("LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
-    fragDefines += defineStr("CAMERA_SET", sCameraBindingSet);
-    fragDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
-    fragDefines +=
-        defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
-    fragDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
-    fragDefines += LightClustering::shaderDefines();
-    fragDefines += PointLights::shaderDefines();
-    fragDefines += SpotLights::shaderDefines();
-    const auto fragSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/scene.frag",
-            .debugName = "geometryPS",
-            .defines = fragDefines,
-        });
+    String fragDefines{scopeAlloc, 256};
+    appendDefineStr(fragDefines, "LIGHTS_SET", sLightsBindingSet);
+    appendDefineStr(
+        fragDefines, "LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
+    appendDefineStr(fragDefines, "CAMERA_SET", sCameraBindingSet);
+    appendDefineStr(fragDefines, "MATERIALS_SET", sMaterialsBindingSet);
+    appendDefineStr(
+        fragDefines, "NUM_MATERIAL_SAMPLERS",
+        worldDSLayouts.materialSamplerCount);
+    appendEnumVariantsAsDefines(
+        fragDefines, "DrawType",
+        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+    LightClustering::appendShaderDefines(fragDefines);
+    PointLights::appendShaderDefines(fragDefines);
+    SpotLights::appendShaderDefines(fragDefines);
 
-    if (vertSM && fragSM)
+    const auto fragSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/scene.frag",
+                                      .debugName = "geometryPS",
+                                      .defines = fragDefines,
+                                  });
+
+    if (vertSM.has_value() && fragSM.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -280,9 +287,9 @@ bool Renderer::compileShaders(const World::DSLayouts &worldDSLayouts)
         return true;
     }
 
-    if (vertSM)
+    if (vertSM.has_value())
         _device->logical().destroy(*vertSM);
-    if (fragSM)
+    if (fragSM.has_value())
         _device->logical().destroy(*fragSM);
 
     return false;
@@ -297,8 +304,8 @@ void Renderer::destroySwapchainRelated()
         _device->destroy(_resources->images.sceneColor);
         _device->destroy(_resources->images.sceneDepth);
 
-        _colorAttachments = {};
-        _depthAttachments = {};
+        _colorAttachments.resize(_colorAttachments.capacity(), {});
+        _depthAttachments.resize(_colorAttachments.capacity(), {});
     }
 }
 
@@ -447,7 +454,7 @@ void Renderer::createGraphicsPipelines(
         .pAttachments = &opaqueColorBlendAttachment,
     };
 
-    std::array<vk::DescriptorSetLayout, 6> setLayouts = {};
+    StaticArray<vk::DescriptorSetLayout, 6> setLayouts{VK_NULL_HANDLE};
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
     setLayouts[sLightClustersBindingSet] =
         _resources->buffers.lightClusters.descriptorSetLayout;

@@ -5,14 +5,17 @@
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
+#include <wheels/containers/array.hpp>
+#include <wheels/containers/pair.hpp>
 
 #include "Utils.hpp"
+
+using namespace wheels;
 
 namespace
 {
 
-std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
-    const std::filesystem::path &path)
+Pair<uint8_t *, vk::Extent2D> pixelsFromFile(const std::filesystem::path &path)
 {
     const auto pathString = path.string();
     int w = 0;
@@ -23,9 +26,9 @@ std::pair<uint8_t *, vk::Extent2D> pixelsFromFile(
     if (pixels == nullptr)
         throw std::runtime_error("Failed to load texture '" + pathString + "'");
 
-    return std::pair{
+    return make_pair(
         pixels,
-        vk::Extent2D{asserted_cast<uint32_t>(w), asserted_cast<uint32_t>(h)}};
+        vk::Extent2D{asserted_cast<uint32_t>(w), asserted_cast<uint32_t>(h)});
 }
 
 void transitionImageLayout(
@@ -120,7 +123,8 @@ Texture2D::Texture2D(
 }
 
 Texture2D::Texture2D(
-    Device *device, const tinygltf::Image &image, const bool mipmap)
+    ScopedScratch scopeAlloc, Device *device, const tinygltf::Image &image,
+    const bool mipmap)
 : Texture(device)
 {
     assert(device != nullptr);
@@ -130,7 +134,7 @@ Texture2D::Texture2D(
         throw std::runtime_error("Unsupported glTF pixel_type");
 
     const uint8_t *pixels = nullptr;
-    std::vector<uint8_t> tmpPixels;
+    Array<uint8_t> tmpPixels{scopeAlloc};
     if (image.component < 3)
         throw std::runtime_error("Image with less than 3 components");
 
@@ -353,7 +357,7 @@ void Texture2D::createMipmaps(
 }
 
 TextureCubemap::TextureCubemap(
-    Device *device, const std::filesystem::path &path)
+    ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path)
 : Texture(device)
 {
     assert(device != nullptr);
@@ -376,7 +380,7 @@ TextureCubemap::TextureCubemap(
         .debugName = "TextureCubemap",
     });
 
-    copyPixels(cube, _image.subresourceRange);
+    copyPixels(scopeAlloc.child_scope(), cube, _image.subresourceRange);
 
     _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
@@ -399,7 +403,7 @@ TextureCubemap::~TextureCubemap()
 }
 
 TextureCubemap::TextureCubemap(TextureCubemap &&other) noexcept
-: Texture{std::move(other)}
+: Texture{WHEELS_MOV(other)}
 , _sampler{other._sampler}
 {
 }
@@ -429,7 +433,7 @@ vk::DescriptorImageInfo TextureCubemap::imageInfo() const
 }
 
 void TextureCubemap::copyPixels(
-    const gli::texture_cube &cube,
+    ScopedScratch scopeAlloc, const gli::texture_cube &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
     const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
@@ -445,9 +449,10 @@ void TextureCubemap::copyPixels(
 
     // Collect memory regions of all faces and their miplevels so their
     // transfers can be submitted together
-    const std::vector<vk::BufferImageCopy> regions = [&]
+    const Array<vk::BufferImageCopy> regions = [&]
     {
-        std::vector<vk::BufferImageCopy> regions;
+        Array<vk::BufferImageCopy> regions{
+            scopeAlloc, cube.faces() * cube.levels()};
         size_t offset = 0;
         for (uint32_t face = 0; face < cube.faces(); ++face)
         {

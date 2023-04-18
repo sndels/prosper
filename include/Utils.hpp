@@ -6,9 +6,13 @@
 #include <filesystem>
 #include <limits>
 #include <string>
-#include <vector>
+
+#include <wheels/allocators/allocator.hpp>
+#include <wheels/containers/span.hpp>
+#include <wheels/containers/string.hpp>
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
+const size_t MAX_SWAPCHAIN_IMAGES = 8;
 
 // Statically casts a into T, asserts that the value fits in T if T is integral
 template <typename T, typename V> constexpr T asserted_cast(V a)
@@ -61,29 +65,41 @@ template <typename T, typename V> constexpr T asserted_cast(V a)
 std::filesystem::path resPath(const std::filesystem::path &path);
 std::filesystem::path binPath(const std::filesystem::path &path);
 
-std::string readFileString(const std::filesystem::path &path);
+wheels::String readFileString(
+    wheels::Allocator &alloc, const std::filesystem::path &path);
 
-inline std::string defineStr(const std::string &name)
+inline void appendDefineStr(wheels::String &str, wheels::StrSpan name)
 {
-    return "#define " + name + '\n';
+    str.extend("#define ");
+    str.extend(name);
+    str.push_back('\n');
 }
 
 template <typename T>
-std::string defineStr(const std::string &name, T value)
+void appendDefineStr(wheels::String &str, wheels::StrSpan name, T value)
 {
-    return "#define " + name + " " + std::to_string(value) + '\n';
+    str.extend("#define ");
+    str.extend(name);
+    str.push_back(' ');
+    str.extend(std::to_string(value).c_str());
+    str.push_back('\n');
 }
 
-template <size_t Count>
-std::string enumVariantsAsDefines(
-    const std::string &prefix, const std::array<const char *, Count> &names)
+inline void appendEnumVariantsAsDefines(
+    wheels::String &str, wheels::StrSpan prefix,
+    wheels::Span<const char *const> names)
 {
-    std::string ret;
-    for (auto i = 0u; i < names.size(); ++i)
-        ret += "#define " + prefix + '_' + names[i] + " " + std::to_string(i) +
-               '\n';
-
-    return ret;
+    uint32_t const size = asserted_cast<uint32_t>(names.size());
+    for (uint32_t i = 0u; i < size; ++i)
+    {
+        str.extend("#define ");
+        str.extend(prefix);
+        str.push_back('_');
+        str.extend(names[i]);
+        str.push_back(' ');
+        str.extend(std::to_string(i).c_str());
+        str.push_back('\n');
+    }
 }
 
 #endif // PROSPER_CONSTANTS_HPP

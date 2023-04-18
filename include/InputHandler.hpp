@@ -3,7 +3,7 @@
 
 #include <glm/glm.hpp>
 
-#include <optional>
+#include <wheels/containers/optional.hpp>
 
 struct ModifierState
 {
@@ -45,7 +45,7 @@ class InputHandler
 
     [[nodiscard]] const CursorState &cursor() const;
     [[nodiscard]] const ModifierState &modifiers() const;
-    [[nodiscard]] const std::optional<MouseGesture> &mouseGesture() const;
+    [[nodiscard]] const wheels::Optional<MouseGesture> &mouseGesture() const;
 
     void handleCursorEntered(bool entered);
     void handleMouseScroll(double xoffset, double yoffset);
@@ -58,7 +58,7 @@ class InputHandler
 
     CursorState _cursor;
     ModifierState _modifiers;
-    std::optional<MouseGesture> _mouseGesture;
+    wheels::Optional<MouseGesture> _mouseGesture;
 };
 
 #endif // PROSPER_INPUTHANDLER_HPP

@@ -6,9 +6,10 @@
 #include "VkUtils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 SkyboxRenderer::SkyboxRenderer(
-    Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -18,7 +19,7 @@ SkyboxRenderer::SkyboxRenderer(
 
     printf("Creating SkyboxRenderer\n");
 
-    if (!compileShaders())
+    if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 
     recreate(swapConfig, worldDSLayouts);
@@ -36,9 +37,10 @@ SkyboxRenderer::~SkyboxRenderer()
 }
 
 void SkyboxRenderer::recompileShaders(
-    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+    const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders())
+    if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipelines();
         createGraphicsPipelines(swapConfig, worldDSLayouts);
@@ -63,7 +65,7 @@ void SkyboxRenderer::record(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
-        const std::array barriers{
+        const StaticArray barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -104,22 +106,22 @@ void SkyboxRenderer::record(
     }
 }
 
-bool SkyboxRenderer::compileShaders()
+bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling SkyboxRenderer shaders\n");
 
-    const auto vertSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/skybox.vert",
-            .debugName = "skyboxVS",
-        });
-    const auto fragSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/skybox.frag",
-            .debugName = "skyboxPS",
-        });
+    const auto vertSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/skybox.vert",
+                                      .debugName = "skyboxVS",
+                                  });
+    const auto fragSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/skybox.frag",
+                                      .debugName = "skyboxPS",
+                                  });
 
-    if (vertSM && fragSM)
+    if (vertSM.has_value() && fragSM.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -140,9 +142,9 @@ bool SkyboxRenderer::compileShaders()
         return true;
     }
 
-    if (vertSM)
+    if (vertSM.has_value())
         _device->logical().destroy(*vertSM);
-    if (fragSM)
+    if (fragSM.has_value())
         _device->logical().destroy(*fragSM);
 
     return false;

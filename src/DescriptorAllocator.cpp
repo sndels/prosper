@@ -3,6 +3,8 @@
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
+using namespace wheels;
+
 namespace
 {
 
@@ -70,8 +72,9 @@ constexpr vk::DescriptorPoolCreateInfo sDefaultPoolInfo{
 
 } // namespace
 
-DescriptorAllocator::DescriptorAllocator(Device *device)
+DescriptorAllocator::DescriptorAllocator(Allocator &alloc, Device *device)
 : _device{device}
+, _pools{alloc}
 {
     assert(_device != nullptr);
 
@@ -95,7 +98,9 @@ void DescriptorAllocator::resetPools()
 vk::DescriptorSet DescriptorAllocator::allocate(
     const vk::DescriptorSetLayout &layout)
 {
-    return allocate(std::span{&layout, 1})[0];
+    vk::DescriptorSet ret;
+    allocate(Span{&layout, 1}, Span{&ret, 1}, nullptr);
+    return ret;
 }
 
 vk::DescriptorSet DescriptorAllocator::allocate(
@@ -105,15 +110,11 @@ vk::DescriptorSet DescriptorAllocator::allocate(
         .descriptorSetCount = 1,
         .pDescriptorCounts = &variableDescriptorCount,
     };
-    return allocate(
-        std::span{&layout, 1},
-        reinterpret_cast<const void *>(&variableCounts))[0];
-}
-
-std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
-    std::span<const vk::DescriptorSetLayout> layouts)
-{
-    return allocate(layouts, nullptr);
+    vk::DescriptorSet ret;
+    allocate(
+        Span{&layout, 1}, Span{&ret, 1},
+        reinterpret_cast<const void *>(&variableCounts));
+    return ret;
 }
 
 void DescriptorAllocator::nextPool()
@@ -125,11 +126,17 @@ void DescriptorAllocator::nextPool()
             _device->logical().createDescriptorPool(sDefaultPoolInfo));
 }
 
-std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
-    std::span<const vk::DescriptorSetLayout> layouts, const void *allocatePNext)
+void DescriptorAllocator::allocate(
+    Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output)
 {
-    std::vector<vk::DescriptorSet> ret;
-    ret.resize(layouts.size());
+    return allocate(layouts, output, nullptr);
+}
+
+void DescriptorAllocator::allocate(
+    Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output,
+    const void *allocatePNext)
+{
+    assert(layouts.size() == output.size());
 
     auto tryAllocate = [&]() -> vk::Result
     {
@@ -139,7 +146,7 @@ std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
             .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
             .pSetLayouts = layouts.data(),
         };
-        return _device->logical().allocateDescriptorSets(&info, ret.data());
+        return _device->logical().allocateDescriptorSets(&info, output.data());
     };
 
     auto result = tryAllocate();
@@ -152,6 +159,4 @@ std::vector<vk::DescriptorSet> DescriptorAllocator::allocate(
         result = tryAllocate();
     }
     checkSuccess(result, "allocateDescriptorSets");
-
-    return ret;
 }

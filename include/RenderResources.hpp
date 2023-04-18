@@ -1,9 +1,13 @@
 #ifndef PROSPER_RENDER_RESOURCES_HPP
 #define PROSPER_RENDER_RESOURCES_HPP
 
-#include "DescriptorAllocator.hpp"
 #include "DebugGeometry.hpp"
+#include "DescriptorAllocator.hpp"
 #include "Device.hpp"
+#include "Utils.hpp"
+
+#include <wheels/allocators/allocator.hpp>
+#include <wheels/containers/static_array.hpp>
 
 // Renderpasses that create the resources are responsible for their recreation,
 // lifetime
@@ -24,14 +28,16 @@ struct RenderResources
             TexelBuffer indicesCount;
             TexelBuffer indices;
             vk::DescriptorSetLayout descriptorSetLayout;
-            std::vector<vk::DescriptorSet> descriptorSets;
+            wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
+                descriptorSets;
         } lightClusters;
         // One lines buffer per swap image to leave mapped
-        std::vector<DebugLines> debugLines;
+        wheels::StaticArray<DebugLines, MAX_SWAPCHAIN_IMAGES> debugLines;
     };
 
-    RenderResources(Device *device)
-    : descriptorAllocator{device}
+    // Both alloc and device need to live as long as this
+    RenderResources(wheels::Allocator &alloc, Device *device)
+    : descriptorAllocator{alloc, device}
     {
     }
 

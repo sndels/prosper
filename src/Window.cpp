@@ -8,8 +8,9 @@
 #include "InputHandler.hpp"
 #include "Utils.hpp"
 
-Window::Window(
-    const std::pair<uint32_t, uint32_t> &resolution, const std::string &title)
+using namespace wheels;
+
+Window::Window(const Pair<uint32_t, uint32_t> &resolution, const char *title)
 : _width{resolution.first}
 , _height{resolution.second}
 {
@@ -22,8 +23,8 @@ Window::Window(
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     _window = glfwCreateWindow(
-        asserted_cast<int>(_width), asserted_cast<int>(_height), title.c_str(),
-        nullptr, nullptr);
+        asserted_cast<int>(_width), asserted_cast<int>(_height), title, nullptr,
+        nullptr);
 
     glfwSetWindowUserPointer(_window, this);
     glfwSetKeyCallback(_window, Window::keyCallback);

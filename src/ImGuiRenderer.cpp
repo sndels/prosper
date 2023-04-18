@@ -4,8 +4,12 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <wheels/containers/static_array.hpp>
+
 #include "Utils.hpp"
 #include "VkUtils.hpp"
+
+using namespace wheels;
 
 namespace
 {
@@ -40,7 +44,7 @@ ImGuiRenderer::ImGuiRenderer(
         .Instance = _device->instance(),
         .PhysicalDevice = _device->physical(),
         .Device = _device->logical(),
-        .QueueFamily = _device->queueFamilies().graphicsFamily.value(),
+        .QueueFamily = *_device->queueFamilies().graphicsFamily,
         .Queue = _device->graphicsQueue(),
         .PipelineCache = vk::PipelineCache{},
         .DescriptorPool = _descriptorPool,
@@ -176,7 +180,7 @@ void ImGuiRenderer::recreate()
 void ImGuiRenderer::createDescriptorPool()
 {
     const uint32_t maxSets = 1000;
-    const std::array poolSizes{
+    const StaticArray poolSizes{
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eSampler,
             .descriptorCount = maxSets,

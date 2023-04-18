@@ -8,6 +8,7 @@
 #include "VkUtils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 namespace
 {
@@ -18,7 +19,7 @@ constexpr uint32_t sGeometryBuffersBindingSet = 1;
 } // namespace
 
 DebugRenderer::DebugRenderer(
-    Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout)
 : _device{device}
@@ -29,7 +30,7 @@ DebugRenderer::DebugRenderer(
 
     printf("Creating DebugRenderer\n");
 
-    if (!compileShaders())
+    if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
     recreate(swapConfig, camDSLayout);
@@ -47,10 +48,10 @@ DebugRenderer::~DebugRenderer()
 }
 
 void DebugRenderer::recompileShaders(
-    const SwapchainConfig &swapConfig,
+    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
     const vk::DescriptorSetLayout camDSLayout)
 {
-    if (compileShaders())
+    if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipeline();
         createGraphicsPipeline(swapConfig, camDSLayout);
@@ -78,7 +79,7 @@ void DebugRenderer::record(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Debug");
 
-        const std::array imageBarriers{
+        const StaticArray imageBarriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -110,7 +111,7 @@ void DebugRenderer::record(
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-        std::array<vk::DescriptorSet, 2> descriptorSets = {};
+        StaticArray<vk::DescriptorSet, 2> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sGeometryBuffersBindingSet] =
             _linesDescriptorSets[nextImage];
@@ -127,27 +128,28 @@ void DebugRenderer::record(
     }
 }
 
-bool DebugRenderer::compileShaders()
+bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling DebugRenderer shaders\n");
 
-    std::string vertDefines;
-    vertDefines += defineStr("CAMERA_SET", sCameraBindingSet);
-    vertDefines += defineStr("GEOMETRY_SET", sGeometryBuffersBindingSet);
-    const auto vertSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/debug_lines.vert",
-            .debugName = "debugLinesVS",
-            .defines = vertDefines,
-        });
+    String vertDefines{scopeAlloc, 128};
+    appendDefineStr(vertDefines, "CAMERA_SET", sCameraBindingSet);
+    appendDefineStr(vertDefines, "GEOMETRY_SET", sGeometryBuffersBindingSet);
 
-    const auto fragSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/debug_color.frag",
-            .debugName = "debugColorPS",
-        });
+    const auto vertSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/debug_lines.vert",
+                                      .debugName = "debugLinesVS",
+                                      .defines = vertDefines,
+                                  });
 
-    if (vertSM && fragSM)
+    const auto fragSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/debug_color.frag",
+                                      .debugName = "debugColorPS",
+                                  });
+
+    if (vertSM.has_value() && fragSM.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -167,9 +169,9 @@ bool DebugRenderer::compileShaders()
         return true;
     }
 
-    if (vertSM)
+    if (vertSM.has_value())
         _device->logical().destroy(*vertSM);
-    if (fragSM)
+    if (fragSM.has_value())
         _device->logical().destroy(*fragSM);
 
     return false;
@@ -225,10 +227,10 @@ void DebugRenderer::createDescriptorSets(const uint32_t swapImageCount)
             .pBindings = &layoutBinding,
         });
 
-    const std::vector<vk::DescriptorSetLayout> layouts(
-        swapImageCount, _linesDSLayout);
-    _linesDescriptorSets =
-        _resources->descriptorAllocator.allocate(std::span{layouts});
+    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
+    layouts.resize(swapImageCount, _linesDSLayout);
+    _linesDescriptorSets.resize(swapImageCount);
+    _resources->descriptorAllocator.allocate(layouts, _linesDescriptorSets);
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {
@@ -325,7 +327,7 @@ void DebugRenderer::createGraphicsPipeline(
         .pAttachments = &opaqueColorBlendAttachment,
     };
 
-    std::array<vk::DescriptorSetLayout, 2> setLayouts = {};
+    StaticArray<vk::DescriptorSetLayout, 2> setLayouts{VK_NULL_HANDLE};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sGeometryBuffersBindingSet] = _linesDSLayout;
 

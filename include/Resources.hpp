@@ -3,6 +3,7 @@
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#include <wheels/containers/span.hpp>
 
 struct BufferState
 {
@@ -19,7 +20,7 @@ struct BufferCreateInfo
     // select vma allocation mode accordingly
     const void *initialData{nullptr};
     bool createMapped{false};
-    std::string debugName;
+    const char *debugName;
 };
 
 struct Buffer
@@ -70,7 +71,7 @@ struct ImageCreateInfo
     vk::MemoryPropertyFlags properties{
         vk::MemoryPropertyFlagBits::eDeviceLocal};
 
-    std::string debugName;
+    const char *debugName;
 };
 
 struct Image

@@ -5,15 +5,19 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <tiny_gltf.h>
 
-#include <algorithm>
 #include <cstdlib>
 #include <iostream>
-#include <set>
+#include <wheels/allocators/linear_allocator.hpp>
+#include <wheels/allocators/utils.hpp>
+#include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/pair.hpp>
+#include <wheels/containers/static_array.hpp>
 
 #include "Timer.hpp"
 #include "Utils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 #ifdef _WIN32
 // Windows' header doesn't include these
@@ -23,6 +27,10 @@ using namespace glm;
 
 namespace
 {
+
+// A GB should be plenty for the types of scenes I use, but not so much that
+// a reasonable device wouldn't have enough available
+constexpr size_t sWorldMemSize = megabytes(1024);
 
 constexpr size_t SKYBOX_VERTS_SIZE = 36;
 
@@ -56,7 +64,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
     assert(device != nullptr);
 
     // Avoid large global allocation
-    const std::array<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{
+    const StaticArray<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{
         vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, -1.0f, -1.0f},
         vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
         vec3{1.0f, 1.0f, -1.0f},   vec3{-1.0f, 1.0f, -1.0f},
@@ -139,13 +147,16 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 } // namespace
 
 World::World(
-    Device *device, const uint32_t swapImageCount,
+    ScopedScratch scopeAlloc, Device *device, const uint32_t swapImageCount,
     const std::filesystem::path &scene)
-: _sceneDir{resPath(scene.parent_path())}
-, _skyboxTexture{device, resPath("env/storm.ktx")}
+: _linearAlloc{sWorldMemSize}
+, _sceneDir{resPath(scene.parent_path())}
+, _skyboxTexture{scopeAlloc.child_scope(), device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
-, _descriptorAllocator{device}
+// Use general for descriptors because the interal storage because we don't know
+// the required storage up front and the internal array will be reallocated
+, _descriptorAllocator{_generalAlloc, device}
 {
     assert(_device != nullptr);
 
@@ -162,16 +173,18 @@ World::World(
         printf("%s took %.2fs\n", stage, t.getSeconds());
     };
 
-    tl("Texture loading", [&]() { loadTextures(gltfModel); });
+    tl("Texture loading",
+       [&]() { loadTextures(scopeAlloc.child_scope(), gltfModel); });
     tl("Material loading", [&]() { loadMaterials(gltfModel); });
     tl("Model loading ", [&]() { loadModels(gltfModel); });
-    tl("Scene loading ", [&]() { loadScenes(gltfModel); });
+    tl("Scene loading ",
+       [&]() { loadScenes(scopeAlloc.child_scope(), gltfModel); });
 
     tl("BLAS creation", [&]() { createBlases(); });
-    tl("TLAS creation", [&]() { createTlases(); });
+    tl("TLAS creation", [&]() { createTlases(scopeAlloc.child_scope()); });
     tl("Buffer creation", [&]() { createBuffers(swapImageCount); });
 
-    createDescriptorSets(swapImageCount);
+    createDescriptorSets(scopeAlloc.child_scope(), swapImageCount);
 }
 
 World::~World()
@@ -224,7 +237,7 @@ World::~World()
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
 void World::updateUniformBuffers(
-    const Camera &cam, const uint32_t nextImage) const
+    const Camera &cam, const uint32_t nextImage, ScopedScratch scopeAlloc) const
 {
     {
         const mat4 worldToClip =
@@ -238,10 +251,9 @@ void World::updateUniformBuffers(
     const auto &scene = currentScene();
 
     {
-        std::vector<Scene::RTInstance> rtInstances;
-        rtInstances.reserve(scene.rtInstanceCount);
-        std::vector<ModelInstance::Transforms> transforms;
-        transforms.reserve(scene.modelInstances.size());
+        Array<Scene::RTInstance> rtInstances{scopeAlloc, scene.rtInstanceCount};
+        Array<ModelInstance::Transforms> transforms{
+            scopeAlloc, scene.modelInstances.size()};
 
         // The RTInstances generated here have to match the indices that get
         // assigned to tlas instances
@@ -281,7 +293,8 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
     buffer.draw(asserted_cast<uint32_t>(SKYBOX_VERTS_SIZE), 1, 0, 0);
 }
 
-void World::loadTextures(const tinygltf::Model &gltfModel)
+void World::loadTextures(
+    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
 {
     {
         vk::SamplerCreateInfo info{
@@ -332,7 +345,8 @@ void World::loadTextures(const tinygltf::Model &gltfModel)
     for (const auto &image : gltfModel.images)
     {
         if (image.uri.empty())
-            _texture2Ds.emplace_back(_device, image, true);
+            _texture2Ds.emplace_back(
+                scopeAlloc.child_scope(), _device, image, true);
         else
             _texture2Ds.emplace_back(_device, _sceneDir / image.uri, true);
     }
@@ -430,15 +444,26 @@ void World::loadModels(const tinygltf::Model &gltfModel)
             .initialData = b.data.data(),
             .debugName = "GeometryBuffer",
         }));
-    for (const auto &model : gltfModel.meshes)
+
+    _models.reserve(gltfModel.meshes.size());
+
+    size_t totalPrimitiveCount = 0;
+    for (const auto &mesh : gltfModel.meshes)
+        totalPrimitiveCount += mesh.primitives.size();
+    _meshBuffers.reserve(totalPrimitiveCount);
+    _meshInfos.reserve(totalPrimitiveCount);
+
+    for (const auto &mesh : gltfModel.meshes)
     {
-        _models.push_back({});
-        for (const auto &primitive : model.primitives)
+        _models.emplace_back(_linearAlloc);
+        Model &model = _models.back();
+        model.subModels.reserve(mesh.primitives.size());
+        for (const auto &primitive : mesh.primitives)
         {
             auto assertedGetAttr =
                 [&](const std::string &name,
                     bool shouldHave =
-                        false) -> std::pair<MeshBuffers::Buffer, uint32_t>
+                        false) -> Pair<MeshBuffers::Buffer, uint32_t>
             {
                 const auto &attribute = primitive.attributes.find(name);
                 if (attribute == primitive.attributes.end())
@@ -446,7 +471,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     if (shouldHave)
                         throw std::runtime_error(
                             "Primitive attribute '" + name + "' missing");
-                    return std::make_pair(MeshBuffers::Buffer{}, 0);
+                    return make_pair(MeshBuffers::Buffer{}, 0u);
                 }
 
                 const auto &accessor = gltfModel.accessors[attribute->second];
@@ -457,7 +482,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     offset % sizeof(uint32_t) == 0 &&
                     "Shader binds buffers as uint");
 
-                return std::make_pair(
+                return make_pair(
                     MeshBuffers::Buffer{
                         .index = asserted_cast<uint32_t>(view.buffer),
                         .offset =
@@ -483,7 +508,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     stderr,
                     "Missing tangents for '%s'. RT won't have normal "
                     "maps.\n",
-                    model.name.c_str());
+                    mesh.name.c_str());
 
             const auto [indices, indexCount, usesShortIndices] = [&]
             {
@@ -530,7 +555,8 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 .vertexCount = positionsCount,
                 .indexCount = indexCount,
             });
-            _models.back().subModels.push_back({
+
+            model.subModels.push_back(Model::SubModel{
                 .meshID = asserted_cast<uint32_t>(_meshBuffers.size() - 1),
                 .materialID = material,
             });
@@ -550,81 +576,97 @@ void World::loadModels(const tinygltf::Model &gltfModel)
     });
 }
 
-void World::loadScenes(const tinygltf::Model &gltfModel)
+void World::loadScenes(
+    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
 {
-    std::unordered_map<Scene::Node *, size_t> lights;
+    HashMap<Scene::Node *, size_t> lights{
+        scopeAlloc, gltfModel.lights.size() * 2};
     // TODO: More complex nodes
-    _nodes.resize(gltfModel.nodes.size());
-    for (size_t n = 0; n < _nodes.size(); ++n)
+    _nodes.reserve(gltfModel.nodes.size());
+
+    for (const tinygltf::Node &gltfNode : gltfModel.nodes)
     {
-        const auto &node = gltfModel.nodes[n];
-        std::transform(
-            node.children.begin(), node.children.end(),
-            std::back_inserter(_nodes[n].children),
-            [&](int i) { return &_nodes[i]; });
-        if (node.mesh > -1)
-            _nodes[n].modelID = node.mesh;
-        if (node.camera > -1)
+        _nodes.emplace_back(_linearAlloc);
+        Scene::Node &node = _nodes.back();
+
+        node.children.reserve(gltfNode.children.size());
+        for (int child : gltfNode.children)
+            node.children.push_back(&_nodes[child]);
+
+        if (gltfNode.mesh > -1)
+            node.modelID = gltfNode.mesh;
+        if (gltfNode.camera > -1)
         {
-            const auto &cam = gltfModel.cameras[node.camera];
+            const auto &cam = gltfModel.cameras[gltfNode.camera];
             if (cam.type == "perspective")
-                _cameras[&_nodes[n]] = CameraParameters{
-                    .fov = static_cast<float>(cam.perspective.yfov),
-                    .zN = static_cast<float>(cam.perspective.znear),
-                    .zF = static_cast<float>(cam.perspective.zfar),
-                };
+                _cameras.insert_or_assign(
+                    &node, CameraParameters{
+                               .fov = static_cast<float>(cam.perspective.yfov),
+                               .zN = static_cast<float>(cam.perspective.znear),
+                               .zF = static_cast<float>(cam.perspective.zfar),
+                           });
             else
                 fprintf(
                     stderr, "Camera type '%s' is not supported\n",
                     cam.type.c_str());
         }
-        if (node.extensions.contains("KHR_lights_punctual"))
+        if (gltfNode.extensions.contains("KHR_lights_punctual"))
         {
             // operator[] doesn't work for some reason
-            const auto &ext = node.extensions.at("KHR_lights_punctual");
+            const auto &ext = gltfNode.extensions.at("KHR_lights_punctual");
             const auto &obj = ext.Get<tinygltf::Value::Object>();
 
             const auto &light = obj.find("light")->second;
             assert(light.IsInt());
 
-            lights[&_nodes[n]] = asserted_cast<size_t>(light.GetNumberAsInt());
+            lights.insert_or_assign(
+                &node, asserted_cast<size_t>(light.GetNumberAsInt()));
         }
-        if (node.matrix.size() == 16)
+        if (gltfNode.matrix.size() == 16)
         {
             // Spec defines the matrix to be decomposeable to T * R * S
-            const auto matrix = mat4{make_mat4(node.matrix.data())};
+            const auto matrix = mat4{make_mat4(gltfNode.matrix.data())};
             vec3 skew;
             vec4 perspective;
             decompose(
-                matrix, _nodes[n].scale, _nodes[n].rotation,
-                _nodes[n].translation, skew, perspective);
+                matrix, node.scale, node.rotation, node.translation, skew,
+                perspective);
         }
-        if (node.translation.size() == 3)
-            _nodes[n].translation = vec3{make_vec3(node.translation.data())};
-        if (node.rotation.size() == 4)
-            _nodes[n].rotation = make_quat(node.rotation.data());
-        if (node.scale.size() == 3)
-            _nodes[n].scale = vec3{make_vec3(node.scale.data())};
+        if (gltfNode.translation.size() == 3)
+            node.translation = vec3{make_vec3(gltfNode.translation.data())};
+        if (gltfNode.rotation.size() == 4)
+            node.rotation = make_quat(gltfNode.rotation.data());
+        if (gltfNode.scale.size() == 3)
+            node.scale = vec3{make_vec3(gltfNode.scale.data())};
     }
 
-    _scenes.resize(gltfModel.scenes.size());
-    for (size_t s = 0; s < _scenes.size(); ++s)
+    _scenes.reserve(gltfModel.scenes.size());
+    for (const tinygltf::Scene &gltfScene : gltfModel.scenes)
     {
-        const auto &scene = gltfModel.scenes[s];
-        std::transform(
-            scene.nodes.begin(), scene.nodes.end(),
-            std::back_inserter(_scenes[s].nodes),
-            [&](int i) { return &_nodes[i]; });
+        _scenes.emplace_back(_linearAlloc);
+        Scene &scene = _scenes.back();
+
+        scene.nodes.reserve(gltfScene.nodes.size());
+        for (int node : gltfScene.nodes)
+            scene.nodes.push_back(&_nodes[node]);
     }
     _currentScene = max(gltfModel.defaultScene, 0);
 
     // Traverse scenes and generate model instances for snappier rendering
-    std::vector<mat4> parentTransforms{mat4{1.f}};
+    // Pre-alloc worst case memory for the stacks since it shouldn't be too much
+    Array<Scene::Node *> nodeStack{scopeAlloc, _nodes.size()};
+    Array<mat4> parentTransforms{scopeAlloc, _nodes.size()};
+    wheels::HashSet<Scene::Node *> visited{_linearAlloc, _nodes.size() * 2};
+    parentTransforms.push_back(mat4{1.f});
     for (auto &scene : _scenes)
     {
         bool directionalLightFound = false;
-        std::set<Scene::Node *> visited;
-        std::vector<Scene::Node *> nodeStack = scene.nodes;
+
+        visited.clear();
+        nodeStack.clear();
+        for (Scene::Node *node : scene.nodes)
+            nodeStack.push_back(node);
+
         while (!nodeStack.empty())
         {
             auto *node = nodeStack.back();
@@ -635,10 +677,11 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
             }
             else
             {
-                visited.emplace(node);
-                nodeStack.insert(
-                    nodeStack.end(), node->children.begin(),
-                    node->children.end());
+                visited.insert(node);
+
+                for (Scene::Node *child : node->children)
+                    nodeStack.push_back(child);
+
                 const mat4 modelToWorld =
                     parentTransforms.back() *
                     translate(mat4{1.f}, node->translation) *
@@ -647,31 +690,33 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                 const auto normalToWorld = transpose(inverse(modelToWorld));
                 if (node->modelID != 0xFFFFFFFF)
                 {
-                    scene.modelInstances.push_back(
-                        {.id = asserted_cast<uint32_t>(
-                             scene.modelInstances.size()),
-                         .modelID = node->modelID,
-                         .transforms = {
-                             .modelToWorld = modelToWorld,
-                             .normalToWorld = normalToWorld,
-                         }});
+                    scene.modelInstances.push_back(ModelInstance{
+                        .id = asserted_cast<uint32_t>(
+                            scene.modelInstances.size()),
+                        .modelID = node->modelID,
+                        .transforms = {
+                            .modelToWorld = modelToWorld,
+                            .normalToWorld = normalToWorld,
+                        }});
                     scene.rtInstanceCount += asserted_cast<uint32_t>(
                         _models[node->modelID].subModels.size());
                 }
-                if (_cameras.contains(node))
+                if (CameraParameters *params = _cameras.find(node);
+                    params != nullptr)
                 {
-                    scene.camera = _cameras[node];
+                    scene.camera = *params;
                     scene.camera.eye =
-                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
+                        vec3{modelToWorld *vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
                     scene.camera.target =
-                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
+                        vec3{modelToWorld *vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
                 }
-                if (lights.contains(node))
+                if (size_t const *light_i = lights.find(node);
+                    light_i != nullptr)
                 {
-                    const auto &light = gltfModel.lights[lights[node]];
+                    const auto &light = gltfModel.lights[*light_i];
                     if (light.type == "directional")
                     {
                         if (directionalLightFound)
@@ -712,17 +757,17 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                             light.range > 0.f ? light.range
                                               : sqrt(luminance / minLuminance);
 
-                        auto &data = scene.lights.pointLights.bufferData;
-                        const auto i = data.count++;
-                        auto &sceneLight = data.lights[i];
+                        scene.lights.pointLights.data.emplace_back();
+                        auto &sceneLight = scene.lights.pointLights.data.back();
+
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
-                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
-                        auto &data = scene.lights.spotLights.bufferData;
-                        const auto i = data.count++;
+                        scene.lights.spotLights.data.emplace_back();
+                        auto &sceneLight = scene.lights.spotLights.data.back();
 
                         // Angular attenuation rom gltf spec
                         const auto angleScale =
@@ -735,7 +780,6 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                                 -cos(light.spot.outerConeAngle)) *
                             angleScale;
 
-                        auto &sceneLight = data.lights[i];
                         sceneLight.radianceAndAngleScale =
                             vec4{
                                 static_cast<float>(light.color[0]),
@@ -748,7 +792,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
                         sceneLight.positionAndAngleOffset =
-                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
 
                         sceneLight.direction = vec4{
@@ -785,7 +829,7 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
         //         const auto minLuminance = 0.01f;
         //         const auto radius = sqrt(luminance / minLuminance);
 
-        //         auto &data = scene.lights.pointLights.bufferData;
+        //         auto &data = scene.lights.pointLights.data;
         //         const auto li = data.count++;
         //         auto &sceneLight = data.lights[li];
         //         sceneLight.radianceAndRadius = vec4{radiance, radius};
@@ -798,8 +842,8 @@ void World::loadScenes(const tinygltf::Model &gltfModel)
 
         // Honor scene lighting
         if (!directionalLightFound &&
-            (scene.lights.pointLights.bufferData.count > 0 ||
-             scene.lights.spotLights.bufferData.count > 0))
+            (scene.lights.pointLights.data.size() > 0 ||
+             scene.lights.spotLights.data.size() > 0))
         {
             scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
         }
@@ -912,7 +956,7 @@ void World::createBlases()
     }
 }
 
-void World::createTlases()
+void World::createTlases(ScopedScratch scopeAlloc)
 {
     _tlases.resize(_scenes.size());
     for (size_t i = 0; i < _tlases.size(); ++i)
@@ -921,11 +965,10 @@ void World::createTlases()
         auto &tlas = _tlases[i];
         // Basics from RT Gems II chapter 16
 
-        std::vector<vk::AccelerationStructureInstanceKHR> instances;
-        instances.reserve(scene.rtInstanceCount);
-        std::vector<std::tuple<const Model &, vk::TransformMatrixKHR>>
-            modelInstances;
-        modelInstances.reserve(scene.modelInstances.size());
+        Array<vk::AccelerationStructureInstanceKHR> instances{
+            scopeAlloc, scene.rtInstanceCount};
+        Array<Pair<const Model &, vk::TransformMatrixKHR>> modelInstances{
+            scopeAlloc, scene.modelInstances.size()};
 
         for (const auto &mi : scene.modelInstances)
         {
@@ -1102,12 +1145,10 @@ void World::createBuffers(const uint32_t swapImageCount)
             }
 
             {
-                const vk::DeviceSize bufferSize =
-                    sizeof(PointLights::BufferData);
                 for (size_t i = 0; i < swapImageCount; ++i)
                     scene.lights.pointLights.storageBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
-                            .byteSize = bufferSize,
+                            .byteSize = PointLights::sBufferByteSize,
                             .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                             .properties =
                                 vk::MemoryPropertyFlagBits::eHostVisible |
@@ -1118,12 +1159,10 @@ void World::createBuffers(const uint32_t swapImageCount)
             }
 
             {
-                const vk::DeviceSize bufferSize =
-                    sizeof(SpotLights::BufferData);
                 for (size_t i = 0; i < swapImageCount; ++i)
                     scene.lights.spotLights.storageBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
-                            .byteSize = bufferSize,
+                            .byteSize = SpotLights::sBufferByteSize,
                             .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                             .properties =
                                 vk::MemoryPropertyFlagBits::eHostVisible |
@@ -1146,19 +1185,22 @@ void World::createBuffers(const uint32_t swapImageCount)
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
                     .createMapped = true,
-                    .debugName = "SkyboxUniforms" + std::to_string(i),
+                    .debugName = "SkyboxUniforms",
                 }));
         }
     }
 }
 
-void World::createDescriptorSets(const uint32_t swapImageCount)
+void World::createDescriptorSets(
+    ScopedScratch scopeAlloc, const uint32_t swapImageCount)
 {
     if (_device == nullptr)
         throw std::runtime_error(
             "Tried to create World descriptor sets before loading glTF");
 
-    std::vector<vk::WriteDescriptorSet> dss;
+    //  We don't know the required capacity for this up front, let's not bleed
+    //  reallocations in the linear scope allocator
+    Array<vk::WriteDescriptorSet> dss{_generalAlloc};
 
     // Materials layout and descriptors set
     // Define outside the helper scope to keep alive until
@@ -1167,10 +1209,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
         .buffer = _materialsBuffer.handle,
         .range = VK_WHOLE_SIZE,
     };
-    std::vector<vk::DescriptorImageInfo> materialSamplerInfos;
-    std::vector<vk::DescriptorImageInfo> materialImageInfos;
+    Array<vk::DescriptorImageInfo> materialSamplerInfos{
+        scopeAlloc, _samplers.size()};
+    Array<vk::DescriptorImageInfo> materialImageInfos{
+        scopeAlloc, _texture2Ds.size() + 1};
     {
-        materialSamplerInfos.reserve(_samplers.size());
         for (const auto &s : _samplers)
             materialSamplerInfos.push_back(
                 vk::DescriptorImageInfo{.sampler = s});
@@ -1178,13 +1221,12 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             asserted_cast<uint32_t>(materialSamplerInfos.size());
         _dsLayouts.materialSamplerCount = samplerInfoCount;
 
-        materialImageInfos.reserve(_texture2Ds.size() + 1);
         for (const auto &tex : _texture2Ds)
             materialImageInfos.push_back(tex.imageInfo());
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
 
-        const std::array layoutBindings{
+        const StaticArray layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -1207,7 +1249,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
         };
-        const std::array layoutFlags{
+        const StaticArray layoutFlags{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
@@ -1265,9 +1307,9 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     // Geometry layouts and descriptor set
     // Define outside the helper scope to keep alive until
     // updateDescriptorSets
-    std::vector<vk::DescriptorBufferInfo> bufferInfos;
+    Array<vk::DescriptorBufferInfo> bufferInfos{
+        scopeAlloc, _geometryBuffers.size()};
     {
-        bufferInfos.reserve(_geometryBuffers.size() + 1);
         for (const auto &b : _geometryBuffers)
             bufferInfos.push_back(vk::DescriptorBufferInfo{
                 .buffer = b.handle,
@@ -1280,7 +1322,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
             .range = VK_WHOLE_SIZE,
         });
 
-        const std::array layoutBindings{
+        const StaticArray layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
@@ -1296,7 +1338,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                               vk::ShaderStageFlagBits::eRaygenKHR,
             },
         };
-        const std::array descriptorFlags = {
+        const StaticArray descriptorFlags = {
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
@@ -1341,7 +1383,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     // RT layout
     {
-        const std::array layoutBindings = {
+        const StaticArray layoutBindings = {
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
@@ -1392,7 +1434,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
 
     // Lights layout
     {
-        const std::array layoutBindings{
+        const StaticArray layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eUniformBuffer,
@@ -1428,22 +1470,27 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     // Scene descriptor sets
     // Define outside the helper scope to keep alive until
     // updateDescriptorSets
-    std::vector<vk::DescriptorBufferInfo> modelInstanceInfos;
-    std::vector<vk::DescriptorBufferInfo> rtInstancesInfos;
-    std::vector<vk::DescriptorBufferInfo> lightInfos;
-    std::vector<vk::StructureChain<
+    Array<vk::DescriptorBufferInfo> modelInstanceInfos{scopeAlloc};
+    Array<vk::DescriptorBufferInfo> rtInstancesInfos{
+        scopeAlloc, _scenes.size()};
+    Array<vk::DescriptorBufferInfo> lightInfos{scopeAlloc};
+    Array<vk::StructureChain<
         vk::WriteDescriptorSet, vk::WriteDescriptorSetAccelerationStructureKHR>>
-        asDSChains;
+        asDSChains{scopeAlloc};
+    // TODO: Reserve required memory upfront
     {
         size_t sceneI = 0;
         for (auto &scene : _scenes)
         {
             {
-                const std::vector<vk::DescriptorSetLayout> layouts(
-                    swapImageCount, _dsLayouts.modelInstances);
-
-                scene.modelInstancesDescriptorSets =
-                    _descriptorAllocator.allocate(std::span{layouts});
+                Array<vk::DescriptorSetLayout> layouts{
+                    scopeAlloc, swapImageCount};
+                layouts.resize(swapImageCount, _dsLayouts.modelInstances);
+                scene.modelInstancesDescriptorSets.resize(swapImageCount);
+                _descriptorAllocator.allocate(
+                    layouts, Span{
+                                 scene.modelInstancesDescriptorSets.data(),
+                                 scene.modelInstancesDescriptorSets.size()});
 
                 modelInstanceInfos.reserve(
                     modelInstanceInfos.size() +
@@ -1451,7 +1498,7 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 const auto startIndex =
                     asserted_cast<uint32_t>(modelInstanceInfos.size());
                 for (auto &buffer : scene.modelInstanceTransformsBuffers)
-                    modelInstanceInfos.push_back({
+                    modelInstanceInfos.push_back(vk::DescriptorBufferInfo{
                         .buffer = buffer.handle,
                         .range = VK_WHOLE_SIZE,
                     });
@@ -1470,18 +1517,33 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                     });
             }
             {
-                const std::vector<vk::DescriptorSetLayout> layouts(
-                    swapImageCount, _dsLayouts.lights);
+                Array<vk::DescriptorSetLayout> layouts{
+                    scopeAlloc, swapImageCount};
+                layouts.resize(swapImageCount, _dsLayouts.lights);
 
                 auto &lights = scene.lights;
+                lights.descriptorSets.resize(swapImageCount);
+                _descriptorAllocator.allocate(
+                    layouts, Span{
+                                 lights.descriptorSets.data(),
+                                 lights.descriptorSets.size()});
 
-                lights.descriptorSets =
-                    _descriptorAllocator.allocate(std::span{layouts});
+                StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+                    dirLightInfos;
+                dirLightInfos.resize(
+                    lights.directionalLight.uniformBuffers.size());
+                lights.directionalLight.bufferInfos(dirLightInfos);
 
-                const auto dirLightInfos =
-                    lights.directionalLight.bufferInfos();
-                const auto pointLightInfos = lights.pointLights.bufferInfos();
-                const auto spotLightInfos = lights.spotLights.bufferInfos();
+                StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+                    pointLightInfos;
+                pointLightInfos.resize(
+                    lights.pointLights.storageBuffers.size());
+                lights.pointLights.bufferInfos(pointLightInfos);
+
+                StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+                    spotLightInfos;
+                spotLightInfos.resize(lights.spotLights.storageBuffers.size());
+                lights.spotLights.bufferInfos(spotLightInfos);
 
                 const auto dirLightStart = lightInfos.size();
                 const auto pointLightStart =
@@ -1492,15 +1554,13 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 lightInfos.reserve(
                     lightInfos.size() + dirLightInfos.size() +
                     pointLightInfos.size() + spotLightInfos.size());
-                lightInfos.insert(
-                    lightInfos.end(), dirLightInfos.begin(),
-                    dirLightInfos.end());
-                lightInfos.insert(
-                    lightInfos.end(), pointLightInfos.begin(),
-                    pointLightInfos.end());
-                lightInfos.insert(
-                    lightInfos.end(), spotLightInfos.begin(),
-                    spotLightInfos.end());
+                // WHEELSTODO: Array::extend(Array const&)
+                for (const auto &info : dirLightInfos)
+                    lightInfos.push_back(info);
+                for (const auto &info : pointLightInfos)
+                    lightInfos.push_back(info);
+                for (const auto &info : spotLightInfos)
+                    lightInfos.push_back(info);
 
                 const auto &descriptorSets = lights.descriptorSets;
                 dss.reserve(dss.size() + descriptorSets.size() * 3);
@@ -1570,10 +1630,11 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
     }
 
     // Skybox layout and descriptor sets
-    std::vector<vk::DescriptorBufferInfo> skyboxBufferInfos;
+    Array<vk::DescriptorBufferInfo> skyboxBufferInfos{
+        scopeAlloc, _skyboxUniformBuffers.size()};
     vk::DescriptorImageInfo skyboxImageInfo;
     {
-        const std::array skyboxLayoutBindings{
+        const StaticArray skyboxLayoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eUniformBuffer,
@@ -1594,11 +1655,12 @@ void World::createDescriptorSets(const uint32_t swapImageCount)
                 .pBindings = skyboxLayoutBindings.data(),
             });
 
-        const std::vector<vk::DescriptorSetLayout> skyboxLayouts(
-            swapImageCount, _dsLayouts.skybox);
-        _skyboxDSs = _descriptorAllocator.allocate(std::span{skyboxLayouts});
+        Array<vk::DescriptorSetLayout> skyboxLayouts{
+            scopeAlloc, swapImageCount};
+        skyboxLayouts.resize(swapImageCount, _dsLayouts.skybox);
+        _skyboxDSs.resize(swapImageCount);
+        _descriptorAllocator.allocate(skyboxLayouts, _skyboxDSs);
 
-        skyboxBufferInfos.reserve(_skyboxUniformBuffers.size());
         for (auto &buffer : _skyboxUniformBuffers)
             skyboxBufferInfos.push_back(vk::DescriptorBufferInfo{
                 .buffer = buffer.handle,

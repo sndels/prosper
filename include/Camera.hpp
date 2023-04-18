@@ -3,8 +3,11 @@
 
 #include "Device.hpp"
 #include "RenderResources.hpp"
+#include "Utils.hpp"
 
 #include <glm/glm.hpp>
+#include <wheels/containers/optional.hpp>
+#include <wheels/containers/static_array.hpp>
 
 struct CameraOffset
 {
@@ -75,7 +78,9 @@ class Camera
 
     void updateBuffer(uint32_t index, const glm::uvec2 &resolution);
 
-    [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
+    [[nodiscard]] wheels::StaticArray<
+        vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+    bufferInfos() const;
     [[nodiscard]] const vk::DescriptorSetLayout &descriptorSetLayout() const;
     [[nodiscard]] const vk::DescriptorSet &descriptorSet(uint32_t index) const;
     [[nodiscard]] const glm::mat4 &worldToCamera() const;
@@ -83,7 +88,7 @@ class Camera
     [[nodiscard]] const CameraParameters &parameters() const;
 
     // This offset, if any, is added to internal transformation
-    std::optional<CameraOffset> offset;
+    wheels::Optional<CameraOffset> offset;
     // Permanently applies 'offset' and empties it
     void applyOffset();
 
@@ -103,8 +108,9 @@ class Camera
     glm::mat4 _cameraToClip{1.f};
 
     vk::DescriptorSetLayout _descriptorSetLayout;
-    std::vector<vk::DescriptorSet> _descriptorSets;
-    std::vector<Buffer> _uniformBuffers;
+    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
+        _descriptorSets;
+    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> _uniformBuffers;
 };
 
 #endif // PROSPER_CAMERA_HPP

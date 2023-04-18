@@ -4,6 +4,7 @@
 #include "Device.hpp"
 
 #include <gli/gli.hpp>
+#include <wheels/allocators/scoped_scratch.hpp>
 
 #include <filesystem>
 
@@ -37,7 +38,9 @@ class Texture2D : public Texture
 {
   public:
     Texture2D(Device *device, const std::filesystem::path &path, bool mipmap);
-    Texture2D(Device *device, const tinygltf::Image &image, bool mipmap);
+    Texture2D(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const tinygltf::Image &image, bool mipmap);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
@@ -51,7 +54,9 @@ class Texture2D : public Texture
 class TextureCubemap : public Texture
 {
   public:
-    TextureCubemap(Device *device, const std::filesystem::path &path);
+    TextureCubemap(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const std::filesystem::path &path);
     ~TextureCubemap() override;
 
     TextureCubemap(const TextureCubemap &other) = delete;
@@ -63,7 +68,7 @@ class TextureCubemap : public Texture
 
   private:
     void copyPixels(
-        const gli::texture_cube &cube,
+        wheels::ScopedScratch scopeAlloc, const gli::texture_cube &cube,
         const vk::ImageSubresourceRange &subresourceRange) const;
 
     vk::Sampler _sampler;

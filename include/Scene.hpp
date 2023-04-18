@@ -8,18 +8,24 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include <vector>
+#include <wheels/allocators/allocator.hpp>
+#include <wheels/containers/array.hpp>
 
 struct Scene
 {
     struct Node
     {
-        std::vector<Node *> children;
+        wheels::Array<Node *> children;
         uint32_t modelID{0xFFFFFFFF};
         CameraParameters camera;
         glm::vec3 translation{0.f};
         glm::quat rotation{1.f, 0.f, 0.f, 0.f};
         glm::vec3 scale{1.f};
+
+        Node(wheels::Allocator &alloc)
+        : children{alloc}
+        {
+        }
     };
 
     struct Lights
@@ -27,15 +33,21 @@ struct Scene
         DirectionalLight directionalLight;
         PointLights pointLights;
         SpotLights spotLights;
-        std::vector<vk::DescriptorSet> descriptorSets;
-        std::vector<vk::DescriptorSet> descriptorSetsClustered;
+        wheels::Array<vk::DescriptorSet> descriptorSets;
+        wheels::Array<vk::DescriptorSet> descriptorSetsClustered;
+
+        Lights(wheels::Allocator &alloc)
+        : descriptorSets{alloc}
+        , descriptorSetsClustered{alloc}
+        {
+        }
     };
 
     CameraParameters camera;
 
-    std::vector<Node *> nodes;
+    wheels::Array<Node *> nodes;
 
-    std::vector<ModelInstance> modelInstances;
+    wheels::Array<ModelInstance> modelInstances;
 
     struct RTInstance
     {
@@ -45,11 +57,20 @@ struct Scene
     };
     uint32_t rtInstanceCount{0};
     Buffer rtInstancesBuffer;
-    std::vector<Buffer> modelInstanceTransformsBuffers;
-    std::vector<vk::DescriptorSet> modelInstancesDescriptorSets;
+    wheels::Array<Buffer> modelInstanceTransformsBuffers;
+    wheels::Array<vk::DescriptorSet> modelInstancesDescriptorSets;
     vk::DescriptorSet rtDescriptorSet;
 
     Lights lights;
+
+    Scene(wheels::Allocator &alloc)
+    : nodes{alloc}
+    , modelInstances{alloc}
+    , modelInstanceTransformsBuffers{alloc}
+    , modelInstancesDescriptorSets{alloc}
+    , lights{alloc}
+    {
+    }
 };
 
 #endif // PROSPER_SCENENODE_HPP

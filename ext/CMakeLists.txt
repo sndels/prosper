@@ -84,3 +84,7 @@ add_library(gli INTERFACE)
 
 # Define as system to suppress warnings
 target_include_directories(gli SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/gli)
+
+set(WHEELS_BUILD_TESTS OFF CACHE BOOL "Include tests")
+set(WHEELS_BUILD_BENCHES OFF CACHE BOOL "Include benchmarks")
+add_subdirectory(wheels)

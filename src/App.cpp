@@ -1,20 +1,22 @@
 #include "App.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <limits>
-#include <set>
 #include <stdexcept>
 
 #include <glm/gtx/transform.hpp>
 #include <imgui.h>
+#include <wheels/allocators/linear_allocator.hpp>
+#include <wheels/allocators/utils.hpp>
+#include <wheels/containers/string.hpp>
 
 #include "InputHandler.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 namespace
 {
@@ -26,45 +28,58 @@ constexpr float CAMERA_FOV = 59.f;
 constexpr float CAMERA_NEAR = 0.001f;
 constexpr float CAMERA_FAR = 512.f;
 
-std::vector<vk::CommandBuffer> allocateCommandBuffers(
+StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES> allocateCommandBuffers(
     Device *device, const uint32_t swapImageCount)
 {
-    return device->logical().allocateCommandBuffers(
-        vk::CommandBufferAllocateInfo{
-            .commandPool = device->graphicsPool(),
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = swapImageCount,
-        });
+    StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES> ret;
+    ret.resize(swapImageCount);
+
+    const vk::CommandBufferAllocateInfo allocInfo{
+        .commandPool = device->graphicsPool(),
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = swapImageCount,
+    };
+    checkSuccess(
+        device->logical().allocateCommandBuffers(&allocInfo, ret.data()),
+        "Failed to allocate command buffers");
+
+    return ret;
 }
 
 } // namespace
 
-App::App(const std::filesystem::path & scene, bool enableDebugLayers)
-: _window{{WIDTH, HEIGHT}, "prosper"}
-, _device{_window.ptr(), enableDebugLayers}
-, _swapchain{&_device, SwapchainConfig{&_device, {_window.width(), _window.height()}}}
-, _commandBuffers{allocateCommandBuffers(&_device, _swapchain.imageCount())}
-, _resources{&_device}
-, _cam{&_device, &_resources, _swapchain.imageCount()}
-, _world{
-    &_device, _swapchain.imageCount(),
-    scene}
-, _lightClustering{
+// TODO: Fix this file so that clang-format works
 
+App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool enableDebugLayers)
+: _window{Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper"}
+, _device{scopeAlloc.child_scope(), _window.ptr(), enableDebugLayers}
+, _swapchain{&_device, SwapchainConfig{scopeAlloc.child_scope(),&_device, {_window.width(), _window.height()}}}
+, _commandBuffers{allocateCommandBuffers(&_device, _swapchain.imageCount())}
+, _resources{_generalAlloc,&_device}
+, _cam{&_device, &_resources, _swapchain.imageCount()}
+, _world{ scopeAlloc.child_scope(), &_device, _swapchain.imageCount(), scene}
+, _lightClustering{
+    scopeAlloc.child_scope(),
       &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _renderer{
+    scopeAlloc.child_scope(),
       &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _rtRenderer{
-      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),_world._dsLayouts}
+    scopeAlloc.child_scope(), &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),_world._dsLayouts}
 , _skyboxRenderer{
+    scopeAlloc.child_scope(),
       &_device, &_resources, _swapchain.config(),
       _world._dsLayouts}
-, _debugRenderer{&_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout()}
-, _toneMap{&_device, &_resources, _swapchain.config()}
+, _debugRenderer{
+    scopeAlloc.child_scope(),
+    &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout()}
+, _toneMap{
+    scopeAlloc.child_scope(),
+    &_device, &_resources, _swapchain.config()}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapchain.config()}
-,_profiler{&_device,_swapchain.imageCount()}
+,_profiler{_generalAlloc, &_device,_swapchain.imageCount()}
 ,_recompileTime{std::chrono::file_clock::now()}
 {
     printf("GPU pass init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
@@ -103,9 +118,13 @@ App::~App()
 
 void App::run()
 {
+    LinearAllocator scopeBackingAlloc{megabytes(64)};
     while (_window.open())
     {
         _profiler.startCpuFrame();
+
+        scopeBackingAlloc.reset();
+        ScopedScratch scopeAlloc{scopeBackingAlloc};
 
         {
             const auto _s = _profiler.createCpuScope("Window::startFrame");
@@ -114,9 +133,9 @@ void App::run()
 
         handleMouseGestures();
 
-        recompileShaders();
+        recompileShaders(scopeAlloc.child_scope());
 
-        drawFrame();
+        drawFrame(scopeAlloc.child_scope());
 
         InputHandler::instance().clearSingleFrameGestures();
 
@@ -127,7 +146,7 @@ void App::run()
     _device.logical().waitIdle();
 }
 
-void App::recreateSwapchainAndRelated()
+void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
 {
     while (_window.width() == 0 && _window.height() == 0)
     {
@@ -142,7 +161,10 @@ void App::recreateSwapchainAndRelated()
 #endif // NDEBUG
 
     { // Drop the config as we should always use swapchain's active config
-        SwapchainConfig config{&_device, {_window.width(), _window.height()}};
+        SwapchainConfig config{
+            scopeAlloc.child_scope(),
+            &_device,
+            {_window.width(), _window.height()}};
         _swapchain.recreate(config);
     }
 
@@ -164,7 +186,8 @@ void App::recreateSwapchainAndRelated()
     _renderer.recreate(
         _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recreate(
-        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+        scopeAlloc.child_scope(), _swapchain.config(),
+        _cam.descriptorSetLayout(), _world._dsLayouts);
     _skyboxRenderer.recreate(_swapchain.config(), _world._dsLayouts);
     _debugRenderer.recreate(_swapchain.config(), _cam.descriptorSetLayout());
     _toneMap.recreate(_swapchain.config());
@@ -179,7 +202,7 @@ void App::recreateSwapchainAndRelated()
         _window.width() / static_cast<float>(_window.height()));
 }
 
-void App::recompileShaders()
+void App::recompileShaders(ScopedScratch scopeAlloc)
 {
     const auto _s = _profiler.createCpuScope("App::recompileShaders");
 
@@ -214,14 +237,20 @@ void App::recompileShaders()
     Timer t;
 
     _lightClustering.recompileShaders(
-        _cam.descriptorSetLayout(), _world._dsLayouts);
+        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
+        _world._dsLayouts);
     _renderer.recompileShaders(
-        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
-    _rtRenderer.recompileShaders(_cam.descriptorSetLayout(), _world._dsLayouts);
-    _skyboxRenderer.recompileShaders(_swapchain.config(), _world._dsLayouts);
+        scopeAlloc.child_scope(), _swapchain.config(),
+        _cam.descriptorSetLayout(), _world._dsLayouts);
+    _rtRenderer.recompileShaders(
+        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
+        _world._dsLayouts);
+    _skyboxRenderer.recompileShaders(
+        scopeAlloc.child_scope(), _swapchain.config(), _world._dsLayouts);
     _debugRenderer.recompileShaders(
-        _swapchain.config(), _cam.descriptorSetLayout());
-    _toneMap.recompileShaders();
+        scopeAlloc.child_scope(), _swapchain.config(),
+        _cam.descriptorSetLayout());
+    _toneMap.recompileShaders(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -236,7 +265,7 @@ void App::handleMouseGestures()
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
     const auto &gesture = InputHandler::instance().mouseGesture();
-    if (gesture)
+    if (gesture.has_value())
     {
         if (gesture->type == MouseGestureType::TrackBall)
         {
@@ -292,7 +321,7 @@ void App::handleMouseGestures()
         }
         else if (gesture->type == MouseGestureType::TrackZoom)
         {
-            if (!_cam.offset)
+            if (!_cam.offset.has_value())
             {
                 const auto &params = _cam.parameters();
 
@@ -322,14 +351,14 @@ void App::handleMouseGestures()
     }
     else
     {
-        if (_cam.offset)
+        if (_cam.offset.has_value())
         {
             _cam.applyOffset();
         }
     }
 }
 
-void App::drawFrame()
+void App::drawFrame(ScopedScratch scopeAlloc)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
     const size_t nextFrame = _swapchain.nextFrame();
@@ -341,16 +370,16 @@ void App::drawFrame()
         while (!nextImage.has_value())
         {
             // Recreate the swap chain as necessary
-            recreateSwapchainAndRelated();
+            recreateSwapchainAndRelated(scopeAlloc.child_scope());
             nextImage = _swapchain.acquireNextImage(imageAvailable);
         }
 
-        return nextImage.value();
+        return *nextImage;
     }();
 
     _profiler.startGpuFrame(nextImage);
 
-    const auto profilerTimes = _profiler.getPreviousTimes();
+    const auto profilerTimes = _profiler.getPreviousTimes(scopeAlloc);
 
     // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
     // Note that this is always based on the previous frame so it only limits
@@ -397,30 +426,28 @@ void App::drawFrame()
             // Having names longer than 255 characters is an error
             uint8_t longestNameLength = 0;
             for (const auto &t : profilerTimes)
-                if (t.name.length() > longestNameLength)
-                    longestNameLength = asserted_cast<uint8_t>(t.name.length());
+                if (t.name.size() > longestNameLength)
+                    longestNameLength = asserted_cast<uint8_t>(t.name.size());
 
             // Double the maximum name length for headroom
-            std::vector<char> tmp;
-            tmp.resize(
-                static_cast<size_t>(std::numeric_limits<uint8_t>::max()) * 2);
+            String tmp{scopeAlloc};
+            tmp.resize(longestNameLength * 2);
             const auto leftJustified =
-                [&tmp, longestNameLength](
-                    const std::string &str, uint8_t extraWidth = 0)
+                [&tmp, longestNameLength](StrSpan str, uint8_t extraWidth = 0)
             {
-                assert(longestNameLength <= 255 - extraWidth);
-                // std::vformat could do the same without the tmp memory, but
-                // only msvc currently supports <format> in mainline. fmtlib
-                // seems overkill for one use site
-                snprintf(
-                    tmp.data(), tmp.size(), "%-*s",
-                    longestNameLength + extraWidth, str.c_str());
-                return tmp.data();
+                // No realloc, please
+                assert(longestNameLength + extraWidth <= tmp.size());
+
+                tmp.clear();
+                tmp.extend(str);
+                tmp.resize(longestNameLength + extraWidth, ' ');
+
+                return tmp.c_str();
             };
 
             // Force minimum window size with whitespace
             if (ImGui::CollapsingHeader(
-                    leftJustified("GPU", 5), ImGuiTreeNodeFlags_DefaultOpen))
+                    leftJustified("GPU"), ImGuiTreeNodeFlags_DefaultOpen))
             {
                 for (const auto &t : profilerTimes)
                     if (t.gpuMillis >= 0.f)
@@ -429,7 +456,7 @@ void App::drawFrame()
             }
 
             if (ImGui::CollapsingHeader(
-                    leftJustified("CPU", 5), ImGuiTreeNodeFlags_DefaultOpen))
+                    leftJustified("CPU"), ImGuiTreeNodeFlags_DefaultOpen))
             {
                 for (const auto &t : profilerTimes)
                     if (t.cpuMillis >= 0.f)
@@ -451,7 +478,7 @@ void App::drawFrame()
         "Camera update assumes no render offset");
     _cam.updateBuffer(
         nextImage, uvec2{renderArea.extent.width, renderArea.extent.height});
-    _world.updateUniformBuffers(_cam, nextImage);
+    _world.updateUniformBuffers(_cam, nextImage, scopeAlloc.child_scope());
 
     const auto &scene = _world.currentScene();
 
@@ -462,9 +489,8 @@ void App::drawFrame()
         constexpr auto debugRed = vec3{1.f, 0.05f, 0.05f};
         constexpr auto debugGreen = vec3{0.05f, 1.f, 0.05f};
         constexpr auto debugBlue = vec3{0.05f, 0.05f, 1.f};
-        for (auto i = 0u; i < scene.lights.pointLights.bufferData.count; ++i)
+        for (const auto &pl : scene.lights.pointLights.data)
         {
-            const auto &pl = scene.lights.pointLights.bufferData.lights[i];
             const auto pos = vec3{pl.position};
             debugLines.addLine(
                 pos, pos + vec3{debugLineLength, 0.f, 0.f}, debugRed);
@@ -474,9 +500,8 @@ void App::drawFrame()
                 pos, pos + vec3{0.f, 0.f, debugLineLength}, debugBlue);
         }
 
-        for (auto i = 0u; i < scene.lights.spotLights.bufferData.count; ++i)
+        for (const auto &sl : scene.lights.spotLights.data)
         {
-            const auto &sl = scene.lights.spotLights.bufferData.lights[i];
             const auto pos = vec3{sl.positionAndAngleOffset};
             const auto fwd = vec3{sl.direction};
             const auto right = abs(1 - sl.direction.y) < 0.1
@@ -529,7 +554,7 @@ void App::drawFrame()
         // format?) the future
         const auto &swapImage = _swapchain.image(nextImage);
 
-        const std::array barriers{
+        const StaticArray barriers{{
             _resources.images.toneMapped.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                 .accessMask = vk::AccessFlagBits2::eTransferRead,
@@ -547,7 +572,7 @@ void App::drawFrame()
                 .image = swapImage.handle,
                 .subresourceRange = swapImage.subresourceRange,
             },
-        };
+        }};
 
         cb.pipelineBarrier2(vk::DependencyInfo{
             .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
@@ -607,16 +632,10 @@ void App::drawFrame()
     }
 
     // Submit queue
-    const std::array waitSemaphores = {
-        _imageAvailableSemaphores[nextFrame],
-    };
-    const std::array waitStages = {
-        vk::PipelineStageFlags{
-            vk::PipelineStageFlagBits::eColorAttachmentOutput},
-    };
-    const std::array signalSemaphores = {
-        _renderFinishedSemaphores[nextFrame],
-    };
+    const StaticArray waitSemaphores = {_imageAvailableSemaphores[nextFrame]};
+    const StaticArray waitStages{{vk::PipelineStageFlags{
+        vk::PipelineStageFlagBits::eColorAttachmentOutput}}};
+    const StaticArray signalSemaphores{{_renderFinishedSemaphores[nextFrame]}};
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
@@ -635,5 +654,5 @@ void App::drawFrame()
 
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (!_swapchain.present(signalSemaphores) || _window.resized())
-        recreateSwapchainAndRelated();
+        recreateSwapchainAndRelated(scopeAlloc.child_scope());
 }

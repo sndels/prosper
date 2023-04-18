@@ -5,8 +5,8 @@
 #include "Utils.hpp"
 
 #include <glm/glm.hpp>
-
-#include <vector>
+#include <wheels/containers/span.hpp>
+#include <wheels/containers/static_array.hpp>
 
 struct DirectionalLight
 {
@@ -17,19 +17,21 @@ struct DirectionalLight
         glm::vec4 direction{-1.f, -1.f, -1.f, 1.f};
     } parameters;
 
-    std::vector<Buffer> uniformBuffers;
+    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> uniformBuffers;
 
-    [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
+    // output should have a size matching storageBuffers
+    void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
 
     void updateBuffer(uint32_t nextImage) const;
 };
 
 struct PointLights
 {
-    static const uint32_t max_count = 1024;
-    static std::string shaderDefines()
+    static const uint32_t sMaxCount = 1024;
+
+    static void appendShaderDefines(wheels::String &str)
     {
-        return defineStr("MAX_POINT_LIGHT_COUNT", PointLights::max_count);
+        appendDefineStr(str, "MAX_POINT_LIGHT_COUNT", PointLights::sMaxCount);
     };
 
     struct PointLight
@@ -37,26 +39,27 @@ struct PointLights
         glm::vec4 radianceAndRadius{0.f};
         glm::vec4 position{0.f};
     };
+    wheels::StaticArray<PointLight, sMaxCount> data;
 
-    struct BufferData
-    {
-        std::array<PointLight, max_count> lights;
-        uint32_t count{0};
-    } bufferData;
+    // Light data and uint32_t count
+    static const uint32_t sBufferByteSize =
+        sMaxCount * sizeof(PointLight) + sizeof(uint32_t);
 
-    std::vector<Buffer> storageBuffers;
+    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> storageBuffers;
 
-    [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
+    // output should have a size matching storageBuffers
+    void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
 
     void updateBuffer(uint32_t nextImage) const;
 };
 
 struct SpotLights
 {
-    static const uint32_t max_count = 1024;
-    static std::string shaderDefines()
+    static const uint32_t sMaxCount = 1024;
+
+    static void appendShaderDefines(wheels::String &str)
     {
-        return defineStr("MAX_SPOT_LIGHT_COUNT", SpotLights::max_count);
+        appendDefineStr(str, "MAX_SPOT_LIGHT_COUNT", SpotLights::sMaxCount);
     }
 
     struct SpotLight
@@ -65,16 +68,16 @@ struct SpotLights
         glm::vec4 positionAndAngleOffset{0.f};
         glm::vec4 direction{0.f};
     };
+    wheels::StaticArray<SpotLight, sMaxCount> data;
 
-    struct BufferData
-    {
-        std::array<SpotLight, max_count> lights;
-        uint32_t count{0};
-    } bufferData;
+    // Light data and uint32_t count
+    static const uint32_t sBufferByteSize =
+        sMaxCount * sizeof(SpotLight) + sizeof(uint32_t);
 
-    std::vector<Buffer> storageBuffers;
+    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> storageBuffers;
 
-    [[nodiscard]] std::vector<vk::DescriptorBufferInfo> bufferInfos() const;
+    // output should have a size matching storageBuffers
+    void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
 
     void updateBuffer(uint32_t nextImage) const;
 };

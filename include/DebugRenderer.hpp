@@ -1,8 +1,6 @@
 #ifndef PROSPER_DEBUG_RENDERER_HPP
 #define PROSPER_DEBUG_RENDERER_HPP
 
-#include <functional>
-
 #include "Camera.hpp"
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
@@ -10,6 +8,9 @@
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
+
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
 
 class DebugRenderer
 {
@@ -21,8 +22,9 @@ class DebugRenderer
     };
 
     DebugRenderer(
-        Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout);
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout);
     ~DebugRenderer();
 
     DebugRenderer(const DebugRenderer &other) = delete;
@@ -31,7 +33,8 @@ class DebugRenderer
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
 
     void recompileShaders(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout);
+        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout);
 
     void recreate(
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout);
@@ -41,7 +44,7 @@ class DebugRenderer
         uint32_t nextImage, Profiler *profiler) const;
 
   private:
-    [[nodiscard]] bool compileShaders();
+    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
     void destroySwapchainRelated();
     void destroyGraphicsPipeline();
@@ -56,13 +59,14 @@ class DebugRenderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
 
     vk::RenderingAttachmentInfo _colorAttachment;
     vk::RenderingAttachmentInfo _depthAttachment;
 
     vk::DescriptorSetLayout _linesDSLayout;
-    std::vector<vk::DescriptorSet> _linesDescriptorSets;
+    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
+        _linesDescriptorSets;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

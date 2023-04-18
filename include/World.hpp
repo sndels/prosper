@@ -8,8 +8,12 @@
 #include "Texture.hpp"
 
 #include <filesystem>
-#include <unordered_map>
 #include <vulkan/vulkan_hash.hpp>
+
+#include <wheels/allocators/cstdlib_allocator.hpp>
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/array.hpp>
+#include <wheels/containers/hash_map.hpp>
 
 namespace tinygltf
 {
@@ -32,8 +36,8 @@ class World
         vk::DescriptorSetLayout skybox;
     };
     World(
-        Device *device, uint32_t swapImageCount,
-        const std::filesystem::path &scene);
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        uint32_t swapImageCount, const std::filesystem::path &scene);
     ~World();
 
     World(const World &other) = delete;
@@ -42,8 +46,13 @@ class World
     World &operator=(World &&other) = delete;
 
     [[nodiscard]] const Scene &currentScene() const;
-    void updateUniformBuffers(const Camera &cam, uint32_t nextImage) const;
+    void updateUniformBuffers(
+        const Camera &cam, uint32_t nextImage,
+        wheels::ScopedScratch scopeAlloc) const;
     void drawSkybox(const vk::CommandBuffer &buffer) const;
+
+    wheels::CstdlibAllocator _generalAlloc;
+    wheels::LinearAllocator _linearAlloc;
 
     std::filesystem::path _sceneDir;
 
@@ -51,26 +60,26 @@ class World
     TextureCubemap _skyboxTexture;
     Buffer _skyboxVertexBuffer;
 
-    std::unordered_map<Scene::Node *, CameraParameters> _cameras;
-    std::vector<vk::Sampler> _samplers;
-    std::vector<Texture2D> _texture2Ds;
+    wheels::HashMap<Scene::Node *, CameraParameters> _cameras{_generalAlloc};
+    wheels::Array<vk::Sampler> _samplers{_generalAlloc};
+    wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
     struct Texture2DSampler
     {
         uint32_t texture{0};
         uint32_t sampler{0};
     };
-    std::vector<Texture2DSampler> _texture2DSamplers;
-    std::vector<Buffer> _geometryBuffers;
+    wheels::Array<Texture2DSampler> _texture2DSamplers{_generalAlloc};
+    wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
     Buffer _meshBuffersBuffer;
-    std::vector<Material> _materials;
-    std::vector<MeshBuffers> _meshBuffers;
-    std::vector<MeshInfo> _meshInfos;
-    std::vector<Buffer> _modelInstances;
-    std::vector<AccelerationStructure> _blases;
-    std::vector<AccelerationStructure> _tlases;
-    std::vector<Model> _models;
-    std::vector<Scene::Node> _nodes;
-    std::vector<Scene> _scenes;
+    wheels::Array<Material> _materials{_generalAlloc};
+    wheels::Array<MeshBuffers> _meshBuffers{_generalAlloc};
+    wheels::Array<MeshInfo> _meshInfos{_generalAlloc};
+    wheels::Array<Buffer> _modelInstances{_generalAlloc};
+    wheels::Array<AccelerationStructure> _blases{_generalAlloc};
+    wheels::Array<AccelerationStructure> _tlases{_generalAlloc};
+    wheels::Array<Model> _models{_generalAlloc};
+    wheels::Array<Scene::Node> _nodes{_generalAlloc};
+    wheels::Array<Scene> _scenes{_generalAlloc};
     size_t _currentScene{0};
 
     Buffer _materialsBuffer;
@@ -78,19 +87,21 @@ class World
     vk::DescriptorSet _geometryDS;
     DSLayouts _dsLayouts;
 
-    std::vector<Buffer> _skyboxUniformBuffers;
-    std::vector<vk::DescriptorSet> _skyboxDSs;
+    wheels::Array<Buffer> _skyboxUniformBuffers{_generalAlloc};
+    wheels::Array<vk::DescriptorSet> _skyboxDSs{_generalAlloc};
 
   private:
-    void loadTextures(const tinygltf::Model &gltfModel);
+    void loadTextures(
+        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
     void loadMaterials(const tinygltf::Model &gltfModel);
     void loadModels(const tinygltf::Model &gltfModel);
-    void loadScenes(const tinygltf::Model &gltfModel);
+    void loadScenes(
+        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
     void createBlases();
-    void createTlases();
+    void createTlases(wheels::ScopedScratch scopeAlloc);
     void createBuffers(uint32_t swapImageCount);
-    void createDescriptorPool(uint32_t swapImageCount);
-    void createDescriptorSets(uint32_t swapImageCount);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc, uint32_t swapImageCount);
 
     Device *_device{nullptr};
     DescriptorAllocator _descriptorAllocator;

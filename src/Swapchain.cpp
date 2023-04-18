@@ -1,16 +1,18 @@
 #include "Swapchain.hpp"
 
-#include <algorithm>
 #include <stdexcept>
+#include <wheels/containers/span.hpp>
 
 #include "Utils.hpp"
 #include "VkUtils.hpp"
+
+using namespace wheels;
 
 namespace
 {
 
 vk::SurfaceFormatKHR selectSwapSurfaceFormat(
-    const std::vector<vk::SurfaceFormatKHR> &availableFormats)
+    Span<const vk::SurfaceFormatKHR> availableFormats)
 {
     // We're free to take our pick (sRGB output with "regular" 8bit rgba buffer)
     if (availableFormats.size() == 1 &&
@@ -34,7 +36,7 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
 }
 
 vk::PresentModeKHR selectSwapPresentMode(
-    const std::vector<vk::PresentModeKHR> &availablePresentModes)
+    Span<const vk::PresentModeKHR> availablePresentModes)
 {
     // Default to fifo (double buffering)
     vk::PresentModeKHR bestMode = vk::PresentModeKHR::eFifo;
@@ -77,19 +79,45 @@ constexpr vk::Extent2D selectSwapExtent(
 } // namespace
 
 SwapchainSupport::SwapchainSupport(
-    vk::PhysicalDevice device, const vk::SurfaceKHR surface)
+    Allocator &alloc, vk::PhysicalDevice device, const vk::SurfaceKHR surface)
 : capabilities{device.getSurfaceCapabilitiesKHR(surface)}
-, formats{device.getSurfaceFormatsKHR(surface)}
-, presentModes{device.getSurfacePresentModesKHR(surface)}
+, formats{alloc}
+, presentModes{alloc}
 {
+    {
+        uint32_t count = 0;
+        checkSuccess(
+            device.getSurfaceFormatsKHR(surface, &count, nullptr),
+            "Failed to get surface format count");
+
+        formats.resize(count);
+        checkSuccess(
+            device.getSurfaceFormatsKHR(surface, &count, formats.data()),
+            "Failed to get surface formats");
+    }
+
+    {
+        uint32_t count = 0;
+        checkSuccess(
+            device.getSurfacePresentModesKHR(surface, &count, nullptr),
+            "Failed to get present mode count");
+
+        presentModes.resize(count);
+        checkSuccess(
+            device.getSurfacePresentModesKHR(
+                surface, &count, presentModes.data()),
+            "Failed to get present modes");
+    }
 }
 
 SwapchainConfig::SwapchainConfig(
-    Device *device, const vk::Extent2D &preferredExtent)
+    ScopedScratch scopeAlloc, Device *device,
+    const vk::Extent2D &preferredExtent)
 {
     assert(device != nullptr);
 
-    const SwapchainSupport support(device->physical(), device->surface());
+    const SwapchainSupport support(
+        scopeAlloc, device->physical(), device->surface());
 
     // Needed to blit into, not supported by all implementations
     if (!(support.capabilities.supportedUsageFlags &
@@ -146,7 +174,7 @@ vk::Fence Swapchain::currentFence() const
     return _inFlightFences[_nextFrame];
 }
 
-std::optional<uint32_t> Swapchain::acquireNextImage(
+wheels::Optional<uint32_t> Swapchain::acquireNextImage(
     vk::Semaphore signalSemaphore)
 {
     const auto noTimeout = std::numeric_limits<uint64_t>::max();
@@ -166,14 +194,14 @@ std::optional<uint32_t> Swapchain::acquireNextImage(
     // Swapchain should be recreated if out of date or suboptimal
     if (result == vk::Result::eErrorOutOfDateKHR ||
         result == vk::Result::eSuboptimalKHR)
-        return std::nullopt;
+        return {};
     if (result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to acquire swapchain image");
 
     return _nextImage;
 }
 
-bool Swapchain::present(const std::array<vk::Semaphore, 1> &waitSemaphores)
+bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
 {
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
@@ -226,9 +254,9 @@ void Swapchain::destroy()
 void Swapchain::createSwapchain()
 {
     const QueueFamilies indices = _device->queueFamilies();
-    const std::array queueFamilyIndices = {
-        indices.graphicsFamily.value(),
-        indices.presentFamily.value(),
+    const StaticArray queueFamilyIndices = {
+        *indices.graphicsFamily,
+        *indices.presentFamily,
     };
 
     // Handle ownership of images

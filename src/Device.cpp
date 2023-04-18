@@ -2,14 +2,19 @@
 
 #include <cstring>
 #include <iostream>
-#include <set>
 #include <stdexcept>
+
+#include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/static_array.hpp>
+#include <wheels/containers/string.hpp>
 
 #include "App.hpp"
 #include "ForEach.hpp"
 #include "Swapchain.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
+
+using namespace wheels;
 
 #define ALL_FEATURE_STRUCTS_LIST                                               \
     vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,           \
@@ -77,29 +82,30 @@ QueueFamilies findQueueFamilies(
     }
 
     assert(
-        (!families.graphicsFamily ||
+        (!families.graphicsFamily.has_value() ||
          (allFamilies[*families.graphicsFamily].timestampValidBits == 64)) &&
         "All bits assumed to be valid for simplicity in profiler");
     assert(
-        (!families.presentFamily ||
+        (!families.presentFamily.has_value() ||
          (allFamilies[*families.presentFamily].timestampValidBits == 64)) &&
         "All bits assumed to be valid for simplicity in profiler");
 
     return families;
 }
 
-bool checkDeviceExtensionSupport(const vk::PhysicalDevice device)
+bool checkDeviceExtensionSupport(
+    ScopedScratch scopeAlloc, const vk::PhysicalDevice device)
 {
     const auto availableExtensions =
         device.enumerateDeviceExtensionProperties(nullptr);
 
     // Check that all needed extensions are present
-    std::set<std::string> requiredExtensions(
-        deviceExtensions.begin(), deviceExtensions.end());
+    HashSet<String> requiredExtensions{scopeAlloc, deviceExtensions.size() * 2};
+    for (const char *ext : deviceExtensions)
+        requiredExtensions.insert(String{scopeAlloc, ext});
+
     for (const auto &extension : availableExtensions)
-    {
-        requiredExtensions.erase(extension.extensionName);
-    }
+        requiredExtensions.remove(String{scopeAlloc, extension.extensionName});
 
     if (!requiredExtensions.empty())
     {
@@ -138,17 +144,18 @@ bool checkValidationLayerSupport()
     return true;
 }
 
-std::vector<const char *> getRequiredExtensions()
+Array<String> getRequiredExtensions(Allocator &alloc)
 {
     // Query extensions glfw requires
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions =
         glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    std::vector<const char *> extensions(
-        glfwExtensions, glfwExtensions + glfwExtensionCount);
+    Array<String> extensions{alloc, glfwExtensionCount};
+    for (size_t i = 0; i < glfwExtensionCount; ++i)
+        extensions.emplace_back(alloc, glfwExtensions[i]);
 
     // Add extension containing debug layers
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    extensions.emplace_back(alloc, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
     return extensions;
 }
@@ -247,8 +254,10 @@ const char *statusString(shaderc_compilation_status status)
 
 } // namespace
 
-FileIncluder::FileIncluder()
-: _includePath{resPath("shader")}
+FileIncluder::FileIncluder(Allocator &alloc)
+: _alloc{alloc}
+, _includePath{resPath("shader")}
+, _includeContent{alloc}
 {
 }
 
@@ -274,11 +283,11 @@ shaderc_include_result *FileIncluder::GetInclude(
     assert(std::filesystem::exists(requestedSource));
 
     IncludeContent content;
-    content.path = std::make_unique<std::string>();
-    *content.path = requestedSource.generic_string();
+    content.path = std::make_unique<String>(
+        _alloc, requestedSource.generic_string().c_str());
 
-    content.content = std::make_unique<std::string>();
-    *content.content = readFileString(requestedSource);
+    content.content =
+        std::make_unique<String>(readFileString(_alloc, requestedSource));
 
     content.result =
         std::make_unique<shaderc_include_result>(shaderc_include_result{
@@ -291,7 +300,7 @@ shaderc_include_result *FileIncluder::GetInclude(
     auto *result_ptr = content.result.get();
 
     static_assert(sizeof(_includeContentID) == sizeof(void *));
-    _includeContent[_includeContentID++] = std::move(content);
+    _includeContent.insert_or_assign(_includeContentID++, WHEELS_MOV(content));
 
     return result_ptr;
 }
@@ -299,14 +308,16 @@ shaderc_include_result *FileIncluder::GetInclude(
 void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 {
     auto id = reinterpret_cast<uint64_t>(data->user_data);
-    _includeContent.erase(id);
+    _includeContent.remove(id);
 }
 
-Device::Device(GLFWwindow *window, bool enableDebugLayers)
+Device::Device(
+    ScopedScratch scopeAlloc, GLFWwindow *window, bool enableDebugLayers)
 {
     printf("Creating Vulkan device\n");
 
-    _compilerOptions.SetIncluder(std::make_unique<FileIncluder>());
+    // Use general allocator since the include set is unbounded
+    _compilerOptions.SetIncluder(std::make_unique<FileIncluder>(_generalAlloc));
     _compilerOptions.SetGenerateDebugInfo();
     _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
 
@@ -315,7 +326,7 @@ Device::Device(GLFWwindow *window, bool enableDebugLayers)
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-    createInstance(enableDebugLayers);
+    createInstance(scopeAlloc.child_scope(), enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
 
     {
@@ -336,10 +347,10 @@ Device::Device(GLFWwindow *window, bool enableDebugLayers)
 
     createDebugMessenger();
     createSurface(window);
-    selectPhysicalDevice();
+    selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
-    createLogicalDevice(enableDebugLayers);
+    createLogicalDevice(scopeAlloc.child_scope(), enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
 
     createAllocator();
@@ -403,19 +414,29 @@ const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 
 const DeviceProperties &Device::properties() const { return _properties; }
 
-std::optional<vk::ShaderModule> Device::compileShaderModule(
-    CompileShaderModuleArgs const &info) const
+wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
+    ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info) const
 {
-    assert(info.relPath.starts_with("shader/"));
+    assert(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
     // Prepend version, defines and reset line offset before the actual source
-    const auto source = "#version 460\n" + info.defines + "#line 1\n" +
-                        readFileString(shaderPath);
+    const String source = readFileString(scopeAlloc, shaderPath);
+
+    const char versionLine[] = "#version 460\n";
+    const char line1Tag[] = "#line 1\n";
+
+    const size_t fullSize = sizeof(versionLine) - 1 + sizeof(line1Tag) - 1 +
+                            info.defines.size() + source.size();
+    String fullSource{scopeAlloc, fullSize};
+    fullSource.extend(versionLine);
+    fullSource.extend(info.defines);
+    fullSource.extend(line1Tag);
+    fullSource.extend(source);
 
     const auto result = _compiler.CompileGlslToSpv(
-        source, shaderc_glsl_infer_from_source, shaderPath.string().c_str(),
-        _compilerOptions);
+        fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
+        shaderPath.string().c_str(), _compilerOptions);
 
     if (const auto status = result.GetCompilationStatus(); status)
     {
@@ -439,7 +460,7 @@ std::optional<vk::ShaderModule> Device::compileShaderModule(
         .objectType = vk::ObjectType::eShaderModule,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
-        .pObjectName = info.debugName.c_str(),
+        .pObjectName = info.debugName,
     });
 
     return sm;
@@ -486,18 +507,24 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         .objectType = vk::ObjectType::eBuffer,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
-        .pObjectName = info.debugName.c_str(),
+        .pObjectName = info.debugName,
     });
 
     if (info.initialData != nullptr)
     {
+        const char postfix[] = "StagingBuffer";
+        String stagingDebugName{
+            _generalAlloc, strlen(info.debugName) + sizeof(postfix) - 1};
+        stagingDebugName.extend(info.debugName);
+        stagingDebugName.extend(postfix);
+
         const auto stagingBuffer = createBuffer(BufferCreateInfo{
             .byteSize = info.byteSize,
             .usage = vk::BufferUsageFlagBits::eTransferSrc,
             .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                           vk::MemoryPropertyFlagBits::eHostCoherent,
             .createMapped = true,
-            .debugName = info.debugName + "StagingBuffer",
+            .debugName = stagingDebugName.c_str(),
         });
 
         memcpy(stagingBuffer.mapped, info.initialData, info.byteSize);
@@ -631,7 +658,7 @@ Image Device::createImage(const ImageCreateInfo &info)
         .objectType = vk::ObjectType::eImage,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
-        .pObjectName = info.debugName.c_str(),
+        .pObjectName = info.debugName,
     });
 
     const vk::ImageSubresourceRange range{
@@ -734,7 +761,8 @@ const MemoryAllocationBytes &Device::memoryAllocations() const
     return _memoryAllocations;
 }
 
-bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
+bool Device::isDeviceSuitable(
+    ScopedScratch scopeAlloc, const vk::PhysicalDevice device) const
 {
     const auto families = findQueueFamilies(device, _surface);
     if (!families.isComplete())
@@ -743,10 +771,10 @@ bool Device::isDeviceSuitable(const vk::PhysicalDevice device) const
         return false;
     }
 
-    if (!checkDeviceExtensionSupport(device))
+    if (!checkDeviceExtensionSupport(scopeAlloc.child_scope(), device))
         return false;
 
-    SwapchainSupport swapSupport{device, _surface};
+    SwapchainSupport swapSupport{scopeAlloc, device, _surface};
     if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
     {
         fprintf(stderr, "Inadequate swap chain\n");
@@ -785,7 +813,7 @@ void Device::unmap(VmaAllocation allocation) const
     vmaUnmapMemory(_allocator, allocation);
 }
 
-void Device::createInstance(bool enableDebugLayers)
+void Device::createInstance(ScopedScratch scopeAlloc, bool enableDebugLayers)
 {
     if (enableDebugLayers && !checkValidationLayerSupport())
         throw std::runtime_error("Validation layers not available");
@@ -798,7 +826,11 @@ void Device::createInstance(bool enableDebugLayers)
         .apiVersion = VK_API_VERSION_1_3,
     };
 
-    const auto extensions = getRequiredExtensions();
+    const Array<String> extensions = getRequiredExtensions(scopeAlloc);
+
+    Array<const char *> extension_cstrs{scopeAlloc, extensions.size()};
+    for (const String &ext : extensions)
+        extension_cstrs.push_back(ext.c_str());
 
     _instance = vk::createInstance(vk::InstanceCreateInfo{
         .pApplicationInfo = &appInfo,
@@ -807,8 +839,9 @@ void Device::createInstance(bool enableDebugLayers)
                               : 0,
         .ppEnabledLayerNames =
             enableDebugLayers ? validationLayers.data() : nullptr,
-        .enabledExtensionCount = asserted_cast<uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data(),
+        .enabledExtensionCount =
+            asserted_cast<uint32_t>(extension_cstrs.size()),
+        .ppEnabledExtensionNames = extension_cstrs.data(),
     });
 }
 
@@ -838,7 +871,7 @@ void Device::createSurface(GLFWwindow *window)
         throw std::runtime_error("Failed to create window surface");
 }
 
-void Device::selectPhysicalDevice()
+void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
 {
     printf("Selecting device\n");
 
@@ -847,7 +880,7 @@ void Device::selectPhysicalDevice()
     for (const auto &device : devices)
     {
         printf("Considering '%s'\n", device.getProperties().deviceName.data());
-        if (isDeviceSuitable(device))
+        if (isDeviceSuitable(scopeAlloc.child_scope(), device))
         {
             _physical = device;
             return;
@@ -857,20 +890,25 @@ void Device::selectPhysicalDevice()
     throw std::runtime_error("Failed to find a suitable GPU");
 }
 
-void Device::createLogicalDevice(bool enableDebugLayers)
+void Device::createLogicalDevice(
+    ScopedScratch scopeAlloc, bool enableDebugLayers)
 {
-    const uint32_t graphicsFamily = _queueFamilies.graphicsFamily.value();
-    const uint32_t presentFamily = _queueFamilies.presentFamily.value();
+    assert(_queueFamilies.graphicsFamily.has_value());
+    assert(_queueFamilies.presentFamily.has_value());
+
+    const uint32_t graphicsFamily = *_queueFamilies.graphicsFamily;
+    const uint32_t presentFamily = *_queueFamilies.presentFamily;
 
     // Config queues, concat duplicate families
     const float queuePriority = 1;
-    const std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]
+    const Array<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]
     {
-        const std::set<uint32_t> uniqueQueueFamilies = {
-            graphicsFamily, presentFamily};
+        HashSet<uint32_t> uniqueQueueFamilies{scopeAlloc, 4};
+        uniqueQueueFamilies.insert(graphicsFamily);
+        uniqueQueueFamilies.insert(presentFamily);
 
-        std::vector<vk::DeviceQueueCreateInfo> cis;
-        cis.reserve(uniqueQueueFamilies.size());
+        Array<vk::DeviceQueueCreateInfo> cis{
+            scopeAlloc, uniqueQueueFamilies.size()};
         for (auto family : uniqueQueueFamilies)
         {
             cis.push_back(vk::DeviceQueueCreateInfo{
@@ -929,9 +967,11 @@ void Device::createAllocator()
 void Device::createCommandPools()
 {
     {
+        assert(_queueFamilies.graphicsFamily.has_value());
+
         const vk::CommandPoolCreateInfo poolInfo{
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = _queueFamilies.graphicsFamily.value(),
+            .queueFamilyIndex = *_queueFamilies.graphicsFamily,
         };
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
     }

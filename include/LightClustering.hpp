@@ -1,8 +1,6 @@
 #ifndef PROSPER_LIGHT_CLUSTERING_HPP
 #define PROSPER_LIGHT_CLUSTERING_HPP
 
-#include <functional>
-
 #include "Camera.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
@@ -10,20 +8,23 @@
 #include "Swapchain.hpp"
 #include "World.hpp"
 
+#include <wheels/allocators/scoped_scratch.hpp>
+
 class LightClustering
 {
   public:
     static const uint32_t clusterDim = 32;
     static const uint32_t zSlices = 16;
-    static std::string shaderDefines()
+    static void appendShaderDefines(wheels::String &str)
     {
-        return defineStr("LIGHT_CLUSTER_DIMENSION", clusterDim) +
-               defineStr("LIGHT_CLUSTER_Z_SLICE_COUNT", zSlices);
+        appendDefineStr(str, "LIGHT_CLUSTER_DIMENSION", clusterDim);
+        appendDefineStr(str, "LIGHT_CLUSTER_Z_SLICE_COUNT", zSlices);
     };
 
     LightClustering(
-        Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~LightClustering();
 
@@ -33,7 +34,7 @@ class LightClustering
     LightClustering &operator=(LightClustering &&other) = delete;
 
     void recompileShaders(
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
@@ -45,7 +46,7 @@ class LightClustering
         const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler);
 
   private:
-    [[nodiscard]] bool compileShaders();
+    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
     void destroySwapchainRelated();
     void destroyPipeline();

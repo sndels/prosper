@@ -1,8 +1,6 @@
 #ifndef PROSPER_SKYBOXRENDERER_HPP
 #define PROSPER_SKYBOXRENDERER_HPP
 
-#include <functional>
-
 #include "Camera.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
@@ -10,12 +8,15 @@
 #include "Swapchain.hpp"
 #include "World.hpp"
 
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
+
 class SkyboxRenderer
 {
   public:
     SkyboxRenderer(
-        Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig,
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
     ~SkyboxRenderer();
 
@@ -25,7 +26,7 @@ class SkyboxRenderer
     SkyboxRenderer &operator=(SkyboxRenderer &&other) = delete;
 
     void recompileShaders(
-        const SwapchainConfig &swapConfig,
+        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
@@ -37,7 +38,7 @@ class SkyboxRenderer
         uint32_t nextImage, Profiler *profiler) const;
 
   private:
-    [[nodiscard]] bool compileShaders();
+    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();
@@ -51,7 +52,7 @@ class SkyboxRenderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
 
     vk::RenderingAttachmentInfo _colorAttachment;
     vk::RenderingAttachmentInfo _depthAttachment;

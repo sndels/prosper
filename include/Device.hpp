@@ -6,15 +6,18 @@
 #include <GLFW/glfw3.h>
 #include <shaderc/shaderc.hpp>
 
+#include <wheels/allocators/cstdlib_allocator.hpp>
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/hash_map.hpp>
+#include <wheels/containers/optional.hpp>
+#include <wheels/containers/string.hpp>
+
 #include <filesystem>
-#include <optional>
-#include <unordered_set>
-#include <vector>
 
 struct QueueFamilies
 {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
+    wheels::Optional<uint32_t> graphicsFamily;
+    wheels::Optional<uint32_t> presentFamily;
 
     [[nodiscard]] bool isComplete() const
     {
@@ -32,7 +35,7 @@ struct DeviceProperties
 class FileIncluder : public shaderc::CompileOptions::IncluderInterface
 {
   public:
-    FileIncluder();
+    FileIncluder(wheels::Allocator &alloc);
 
     shaderc_include_result *GetInclude(
         const char *requested_source, shaderc_include_type type,
@@ -41,16 +44,18 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
     void ReleaseInclude(shaderc_include_result *data) override;
 
   private:
+    wheels::Allocator &_alloc;
+
     std::filesystem::path _includePath;
 
     uint64_t _includeContentID{0};
     struct IncludeContent
     {
         std::unique_ptr<shaderc_include_result> result{nullptr};
-        std::unique_ptr<std::string> content{nullptr};
-        std::unique_ptr<std::string> path{nullptr};
+        std::unique_ptr<wheels::String> content{nullptr};
+        std::unique_ptr<wheels::String> path{nullptr};
     };
-    std::unordered_map<uint64_t, IncludeContent> _includeContent;
+    wheels::HashMap<uint64_t, IncludeContent> _includeContent;
 };
 
 struct MemoryAllocationBytes
@@ -63,7 +68,9 @@ struct MemoryAllocationBytes
 class Device
 {
   public:
-    Device(GLFWwindow *window, bool enableDebugLayers);
+    Device(
+        wheels::ScopedScratch scopeAlloc, GLFWwindow *window,
+        bool enableDebugLayers);
     ~Device();
 
     Device(const Device &other) = delete;
@@ -89,11 +96,12 @@ class Device
         // Note that the full extension requires {}-initialization and doesn't
         // work if 'new' is involved.
         // Don't know if this is a neat way to do named args or a footgun.
-        const std::string &relPath;
-        const std::string &debugName;
-        const std::string &defines{""};
+        const std::filesystem::path &relPath;
+        const char *debugName;
+        wheels::StrSpan defines{""};
     };
-    [[nodiscard]] std::optional<vk::ShaderModule> compileShaderModule(
+    [[nodiscard]] wheels::Optional<vk::ShaderModule> compileShaderModule(
+        wheels::ScopedScratch scopeAlloc,
         const CompileShaderModuleArgs &info) const;
 
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);
@@ -112,16 +120,19 @@ class Device
     const MemoryAllocationBytes &memoryAllocations() const;
 
   private:
-    [[nodiscard]] bool isDeviceSuitable(vk::PhysicalDevice device) const;
+    [[nodiscard]] bool isDeviceSuitable(
+        wheels::ScopedScratch scopeAlloc, vk::PhysicalDevice device) const;
 
     [[nodiscard]] void *map(VmaAllocation allocation) const;
     void unmap(VmaAllocation allocation) const;
 
-    void createInstance(bool enableDebugLayers);
+    void createInstance(
+        wheels::ScopedScratch scopeAlloc, bool enableDebugLayers);
     void createDebugMessenger();
     void createSurface(GLFWwindow *window);
-    void selectPhysicalDevice();
-    void createLogicalDevice(bool enableDebugLayers);
+    void selectPhysicalDevice(wheels::ScopedScratch scopeAlloc);
+    void createLogicalDevice(
+        wheels::ScopedScratch scopeAlloc, bool enableDebugLayers);
     void createAllocator();
     void createCommandPools();
 
@@ -131,6 +142,8 @@ class Device
     void untrackTexelBuffer(const TexelBuffer &buffer);
     void trackImage(const Image &image);
     void untrackImage(const Image &image);
+
+    wheels::CstdlibAllocator _generalAlloc;
 
     vk::Instance _instance;
     vk::PhysicalDevice _physical;

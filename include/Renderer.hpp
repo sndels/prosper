@@ -1,8 +1,6 @@
 #ifndef PROSPER_RENDERER_HPP
 #define PROSPER_RENDERER_HPP
 
-#include <functional>
-
 #include "Camera.hpp"
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
@@ -10,6 +8,9 @@
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
 #include "World.hpp"
+
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
 
 class Renderer
 {
@@ -21,8 +22,9 @@ class Renderer
     };
 
     Renderer(
-        Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~Renderer();
 
@@ -32,7 +34,8 @@ class Renderer
     Renderer &operator=(Renderer &&other) = delete;
 
     void recompileShaders(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
@@ -47,7 +50,9 @@ class Renderer
         Profiler *profiler) const;
 
   private:
-    [[nodiscard]] bool compileShaders(const World::DSLayouts &worldDSLayouts);
+    [[nodiscard]] bool compileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const World::DSLayouts &worldDSLayouts);
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();
@@ -62,13 +67,13 @@ class Renderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    std::array<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{{}};
 
-    std::array<vk::RenderingAttachmentInfo, 2> _colorAttachments{};
-    std::array<vk::RenderingAttachmentInfo, 2> _depthAttachments{};
+    wheels::StaticArray<vk::RenderingAttachmentInfo, 2> _colorAttachments{{}};
+    wheels::StaticArray<vk::RenderingAttachmentInfo, 2> _depthAttachments{{}};
 
     vk::PipelineLayout _pipelineLayout;
-    std::array<vk::Pipeline, 2> _pipelines{};
+    wheels::StaticArray<vk::Pipeline, 2> _pipelines{{}};
 
     DrawType _drawType{DrawType::Default};
 };

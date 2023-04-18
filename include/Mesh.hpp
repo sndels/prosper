@@ -1,8 +1,6 @@
 #ifndef PROSPER_MESH_HPP
 #define PROSPER_MESH_HPP
 
-#include <vector>
-
 #include "Device.hpp"
 #include "Material.hpp"
 

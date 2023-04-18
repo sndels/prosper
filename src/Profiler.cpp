@@ -2,6 +2,8 @@
 
 #include "Utils.hpp"
 
+using namespace wheels;
+
 namespace
 {
 
@@ -12,14 +14,14 @@ constexpr uint32_t sMaxQueryCount = sMaxScopeCount * 2;
 } // namespace
 
 GpuFrameProfiler::Scope::Scope(
-    vk::CommandBuffer cb, vk::QueryPool queryPool, const std::string &name,
+    vk::CommandBuffer cb, vk::QueryPool queryPool, const char *name,
     uint32_t queryIndex)
 : _cb{cb}
 , _queryPool{queryPool}
 , _queryIndex{queryIndex}
 {
     cb.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = name.c_str(),
+        .pLabelName = name,
     });
     cb.writeTimestamp2(
         vk::PipelineStageFlagBits2::eTopOfPipe, _queryPool, _queryIndex * 2);
@@ -58,7 +60,7 @@ GpuFrameProfiler::Scope &GpuFrameProfiler::Scope::operator=(
     return *this;
 }
 
-GpuFrameProfiler::GpuFrameProfiler(Device *device)
+GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
 : _device{device}
 , _buffer{device->createBuffer(BufferCreateInfo{
       .byteSize = sizeof(uint64_t) * sMaxQueryCount,
@@ -67,8 +69,8 @@ GpuFrameProfiler::GpuFrameProfiler(Device *device)
                     vk::MemoryPropertyFlagBits::eHostCoherent,
       .createMapped = true,
       .debugName = "GpuProfilerReadback"})}
+, _queryScopeIndices{alloc, sMaxScopeCount}
 {
-    _queryScopeIndices.reserve(sMaxScopeCount);
     _queryPool = _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
         .queryType = vk::QueryType::eTimestamp, .queryCount = sMaxQueryCount});
 }
@@ -86,7 +88,7 @@ GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
 : _device{other._device}
 , _buffer{other._buffer}
 , _queryPool{other._queryPool}
-, _queryScopeIndices{std::move(other._queryScopeIndices)}
+, _queryScopeIndices{WHEELS_MOV(other._queryScopeIndices)}
 {
     other._device = nullptr;
 }
@@ -98,7 +100,7 @@ GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
         _device = other._device;
         _buffer = other._buffer;
         _queryPool = other._queryPool;
-        _queryScopeIndices = std::move(other._queryScopeIndices);
+        _queryScopeIndices = WHEELS_MOV(other._queryScopeIndices);
 
         other._device = nullptr;
     }
@@ -121,14 +123,14 @@ void GpuFrameProfiler::endFrame(vk::CommandBuffer cb)
 }
 
 GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
-    vk::CommandBuffer cb, const std::string &name, uint32_t index)
+    vk::CommandBuffer cb, const char *name, uint32_t index)
 {
     const auto queryIndex = asserted_cast<uint32_t>(_queryScopeIndices.size());
     _queryScopeIndices.push_back(index);
     return Scope{cb, _queryPool, name, queryIndex};
 }
 
-std::vector<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes()
+Array<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes(Allocator &alloc)
 {
     const auto timestampPeriodNanos = static_cast<double>(
         _device->properties().device.limits.timestampPeriod);
@@ -137,8 +139,7 @@ std::vector<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes()
     // Caller should make sure that isn't an issue.
     auto *mapped = reinterpret_cast<uint64_t *>(_buffer.mapped);
 
-    std::vector<ScopeTime> times;
-    times.reserve(_queryScopeIndices.size());
+    Array<ScopeTime> times{alloc, _queryScopeIndices.size()};
     for (auto i = 0u; i < _queryScopeIndices.size(); ++i)
     {
         // All bits valid should have been asserted on device creation
@@ -187,7 +188,10 @@ CpuFrameProfiler::Scope &CpuFrameProfiler::Scope::operator=(
     return *this;
 }
 
-CpuFrameProfiler::CpuFrameProfiler() { _nanos.reserve(sMaxScopeCount); }
+CpuFrameProfiler::CpuFrameProfiler(wheels::Allocator &alloc)
+: _nanos{alloc, sMaxScopeCount}
+{
+}
 
 void CpuFrameProfiler::startFrame() { _nanos.clear(); }
 
@@ -204,10 +208,9 @@ void CpuFrameProfiler::startFrame() { _nanos.clear(); }
     return Scope{&_nanos.back()};
 }
 
-std::vector<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes()
+Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
 {
-    std::vector<ScopeTime> times;
-    times.reserve(_nanos.size());
+    Array<ScopeTime> times{alloc, _nanos.size()};
     for (auto i = 0u; i < _nanos.size(); ++i)
     {
         times.push_back(ScopeTime{
@@ -220,18 +223,20 @@ std::vector<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes()
     return times;
 }
 
-Profiler::Profiler(Device *device, uint32_t maxFrameCount)
+Profiler::Profiler(Allocator &alloc, Device *device, uint32_t maxFrameCount)
+: _alloc{alloc}
+, _cpuFrameProfiler{_alloc}
+, _gpuFrameProfilers{_alloc, maxFrameCount}
+, _currentFrameScopeNames{_alloc, sMaxScopeCount}
+, _previousScopeNames{_alloc}
+, _previousCpuScopeTimes{_alloc}
+, _previousGpuScopeTimes{_alloc, sMaxScopeCount}
 {
-    _previousScopeNames.resize(maxFrameCount);
-    _previousCpuScopeTimes.resize(maxFrameCount);
-
-    _currentFrameScopeNames.reserve(sMaxScopeCount);
-
     for (auto i = 0u; i < maxFrameCount; ++i)
     {
-        _gpuFrameProfilers.emplace_back(device);
-        _previousScopeNames[i].reserve(sMaxScopeCount);
-        _previousCpuScopeTimes[i].reserve(sMaxScopeCount);
+        _gpuFrameProfilers.emplace_back(_alloc, device);
+        _previousScopeNames.emplace_back(_alloc, sMaxScopeCount);
+        _previousCpuScopeTimes.emplace_back(_alloc, sMaxScopeCount);
     }
 }
 
@@ -260,7 +265,7 @@ void Profiler::startGpuFrame(uint32_t frameIndex)
 
     // Store times from the previous iteration of this gpu frame index. We need
     // to read these before startFrame as that will reset the queries.
-    _previousGpuScopeTimes = _gpuFrameProfilers[_currentFrame].getTimes();
+    _previousGpuScopeTimes = _gpuFrameProfilers[_currentFrame].getTimes(_alloc);
 
     _gpuFrameProfilers[_currentFrame].startFrame();
 
@@ -288,8 +293,10 @@ void Profiler::endCpuFrame()
 
     // We now know which frame's data we gave out in getTimes() so let's
     // overwrite them
-    _previousScopeNames[_currentFrame] = _currentFrameScopeNames;
-    _previousCpuScopeTimes[_currentFrame] = _cpuFrameProfiler.getTimes();
+    _previousScopeNames[_currentFrame].clear();
+    for (const auto &name : _currentFrameScopeNames)
+        _previousScopeNames[_currentFrame].emplace_back(_alloc, name);
+    _previousCpuScopeTimes[_currentFrame] = _cpuFrameProfiler.getTimes(_alloc);
 
 #ifndef NDEBUG
     _debugState = DebugState::NewFrame;
@@ -297,21 +304,21 @@ void Profiler::endCpuFrame()
 }
 
 Profiler::Scope Profiler::createCpuGpuScope(
-    vk::CommandBuffer cb, std::string const &name)
+    vk::CommandBuffer cb, const char *name)
 {
     assert(_debugState == DebugState::StartGpuCalled);
 
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
     assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _currentFrameScopeNames.push_back(name);
+    _currentFrameScopeNames.emplace_back(_alloc, name);
 
     return Scope{
         _gpuFrameProfilers[_currentFrame].createScope(cb, name, index),
         _cpuFrameProfiler.createScope(index)};
 }
 
-Profiler::Scope Profiler::createCpuScope(std::string const &name)
+Profiler::Scope Profiler::createCpuScope(const char *name)
 {
     assert(
         _debugState == DebugState::StartCpuCalled ||
@@ -320,12 +327,12 @@ Profiler::Scope Profiler::createCpuScope(std::string const &name)
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
     assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _currentFrameScopeNames.push_back(name);
+    _currentFrameScopeNames.emplace_back(_alloc, name);
 
     return Scope{_cpuFrameProfiler.createScope(index)};
 }
 
-std::vector<Profiler::ScopeTime> Profiler::getPreviousTimes()
+Array<Profiler::ScopeTime> Profiler::getPreviousTimes(Allocator &alloc)
 {
     assert(_debugState == DebugState::StartGpuCalled);
 
@@ -334,10 +341,9 @@ std::vector<Profiler::ScopeTime> Profiler::getPreviousTimes()
     // frame index and the gpu data is garbage. Rest of the calls should be with
     // valid data as we have waited for swap with the corresponding frame index
     if (scopeNames.empty())
-        return {};
+        return {alloc};
 
-    std::vector<ScopeTime> times;
-    times.reserve(scopeNames.size());
+    Array<ScopeTime> times{alloc, scopeNames.size()};
     for (const auto &n : scopeNames)
         times.push_back(ScopeTime{
             .name = n,

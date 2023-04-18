@@ -4,8 +4,12 @@
 #include <iostream>
 #include <stdexcept>
 
+#include <wheels/allocators/linear_allocator.hpp>
+
 #include "App.hpp"
 #include "Utils.hpp"
+
+using namespace wheels;
 
 static const char *const default_scene_path =
     "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
@@ -18,14 +22,14 @@ int main(int argc, char *argv[])
         bool enableDebugLayers = false;
         if (argc == 2)
         {
-            if (std::string{argv[1]} == "--debugLayers")
+            if (StrSpan{argv[1]} == "--debugLayers")
                 enableDebugLayers = true;
             else
                 scenePath = argv[1];
         }
         else if (argc == 3)
         {
-            if (std::string{argv[1]} == "--debugLayers")
+            if (StrSpan{argv[1]} == "--debugLayers")
                 enableDebugLayers = true;
             else
                 throw std::runtime_error(
@@ -50,7 +54,9 @@ int main(int argc, char *argv[])
             }
         }
 
-        App app{scenePath, enableDebugLayers};
+        LinearAllocator scratchBacking{megabytes(256)};
+
+        App app{ScopedScratch{scratchBacking}, scenePath, enableDebugLayers};
         app.run();
     }
     catch (std::exception &e)

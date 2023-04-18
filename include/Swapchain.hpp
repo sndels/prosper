@@ -3,18 +3,25 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <optional>
-#include <vector>
+#include <wheels/allocators/allocator.hpp>
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/array.hpp>
+#include <wheels/containers/optional.hpp>
+#include <wheels/containers/span.hpp>
+#include <wheels/containers/static_array.hpp>
 
 #include "Device.hpp"
+#include "Utils.hpp"
 
 struct SwapchainSupport
 {
     vk::SurfaceCapabilitiesKHR capabilities;
-    std::vector<vk::SurfaceFormatKHR> formats;
-    std::vector<vk::PresentModeKHR> presentModes;
+    wheels::Array<vk::SurfaceFormatKHR> formats;
+    wheels::Array<vk::PresentModeKHR> presentModes;
 
-    SwapchainSupport(vk::PhysicalDevice device, vk::SurfaceKHR surface);
+    SwapchainSupport(
+        wheels::Allocator &alloc, vk::PhysicalDevice device,
+        vk::SurfaceKHR surface);
 };
 
 struct SwapchainConfig
@@ -28,7 +35,9 @@ struct SwapchainConfig
     uint32_t imageCount{0};
 
     SwapchainConfig() = default;
-    SwapchainConfig(Device *device, const vk::Extent2D &preferredExtent);
+    SwapchainConfig(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const vk::Extent2D &preferredExtent);
 };
 
 struct SwapchainImage
@@ -57,11 +66,11 @@ class Swapchain
     [[nodiscard]] size_t nextFrame() const;
     [[nodiscard]] vk::Fence currentFence() const;
     // nullopt tells to recreate swapchain
-    [[nodiscard]] std::optional<uint32_t> acquireNextImage(
+    [[nodiscard]] wheels::Optional<uint32_t> acquireNextImage(
         vk::Semaphore signalSemaphore);
     // false if swapchain should be recerated
     [[nodiscard]] bool present(
-        const std::array<vk::Semaphore, 1> &waitSemaphores);
+        wheels::Span<const vk::Semaphore> waitSemaphores);
     void recreate(const SwapchainConfig &config);
 
   private:
@@ -76,9 +85,9 @@ class Swapchain
     SwapchainConfig _config;
 
     vk::SwapchainKHR _swapchain;
-    std::vector<SwapchainImage> _images;
+    wheels::StaticArray<SwapchainImage, MAX_SWAPCHAIN_IMAGES> _images;
     uint32_t _nextImage{0};
-    std::vector<vk::Fence> _inFlightFences;
+    wheels::StaticArray<vk::Fence, MAX_FRAMES_IN_FLIGHT> _inFlightFences;
     size_t _nextFrame{0};
 };
 

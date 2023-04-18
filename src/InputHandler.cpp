@@ -13,9 +13,10 @@ InputHandler &InputHandler::instance()
 
 void InputHandler::clearSingleFrameGestures()
 {
-    if (_mouseGesture && _mouseGesture->type == MouseGestureType::TrackZoom)
+    if (_mouseGesture.has_value() &&
+        _mouseGesture->type == MouseGestureType::TrackZoom)
     {
-        _mouseGesture = std::nullopt;
+        _mouseGesture.reset();
     }
 }
 
@@ -23,7 +24,7 @@ const CursorState &InputHandler::cursor() const { return _cursor; }
 
 const ModifierState &InputHandler::modifiers() const { return _modifiers; }
 
-const std::optional<MouseGesture> &InputHandler::mouseGesture() const
+const wheels::Optional<MouseGesture> &InputHandler::mouseGesture() const
 {
     return _mouseGesture;
 }
@@ -36,7 +37,7 @@ void InputHandler::handleCursorEntered(bool entered)
 void InputHandler::handleMouseScroll(double xoffset, double yoffset)
 {
     (void)xoffset;
-    if (!_mouseGesture)
+    if (!_mouseGesture.has_value())
     {
         _mouseGesture = MouseGesture{
             .verticalScroll = static_cast<float>(yoffset),
@@ -54,10 +55,10 @@ void InputHandler::handleMouseButton(int button, int action, int mods)
 {
     if (_cursor.inside)
     {
-        if (_mouseGesture)
+        if (_mouseGesture.has_value())
         {
             if (action == GLFW_RELEASE)
-                _mouseGesture = std::nullopt;
+                _mouseGesture.reset();
         }
         else
         {
@@ -89,7 +90,7 @@ void InputHandler::handleMouseButton(int button, int action, int mods)
 void InputHandler::handleMouseMove(double xpos, double ypos)
 {
     _cursor.position = vec2(xpos, ypos);
-    if (_mouseGesture)
+    if (_mouseGesture.has_value())
     {
         _mouseGesture->currentPos = _cursor.position;
     }

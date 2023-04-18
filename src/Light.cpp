@@ -1,19 +1,18 @@
 #include "Light.hpp"
 
-#include "Utils.hpp"
+using namespace wheels;
 
-[[nodiscard]] std::vector<vk::DescriptorBufferInfo> DirectionalLight::
-    bufferInfos() const
+void DirectionalLight::bufferInfos(Span<vk::DescriptorBufferInfo> output) const
 {
-    std::vector<vk::DescriptorBufferInfo> infos;
-    for (const auto &buffer : this->uniformBuffers)
-        infos.push_back(vk::DescriptorBufferInfo{
-            .buffer = buffer.handle,
+    assert(output.size() == uniformBuffers.size());
+
+    size_t const size = uniformBuffers.size();
+    for (size_t i = 0; i < size; ++i)
+        output[i] = vk::DescriptorBufferInfo{
+            .buffer = uniformBuffers[i].handle,
             .offset = 0,
             .range = sizeof(Parameters),
-        });
-
-    return infos;
+        };
 }
 
 void DirectionalLight::updateBuffer(const uint32_t nextImage) const
@@ -23,44 +22,52 @@ void DirectionalLight::updateBuffer(const uint32_t nextImage) const
         sizeof(Parameters));
 }
 
-[[nodiscard]] std::vector<vk::DescriptorBufferInfo> PointLights::bufferInfos()
-    const
+void PointLights::bufferInfos(Span<vk::DescriptorBufferInfo> output) const
 {
-    std::vector<vk::DescriptorBufferInfo> infos;
-    for (const auto &buffer : this->storageBuffers)
-        infos.push_back(vk::DescriptorBufferInfo{
-            .buffer = buffer.handle,
-            .offset = 0,
-            .range = sizeof(PointLights::BufferData),
-        });
+    assert(output.size() == storageBuffers.size());
 
-    return infos;
+    size_t const size = storageBuffers.size();
+    for (size_t i = 0; i < size; ++i)
+        output[i] = vk::DescriptorBufferInfo{
+            .buffer = storageBuffers[i].handle,
+            .offset = 0,
+            .range = sBufferByteSize,
+        };
 }
 
 void PointLights::updateBuffer(const uint32_t nextImage) const
 {
     memcpy(
-        this->storageBuffers[nextImage].mapped, &this->bufferData,
-        sizeof(PointLights::BufferData));
+        this->storageBuffers[nextImage].mapped, this->data.data(),
+        sizeof(PointLight) * this->data.size());
+    const uint32_t size = asserted_cast<uint32_t>(this->data.size());
+    memcpy(
+        (uint8_t *)this->storageBuffers[nextImage].mapped + sBufferByteSize -
+            sizeof(uint32_t),
+        &size, sizeof(size));
 }
 
-[[nodiscard]] std::vector<vk::DescriptorBufferInfo> SpotLights::bufferInfos()
-    const
+void SpotLights::bufferInfos(Span<vk::DescriptorBufferInfo> output) const
 {
-    std::vector<vk::DescriptorBufferInfo> infos;
-    for (const auto &buffer : this->storageBuffers)
-        infos.push_back(vk::DescriptorBufferInfo{
-            .buffer = buffer.handle,
-            .offset = 0,
-            .range = sizeof(SpotLights::BufferData),
-        });
+    assert(output.size() == storageBuffers.size());
 
-    return infos;
+    size_t const size = storageBuffers.size();
+    for (size_t i = 0; i < size; ++i)
+        output[i] = vk::DescriptorBufferInfo{
+            .buffer = storageBuffers[i].handle,
+            .offset = 0,
+            .range = sBufferByteSize,
+        };
 }
 
 void SpotLights::updateBuffer(const uint32_t nextImage) const
 {
     memcpy(
-        this->storageBuffers[nextImage].mapped, &this->bufferData,
-        sizeof(SpotLights::BufferData));
+        this->storageBuffers[nextImage].mapped, this->data.data(),
+        sizeof(SpotLight) * this->data.size());
+    const uint32_t size = asserted_cast<uint32_t>(this->data.size());
+    memcpy(
+        (uint8_t *)this->storageBuffers[nextImage].mapped + sBufferByteSize -
+            sizeof(uint32_t),
+        &size, sizeof(size));
 }

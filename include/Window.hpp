@@ -3,14 +3,13 @@
 
 #include <GLFW/glfw3.h>
 
-#include <string>
+#include <wheels/containers/pair.hpp>
 
 class Window
 {
   public:
     Window(
-        const std::pair<uint32_t, uint32_t> &resolution,
-        const std::string &title);
+        const wheels::Pair<uint32_t, uint32_t> &resolution, const char *title);
     ~Window();
 
     Window(const Window &other) = delete;

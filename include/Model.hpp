@@ -3,6 +3,9 @@
 
 #include <glm/glm.hpp>
 
+#include <wheels/allocators/allocator.hpp>
+#include <wheels/containers/array.hpp>
+
 struct Model
 {
     struct SubModel
@@ -11,7 +14,12 @@ struct Model
         uint32_t materialID{0xFFFFFFFF};
     };
 
-    std::vector<SubModel> subModels;
+    wheels::Array<SubModel> subModels;
+
+    Model(wheels::Allocator &alloc)
+    : subModels{alloc}
+    {
+    }
 };
 
 struct ModelInstance

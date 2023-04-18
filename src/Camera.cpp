@@ -9,6 +9,7 @@
 #include "Utils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 Camera::Camera(
     Device *device, RenderResources *renderResources,
@@ -86,7 +87,7 @@ void Camera::perspective(const float ar)
 
 void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
 {
-    if (offset)
+    if (offset.has_value())
     {
         updateWorldToCamera();
     }
@@ -96,7 +97,9 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
         .cameraToClip = _cameraToClip,
         .eye =
             vec4{
-                offset ? _parameters.apply(*offset).eye : _parameters.eye, 1.f},
+                offset.has_value() ? _parameters.apply(*offset).eye
+                                   : _parameters.eye,
+                1.f},
         .resolution = resolution,
         .near = _parameters.zN,
         .far = _parameters.zF,
@@ -105,9 +108,10 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
     memcpy(_uniformBuffers[index].mapped, &uniforms, sizeof(CameraUniforms));
 }
 
-std::vector<vk::DescriptorBufferInfo> Camera::bufferInfos() const
+StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES> Camera::
+    bufferInfos() const
 {
-    std::vector<vk::DescriptorBufferInfo> infos;
+    StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES> infos;
     for (const auto &buffer : _uniformBuffers)
         infos.push_back(vk::DescriptorBufferInfo{
             .buffer = buffer.handle,
@@ -142,10 +146,10 @@ const CameraParameters &Camera::parameters() const { return _parameters; }
 
 void Camera::applyOffset()
 {
-    if (offset)
+    if (offset.has_value())
     {
         _parameters = _parameters.apply(*offset);
-        offset = std::nullopt;
+        offset.reset();
     }
 
     updateWorldToCamera();
@@ -176,7 +180,7 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
             .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                           vk::MemoryPropertyFlagBits::eHostCoherent,
             .createMapped = true,
-            .debugName = "CameraUnfiroms" + std::to_string(i),
+            .debugName = "CameraUnfiroms",
         }));
     }
 }
@@ -198,10 +202,10 @@ void Camera::createDescriptorSets(const uint32_t swapImageCount)
             .pBindings = &layoutBinding,
         });
 
-    const std::vector<vk::DescriptorSetLayout> layouts(
-        swapImageCount, _descriptorSetLayout);
-    _descriptorSets =
-        _renderResources->descriptorAllocator.allocate(std::span{layouts});
+    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
+    layouts.resize(swapImageCount, _descriptorSetLayout);
+    _descriptorSets.resize(swapImageCount);
+    _renderResources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const auto infos = bufferInfos();
     for (size_t i = 0; i < _descriptorSets.size(); ++i)
@@ -219,7 +223,8 @@ void Camera::createDescriptorSets(const uint32_t swapImageCount)
 
 void Camera::updateWorldToCamera()
 {
-    auto parameters = offset ? _parameters.apply(*offset) : _parameters;
+    auto parameters =
+        offset.has_value() ? _parameters.apply(*offset) : _parameters;
     auto const &[eye, target, up, _fov, _zN, _zF] = parameters;
 
     vec3 fwd = normalize(target - eye);

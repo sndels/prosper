@@ -5,6 +5,8 @@
 
 #include <imgui.h>
 
+using namespace wheels;
+
 // Based on RT Gems II chapter 16
 
 namespace
@@ -43,7 +45,7 @@ constexpr std::array<
 } // namespace
 
 RTRenderer::RTRenderer(
-    Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
@@ -54,7 +56,7 @@ RTRenderer::RTRenderer(
 
     printf("Creating RTRenderer\n");
 
-    if (!compileShaders(worldDSLayouts))
+    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RTRenderer shader compilation failed");
 
     const vk::DescriptorSetLayoutBinding layoutBinding{
@@ -69,7 +71,7 @@ RTRenderer::RTRenderer(
             .pBindings = &layoutBinding,
         });
 
-    recreate(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(scopeAlloc.child_scope(), swapConfig, camDSLayout, worldDSLayouts);
 }
 
 RTRenderer::~RTRenderer()
@@ -83,9 +85,10 @@ RTRenderer::~RTRenderer()
 }
 
 void RTRenderer::recompileShaders(
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+    const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders(worldDSLayouts))
+    if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyPipeline();
         createPipeline(camDSLayout, worldDSLayouts);
@@ -93,14 +96,14 @@ void RTRenderer::recompileShaders(
 }
 
 void RTRenderer::recreate(
-    const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
     createDescriptorSets(swapConfig);
     createPipeline(camDSLayout, worldDSLayouts);
-    createShaderBindingTable();
+    createShaderBindingTable(scopeAlloc.child_scope());
 }
 
 void RTRenderer::drawUi()
@@ -143,7 +146,7 @@ void RTRenderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        std::array<vk::DescriptorSet, 7> descriptorSets = {};
+        StaticArray<vk::DescriptorSet, 7> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
@@ -220,43 +223,50 @@ void RTRenderer::destroyPipeline()
     _device->logical().destroy(_pipelineLayout);
 }
 
-bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
+bool RTRenderer::compileShaders(
+    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
     printf("Compiling RTRenderer shaders\n");
 
-    std::string raygenDefines;
-    raygenDefines += defineStr("NON_UNIFORM_MATERIAL_INDICES");
-    raygenDefines += defineStr("CAMERA_SET", sCameraBindingSet);
-    raygenDefines += defineStr("RAY_TRACING_SET", sRTBindingSet);
-    raygenDefines += defineStr("OUTPUT_SET", sOutputBindingSet);
-    raygenDefines += enumVariantsAsDefines("DrawType", sDrawTypeNames);
-    raygenDefines += defineStr("MATERIALS_SET", sMaterialsBindingSet);
-    raygenDefines +=
-        defineStr("NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
-    raygenDefines += defineStr("GEOMETRY_SET", sGeometryBindingSet);
-    raygenDefines +=
-        defineStr("MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
-    raygenDefines += defineStr("LIGHTS_SET", sLightsBindingSet);
-    raygenDefines += PointLights::shaderDefines();
-    raygenDefines += SpotLights::shaderDefines();
-    const auto raygenSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/rt/scene.rgen",
-            .debugName = "sceneRGEN",
-            .defines = raygenDefines,
-        });
-    const auto rayMissSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/rt/scene.rmiss",
-            .debugName = "sceneRMISS",
-        });
-    const auto closestHitSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/rt/scene.rchit",
-            .debugName = "sceneRCHIT",
-        });
+    String raygenDefines{scopeAlloc, 256};
+    appendDefineStr(raygenDefines, "NON_UNIFORM_MATERIAL_INDICES");
+    appendDefineStr(raygenDefines, "CAMERA_SET", sCameraBindingSet);
+    appendDefineStr(raygenDefines, "RAY_TRACING_SET", sRTBindingSet);
+    appendDefineStr(raygenDefines, "OUTPUT_SET", sOutputBindingSet);
+    appendEnumVariantsAsDefines(
+        raygenDefines, "DrawType",
+        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+    appendDefineStr(raygenDefines, "MATERIALS_SET", sMaterialsBindingSet);
+    appendDefineStr(
+        raygenDefines, "NUM_MATERIAL_SAMPLERS",
+        worldDSLayouts.materialSamplerCount);
+    appendDefineStr(raygenDefines, "GEOMETRY_SET", sGeometryBindingSet);
+    appendDefineStr(
+        raygenDefines, "MODEL_INSTANCE_TRFNS_SET",
+        sModelInstanceTrfnsBindingSet);
+    appendDefineStr(raygenDefines, "LIGHTS_SET", sLightsBindingSet);
+    PointLights::appendShaderDefines(raygenDefines);
+    SpotLights::appendShaderDefines(raygenDefines);
 
-    if (raygenSM && rayMissSM && closestHitSM)
+    const auto raygenSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/rt/scene.rgen",
+                                      .debugName = "sceneRGEN",
+                                      .defines = raygenDefines,
+                                  });
+    const auto rayMissSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/rt/scene.rmiss",
+                                      .debugName = "sceneRMISS",
+                                  });
+    const auto closestHitSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/rt/scene.rchit",
+                                      .debugName = "sceneRCHIT",
+                                  });
+
+    if (raygenSM.has_value() && rayMissSM.has_value() &&
+        closestHitSM.has_value())
     {
         destroyShaders();
 
@@ -301,11 +311,11 @@ bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
         return true;
     }
 
-    if (raygenSM)
+    if (raygenSM.has_value())
         _device->logical().destroy(*raygenSM);
-    if (rayMissSM)
+    if (rayMissSM.has_value())
         _device->logical().destroy(*rayMissSM);
-    if (closestHitSM)
+    if (closestHitSM.has_value())
         _device->logical().destroy(*closestHitSM);
 
     return false;
@@ -313,16 +323,16 @@ bool RTRenderer::compileShaders(const World::DSLayouts &worldDSLayouts)
 
 void RTRenderer::createDescriptorSets(const SwapchainConfig &swapConfig)
 {
-    const std::vector<vk::DescriptorSetLayout> layouts(
-        swapConfig.imageCount, _descriptorSetLayout);
-    _descriptorSets =
-        _resources->descriptorAllocator.allocate(std::span{layouts});
+    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
+    layouts.resize(swapConfig.imageCount, _descriptorSetLayout);
+    _descriptorSets.resize(swapConfig.imageCount);
+    _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    std::vector<vk::WriteDescriptorSet> descriptorWrites;
+    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES> descriptorWrites;
     for (const auto &ds : _descriptorSets)
     {
         descriptorWrites.push_back({
@@ -342,7 +352,7 @@ void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
-    std::array<vk::DescriptorSetLayout, 7> setLayouts = {};
+    StaticArray<vk::DescriptorSetLayout, 7> setLayouts{VK_NULL_HANDLE};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sRTBindingSet] = worldDSLayouts.rayTracing;
     setLayouts[sOutputBindingSet] = _descriptorSetLayout;
@@ -391,7 +401,7 @@ void RTRenderer::createPipeline(
     }
 }
 
-void RTRenderer::createShaderBindingTable()
+void RTRenderer::createShaderBindingTable(ScopedScratch scopeAlloc)
 {
 
     const auto groupCount = asserted_cast<uint32_t>(_shaderStages.size());
@@ -405,7 +415,7 @@ void RTRenderer::createShaderBindingTable()
 
     const auto sbtSize = groupCount * _sbtGroupSize;
 
-    std::vector<uint8_t> shaderHandleStorage(sbtSize);
+    Array<uint8_t> shaderHandleStorage{scopeAlloc, sbtSize};
     checkSuccess(
         _device->logical().getRayTracingShaderGroupHandlesKHR(
             _pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),

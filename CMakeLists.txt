@@ -72,6 +72,7 @@ target_link_libraries(prosper
     stb_image
     vma
     vulkan
+    wheels
 )
 target_compile_definitions(prosper
     PRIVATE

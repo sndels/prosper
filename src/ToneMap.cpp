@@ -7,9 +7,10 @@
 #include "Utils.hpp"
 
 using namespace glm;
+using namespace wheels;
 
 ToneMap::ToneMap(
-    Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig)
 : _device{device}
 , _resources{resources}
@@ -19,10 +20,10 @@ ToneMap::ToneMap(
 
     printf("Creating ToneMap\n");
 
-    if (!compileShaders())
+    if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("ToneMap shader compilation failed");
 
-    const std::array layoutBindings{
+    const StaticArray layoutBindings{
         vk::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vk::DescriptorType::eStorageImage,
@@ -57,26 +58,26 @@ ToneMap::~ToneMap()
     }
 }
 
-void ToneMap::recompileShaders()
+void ToneMap::recompileShaders(ScopedScratch scopeAlloc)
 {
-    if (compileShaders())
+    if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyPipelines();
         createPipelines();
     }
 }
 
-bool ToneMap::compileShaders()
+bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling ToneMap shaders\n");
 
-    const auto compSM =
-        _device->compileShaderModule(Device::CompileShaderModuleArgs{
-            .relPath = "shader/tone_map.comp",
-            .debugName = "tonemapCS",
-        });
+    const auto compSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/tone_map.comp",
+                                      .debugName = "tonemapCS",
+                                  });
 
-    if (compSM)
+    if (compSM.has_value())
     {
         _device->logical().destroy(_compSM);
 
@@ -104,7 +105,7 @@ void ToneMap::record(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
-        const std::array barriers{
+        const StaticArray barriers{
             _resources->images.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -168,10 +169,10 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
 
 void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
 {
-    const std::vector<vk::DescriptorSetLayout> layouts(
-        swapConfig.imageCount, _descriptorSetLayout);
-    _descriptorSets =
-        _resources->descriptorAllocator.allocate(std::span{layouts});
+    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
+    layouts.resize(swapConfig.imageCount, _descriptorSetLayout);
+    _descriptorSets.resize(swapConfig.imageCount);
+    _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,
@@ -181,7 +182,8 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
         .imageView = _resources->images.toneMapped.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    std::vector<vk::WriteDescriptorSet> descriptorWrites;
+    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES * 2>
+        descriptorWrites;
     for (const auto &ds : _descriptorSets)
     {
         descriptorWrites.push_back({
