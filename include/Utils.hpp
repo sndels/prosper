@@ -63,7 +63,7 @@ std::filesystem::path binPath(const std::filesystem::path &path);
 
 std::string readFileString(const std::filesystem::path &path);
 
-static std::string defineStr(const std::string &name)
+inline std::string defineStr(const std::string &name)
 {
     return "#define " + name + '\n';
 }
