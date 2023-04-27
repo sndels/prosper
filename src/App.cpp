@@ -369,6 +369,18 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         auto nextImage = _swapchain.acquireNextImage(imageAvailable);
         while (!nextImage.has_value())
         {
+            // Wait on the acquire semaphore to have it properly unsignaled.
+            // Validation would otherwise complain on next acquire below even
+            // with the wait for idle.
+            const vk::SubmitInfo submitInfo{
+                .waitSemaphoreCount = 1,
+                .pWaitSemaphores = &imageAvailable,
+            };
+
+            checkSuccess(
+                _device.graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
+                "recreate_swap_dummy_submit");
+
             // Recreate the swap chain as necessary
             recreateSwapchainAndRelated(scopeAlloc.child_scope());
             nextImage = _swapchain.acquireNextImage(imageAvailable);
