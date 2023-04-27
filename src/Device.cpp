@@ -493,8 +493,13 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     const auto *vkpBufferInfo =
         reinterpret_cast<const VkBufferCreateInfo *>(&bufferInfo);
     auto *vkpBuffer = reinterpret_cast<VkBuffer *>(&buffer.handle);
-    vmaCreateBuffer(
-        _allocator, vkpBufferInfo, &allocCreateInfo, vkpBuffer,
+    // Just align to the maximum requirement that's out in the wild (AMD with
+    // some drivers). Small buffers should be few anyway so if the memory lost
+    // to alignment ends up being a problem, the fix is likely to not have so
+    // many individual buffers
+    const vk::DeviceSize alignment = 256;
+    vmaCreateBufferWithAlignment(
+        _allocator, vkpBufferInfo, &allocCreateInfo, alignment, vkpBuffer,
         &buffer.allocation, &allocInfo);
 
     if (info.createMapped)
