@@ -138,6 +138,7 @@ void App::run()
         drawFrame(scopeAlloc.child_scope());
 
         InputHandler::instance().clearSingleFrameGestures();
+        _cam.clearChangedThisFrame();
 
         _profiler.endCpuFrame();
     }

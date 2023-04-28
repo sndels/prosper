@@ -87,6 +87,9 @@ class Camera
     [[nodiscard]] const glm::mat4 &cameraToClip() const;
     [[nodiscard]] const CameraParameters &parameters() const;
 
+    void clearChangedThisFrame();
+    [[nodiscard]] bool changedThisFrame() const;
+
     // This offset, if any, is added to internal transformation
     wheels::Optional<CameraOffset> offset;
     // Permanently applies 'offset' and empties it
@@ -111,6 +114,7 @@ class Camera
     wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
         _descriptorSets;
     wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> _uniformBuffers;
+    bool _changedThisFrame{true};
 };
 
 #endif // PROSPER_CAMERA_HPP

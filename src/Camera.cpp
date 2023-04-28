@@ -144,6 +144,10 @@ const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
 
 const CameraParameters &Camera::parameters() const { return _parameters; }
 
+void Camera::clearChangedThisFrame() { _changedThisFrame = false; }
+
+bool Camera::changedThisFrame() const { return _changedThisFrame; }
+
 void Camera::applyOffset()
 {
     if (offset.has_value())
@@ -240,4 +244,6 @@ void Camera::updateWorldToCamera()
              -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
 
     _worldToClip = _cameraToClip * _worldToCamera;
+
+    _changedThisFrame = true;
 }
