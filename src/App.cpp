@@ -409,6 +409,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _imguiRenderer.startFrame();
 
+    bool rtPickedThisFrame = false;
     {
         ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
         ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -425,7 +426,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
         ImGui::Checkbox("Recompile shaders", &_recompileShaders);
 
-        ImGui::Checkbox("Render RT", &_renderRT);
+        rtPickedThisFrame =
+            ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
 
         ImGui::End();
     }
@@ -539,7 +541,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     if (_renderRT)
     {
         _rtRenderer.drawUi();
-        _rtRenderer.record(cb, _world, _cam, renderArea, nextImage, &_profiler);
+        _rtRenderer.record(
+            cb, _world, _cam, renderArea, nextImage, rtPickedThisFrame,
+            &_profiler);
     }
     else
     {

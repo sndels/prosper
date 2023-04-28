@@ -12,6 +12,8 @@ using namespace wheels;
 namespace
 {
 
+constexpr uint32_t sFramePeriod = 4096;
+
 constexpr uint32_t sCameraBindingSet = 0;
 constexpr uint32_t sRTBindingSet = 1;
 constexpr uint32_t sOutputBindingSet = 2;
@@ -36,7 +38,25 @@ enum StageIndex : uint32_t
 struct PCBlock
 {
     uint32_t drawType{0};
+    uint32_t flags{0};
+    uint32_t frameIndex{0};
+
+    struct Flags
+    {
+        bool colorDirty{false};
+        bool accumulate{false};
+    };
 };
+
+uint32_t pcFlags(PCBlock::Flags flags)
+{
+    uint32_t ret = 0;
+
+    ret |= (uint32_t)flags.colorDirty;
+    ret |= (uint32_t)flags.accumulate << 1;
+
+    return ret;
+}
 
 constexpr std::array<
     const char *, static_cast<size_t>(RTRenderer::DrawType::Count)>
@@ -92,6 +112,7 @@ void RTRenderer::recompileShaders(
     {
         destroyPipeline();
         createPipeline(camDSLayout, worldDSLayouts);
+        _accumulationDirty = true;
     }
 }
 
@@ -119,18 +140,27 @@ void RTRenderer::drawUi()
         {
             bool selected = *currentType == i;
             if (ImGui::Selectable(sDrawTypeNames[i], &selected))
+            {
                 _drawType = static_cast<DrawType>(i);
+                _accumulationDirty = true;
+            }
         }
         ImGui::EndCombo();
     }
+
+    if (_drawType == DrawType::Default)
+        ImGui::Checkbox("Accumulate", &_accumulate);
 
     ImGui::End();
 }
 
 void RTRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler) const
+    const vk::Rect2D &renderArea, uint32_t nextImage, bool colorDirty,
+    Profiler *profiler)
 {
+    _frameIndex = ++_frameIndex % sFramePeriod;
+
     {
         const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
@@ -138,7 +168,8 @@ void RTRenderer::record(
             cb,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                .accessMask = vk::AccessFlagBits2::eShaderStorageWrite,
+                .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
+                              vk::AccessFlagBits2::eShaderStorageRead,
                 .layout = vk::ImageLayout::eGeneral,
             });
 
@@ -164,6 +195,12 @@ void RTRenderer::record(
 
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
+            .flags = pcFlags(PCBlock::Flags{
+                .colorDirty =
+                    cam.changedThisFrame() || colorDirty | _accumulationDirty,
+                .accumulate = _accumulate,
+            }),
+            .frameIndex = _frameIndex,
         };
         cb.pushConstants(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
@@ -199,6 +236,8 @@ void RTRenderer::record(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
     }
+
+    _accumulationDirty = false;
 }
 
 void RTRenderer::destroyShaders()

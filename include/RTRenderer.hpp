@@ -46,8 +46,8 @@ class RTRenderer
 
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextImage,
-        Profiler *profiler) const;
+        const vk::Rect2D &renderArea, uint32_t nextImage, bool colorDirty,
+        Profiler *profiler);
 
   private:
     void destroyShaders();
@@ -84,6 +84,9 @@ class RTRenderer
     Buffer _shaderBindingTable;
 
     DrawType _drawType{DrawType::Default};
+    bool _accumulationDirty{true};
+    bool _accumulate{true};
+    uint32_t _frameIndex{0};
 };
 
 #endif // PROSPER_RT_RENDERER_HPP

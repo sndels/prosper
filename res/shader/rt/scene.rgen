@@ -10,6 +10,7 @@
 #include "../lights.glsl"
 #include "../materials.glsl"
 #include "../random.glsl"
+#include "../sampling.glsl"
 #include "../transforms.glsl"
 #include "ray.glsl"
 
@@ -25,8 +26,7 @@ layout(std430, set = RAY_TRACING_SET, binding = 1) readonly buffer RTInstances
     RTInstance data[];
 }
 rtInstances;
-layout(
-    set = OUTPUT_SET, binding = 0, rgba16f) uniform writeonly image2D colorOut;
+layout(set = OUTPUT_SET, binding = 0, rgba16f) uniform image2D colorInOut;
 
 #include "rtpc.glsl"
 
@@ -67,17 +67,49 @@ RayPayload traceClosest(Ray ray)
     return ret;
 }
 
+// From 'A Fast and Robust Method for Avoiding Self-Intersection'
+// by Wächter and Binder
+// Published in Ray Tracing Gems
+vec3 offsetRay(vec3 p, vec3 n)
+{
+    const float origin = 1.0 / 32.0;
+    const float float_scale = 1.0 / 65536.0;
+    const float int_scale = 256.0;
+
+    ivec3 ofI = ivec3(int_scale * n.x, int_scale * n.y, int_scale * n.z);
+
+    vec3 pI = vec3(
+        intBitsToFloat(floatBitsToInt(p.x) + ((p.x < 0) ? -ofI.x : ofI.x)),
+        intBitsToFloat(floatBitsToInt(p.y) + ((p.y < 0) ? -ofI.y : ofI.y)),
+        intBitsToFloat(floatBitsToInt(p.z) + ((p.z < 0) ? -ofI.z : ofI.z)));
+
+    return vec3(
+        abs(p.x) < origin ? p.x + float_scale * n.x : pI.x,
+        abs(p.y) < origin ? p.y + float_scale * n.y : pI.y,
+        abs(p.z) < origin ? p.z + float_scale * n.z : pI.z);
+}
+
+#define MAX_BOUNCES 3
+
 void main()
 {
-    uvec2 px = gl_LaunchIDEXT.xy;
-    vec2 uv = (px + 0.5) / gl_LaunchSizeEXT.xy;
 
-    Ray ray = pinholeCameraRay(uv);
-    RayPayload hit = traceClosest(ray);
+    uvec2 px = gl_LaunchIDEXT.xy;
+
+    pcg_state = uvec3(px, rtPC.frameIndex);
+
+    vec2 jitteredUV = (px + rnd2d01()) / gl_LaunchSizeEXT.xy;
 
     vec3 color = vec3(0);
-    if (hit.instanceCustomIndex != MISS_INDEX)
+    vec3 throughput = vec3(1);
+    uint bounce = 1;
+    Ray ray = pinholeCameraRay(jitteredUV);
+    while (bounce <= MAX_BOUNCES)
     {
+        RayPayload hit = traceClosest(ray);
+        if (hit.instanceCustomIndex == MISS_INDEX)
+            break;
+
         RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
 
         Transforms trfn =
@@ -92,6 +124,10 @@ void main()
 
         Material m = sampleMaterial(instance.materialID, v.TexCoord0);
 
+        // TODO: Remove after anyhit
+        if (m.alpha >= 0)
+            break;
+
         vec3 normal;
         // -2 signals no material normal, w=0 no vertex tangent
         if (m.normal.x != -2 && v.Tangent.w != 0)
@@ -101,18 +137,6 @@ void main()
         }
         else
             normal = v.Normal;
-
-        // Alpha hits don't have a valid surface
-        if (m.alpha != 0)
-        {
-            { // Sun
-                vec3 l = -normalize(directionalLight.direction.xyz);
-
-                color += directionalLight.irradiance.xyz *
-                         evalBRDF(normal, -ray.d, l, m) *
-                         shadow(v.Position, l, 0.1, 100);
-            }
-        }
 
         if (rtPC.drawType >= DrawType_PrimitiveID)
         {
@@ -124,8 +148,50 @@ void main()
             di.shadingNormal = normal;
             di.texCoord0 = v.TexCoord0;
             color = commonDebugDraw(rtPC.drawType, di, m);
+
+            break;
         }
+
+        // Alpha hits don't have a valid surface
+        if (m.alpha != 0)
+        {
+            { // Sun
+                vec3 l = -normalize(directionalLight.direction.xyz);
+
+                color += directionalLight.irradiance.xyz * throughput *
+                         evalBRDF(normal, -ray.d, l, m) *
+                         shadow(v.Position, l, 0.1, 100);
+            }
+        }
+
+        // TODO: Early out if throughput is small
+        // TODO: Russian roulette
+
+        vec3 rd;
+        float pdf;
+        cosineSampleHemisphere(normal, rnd2d01(), rd, pdf);
+
+        throughput *= evalBRDF(normal, -ray.d, rd, m) / pdf;
+
+        ray.o = offsetRay(v.Position, normal);
+        ray.d = rd;
+        ray.tMin = 0;
+        ray.tMax = 1.0 / 0.0; // INF
+        bounce++;
     }
 
-    imageStore(colorOut, ivec2(px), vec4(color, 1));
+    if (flagColorDirty() || !flagAccumulate())
+    {
+        imageStore(colorInOut, ivec2(px), vec4(color, 1));
+    }
+    else
+    {
+        vec4 history = imageLoad(colorInOut, ivec2(px));
+        vec3 historyColor = history.rgb;
+        float historyCount = history.a;
+
+        vec3 newColor = historyColor + (color - historyColor) / historyCount;
+
+        imageStore(colorInOut, ivec2(px), vec4(newColor, historyCount + 1));
+    }
 }
