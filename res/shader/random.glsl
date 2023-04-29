@@ -11,6 +11,22 @@ uint pcg(uint v)
     return (word >> 22) ^ word;
 }
 
+// From Hash Functions for GPU Rendering
+// By Jarzynski & Olano
+// https://jcgt.org/published/0009/03/02/supplementary.pdf
+uvec3 pcg3d(uvec3 v)
+{
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v ^= v >> 16u;
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    return v;
+}
+
 vec3 uintToColor(uint x)
 {
     // Hashing should, on average, favor pastellish colors that are easy on the
@@ -21,6 +37,25 @@ vec3 uintToColor(uint x)
     uint g = (xr >> 10) & 0x3FF;
     uint b = xr & 0x3FF;
     return vec3(r, g, b) / 0x3FF;
+}
+
+// Should be initialized at the shader entrypoint e.g. as uvec3(px, frameIndex)
+uvec3 pcg_state;
+float rnd01()
+{
+    // TODO: Verify this doesn't break subsequent pcg3d samples
+    pcg_state.x = pcg(pcg_state.x);
+    return pcg_state.x / float(0xFFFFFFFFu);
+}
+vec2 rnd2d01()
+{
+    pcg_state = pcg3d(pcg_state);
+    return pcg_state.xy / float(0xFFFFFFFFu);
+}
+vec3 rnd3d01()
+{
+    pcg_state = pcg3d(pcg_state);
+    return pcg_state.xyz / float(0xFFFFFFFFu);
 }
 
 #endif // RANDOM_GLSL
