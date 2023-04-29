@@ -90,7 +90,7 @@ void Renderer::recreate(
 
 void Renderer::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 210.f}, ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2{60.f, 275.f}, ImGuiCond_Appearing);
     ImGui::Begin(
         "Renderer settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 

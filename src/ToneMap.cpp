@@ -1,6 +1,7 @@
 #include "ToneMap.hpp"
 
 #include <glm/glm.hpp>
+#include <imgui.h>
 
 #include <fstream>
 
@@ -8,6 +9,16 @@
 
 using namespace glm;
 using namespace wheels;
+
+namespace
+{
+
+struct PCBlock
+{
+    float exposure{1.f};
+};
+
+} // namespace
 
 ToneMap::ToneMap(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
@@ -97,6 +108,17 @@ void ToneMap::recreate(const SwapchainConfig &swapConfig)
     createPipelines();
 }
 
+void ToneMap::drawUi()
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 210.f}, ImGuiCond_Appearing);
+    ImGui::Begin(
+        "Tone map settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    ImGui::DragFloat("Exposure", &_exposure, 0.5f, 0.001f, 10000.f);
+
+    ImGui::End();
+}
+
 void ToneMap::record(
     vk::CommandBuffer cb, const uint32_t nextImage, Profiler *profiler) const
 {
@@ -128,6 +150,13 @@ void ToneMap::record(
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
             &_descriptorSets[nextImage], 0, nullptr);
+
+        const PCBlock pcBlock{
+            .exposure = _exposure,
+        };
+        cb.pushConstants(
+            _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
+            sizeof(PCBlock), &pcBlock);
 
         const auto &extent = _resources->images.sceneColor.extent;
         const auto groups =
@@ -208,10 +237,18 @@ void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
 
 void ToneMap::createPipelines()
 {
+    const vk::PushConstantRange pcRange{
+        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        .offset = 0,
+        .size = sizeof(PCBlock),
+    };
+
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1,
             .pSetLayouts = &_descriptorSetLayout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &pcRange,
         });
 
     const vk::ComputePipelineCreateInfo createInfo{

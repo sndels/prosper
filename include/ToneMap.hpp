@@ -27,6 +27,8 @@ class ToneMap
 
     void recreate(const SwapchainConfig &swapConfig);
 
+    void drawUi();
+
     void record(
         vk::CommandBuffer cb, uint32_t nextImage, Profiler *profiler) const;
 
@@ -52,6 +54,8 @@ class ToneMap
     vk::Pipeline _pipeline;
 
     vk::Framebuffer _fbo;
+
+    float _exposure{1.f};
 };
 
 #endif // PROSPER_TONE_MAP_HPP

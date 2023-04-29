@@ -108,7 +108,7 @@ void RTRenderer::recreate(
 
 void RTRenderer::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 210.f}, ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2{60.f, 275.f}, ImGuiCond_Appearing);
     ImGui::Begin("RT settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);

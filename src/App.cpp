@@ -558,6 +558,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _debugRenderer.record(cb, _cam, renderArea, nextImage, &_profiler);
 
+    _toneMap.drawUi();
     _toneMap.record(cb, nextImage, &_profiler);
 
     _imguiRenderer.endFrame(cb, renderArea, &_profiler);

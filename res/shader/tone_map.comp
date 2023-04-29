@@ -1,5 +1,8 @@
 #pragma shader_stage(compute)
 
+layout(push_constant) uniform ToneMapPC { float exposure; }
+PC;
+
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0, rgba16f) uniform readonly image2D inColor;
 layout(binding = 1, rgba8) uniform image2D outColor;
@@ -18,9 +21,8 @@ vec3 ACESFilm(vec3 x)
 
 vec3 tonemap(vec3 color)
 {
-    float exposure = 1.0;
     float gamma = 2.2;
-    vec3 outColor = ACESFilm(color * exposure);
+    vec3 outColor = ACESFilm(color * PC.exposure);
     return pow(outColor, vec3(1 / gamma));
 }
 
