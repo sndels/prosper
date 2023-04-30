@@ -125,4 +125,32 @@ Material sampleMaterial(uint index, vec2 uv)
     return ret;
 }
 
+float sampleAlpha(uint index, vec2 uv)
+{
+    MaterialData data = materialDatas.materials[index];
+
+    float linearAlpha = 1;
+    uint baseColorTex = data.baseColorTexture & 0xFFFFFF;
+    uint baseColorSampler = data.baseColorTexture >> 24;
+    if (baseColorTex > 0)
+        linearAlpha =
+            sRGBtoLinear(texture(
+                             sampler2D(
+                                 GET_MATERIAL_TEXTURE(baseColorTex),
+                                 GET_MATERIAL_SAMPLER(baseColorSampler)),
+                             uv)
+                             .a);
+    linearAlpha *= data.baseColorFactor.a;
+
+    if (data.alphaMode == AlphaModeBlend)
+        return linearAlpha;
+
+    if (data.alphaMode == AlphaModeMask)
+    {
+        if (linearAlpha < data.alphaCutoff)
+            return 0; // signal alpha test failed
+    }
+    return -1; // Negative alpha to signal opaque geometry
+}
+
 #endif // MATERIALS_GLSL
