@@ -96,6 +96,16 @@ Vertex loadVertex(uint meshID, uint index)
     return ret;
 }
 
+vec2 loadUV(uint meshID, uint index)
+{
+    MeshBuffers buffers = meshBuffersBuffer.data[meshID];
+
+    uint vertexIndex =
+        loadIndex(buffers.indices, index, buffers.usesShortIndices);
+
+    return loadVec2(buffers.texCoord0s, vertexIndex);
+}
+
 vec2 baryInterpolate(vec2 v0, vec2 v1, vec2 v2, float a, float b, float c)
 {
     return v0 * a + v1 * b + v2 * c;
@@ -124,6 +134,15 @@ Vertex interpolate(Vertex v0, Vertex v1, Vertex v2, vec2 baryCoord)
         baryInterpolate(v0.TexCoord0, v1.TexCoord0, v2.TexCoord0, a, b, c);
 
     return ret;
+}
+
+vec2 interpolate(vec2 v0, vec2 v1, vec2 v2, vec2 baryCoord)
+{
+    float a = 1 - baryCoord.x - baryCoord.y;
+    float b = baryCoord.x;
+    float c = baryCoord.y;
+
+    return baryInterpolate(v0, v1, v2, a, b, c);
 }
 
 #endif // GEOMETRY_GLSL
