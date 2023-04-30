@@ -1,0 +1,36 @@
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
+
+#pragma shader_stage(anyhit)
+
+#include "../geometry.glsl"
+#include "../materials.glsl"
+#include "../random.glsl"
+#include "payload.glsl"
+#include "rt_data.glsl"
+
+layout(location = 0) rayPayloadInEXT RayPayload payload;
+hitAttributeEXT vec2 baryCoord;
+
+void main()
+{
+    RTInstance instance = rtInstances.data[gl_InstanceCustomIndexEXT];
+
+    vec2 uv0 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 0);
+    vec2 uv1 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 1);
+    vec2 uv2 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 2);
+
+    vec2 uv = interpolate(uv0, uv1, uv2, baryCoord);
+
+    float alpha = sampleAlpha(instance.materialID, uv);
+
+    if (alpha == 0)
+        ignoreIntersectionEXT;
+    else if (alpha > 0)
+    {
+        const float u = pcg(payload.randomSeed) / float(0xFFFFFFFFu);
+        if (u > alpha)
+            ignoreIntersectionEXT;
+    }
+}

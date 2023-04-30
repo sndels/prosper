@@ -554,6 +554,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
             _meshInfos.push_back(MeshInfo{
                 .vertexCount = positionsCount,
                 .indexCount = indexCount,
+                .materialID = material,
             });
 
             model.subModels.push_back(Model::SubModel{
@@ -884,10 +885,16 @@ void World::createBlases()
                              : vk::IndexType::eUint32,
             .indexData = indicesAddr + indicesOffset,
         };
+
+        const auto &material = _materials[info.materialID];
+        const vk::GeometryFlagsKHR geomFlags =
+            material.alphaMode == Material::AlphaMode::Opaque
+                ? vk::GeometryFlagBitsKHR::eOpaque
+                : vk::GeometryFlagsKHR{};
         const vk::AccelerationStructureGeometryKHR geometry{
             .geometryType = vk::GeometryTypeKHR::eTriangles,
             .geometry = triangles,
-            .flags = vk::GeometryFlagBitsKHR::eOpaque,
+            .flags = geomFlags,
         };
         const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
             .primitiveCount = info.indexCount / 3,
@@ -1232,21 +1239,24 @@ void World::createDescriptorSets(
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
+                              vk::ShaderStageFlagBits::eRaygenKHR |
+                              vk::ShaderStageFlagBits::eAnyHitKHR,
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1,
                 .descriptorType = vk::DescriptorType::eSampler,
                 .descriptorCount = samplerInfoCount,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
+                              vk::ShaderStageFlagBits::eRaygenKHR |
+                              vk::ShaderStageFlagBits::eAnyHitKHR,
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1 + samplerInfoCount,
                 .descriptorType = vk::DescriptorType::eSampledImage,
                 .descriptorCount = imageInfoCount,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
+                              vk::ShaderStageFlagBits::eRaygenKHR |
+                              vk::ShaderStageFlagBits::eAnyHitKHR,
             },
         };
         const StaticArray layoutFlags{
@@ -1328,14 +1338,16 @@ void World::createDescriptorSets(
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
+                              vk::ShaderStageFlagBits::eRaygenKHR |
+                              vk::ShaderStageFlagBits::eAnyHitKHR,
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = bufferCount,
                 .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
+                              vk::ShaderStageFlagBits::eRaygenKHR |
+                              vk::ShaderStageFlagBits::eAnyHitKHR,
             },
         };
         const StaticArray descriptorFlags = {
@@ -1394,7 +1406,8 @@ void World::createDescriptorSets(
                 .binding = 1,
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR |
+                              vk::ShaderStageFlagBits::eAnyHitKHR,
             },
         };
         const vk::DescriptorSetLayoutCreateInfo createInfo{
@@ -1412,7 +1425,8 @@ void World::createDescriptorSets(
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                          vk::ShaderStageFlagBits::eRaygenKHR,
+                          vk::ShaderStageFlagBits::eRaygenKHR |
+                          vk::ShaderStageFlagBits::eAnyHitKHR,
         };
         const vk::DescriptorBindingFlags layoutFlags{};
         const vk::StructureChain<

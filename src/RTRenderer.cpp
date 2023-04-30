@@ -28,10 +28,18 @@ constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eMissKHR |
     vk::ShaderStageFlagBits::eIntersectionKHR;
 
-enum StageIndex : uint32_t
+enum class StageIndex : uint32_t
 {
     RayGen = 0,
     ClosestHit,
+    AnyHit,
+    Miss,
+};
+
+enum class GroupIndex : uint32_t
+{
+    RayGen = 0,
+    Hit,
     Miss,
 };
 
@@ -212,19 +220,22 @@ void RTRenderer::record(
             });
 
         const vk::StridedDeviceAddressRegionKHR rayGenRegion{
-            .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::RayGen,
+            .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
+                                                           GroupIndex::RayGen),
             .stride = _sbtGroupSize,
             .size = _sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR missRegion{
-            .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::Miss,
+            .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
+                                                           GroupIndex::Miss),
             .stride = _sbtGroupSize,
             .size = _sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR hitRegion{
-            .deviceAddress = sbtAddr + _sbtGroupSize * StageIndex::ClosestHit,
+            .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
+                                                           GroupIndex::Hit),
             .stride = _sbtGroupSize,
             .size = _sbtGroupSize,
         };
@@ -287,6 +298,20 @@ bool RTRenderer::compileShaders(
     PointLights::appendShaderDefines(raygenDefines);
     SpotLights::appendShaderDefines(raygenDefines);
 
+    String anyhitDefines{scopeAlloc, 256};
+    appendDefineStr(anyhitDefines, "RAY_TRACING_SET", sRTBindingSet);
+    appendEnumVariantsAsDefines(
+        anyhitDefines, "DrawType",
+        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+    appendDefineStr(anyhitDefines, "MATERIALS_SET", sMaterialsBindingSet);
+    appendDefineStr(
+        anyhitDefines, "NUM_MATERIAL_SAMPLERS",
+        worldDSLayouts.materialSamplerCount);
+    appendDefineStr(anyhitDefines, "GEOMETRY_SET", sGeometryBindingSet);
+    appendDefineStr(
+        anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
+        sModelInstanceTrfnsBindingSet);
+
     const auto raygenSM = _device->compileShaderModule(
         scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                       .relPath = "shader/rt/scene.rgen",
@@ -303,47 +328,58 @@ bool RTRenderer::compileShaders(
                                       .relPath = "shader/rt/scene.rchit",
                                       .debugName = "sceneRCHIT",
                                   });
+    const auto anyHitSM = _device->compileShaderModule(
+        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                      .relPath = "shader/rt/scene.rahit",
+                                      .debugName = "sceneRAHIT",
+                                      .defines = anyhitDefines,
+                                  });
 
     if (raygenSM.has_value() && rayMissSM.has_value() &&
-        closestHitSM.has_value())
+        closestHitSM.has_value() && anyHitSM.has_value())
     {
         destroyShaders();
 
-        _shaderStages[StageIndex::RayGen] = {
+        _shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,
             .module = *raygenSM,
             .pName = "main",
         };
-        _shaderStages[StageIndex::Miss] = {
+        _shaderStages[static_cast<uint32_t>(StageIndex::Miss)] = {
             .stage = vk::ShaderStageFlagBits::eMissKHR,
             .module = *rayMissSM,
             .pName = "main",
         };
-        _shaderStages[StageIndex::ClosestHit] = {
+        _shaderStages[static_cast<uint32_t>(StageIndex::ClosestHit)] = {
             .stage = vk::ShaderStageFlagBits::eClosestHitKHR,
             .module = *closestHitSM,
             .pName = "main",
         };
+        _shaderStages[static_cast<uint32_t>(StageIndex::AnyHit)] = {
+            .stage = vk::ShaderStageFlagBits::eAnyHitKHR,
+            .module = *anyHitSM,
+            .pName = "main",
+        };
 
-        _shaderGroups[StageIndex::RayGen] = {
+        _shaderGroups[static_cast<uint32_t>(GroupIndex::RayGen)] = {
             .type = vk::RayTracingShaderGroupTypeKHR::eGeneral,
-            .generalShader = StageIndex::RayGen,
+            .generalShader = static_cast<uint32_t>(StageIndex::RayGen),
             .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         };
-        _shaderGroups[StageIndex::Miss] = {
+        _shaderGroups[static_cast<uint32_t>(GroupIndex::Miss)] = {
             .type = vk::RayTracingShaderGroupTypeKHR::eGeneral,
-            .generalShader = StageIndex::Miss,
+            .generalShader = static_cast<uint32_t>(StageIndex::Miss),
             .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         };
-        _shaderGroups[StageIndex::ClosestHit] = {
+        _shaderGroups[static_cast<uint32_t>(GroupIndex::Hit)] = {
             .type = vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup,
             .generalShader = VK_SHADER_UNUSED_KHR,
-            .closestHitShader = StageIndex::ClosestHit,
-            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = static_cast<uint32_t>(StageIndex::ClosestHit),
+            .anyHitShader = static_cast<uint32_t>(StageIndex::AnyHit),
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         };
 
@@ -356,6 +392,8 @@ bool RTRenderer::compileShaders(
         _device->logical().destroy(*rayMissSM);
     if (closestHitSM.has_value())
         _device->logical().destroy(*closestHitSM);
+    if (anyHitSM.has_value())
+        _device->logical().destroy(*anyHitSM);
 
     return false;
 }
@@ -443,7 +481,7 @@ void RTRenderer::createPipeline(
 void RTRenderer::createShaderBindingTable(ScopedScratch scopeAlloc)
 {
 
-    const auto groupCount = asserted_cast<uint32_t>(_shaderStages.size());
+    const auto groupCount = asserted_cast<uint32_t>(_shaderGroups.size());
     const auto groupHandleSize =
         _device->properties().rtPipeline.shaderGroupHandleSize;
     const auto groupBaseAlignment =

@@ -69,7 +69,7 @@ class RTRenderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 3> _shaderStages{{}};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages{{}};
     wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>
         _shaderGroups{{}};
 

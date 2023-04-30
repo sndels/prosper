@@ -26,27 +26,29 @@ layout(location = 0) rayPayloadEXT RayPayload payload;
 
 float shadow(vec3 p, vec3 l, float tMin, float lDist)
 {
-    uint mask = 0xFF;
+    const uint mask = 0xFF;
+    const uint flags = gl_RayFlagsTerminateOnFirstHitEXT;
 
-    // TODO: simpler shaders for shadow rays
     payload.instanceCustomIndex = MISS_INDEX;
-    traceRayEXT(as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, p, tMin, l, lDist, 0);
+    payload.randomSeed = pcg(pcg_state.x ^ pcg_state.y);
+
+    traceRayEXT(as, flags, mask, 0, 0, 0, p, tMin, l, lDist, 0);
 
     return float(payload.instanceCustomIndex == MISS_INDEX);
 }
 
 RayPayload traceClosest(Ray ray)
 {
-    uint mask = 0xFF;
+    const uint mask = 0xFF;
+    const uint flags = gl_RayFlagsNoneEXT; // We want anyhit here
 
     // Tight scope for payload use as having it dangle seems to prevent reuse
     payload.instanceCustomIndex = MISS_INDEX;
     payload.primitiveID = MISS_INDEX;
     payload.baryCoord = vec2(0);
+    payload.randomSeed = pcg(pcg_state.x ^ pcg_state.z);
 
-    traceRayEXT(
-        as, gl_RayFlagsOpaqueEXT, mask, 0, 0, 0, ray.o, ray.tMin, ray.d,
-        ray.tMax, 0);
+    traceRayEXT(as, flags, mask, 0, 0, 0, ray.o, ray.tMin, ray.d, ray.tMax, 0);
 
     RayPayload ret;
     ret.instanceCustomIndex = payload.instanceCustomIndex;
@@ -112,10 +114,6 @@ void main()
         Vertex v = transform(vi, trfn);
 
         Material m = sampleMaterial(instance.materialID, v.TexCoord0);
-
-        // TODO: Remove after anyhit
-        if (m.alpha >= 0)
-            break;
 
         vec3 normal;
         // -2 signals no material normal, w=0 no vertex tangent
