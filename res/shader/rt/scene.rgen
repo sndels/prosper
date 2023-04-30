@@ -13,19 +13,8 @@
 #include "../sampling.glsl"
 #include "../transforms.glsl"
 #include "ray.glsl"
+#include "rt_data.glsl"
 
-layout(set = RAY_TRACING_SET, binding = 0) uniform accelerationStructureEXT as;
-struct RTInstance
-{
-    uint modelInstanceID;
-    uint meshID;
-    uint materialID;
-};
-layout(std430, set = RAY_TRACING_SET, binding = 1) readonly buffer RTInstances
-{
-    RTInstance data[];
-}
-rtInstances;
 layout(set = OUTPUT_SET, binding = 0, rgba16f) uniform image2D colorInOut;
 
 #include "rtpc.glsl"
