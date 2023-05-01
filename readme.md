@@ -21,7 +21,7 @@ Current features include:
 - Bindless materials
 - Bindless geometry
 - Pipeline ray tracing
-  - ID debug only for now
+  - Naive path tracing
 - Polling shader recompilation
 - Scoped profiling
   - GPU with timestamps
