@@ -27,6 +27,7 @@ struct MeshInfo
 {
     uint32_t vertexCount{0};
     uint32_t indexCount{0};
+    uint32_t materialID{0};
 };
 
 #endif // PROSPER_MESH_HPP
