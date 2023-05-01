@@ -19,8 +19,9 @@ constexpr uint32_t sRTBindingSet = 1;
 constexpr uint32_t sOutputBindingSet = 2;
 constexpr uint32_t sMaterialsBindingSet = 3;
 constexpr uint32_t sGeometryBindingSet = 4;
-constexpr uint32_t sModelInstanceTrfnsBindingSet = 5;
-constexpr uint32_t sLightsBindingSet = 6;
+constexpr uint32_t sSkyboxBindingSet = 5;
+constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
+constexpr uint32_t sLightsBindingSet = 7;
 
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
@@ -53,6 +54,7 @@ struct PCBlock
     {
         bool colorDirty{false};
         bool accumulate{false};
+        bool ibl{false};
     };
 };
 
@@ -62,6 +64,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
     ret |= (uint32_t)flags.colorDirty;
     ret |= (uint32_t)flags.accumulate << 1;
+    ret |= (uint32_t)flags.ibl << 2;
 
     return ret;
 }
@@ -157,7 +160,10 @@ void RTRenderer::drawUi()
     }
 
     if (_drawType == DrawType::Default)
+    {
         ImGui::Checkbox("Accumulate", &_accumulate);
+        _accumulationDirty |= ImGui::Checkbox("Ibl", &_ibl);
+    }
 
     ImGui::End();
 }
@@ -185,12 +191,13 @@ void RTRenderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        StaticArray<vk::DescriptorSet, 7> descriptorSets{VK_NULL_HANDLE};
+        StaticArray<vk::DescriptorSet, 8> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
         descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[sGeometryBindingSet] = world._geometryDS;
+        descriptorSets[sSkyboxBindingSet] = world._skyboxOnlyDS;
         descriptorSets[sModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextImage];
         descriptorSets[sLightsBindingSet] =
@@ -207,6 +214,7 @@ void RTRenderer::record(
                 .colorDirty =
                     cam.changedThisFrame() || colorDirty | _accumulationDirty,
                 .accumulate = _accumulate,
+                .ibl = _ibl,
             }),
             .frameIndex = _frameIndex,
         };
@@ -291,6 +299,7 @@ bool RTRenderer::compileShaders(
         raygenDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
     appendDefineStr(raygenDefines, "GEOMETRY_SET", sGeometryBindingSet);
+    appendDefineStr(raygenDefines, "SKYBOX_SET", sSkyboxBindingSet);
     appendDefineStr(
         raygenDefines, "MODEL_INSTANCE_TRFNS_SET",
         sModelInstanceTrfnsBindingSet);
@@ -429,12 +438,13 @@ void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
-    StaticArray<vk::DescriptorSetLayout, 7> setLayouts{VK_NULL_HANDLE};
+    StaticArray<vk::DescriptorSetLayout, 8> setLayouts{VK_NULL_HANDLE};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sRTBindingSet] = worldDSLayouts.rayTracing;
     setLayouts[sOutputBindingSet] = _descriptorSetLayout;
     setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[sGeometryBindingSet] = worldDSLayouts.geometry;
+    setLayouts[sSkyboxBindingSet] = worldDSLayouts.skyboxOnly;
     setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
 

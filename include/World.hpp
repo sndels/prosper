@@ -34,6 +34,7 @@ class World
         vk::DescriptorSetLayout rayTracing;
         vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout skybox;
+        vk::DescriptorSetLayout skyboxOnly;
     };
     World(
         wheels::ScopedScratch scopeAlloc, Device *device,
@@ -89,6 +90,7 @@ class World
 
     wheels::Array<Buffer> _skyboxUniformBuffers{_generalAlloc};
     wheels::Array<vk::DescriptorSet> _skyboxDSs{_generalAlloc};
+    vk::DescriptorSet _skyboxOnlyDS;
 
   private:
     void loadTextures(

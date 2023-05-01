@@ -191,6 +191,7 @@ World::~World()
 {
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
+    _device->logical().destroy(_dsLayouts.skyboxOnly);
     _device->logical().destroy(_dsLayouts.rayTracing);
     _device->logical().destroy(_dsLayouts.modelInstances);
     _device->logical().destroy(_dsLayouts.geometry);
@@ -1669,11 +1670,25 @@ void World::createDescriptorSets(
                 .pBindings = skyboxLayoutBindings.data(),
             });
 
+        const vk::DescriptorSetLayoutBinding skyboxOnlyLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+        };
+        _dsLayouts.skyboxOnly = _device->logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = 1,
+                .pBindings = &skyboxOnlyLayoutBinding,
+            });
+
         Array<vk::DescriptorSetLayout> skyboxLayouts{
             scopeAlloc, swapImageCount};
         skyboxLayouts.resize(swapImageCount, _dsLayouts.skybox);
         _skyboxDSs.resize(swapImageCount);
         _descriptorAllocator.allocate(skyboxLayouts, _skyboxDSs);
+
+        _skyboxOnlyDS = _descriptorAllocator.allocate(_dsLayouts.skyboxOnly);
 
         for (auto &buffer : _skyboxUniformBuffers)
             skyboxBufferInfos.push_back(vk::DescriptorBufferInfo{
@@ -1683,7 +1698,7 @@ void World::createDescriptorSets(
             });
         skyboxImageInfo = _skyboxTexture.imageInfo();
 
-        dss.reserve(dss.size() + _skyboxDSs.size() * 2);
+        dss.reserve(dss.size() + _skyboxDSs.size() * 2 + 1);
         for (size_t i = 0; i < _skyboxDSs.size(); ++i)
         {
             dss.push_back(vk::WriteDescriptorSet{
@@ -1703,6 +1718,14 @@ void World::createDescriptorSets(
                 .pImageInfo = &skyboxImageInfo,
             });
         }
+        dss.push_back(vk::WriteDescriptorSet{
+            .dstSet = _skyboxOnlyDS,
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .pImageInfo = &skyboxImageInfo,
+        });
     }
 
     _device->logical().updateDescriptorSets(

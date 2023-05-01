@@ -16,6 +16,7 @@
 #include "rt_data.glsl"
 
 layout(set = OUTPUT_SET, binding = 0, rgba16f) uniform image2D colorInOut;
+layout(set = SKYBOX_SET, binding = 0) uniform samplerCube skybox;
 
 #include "rtpc.glsl"
 
@@ -99,7 +100,14 @@ void main()
     {
         RayPayload hit = traceClosest(ray);
         if (hit.instanceCustomIndex == MISS_INDEX)
+        {
+            if (flagIBL())
+            {
+                vec3 skyColor = sRGBtoLinear(textureLod(skybox, ray.d, 0).rgb);
+                color += throughput * skyColor;
+            }
             break;
+        }
 
         RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
 

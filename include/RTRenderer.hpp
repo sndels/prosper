@@ -86,6 +86,7 @@ class RTRenderer
     DrawType _drawType{DrawType::Default};
     bool _accumulationDirty{true};
     bool _accumulate{true};
+    bool _ibl{false};
     uint32_t _frameIndex{0};
 };
 
