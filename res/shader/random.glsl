@@ -39,23 +39,29 @@ vec3 uintToColor(uint x)
     return vec3(r, g, b) / 0x3FF;
 }
 
+float rngTo01(uint u) { return u / float(0xFFFFFFFFu); }
+
+vec2 rngTo01(vec2 u) { return u / float(0xFFFFFFFFu); }
+
+vec3 rngTo01(vec3 u) { return u / float(0xFFFFFFFFu); }
+
 // Should be initialized at the shader entrypoint e.g. as uvec3(px, frameIndex)
 uvec3 pcg_state;
 float rnd01()
 {
     // TODO: Verify this doesn't break subsequent pcg3d samples
     pcg_state.x = pcg(pcg_state.x);
-    return pcg_state.x / float(0xFFFFFFFFu);
+    return rngTo01(pcg_state.x);
 }
 vec2 rnd2d01()
 {
     pcg_state = pcg3d(pcg_state);
-    return pcg_state.xy / float(0xFFFFFFFFu);
+    return rngTo01(pcg_state.xy);
 }
 vec3 rnd3d01()
 {
     pcg_state = pcg3d(pcg_state);
-    return pcg_state.xyz / float(0xFFFFFFFFu);
+    return rngTo01(pcg_state.xyz);
 }
 
 #endif // RANDOM_GLSL
