@@ -11,6 +11,15 @@
 
 #include <chrono>
 
+struct PipelineStatistics
+{
+    uint32_t iaVertices{0};
+    uint32_t iaPrimitives{0};
+    uint32_t vsInvocations{0};
+    uint32_t clipPrimitives{0};
+    uint32_t fragInvocations{0};
+};
+
 class GpuFrameProfiler
 {
   public:
@@ -26,21 +35,24 @@ class GpuFrameProfiler
 
       protected:
         Scope(
-            vk::CommandBuffer cb, vk::QueryPool queryPool, const char *name,
+            vk::CommandBuffer cb, vk::QueryPool timestampPool,
+            vk::QueryPool statisticsPool, const char *name,
             uint32_t queryIndex);
 
       private:
         vk::CommandBuffer _cb;
-        vk::QueryPool _queryPool;
+        vk::QueryPool _timestampPool;
+        vk::QueryPool _statisticsPool;
         uint32_t _queryIndex{0};
 
         friend class GpuFrameProfiler;
     };
 
-    struct ScopeTime
+    struct ScopeData
     {
         uint32_t index{0xFFFFFFFF};
         float millis{0.f};
+        PipelineStatistics stats;
     };
 
     GpuFrameProfiler(wheels::Allocator &alloc, Device *device);
@@ -60,12 +72,14 @@ class GpuFrameProfiler
 
     // This will read garbage if the corresponding frame index has yet to have
     // any frame complete.
-    [[nodiscard]] wheels::Array<ScopeTime> getTimes(wheels::Allocator &alloc);
+    [[nodiscard]] wheels::Array<ScopeData> getData(wheels::Allocator &alloc);
 
   private:
     Device *_device;
-    Buffer _buffer;
-    vk::QueryPool _queryPool;
+    Buffer _timestampBuffer;
+    Buffer _statisticsBuffer;
+    vk::QueryPool _timestampPool;
+    vk::QueryPool _statisticsPool;
     wheels::Array<uint32_t> _queryScopeIndices;
 
     friend class Profiler;
@@ -154,11 +168,13 @@ class Profiler
         friend class Profiler;
     };
 
-    struct ScopeTime
+    struct ScopeData
     {
+        // Name will be null-terminated at size()
         wheels::StrSpan name;
         float gpuMillis{-1.f};
         float cpuMillis{-1.f};
+        PipelineStatistics stats;
     };
 
     Profiler(wheels::Allocator &alloc, Device *device, uint32_t maxFrameCount);
@@ -190,9 +206,9 @@ class Profiler
     [[nodiscard]] Scope createCpuGpuScope(
         vk::CommandBuffer cb, const char *name);
 
-    // Can be called after startGpuFrame to get the times from the last
+    // Can be called after startGpuFrame to get the data from the last
     // iteration of the active frame index.
-    [[nodiscard]] wheels::Array<Profiler::ScopeTime> getPreviousTimes(
+    [[nodiscard]] wheels::Array<Profiler::ScopeData> getPreviousData(
         wheels::Allocator &alloc);
 
   private:
@@ -224,7 +240,7 @@ class Profiler
     wheels::Array<wheels::Array<wheels::String>> _previousScopeNames;
     wheels::Array<wheels::Array<CpuFrameProfiler::ScopeTime>>
         _previousCpuScopeTimes;
-    wheels::Array<GpuFrameProfiler::ScopeTime> _previousGpuScopeTimes;
+    wheels::Array<GpuFrameProfiler::ScopeData> _previousGpuScopeData;
 };
 
 #endif // PROSPER_PROFILER_HPP

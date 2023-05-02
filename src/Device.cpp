@@ -27,6 +27,7 @@ using namespace wheels;
         vk::PhysicalDeviceFeatures2, features.samplerAnisotropy,               \
         vk::PhysicalDeviceFeatures2,                                           \
         features.shaderSampledImageArrayDynamicIndexing,                       \
+        vk::PhysicalDeviceFeatures2, features.pipelineStatisticsQuery,         \
         vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                \
         vk::PhysicalDeviceVulkan12Features,                                    \
         shaderSampledImageArrayNonUniformIndexing,                             \

@@ -9,30 +9,42 @@ namespace
 
 constexpr uint32_t sMaxScopeCount = 512;
 // Each scope has a query for start and end
-constexpr uint32_t sMaxQueryCount = sMaxScopeCount * 2;
+constexpr uint32_t sMaxTimestampCount = sMaxScopeCount * 2;
+constexpr vk::QueryPipelineStatisticFlags sPipelineStatisticsFlags =
+    vk::QueryPipelineStatisticFlagBits::eInputAssemblyVertices |
+    vk::QueryPipelineStatisticFlagBits::eInputAssemblyPrimitives |
+    vk::QueryPipelineStatisticFlagBits::eVertexShaderInvocations |
+    vk::QueryPipelineStatisticFlagBits::eClippingPrimitives |
+    vk::QueryPipelineStatisticFlagBits::eFragmentShaderInvocations;
+constexpr size_t sStatTypeCount = asserted_cast<size_t>(
+    std::popcount(static_cast<uint32_t>(sPipelineStatisticsFlags)));
 
 } // namespace
 
 GpuFrameProfiler::Scope::Scope(
-    vk::CommandBuffer cb, vk::QueryPool queryPool, const char *name,
-    uint32_t queryIndex)
+    vk::CommandBuffer cb, vk::QueryPool timestampPool,
+    vk::QueryPool statisticsPool, const char *name, uint32_t queryIndex)
 : _cb{cb}
-, _queryPool{queryPool}
+, _timestampPool{timestampPool}
+, _statisticsPool{statisticsPool}
 , _queryIndex{queryIndex}
 {
     cb.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
         .pLabelName = name,
     });
     cb.writeTimestamp2(
-        vk::PipelineStageFlagBits2::eTopOfPipe, _queryPool, _queryIndex * 2);
+        vk::PipelineStageFlagBits2::eTopOfPipe, _timestampPool,
+        _queryIndex * 2);
+    cb.beginQuery(_statisticsPool, _queryIndex, vk::QueryControlFlags{});
 }
 
 GpuFrameProfiler::Scope::~Scope()
 {
     if (_cb)
     {
+        _cb.endQuery(_statisticsPool, _queryIndex);
         _cb.writeTimestamp2(
-            vk::PipelineStageFlagBits2::eBottomOfPipe, _queryPool,
+            vk::PipelineStageFlagBits2::eBottomOfPipe, _timestampPool,
             _queryIndex * 2 + 1);
         _cb.endDebugUtilsLabelEXT();
     }
@@ -40,7 +52,8 @@ GpuFrameProfiler::Scope::~Scope()
 
 GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
 : _cb{other._cb}
-, _queryPool{other._queryPool}
+, _timestampPool{other._timestampPool}
+, _statisticsPool{other._statisticsPool}
 , _queryIndex{other._queryIndex}
 {
     other._cb = vk::CommandBuffer{};
@@ -52,7 +65,8 @@ GpuFrameProfiler::Scope &GpuFrameProfiler::Scope::operator=(
     if (this != &other)
     {
         _cb = other._cb;
-        _queryPool = other._queryPool;
+        _timestampPool = other._timestampPool;
+        _statisticsPool = other._statisticsPool;
         _queryIndex = other._queryIndex;
 
         other._cb = vk::CommandBuffer{};
@@ -62,32 +76,50 @@ GpuFrameProfiler::Scope &GpuFrameProfiler::Scope::operator=(
 
 GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
 : _device{device}
-, _buffer{device->createBuffer(BufferCreateInfo{
-      .byteSize = sizeof(uint64_t) * sMaxQueryCount,
+, _timestampBuffer{device->createBuffer(BufferCreateInfo{
+      .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
       .usage = vk::BufferUsageFlagBits::eTransferDst,
       .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent,
       .createMapped = true,
-      .debugName = "GpuProfilerReadback"})}
+      .debugName = "GpuProfilerTimestampReadback"})}
+, _statisticsBuffer{device->createBuffer(BufferCreateInfo{
+      .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
+      .usage = vk::BufferUsageFlagBits::eTransferDst,
+      .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent,
+      .createMapped = true,
+      .debugName = "GpuProfilerStatisticsReadback"})}
 , _queryScopeIndices{alloc, sMaxScopeCount}
 {
-    _queryPool = _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
-        .queryType = vk::QueryType::eTimestamp, .queryCount = sMaxQueryCount});
+    _timestampPool = _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
+        .queryType = vk::QueryType::eTimestamp,
+        .queryCount = sMaxTimestampCount});
+    _statisticsPool =
+        _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
+            .queryType = vk::QueryType::ePipelineStatistics,
+            .queryCount = sMaxScopeCount,
+            .pipelineStatistics = sPipelineStatisticsFlags,
+        });
 }
 
 GpuFrameProfiler::~GpuFrameProfiler()
 {
     if (_device != nullptr)
     {
-        _device->logical().destroyQueryPool(_queryPool);
-        _device->destroy(_buffer);
+        _device->logical().destroyQueryPool(_statisticsPool);
+        _device->logical().destroyQueryPool(_timestampPool);
+        _device->destroy(_statisticsBuffer);
+        _device->destroy(_timestampBuffer);
     }
 }
 
 GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
 : _device{other._device}
-, _buffer{other._buffer}
-, _queryPool{other._queryPool}
+, _timestampBuffer{other._timestampBuffer}
+, _statisticsBuffer{other._statisticsBuffer}
+, _timestampPool{other._timestampPool}
+, _statisticsPool{other._statisticsPool}
 , _queryScopeIndices{WHEELS_MOV(other._queryScopeIndices)}
 {
     other._device = nullptr;
@@ -98,8 +130,10 @@ GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
     if (this != &other)
     {
         _device = other._device;
-        _buffer = other._buffer;
-        _queryPool = other._queryPool;
+        _timestampBuffer = other._timestampBuffer;
+        _statisticsBuffer = other._statisticsBuffer;
+        _timestampPool = other._timestampPool;
+        _statisticsPool = other._statisticsPool;
         _queryScopeIndices = WHEELS_MOV(other._queryScopeIndices);
 
         other._device = nullptr;
@@ -111,15 +145,23 @@ void GpuFrameProfiler::startFrame()
 {
     // Might be more optimal to do this in a command buffer if we had some other
     // use that was ensured to happen before all other command buffers.
-    _device->logical().resetQueryPool(_queryPool, 0, sMaxQueryCount);
+    _device->logical().resetQueryPool(_timestampPool, 0, sMaxTimestampCount);
+    _device->logical().resetQueryPool(_statisticsPool, 0, sMaxScopeCount);
     _queryScopeIndices.clear();
 }
 
 void GpuFrameProfiler::endFrame(vk::CommandBuffer cb)
 {
     cb.copyQueryPoolResults(
-        _queryPool, 0, asserted_cast<uint32_t>(_queryScopeIndices.size() * 2),
-        _buffer.handle, 0, sizeof(uint64_t), vk::QueryResultFlagBits::e64);
+        _timestampPool, 0,
+        asserted_cast<uint32_t>(_queryScopeIndices.size() * 2),
+        _timestampBuffer.handle, 0, sizeof(uint64_t),
+        vk::QueryResultFlagBits::e64);
+
+    cb.copyQueryPoolResults(
+        _statisticsPool, 0, asserted_cast<uint32_t>(_queryScopeIndices.size()),
+        _statisticsBuffer.handle, 0, sizeof(uint32_t) * sStatTypeCount,
+        vk::QueryResultFlags{});
 }
 
 GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
@@ -127,33 +169,44 @@ GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
 {
     const auto queryIndex = asserted_cast<uint32_t>(_queryScopeIndices.size());
     _queryScopeIndices.push_back(index);
-    return Scope{cb, _queryPool, name, queryIndex};
+    return Scope{cb, _timestampPool, _statisticsPool, name, queryIndex};
 }
 
-Array<GpuFrameProfiler::ScopeTime> GpuFrameProfiler::getTimes(Allocator &alloc)
+Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
 {
     const auto timestampPeriodNanos = static_cast<double>(
         _device->properties().device.limits.timestampPeriod);
 
     // This is garbage if no frame has been completed with this profiler yet
     // Caller should make sure that isn't an issue.
-    auto *mapped = reinterpret_cast<uint64_t *>(_buffer.mapped);
+    const auto *timestamps =
+        reinterpret_cast<uint64_t *>(_timestampBuffer.mapped);
+    const auto *stats = reinterpret_cast<uint32_t *>(_statisticsBuffer.mapped);
 
-    Array<ScopeTime> times{alloc, _queryScopeIndices.size()};
+    Array<ScopeData> ret{alloc, _queryScopeIndices.size()};
     for (auto i = 0u; i < _queryScopeIndices.size(); ++i)
     {
         // All bits valid should have been asserted on device creation
-        auto start = mapped[static_cast<size_t>(i) * 2];
-        auto end = mapped[static_cast<size_t>(i) * 2 + 1];
-        auto nanos = (end - start) * timestampPeriodNanos;
+        const auto start = timestamps[static_cast<size_t>(i) * 2];
+        const auto end = timestamps[static_cast<size_t>(i) * 2 + 1];
+        const auto nanos = (end - start) * timestampPeriodNanos;
+        const float millis = static_cast<float>(nanos * 1e-6);
 
-        times.push_back(ScopeTime{
+        ret.push_back(ScopeData{
             .index = _queryScopeIndices[i],
-            .millis = static_cast<float>(nanos * 1e-6),
+            .millis = millis,
+            .stats =
+                PipelineStatistics{
+                    .iaVertices = stats[static_cast<size_t>(i) * 5 + 0],
+                    .iaPrimitives = stats[static_cast<size_t>(i) * 5 + 1],
+                    .vsInvocations = stats[static_cast<size_t>(i) * 5 + 2],
+                    .clipPrimitives = stats[static_cast<size_t>(i) * 5 + 3],
+                    .fragInvocations = stats[static_cast<size_t>(i) * 5 + 4],
+                },
         });
     };
 
-    return times;
+    return ret;
 }
 
 CpuFrameProfiler::Scope::Scope(std::chrono::nanoseconds *output)
@@ -230,7 +283,7 @@ Profiler::Profiler(Allocator &alloc, Device *device, uint32_t maxFrameCount)
 , _currentFrameScopeNames{_alloc, sMaxScopeCount}
 , _previousScopeNames{_alloc}
 , _previousCpuScopeTimes{_alloc}
-, _previousGpuScopeTimes{_alloc, sMaxScopeCount}
+, _previousGpuScopeData{_alloc, sMaxScopeCount}
 {
     for (auto i = 0u; i < maxFrameCount; ++i)
     {
@@ -263,9 +316,9 @@ void Profiler::startGpuFrame(uint32_t frameIndex)
 
     _currentFrame = frameIndex;
 
-    // Store times from the previous iteration of this gpu frame index. We need
+    // Store data from the previous iteration of this gpu frame index. We need
     // to read these before startFrame as that will reset the queries.
-    _previousGpuScopeTimes = _gpuFrameProfilers[_currentFrame].getTimes(_alloc);
+    _previousGpuScopeData = _gpuFrameProfilers[_currentFrame].getData(_alloc);
 
     _gpuFrameProfilers[_currentFrame].startFrame();
 
@@ -332,7 +385,7 @@ Profiler::Scope Profiler::createCpuScope(const char *name)
     return Scope{_cpuFrameProfiler.createScope(index)};
 }
 
-Array<Profiler::ScopeTime> Profiler::getPreviousTimes(Allocator &alloc)
+Array<Profiler::ScopeData> Profiler::getPreviousData(Allocator &alloc)
 {
     assert(_debugState == DebugState::StartGpuCalled);
 
@@ -343,23 +396,24 @@ Array<Profiler::ScopeTime> Profiler::getPreviousTimes(Allocator &alloc)
     if (scopeNames.empty())
         return {alloc};
 
-    Array<ScopeTime> times{alloc, scopeNames.size()};
+    Array<ScopeData> ret{alloc, scopeNames.size()};
     for (const auto &n : scopeNames)
-        times.push_back(ScopeTime{
+        ret.push_back(ScopeData{
             .name = n,
         });
 
-    for (const auto &t : _previousGpuScopeTimes)
+    for (const auto &data : _previousGpuScopeData)
     {
-        assert(t.index < times.size());
-        times[t.index].gpuMillis = t.millis;
+        assert(data.index < ret.size());
+        ret[data.index].gpuMillis = data.millis;
+        ret[data.index].stats = data.stats;
     }
 
     for (const auto &t : _previousCpuScopeTimes[_currentFrame])
     {
-        assert(t.index < times.size());
-        times[t.index].cpuMillis = t.millis;
+        assert(t.index < ret.size());
+        ret[t.index].cpuMillis = t.millis;
     }
 
-    return times;
+    return ret;
 }

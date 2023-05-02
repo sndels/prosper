@@ -392,7 +392,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _profiler.startGpuFrame(nextImage);
 
-    const auto profilerTimes = _profiler.getPreviousTimes(scopeAlloc);
+    const auto profilerDatas = _profiler.getPreviousData(scopeAlloc);
 
     // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
     // Note that this is always based on the previous frame so it only limits
@@ -440,7 +440,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         {
             // Having names longer than 255 characters is an error
             uint8_t longestNameLength = 0;
-            for (const auto &t : profilerTimes)
+            for (const auto &t : profilerDatas)
                 if (t.name.size() > longestNameLength)
                     longestNameLength = asserted_cast<uint8_t>(t.name.size());
 
@@ -464,16 +464,78 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             if (ImGui::CollapsingHeader(
                     leftJustified("GPU"), ImGuiTreeNodeFlags_DefaultOpen))
             {
-                for (const auto &t : profilerTimes)
+                for (const auto &t : profilerDatas)
                     if (t.gpuMillis >= 0.f)
                         ImGui::Text(
                             "%s %.3fms", leftJustified(t.name), t.gpuMillis);
+                if (!profilerDatas.empty())
+                {
+                    static int scopeIndex = 0;
+                    const char *comboTitle =
+                        profilerDatas[scopeIndex].gpuMillis < 0.f
+                            ? ""
+                            : profilerDatas[scopeIndex].name.data();
+                    if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
+                    {
+                        for (int n = 0;
+                             n < asserted_cast<int>(profilerDatas.size()); n++)
+                        {
+                            // Only have scopes that have gpu data
+                            if (profilerDatas[n].gpuMillis >= 0.f)
+                            {
+                                const bool selected = scopeIndex == n;
+                                if (ImGui::Selectable(
+                                        profilerDatas[n].name.data(), selected))
+                                    scopeIndex = n;
+
+                                if (selected)
+                                    ImGui::SetItemDefaultFocus();
+                            }
+                        }
+                        ImGui::EndCombo();
+                    }
+                    if (profilerDatas[scopeIndex].gpuMillis >= 0.f)
+                    {
+                        const auto &stats = profilerDatas[scopeIndex].stats;
+                        const auto &swapExtent = _swapchain.config().extent;
+                        const uint32_t pixelCount =
+                            swapExtent.width * swapExtent.height;
+
+                        // Stats from AMD's 'D3D12 Right On Queue' GDC2016
+                        const float rasterPrimPerPrim =
+                            stats.iaPrimitives == 0
+                                ? -1.f
+                                : static_cast<float>(stats.clipPrimitives) /
+                                      static_cast<float>(stats.iaPrimitives);
+
+                        const float fragsPerPrim =
+                            stats.clipPrimitives == 0
+                                ? -1.f
+                                : static_cast<float>(stats.fragInvocations) /
+                                      static_cast<float>(stats.clipPrimitives);
+
+                        const float overdraw =
+                            stats.fragInvocations == 0
+                                ? -1.f
+                                : static_cast<float>(stats.fragInvocations) /
+                                      static_cast<float>(pixelCount);
+
+                        ImGui::Indent();
+
+                        ImGui::Text(
+                            "Raster prim per prim: %.2f", rasterPrimPerPrim);
+                        ImGui::Text("Frags per prim: %.2f", fragsPerPrim);
+                        ImGui::Text("Overdraw: %.2f", overdraw);
+
+                        ImGui::Unindent();
+                    }
+                }
             }
 
             if (ImGui::CollapsingHeader(
                     leftJustified("CPU"), ImGuiTreeNodeFlags_DefaultOpen))
             {
-                for (const auto &t : profilerTimes)
+                for (const auto &t : profilerDatas)
                     if (t.cpuMillis >= 0.f)
                         ImGui::Text(
                             "%s %.3fms", leftJustified(t.name), t.cpuMillis);
