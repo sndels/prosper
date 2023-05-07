@@ -215,7 +215,7 @@ bool GBufferRenderer::compileShaders(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
     const auto vertSM = _device->compileShaderModule(
         scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/scene.vert",
+                                      .relPath = "shader/forward.vert",
                                       .debugName = "gbufferVS",
                                       .defines = vertDefines,
                                   });

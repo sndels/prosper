@@ -6,7 +6,7 @@
 
 #include "scene/camera.glsl"
 #include "scene/materials.glsl"
-#include "scene_pc.glsl"
+#include "forward_pc.glsl"
 
 // TODO: Skip position and zcam as they aren't used
 layout(location = 0) in vec3 fragPosition;
@@ -33,7 +33,7 @@ mat3 generateTBN()
 
 void main()
 {
-    Material material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
+    Material material = sampleMaterial(forwardPC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)

@@ -239,7 +239,7 @@ bool Renderer::compileShaders(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
     const auto vertSM = _device->compileShaderModule(
         scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/scene.vert",
+                                      .relPath = "shader/forward.vert",
                                       .debugName = "geometryVS",
                                       .defines = vertDefines,
                                   });
@@ -262,7 +262,7 @@ bool Renderer::compileShaders(
 
     const auto fragSM = _device->compileShaderModule(
         scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/scene.frag",
+                                      .relPath = "shader/forward.frag",
                                       .debugName = "geometryPS",
                                       .defines = fragDefines,
                                   });

@@ -4,10 +4,10 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
+#include "forward_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/geometry.glsl"
 #include "scene/transforms.glsl"
-#include "scene_pc.glsl"
 
 layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out float fragZCam;
@@ -17,8 +17,8 @@ layout(location = 3) out mat3 fragTBN;
 void main()
 {
     Vertex vertex = transform(
-        loadVertex(scenePC.MeshID, gl_VertexIndex),
-        modelInstanceTransforms.instance[scenePC.ModelInstanceID]);
+        loadVertex(forwardPC.MeshID, gl_VertexIndex),
+        modelInstanceTransforms.instance[forwardPC.ModelInstanceID]);
 
     if (vertex.Tangent.w != 0)
         fragTBN = generateTBN(vertex.Normal, vertex.Tangent);

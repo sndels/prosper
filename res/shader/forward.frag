@@ -12,7 +12,7 @@
 #include "scene/lights.glsl"
 #include "scene/materials.glsl"
 #include "common/random.glsl"
-#include "scene_pc.glsl"
+#include "forward_pc.glsl"
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in float fragZCam;
@@ -40,7 +40,7 @@ void main()
     VisibleSurface surface;
     surface.positionWS = fragPosition;
     surface.invViewRayWS = normalize(camera.eye.xyz - fragPosition);
-    surface.material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
+    surface.material = sampleMaterial(forwardPC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (surface.material.alpha == 0)
@@ -68,16 +68,16 @@ void main()
 
     float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 
-    if (scenePC.DrawType >= DrawType_PrimitiveID)
+    if (forwardPC.DrawType >= DrawType_PrimitiveID)
     {
         DebugInputs di;
-        di.meshID = scenePC.MeshID;
+        di.meshID = forwardPC.MeshID;
         di.primitiveID = gl_PrimitiveID;
-        di.materialID = scenePC.MaterialID;
+        di.materialID = forwardPC.MaterialID;
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
         di.texCoord0 = fragTexCoord0;
-        outColor = vec4(commonDebugDraw(scenePC.DrawType, di, surface.material), 1);
+        outColor = vec4(commonDebugDraw(forwardPC.DrawType, di, surface.material), 1);
         return;
     }
 
