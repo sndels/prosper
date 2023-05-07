@@ -62,14 +62,11 @@ void main()
             directionalLight.irradiance.xyz * evalBRDF(l, surface);
     }
 
-    uvec3 ci = clusterIndex(uvec2(gl_FragCoord.xy), fragZCam);
+    LightClusterInfo lightInfo = unpackClusterPointer(uvec2(gl_FragCoord.xy), fragZCam);
 
-    uint clusterIndexOffset, pointCount, spotCount;
-    unpackClusterPointer(ci, clusterIndexOffset, pointCount, spotCount);
-
-    for (uint i = 0; i < pointCount; ++i)
+    for (uint i = 0; i < lightInfo.pointCount; ++i)
     {
-        uint index = imageLoad(lightIndices, int(clusterIndexOffset + i)).x;
+        uint index = imageLoad(lightIndices, int(lightInfo.indexOffset + i)).x;
         PointLight light = pointLights.lights[index];
         vec3 pos = light.position.xyz;
         vec3 radiance = light.radianceAndRadius.xyz;
@@ -89,10 +86,10 @@ void main()
         color += radiance * attenuation * evalBRDF(l, surface);
     }
 
-    for (uint i = 0; i < spotCount; ++i)
+    for (uint i = 0; i < lightInfo.spotCount; ++i)
     {
         uint index =
-            imageLoad(lightIndices, int(clusterIndexOffset + pointCount + i)).x;
+            imageLoad(lightIndices, int(lightInfo.indexOffset + lightInfo.pointCount + i)).x;
         SpotLight light = spotLights.lights[index];
         vec3 toLight = light.positionAndAngleOffset.xyz - fragPosition;
         float d2 = dot(toLight, toLight);

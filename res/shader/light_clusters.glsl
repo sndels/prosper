@@ -49,13 +49,24 @@ uvec3 clusterIndex(uvec2 px, float zCam)
     return uvec3(px / LIGHT_CLUSTER_DIMENSION, slice);
 }
 
-void unpackClusterPointer(
-    uvec3 index, out uint indexOffset, out uint pointCount, out uint spotCount)
+struct LightClusterInfo
 {
+    uint indexOffset;
+    uint pointCount;
+    uint spotCount;
+};
+
+LightClusterInfo unpackClusterPointer(uvec2 px, float zCam)
+{
+    uvec3 index = clusterIndex(px, zCam);
     uvec2 packed = imageLoad(clusterPointers, ivec3(index)).xy;
-    indexOffset = packed.x;
-    pointCount = packed.y >> 16;
-    spotCount = packed.y & 0xFFFF;
+
+    LightClusterInfo ret;
+    ret.indexOffset = packed.x;
+    ret.pointCount = packed.y >> 16;
+    ret.spotCount = packed.y & 0xFFFF;
+
+    return ret;
 }
 
 #endif // WRITE_CULLING_BINDS
