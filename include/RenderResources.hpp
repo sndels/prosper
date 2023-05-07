@@ -18,6 +18,8 @@ struct RenderResources
         Image sceneColor;
         Image sceneDepth;
         Image toneMapped;
+        Image albedoRoughness;
+        Image normalMetalness;
     };
 
     struct Buffers
