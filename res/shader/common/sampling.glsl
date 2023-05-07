@@ -1,7 +1,7 @@
-#ifndef SAMPLING_GLSL
-#define SAMPLING_GLSL
+#ifndef COMMON_SAMPLING_GLSL
+#define COMMON_SAMPLING_GLSL
 
-#include "common.glsl"
+#include "math.glsl"
 
 // From 'Sampling Transformations Zoo'
 // by Peter Shirley et al.
@@ -25,4 +25,4 @@ void cosineSampleHemisphere(vec3 n, vec2 u, out vec3 d, out float pdf)
     pdf = dot(d, n) / PI;
 }
 
-#endif // SAMPLING_GLSL
+#endif // COMMON_SAMPLING_GLSL

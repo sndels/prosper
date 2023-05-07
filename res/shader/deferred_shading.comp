@@ -3,11 +3,11 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "brdf.glsl"
-#include "camera.glsl"
 #include "debug.glsl"
-#include "light_clusters.glsl"
-#include "lighting.glsl"
-#include "lights.glsl"
+#include "scene/camera.glsl"
+#include "scene/light_clusters.glsl"
+#include "scene/lighting.glsl"
+#include "scene/lights.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D

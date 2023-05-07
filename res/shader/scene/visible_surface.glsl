@@ -1,5 +1,5 @@
-#ifndef VISIBLE_SURFACE_GLSL
-#define VISIBLE_SURFACE_GLSL
+#ifndef SCENE_VISIBLE_SURFACE_GLSL
+#define SCENE_VISIBLE_SURFACE_GLSL
 
 #include "material.glsl"
 
@@ -12,4 +12,4 @@ struct VisibleSurface
     Material material;
 };
 
-#endif // VISIBLE_SURFACE_GLSL
+#endif // SCENE_VISIBLE_SURFACE_GLSL

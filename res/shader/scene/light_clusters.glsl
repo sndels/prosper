@@ -1,5 +1,5 @@
-#ifndef LIGHT_CLUSTERS_GLSL
-#define LIGHT_CLUSTERS_GLSL
+#ifndef SCENE_LIGHT_CLUSTERS_GLSL
+#define SCENE_LIGHT_CLUSTERS_GLSL
 
 #ifdef WRITE_CULLING_BINDS
 #define UNIFORM_TYPE writeonly
@@ -71,4 +71,4 @@ LightClusterInfo unpackClusterPointer(uvec2 px, float zCam)
 
 #endif // WRITE_CULLING_BINDS
 
-#endif // LIGHT_CLUSTERS_GLSL
+#endif // SCENE_LIGHT_CLUSTERS_GLSL

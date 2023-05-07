@@ -1,5 +1,5 @@
-#ifndef GEOMETRY_GLSL
-#define GEOMETRY_GLSL
+#ifndef SCENE_GEOMETRY_GLSL
+#define SCENE_GEOMETRY_GLSL
 
 struct MeshBuffer
 {
@@ -145,4 +145,4 @@ vec2 interpolate(vec2 v0, vec2 v1, vec2 v2, vec2 baryCoord)
     return baryInterpolate(v0, v1, v2, a, b, c);
 }
 
-#endif // GEOMETRY_GLSL
+#endif // SCENE_GEOMETRY_GLSL

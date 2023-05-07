@@ -1,5 +1,5 @@
-#ifndef RANDOM_GLSL
-#define RANDOM_GLSL
+#ifndef COMMON_RANDOM_GLSL
+#define COMMON_RANDOM_GLSL
 
 // From Supplement to Hash Functions for GPU Rendering
 // By Jarzynski & Olano
@@ -64,4 +64,4 @@ vec3 rnd3d01()
     return rngTo01(pcg_state.xyz);
 }
 
-#endif // RANDOM_GLSL
+#endif // COMMON_RANDOM_GLSL

@@ -1,9 +1,9 @@
 #ifndef BRDF_GLSL
 #define BRDF_GLSL
 
-#include "common.glsl"
-#include "material.glsl"
-#include "visible_surface.glsl"
+#include "common/math.glsl"
+#include "scene/material.glsl"
+#include "scene/visible_surface.glsl"
 
 // Lambert diffuse term
 vec3 lambertBRFD(vec3 c_diff) { return c_diff / PI; }

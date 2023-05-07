@@ -5,16 +5,17 @@
 #pragma shader_stage(raygen)
 
 #include "../brdf.glsl"
-#include "../camera.glsl"
+#include "../common/random.glsl"
+#include "../common/sampling.glsl"
 #include "../debug.glsl"
-#include "../geometry.glsl"
-#include "../lights.glsl"
-#include "../materials.glsl"
-#include "../random.glsl"
-#include "../sampling.glsl"
-#include "../transforms.glsl"
+#include "../scene/camera.glsl"
+#include "../scene/geometry.glsl"
+#include "../scene/lights.glsl"
+#include "../scene/materials.glsl"
+#include "../scene/transforms.glsl"
 #include "ray.glsl"
 #include "rt_data.glsl"
+
 
 layout(set = OUTPUT_SET, binding = 0, rgba16f) uniform image2D colorInOut;
 layout(set = SKYBOX_SET, binding = 0) uniform samplerCube skybox;

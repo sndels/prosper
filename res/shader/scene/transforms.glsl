@@ -1,5 +1,5 @@
-#ifndef TRANSFORMS_GLSL
-#define TRANSFORMS_GLSL
+#ifndef SCENE_TRANSFORMS_GLSL
+#define SCENE_TRANSFORMS_GLSL
 
 struct Transforms
 {
@@ -37,4 +37,4 @@ mat3 generateTBN(vec3 normal, vec4 tangent)
     return mat3(tangent.xyz, bitangent, normal);
 }
 
-#endif // TRANSFORMS_GLSL
+#endif // SCENE_TRANSFORMS_GLSL

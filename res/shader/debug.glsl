@@ -1,8 +1,8 @@
 #ifndef DEBUG_GLSL
 #define DEBUG_GLSL
 
-#include "material.glsl"
-#include "random.glsl"
+#include "common/random.glsl"
+#include "scene/material.glsl"
 
 struct DebugInputs
 {

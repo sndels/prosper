@@ -1,5 +1,5 @@
-#ifndef MATERIAL_GLSL
-#define MATERIAL_GLSL
+#ifndef SCENE_MATERIAL_GLSL
+#define SCENE_MATERIAL_GLSL
 
 struct Material
 {
@@ -27,4 +27,4 @@ Material loadFromGbuffer(vec4 albedoRoughness, vec4 normalMetallic)
     return m;
 }
 
-#endif // MATERIAL_GLSL
+#endif // SCENE_MATERIAL_GLSL

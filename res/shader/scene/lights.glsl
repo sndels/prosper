@@ -1,5 +1,5 @@
-#ifndef LIGHTS_GLSL
-#define LIGHTS_GLSL
+#ifndef SCENE_LIGHTS_GLSL
+#define SCENE_LIGHTS_GLSL
 
 layout(set = LIGHTS_SET, binding = 0) uniform DirectionalLight
 {
@@ -35,4 +35,4 @@ layout(set = LIGHTS_SET, binding = 2) buffer SpotLights
 }
 spotLights;
 
-#endif // LIGHTS_GLSL
+#endif // SCENE_LIGHTS_GLSL

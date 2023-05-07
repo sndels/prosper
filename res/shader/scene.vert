@@ -4,10 +4,10 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "camera.glsl"
-#include "geometry.glsl"
+#include "scene/camera.glsl"
+#include "scene/geometry.glsl"
+#include "scene/transforms.glsl"
 #include "scene_pc.glsl"
-#include "transforms.glsl"
 
 layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out float fragZCam;

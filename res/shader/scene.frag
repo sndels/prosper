@@ -5,13 +5,13 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "brdf.glsl"
-#include "camera.glsl"
+#include "scene/camera.glsl"
 #include "debug.glsl"
-#include "light_clusters.glsl"
-#include "lighting.glsl"
-#include "lights.glsl"
-#include "materials.glsl"
-#include "random.glsl"
+#include "scene/light_clusters.glsl"
+#include "scene/lighting.glsl"
+#include "scene/lights.glsl"
+#include "scene/materials.glsl"
+#include "common/random.glsl"
 #include "scene_pc.glsl"
 
 layout(location = 0) in vec3 fragPosition;

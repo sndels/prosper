@@ -1,6 +1,6 @@
 
-#ifndef LIGHTING_GLSL
-#define LIGHTING_GLSL
+#ifndef SCENE_LIGHTING_GLSL
+#define SCENE_LIGHTING_GLSL
 
 #include "lights.glsl"
 #include "visible_surface.glsl"
@@ -65,4 +65,4 @@ vec3 evalSpotLights(VisibleSurface surface, LightClusterInfo lightInfo)
     return color;
 }
 
-#endif // LIGHTING_GLSL
+#endif // SCENE_LIGHTING_GLSL

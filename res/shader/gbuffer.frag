@@ -4,8 +4,8 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "camera.glsl"
-#include "materials.glsl"
+#include "scene/camera.glsl"
+#include "scene/materials.glsl"
 #include "scene_pc.glsl"
 
 // TODO: Skip position and zcam as they aren't used

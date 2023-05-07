@@ -4,9 +4,9 @@
 
 #pragma shader_stage(anyhit)
 
-#include "../geometry.glsl"
-#include "../materials.glsl"
-#include "../random.glsl"
+#include "../common/random.glsl"
+#include "../scene/geometry.glsl"
+#include "../scene/materials.glsl"
 #include "payload.glsl"
 #include "rt_data.glsl"
 

@@ -1,5 +1,5 @@
-#ifndef MATERIALS_GLSL
-#define MATERIALS_GLSL
+#ifndef SCENE_MATERIALS_GLSL
+#define SCENE_MATERIALS_GLSL
 
 #include "material.glsl"
 
@@ -153,4 +153,4 @@ float sampleAlpha(uint index, vec2 uv)
     return -1; // Negative alpha to signal opaque geometry
 }
 
-#endif // MATERIALS_GLSL
+#endif // SCENE_MATERIALS_GLSL

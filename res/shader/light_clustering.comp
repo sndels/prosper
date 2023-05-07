@@ -3,11 +3,11 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_control_flow_attributes : require
 
-#include "camera.glsl"
-#include "lights.glsl"
+#include "scene/camera.glsl"
+#include "scene/lights.glsl"
 
 #define WRITE_CULLING_BINDS
-#include "light_clusters.glsl"
+#include "scene/light_clusters.glsl"
 
 layout(
     local_size_x = LIGHT_CLUSTER_DIMENSION,

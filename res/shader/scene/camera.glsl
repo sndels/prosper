@@ -1,5 +1,5 @@
-#ifndef CAMERA_GLSL
-#define CAMERA_GLSL
+#ifndef SCENE_CAMERA_GLSL
+#define SCENE_CAMERA_GLSL
 
 layout(set = CAMERA_SET, binding = 0) uniform Camera
 {
@@ -34,4 +34,4 @@ vec3 worldPos(vec2 uv, float nonLinearDepth)
     return surfaceVS.xyz / surfaceVS.w;
 }
 
-#endif // CAMERA_GLSL
+#endif // SCENE_CAMERA_GLSL
