@@ -90,7 +90,7 @@ void Renderer::recreate(
 
 void Renderer::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 275.f}, ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2{60.f, 300.f}, ImGuiCond_Appearing);
     ImGui::Begin(
         "Renderer settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
@@ -341,7 +341,9 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
             .format = swapConfig.depthFormat,
             .width = swapConfig.extent.width,
             .height = swapConfig.extent.height,
-            .usageFlags = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            .usageFlags =
+                vk::ImageUsageFlagBits::eDepthStencilAttachment | // Geometry
+                vk::ImageUsageFlagBits::eSampled, // Deferred shading
             .debugName = "sceneDepth",
         });
 

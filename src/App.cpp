@@ -66,6 +66,14 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
     scopeAlloc.child_scope(),
       &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
       _world._dsLayouts}
+, _gbufferRenderer{
+    scopeAlloc.child_scope(),
+      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
+      _world._dsLayouts}
+, _deferredShading{
+    scopeAlloc.child_scope(),
+      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
+      _world._dsLayouts}
 , _rtRenderer{
     scopeAlloc.child_scope(), &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),_world._dsLayouts}
 , _skyboxRenderer{
@@ -186,6 +194,11 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
         _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
     _renderer.recreate(
         _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+    _gbufferRenderer.recreate(
+        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+    _deferredShading.recreate(
+        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+    ;
     _rtRenderer.recreate(
         scopeAlloc.child_scope(), _swapchain.config(),
         _cam.descriptorSetLayout(), _world._dsLayouts);
@@ -243,6 +256,12 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _renderer.recompileShaders(
         scopeAlloc.child_scope(), _swapchain.config(),
         _cam.descriptorSetLayout(), _world._dsLayouts);
+    _gbufferRenderer.recompileShaders(
+        scopeAlloc.child_scope(), _swapchain.config(),
+        _cam.descriptorSetLayout(), _world._dsLayouts);
+    _deferredShading.recompileShaders(
+        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
+        _world._dsLayouts);
     _rtRenderer.recompileShaders(
         scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
         _world._dsLayouts);
@@ -429,6 +448,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         rtPickedThisFrame =
             ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
 
+        if (!_renderRT)
+            ImGui::Checkbox("Use deferred shading", &_renderDeferred);
+
         ImGui::End();
     }
 
@@ -609,11 +631,21 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     }
     else
     {
-        _renderer.drawUi();
 
         // Opaque
-        _renderer.record(
-            cb, _world, _cam, renderArea, nextImage, false, &_profiler);
+        if (_renderDeferred)
+        {
+            _deferredShading.drawUi();
+            _gbufferRenderer.record(
+                cb, _world, _cam, renderArea, nextImage, &_profiler);
+            _deferredShading.record(cb, _world, _cam, nextImage, &_profiler);
+        }
+        else
+        {
+            _renderer.drawUi();
+            _renderer.record(
+                cb, _world, _cam, renderArea, nextImage, false, &_profiler);
+        }
 
         // Transparent
         _renderer.record(

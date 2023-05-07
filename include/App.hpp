@@ -3,7 +3,9 @@
 
 #include "Camera.hpp"
 #include "DebugRenderer.hpp"
+#include "DeferredShading.hpp"
 #include "Device.hpp"
+#include "GBufferRenderer.hpp"
 #include "ImGuiRenderer.hpp"
 #include "LightClustering.hpp"
 #include "Profiler.hpp"
@@ -16,6 +18,7 @@
 #include "ToneMap.hpp"
 #include "Window.hpp"
 #include "World.hpp"
+
 
 #include <filesystem>
 #include <wheels/allocators/cstdlib_allocator.hpp>
@@ -62,6 +65,8 @@ class App
     Timer _gpuPassesInitTimer;
     LightClustering _lightClustering;
     Renderer _renderer;
+    GBufferRenderer _gbufferRenderer;
+    DeferredShading _deferredShading;
     RTRenderer _rtRenderer;
     SkyboxRenderer _skyboxRenderer;
     DebugRenderer _debugRenderer;
@@ -74,6 +79,7 @@ class App
     int32_t _fpsLimit{140};
     bool _recompileShaders{false};
     bool _renderRT{false};
+    bool _renderDeferred{false};
 
     Timer _frameTimer;
     std::chrono::time_point<std::chrono::file_clock> _recompileTime;

@@ -110,7 +110,7 @@ void ToneMap::recreate(const SwapchainConfig &swapConfig)
 
 void ToneMap::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 210.f}, ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_Appearing);
     ImGui::Begin(
         "Tone map settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
