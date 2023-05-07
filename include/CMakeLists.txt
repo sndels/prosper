@@ -12,6 +12,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ForEach.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/GBufferRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/InputHandler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.hpp

@@ -6,6 +6,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/GBufferRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/InputHandler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.cpp
