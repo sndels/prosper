@@ -82,7 +82,7 @@ void Camera::perspective(const float ar)
                              0.f, 0.f, 2 * zF * zN / (zN - zF),  0.f};
     // clang-format on
 
-    _worldToClip = _cameraToClip * _worldToCamera;
+    _clipToWorld = inverse(_cameraToClip * _worldToCamera);
 }
 
 void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
@@ -95,6 +95,7 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
     CameraUniforms uniforms{
         .worldToCamera = _worldToCamera,
         .cameraToClip = _cameraToClip,
+        .clipToWorld = _clipToWorld,
         .eye =
             vec4{
                 offset.has_value() ? _parameters.apply(*offset).eye
@@ -243,7 +244,7 @@ void Camera::updateWorldToCamera()
              right.z,          newUp.z,          z.z,          0.f,
              -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
 
-    _worldToClip = _cameraToClip * _worldToCamera;
+    _clipToWorld = inverse(_cameraToClip * _worldToCamera);
 
     _changedThisFrame = true;
 }

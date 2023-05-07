@@ -48,6 +48,7 @@ struct CameraUniforms
 {
     glm::mat4 worldToCamera;
     glm::mat4 cameraToClip;
+    glm::mat4 clipToWorld;
     glm::vec4 eye;
     glm::uvec2 resolution;
     float near;
@@ -106,9 +107,9 @@ class Camera
     Device *_device{nullptr};
     RenderResources *_renderResources{nullptr};
     CameraParameters _parameters;
-    glm::mat4 _worldToClip{1.f};
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToClip{1.f};
+    glm::mat4 _clipToWorld{1.f};
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
