@@ -1,3 +1,5 @@
+- Docking UI, single pane for render view
+  - Less fiddly alignment when adding new settings 
 - Resource aliasing
   - No actual aliasing first, just reuse matching textures/buffesr
   - Reference tracking or manual mark 'unused' after last use
