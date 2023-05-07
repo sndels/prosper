@@ -8,6 +8,7 @@
 #include "camera.glsl"
 #include "debug.glsl"
 #include "light_clusters.glsl"
+#include "lighting.glsl"
 #include "lights.glsl"
 #include "materials.glsl"
 #include "random.glsl"
@@ -56,55 +57,14 @@ void main()
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
 
     vec3 color = vec3(0);
-    {
-        vec3 l = -normalize(directionalLight.direction.xyz);
-        color +=
-            directionalLight.irradiance.xyz * evalBRDF(l, surface);
-    }
+
+    color += evalDirectionalLight(surface);
 
     LightClusterInfo lightInfo = unpackClusterPointer(uvec2(gl_FragCoord.xy), fragZCam);
 
-    for (uint i = 0; i < lightInfo.pointCount; ++i)
-    {
-        uint index = imageLoad(lightIndices, int(lightInfo.indexOffset + i)).x;
-        PointLight light = pointLights.lights[index];
-        vec3 pos = light.position.xyz;
-        vec3 radiance = light.radianceAndRadius.xyz;
-        float radius = light.radianceAndRadius.w;
+    color += evalPointLights(surface, lightInfo);
 
-        vec3 toLight = pos - fragPosition;
-        float d2 = dot(toLight, toLight);
-        float d = sqrt(d2);
-
-        vec3 l = toLight / d;
-
-        float dPerR = d / radius;
-        float dPerR2 = dPerR * dPerR;
-        float dPerR4 = dPerR2 * dPerR2;
-        float attenuation = max(min(1.0 - dPerR4, 1), 0) / d2;
-
-        color += radiance * attenuation * evalBRDF(l, surface);
-    }
-
-    for (uint i = 0; i < lightInfo.spotCount; ++i)
-    {
-        uint index =
-            imageLoad(lightIndices, int(lightInfo.indexOffset + lightInfo.pointCount + i)).x;
-        SpotLight light = spotLights.lights[index];
-        vec3 toLight = light.positionAndAngleOffset.xyz - fragPosition;
-        float d2 = dot(toLight, toLight);
-        vec3 l = toLight / sqrt(d2);
-
-        // Angular attenuation rom gltf spec
-        float cd = dot(-light.direction.xyz, l);
-        float angularAttenuation = saturate(
-            cd * light.radianceAndAngleScale.w +
-            light.positionAndAngleOffset.w);
-        angularAttenuation *= angularAttenuation;
-
-        color += angularAttenuation * light.radianceAndAngleScale.xyz *
-                 evalBRDF(l,surface) / d2;
-    }
+    color += evalSpotLights(surface, lightInfo);
 
     float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 
