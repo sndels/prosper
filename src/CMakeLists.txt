@@ -4,6 +4,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
     ${CMAKE_CURRENT_LIST_DIR}/GBufferRenderer.cpp

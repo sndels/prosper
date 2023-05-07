@@ -9,6 +9,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DebugDrawTypes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ForEach.hpp
