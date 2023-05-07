@@ -1,5 +1,5 @@
-#ifndef RT_DATA_GLSL
-#define RT_DATA_GLSL
+#ifndef RT_RT_DATA_GLSL
+#define RT_RT_DATA_GLSL
 
 layout(set = RAY_TRACING_SET, binding = 0) uniform accelerationStructureEXT as;
 struct RTInstance
@@ -14,4 +14,4 @@ layout(std430, set = RAY_TRACING_SET, binding = 1) readonly buffer RTInstances
 }
 rtInstances;
 
-#endif // RT_DATA_GLSL
+#endif // RT_RT_DATA_GLSL

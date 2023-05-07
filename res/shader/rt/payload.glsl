@@ -1,5 +1,5 @@
-#ifndef PAYLOAD_GLSL
-#define PAYLOAD_GLSL
+#ifndef RT_PAYLOAD_GLSL
+#define RT_PAYLOAD_GLSL
 
 struct RayPayload
 {
@@ -9,4 +9,4 @@ struct RayPayload
     uint randomSeed;
 };
 
-#endif // PAYLOAD_GLSL
+#endif // RT_PAYLOAD_GLSL

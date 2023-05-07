@@ -1,5 +1,5 @@
-#ifndef RTPC_GLSL
-#define RTPC_GLSL
+#ifndef RT_RTPC_GLSL
+#define RT_RTPC_GLSL
 
 layout(push_constant) uniform RtPC
 {
@@ -14,4 +14,4 @@ bool flagColorDirty() { return bitfieldExtract(rtPC.flags, 0, 1) == 1; }
 bool flagAccumulate() { return bitfieldExtract(rtPC.flags, 1, 1) == 1; }
 bool flagIBL() { return bitfieldExtract(rtPC.flags, 2, 1) == 1; }
 
-#endif // RTPC_GLSL
+#endif // RT_RTPC_GLSL

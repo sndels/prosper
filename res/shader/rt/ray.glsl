@@ -1,5 +1,5 @@
-#ifndef RAY_GLSL
-#define RAY_GLSL
+#ifndef RT_RAY_GLSL
+#define RT_RAY_GLSL
 
 struct Ray
 {
@@ -44,4 +44,4 @@ Ray pinholeCameraRay(vec2 uv)
     return ray;
 }
 
-#endif // RAY_GLSL
+#endif // RT_RAY_GLSL
