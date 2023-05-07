@@ -36,18 +36,18 @@ void main()
     float nonLinearDepth =
         texelFetch(sampler2D(inNonLinearDepth, depthSampler), coord, 0).x;
     float viewDepth = linearizeDepth(nonLinearDepth);
-    vec3 surfacePos = worldPos(uv, nonLinearDepth);
 
-    Material material = loadFromGbuffer(albedoRoughness, normalMetallic);
-
-    vec3 v = normalize(camera.eye.xyz - surfacePos);
-    vec3 normal = material.normal;
+    VisibleSurface surface;
+    surface.positionWS = worldPos(uv, nonLinearDepth);
+    surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
+    surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
+    surface.normalWS = surface.material.normal;
+    surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
 
     vec3 color = vec3(0);
     {
         vec3 l = -normalize(directionalLight.direction.xyz);
-        color +=
-            directionalLight.irradiance.xyz * evalBRDF(normal, v, l, material);
+        color += directionalLight.irradiance.xyz * evalBRDF(l, surface);
     }
 
     uvec3 ci = clusterIndex(uvec2(coord), viewDepth);
@@ -63,7 +63,7 @@ void main()
         vec3 radiance = light.radianceAndRadius.xyz;
         float radius = light.radianceAndRadius.w;
 
-        vec3 toLight = pos - surfacePos;
+        vec3 toLight = pos - surface.positionWS;
         float d2 = dot(toLight, toLight);
         float d = sqrt(d2);
 
@@ -74,7 +74,7 @@ void main()
         float dPerR4 = dPerR2 * dPerR2;
         float attenuation = max(min(1.0 - dPerR4, 1), 0) / d2;
 
-        color += radiance * attenuation * evalBRDF(normal, v, l, material);
+        color += radiance * attenuation * evalBRDF(l, surface);
     }
 
     for (uint i = 0; i < spotCount; ++i)
@@ -82,7 +82,7 @@ void main()
         uint index =
             imageLoad(lightIndices, int(clusterIndexOffset + pointCount + i)).x;
         SpotLight light = spotLights.lights[index];
-        vec3 toLight = light.positionAndAngleOffset.xyz - surfacePos;
+        vec3 toLight = light.positionAndAngleOffset.xyz - surface.positionWS;
         float d2 = dot(toLight, toLight);
         vec3 l = toLight / sqrt(d2);
 
@@ -94,7 +94,7 @@ void main()
         angularAttenuation *= angularAttenuation;
 
         color += angularAttenuation * light.radianceAndAngleScale.xyz *
-                 evalBRDF(normal, v, l, material) / d2;
+                 evalBRDF(l, surface) / d2;
     }
 
     if (PC.DrawType >= DrawType_PrimitiveID)
@@ -103,12 +103,12 @@ void main()
         di.meshID = 0;      // TODO
         di.primitiveID = 0; // TODO
         di.materialID = 0;  // TODO
-        di.position = surfacePos;
-        di.shadingNormal = normal;
+        di.position = surface.positionWS;
+        di.shadingNormal = surface.normalWS;
         di.texCoord0 = vec2(0); // TODO
         imageStore(
             outColor, coord,
-            vec4(commonDebugDraw(PC.DrawType, di, material), 1));
+            vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1));
         return;
     }
 

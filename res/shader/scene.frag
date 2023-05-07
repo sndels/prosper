@@ -36,28 +36,30 @@ mat3 generateTBN()
 
 void main()
 {
-    Material material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
+    VisibleSurface surface;
+    surface.positionWS = fragPosition;
+    surface.invViewRayWS = normalize(camera.eye.xyz - fragPosition);
+    surface.material = sampleMaterial(scenePC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
-    if (material.alpha == 0)
+    if (surface.material.alpha == 0)
         discard;
 
-    vec3 normal;
-    if (material.normal.x != -2) // -2 signals no material normal
+    if (surface.material.normal.x != -2) // -2 signals no material normal
     {
         mat3 TBN = length(fragTBN[0]) > 0 ? fragTBN : generateTBN();
-        normal = normalize(TBN * material.normal.xyz);
+        surface.normalWS = normalize(TBN * surface.material.normal.xyz);
     }
     else
-        normal = normalize(fragTBN[2]);
+        surface.normalWS = normalize(fragTBN[2]);
 
-    vec3 v = normalize(camera.eye.xyz - fragPosition);
+    surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
 
     vec3 color = vec3(0);
     {
         vec3 l = -normalize(directionalLight.direction.xyz);
         color +=
-            directionalLight.irradiance.xyz * evalBRDF(normal, v, l, material);
+            directionalLight.irradiance.xyz * evalBRDF(l, surface);
     }
 
     uvec3 ci = clusterIndex(uvec2(gl_FragCoord.xy), fragZCam);
@@ -84,7 +86,7 @@ void main()
         float dPerR4 = dPerR2 * dPerR2;
         float attenuation = max(min(1.0 - dPerR4, 1), 0) / d2;
 
-        color += radiance * attenuation * evalBRDF(normal, v, l, material);
+        color += radiance * attenuation * evalBRDF(l, surface);
     }
 
     for (uint i = 0; i < spotCount; ++i)
@@ -104,10 +106,10 @@ void main()
         angularAttenuation *= angularAttenuation;
 
         color += angularAttenuation * light.radianceAndAngleScale.xyz *
-                 evalBRDF(normal, v, l, material) / d2;
+                 evalBRDF(l,surface) / d2;
     }
 
-    float alpha = material.alpha > 0 ? material.alpha : 1.0;
+    float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 
     if (scenePC.DrawType >= DrawType_PrimitiveID)
     {
@@ -115,10 +117,10 @@ void main()
         di.meshID = scenePC.MeshID;
         di.primitiveID = gl_PrimitiveID;
         di.materialID = scenePC.MaterialID;
-        di.position = fragPosition;
-        di.shadingNormal = normal;
+        di.position = surface.positionWS;
+        di.shadingNormal = surface.normalWS;
         di.texCoord0 = fragTexCoord0;
-        outColor = vec4(commonDebugDraw(scenePC.DrawType, di, material), 1);
+        outColor = vec4(commonDebugDraw(scenePC.DrawType, di, surface.material), 1);
         return;
     }
 

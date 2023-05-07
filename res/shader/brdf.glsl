@@ -3,6 +3,7 @@
 
 #include "common.glsl"
 #include "material.glsl"
+#include "visible_surface.glsl"
 
 // Lambert diffuse term
 vec3 lambertBRFD(vec3 c_diff) { return c_diff / PI; }
@@ -49,23 +50,26 @@ vec3 cookTorranceBRDF(
 }
 
 // Evaluate combined diffuse and specular BRDF
-vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
+vec3 evalBRDF(vec3 l, VisibleSurface surface)
 {
     // Common dot products
-    vec3 h = normalize(v + l);
-    float NoV = saturate(dot(n, v));
-    float NoL = saturate(dot(n, l));
-    float NoH = saturate(dot(n, h));
-    float VoH = saturate(dot(v, h));
+    vec3 h = normalize(surface.invViewRayWS + l);
+    float NoL = saturate(dot(surface.normalWS, l));
+    float NoH = saturate(dot(surface.normalWS, h));
+    float VoH = saturate(dot(surface.invViewRayWS, h));
 
     // Use standard approximation of default fresnel
-    vec3 f0 = mix(vec3(0.04), m.albedo.rgb, m.metallic);
+    vec3 f0 =
+        mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
 
     // Match glTF spec
-    vec3 c_diff = mix(m.albedo.rgb * (1 - 0.04), vec3(0), m.metallic);
+    vec3 c_diff =
+        mix(surface.material.albedo.rgb * (1 - 0.04), vec3(0),
+            surface.material.metallic);
 
     return (lambertBRFD(c_diff) +
-            cookTorranceBRDF(NoL, NoV, NoH, VoH, f0, m.roughness)) *
+            cookTorranceBRDF(
+                NoL, surface.NoV, NoH, VoH, f0, surface.material.roughness)) *
            NoL;
 }
 
