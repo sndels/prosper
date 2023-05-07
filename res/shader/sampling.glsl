@@ -1,6 +1,8 @@
 #ifndef SAMPLING_GLSL
 #define SAMPLING_GLSL
 
+#include "common.glsl"
+
 // From 'Sampling Transformations Zoo'
 // by Peter Shirley et al.
 // Published in Ray Tracing Gems

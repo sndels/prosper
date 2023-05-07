@@ -4,6 +4,7 @@
 
 #pragma shader_stage(raygen)
 
+#include "../brdf.glsl"
 #include "../camera.glsl"
 #include "../debug.glsl"
 #include "../geometry.glsl"
