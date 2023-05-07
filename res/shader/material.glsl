@@ -82,4 +82,16 @@ vec3 evalBRDF(vec3 n, vec3 v, vec3 l, Material m)
            NoL;
 }
 
+Material loadFromGbuffer(vec4 albedoRoughness, vec4 normalMetallic)
+{
+    Material m;
+    m.albedo = albedoRoughness.xyz;
+    m.roughness = albedoRoughness.w;
+    m.normal = normalize(normalMetallic.xyz);
+    m.metallic = normalMetallic.w;
+    m.alpha = -1.0;
+
+    return m;
+}
+
 #endif // MATERIAL_GLSL
