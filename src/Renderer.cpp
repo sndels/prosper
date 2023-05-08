@@ -333,12 +333,12 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
         const auto features =
             vk::FormatFeatureFlagBits::eDepthStencilAttachment;
         const auto properties =
-            _device->physical().getFormatProperties(swapConfig.depthFormat);
+            _device->physical().getFormatProperties(DEPTH_FORMAT);
         if ((properties.optimalTilingFeatures & features) != features)
             throw std::runtime_error("Depth format unsupported");
 
         _resources->images.sceneDepth = _device->createImage(ImageCreateInfo{
-            .format = swapConfig.depthFormat,
+            .format = DEPTH_FORMAT,
             .width = swapConfig.extent.width,
             .height = swapConfig.extent.height,
             .usageFlags =

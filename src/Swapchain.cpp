@@ -127,7 +127,6 @@ SwapchainConfig::SwapchainConfig(
 
     transform = support.capabilities.currentTransform;
     surfaceFormat = selectSwapSurfaceFormat(support.formats);
-    depthFormat = vk::Format::eD32Sfloat;
     presentMode = selectSwapPresentMode(support.presentModes);
     extent = selectSwapExtent(preferredExtent, support.capabilities);
     imageCount =

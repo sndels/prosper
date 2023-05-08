@@ -29,7 +29,6 @@ struct SwapchainConfig
     vk::SurfaceTransformFlagBitsKHR transform{
         vk::SurfaceTransformFlagBitsKHR::eIdentity};
     vk::SurfaceFormatKHR surfaceFormat;
-    vk::Format depthFormat{vk::Format::eUndefined};
     vk::PresentModeKHR presentMode{vk::PresentModeKHR::eImmediate};
     vk::Extent2D extent;
     uint32_t imageCount{0};

@@ -13,6 +13,7 @@
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
 const size_t MAX_SWAPCHAIN_IMAGES = 8;
+const vk::Format DEPTH_FORMAT = vk::Format::eD32Sfloat;
 
 // Statically casts a into T, asserts that the value fits in T if T is integral
 template <typename T, typename V> constexpr T asserted_cast(V a)
