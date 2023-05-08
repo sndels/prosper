@@ -15,7 +15,7 @@ class ToneMap
   public:
     ToneMap(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const SwapchainConfig &swapConfig);
+        RenderResources *resources, const vk::Extent2D &renderExtent);
     ~ToneMap();
 
     ToneMap(const ToneMap &other) = delete;
@@ -25,7 +25,7 @@ class ToneMap
 
     void recompileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void recreate(const SwapchainConfig &swapConfig);
+    void recreate(const vk::Extent2D &renderExtent);
 
     void drawUi();
 
@@ -38,7 +38,7 @@ class ToneMap
     void destroySwapchainRelated();
     void destroyPipelines();
 
-    void createOutputImage(const SwapchainConfig &swapConfig);
+    void createOutputImage(const vk::Extent2D &renderExtent);
     void createDescriptorSet();
     void createPipelines();
 

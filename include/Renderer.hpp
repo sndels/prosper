@@ -23,7 +23,7 @@ class Renderer
 
     Renderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const SwapchainConfig &swapConfig,
+        RenderResources *resources, const vk::Extent2D &renderExtent,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~Renderer();
@@ -34,12 +34,12 @@ class Renderer
     Renderer &operator=(Renderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+        wheels::ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -58,10 +58,10 @@ class Renderer
     void destroyGraphicsPipelines();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createOutputs(const SwapchainConfig &swapConfig);
+    void createOutputs(const vk::Extent2D &renderExtent);
     void createAttachments();
     void createGraphicsPipelines(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};

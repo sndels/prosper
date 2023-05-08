@@ -36,8 +36,7 @@ constexpr std::array<
 
 Renderer::Renderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -50,7 +49,7 @@ Renderer::Renderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("Renderer shader compilation failed");
 
-    recreate(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(renderExtent, camDSLayout, worldDSLayouts);
 }
 
 Renderer::~Renderer()
@@ -65,27 +64,26 @@ Renderer::~Renderer()
 }
 
 void Renderer::recompileShaders(
-    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyGraphicsPipelines();
-        createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
+        createGraphicsPipelines(renderExtent, camDSLayout, worldDSLayouts);
     }
 }
 
 void Renderer::recreate(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
-    createOutputs(swapConfig);
+    createOutputs(renderExtent);
     createAttachments();
-    createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(renderExtent, camDSLayout, worldDSLayouts);
 }
 
 void Renderer::drawUi()
@@ -316,13 +314,13 @@ void Renderer::destroyGraphicsPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void Renderer::createOutputs(const SwapchainConfig &swapConfig)
+void Renderer::createOutputs(const vk::Extent2D &renderExtent)
 {
     {
         _resources->images.sceneColor = _device->createImage(ImageCreateInfo{
             .format = vk::Format::eR16G16B16A16Sfloat,
-            .width = swapConfig.extent.width,
-            .height = swapConfig.extent.height,
+            .width = renderExtent.width,
+            .height = renderExtent.height,
             .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
                           vk::ImageUsageFlagBits::eStorage,          // ToneMap
             .debugName = "sceneColor",
@@ -339,8 +337,8 @@ void Renderer::createOutputs(const SwapchainConfig &swapConfig)
 
         _resources->images.sceneDepth = _device->createImage(ImageCreateInfo{
             .format = DEPTH_FORMAT,
-            .width = swapConfig.extent.width,
-            .height = swapConfig.extent.height,
+            .width = renderExtent.width,
+            .height = renderExtent.height,
             .usageFlags =
                 vk::ImageUsageFlagBits::eDepthStencilAttachment | // Geometry
                 vk::ImageUsageFlagBits::eSampled, // Deferred shading
@@ -392,8 +390,7 @@ void Renderer::createAttachments()
 }
 
 void Renderer::createGraphicsPipelines(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     // Empty as we'll load vertices manually from a buffer
@@ -407,14 +404,14 @@ void Renderer::createGraphicsPipelines(
     const vk::Viewport viewport{
         .x = 0.f,
         .y = 0.f,
-        .width = static_cast<float>(swapConfig.extent.width),
-        .height = static_cast<float>(swapConfig.extent.height),
+        .width = static_cast<float>(renderExtent.width),
+        .height = static_cast<float>(renderExtent.height),
         .minDepth = 0.f,
         .maxDepth = 1.f,
     };
     const vk::Rect2D scissor{
         .offset = {0, 0},
-        .extent = swapConfig.extent,
+        .extent = renderExtent,
     };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,

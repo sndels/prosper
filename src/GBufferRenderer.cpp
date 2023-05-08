@@ -35,8 +35,7 @@ struct PCBlock
 
 GBufferRenderer::GBufferRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -49,7 +48,7 @@ GBufferRenderer::GBufferRenderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("GBufferRenderer shader compilation failed");
 
-    recreate(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(renderExtent, camDSLayout, worldDSLayouts);
 }
 
 GBufferRenderer::~GBufferRenderer()
@@ -64,27 +63,26 @@ GBufferRenderer::~GBufferRenderer()
 }
 
 void GBufferRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyGraphicsPipeline();
-        createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
+        createGraphicsPipelines(renderExtent, camDSLayout, worldDSLayouts);
     }
 }
 
 void GBufferRenderer::recreate(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
-    createOutputs(swapConfig);
+    createOutputs(renderExtent);
     createAttachments();
-    createGraphicsPipelines(swapConfig, camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(renderExtent, camDSLayout, worldDSLayouts);
 }
 
 void GBufferRenderer::record(
@@ -282,20 +280,20 @@ void GBufferRenderer::destroyGraphicsPipeline()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void GBufferRenderer::createOutputs(const SwapchainConfig &swapConfig)
+void GBufferRenderer::createOutputs(const vk::Extent2D &renderExtent)
 {
     _resources->images.albedoRoughness = _device->createImage(ImageCreateInfo{
         .format = vk::Format::eR8G8B8A8Unorm,
-        .width = swapConfig.extent.width,
-        .height = swapConfig.extent.height,
+        .width = renderExtent.width,
+        .height = renderExtent.height,
         .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
                       vk::ImageUsageFlagBits::eStorage,          // Shading
         .debugName = "albedoRoughness",
     });
     _resources->images.normalMetalness = _device->createImage(ImageCreateInfo{
         .format = vk::Format::eR16G16B16A16Sfloat,
-        .width = swapConfig.extent.width,
-        .height = swapConfig.extent.height,
+        .width = renderExtent.width,
+        .height = renderExtent.height,
         .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
                       vk::ImageUsageFlagBits::eStorage,          // Shading
         .debugName = "normalMetalness",
@@ -329,8 +327,7 @@ void GBufferRenderer::createAttachments()
 }
 
 void GBufferRenderer::createGraphicsPipelines(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     // Empty as we'll load vertices manually from a buffer
@@ -344,14 +341,14 @@ void GBufferRenderer::createGraphicsPipelines(
     const vk::Viewport viewport{
         .x = 0.f,
         .y = 0.f,
-        .width = static_cast<float>(swapConfig.extent.width),
-        .height = static_cast<float>(swapConfig.extent.height),
+        .width = static_cast<float>(renderExtent.width),
+        .height = static_cast<float>(renderExtent.height),
         .minDepth = 0.f,
         .maxDepth = 1.f,
     };
     const vk::Rect2D scissor{
         .offset = {0, 0},
-        .extent = swapConfig.extent,
+        .extent = renderExtent,
     };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,

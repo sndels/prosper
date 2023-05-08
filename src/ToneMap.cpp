@@ -22,7 +22,7 @@ struct PCBlock
 
 ToneMap::ToneMap(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig)
+    const vk::Extent2D &renderExtent)
 : _device{device}
 , _resources{resources}
 {
@@ -54,7 +54,7 @@ ToneMap::ToneMap(
             .pBindings = layoutBindings.data(),
         });
 
-    recreate(swapConfig);
+    recreate(renderExtent);
 }
 
 ToneMap::~ToneMap()
@@ -100,10 +100,10 @@ bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void ToneMap::recreate(const SwapchainConfig &swapConfig)
+void ToneMap::recreate(const vk::Extent2D &renderExtent)
 {
     destroySwapchainRelated();
-    createOutputImage(swapConfig);
+    createOutputImage(renderExtent);
     createDescriptorSet();
     createPipelines();
 }
@@ -182,12 +182,12 @@ void ToneMap::destroyPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
+void ToneMap::createOutputImage(const vk::Extent2D &renderExtent)
 {
     _resources->images.toneMapped = _device->createImage(ImageCreateInfo{
         .format = vk::Format::eR8G8B8A8Unorm,
-        .width = swapConfig.extent.width,
-        .height = swapConfig.extent.height,
+        .width = renderExtent.width,
+        .height = renderExtent.height,
         .usageFlags =
             vk::ImageUsageFlagBits::eStorage |         // ToneMap
             vk::ImageUsageFlagBits::eColorAttachment | // ImGui

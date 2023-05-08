@@ -10,7 +10,7 @@ using namespace wheels;
 
 SkyboxRenderer::SkyboxRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
+    const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -22,7 +22,7 @@ SkyboxRenderer::SkyboxRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 
-    recreate(swapConfig, worldDSLayouts);
+    recreate(renderExtent, worldDSLayouts);
 }
 
 SkyboxRenderer::~SkyboxRenderer()
@@ -37,23 +37,23 @@ SkyboxRenderer::~SkyboxRenderer()
 }
 
 void SkyboxRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
     const World::DSLayouts &worldDSLayouts)
 {
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipelines();
-        createGraphicsPipelines(swapConfig, worldDSLayouts);
+        createGraphicsPipelines(renderExtent, worldDSLayouts);
     }
 }
 
 void SkyboxRenderer::recreate(
-    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
+    const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
     createAttachments();
-    createGraphicsPipelines(swapConfig, worldDSLayouts);
+    createGraphicsPipelines(renderExtent, worldDSLayouts);
 }
 
 void SkyboxRenderer::record(
@@ -184,7 +184,7 @@ void SkyboxRenderer::createAttachments()
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
-    const SwapchainConfig &swapConfig, const World::DSLayouts &worldDSLayouts)
+    const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
 {
     const vk::VertexInputBindingDescription vertexBindingDescription{
         .binding = 0,
@@ -212,14 +212,14 @@ void SkyboxRenderer::createGraphicsPipelines(
     const vk::Viewport viewport{
         .x = 0.f,
         .y = 0.f,
-        .width = static_cast<float>(swapConfig.extent.width),
-        .height = static_cast<float>(swapConfig.extent.height),
+        .width = static_cast<float>(renderExtent.width),
+        .height = static_cast<float>(renderExtent.height),
         .minDepth = 0.f,
         .maxDepth = 1.f,
     };
     const vk::Rect2D scissor{
         .offset = {0, 0},
-        .extent = swapConfig.extent,
+        .extent = renderExtent,
     };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,

@@ -29,8 +29,7 @@ struct ClusteringPCBlock
 
 LightClustering::LightClustering(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -84,7 +83,7 @@ LightClustering::LightClustering(
             .supportAtomics = true,
         });
 
-    recreate(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(renderExtent, camDSLayout, worldDSLayouts);
 }
 
 LightClustering::~LightClustering()
@@ -113,13 +112,12 @@ void LightClustering::recompileShaders(
 }
 
 void LightClustering::recreate(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout,
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
-    createOutputs(swapConfig);
+    createOutputs(renderExtent);
     createDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
@@ -245,12 +243,10 @@ void LightClustering::destroySwapchainRelated()
     }
 }
 
-void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
+void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
 {
-    const auto pointersWidth =
-        ((swapConfig.extent.width - 1u) / clusterDim) + 1u;
-    const auto pointersHeight =
-        ((swapConfig.extent.height - 1u) / clusterDim) + 1u;
+    const auto pointersWidth = ((renderExtent.width - 1u) / clusterDim) + 1u;
+    const auto pointersHeight = ((renderExtent.height - 1u) / clusterDim) + 1u;
     const auto pointersDepth = zSlices + 1;
 
     _resources->buffers.lightClusters.pointers =

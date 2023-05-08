@@ -60,15 +60,15 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
 , _world{ scopeAlloc.child_scope(), &_device, _swapchain.imageCount(), scene}
 , _lightClustering{
     scopeAlloc.child_scope(),
-      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
+      &_device, &_resources, _swapchain.config().extent, _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _renderer{
     scopeAlloc.child_scope(),
-      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
+      &_device, &_resources, _swapchain.config().extent, _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _gbufferRenderer{
     scopeAlloc.child_scope(),
-      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
+      &_device, &_resources, _swapchain.config().extent, _cam.descriptorSetLayout(),
       _world._dsLayouts}
 , _deferredShading{
     scopeAlloc.child_scope(),
@@ -77,14 +77,14 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
     scopeAlloc.child_scope(), &_device, &_resources, _cam.descriptorSetLayout(), _world._dsLayouts}
 , _skyboxRenderer{
     scopeAlloc.child_scope(),
-      &_device, &_resources, _swapchain.config(),
+      &_device, &_resources, _swapchain.config().extent,
       _world._dsLayouts}
 , _debugRenderer{
     scopeAlloc.child_scope(),
-    &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout()}
+    &_device, &_resources, _swapchain.config().extent, _cam.descriptorSetLayout()}
 , _toneMap{
     scopeAlloc.child_scope(),
-    &_device, &_resources, _swapchain.config()}
+    &_device, &_resources, _swapchain.config().extent}
 , _imguiRenderer{&_device, &_resources, _window.ptr(), _swapchain.config()}
 ,_profiler{_generalAlloc, &_device,_swapchain.imageCount()}
 ,_recompileTime{std::chrono::file_clock::now()}
@@ -190,18 +190,22 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
     _lightClustering.recreate(
-        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+        _swapchain.config().extent, _cam.descriptorSetLayout(),
+        _world._dsLayouts);
     _renderer.recreate(
-        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+        _swapchain.config().extent, _cam.descriptorSetLayout(),
+        _world._dsLayouts);
     _gbufferRenderer.recreate(
-        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
+        _swapchain.config().extent, _cam.descriptorSetLayout(),
+        _world._dsLayouts);
     _deferredShading.recreate(_cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recreate(
         scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
         _world._dsLayouts);
-    _skyboxRenderer.recreate(_swapchain.config(), _world._dsLayouts);
-    _debugRenderer.recreate(_swapchain.config(), _cam.descriptorSetLayout());
-    _toneMap.recreate(_swapchain.config());
+    _skyboxRenderer.recreate(_swapchain.config().extent, _world._dsLayouts);
+    _debugRenderer.recreate(
+        _swapchain.config().extent, _cam.descriptorSetLayout());
+    _toneMap.recreate(_swapchain.config().extent);
     _imguiRenderer.recreate();
 
     _cam.perspective(
@@ -251,10 +255,10 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
         _world._dsLayouts);
     _renderer.recompileShaders(
-        scopeAlloc.child_scope(), _swapchain.config(),
+        scopeAlloc.child_scope(), _swapchain.config().extent,
         _cam.descriptorSetLayout(), _world._dsLayouts);
     _gbufferRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _swapchain.config(),
+        scopeAlloc.child_scope(), _swapchain.config().extent,
         _cam.descriptorSetLayout(), _world._dsLayouts);
     _deferredShading.recompileShaders(
         scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
@@ -263,9 +267,10 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
         _world._dsLayouts);
     _skyboxRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _swapchain.config(), _world._dsLayouts);
+        scopeAlloc.child_scope(), _swapchain.config().extent,
+        _world._dsLayouts);
     _debugRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _swapchain.config(),
+        scopeAlloc.child_scope(), _swapchain.config().extent,
         _cam.descriptorSetLayout());
     _toneMap.recompileShaders(scopeAlloc.child_scope());
 

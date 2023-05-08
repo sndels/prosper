@@ -23,7 +23,7 @@ class LightClustering
 
     LightClustering(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const SwapchainConfig &swapConfig,
+        RenderResources *resources, const vk::Extent2D &renderExtent,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~LightClustering();
@@ -38,7 +38,7 @@ class LightClustering
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void record(
@@ -52,7 +52,7 @@ class LightClustering
     void destroyPipeline();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createOutputs(const SwapchainConfig &swapConfig);
+    void createOutputs(const vk::Extent2D &renderExtent);
     void createDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,

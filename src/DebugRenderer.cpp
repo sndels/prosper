@@ -20,8 +20,7 @@ constexpr uint32_t sGeometryBuffersBindingSet = 1;
 
 DebugRenderer::DebugRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout)
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
 : _device{device}
 , _resources{resources}
 {
@@ -33,7 +32,7 @@ DebugRenderer::DebugRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
-    recreate(swapConfig, camDSLayout);
+    recreate(renderExtent, camDSLayout);
 }
 
 DebugRenderer::~DebugRenderer()
@@ -48,26 +47,25 @@ DebugRenderer::~DebugRenderer()
 }
 
 void DebugRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
     const vk::DescriptorSetLayout camDSLayout)
 {
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipeline();
-        createGraphicsPipeline(swapConfig, camDSLayout);
+        createGraphicsPipeline(renderExtent, camDSLayout);
     }
 }
 
 void DebugRenderer::recreate(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout)
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
 {
     destroySwapchainRelated();
 
     createBuffers();
     createDescriptorSets();
     createAttachments();
-    createGraphicsPipeline(swapConfig, camDSLayout);
+    createGraphicsPipeline(renderExtent, camDSLayout);
 }
 
 void DebugRenderer::record(
@@ -271,8 +269,7 @@ void DebugRenderer::createAttachments()
 }
 
 void DebugRenderer::createGraphicsPipeline(
-    const SwapchainConfig &swapConfig,
-    const vk::DescriptorSetLayout camDSLayout)
+    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
 {
     // Empty as we'll load vertices manually from a buffer
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
@@ -285,14 +282,14 @@ void DebugRenderer::createGraphicsPipeline(
     const vk::Viewport viewport{
         .x = 0.f,
         .y = 0.f,
-        .width = static_cast<float>(swapConfig.extent.width),
-        .height = static_cast<float>(swapConfig.extent.height),
+        .width = static_cast<float>(renderExtent.width),
+        .height = static_cast<float>(renderExtent.height),
         .minDepth = 0.f,
         .maxDepth = 1.f,
     };
     const vk::Rect2D scissor{
         .offset = {0, 0},
-        .extent = swapConfig.extent,
+        .extent = renderExtent,
     };
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,

@@ -17,7 +17,7 @@ class GBufferRenderer
   public:
     GBufferRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const SwapchainConfig &swapConfig,
+        RenderResources *resources, const vk::Extent2D &renderExtent,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~GBufferRenderer();
@@ -28,12 +28,12 @@ class GBufferRenderer
     GBufferRenderer &operator=(GBufferRenderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
+        wheels::ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -52,10 +52,10 @@ class GBufferRenderer
     void destroyGraphicsPipeline();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createOutputs(const SwapchainConfig &swapConfig);
+    void createOutputs(const vk::Extent2D &renderExtent);
     void createAttachments();
     void createGraphicsPipelines(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};
