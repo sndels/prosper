@@ -77,8 +77,7 @@ constexpr std::array<
 
 RTRenderer::RTRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -102,7 +101,7 @@ RTRenderer::RTRenderer(
             .pBindings = &layoutBinding,
         });
 
-    recreate(scopeAlloc.child_scope(), swapConfig, camDSLayout, worldDSLayouts);
+    recreate(scopeAlloc.child_scope(), camDSLayout, worldDSLayouts);
 }
 
 RTRenderer::~RTRenderer()
@@ -128,12 +127,12 @@ void RTRenderer::recompileShaders(
 }
 
 void RTRenderer::recreate(
-    ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+    const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
 
-    createDescriptorSets(swapConfig);
+    createDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 }
@@ -407,11 +406,10 @@ bool RTRenderer::compileShaders(
     return false;
 }
 
-void RTRenderer::createDescriptorSets(const SwapchainConfig &swapConfig)
+void RTRenderer::createDescriptorSets()
 {
-    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
-    layouts.resize(swapConfig.imageCount, _descriptorSetLayout);
-    _descriptorSets.resize(swapConfig.imageCount);
+    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+        _descriptorSetLayout};
     _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const vk::DescriptorImageInfo colorInfo{

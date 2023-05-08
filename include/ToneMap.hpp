@@ -39,7 +39,7 @@ class ToneMap
     void destroyPipelines();
 
     void createOutputImage(const SwapchainConfig &swapConfig);
-    void createDescriptorSet(const SwapchainConfig &swapConfig);
+    void createDescriptorSet();
     void createPipelines();
 
     Device *_device{nullptr};
@@ -48,8 +48,8 @@ class ToneMap
     vk::ShaderModule _compSM;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
-        _descriptorSets;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+        _descriptorSets{{}};
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 

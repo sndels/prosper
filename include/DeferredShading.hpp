@@ -24,8 +24,7 @@ class DeferredShading
 
     DeferredShading(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const SwapchainConfig &swapConfig,
-        vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~DeferredShading();
 
@@ -39,7 +38,7 @@ class DeferredShading
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -56,7 +55,7 @@ class DeferredShading
     void destroySwapchainRelated();
     void destroyPipelines();
 
-    void createDescriptorSets(const SwapchainConfig &swapConfig);
+    void createDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -67,8 +66,8 @@ class DeferredShading
     vk::ShaderModule _compSM;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
-        _descriptorSets;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+        _descriptorSets{{}};
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
     vk::Sampler _depthSampler;

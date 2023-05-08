@@ -72,10 +72,9 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
       _world._dsLayouts}
 , _deferredShading{
     scopeAlloc.child_scope(),
-      &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),
-      _world._dsLayouts}
+      &_device, &_resources, _cam.descriptorSetLayout(), _world._dsLayouts}
 , _rtRenderer{
-    scopeAlloc.child_scope(), &_device, &_resources, _swapchain.config(), _cam.descriptorSetLayout(),_world._dsLayouts}
+    scopeAlloc.child_scope(), &_device, &_resources, _cam.descriptorSetLayout(), _world._dsLayouts}
 , _skyboxRenderer{
     scopeAlloc.child_scope(),
       &_device, &_resources, _swapchain.config(),
@@ -196,12 +195,10 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
         _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
     _gbufferRenderer.recreate(
         _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
-    _deferredShading.recreate(
-        _swapchain.config(), _cam.descriptorSetLayout(), _world._dsLayouts);
-    ;
+    _deferredShading.recreate(_cam.descriptorSetLayout(), _world._dsLayouts);
     _rtRenderer.recreate(
-        scopeAlloc.child_scope(), _swapchain.config(),
-        _cam.descriptorSetLayout(), _world._dsLayouts);
+        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
+        _world._dsLayouts);
     _skyboxRenderer.recreate(_swapchain.config(), _world._dsLayouts);
     _debugRenderer.recreate(_swapchain.config(), _cam.descriptorSetLayout());
     _toneMap.recreate(_swapchain.config());
@@ -409,7 +406,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         return *nextImage;
     }();
 
-    _profiler.startGpuFrame(nextImage);
+    _profiler.startGpuFrame(nextFrame);
 
     const auto profilerDatas = _profiler.getPreviousData(scopeAlloc);
 
@@ -580,12 +577,12 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
     _cam.updateBuffer(
-        nextImage, uvec2{renderArea.extent.width, renderArea.extent.height});
-    _world.updateUniformBuffers(_cam, nextImage, scopeAlloc.child_scope());
+        nextFrame, uvec2{renderArea.extent.width, renderArea.extent.height});
+    _world.updateUniformBuffers(_cam, nextFrame, scopeAlloc.child_scope());
 
     const auto &scene = _world.currentScene();
 
-    auto &debugLines = _resources.buffers.debugLines[nextImage];
+    auto &debugLines = _resources.buffers.debugLines[nextFrame];
     debugLines.reset();
     { // Add debug geom for lights
         constexpr auto debugLineLength = 0.2f;
@@ -617,20 +614,20 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         }
     }
 
-    const auto cb = _commandBuffers[nextImage];
+    const auto cb = _commandBuffers[nextFrame];
     cb.reset();
 
     cb.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    _lightClustering.record(cb, scene, _cam, renderArea, nextImage, &_profiler);
+    _lightClustering.record(cb, scene, _cam, renderArea, nextFrame, &_profiler);
 
     if (_renderRT)
     {
         _rtRenderer.drawUi();
         _rtRenderer.record(
-            cb, _world, _cam, renderArea, nextImage, rtPickedThisFrame,
+            cb, _world, _cam, renderArea, nextFrame, rtPickedThisFrame,
             &_profiler);
     }
     else
@@ -641,27 +638,27 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         {
             _deferredShading.drawUi();
             _gbufferRenderer.record(
-                cb, _world, _cam, renderArea, nextImage, &_profiler);
-            _deferredShading.record(cb, _world, _cam, nextImage, &_profiler);
+                cb, _world, _cam, renderArea, nextFrame, &_profiler);
+            _deferredShading.record(cb, _world, _cam, nextFrame, &_profiler);
         }
         else
         {
             _renderer.drawUi();
             _renderer.record(
-                cb, _world, _cam, renderArea, nextImage, false, &_profiler);
+                cb, _world, _cam, renderArea, nextFrame, false, &_profiler);
         }
 
         // Transparent
         _renderer.record(
-            cb, _world, _cam, renderArea, nextImage, true, &_profiler);
+            cb, _world, _cam, renderArea, nextFrame, true, &_profiler);
 
-        _skyboxRenderer.record(cb, _world, renderArea, nextImage, &_profiler);
+        _skyboxRenderer.record(cb, _world, renderArea, nextFrame, &_profiler);
     }
 
-    _debugRenderer.record(cb, _cam, renderArea, nextImage, &_profiler);
+    _debugRenderer.record(cb, _cam, renderArea, nextFrame, &_profiler);
 
     _toneMap.drawUi();
-    _toneMap.record(cb, nextImage, &_profiler);
+    _toneMap.record(cb, nextFrame, &_profiler);
 
     _imguiRenderer.endFrame(cb, renderArea, &_profiler);
 

@@ -22,8 +22,7 @@ constexpr void checkSuccessImGui(VkResult err)
 } // namespace
 
 ImGuiRenderer::ImGuiRenderer(
-    Device *device, RenderResources *resources, GLFWwindow *window,
-    const SwapchainConfig &swapConfig)
+    Device *device, RenderResources *resources, GLFWwindow *window, const SwapchainConfig &swapConfig)
 : _device{device}
 , _resources{resources}
 {

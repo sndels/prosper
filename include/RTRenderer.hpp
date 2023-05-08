@@ -6,7 +6,6 @@
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
-#include "Swapchain.hpp"
 #include "World.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -23,8 +22,7 @@ class RTRenderer
 
     RTRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const SwapchainConfig &swapConfig,
-        vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~RTRenderer();
 
@@ -38,8 +36,7 @@ class RTRenderer
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapConfig,
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -60,7 +57,7 @@ class RTRenderer
 
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createDescriptorSets(const SwapchainConfig &swapConfig);
+    void createDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -74,8 +71,8 @@ class RTRenderer
         _shaderGroups{{}};
 
     vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
-        _descriptorSets;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+        _descriptorSets{{}};
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

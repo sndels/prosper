@@ -64,8 +64,8 @@ void DebugRenderer::recreate(
 {
     destroySwapchainRelated();
 
-    createBuffers(swapConfig);
-    createDescriptorSets(swapConfig.imageCount);
+    createBuffers();
+    createDescriptorSets();
     createAttachments();
     createGraphicsPipeline(swapConfig, camDSLayout);
 }
@@ -187,7 +187,10 @@ void DebugRenderer::destroySwapchainRelated()
         _linesDescriptorSets.clear();
 
         for (auto &ls : _resources->buffers.debugLines)
+        {
             _device->destroy(ls.buffer);
+            ls.buffer = Buffer{};
+        }
         _resources->buffers.debugLines.clear();
     }
 }
@@ -198,9 +201,9 @@ void DebugRenderer::destroyGraphicsPipeline()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void DebugRenderer::createBuffers(const SwapchainConfig &swapConfig)
+void DebugRenderer::createBuffers()
 {
-    for (auto i = 0u; i < swapConfig.imageCount; ++i)
+    for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _resources->buffers.debugLines.push_back(DebugLines{
             .buffer = _device->createBuffer(BufferCreateInfo{
                 .byteSize = DebugLines::sMaxLineCount * DebugLines::sLineBytes,
@@ -213,7 +216,7 @@ void DebugRenderer::createBuffers(const SwapchainConfig &swapConfig)
         });
 }
 
-void DebugRenderer::createDescriptorSets(const uint32_t swapImageCount)
+void DebugRenderer::createDescriptorSets()
 {
     const vk::DescriptorSetLayoutBinding layoutBinding{
         .binding = 0, // binding
@@ -227,9 +230,10 @@ void DebugRenderer::createDescriptorSets(const uint32_t swapImageCount)
             .pBindings = &layoutBinding,
         });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
-    layouts.resize(swapImageCount, _linesDSLayout);
-    _linesDescriptorSets.resize(swapImageCount);
+    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+        _linesDSLayout};
+    _linesDescriptorSets.resize(
+        _linesDescriptorSets.capacity(), VK_NULL_HANDLE);
     _resources->descriptorAllocator.allocate(layouts, _linesDescriptorSets);
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)

@@ -120,7 +120,7 @@ void LightClustering::recreate(
     destroySwapchainRelated();
 
     createOutputs(swapConfig);
-    createDescriptorSets(swapConfig);
+    createDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -281,14 +281,10 @@ void LightClustering::createOutputs(const SwapchainConfig &swapConfig)
         });
 }
 
-void LightClustering::createDescriptorSets(const SwapchainConfig &swapConfig)
+void LightClustering::createDescriptorSets()
 {
-    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
-    layouts.resize(
-        swapConfig.imageCount,
-        _resources->buffers.lightClusters.descriptorSetLayout);
-    _resources->buffers.lightClusters.descriptorSets.resize(
-        swapConfig.imageCount);
+    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+        _resources->buffers.lightClusters.descriptorSetLayout};
     _resources->descriptorAllocator.allocate(
         layouts, Span{
                      _resources->buffers.lightClusters.descriptorSets.data(),

@@ -50,8 +50,8 @@ class DebugRenderer
     void destroyGraphicsPipeline();
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
-    void createBuffers(const SwapchainConfig &swapConfig);
-    void createDescriptorSets(const uint32_t swapImageCount);
+    void createBuffers();
+    void createDescriptorSets();
     void createAttachments();
     void createGraphicsPipeline(
         const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout);
@@ -65,8 +65,8 @@ class DebugRenderer
     vk::RenderingAttachmentInfo _depthAttachment;
 
     vk::DescriptorSetLayout _linesDSLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
-        _linesDescriptorSets;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+        _linesDescriptorSets{VK_NULL_HANDLE};
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

@@ -53,7 +53,7 @@ class LightClustering
     // These also need to be recreated with Swapchain as they depend on
     // swapconfig
     void createOutputs(const SwapchainConfig &swapConfig);
-    void createDescriptorSets(const SwapchainConfig &swapConfig);
+    void createDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);

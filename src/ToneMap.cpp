@@ -104,7 +104,7 @@ void ToneMap::recreate(const SwapchainConfig &swapConfig)
 {
     destroySwapchainRelated();
     createOutputImage(swapConfig);
-    createDescriptorSet(swapConfig);
+    createDescriptorSet();
     createPipelines();
 }
 
@@ -196,11 +196,10 @@ void ToneMap::createOutputImage(const SwapchainConfig &swapConfig)
     });
 }
 
-void ToneMap::createDescriptorSet(const SwapchainConfig &swapConfig)
+void ToneMap::createDescriptorSet()
 {
-    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
-    layouts.resize(swapConfig.imageCount, _descriptorSetLayout);
-    _descriptorSets.resize(swapConfig.imageCount);
+    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+        _descriptorSetLayout};
     _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const vk::DescriptorImageInfo colorInfo{

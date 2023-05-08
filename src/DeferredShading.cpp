@@ -37,8 +37,7 @@ constexpr std::array<
 
 DeferredShading::DeferredShading(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -102,7 +101,7 @@ DeferredShading::DeferredShading(
     };
     _depthSampler = _device->logical().createSampler(info);
 
-    recreate(swapConfig, camDSLayout, worldDSLayouts);
+    recreate(camDSLayout, worldDSLayouts);
 }
 
 DeferredShading::~DeferredShading()
@@ -169,11 +168,10 @@ bool DeferredShading::compileShaders(
 }
 
 void DeferredShading::recreate(
-    const SwapchainConfig &swapConfig, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
-    createDescriptorSets(swapConfig);
+    createDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -285,11 +283,10 @@ void DeferredShading::destroyPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void DeferredShading::createDescriptorSets(const SwapchainConfig &swapConfig)
+void DeferredShading::createDescriptorSets()
 {
-    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
-    layouts.resize(swapConfig.imageCount, _descriptorSetLayout);
-    _descriptorSets.resize(swapConfig.imageCount);
+    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+        _descriptorSetLayout};
     _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const vk::DescriptorImageInfo albedoRoughnessInfo{

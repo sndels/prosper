@@ -30,11 +30,11 @@ struct RenderResources
             TexelBuffer indicesCount;
             TexelBuffer indices;
             vk::DescriptorSetLayout descriptorSetLayout;
-            wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
-                descriptorSets;
+            wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+                descriptorSets{{}};
         } lightClusters;
         // One lines buffer per swap image to leave mapped
-        wheels::StaticArray<DebugLines, MAX_SWAPCHAIN_IMAGES> debugLines;
+        wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
     };
 
     // Both alloc and device need to live as long as this
