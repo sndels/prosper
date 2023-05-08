@@ -477,7 +477,11 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
                 tmp.clear();
                 tmp.extend(str);
-                tmp.resize(longestNameLength + extraWidth, ' ');
+                tmp.resize(
+                    std::max(
+                        str.size(),
+                        static_cast<size_t>(longestNameLength + extraWidth)),
+                    ' ');
 
                 return tmp.c_str();
             };
@@ -495,7 +499,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                     static int scopeIndex = 0;
                     const char *comboTitle =
                         profilerDatas[scopeIndex].gpuMillis < 0.f
-                            ? ""
+                            ? "##EmptyGPUScopeTitle"
                             : profilerDatas[scopeIndex].name.data();
                     if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
                     {
