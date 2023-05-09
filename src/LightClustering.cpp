@@ -290,7 +290,7 @@ void LightClustering::createDescriptorSets()
         .imageView = _resources->buffers.lightClusters.pointers.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES * 3>
+    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 3>
         descriptorWrites;
     for (const auto &ds : _resources->buffers.lightClusters.descriptorSets)
     {

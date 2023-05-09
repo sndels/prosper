@@ -17,7 +17,7 @@ struct DirectionalLight
         glm::vec4 direction{-1.f, -1.f, -1.f, 1.f};
     } parameters;
 
-    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> uniformBuffers;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> uniformBuffers;
 
     // output should have a size matching storageBuffers
     void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
@@ -45,7 +45,7 @@ struct PointLights
     static const uint32_t sBufferByteSize =
         sMaxCount * sizeof(PointLight) + sizeof(uint32_t);
 
-    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> storageBuffers;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> storageBuffers;
 
     // output should have a size matching storageBuffers
     void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
@@ -74,7 +74,7 @@ struct SpotLights
     static const uint32_t sBufferByteSize =
         sMaxCount * sizeof(SpotLight) + sizeof(uint32_t);
 
-    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> storageBuffers;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> storageBuffers;
 
     // output should have a size matching storageBuffers
     void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;

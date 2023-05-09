@@ -276,16 +276,16 @@ Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
     return times;
 }
 
-Profiler::Profiler(Allocator &alloc, Device *device, uint32_t maxFrameCount)
+Profiler::Profiler(Allocator &alloc, Device *device)
 : _alloc{alloc}
 , _cpuFrameProfiler{_alloc}
-, _gpuFrameProfilers{_alloc, maxFrameCount}
+, _gpuFrameProfilers{_alloc, MAX_FRAMES_IN_FLIGHT}
 , _currentFrameScopeNames{_alloc, sMaxScopeCount}
 , _previousScopeNames{_alloc}
 , _previousCpuScopeTimes{_alloc}
 , _previousGpuScopeData{_alloc, sMaxScopeCount}
 {
-    for (auto i = 0u; i < maxFrameCount; ++i)
+    for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _gpuFrameProfilers.emplace_back(_alloc, device);
         _previousScopeNames.emplace_back(_alloc, sMaxScopeCount);

@@ -147,7 +147,7 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 } // namespace
 
 World::World(
-    ScopedScratch scopeAlloc, Device *device, const uint32_t swapImageCount,
+    ScopedScratch scopeAlloc, Device *device,
     const std::filesystem::path &scene)
 : _linearAlloc{sWorldMemSize}
 , _sceneDir{resPath(scene.parent_path())}
@@ -182,9 +182,9 @@ World::World(
 
     tl("BLAS creation", [&]() { createBlases(); });
     tl("TLAS creation", [&]() { createTlases(scopeAlloc.child_scope()); });
-    tl("Buffer creation", [&]() { createBuffers(swapImageCount); });
+    tl("Buffer creation", [&]() { createBuffers(); });
 
-    createDescriptorSets(scopeAlloc.child_scope(), swapImageCount);
+    createDescriptorSets(scopeAlloc.child_scope());
 }
 
 World::~World()
@@ -1096,7 +1096,7 @@ void World::createTlases(ScopedScratch scopeAlloc)
     }
 }
 
-void World::createBuffers(const uint32_t swapImageCount)
+void World::createBuffers()
 {
     _materialsBuffer = _device->createBuffer(BufferCreateInfo{
         .byteSize = _materials.size() * sizeof(_materials[0]),
@@ -1114,7 +1114,7 @@ void World::createBuffers(const uint32_t swapImageCount)
                 const vk::DeviceSize bufferSize =
                     sizeof(ModelInstance::Transforms) *
                     scene.modelInstances.size();
-                for (size_t i = 0; i < swapImageCount; ++i)
+                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.modelInstanceTransformsBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
                             .byteSize = bufferSize,
@@ -1139,7 +1139,7 @@ void World::createBuffers(const uint32_t swapImageCount)
             {
                 const vk::DeviceSize bufferSize =
                     sizeof(DirectionalLight::Parameters);
-                for (size_t i = 0; i < swapImageCount; ++i)
+                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.lights.directionalLight.uniformBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
                             .byteSize = bufferSize,
@@ -1153,7 +1153,7 @@ void World::createBuffers(const uint32_t swapImageCount)
             }
 
             {
-                for (size_t i = 0; i < swapImageCount; ++i)
+                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.lights.pointLights.storageBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
                             .byteSize = PointLights::sBufferByteSize,
@@ -1167,7 +1167,7 @@ void World::createBuffers(const uint32_t swapImageCount)
             }
 
             {
-                for (size_t i = 0; i < swapImageCount; ++i)
+                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.lights.spotLights.storageBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
                             .byteSize = SpotLights::sBufferByteSize,
@@ -1184,7 +1184,7 @@ void World::createBuffers(const uint32_t swapImageCount)
 
     {
         const vk::DeviceSize bufferSize = sizeof(mat4);
-        for (size_t i = 0; i < swapImageCount; ++i)
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         {
             _skyboxUniformBuffers.push_back(
                 _device->createBuffer(BufferCreateInfo{
@@ -1199,8 +1199,7 @@ void World::createBuffers(const uint32_t swapImageCount)
     }
 }
 
-void World::createDescriptorSets(
-    ScopedScratch scopeAlloc, const uint32_t swapImageCount)
+void World::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     if (_device == nullptr)
         throw std::runtime_error(
@@ -1499,9 +1498,9 @@ void World::createDescriptorSets(
         {
             {
                 Array<vk::DescriptorSetLayout> layouts{
-                    scopeAlloc, swapImageCount};
-                layouts.resize(swapImageCount, _dsLayouts.modelInstances);
-                scene.modelInstancesDescriptorSets.resize(swapImageCount);
+                    scopeAlloc, MAX_FRAMES_IN_FLIGHT};
+                layouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.modelInstances);
+                scene.modelInstancesDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
                 _descriptorAllocator.allocate(
                     layouts, Span{
                                  scene.modelInstancesDescriptorSets.data(),
@@ -1533,29 +1532,29 @@ void World::createDescriptorSets(
             }
             {
                 Array<vk::DescriptorSetLayout> layouts{
-                    scopeAlloc, swapImageCount};
-                layouts.resize(swapImageCount, _dsLayouts.lights);
+                    scopeAlloc, MAX_FRAMES_IN_FLIGHT};
+                layouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.lights);
 
                 auto &lights = scene.lights;
-                lights.descriptorSets.resize(swapImageCount);
+                lights.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
                 _descriptorAllocator.allocate(
                     layouts, Span{
                                  lights.descriptorSets.data(),
                                  lights.descriptorSets.size()});
 
-                StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+                StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
                     dirLightInfos;
                 dirLightInfos.resize(
                     lights.directionalLight.uniformBuffers.size());
                 lights.directionalLight.bufferInfos(dirLightInfos);
 
-                StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+                StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
                     pointLightInfos;
                 pointLightInfos.resize(
                     lights.pointLights.storageBuffers.size());
                 lights.pointLights.bufferInfos(pointLightInfos);
 
-                StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+                StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
                     spotLightInfos;
                 spotLightInfos.resize(lights.spotLights.storageBuffers.size());
                 lights.spotLights.bufferInfos(spotLightInfos);
@@ -1683,9 +1682,9 @@ void World::createDescriptorSets(
             });
 
         Array<vk::DescriptorSetLayout> skyboxLayouts{
-            scopeAlloc, swapImageCount};
-        skyboxLayouts.resize(swapImageCount, _dsLayouts.skybox);
-        _skyboxDSs.resize(swapImageCount);
+            scopeAlloc, MAX_FRAMES_IN_FLIGHT};
+        skyboxLayouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.skybox);
+        _skyboxDSs.resize(MAX_FRAMES_IN_FLIGHT);
         _descriptorAllocator.allocate(skyboxLayouts, _skyboxDSs);
 
         _skyboxOnlyDS = _descriptorAllocator.allocate(_dsLayouts.skyboxOnly);

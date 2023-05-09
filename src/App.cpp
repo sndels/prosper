@@ -28,16 +28,16 @@ constexpr float CAMERA_FOV = 59.f;
 constexpr float CAMERA_NEAR = 0.001f;
 constexpr float CAMERA_FAR = 512.f;
 
-StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES> allocateCommandBuffers(
-    Device *device, const uint32_t swapImageCount)
+StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
+    Device *device)
 {
-    StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES> ret;
-    ret.resize(swapImageCount);
+    StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> ret;
+    ret.resize(MAX_FRAMES_IN_FLIGHT);
 
     const vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = device->graphicsPool(),
         .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = swapImageCount,
+        .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
     };
     checkSuccess(
         device->logical().allocateCommandBuffers(&allocInfo, ret.data()),
@@ -54,11 +54,11 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
 : _window{Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper"}
 , _device{scopeAlloc.child_scope(), _window.ptr(), enableDebugLayers}
 , _swapchain{&_device, SwapchainConfig{scopeAlloc.child_scope(),&_device, {_window.width(), _window.height()}}}
-, _commandBuffers{allocateCommandBuffers(&_device, _swapchain.imageCount())}
+, _commandBuffers{allocateCommandBuffers(&_device)}
 , _viewportExtent{_swapchain.config().extent}
 , _resources{_generalAlloc,&_device}
-, _cam{&_device, &_resources, _swapchain.imageCount()}
-, _world{ scopeAlloc.child_scope(), &_device, _swapchain.imageCount(), scene}
+, _cam{&_device, &_resources}
+, _world{ scopeAlloc.child_scope(), &_device, scene}
 , _lightClustering{
     scopeAlloc.child_scope(),
       &_device, &_resources, _viewportExtent, _cam.descriptorSetLayout(),
@@ -87,7 +87,7 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
     scopeAlloc.child_scope(),
     &_device, &_resources, _viewportExtent}
 , _imguiRenderer{&_device, &_resources,_swapchain.config().extent, _window.ptr(), _swapchain.config()}
-,_profiler{_generalAlloc, &_device,_swapchain.imageCount()}
+,_profiler{_generalAlloc, &_device}
 ,_recompileTime{std::chrono::file_clock::now()}
 {
     printf("GPU pass init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
@@ -166,10 +166,6 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
     // Wait for resources to be out of use
     _device.logical().waitIdle();
 
-#ifndef NDEBUG
-    const auto prevImageCount = _swapchain.imageCount();
-#endif // NDEBUG
-
     { // Drop the config as we should always use swapchain's active config
         SwapchainConfig config{
             scopeAlloc.child_scope(),
@@ -177,11 +173,6 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
             {_window.width(), _window.height()}};
         _swapchain.recreate(config);
     }
-
-#ifndef NDEBUG
-    // Allow the assumption that image count doesn't change while running
-    assert(prevImageCount == _swapchain.imageCount());
-#endif // NDEBUG
 
     const ImVec2 viewportSize = _imguiRenderer.centerAreaSize();
     _viewportExtent = vk::Extent2D{
@@ -193,7 +184,7 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
     // cleaner
     _resources.descriptorAllocator.resetPools();
 
-    _cam.recreate(_swapchain.imageCount());
+    _cam.recreate();
 
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!

@@ -58,9 +58,7 @@ struct CameraUniforms
 class Camera
 {
   public:
-    Camera(
-        Device *device, RenderResources *renderResources,
-        uint32_t swapImageCount);
+    Camera(Device *device, RenderResources *renderResources);
     ~Camera();
 
     Camera(const Camera &other) = delete;
@@ -68,7 +66,7 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void recreate(uint32_t swapImageCount);
+    void recreate();
 
     void init(CameraParameters const &params);
 
@@ -80,7 +78,7 @@ class Camera
     void updateBuffer(uint32_t index, const glm::uvec2 &resolution);
 
     [[nodiscard]] wheels::StaticArray<
-        vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES>
+        vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
     bufferInfos() const;
     [[nodiscard]] const vk::DescriptorSetLayout &descriptorSetLayout() const;
     [[nodiscard]] const vk::DescriptorSet &descriptorSet(uint32_t index) const;
@@ -98,9 +96,9 @@ class Camera
 
   private:
     void destroy();
-    void createUniformBuffers(uint32_t swapImageCount);
+    void createUniformBuffers();
     // Create uniform buffers first
-    void createDescriptorSets(uint32_t swapImageCount);
+    void createDescriptorSets();
 
     void updateWorldToCamera();
 
@@ -112,9 +110,9 @@ class Camera
     glm::mat4 _clipToWorld{1.f};
 
     vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_SWAPCHAIN_IMAGES>
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
         _descriptorSets;
-    wheels::StaticArray<Buffer, MAX_SWAPCHAIN_IMAGES> _uniformBuffers;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _uniformBuffers;
     bool _changedThisFrame{true};
 };
 

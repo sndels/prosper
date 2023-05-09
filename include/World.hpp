@@ -38,7 +38,7 @@ class World
     };
     World(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        uint32_t swapImageCount, const std::filesystem::path &scene);
+        const std::filesystem::path &scene);
     ~World();
 
     World(const World &other) = delete;
@@ -101,9 +101,8 @@ class World
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
     void createBlases();
     void createTlases(wheels::ScopedScratch scopeAlloc);
-    void createBuffers(uint32_t swapImageCount);
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc, uint32_t swapImageCount);
+    void createBuffers();
+    void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
 
     Device *_device{nullptr};
     DescriptorAllocator _descriptorAllocator;

@@ -177,7 +177,7 @@ class Profiler
         PipelineStatistics stats;
     };
 
-    Profiler(wheels::Allocator &alloc, Device *device, uint32_t maxFrameCount);
+    Profiler(wheels::Allocator &alloc, Device *device);
     ~Profiler() = default;
 
     // Assume one profiler that is initialized in place

@@ -210,7 +210,7 @@ void ToneMap::createDescriptorSet()
         .imageView = _resources->images.toneMapped.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES * 2>
+    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 2>
         descriptorWrites;
     for (const auto &ds : _descriptorSets)
     {

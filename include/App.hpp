@@ -52,7 +52,7 @@ class App
     Device _device; // Needs to be valid before and after all other vk resources
 
     Swapchain _swapchain;
-    wheels::StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES>
+    wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
         _commandBuffers;
 
     vk::Extent2D _viewportExtent{};
@@ -85,9 +85,9 @@ class App
     Timer _frameTimer;
     std::chrono::time_point<std::chrono::file_clock> _recompileTime;
 
-    wheels::StaticArray<vk::Semaphore, MAX_SWAPCHAIN_IMAGES>
+    wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
         _imageAvailableSemaphores;
-    wheels::StaticArray<vk::Semaphore, MAX_SWAPCHAIN_IMAGES>
+    wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
         _renderFinishedSemaphores;
 };
 

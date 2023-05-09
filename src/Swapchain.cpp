@@ -157,8 +157,6 @@ vk::Format Swapchain::format() const { return _config.surfaceFormat.format; }
 
 const vk::Extent2D &Swapchain::extent() const { return _config.extent; }
 
-uint32_t Swapchain::imageCount() const { return _config.imageCount; }
-
 SwapchainImage Swapchain::image(size_t i) const
 {
     if (i < _images.size())
@@ -294,7 +292,6 @@ void Swapchain::createSwapchain()
 
 void Swapchain::createImages()
 {
-    size_t const prevImageCount = _images.size();
     auto images = _device->logical().getSwapchainImagesKHR(_swapchain);
     for (auto &image : images)
     {
@@ -313,9 +310,6 @@ void Swapchain::createImages()
     }
     // We might get more images than we asked for and acquire will use them all
     _config.imageCount = _images.size();
-    assert(
-        (prevImageCount == 0 || prevImageCount == _config.imageCount) &&
-        "Swap image count should not change during a run");
 }
 
 void Swapchain::createFences()

@@ -11,9 +11,7 @@
 using namespace glm;
 using namespace wheels;
 
-Camera::Camera(
-    Device *device, RenderResources *renderResources,
-    const uint32_t swapImageCount)
+Camera::Camera(Device *device, RenderResources *renderResources)
 : _device{device}
 , _renderResources{renderResources}
 {
@@ -22,16 +20,16 @@ Camera::Camera(
 
     printf("Creating Camera\n");
 
-    recreate(swapImageCount);
+    recreate();
 }
 
 Camera::~Camera() { destroy(); }
 
-void Camera::recreate(const uint32_t swapImageCount)
+void Camera::recreate()
 {
     destroy();
-    createUniformBuffers(swapImageCount);
-    createDescriptorSets(swapImageCount);
+    createUniformBuffers();
+    createDescriptorSets();
 }
 
 void Camera::init(CameraParameters const &params)
@@ -109,10 +107,10 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
     memcpy(_uniformBuffers[index].mapped, &uniforms, sizeof(CameraUniforms));
 }
 
-StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES> Camera::
+StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT> Camera::
     bufferInfos() const
 {
-    StaticArray<vk::DescriptorBufferInfo, MAX_SWAPCHAIN_IMAGES> infos;
+    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT> infos;
     for (const auto &buffer : _uniformBuffers)
         infos.push_back(vk::DescriptorBufferInfo{
             .buffer = buffer.handle,
@@ -173,11 +171,11 @@ void Camera::destroy()
     }
 }
 
-void Camera::createUniformBuffers(const uint32_t swapImageCount)
+void Camera::createUniformBuffers()
 {
     const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
 
-    for (uint32_t i = 0; i < swapImageCount; ++i)
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _uniformBuffers.push_back(_device->createBuffer(BufferCreateInfo{
             .byteSize = bufferSize,
@@ -190,7 +188,7 @@ void Camera::createUniformBuffers(const uint32_t swapImageCount)
     }
 }
 
-void Camera::createDescriptorSets(const uint32_t swapImageCount)
+void Camera::createDescriptorSets()
 {
     const vk::DescriptorSetLayoutBinding layoutBinding{
         .binding = 0, // binding
@@ -207,9 +205,9 @@ void Camera::createDescriptorSets(const uint32_t swapImageCount)
             .pBindings = &layoutBinding,
         });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_SWAPCHAIN_IMAGES> layouts;
-    layouts.resize(swapImageCount, _descriptorSetLayout);
-    _descriptorSets.resize(swapImageCount);
+    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts;
+    layouts.resize(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
+    _descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     _renderResources->descriptorAllocator.allocate(layouts, _descriptorSets);
 
     const auto infos = bufferInfos();

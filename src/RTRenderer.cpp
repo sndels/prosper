@@ -416,7 +416,7 @@ void RTRenderer::createDescriptorSets()
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES> descriptorWrites;
+    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT> descriptorWrites;
     for (const auto &ds : _descriptorSets)
     {
         descriptorWrites.push_back({

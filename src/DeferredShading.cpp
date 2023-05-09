@@ -308,7 +308,7 @@ void DeferredShading::createDescriptorSets()
     const vk::DescriptorImageInfo depthSamplerInfo{
         .sampler = _depthSampler,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_SWAPCHAIN_IMAGES * 5>
+    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 5>
         descriptorWrites;
     for (const auto &ds : _descriptorSets)
     {
