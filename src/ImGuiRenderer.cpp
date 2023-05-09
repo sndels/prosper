@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <imgui_internal.h>
 
 #include <wheels/containers/static_array.hpp>
 
@@ -19,10 +20,14 @@ constexpr void checkSuccessImGui(VkResult err)
     checkSuccess(static_cast<vk::Result>(err), "ImGui");
 }
 
+const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
+
 } // namespace
 
 ImGuiRenderer::ImGuiRenderer(
-    Device *device, RenderResources *resources, GLFWwindow *window, const SwapchainConfig &swapConfig)
+    Device *device, RenderResources *resources,
+    const vk::Extent2D &renderExtent, GLFWwindow *window,
+    const SwapchainConfig &swapConfig)
 : _device{device}
 , _resources{resources}
 {
@@ -33,7 +38,7 @@ ImGuiRenderer::ImGuiRenderer(
     printf("Creating ImGuiRenderer\n");
 
     createDescriptorPool();
-    createRenderPass(_resources->images.toneMapped.format);
+    createRenderPass();
 
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
@@ -55,7 +60,7 @@ ImGuiRenderer::ImGuiRenderer(
     };
     ImGui_ImplVulkan_Init(&init_info, _renderpass);
 
-    recreate();
+    recreate(renderExtent);
 
     auto buffer = _device->beginGraphicsCommands();
 
@@ -64,6 +69,8 @@ ImGuiRenderer::ImGuiRenderer(
     _device->endGraphicsCommands(buffer);
 
     ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 }
 
 ImGuiRenderer::~ImGuiRenderer()
@@ -78,11 +85,17 @@ ImGuiRenderer::~ImGuiRenderer()
 }
 
 // NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
-void ImGuiRenderer::startFrame() const
+void ImGuiRenderer::startFrame()
 {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // The render is drawn onto the central node before ui is rendered
+    const ImGuiDockNodeFlags dockFlags =
+        ImGuiDockNodeFlags_NoDockingInCentralNode |
+        ImGuiDockNodeFlags_PassthruCentralNode;
+    _dockAreaID = ImGui::DockSpaceOverViewport(nullptr, dockFlags);
 }
 
 void ImGuiRenderer::endFrame(
@@ -96,7 +109,7 @@ void ImGuiRenderer::endFrame(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
 
-        _resources->images.toneMapped.transition(
+        _resources->images.finalComposite.transition(
             cb,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
@@ -118,10 +131,26 @@ void ImGuiRenderer::endFrame(
     }
 }
 
-void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
+ImVec2 ImGuiRenderer::centerAreaOffset() const
+{
+    const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
+    assert(node != nullptr);
+
+    return node->Pos;
+}
+
+ImVec2 ImGuiRenderer::centerAreaSize() const
+{
+    const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
+    assert(node != nullptr);
+
+    return node->Size;
+}
+
+void ImGuiRenderer::createRenderPass()
 {
     const vk::AttachmentDescription attachment = {
-        .format = colorFormat,
+        .format = sFinalCompositeFormat,
         .samples = vk::SampleCountFlagBits::e1,
         // Assume this works on a populated target
         .loadOp = vk::AttachmentLoadOp::eLoad,
@@ -159,13 +188,25 @@ void ImGuiRenderer::createRenderPass(const vk::Format &colorFormat)
 void ImGuiRenderer::destroySwapchainRelated()
 {
     _device->logical().destroy(_fbo);
+    _device->destroy(_resources->images.finalComposite);
 }
 
-void ImGuiRenderer::recreate()
+void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
 {
     destroySwapchainRelated();
 
-    const auto &image = _resources->images.toneMapped;
+    auto &image = _resources->images.finalComposite;
+    image = _device->createImage(ImageCreateInfo{
+        .format = sFinalCompositeFormat,
+        .width = renderExtent.width,
+        .height = renderExtent.height,
+        .usageFlags =
+            vk::ImageUsageFlagBits::eColorAttachment | // Render
+            vk::ImageUsageFlagBits::eTransferDst |     // Blit from tone mapped
+            vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
+        .debugName = "ui",
+    });
+
     _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
         .renderPass = _renderpass,
         .attachmentCount = 1,

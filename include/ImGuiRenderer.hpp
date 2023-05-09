@@ -8,12 +8,14 @@
 #include "Swapchain.hpp"
 
 #include <GLFW/glfw3.h>
+#include <imgui.h>
 
 class ImGuiRenderer
 {
   public:
     ImGuiRenderer(
-        Device *device, RenderResources *resources, GLFWwindow *window,
+        Device *device, RenderResources *resources,
+        const vk::Extent2D &renderExtent, GLFWwindow *window,
         const SwapchainConfig &swapConfig);
     ~ImGuiRenderer();
 
@@ -22,14 +24,18 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
-    void startFrame() const;
+    void startFrame();
     void endFrame(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler);
 
-    void recreate();
+    ImVec2 centerAreaOffset() const;
+    ImVec2 centerAreaSize() const;
+
+    void recreate(const vk::Extent2D &renderExtent);
 
   private:
-    void createRenderPass(const vk::Format &colorFormat);
+    void createRenderPass();
+    void createOutput(const vk::Extent2D &renderExtent);
 
     void destroySwapchainRelated();
     void createDescriptorPool();
@@ -39,6 +45,7 @@ class ImGuiRenderer
     vk::DescriptorPool _descriptorPool;
     vk::RenderPass _renderpass;
     vk::Framebuffer _fbo;
+    ImGuiID _dockAreaID{0};
 };
 
 #endif // PROSPER_IMGUI_RENDERER_HPP

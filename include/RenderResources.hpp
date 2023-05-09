@@ -20,6 +20,7 @@ struct RenderResources
         Image toneMapped;
         Image albedoRoughness;
         Image normalMetalness;
+        Image finalComposite;
     };
 
     struct Buffers

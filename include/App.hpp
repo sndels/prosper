@@ -19,7 +19,6 @@
 #include "Window.hpp"
 #include "World.hpp"
 
-
 #include <filesystem>
 #include <wheels/allocators/cstdlib_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -55,6 +54,8 @@ class App
     Swapchain _swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_SWAPCHAIN_IMAGES>
         _commandBuffers;
+
+    vk::Extent2D _viewportExtent{};
 
     // Stored here, managed by (earliest) passes that write to them
     RenderResources _resources;
