@@ -176,9 +176,7 @@ void App::recreateViewportRelated(wheels::ScopedScratch scopeAlloc)
     _gbufferRenderer.recreate(
         _viewportExtent, _cam.descriptorSetLayout(), _world._dsLayouts);
     _deferredShading.recreate(_cam.descriptorSetLayout(), _world._dsLayouts);
-    _rtRenderer.recreate(
-        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
-        _world._dsLayouts);
+    _rtRenderer.recreate();
     _skyboxRenderer.recreate(_viewportExtent, _world._dsLayouts);
     _debugRenderer.recreate(_viewportExtent, _cam.descriptorSetLayout());
     _toneMap.recreate(_viewportExtent);

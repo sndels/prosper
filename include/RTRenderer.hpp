@@ -35,9 +35,7 @@ class RTRenderer
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreate(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+    void recreate();
 
     void drawUi();
 
@@ -48,7 +46,6 @@ class RTRenderer
 
   private:
     void destroyShaders();
-    void destroyViewportRelated();
     void destroyPipeline();
 
     [[nodiscard]] bool compileShaders(

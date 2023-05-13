@@ -90,16 +90,21 @@ RTRenderer::RTRenderer(
         throw std::runtime_error("RTRenderer shader compilation failed");
 
     createDescriptorSets();
+    createPipeline(camDSLayout, worldDSLayouts);
+    createShaderBindingTable(scopeAlloc.child_scope());
 
-    recreate(scopeAlloc.child_scope(), camDSLayout, worldDSLayouts);
+    recreate();
 }
 
 RTRenderer::~RTRenderer()
 {
     if (_device != nullptr)
     {
-        destroyViewportRelated();
+        destroyPipeline();
+
         _device->logical().destroy(_descriptorSetLayout);
+
+        _device->destroy(_shaderBindingTable);
         destroyShaders();
     }
 }
@@ -116,15 +121,10 @@ void RTRenderer::recompileShaders(
     }
 }
 
-void RTRenderer::recreate(
-    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+void RTRenderer::recreate()
 {
-    destroyViewportRelated();
-
     updateDescriptorSets();
-    createPipeline(camDSLayout, worldDSLayouts);
-    createShaderBindingTable(scopeAlloc.child_scope());
+    _accumulationDirty = true;
 }
 
 void RTRenderer::drawUi()
@@ -252,16 +252,6 @@ void RTRenderer::destroyShaders()
 {
     for (auto const &stage : _shaderStages)
         _device->logical().destroyShaderModule(stage.module);
-}
-
-void RTRenderer::destroyViewportRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyPipeline();
-
-        _device->destroy(_shaderBindingTable);
-    }
 }
 
 void RTRenderer::destroyPipeline()
