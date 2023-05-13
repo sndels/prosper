@@ -39,7 +39,8 @@ class ToneMap
     void destroyPipelines();
 
     void createOutputImage(const vk::Extent2D &renderExtent);
-    void createDescriptorSet();
+    void createDescriptorSets();
+    void updateDescriptorSets();
     void createPipelines();
 
     Device *_device{nullptr};

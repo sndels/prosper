@@ -34,25 +34,7 @@ ToneMap::ToneMap(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("ToneMap shader compilation failed");
 
-    const StaticArray layoutBindings{
-        vk::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-    };
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
+    createDescriptorSets();
 
     recreate(renderExtent);
 }
@@ -104,7 +86,7 @@ void ToneMap::recreate(const vk::Extent2D &renderExtent)
 {
     destroySwapchainRelated();
     createOutputImage(renderExtent);
-    createDescriptorSet();
+    updateDescriptorSets();
     createPipelines();
 }
 
@@ -196,12 +178,35 @@ void ToneMap::createOutputImage(const vk::Extent2D &renderExtent)
     });
 }
 
-void ToneMap::createDescriptorSet()
+void ToneMap::createDescriptorSets()
 {
+    const StaticArray layoutBindings{
+        vk::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+    };
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+            .pBindings = layoutBindings.data(),
+        });
+
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
+    _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+}
 
+void ToneMap::updateDescriptorSets()
+{
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
@@ -210,6 +215,7 @@ void ToneMap::createDescriptorSet()
         .imageView = _resources->images.toneMapped.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
+
     StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 2>
         descriptorWrites;
     for (const auto &ds : _descriptorSets)

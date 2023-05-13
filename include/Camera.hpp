@@ -66,8 +66,6 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void recreate();
-
     void init(CameraParameters const &params);
 
     void lookAt(
@@ -95,7 +93,6 @@ class Camera
     void applyOffset();
 
   private:
-    void destroy();
     void createUniformBuffers();
     // Create uniform buffers first
     void createDescriptorSets();

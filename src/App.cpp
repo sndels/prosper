@@ -180,12 +180,6 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
         asserted_cast<uint32_t>(viewportSize.y),
     };
 
-    // We could free and recreate the individual sets but reseting the pools is
-    // cleaner
-    _resources.descriptorAllocator.resetPools();
-
-    _cam.recreate();
-
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
     _lightClustering.recreate(

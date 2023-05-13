@@ -49,43 +49,7 @@ DeferredShading::DeferredShading(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("DeferredShading shader compilation failed");
 
-    const StaticArray layoutBindings{
-        vk::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vk::DescriptorType::eSampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 3,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 4,
-            .descriptorType = vk::DescriptorType::eSampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-    };
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.capacity()),
-            .pBindings = layoutBindings.data(),
-        });
+    createDescriptorSets();
 
     const vk::SamplerCreateInfo info{
         .magFilter = vk::Filter::eNearest,
@@ -171,7 +135,7 @@ void DeferredShading::recreate(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
     destroySwapchainRelated();
-    createDescriptorSets();
+    updateDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -285,10 +249,51 @@ void DeferredShading::destroyPipelines()
 
 void DeferredShading::createDescriptorSets()
 {
+    const StaticArray layoutBindings{
+        vk::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 2,
+            .descriptorType = vk::DescriptorType::eSampledImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 3,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 4,
+            .descriptorType = vk::DescriptorType::eSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+    };
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.capacity()),
+            .pBindings = layoutBindings.data(),
+        });
+
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
+    _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+}
 
+void DeferredShading::updateDescriptorSets()
+{
     const vk::DescriptorImageInfo albedoRoughnessInfo{
         .imageView = _resources->images.albedoRoughness.view,
         .imageLayout = vk::ImageLayout::eGeneral,

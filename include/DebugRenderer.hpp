@@ -48,8 +48,7 @@ class DebugRenderer
 
     void destroySwapchainRelated();
     void destroyGraphicsPipeline();
-    // These also need to be recreated with Swapchain as they depend on
-    // swapconfig
+
     void createBuffers();
     void createDescriptorSets();
     void createAttachments();

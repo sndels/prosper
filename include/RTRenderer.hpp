@@ -55,9 +55,8 @@ class RTRenderer
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    // These also need to be recreated with Swapchain as they depend on
-    // swapconfig
     void createDescriptorSets();
+    void updateDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);

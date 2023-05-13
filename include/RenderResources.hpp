@@ -40,14 +40,14 @@ struct RenderResources
 
     // Both alloc and device need to live as long as this
     RenderResources(wheels::Allocator &alloc, Device *device)
-    : descriptorAllocator{alloc, device}
+    : staticDescriptorsAlloc{alloc, device}
     {
     }
 
-    // Pools will be reset on swapchain recreation as many passes have resources
-    // tied to swapchain (resolution) and it is clearer to recreate everything
-    // instead of cherry-picking just the descriptors that need to be updated
-    DescriptorAllocator descriptorAllocator;
+    // This allocator should only be used for the descriptors that can live
+    // until the end of the program. As such, reset() shouldn't be called so
+    // that users can rely on the descriptors being there once allocated.
+    DescriptorAllocator staticDescriptorsAlloc;
     Images images;
     Buffers buffers;
 };

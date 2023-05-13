@@ -50,10 +50,9 @@ class LightClustering
 
     void destroySwapchainRelated();
     void destroyPipeline();
-    // These also need to be recreated with Swapchain as they depend on
-    // swapconfig
     void createOutputs(const vk::Extent2D &renderExtent);
     void createDescriptorSets();
+    void updateDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);

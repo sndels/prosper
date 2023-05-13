@@ -32,6 +32,10 @@ DebugRenderer::DebugRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
+    // These don't depend on rendering viewport
+    createBuffers();
+    createDescriptorSets();
+
     recreate(renderExtent, camDSLayout);
 }
 
@@ -39,6 +43,11 @@ DebugRenderer::~DebugRenderer()
 {
     if (_device != nullptr)
     {
+        _device->logical().destroy(_linesDSLayout);
+
+        for (auto &ls : _resources->buffers.debugLines)
+            _device->destroy(ls.buffer);
+
         destroySwapchainRelated();
 
         for (auto const &stage : _shaderStages)
@@ -62,8 +71,6 @@ void DebugRenderer::recreate(
 {
     destroySwapchainRelated();
 
-    createBuffers();
-    createDescriptorSets();
     createAttachments();
     createGraphicsPipeline(renderExtent, camDSLayout);
 }
@@ -175,23 +182,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void DebugRenderer::destroySwapchainRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyGraphicsPipeline();
-
-        _device->logical().destroy(_linesDSLayout);
-        _linesDescriptorSets.clear();
-
-        for (auto &ls : _resources->buffers.debugLines)
-        {
-            _device->destroy(ls.buffer);
-            ls.buffer = Buffer{};
-        }
-        _resources->buffers.debugLines.clear();
-    }
-}
+void DebugRenderer::destroySwapchainRelated() { destroyGraphicsPipeline(); }
 
 void DebugRenderer::destroyGraphicsPipeline()
 {
@@ -232,7 +223,7 @@ void DebugRenderer::createDescriptorSets()
         _linesDSLayout};
     _linesDescriptorSets.resize(
         _linesDescriptorSets.capacity(), VK_NULL_HANDLE);
-    _resources->descriptorAllocator.allocate(layouts, _linesDescriptorSets);
+    _resources->staticDescriptorsAlloc.allocate(layouts, _linesDescriptorSets);
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {

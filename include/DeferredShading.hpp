@@ -56,6 +56,7 @@ class DeferredShading
     void destroyPipelines();
 
     void createDescriptorSets();
+    void updateDescriptorSets();
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);

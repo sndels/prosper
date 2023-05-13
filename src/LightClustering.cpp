@@ -39,35 +39,7 @@ LightClustering::LightClustering(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("LightClustering shader compilation failed");
 
-    const StaticArray layoutBindings{
-        vk::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eCompute,
-        },
-    };
-    _resources->buffers.lightClusters.descriptorSetLayout =
-        _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-                .pBindings = layoutBindings.data(),
-            });
+    createDescriptorSets();
 
     _resources->buffers.lightClusters.indicesCount =
         _device->createTexelBuffer(TexelBufferCreateInfo{
@@ -118,7 +90,7 @@ void LightClustering::recreate(
     destroySwapchainRelated();
 
     createOutputs(renderExtent);
-    createDescriptorSets();
+    updateDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -279,13 +251,46 @@ void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
 
 void LightClustering::createDescriptorSets()
 {
+    const StaticArray layoutBindings{
+        vk::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                          vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                          vk::ShaderStageFlagBits::eCompute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 2,
+            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                          vk::ShaderStageFlagBits::eCompute,
+        },
+    };
+    _resources->buffers.lightClusters.descriptorSetLayout =
+        _device->logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+                .pBindings = layoutBindings.data(),
+            });
+
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _resources->buffers.lightClusters.descriptorSetLayout};
-    _resources->descriptorAllocator.allocate(
+    _resources->staticDescriptorsAlloc.allocate(
         layouts, Span{
                      _resources->buffers.lightClusters.descriptorSets.data(),
                      _resources->buffers.lightClusters.descriptorSets.size()});
+}
 
+void LightClustering::updateDescriptorSets()
+{
     vk::DescriptorImageInfo pointersInfo{
         .imageView = _resources->buffers.lightClusters.pointers.view,
         .imageLayout = vk::ImageLayout::eGeneral,

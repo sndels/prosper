@@ -20,16 +20,20 @@ Camera::Camera(Device *device, RenderResources *renderResources)
 
     printf("Creating Camera\n");
 
-    recreate();
-}
-
-Camera::~Camera() { destroy(); }
-
-void Camera::recreate()
-{
-    destroy();
     createUniformBuffers();
     createDescriptorSets();
+}
+
+Camera::~Camera()
+{
+    if (_device != nullptr)
+    {
+        _device->logical().destroy(_descriptorSetLayout);
+        for (auto &buffer : _uniformBuffers)
+            _device->destroy(buffer);
+
+        _uniformBuffers.clear();
+    }
 }
 
 void Camera::init(CameraParameters const &params)
@@ -158,19 +162,6 @@ void Camera::applyOffset()
     updateWorldToCamera();
 }
 
-void Camera::destroy()
-{
-    if (_device != nullptr)
-    {
-        _device->logical().destroy(_descriptorSetLayout);
-        for (auto &buffer : _uniformBuffers)
-            _device->destroy(buffer);
-
-        _descriptorSets.clear();
-        _uniformBuffers.clear();
-    }
-}
-
 void Camera::createUniformBuffers()
 {
     const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
@@ -208,7 +199,7 @@ void Camera::createDescriptorSets()
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts;
     layouts.resize(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
     _descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    _renderResources->descriptorAllocator.allocate(layouts, _descriptorSets);
+    _renderResources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 
     const auto infos = bufferInfos();
     for (size_t i = 0; i < _descriptorSets.size(); ++i)

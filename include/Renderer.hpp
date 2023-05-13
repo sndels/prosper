@@ -56,8 +56,7 @@ class Renderer
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();
-    // These also need to be recreated with Swapchain as they depend on
-    // swapconfig
+
     void createOutputs(const vk::Extent2D &renderExtent);
     void createAttachments();
     void createGraphicsPipelines(

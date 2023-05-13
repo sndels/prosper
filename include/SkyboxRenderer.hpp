@@ -42,8 +42,7 @@ class SkyboxRenderer
 
     void destroySwapchainRelated();
     void destroyGraphicsPipelines();
-    // These also need to be recreated with Swapchain as they depend on
-    // swapconfig
+
     void createAttachments();
     void createGraphicsPipelines(
         const vk::Extent2D &renderExtent,

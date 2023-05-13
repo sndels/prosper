@@ -89,17 +89,7 @@ RTRenderer::RTRenderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RTRenderer shader compilation failed");
 
-    const vk::DescriptorSetLayoutBinding layoutBinding{
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
-    };
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = 1,
-            .pBindings = &layoutBinding,
-        });
+    createDescriptorSets();
 
     recreate(scopeAlloc.child_scope(), camDSLayout, worldDSLayouts);
 }
@@ -132,7 +122,7 @@ void RTRenderer::recreate(
 {
     destroySwapchainRelated();
 
-    createDescriptorSets();
+    updateDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 }
@@ -408,10 +398,25 @@ bool RTRenderer::compileShaders(
 
 void RTRenderer::createDescriptorSets()
 {
+    const vk::DescriptorSetLayoutBinding layoutBinding{
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eStorageImage,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+    };
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = 1,
+            .pBindings = &layoutBinding,
+        });
+
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->descriptorAllocator.allocate(layouts, _descriptorSets);
+    _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+}
 
+void RTRenderer::updateDescriptorSets()
+{
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->images.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
