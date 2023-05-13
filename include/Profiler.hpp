@@ -36,7 +36,9 @@ class GpuFrameProfiler
         Scope(Scope const &) = delete;
         Scope(Scope &&other) noexcept;
         Scope &operator=(Scope const &) = delete;
-        Scope &operator=(Scope &&other) noexcept;
+        // No assignment since it doesn't seem to make sense: new scope should
+        // be a new object. Move ctor is enough to use in an optional.
+        Scope &operator=(Scope &&) = delete;
 
       protected:
         Scope(
@@ -97,8 +99,10 @@ class CpuFrameProfiler
 
         Scope(Scope const &) = delete;
         Scope(Scope &&other) noexcept;
-        Scope &operator=(Scope const &) = delete;
-        Scope &operator=(Scope &&other) noexcept;
+        Scope &operator=(Scope const &other) = delete;
+        // No assignment since it doesn't seem to make sense: new scope should
+        // be a new object. Move ctor is enough to use in an optional.
+        Scope &operator=(Scope &&) = delete;
 
       protected:
         Scope(std::chrono::nanoseconds *output);

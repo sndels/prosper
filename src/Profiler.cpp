@@ -57,20 +57,6 @@ GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
     other._cb = vk::CommandBuffer{};
 }
 
-GpuFrameProfiler::Scope &GpuFrameProfiler::Scope::operator=(
-    GpuFrameProfiler::Scope &&other) noexcept
-{
-    if (this != &other)
-    {
-        _cb = other._cb;
-        _pools = other._pools;
-        _queryIndex = other._queryIndex;
-
-        other._cb = vk::CommandBuffer{};
-    }
-    return *this;
-}
-
 GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
 : _device{device}
 , _timestampBuffer{device->createBuffer(BufferCreateInfo{
@@ -223,19 +209,6 @@ CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other) noexcept
 , _output{other._output}
 {
     other._output = nullptr;
-}
-
-CpuFrameProfiler::Scope &CpuFrameProfiler::Scope::operator=(
-    CpuFrameProfiler::Scope &&other) noexcept
-{
-    if (this != &other)
-    {
-        _start = other._start;
-        _output = other._output;
-
-        other._output = nullptr;
-    }
-    return *this;
 }
 
 CpuFrameProfiler::CpuFrameProfiler(wheels::Allocator &alloc)
