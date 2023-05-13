@@ -48,51 +48,61 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 } // namespace
 
-// TODO: Fix this file so that clang-format works
-
-App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool enableDebugLayers)
-: _window{Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper"}
-, _device{scopeAlloc.child_scope(), _window.ptr(), enableDebugLayers}
-, _swapchain{&_device, SwapchainConfig{scopeAlloc.child_scope(),&_device, {_window.width(), _window.height()}}}
-, _commandBuffers{allocateCommandBuffers(&_device)}
-, _viewportExtent{_swapchain.config().extent}
-, _resources{_generalAlloc,&_device}
-, _cam{&_device, &_resources}
-, _world{ scopeAlloc.child_scope(), &_device, scene}
-, _lightClustering{
-    scopeAlloc.child_scope(),
-      &_device, &_resources, _viewportExtent, _cam.descriptorSetLayout(),
-      _world._dsLayouts}
-, _renderer{
-    scopeAlloc.child_scope(),
-      &_device, &_resources, _viewportExtent, _cam.descriptorSetLayout(),
-      _world._dsLayouts}
-, _gbufferRenderer{
-    scopeAlloc.child_scope(),
-      &_device, &_resources, _viewportExtent, _cam.descriptorSetLayout(),
-      _world._dsLayouts}
-, _deferredShading{
-    scopeAlloc.child_scope(),
-      &_device, &_resources, _cam.descriptorSetLayout(), _world._dsLayouts}
-, _rtRenderer{
-    scopeAlloc.child_scope(), &_device, &_resources, _cam.descriptorSetLayout(), _world._dsLayouts}
-, _skyboxRenderer{
-    scopeAlloc.child_scope(),
-      &_device, &_resources, _viewportExtent,
-      _world._dsLayouts}
-, _debugRenderer{
-    scopeAlloc.child_scope(),
-    &_device, &_resources, _viewportExtent, _cam.descriptorSetLayout()}
-, _toneMap{
-    scopeAlloc.child_scope(),
-    &_device, &_resources, _viewportExtent}
-, _imguiRenderer{&_device, &_resources,_swapchain.config().extent, _window.ptr(), _swapchain.config()}
-,_profiler{_generalAlloc, &_device}
-,_recompileTime{std::chrono::file_clock::now()}
+App::App(
+    ScopedScratch scopeAlloc, const std::filesystem::path &scene,
+    bool enableDebugLayers)
 {
-    printf("GPU pass init took %.2fs\n", _gpuPassesInitTimer.getSeconds());
+    _window.reset(
+        new Window{Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper"});
+    _device.reset(new Device(
+        scopeAlloc.child_scope(), _window->ptr(), enableDebugLayers));
+    _swapchain.reset(new Swapchain(
+        _device.get(), SwapchainConfig{
+                           scopeAlloc.child_scope(),
+                           _device.get(),
+                           {_window->width(), _window->height()}}));
+    _commandBuffers = allocateCommandBuffers(_device.get());
 
-    const auto &allocs = _device.memoryAllocations();
+    _viewportExtent = _swapchain->config().extent;
+    _resources.reset(new RenderResources(_generalAlloc, _device.get()));
+
+    _cam.reset(new Camera(_device.get(), _resources.get()));
+    _world.reset(new World(scopeAlloc.child_scope(), _device.get(), scene));
+
+    Timer gpuPassesInitTimer;
+    _lightClustering.reset(new LightClustering(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
+    _renderer.reset(new Renderer(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
+    _gbufferRenderer.reset(new GBufferRenderer(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
+    _deferredShading.reset(new DeferredShading(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _cam->descriptorSetLayout(), _world->_dsLayouts));
+    _rtRenderer.reset(new RTRenderer(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _cam->descriptorSetLayout(), _world->_dsLayouts));
+    _skyboxRenderer.reset(new SkyboxRenderer(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _viewportExtent, _world->_dsLayouts));
+    _debugRenderer.reset(new DebugRenderer(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _viewportExtent, _cam->descriptorSetLayout()));
+    _toneMap.reset(new ToneMap(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _viewportExtent));
+    _imguiRenderer.reset(new ImGuiRenderer(
+        _device.get(), _resources.get(), _swapchain->config().extent,
+        _window->ptr(), _swapchain->config()));
+    _recompileTime = std::chrono::file_clock::now();
+    printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
+
+    _profiler.reset(new Profiler(_generalAlloc, _device.get()));
+
+    const auto &allocs = _device->memoryAllocations();
     printf("Active GPU allocations:\n");
     printf(
         "  Buffers: %uMB\n",
@@ -104,40 +114,40 @@ App::App(ScopedScratch scopeAlloc, const std::filesystem::path & scene, bool ena
         "  Images: %uMB\n",
         asserted_cast<uint32_t>(allocs.images / 1024 / 1024));
 
-    _cam.init(_world._scenes[_world._currentScene].camera);
-    _cam.perspective(
+    _cam->init(_world->_scenes[_world->_currentScene].camera);
+    _cam->perspective(
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _imageAvailableSemaphores.push_back(
-            _device.logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
         _renderFinishedSemaphores.push_back(
-            _device.logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
     }
 }
 
 App::~App()
 {
     for (auto &semaphore : _renderFinishedSemaphores)
-        _device.logical().destroy(semaphore);
+        _device->logical().destroy(semaphore);
     for (auto &semaphore : _imageAvailableSemaphores)
-        _device.logical().destroy(semaphore);
+        _device->logical().destroy(semaphore);
 }
 
 void App::run()
 {
     LinearAllocator scopeBackingAlloc{megabytes(64)};
-    while (_window.open())
+    while (_window->open())
     {
-        _profiler.startCpuFrame();
+        _profiler->startCpuFrame();
 
         scopeBackingAlloc.reset();
         ScopedScratch scopeAlloc{scopeBackingAlloc};
 
         {
-            const auto _s = _profiler.createCpuScope("Window::startFrame");
-            _window.startFrame();
+            const auto _s = _profiler->createCpuScope("Window::startFrame");
+            _window->startFrame();
         }
 
         handleMouseGestures();
@@ -147,21 +157,21 @@ void App::run()
         drawFrame(scopeAlloc.child_scope());
 
         InputHandler::instance().clearSingleFrameGestures();
-        _cam.clearChangedThisFrame();
+        _cam->clearChangedThisFrame();
 
-        _profiler.endCpuFrame();
+        _profiler->endCpuFrame();
     }
 
     // Wait for in flight rendering actions to finish
-    _device.logical().waitIdle();
+    _device->logical().waitIdle();
 }
 
 void App::recreateViewportRelated()
 {
     // Wait for resources to be out of use
-    _device.logical().waitIdle();
+    _device->logical().waitIdle();
 
-    const ImVec2 viewportSize = _imguiRenderer.centerAreaSize();
+    const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
     _viewportExtent = vk::Extent2D{
         asserted_cast<uint32_t>(viewportSize.x),
         asserted_cast<uint32_t>(viewportSize.y),
@@ -169,19 +179,19 @@ void App::recreateViewportRelated()
 
     // NOTE: These need to be in the order that RenderResources contents are
     // written to!
-    _lightClustering.recreate(
-        _viewportExtent, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _renderer.recreate(
-        _viewportExtent, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _gbufferRenderer.recreate(
-        _viewportExtent, _cam.descriptorSetLayout(), _world._dsLayouts);
-    _deferredShading.recreate(_cam.descriptorSetLayout(), _world._dsLayouts);
-    _rtRenderer.recreate();
-    _skyboxRenderer.recreate(_viewportExtent, _world._dsLayouts);
-    _debugRenderer.recreate(_viewportExtent, _cam.descriptorSetLayout());
-    _toneMap.recreate(_viewportExtent);
+    _lightClustering->recreate(
+        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _renderer->recreate(
+        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _gbufferRenderer->recreate(
+        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _deferredShading->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
+    _rtRenderer->recreate();
+    _skyboxRenderer->recreate(_viewportExtent, _world->_dsLayouts);
+    _debugRenderer->recreate(_viewportExtent, _cam->descriptorSetLayout());
+    _toneMap->recreate(_viewportExtent);
 
-    _cam.perspective(
+    _cam->perspective(
         PerspectiveParameters{
             .fov = radians(CAMERA_FOV),
             .zN = CAMERA_NEAR,
@@ -192,28 +202,28 @@ void App::recreateViewportRelated()
 
 void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
 {
-    while (_window.width() == 0 && _window.height() == 0)
+    while (_window->width() == 0 && _window->height() == 0)
     {
         // Window is minimized so wait until its not
         glfwWaitEvents();
     }
     // Wait for resources to be out of use
-    _device.logical().waitIdle();
+    _device->logical().waitIdle();
 
     { // Drop the config as we should always use swapchain's active config
         const SwapchainConfig config{
             scopeAlloc.child_scope(),
-            &_device,
-            {_window.width(), _window.height()}};
-        _swapchain.recreate(config);
+            _device.get(),
+            {_window->width(), _window->height()}};
+        _swapchain->recreate(config);
     }
 
-    _imguiRenderer.recreate(_swapchain.config().extent);
+    _imguiRenderer->recreate(_swapchain->config().extent);
 }
 
 void App::recompileShaders(ScopedScratch scopeAlloc)
 {
-    const auto _s = _profiler.createCpuScope("App::recompileShaders");
+    const auto _s = _profiler->createCpuScope("App::recompileShaders");
 
     if (!_recompileShaders)
         return;
@@ -239,32 +249,32 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         return;
 
     // Wait for resources to be out of use
-    _device.logical().waitIdle();
+    _device->logical().waitIdle();
 
     printf("Recompiling shaders\n");
 
     const Timer t;
 
-    _lightClustering.recompileShaders(
-        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
-        _world._dsLayouts);
-    _renderer.recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _cam.descriptorSetLayout(),
-        _world._dsLayouts);
-    _gbufferRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _cam.descriptorSetLayout(),
-        _world._dsLayouts);
-    _deferredShading.recompileShaders(
-        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
-        _world._dsLayouts);
-    _rtRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
-        _world._dsLayouts);
-    _skyboxRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _world._dsLayouts);
-    _debugRenderer.recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _cam.descriptorSetLayout());
-    _toneMap.recompileShaders(scopeAlloc.child_scope());
+    _lightClustering->recompileShaders(
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
+    _renderer->recompileShaders(
+        scopeAlloc.child_scope(), _viewportExtent, _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
+    _gbufferRenderer->recompileShaders(
+        scopeAlloc.child_scope(), _viewportExtent, _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
+    _deferredShading->recompileShaders(
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
+    _rtRenderer->recompileShaders(
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
+    _skyboxRenderer->recompileShaders(
+        scopeAlloc.child_scope(), _viewportExtent, _world->_dsLayouts);
+    _debugRenderer->recompileShaders(
+        scopeAlloc.child_scope(), _viewportExtent, _cam->descriptorSetLayout());
+    _toneMap->recompileShaders(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -273,7 +283,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
 void App::handleMouseGestures()
 {
-    const auto _s = _profiler.createCpuScope("App::handleMouseGestures");
+    const auto _s = _profiler->createCpuScope("App::handleMouseGestures");
 
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
@@ -288,7 +298,7 @@ void App::handleMouseGestures()
             const auto drag =
                 (gesture->currentPos - gesture->startPos) * dragScale;
 
-            const auto params = _cam.parameters();
+            const auto params = _cam->parameters();
             const auto fromTarget = params.eye - params.target;
 
             const auto horizontalRotatedFromTarget =
@@ -302,14 +312,14 @@ void App::handleMouseGestures()
             const auto flipUp =
                 dot(right, cross(newFromTarget, params.up)) < 0.0;
 
-            _cam.offset = CameraOffset{
+            _cam->offset = CameraOffset{
                 .eye = newFromTarget - fromTarget,
                 .flipUp = flipUp,
             };
         }
         else if (gesture->type == MouseGestureType::TrackPlane)
         {
-            const auto params = _cam.parameters();
+            const auto params = _cam->parameters();
             const auto from_target = params.eye - params.target;
             const auto dist_target = length(from_target);
 
@@ -328,16 +338,16 @@ void App::handleMouseGestures()
 
             const auto offset = right * (drag.x) + cam_up * (drag.y);
 
-            _cam.offset = CameraOffset{
+            _cam->offset = CameraOffset{
                 .eye = offset,
                 .target = offset,
             };
         }
         else if (gesture->type == MouseGestureType::TrackZoom)
         {
-            if (!_cam.offset.has_value())
+            if (!_cam->offset.has_value())
             {
-                const auto &params = _cam.parameters();
+                const auto &params = _cam->parameters();
 
                 const auto to_target = params.target - params.eye;
                 const auto dist_target = length(to_target);
@@ -356,7 +366,7 @@ void App::handleMouseGestures()
                         vec3(compMax(
                             0.01f * max(offsetParams.eye, params.target))))))
                 {
-                    _cam.offset = offset;
+                    _cam->offset = offset;
                 }
             }
         }
@@ -365,9 +375,9 @@ void App::handleMouseGestures()
     }
     else
     {
-        if (_cam.offset.has_value())
+        if (_cam->offset.has_value())
         {
-            _cam.applyOffset();
+            _cam->applyOffset();
         }
     }
 }
@@ -375,12 +385,12 @@ void App::handleMouseGestures()
 void App::drawFrame(ScopedScratch scopeAlloc)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
-    const uint32_t nextFrame = asserted_cast<uint32_t>(_swapchain.nextFrame());
+    const uint32_t nextFrame = asserted_cast<uint32_t>(_swapchain->nextFrame());
     // Corresponds to the swapchain image
     const auto nextImage = [&]
     {
         const auto imageAvailable = _imageAvailableSemaphores[nextFrame];
-        auto nextImage = _swapchain.acquireNextImage(imageAvailable);
+        auto nextImage = _swapchain->acquireNextImage(imageAvailable);
         while (!nextImage.has_value())
         {
             // Wait on the acquire semaphore to have it properly unsignaled.
@@ -392,20 +402,20 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             };
 
             checkSuccess(
-                _device.graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
+                _device->graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
                 "recreate_swap_dummy_submit");
 
             // Recreate the swap chain as necessary
             recreateSwapchainAndRelated(scopeAlloc.child_scope());
-            nextImage = _swapchain.acquireNextImage(imageAvailable);
+            nextImage = _swapchain->acquireNextImage(imageAvailable);
         }
 
         return *nextImage;
     }();
 
-    _profiler.startGpuFrame(nextFrame);
+    _profiler->startGpuFrame(nextFrame);
 
-    const auto profilerDatas = _profiler.getPreviousData(scopeAlloc);
+    const auto profilerDatas = _profiler->getPreviousData(scopeAlloc);
 
     // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
     // Note that this is always based on the previous frame so it only limits
@@ -420,7 +430,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     }
     _frameTimer.reset();
 
-    _imguiRenderer.startFrame();
+    _imguiRenderer->startFrame();
 
     bool rtPickedThisFrame = false;
     {
@@ -572,13 +582,13 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
-    _cam.updateBuffer(
+    _cam->updateBuffer(
         nextFrame, uvec2{renderArea.extent.width, renderArea.extent.height});
-    _world.updateUniformBuffers(_cam, nextFrame, scopeAlloc.child_scope());
+    _world->updateUniformBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
 
-    const auto &scene = _world.currentScene();
+    const auto &scene = _world->currentScene();
 
-    auto &debugLines = _resources.buffers.debugLines[nextFrame];
+    auto &debugLines = _resources->buffers.debugLines[nextFrame];
     debugLines.reset();
     { // Add debug geom for lights
         constexpr auto debugLineLength = 0.2f;
@@ -617,14 +627,15 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    _lightClustering.record(cb, scene, _cam, renderArea, nextFrame, &_profiler);
+    _lightClustering->record(
+        cb, scene, *_cam, renderArea, nextFrame, _profiler.get());
 
     if (_renderRT)
     {
-        _rtRenderer.drawUi();
-        _rtRenderer.record(
-            cb, _world, _cam, renderArea, nextFrame, rtPickedThisFrame,
-            &_profiler);
+        _rtRenderer->drawUi();
+        _rtRenderer->record(
+            cb, *_world, *_cam, renderArea, nextFrame, rtPickedThisFrame,
+            _profiler.get());
     }
     else
     {
@@ -632,40 +643,43 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         // Opaque
         if (_renderDeferred)
         {
-            _deferredShading.drawUi();
-            _gbufferRenderer.record(
-                cb, _world, _cam, renderArea, nextFrame, &_profiler);
-            _deferredShading.record(cb, _world, _cam, nextFrame, &_profiler);
+            _deferredShading->drawUi();
+            _gbufferRenderer->record(
+                cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
+            _deferredShading->record(
+                cb, *_world, *_cam, nextFrame, _profiler.get());
         }
         else
         {
-            _renderer.drawUi();
-            _renderer.record(
-                cb, _world, _cam, renderArea, nextFrame, false, &_profiler);
+            _renderer->drawUi();
+            _renderer->record(
+                cb, *_world, *_cam, renderArea, nextFrame, false,
+                _profiler.get());
         }
 
         // Transparent
-        _renderer.record(
-            cb, _world, _cam, renderArea, nextFrame, true, &_profiler);
+        _renderer->record(
+            cb, *_world, *_cam, renderArea, nextFrame, true, _profiler.get());
 
-        _skyboxRenderer.record(cb, _world, renderArea, nextFrame, &_profiler);
+        _skyboxRenderer->record(
+            cb, *_world, renderArea, nextFrame, _profiler.get());
     }
 
-    _debugRenderer.record(cb, _cam, renderArea, nextFrame, &_profiler);
+    _debugRenderer->record(cb, *_cam, renderArea, nextFrame, _profiler.get());
 
-    _toneMap.drawUi();
-    _toneMap.record(cb, nextFrame, &_profiler);
+    _toneMap->drawUi();
+    _toneMap->record(cb, nextFrame, _profiler.get());
 
     { // TODO: Split into function
         // Blit tonemapped into cleared final composite before drawing ui on top
         {
             const StaticArray barriers{{
-                _resources.images.toneMapped.transitionBarrier(ImageState{
+                _resources->images.toneMapped.transitionBarrier(ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                     .accessMask = vk::AccessFlagBits2::eTransferRead,
                     .layout = vk::ImageLayout::eTransferSrcOptimal,
                 }),
-                _resources.images.finalComposite.transitionBarrier(ImageState{
+                _resources->images.finalComposite.transitionBarrier(ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                     .accessMask = vk::AccessFlagBits2::eTransferWrite,
                     .layout = vk::ImageLayout::eTransferDstOptimal,
@@ -688,7 +702,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             .layerCount = 1,
         };
         cb.clearColorImage(
-            _resources.images.finalComposite.handle,
+            _resources->images.finalComposite.handle,
             vk::ImageLayout::eTransferDstOptimal, &clearColor, 1,
             &subresourceRange);
 
@@ -712,9 +726,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             },
         };
 
-        const ImVec2 dstOffset = _imguiRenderer.centerAreaOffset();
-        const ImVec2 dstSize = _imguiRenderer.centerAreaSize();
-        const vk::Extent2D backbufferExtent = _swapchain.config().extent;
+        const ImVec2 dstOffset = _imguiRenderer->centerAreaOffset();
+        const ImVec2 dstSize = _imguiRenderer->centerAreaSize();
+        const vk::Extent2D backbufferExtent = _swapchain->config().extent;
         const std::array dstOffsets{
             vk::Offset3D{
                 std::min(
@@ -742,26 +756,26 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             .dstOffsets = dstOffsets,
         };
         cb.blitImage(
-            _resources.images.toneMapped.handle,
+            _resources->images.toneMapped.handle,
             vk::ImageLayout::eTransferSrcOptimal,
-            _resources.images.finalComposite.handle,
+            _resources->images.finalComposite.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
             vk::Filter::eLinear);
     }
 
     const vk::Rect2D backbufferArea{
         .offset = {0, 0},
-        .extent = _swapchain.config().extent,
+        .extent = _swapchain->config().extent,
     };
-    _imguiRenderer.endFrame(cb, backbufferArea, &_profiler);
+    _imguiRenderer->endFrame(cb, backbufferArea, _profiler.get());
 
     {
         // Blit to support different internal rendering resolution (and color
         // format?) the future
-        const auto &swapImage = _swapchain.image(nextImage);
+        const auto &swapImage = _swapchain->image(nextImage);
 
         const StaticArray barriers{{
-            _resources.images.finalComposite.transitionBarrier(ImageState{
+            _resources->images.finalComposite.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                 .accessMask = vk::AccessFlagBits2::eTransferRead,
                 .layout = vk::ImageLayout::eTransferSrcOptimal,
@@ -793,16 +807,16 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .layerCount = 1};
 
             assert(
-                _resources.images.finalComposite.extent.width ==
+                _resources->images.finalComposite.extent.width ==
                 swapImage.extent.width);
             assert(
-                _resources.images.finalComposite.extent.height ==
+                _resources->images.finalComposite.extent.height ==
                 swapImage.extent.height);
             const std::array offsets{
                 vk::Offset3D{0, 0, 0},
                 vk::Offset3D{
-                    asserted_cast<int32_t>(_swapchain.config().extent.width),
-                    asserted_cast<int32_t>(_swapchain.config().extent.height),
+                    asserted_cast<int32_t>(_swapchain->config().extent.width),
+                    asserted_cast<int32_t>(_swapchain->config().extent.height),
                     1,
                 },
             };
@@ -813,7 +827,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .dstOffsets = offsets,
             };
             cb.blitImage(
-                _resources.images.finalComposite.handle,
+                _resources->images.finalComposite.handle,
                 vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
                 vk::ImageLayout::eTransferDstOptimal, 1, &blit,
                 vk::Filter::eLinear);
@@ -839,7 +853,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             });
         }
 
-        _profiler.endGpuFrame(cb);
+        _profiler->endGpuFrame(cb);
 
         cb.end();
     }
@@ -861,18 +875,18 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     };
 
     checkSuccess(
-        _device.graphicsQueue().submit(
-            1, &submitInfo, _swapchain.currentFence()),
+        _device->graphicsQueue().submit(
+            1, &submitInfo, _swapchain->currentFence()),
         "submit");
 
-    const ImVec2 viewportSize = _imguiRenderer.centerAreaSize();
+    const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
     const bool viewportResized =
         asserted_cast<uint32_t>(viewportSize.x) != _viewportExtent.width ||
         asserted_cast<uint32_t>(viewportSize.y) != _viewportExtent.height;
     // TODO: End gesture when mouse is released on top of imgui
 
     // Recreate swapchain if so indicated and explicitly handle resizes
-    if (!_swapchain.present(signalSemaphores) || _window.resized())
+    if (!_swapchain->present(signalSemaphores) || _window->resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
     else if (viewportResized)
     { // Don't recreate viewport related on the same frame as swapchain is

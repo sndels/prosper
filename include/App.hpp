@@ -49,33 +49,34 @@ class App
 
     wheels::CstdlibAllocator _generalAlloc;
 
-    Window _window; // Needs to be valid before and after everything else
-    Device _device; // Needs to be valid before and after all other vk resources
+    std::unique_ptr<Window>
+        _window; // Needs to be valid before and after everything else
+    std::unique_ptr<Device>
+        _device; // Needs to be valid before and after all other vk resources
 
-    Swapchain _swapchain;
+    std::unique_ptr<Swapchain> _swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
         _commandBuffers;
 
     vk::Extent2D _viewportExtent{};
 
     // Stored here, managed by (earliest) passes that write to them
-    RenderResources _resources;
+    std::unique_ptr<RenderResources> _resources;
 
-    Camera _cam;
-    World _world;
+    std::unique_ptr<Camera> _cam;
+    std::unique_ptr<World> _world;
 
-    Timer _gpuPassesInitTimer;
-    LightClustering _lightClustering;
-    Renderer _renderer;
-    GBufferRenderer _gbufferRenderer;
-    DeferredShading _deferredShading;
-    RTRenderer _rtRenderer;
-    SkyboxRenderer _skyboxRenderer;
-    DebugRenderer _debugRenderer;
-    ToneMap _toneMap;
-    ImGuiRenderer _imguiRenderer;
+    std::unique_ptr<LightClustering> _lightClustering;
+    std::unique_ptr<Renderer> _renderer;
+    std::unique_ptr<GBufferRenderer> _gbufferRenderer;
+    std::unique_ptr<DeferredShading> _deferredShading;
+    std::unique_ptr<RTRenderer> _rtRenderer;
+    std::unique_ptr<SkyboxRenderer> _skyboxRenderer;
+    std::unique_ptr<DebugRenderer> _debugRenderer;
+    std::unique_ptr<ToneMap> _toneMap;
+    std::unique_ptr<ImGuiRenderer> _imguiRenderer;
 
-    Profiler _profiler;
+    std::unique_ptr<Profiler> _profiler;
 
     bool _useFpsLimit{true};
     int32_t _fpsLimit{140};
