@@ -48,7 +48,7 @@ class RTRenderer
 
   private:
     void destroyShaders();
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyPipeline();
 
     [[nodiscard]] bool compileShaders(

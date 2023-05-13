@@ -56,7 +56,7 @@ Renderer::~Renderer()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -79,7 +79,7 @@ void Renderer::recreate(
     const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
 
     createOutputs(renderExtent);
     createAttachments();
@@ -293,7 +293,7 @@ bool Renderer::compileShaders(
     return false;
 }
 
-void Renderer::destroySwapchainRelated()
+void Renderer::destroyViewportRelated()
 {
     if (_device != nullptr)
     {

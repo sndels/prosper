@@ -35,7 +35,7 @@ class ToneMap
   private:
     bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyPipelines();
 
     void createOutputImage(const vk::Extent2D &renderExtent);

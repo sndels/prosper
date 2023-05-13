@@ -55,7 +55,7 @@ GBufferRenderer::~GBufferRenderer()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -78,7 +78,7 @@ void GBufferRenderer::recreate(
     const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
 
     createOutputs(renderExtent);
     createAttachments();
@@ -260,7 +260,7 @@ bool GBufferRenderer::compileShaders(
     return false;
 }
 
-void GBufferRenderer::destroySwapchainRelated()
+void GBufferRenderer::destroyViewportRelated()
 {
     if (_device != nullptr)
     {

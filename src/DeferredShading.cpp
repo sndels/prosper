@@ -72,7 +72,7 @@ DeferredShading::~DeferredShading()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         _device->logical().destroy(_descriptorSetLayout);
 
@@ -134,7 +134,7 @@ bool DeferredShading::compileShaders(
 void DeferredShading::recreate(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
     updateDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
@@ -231,7 +231,7 @@ void DeferredShading::record(
     }
 }
 
-void DeferredShading::destroySwapchainRelated()
+void DeferredShading::destroyViewportRelated()
 {
     if (_device != nullptr)
     {

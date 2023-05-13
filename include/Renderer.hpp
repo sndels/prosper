@@ -54,7 +54,7 @@ class Renderer
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyGraphicsPipelines();
 
     void createOutputs(const vk::Extent2D &renderExtent);

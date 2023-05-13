@@ -29,7 +29,7 @@ SkyboxRenderer::~SkyboxRenderer()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -50,7 +50,7 @@ void SkyboxRenderer::recompileShaders(
 void SkyboxRenderer::recreate(
     const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
 
     createAttachments();
     createGraphicsPipelines(renderExtent, worldDSLayouts);
@@ -150,7 +150,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void SkyboxRenderer::destroySwapchainRelated()
+void SkyboxRenderer::destroyViewportRelated()
 {
     if (_device != nullptr)
     {

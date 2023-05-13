@@ -52,7 +52,7 @@ class DeferredShading
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyPipelines();
 
     void createDescriptorSets();

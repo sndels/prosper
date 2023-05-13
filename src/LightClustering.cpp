@@ -62,7 +62,7 @@ LightClustering::~LightClustering()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         _device->destroy(_resources->buffers.lightClusters.indicesCount);
         _device->logical().destroy(
@@ -87,7 +87,7 @@ void LightClustering::recreate(
     const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
 
     createOutputs(renderExtent);
     updateDescriptorSets();
@@ -204,7 +204,7 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void LightClustering::destroySwapchainRelated()
+void LightClustering::destroyViewportRelated()
 {
     if (_device != nullptr)
     {

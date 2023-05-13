@@ -48,8 +48,9 @@ class LightClustering
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyPipeline();
+
     void createOutputs(const vk::Extent2D &renderExtent);
     void createDescriptorSets();
     void updateDescriptorSets();

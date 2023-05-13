@@ -40,7 +40,7 @@ class SkyboxRenderer
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyGraphicsPipelines();
 
     void createAttachments();

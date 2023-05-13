@@ -46,7 +46,7 @@ class DebugRenderer
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroySwapchainRelated();
+    void destroyViewportRelated();
     void destroyGraphicsPipeline();
 
     void createBuffers();

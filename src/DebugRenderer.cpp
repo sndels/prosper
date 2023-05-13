@@ -48,7 +48,7 @@ DebugRenderer::~DebugRenderer()
         for (auto &ls : _resources->buffers.debugLines)
             _device->destroy(ls.buffer);
 
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -69,7 +69,7 @@ void DebugRenderer::recompileShaders(
 void DebugRenderer::recreate(
     const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
 
     createAttachments();
     createGraphicsPipeline(renderExtent, camDSLayout);
@@ -182,7 +182,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void DebugRenderer::destroySwapchainRelated() { destroyGraphicsPipeline(); }
+void DebugRenderer::destroyViewportRelated() { destroyGraphicsPipeline(); }
 
 void DebugRenderer::destroyGraphicsPipeline()
 {

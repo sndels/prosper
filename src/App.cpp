@@ -156,23 +156,10 @@ void App::run()
     _device.logical().waitIdle();
 }
 
-void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
+void App::recreateViewportRelated(wheels::ScopedScratch scopeAlloc)
 {
-    while (_window.width() == 0 && _window.height() == 0)
-    {
-        // Window is minimized so wait until its not
-        glfwWaitEvents();
-    }
     // Wait for resources to be out of use
     _device.logical().waitIdle();
-
-    { // Drop the config as we should always use swapchain's active config
-        SwapchainConfig config{
-            scopeAlloc.child_scope(),
-            &_device,
-            {_window.width(), _window.height()}};
-        _swapchain.recreate(config);
-    }
 
     const ImVec2 viewportSize = _imguiRenderer.centerAreaSize();
     _viewportExtent = vk::Extent2D{
@@ -195,7 +182,6 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
     _skyboxRenderer.recreate(_viewportExtent, _world._dsLayouts);
     _debugRenderer.recreate(_viewportExtent, _cam.descriptorSetLayout());
     _toneMap.recreate(_viewportExtent);
-    _imguiRenderer.recreate(_swapchain.config().extent);
 
     _cam.perspective(
         PerspectiveParameters{
@@ -204,6 +190,27 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
             .zF = CAMERA_FAR,
         },
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
+}
+
+void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
+{
+    while (_window.width() == 0 && _window.height() == 0)
+    {
+        // Window is minimized so wait until its not
+        glfwWaitEvents();
+    }
+    // Wait for resources to be out of use
+    _device.logical().waitIdle();
+
+    { // Drop the config as we should always use swapchain's active config
+        SwapchainConfig config{
+            scopeAlloc.child_scope(),
+            &_device,
+            {_window.width(), _window.height()}};
+        _swapchain.recreate(config);
+    }
+
+    _imguiRenderer.recreate(_swapchain.config().extent);
 }
 
 void App::recompileShaders(ScopedScratch scopeAlloc)
@@ -865,11 +872,14 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     const bool viewportResized =
         asserted_cast<uint32_t>(viewportSize.x) != _viewportExtent.width ||
         asserted_cast<uint32_t>(viewportSize.y) != _viewportExtent.height;
-    // TODO: Queue viewport resize until imgui resizing drag is not active?
     // TODO: End gesture when mouse is released on top of imgui
 
     // Recreate swapchain if so indicated and explicitly handle resizes
-    if (!_swapchain.present(signalSemaphores) || _window.resized() ||
-        viewportResized)
+    if (!_swapchain.present(signalSemaphores) || _window.resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
+    else if (viewportResized)
+    { // Don't recreate viewport related on the same frame as swapchain is
+      // resized since we don't know the new viewport area until the next frame
+        recreateViewportRelated(scopeAlloc.child_scope());
+    }
 }

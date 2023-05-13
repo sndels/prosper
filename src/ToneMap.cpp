@@ -43,7 +43,7 @@ ToneMap::~ToneMap()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
 
         _device->logical().destroy(_descriptorSetLayout);
 
@@ -84,7 +84,7 @@ bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
 
 void ToneMap::recreate(const vk::Extent2D &renderExtent)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
     createOutputImage(renderExtent);
     updateDescriptorSets();
     createPipelines();
@@ -147,7 +147,7 @@ void ToneMap::record(
     }
 }
 
-void ToneMap::destroySwapchainRelated()
+void ToneMap::destroyViewportRelated()
 {
     if (_device != nullptr)
     {

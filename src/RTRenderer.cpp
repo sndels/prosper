@@ -98,7 +98,7 @@ RTRenderer::~RTRenderer()
 {
     if (_device != nullptr)
     {
-        destroySwapchainRelated();
+        destroyViewportRelated();
         _device->logical().destroy(_descriptorSetLayout);
         destroyShaders();
     }
@@ -120,7 +120,7 @@ void RTRenderer::recreate(
     ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    destroySwapchainRelated();
+    destroyViewportRelated();
 
     updateDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
@@ -254,7 +254,7 @@ void RTRenderer::destroyShaders()
         _device->logical().destroyShaderModule(stage.module);
 }
 
-void RTRenderer::destroySwapchainRelated()
+void RTRenderer::destroyViewportRelated()
 {
     if (_device != nullptr)
     {
