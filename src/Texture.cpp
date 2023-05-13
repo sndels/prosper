@@ -286,7 +286,7 @@ void Texture2D::createMipmaps(
             vk::PipelineStageFlagBits::eTransfer,
             vk::PipelineStageFlagBits::eTransfer);
 
-        vk::ImageBlit blit{
+        const vk::ImageBlit blit{
             .srcSubresource =
                 vk::ImageSubresourceLayers{
                     .aspectMask = vk::ImageAspectFlagBits::eColor,

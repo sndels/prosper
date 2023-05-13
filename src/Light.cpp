@@ -42,8 +42,8 @@ void PointLights::updateBuffer(const uint32_t nextImage) const
         sizeof(PointLight) * this->data.size());
     const uint32_t size = asserted_cast<uint32_t>(this->data.size());
     memcpy(
-        (uint8_t *)this->storageBuffers[nextImage].mapped + sBufferByteSize -
-            sizeof(uint32_t),
+        reinterpret_cast<uint8_t *>(this->storageBuffers[nextImage].mapped) +
+            sBufferByteSize - sizeof(uint32_t),
         &size, sizeof(size));
 }
 
@@ -67,7 +67,7 @@ void SpotLights::updateBuffer(const uint32_t nextImage) const
         sizeof(SpotLight) * this->data.size());
     const uint32_t size = asserted_cast<uint32_t>(this->data.size());
     memcpy(
-        (uint8_t *)this->storageBuffers[nextImage].mapped + sBufferByteSize -
-            sizeof(uint32_t),
+        reinterpret_cast<uint8_t *>(this->storageBuffers[nextImage].mapped) +
+            sBufferByteSize - sizeof(uint32_t),
         &size, sizeof(size));
 }

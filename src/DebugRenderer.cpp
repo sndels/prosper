@@ -219,7 +219,7 @@ void DebugRenderer::createDescriptorSets()
             .pBindings = &layoutBinding,
         });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _linesDSLayout};
     _linesDescriptorSets.resize(
         _linesDescriptorSets.capacity(), VK_NULL_HANDLE);
@@ -227,7 +227,7 @@ void DebugRenderer::createDescriptorSets()
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {
-        vk::DescriptorBufferInfo info{
+        const vk::DescriptorBufferInfo info{
             .buffer = _resources->buffers.debugLines[i].buffer.handle,
             .range = VK_WHOLE_SIZE,
         };

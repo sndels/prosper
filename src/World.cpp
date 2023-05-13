@@ -298,7 +298,7 @@ void World::loadTextures(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
 {
     {
-        vk::SamplerCreateInfo info{
+        const vk::SamplerCreateInfo info{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eLinear, // TODO
@@ -592,7 +592,7 @@ void World::loadScenes(
         Scene::Node &node = _nodes.back();
 
         node.children.reserve(gltfNode.children.size());
-        for (int child : gltfNode.children)
+        for (const int child : gltfNode.children)
             node.children.push_back(&_nodes[child]);
 
         if (gltfNode.mesh > -1)
@@ -649,7 +649,7 @@ void World::loadScenes(
         Scene &scene = _scenes.back();
 
         scene.nodes.reserve(gltfScene.nodes.size());
-        for (int node : gltfScene.nodes)
+        for (const int node : gltfScene.nodes)
             scene.nodes.push_back(&_nodes[node]);
     }
     _currentScene = max(gltfModel.defaultScene, 0);
@@ -843,9 +843,8 @@ void World::loadScenes(
         // }
 
         // Honor scene lighting
-        if (!directionalLightFound &&
-            (scene.lights.pointLights.data.size() > 0 ||
-             scene.lights.spotLights.data.size() > 0))
+        if (!directionalLightFound && (!scene.lights.pointLights.data.empty() ||
+                                       !scene.lights.spotLights.data.empty()))
         {
             scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
         }
@@ -1493,7 +1492,6 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         asDSChains{scopeAlloc};
     // TODO: Reserve required memory upfront
     {
-        size_t sceneI = 0;
         for (auto &scene : _scenes)
         {
             {
@@ -1639,7 +1637,6 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                     .pBufferInfo = &rtInstancesInfos.back(),
                 });
             }
-            sceneI++;
         }
     }
 

@@ -322,7 +322,7 @@ Device::Device(
     _compilerOptions.SetGenerateDebugInfo();
     _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
 
-    vk::DynamicLoader dl;
+    const vk::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
@@ -424,15 +424,15 @@ wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
     // Prepend version, defines and reset line offset before the actual source
     const String source = readFileString(scopeAlloc, shaderPath);
 
-    const char versionLine[] = "#version 460\n";
-    const char line1Tag[] = "#line 1\n";
+    const StaticArray versionLine = "#version 460\n";
+    const StaticArray line1Tag = "#line 1\n";
 
-    const size_t fullSize = sizeof(versionLine) - 1 + sizeof(line1Tag) - 1 +
+    const size_t fullSize = versionLine.size() - 1 + line1Tag.size() - 1 +
                             info.defines.size() + source.size();
     String fullSource{scopeAlloc, fullSize};
-    fullSource.extend(versionLine);
+    fullSource.extend(versionLine.data());
     fullSource.extend(info.defines);
-    fullSource.extend(line1Tag);
+    fullSource.extend(line1Tag.data());
     fullSource.extend(source);
 
     const auto result = _compiler.CompileGlslToSpv(
@@ -518,11 +518,11 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
 
     if (info.initialData != nullptr)
     {
-        const char postfix[] = "StagingBuffer";
+        const StaticArray postfix = "StagingBuffer";
         String stagingDebugName{
-            _generalAlloc, strlen(info.debugName) + sizeof(postfix) - 1};
+            _generalAlloc, strlen(info.debugName) + postfix.size() - 1};
         stagingDebugName.extend(info.debugName);
-        stagingDebugName.extend(postfix);
+        stagingDebugName.extend(postfix.data());
 
         const auto stagingBuffer = createBuffer(BufferCreateInfo{
             .byteSize = info.byteSize,
@@ -780,7 +780,7 @@ bool Device::isDeviceSuitable(
     if (!checkDeviceExtensionSupport(scopeAlloc.child_scope(), device))
         return false;
 
-    SwapchainSupport swapSupport{scopeAlloc, device, _surface};
+    const SwapchainSupport swapSupport{scopeAlloc, device, _surface};
     if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
     {
         fprintf(stderr, "Inadequate swap chain\n");

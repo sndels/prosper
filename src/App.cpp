@@ -156,7 +156,7 @@ void App::run()
     _device.logical().waitIdle();
 }
 
-void App::recreateViewportRelated(wheels::ScopedScratch scopeAlloc)
+void App::recreateViewportRelated()
 {
     // Wait for resources to be out of use
     _device.logical().waitIdle();
@@ -201,7 +201,7 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
     _device.logical().waitIdle();
 
     { // Drop the config as we should always use swapchain's active config
-        SwapchainConfig config{
+        const SwapchainConfig config{
             scopeAlloc.child_scope(),
             &_device,
             {_window.width(), _window.height()}};
@@ -218,7 +218,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     if (!_recompileShaders)
         return;
 
-    Timer checkTime;
+    const Timer checkTime;
     bool shadersChanged = false;
     auto shadersIterator =
         std::filesystem::recursive_directory_iterator(resPath("shader"));
@@ -243,7 +243,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
     printf("Recompiling shaders\n");
 
-    Timer t;
+    const Timer t;
 
     _lightClustering.recompileShaders(
         scopeAlloc.child_scope(), _cam.descriptorSetLayout(),
@@ -375,7 +375,7 @@ void App::handleMouseGestures()
 void App::drawFrame(ScopedScratch scopeAlloc)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
-    const size_t nextFrame = _swapchain.nextFrame();
+    const uint32_t nextFrame = asserted_cast<uint32_t>(_swapchain.nextFrame());
     // Corresponds to the swapchain image
     const auto nextImage = [&]
     {
@@ -454,17 +454,16 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         {
-            // Having names longer than 255 characters is an error
-            uint8_t longestNameLength = 0;
+            size_t longestNameLength = 0;
             for (const auto &t : profilerDatas)
                 if (t.name.size() > longestNameLength)
-                    longestNameLength = asserted_cast<uint8_t>(t.name.size());
+                    longestNameLength = asserted_cast<size_t>(t.name.size());
 
             // Double the maximum name length for headroom
             String tmp{scopeAlloc};
             tmp.resize(longestNameLength * 2);
             const auto leftJustified =
-                [&tmp, longestNameLength](StrSpan str, uint8_t extraWidth = 0)
+                [&tmp, longestNameLength](StrSpan str, size_t extraWidth = 0)
             {
                 // No realloc, please
                 assert(longestNameLength + extraWidth <= tmp.size());
@@ -736,7 +735,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 1,
             },
         };
-        vk::ImageBlit blit = {
+        const vk::ImageBlit blit = {
             .srcSubresource = layers,
             .srcOffsets = srcOffsets,
             .dstSubresource = layers,
@@ -878,6 +877,6 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     else if (viewportResized)
     { // Don't recreate viewport related on the same frame as swapchain is
       // resized since we don't know the new viewport area until the next frame
-        recreateViewportRelated(scopeAlloc.child_scope());
+        recreateViewportRelated();
     }
 }

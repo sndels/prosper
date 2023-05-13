@@ -97,7 +97,7 @@ class Device
         // work if 'new' is involved.
         // Don't know if this is a neat way to do named args or a footgun.
         const std::filesystem::path &relPath;
-        const char *debugName;
+        const char *debugName{nullptr};
         wheels::StrSpan defines{""};
     };
     [[nodiscard]] wheels::Optional<vk::ShaderModule> compileShaderModule(
@@ -117,7 +117,7 @@ class Device
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
     void endGraphicsCommands(vk::CommandBuffer buffer) const;
 
-    const MemoryAllocationBytes &memoryAllocations() const;
+    [[nodiscard]] const MemoryAllocationBytes &memoryAllocations() const;
 
   private:
     [[nodiscard]] bool isDeviceSuitable(

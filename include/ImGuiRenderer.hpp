@@ -28,8 +28,8 @@ class ImGuiRenderer
     void endFrame(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler);
 
-    ImVec2 centerAreaOffset() const;
-    ImVec2 centerAreaSize() const;
+    [[nodiscard]] ImVec2 centerAreaOffset() const;
+    [[nodiscard]] ImVec2 centerAreaSize() const;
 
     void recreate(const vk::Extent2D &renderExtent);
 

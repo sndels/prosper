@@ -8,9 +8,9 @@
 struct DebugLines
 {
     // Writing more than 100k lines per frame sounds slow
-    static const uint32_t sMaxLineCount = 100'000;
+    static const vk::DeviceSize sMaxLineCount = 100'000;
     // A line is two positions and a color
-    static const uint32_t sLineBytes = sizeof(float) * 9;
+    static const vk::DeviceSize sLineBytes = sizeof(float) * 9;
     Buffer buffer;
     uint32_t count{0};
 

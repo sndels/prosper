@@ -281,7 +281,7 @@ void LightClustering::createDescriptorSets()
                 .pBindings = layoutBindings.data(),
             });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _resources->buffers.lightClusters.descriptorSetLayout};
     _resources->staticDescriptorsAlloc.allocate(
         layouts, Span{
@@ -291,7 +291,7 @@ void LightClustering::createDescriptorSets()
 
 void LightClustering::updateDescriptorSets()
 {
-    vk::DescriptorImageInfo pointersInfo{
+    const vk::DescriptorImageInfo pointersInfo{
         .imageView = _resources->buffers.lightClusters.pointers.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };

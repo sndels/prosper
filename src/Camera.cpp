@@ -217,14 +217,14 @@ void Camera::createDescriptorSets()
 
 void Camera::updateWorldToCamera()
 {
-    auto parameters =
+    const auto parameters =
         offset.has_value() ? _parameters.apply(*offset) : _parameters;
     auto const &[eye, target, up, _fov, _zN, _zF] = parameters;
 
-    vec3 fwd = normalize(target - eye);
-    vec3 z = -fwd;
-    vec3 right = normalize(cross(up, z));
-    vec3 newUp = normalize(cross(z, right));
+    const vec3 fwd = normalize(target - eye);
+    const vec3 z = -fwd;
+    const vec3 right = normalize(cross(up, z));
+    const vec3 newUp = normalize(cross(z, right));
 
     // Right handed camera
     _worldToCamera =

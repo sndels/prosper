@@ -160,11 +160,11 @@ void ImGuiRenderer::createRenderPass()
         .initialLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .finalLayout = vk::ImageLayout::eColorAttachmentOptimal,
     };
-    vk::AttachmentReference color_attachment = {
+    const vk::AttachmentReference color_attachment = {
         .attachment = 0,
         .layout = vk::ImageLayout::eColorAttachmentOptimal,
     };
-    vk::SubpassDescription subpass = {
+    const vk::SubpassDescription subpass = {
         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,

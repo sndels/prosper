@@ -287,7 +287,7 @@ void DeferredShading::createDescriptorSets()
             .pBindings = layoutBindings.data(),
         });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
     _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 }

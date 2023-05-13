@@ -41,7 +41,7 @@ class App
   private:
     void recompileShaders(wheels::ScopedScratch scopeALloc);
     void recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc);
-    void recreateViewportRelated(wheels::ScopedScratch scopeAlloc);
+    void recreateViewportRelated();
     void createCommandBuffers();
 
     void handleMouseGestures();

@@ -23,6 +23,11 @@ struct PipelineStatistics
 class GpuFrameProfiler
 {
   public:
+    struct QueryPools
+    {
+        vk::QueryPool timestamps;
+        vk::QueryPool statistics;
+    };
     class Scope
     {
       public:
@@ -35,14 +40,12 @@ class GpuFrameProfiler
 
       protected:
         Scope(
-            vk::CommandBuffer cb, vk::QueryPool timestampPool,
-            vk::QueryPool statisticsPool, const char *name,
+            vk::CommandBuffer cb, QueryPools pools, const char *name,
             uint32_t queryIndex);
 
       private:
         vk::CommandBuffer _cb;
-        vk::QueryPool _timestampPool;
-        vk::QueryPool _statisticsPool;
+        QueryPools _pools;
         uint32_t _queryIndex{0};
 
         friend class GpuFrameProfiler;
@@ -78,8 +81,7 @@ class GpuFrameProfiler
     Device *_device;
     Buffer _timestampBuffer;
     Buffer _statisticsBuffer;
-    vk::QueryPool _timestampPool;
-    vk::QueryPool _statisticsPool;
+    QueryPools _pools;
     wheels::Array<uint32_t> _queryScopeIndices;
 
     friend class Profiler;

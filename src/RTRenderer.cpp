@@ -201,7 +201,7 @@ void RTRenderer::record(
             .drawType = static_cast<uint32_t>(_drawType),
             .flags = pcFlags(PCBlock::Flags{
                 .colorDirty =
-                    cam.changedThisFrame() || colorDirty | _accumulationDirty,
+                    cam.changedThisFrame() || colorDirty || _accumulationDirty,
                 .accumulate = _accumulate,
                 .ibl = _ibl,
             }),
@@ -400,7 +400,7 @@ void RTRenderer::createDescriptorSets()
             .pBindings = &layoutBinding,
         });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
     _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 }

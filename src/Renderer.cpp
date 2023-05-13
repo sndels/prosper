@@ -13,6 +13,8 @@ using namespace wheels;
 namespace
 {
 
+const vk::Format sDepthFormat = vk::Format::eD32Sfloat;
+
 constexpr uint32_t sLightsBindingSet = 0;
 constexpr uint32_t sLightClustersBindingSet = 1;
 constexpr uint32_t sCameraBindingSet = 2;
@@ -331,12 +333,12 @@ void Renderer::createOutputs(const vk::Extent2D &renderExtent)
         const auto features =
             vk::FormatFeatureFlagBits::eDepthStencilAttachment;
         const auto properties =
-            _device->physical().getFormatProperties(DEPTH_FORMAT);
+            _device->physical().getFormatProperties(sDepthFormat);
         if ((properties.optimalTilingFeatures & features) != features)
             throw std::runtime_error("Depth format unsupported");
 
         _resources->images.sceneDepth = _device->createImage(ImageCreateInfo{
-            .format = DEPTH_FORMAT,
+            .format = sDepthFormat,
             .width = renderExtent.width,
             .height = renderExtent.height,
             .usageFlags =
