@@ -71,6 +71,16 @@ ImGuiRenderer::ImGuiRenderer(
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    {
+        ImGuiStyle &style = ImGui::GetStyle();
+
+        // TODO: Dark grayish theme?
+
+        // Let's be pointy
+        style.TabRounding = 0.f;
+        style.ScrollbarRounding = 0.f;
+    }
 }
 
 ImGuiRenderer::~ImGuiRenderer()
