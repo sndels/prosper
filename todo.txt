@@ -1,12 +1,9 @@
-- Define default docking layout
-  - Could future ui be included in it easily?
-- Have all rendering descriptor sets match max frames in flight
-  - Shouldn't need reallocate when swapchain/viewport is resized, only update
-    with new resource handles
-  - If changed, recreate for swapchain and viewport related resources can be separated
-- Don't resize viewport until the ui resize drag that causes it ends
-  - Should be more responsive when time isn't spent waiting on gpu idle and
-    reallocating resources after every update
+- Make ui less ad hoc
+  - Separate settings windows per renderer type make e.g. docking behavior flaky
+    - SetNextWindowPos -> ImGuiCond_FirstUseEver  
+  - Easier to maintain if the windows are shared between similar components
+  - Just need to render centrally and pass settings blocks, or have window
+    setup/end code centrally and call per-renderer ui draw code there
 - Resource aliasing
   - No actual aliasing first, just reuse matching textures/buffesr
   - Reference tracking or manual mark 'unused' after last use
