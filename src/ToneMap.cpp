@@ -92,13 +92,7 @@ void ToneMap::recreate(const vk::Extent2D &renderExtent)
 
 void ToneMap::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_Appearing);
-    ImGui::Begin(
-        "Tone map settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
     ImGui::DragFloat("Exposure", &_exposure, 0.5f, 0.001f, 10000.f);
-
-    ImGui::End();
 }
 
 void ToneMap::record(

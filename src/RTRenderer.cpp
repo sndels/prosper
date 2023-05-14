@@ -129,9 +129,6 @@ void RTRenderer::recreate()
 
 void RTRenderer::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 300.f}, ImGuiCond_Appearing);
-    ImGui::Begin("RT settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
     if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
@@ -153,8 +150,6 @@ void RTRenderer::drawUi()
         ImGui::Checkbox("Accumulate", &_accumulate);
         _accumulationDirty |= ImGui::Checkbox("Ibl", &_ibl);
     }
-
-    ImGui::End();
 }
 
 void RTRenderer::record(

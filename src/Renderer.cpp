@@ -90,10 +90,6 @@ void Renderer::recreate(
 
 void Renderer::drawUi()
 {
-    ImGui::SetNextWindowPos(ImVec2{60.f, 300.f}, ImGuiCond_Appearing);
-    ImGui::Begin(
-        "Renderer settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
     if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
@@ -105,8 +101,6 @@ void Renderer::drawUi()
         }
         ImGui::EndCombo();
     }
-
-    ImGui::End();
 }
 
 void Renderer::record(

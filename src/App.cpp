@@ -432,147 +432,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _imguiRenderer->startFrame();
 
-    bool rtPickedThisFrame = false;
-    {
-        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_Appearing);
-        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        ImGui::Text(
-            "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-            ImGui::GetIO().Framerate);
-
-        ImGui::Checkbox("Limit FPS", &_useFpsLimit);
-        if (_useFpsLimit)
-        {
-            ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
-        }
-
-        ImGui::Checkbox("Recompile shaders", &_recompileShaders);
-
-        rtPickedThisFrame =
-            ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
-
-        if (!_renderRT)
-            ImGui::Checkbox("Use deferred shading", &_renderDeferred);
-
-        ImGui::End();
-    }
-
-    {
-        ImGui::SetNextWindowPos(
-            ImVec2{1920.f - 300.f, 60.f}, ImGuiCond_Appearing);
-        ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        {
-            size_t longestNameLength = 0;
-            for (const auto &t : profilerDatas)
-                if (t.name.size() > longestNameLength)
-                    longestNameLength = asserted_cast<size_t>(t.name.size());
-
-            // Double the maximum name length for headroom
-            String tmp{scopeAlloc};
-            tmp.resize(longestNameLength * 2);
-            const auto leftJustified =
-                [&tmp, longestNameLength](StrSpan str, size_t extraWidth = 0)
-            {
-                // No realloc, please
-                assert(longestNameLength + extraWidth <= tmp.size());
-
-                tmp.clear();
-                tmp.extend(str);
-                tmp.resize(
-                    std::max(
-                        str.size(),
-                        static_cast<size_t>(longestNameLength + extraWidth)),
-                    ' ');
-
-                return tmp.c_str();
-            };
-
-            // Force minimum window size with whitespace
-            if (ImGui::CollapsingHeader(
-                    leftJustified("GPU"), ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                for (const auto &t : profilerDatas)
-                    if (t.gpuMillis >= 0.f)
-                        ImGui::Text(
-                            "%s %.3fms", leftJustified(t.name), t.gpuMillis);
-                if (!profilerDatas.empty())
-                {
-                    static int scopeIndex = 0;
-                    const char *comboTitle =
-                        profilerDatas[scopeIndex].gpuMillis < 0.f
-                            ? "##EmptyGPUScopeTitle"
-                            : profilerDatas[scopeIndex].name.data();
-                    if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
-                    {
-                        for (int n = 0;
-                             n < asserted_cast<int>(profilerDatas.size()); n++)
-                        {
-                            // Only have scopes that have gpu data
-                            if (profilerDatas[n].gpuMillis >= 0.f)
-                            {
-                                const bool selected = scopeIndex == n;
-                                if (ImGui::Selectable(
-                                        profilerDatas[n].name.data(), selected))
-                                    scopeIndex = n;
-
-                                if (selected)
-                                    ImGui::SetItemDefaultFocus();
-                            }
-                        }
-                        ImGui::EndCombo();
-                    }
-                    if (profilerDatas[scopeIndex].gpuMillis >= 0.f)
-                    {
-                        const auto &stats = profilerDatas[scopeIndex].stats;
-                        const auto &swapExtent = _viewportExtent;
-                        const uint32_t pixelCount =
-                            swapExtent.width * swapExtent.height;
-
-                        // Stats from AMD's 'D3D12 Right On Queue' GDC2016
-                        const float rasterPrimPerPrim =
-                            stats.iaPrimitives == 0
-                                ? -1.f
-                                : static_cast<float>(stats.clipPrimitives) /
-                                      static_cast<float>(stats.iaPrimitives);
-
-                        const float fragsPerPrim =
-                            stats.clipPrimitives == 0
-                                ? -1.f
-                                : static_cast<float>(stats.fragInvocations) /
-                                      static_cast<float>(stats.clipPrimitives);
-
-                        const float overdraw =
-                            stats.fragInvocations == 0
-                                ? -1.f
-                                : static_cast<float>(stats.fragInvocations) /
-                                      static_cast<float>(pixelCount);
-
-                        ImGui::Indent();
-
-                        ImGui::Text(
-                            "Raster prim per prim: %.2f", rasterPrimPerPrim);
-                        ImGui::Text("Frags per prim: %.2f", fragsPerPrim);
-                        ImGui::Text("Overdraw: %.2f", overdraw);
-
-                        ImGui::Unindent();
-                    }
-                }
-            }
-
-            if (ImGui::CollapsingHeader(
-                    leftJustified("CPU"), ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                for (const auto &t : profilerDatas)
-                    if (t.cpuMillis >= 0.f)
-                        ImGui::Text(
-                            "%s %.3fms", leftJustified(t.name), t.cpuMillis);
-            }
-        }
-
-        ImGui::End();
-    }
+    const UiChanges uiChanges = drawUi(scopeAlloc.child_scope(), profilerDatas);
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -632,10 +492,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     if (_renderRT)
     {
-        _rtRenderer->drawUi();
         _rtRenderer->record(
-            cb, *_world, *_cam, renderArea, nextFrame, rtPickedThisFrame,
-            _profiler.get());
+            cb, *_world, *_cam, renderArea, nextFrame,
+            uiChanges.rtPickedThisFrame, _profiler.get());
     }
     else
     {
@@ -643,7 +502,6 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         // Opaque
         if (_renderDeferred)
         {
-            _deferredShading->drawUi();
             _gbufferRenderer->record(
                 cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
             _deferredShading->record(
@@ -651,7 +509,6 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         }
         else
         {
-            _renderer->drawUi();
             _renderer->record(
                 cb, *_world, *_cam, renderArea, nextFrame, false,
                 _profiler.get());
@@ -667,7 +524,6 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _debugRenderer->record(cb, *_cam, renderArea, nextFrame, _profiler.get());
 
-    _toneMap->drawUi();
     _toneMap->record(cb, nextFrame, _profiler.get());
 
     { // TODO: Split into function
@@ -893,4 +749,175 @@ void App::drawFrame(ScopedScratch scopeAlloc)
       // resized since we don't know the new viewport area until the next frame
         recreateViewportRelated();
     }
+}
+
+App::UiChanges App::drawUi(
+    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
+{
+    UiChanges ret;
+
+    {
+        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
+        ImGui::Begin("Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        ImGui::Text(
+            "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+            ImGui::GetIO().Framerate);
+
+        ImGui::Checkbox("Limit FPS", &_useFpsLimit);
+        if (_useFpsLimit)
+        {
+            ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
+        }
+
+        ImGui::Checkbox("Recompile shaders", &_recompileShaders);
+
+        ImGui::End();
+    }
+
+    {
+        ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_FirstUseEver);
+        ImGui::Begin(
+            "Renderer settings ", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        // TODO: Droplist for main renderer type
+        ret.rtPickedThisFrame =
+            ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
+        if (!_renderRT)
+            ImGui::Checkbox("Use deferred shading", &_renderDeferred);
+
+        if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
+            _toneMap->drawUi();
+
+        if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (_renderRT)
+                _rtRenderer->drawUi();
+            else if (_renderDeferred)
+                _deferredShading->drawUi();
+            else
+                _renderer->drawUi();
+        }
+
+        ImGui::End();
+    }
+
+    {
+        ImGui::SetNextWindowPos(
+            ImVec2{static_cast<float>(WIDTH) - 300.f, 60.f},
+            ImGuiCond_FirstUseEver);
+        ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        {
+            size_t longestNameLength = 0;
+            for (const auto &t : profilerDatas)
+                if (t.name.size() > longestNameLength)
+                    longestNameLength = asserted_cast<size_t>(t.name.size());
+
+            // Double the maximum name length for headroom
+            String tmp{scopeAlloc};
+            tmp.resize(longestNameLength * 2);
+            const auto leftJustified =
+                [&tmp, longestNameLength](StrSpan str, size_t extraWidth = 0)
+            {
+                // No realloc, please
+                assert(longestNameLength + extraWidth <= tmp.size());
+
+                tmp.clear();
+                tmp.extend(str);
+                tmp.resize(
+                    std::max(
+                        str.size(),
+                        static_cast<size_t>(longestNameLength + extraWidth)),
+                    ' ');
+
+                return tmp.c_str();
+            };
+
+            // Force minimum window size with whitespace
+            if (ImGui::CollapsingHeader(
+                    leftJustified("GPU"), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                for (const auto &t : profilerDatas)
+                    if (t.gpuMillis >= 0.f)
+                        ImGui::Text(
+                            "%s %.3fms", leftJustified(t.name), t.gpuMillis);
+                if (!profilerDatas.empty())
+                {
+                    static int scopeIndex = 0;
+                    const char *comboTitle =
+                        profilerDatas[scopeIndex].gpuMillis < 0.f
+                            ? "##EmptyGPUScopeTitle"
+                            : profilerDatas[scopeIndex].name.data();
+                    if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
+                    {
+                        for (int n = 0;
+                             n < asserted_cast<int>(profilerDatas.size()); n++)
+                        {
+                            // Only have scopes that have gpu data
+                            if (profilerDatas[n].gpuMillis >= 0.f)
+                            {
+                                const bool selected = scopeIndex == n;
+                                if (ImGui::Selectable(
+                                        profilerDatas[n].name.data(), selected))
+                                    scopeIndex = n;
+
+                                if (selected)
+                                    ImGui::SetItemDefaultFocus();
+                            }
+                        }
+                        ImGui::EndCombo();
+                    }
+                    if (profilerDatas[scopeIndex].gpuMillis >= 0.f)
+                    {
+                        const auto &stats = profilerDatas[scopeIndex].stats;
+                        const auto &swapExtent = _viewportExtent;
+                        const uint32_t pixelCount =
+                            swapExtent.width * swapExtent.height;
+
+                        // Stats from AMD's 'D3D12 Right On Queue' GDC2016
+                        const float rasterPrimPerPrim =
+                            stats.iaPrimitives == 0
+                                ? -1.f
+                                : static_cast<float>(stats.clipPrimitives) /
+                                      static_cast<float>(stats.iaPrimitives);
+
+                        const float fragsPerPrim =
+                            stats.clipPrimitives == 0
+                                ? -1.f
+                                : static_cast<float>(stats.fragInvocations) /
+                                      static_cast<float>(stats.clipPrimitives);
+
+                        const float overdraw =
+                            stats.fragInvocations == 0
+                                ? -1.f
+                                : static_cast<float>(stats.fragInvocations) /
+                                      static_cast<float>(pixelCount);
+
+                        ImGui::Indent();
+
+                        ImGui::Text(
+                            "Raster prim per prim: %.2f", rasterPrimPerPrim);
+                        ImGui::Text("Frags per prim: %.2f", fragsPerPrim);
+                        ImGui::Text("Overdraw: %.2f", overdraw);
+
+                        ImGui::Unindent();
+                    }
+                }
+            }
+
+            if (ImGui::CollapsingHeader(
+                    leftJustified("CPU"), ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                for (const auto &t : profilerDatas)
+                    if (t.cpuMillis >= 0.f)
+                        ImGui::Text(
+                            "%s %.3fms", leftJustified(t.name), t.cpuMillis);
+            }
+        }
+
+        ImGui::End();
+    }
+
+    return ret;
 }

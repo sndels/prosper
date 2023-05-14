@@ -47,6 +47,14 @@ class App
     void handleMouseGestures();
     void drawFrame(wheels::ScopedScratch scopeAlloc);
 
+    struct UiChanges
+    {
+        bool rtPickedThisFrame{false};
+    };
+    UiChanges drawUi(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::Array<Profiler::ScopeData> &profilerDatas);
+
     wheels::CstdlibAllocator _generalAlloc;
 
     std::unique_ptr<Window>
