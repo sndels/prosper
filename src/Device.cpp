@@ -467,6 +467,11 @@ wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
     return sm;
 }
 
+Buffer Device::create(const BufferCreateInfo &info)
+{
+    return createBuffer(info);
+}
+
 Buffer Device::createBuffer(const BufferCreateInfo &info)
 {
     const vk::BufferCreateInfo bufferInfo{
@@ -563,6 +568,11 @@ void Device::destroy(const Buffer &buffer)
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
 }
 
+TexelBuffer Device::create(const TexelBufferCreateInfo &info)
+{
+    return createTexelBuffer(info);
+}
+
 TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 {
     const auto formatProperties = _physical.getFormatProperties(info.format);
@@ -624,6 +634,8 @@ void Device::destroy(const TexelBuffer &buffer)
     vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     _logical.destroy(buffer.view);
 }
+
+Image Device::create(const ImageCreateInfo &info) { return createImage(info); }
 
 Image Device::createImage(const ImageCreateInfo &info)
 {

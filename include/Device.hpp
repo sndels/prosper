@@ -104,13 +104,16 @@ class Device
         wheels::ScopedScratch scopeAlloc,
         const CompileShaderModuleArgs &info) const;
 
+    [[nodiscard]] Buffer create(const BufferCreateInfo &info);
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);
     void destroy(const Buffer &buffer);
 
+    [[nodiscard]] TexelBuffer create(const TexelBufferCreateInfo &info);
     [[nodiscard]] TexelBuffer createTexelBuffer(
         const TexelBufferCreateInfo &info);
     void destroy(const TexelBuffer &buffer);
 
+    [[nodiscard]] Image create(const ImageCreateInfo &info);
     [[nodiscard]] Image createImage(const ImageCreateInfo &info);
     void destroy(const Image &image);
 
