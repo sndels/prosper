@@ -329,11 +329,15 @@ void Renderer::createOutputs(const vk::Extent2D &renderExtent)
 {
     {
         _resources->images.sceneColor = _device->createImage(ImageCreateInfo{
-            .format = vk::Format::eR16G16B16A16Sfloat,
-            .width = renderExtent.width,
-            .height = renderExtent.height,
-            .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
-                          vk::ImageUsageFlagBits::eStorage,          // ToneMap
+            .desc =
+                ImageDescription{
+                    .format = vk::Format::eR16G16B16A16Sfloat,
+                    .width = renderExtent.width,
+                    .height = renderExtent.height,
+                    .usageFlags =
+                        vk::ImageUsageFlagBits::eColorAttachment | // Render
+                        vk::ImageUsageFlagBits::eStorage,          // ToneMap
+                },
             .debugName = "sceneColor",
         });
     }
@@ -347,12 +351,16 @@ void Renderer::createOutputs(const vk::Extent2D &renderExtent)
             throw std::runtime_error("Depth format unsupported");
 
         _resources->images.sceneDepth = _device->createImage(ImageCreateInfo{
-            .format = sDepthFormat,
-            .width = renderExtent.width,
-            .height = renderExtent.height,
-            .usageFlags =
-                vk::ImageUsageFlagBits::eDepthStencilAttachment | // Geometry
-                vk::ImageUsageFlagBits::eSampled, // Deferred shading
+            .desc =
+                ImageDescription{
+                    .format = sDepthFormat,
+                    .width = renderExtent.width,
+                    .height = renderExtent.height,
+                    .usageFlags =
+                        vk::ImageUsageFlagBits::
+                            eDepthStencilAttachment |     // Geometry
+                        vk::ImageUsageFlagBits::eSampled, // Deferred shading
+                },
             .debugName = "sceneDepth",
         });
 

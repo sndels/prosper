@@ -474,14 +474,16 @@ Buffer Device::create(const BufferCreateInfo &info)
 
 Buffer Device::createBuffer(const BufferCreateInfo &info)
 {
+    const BufferDescription &desc = info.desc;
+
     const vk::BufferCreateInfo bufferInfo{
-        .size = info.byteSize,
-        .usage = info.usage,
+        .size = desc.byteSize,
+        .usage = desc.usage,
         .sharingMode = vk::SharingMode::eExclusive,
     };
 
     VmaAllocationCreateFlags allocFlags = 0;
-    if ((info.properties & vk::MemoryPropertyFlagBits::eHostVisible) ==
+    if ((desc.properties & vk::MemoryPropertyFlagBits::eHostVisible) ==
         vk::MemoryPropertyFlagBits::eHostVisible)
         // Readback is not used yet so assume this is for staging
         allocFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
@@ -491,7 +493,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     const VmaAllocationCreateInfo allocCreateInfo = {
         .flags = allocFlags,
         .usage = VMA_MEMORY_USAGE_AUTO,
-        .requiredFlags = static_cast<VkMemoryPropertyFlags>(info.properties),
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(desc.properties),
     };
 
     Buffer buffer;
@@ -530,22 +532,25 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         stagingDebugName.extend(postfix.data());
 
         const auto stagingBuffer = createBuffer(BufferCreateInfo{
-            .byteSize = info.byteSize,
-            .usage = vk::BufferUsageFlagBits::eTransferSrc,
-            .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                          vk::MemoryPropertyFlagBits::eHostCoherent,
+            .desc =
+                BufferDescription{
+                    .byteSize = desc.byteSize,
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
             .createMapped = true,
             .debugName = stagingDebugName.c_str(),
         });
 
-        memcpy(stagingBuffer.mapped, info.initialData, info.byteSize);
+        memcpy(stagingBuffer.mapped, info.initialData, desc.byteSize);
 
         const auto commandBuffer = beginGraphicsCommands();
 
         const vk::BufferCopy copyRegion{
             .srcOffset = 0,
             .dstOffset = 0,
-            .size = info.byteSize,
+            .size = desc.byteSize,
         };
         commandBuffer.copyBuffer(
             stagingBuffer.handle, buffer.handle, 1, &copyRegion);
@@ -575,11 +580,13 @@ TexelBuffer Device::create(const TexelBufferCreateInfo &info)
 
 TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 {
-    const auto formatProperties = _physical.getFormatProperties(info.format);
+    const TexelBufferDescription &desc = info.desc;
+    const BufferDescription &bufferDesc = desc.bufferDesc;
+
+    const auto formatProperties = _physical.getFormatProperties(desc.format);
 
     if (containsFlag(
-            info.bufferInfo.usage,
-            vk::BufferUsageFlagBits::eStorageTexelBuffer))
+            bufferDesc.usage, vk::BufferUsageFlagBits::eStorageTexelBuffer))
     {
         assertContainsFlag(
             formatProperties.bufferFeatures,
@@ -587,15 +594,14 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
             "Format doesn't support storage texel buffer");
     }
     if (containsFlag(
-            info.bufferInfo.usage,
-            vk::BufferUsageFlagBits::eUniformTexelBuffer))
+            bufferDesc.usage, vk::BufferUsageFlagBits::eUniformTexelBuffer))
     {
         assertContainsFlag(
             formatProperties.bufferFeatures,
             vk::FormatFeatureFlagBits::eUniformTexelBuffer,
             "Format doesn't support uniform texel buffer");
     }
-    if (info.supportAtomics)
+    if (desc.supportAtomics)
     {
         assertContainsFlag(
             formatProperties.bufferFeatures,
@@ -603,25 +609,23 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
             "Format doesn't support atomics");
     }
 
-    assert(!info.bufferInfo.createMapped && "Mapped texel buffers not tested");
-    assert(
-        !info.bufferInfo.initialData &&
-        "Texel buffers with initial data not tested");
-
-    const auto buffer = createBuffer(info.bufferInfo);
+    const auto buffer = createBuffer(BufferCreateInfo{
+        .desc = bufferDesc,
+        .debugName = info.debugName,
+    });
 
     const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
         .buffer = buffer.handle,
-        .format = info.format,
+        .format = desc.format,
         .offset = 0,
-        .range = info.bufferInfo.byteSize,
+        .range = bufferDesc.byteSize,
     });
 
     return TexelBuffer{
         .handle = buffer.handle,
         .view = view,
-        .format = info.format,
-        .size = info.bufferInfo.byteSize,
+        .format = desc.format,
+        .size = bufferDesc.byteSize,
         .allocation = buffer.allocation,
     };
 }
@@ -639,29 +643,30 @@ Image Device::create(const ImageCreateInfo &info) { return createImage(info); }
 
 Image Device::createImage(const ImageCreateInfo &info)
 {
+    const ImageDescription &desc = info.desc;
 
     const vk::Extent3D extent{
-        .width = info.width,
-        .height = info.height,
-        .depth = info.depth,
+        .width = desc.width,
+        .height = desc.height,
+        .depth = desc.depth,
     };
 
     const vk::ImageCreateInfo imageInfo{
-        .flags = info.createFlags,
-        .imageType = info.imageType,
-        .format = info.format,
+        .flags = desc.createFlags,
+        .imageType = desc.imageType,
+        .format = desc.format,
         .extent = extent,
-        .mipLevels = info.mipCount,
-        .arrayLayers = info.layerCount,
+        .mipLevels = desc.mipCount,
+        .arrayLayers = desc.layerCount,
         .samples = vk::SampleCountFlagBits::e1,
         .tiling = vk::ImageTiling::eOptimal,
-        .usage = info.usageFlags,
+        .usage = desc.usageFlags,
         .sharingMode = vk::SharingMode::eExclusive,
     };
     const VmaAllocationCreateInfo allocInfo = {
         .flags = {}, // Device only
         .usage = VMA_MEMORY_USAGE_AUTO,
-        .requiredFlags = static_cast<VkMemoryPropertyFlags>(info.properties),
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(desc.properties),
     };
 
     Image image;
@@ -680,55 +685,55 @@ Image Device::createImage(const ImageCreateInfo &info)
     });
 
     const vk::ImageSubresourceRange range{
-        .aspectMask = aspectMask(info.format),
+        .aspectMask = aspectMask(desc.format),
         .baseMipLevel = 0,
-        .levelCount = info.mipCount,
+        .levelCount = desc.mipCount,
         .baseArrayLayer = 0,
-        .layerCount = info.layerCount,
+        .layerCount = desc.layerCount,
     };
 
-    const vk::ImageViewType viewType = [info]()
+    const vk::ImageViewType viewType = [desc]()
     {
-        switch (info.imageType)
+        switch (desc.imageType)
         {
         case vk::ImageType::e1D:
-            if (info.layerCount == 1)
+            if (desc.layerCount == 1)
                 return vk::ImageViewType::e1D;
             else
                 return vk::ImageViewType::e1DArray;
         case vk::ImageType::e2D:
-            if (info.layerCount == 1)
+            if (desc.layerCount == 1)
                 return vk::ImageViewType::e2D;
             else
             {
-                if ((info.createFlags &
+                if ((desc.createFlags &
                      vk::ImageCreateFlagBits::eCubeCompatible) ==
                     vk::ImageCreateFlagBits::eCubeCompatible)
                 {
-                    assert(info.layerCount == 6 && "Cube arrays not supported");
+                    assert(desc.layerCount == 6 && "Cube arrays not supported");
                     return vk::ImageViewType::eCube;
                 }
                 return vk::ImageViewType::e2DArray;
             }
         case vk::ImageType::e3D:
-            assert(info.layerCount == 1 && "Can't have 3D image arrays");
+            assert(desc.layerCount == 1 && "Can't have 3D image arrays");
             return vk::ImageViewType::e3D;
         default:
             throw std::runtime_error(
-                "Unexpected image type " + to_string(info.imageType));
+                "Unexpected image type " + to_string(desc.imageType));
         }
     }();
 
     image.view = _logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,
         .viewType = viewType,
-        .format = info.format,
+        .format = desc.format,
         .subresourceRange = range,
     });
 
     image.extent = extent;
     image.subresourceRange = range;
-    image.format = info.format;
+    image.format = desc.format;
 
     trackImage(image);
 

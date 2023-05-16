@@ -298,19 +298,27 @@ void GBufferRenderer::destroyGraphicsPipeline()
 void GBufferRenderer::createOutputs(const vk::Extent2D &renderExtent)
 {
     _resources->images.albedoRoughness = _device->createImage(ImageCreateInfo{
-        .format = vk::Format::eR8G8B8A8Unorm,
-        .width = renderExtent.width,
-        .height = renderExtent.height,
-        .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
-                      vk::ImageUsageFlagBits::eStorage,          // Shading
+        .desc =
+            ImageDescription{
+                .format = vk::Format::eR8G8B8A8Unorm,
+                .width = renderExtent.width,
+                .height = renderExtent.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eColorAttachment | // Render
+                    vk::ImageUsageFlagBits::eStorage,          // Shading
+            },
         .debugName = "albedoRoughness",
     });
     _resources->images.normalMetalness = _device->createImage(ImageCreateInfo{
-        .format = vk::Format::eR16G16B16A16Sfloat,
-        .width = renderExtent.width,
-        .height = renderExtent.height,
-        .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
-                      vk::ImageUsageFlagBits::eStorage,          // Shading
+        .desc =
+            ImageDescription{
+                .format = vk::Format::eR16G16B16A16Sfloat,
+                .width = renderExtent.width,
+                .height = renderExtent.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eColorAttachment | // Render
+                    vk::ImageUsageFlagBits::eStorage,          // Shading
+            },
         .debugName = "normalMetalness",
     });
     // Depth created by Renderer

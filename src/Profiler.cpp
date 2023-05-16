@@ -60,17 +60,23 @@ GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
 GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
 : _device{device}
 , _timestampBuffer{device->createBuffer(BufferCreateInfo{
-      .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
-      .usage = vk::BufferUsageFlagBits::eTransferDst,
-      .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent,
+      .desc =
+          BufferDescription{
+              .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
+              .usage = vk::BufferUsageFlagBits::eTransferDst,
+              .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                            vk::MemoryPropertyFlagBits::eHostCoherent,
+          },
       .createMapped = true,
       .debugName = "GpuProfilerTimestampReadback"})}
 , _statisticsBuffer{device->createBuffer(BufferCreateInfo{
-      .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
-      .usage = vk::BufferUsageFlagBits::eTransferDst,
-      .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent,
+      .desc =
+          BufferDescription{
+              .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
+              .usage = vk::BufferUsageFlagBits::eTransferDst,
+              .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                            vk::MemoryPropertyFlagBits::eHostCoherent,
+          },
       .createMapped = true,
       .debugName = "GpuProfilerStatisticsReadback"})}
 , _queryScopeIndices{alloc, sMaxScopeCount}

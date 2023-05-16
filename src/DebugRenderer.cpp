@@ -209,10 +209,15 @@ void DebugRenderer::createBuffers()
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _resources->buffers.debugLines.push_back(DebugLines{
             .buffer = _device->createBuffer(BufferCreateInfo{
-                .byteSize = DebugLines::sMaxLineCount * DebugLines::sLineBytes,
-                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eHostCoherent |
-                              vk::MemoryPropertyFlagBits::eHostVisible,
+                .desc =
+                    BufferDescription{
+                        .byteSize =
+                            DebugLines::sMaxLineCount * DebugLines::sLineBytes,
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                        .properties =
+                            vk::MemoryPropertyFlagBits::eHostCoherent |
+                            vk::MemoryPropertyFlagBits::eHostVisible,
+                    },
                 .createMapped = true,
                 .debugName = "DebugLines",
             }),

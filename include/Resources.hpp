@@ -11,16 +11,22 @@ struct BufferState
     vk::AccessFlags2 accessMask{vk::AccessFlagBits2::eNone};
 };
 
-struct BufferCreateInfo
+struct BufferDescription
 {
     vk::DeviceSize byteSize{0};
     vk::BufferUsageFlags usage;
     vk::MemoryPropertyFlags properties;
+};
+
+struct BufferCreateInfo
+{
+    BufferDescription desc;
     // TODO: When readback is needed, add enum for gpuonly, staging, readback to
     // select vma allocation mode accordingly
     const void *initialData{nullptr};
     bool createMapped{false};
-    const char *debugName;
+
+    const char *debugName{nullptr};
 };
 
 struct Buffer
@@ -30,11 +36,18 @@ struct Buffer
     VmaAllocation allocation{nullptr};
 };
 
-struct TexelBufferCreateInfo
+struct TexelBufferDescription
 {
-    BufferCreateInfo bufferInfo;
+    BufferDescription bufferDesc;
     vk::Format format{vk::Format::eUndefined};
     bool supportAtomics{false};
+};
+
+struct TexelBufferCreateInfo
+{
+    TexelBufferDescription desc;
+
+    const char *debugName{nullptr};
 };
 
 struct TexelBuffer
@@ -57,7 +70,7 @@ struct ImageState
     vk::ImageLayout layout{vk::ImageLayout::eUndefined};
 };
 
-struct ImageCreateInfo
+struct ImageDescription
 {
     vk::ImageType imageType{vk::ImageType::e2D};
     vk::Format format{vk::Format::eUndefined};
@@ -70,8 +83,13 @@ struct ImageCreateInfo
     vk::ImageUsageFlags usageFlags;
     vk::MemoryPropertyFlags properties{
         vk::MemoryPropertyFlagBits::eDeviceLocal};
+};
 
-    const char *debugName;
+struct ImageCreateInfo
+{
+    ImageDescription desc;
+
+    const char *debugName{nullptr};
 };
 
 struct Image

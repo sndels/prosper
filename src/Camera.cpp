@@ -169,10 +169,13 @@ void Camera::createUniformBuffers()
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _uniformBuffers.push_back(_device->createBuffer(BufferCreateInfo{
-            .byteSize = bufferSize,
-            .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-            .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                          vk::MemoryPropertyFlagBits::eHostCoherent,
+            .desc =
+                BufferDescription{
+                    .byteSize = bufferSize,
+                    .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
             .createMapped = true,
             .debugName = "CameraUnfiroms",
         }));

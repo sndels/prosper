@@ -91,10 +91,13 @@ Buffer createSkyboxVertexBuffer(Device *device)
     };
 
     return device->createBuffer(BufferCreateInfo{
-        .byteSize = sizeof(skyboxVerts[0]) * skyboxVerts.size(),
-        .usage = vk::BufferUsageFlagBits::eVertexBuffer |
-                 vk::BufferUsageFlagBits::eTransferDst,
-        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        .desc =
+            BufferDescription{
+                .byteSize = sizeof(skyboxVerts[0]) * skyboxVerts.size(),
+                .usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                         vk::BufferUsageFlagBits::eTransferDst,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
         .initialData = skyboxVerts.data(),
         .debugName = "SkyboxVertexBuffer",
     });
@@ -435,13 +438,16 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 {
     for (const auto &b : gltfModel.buffers)
         _geometryBuffers.push_back(_device->createBuffer(BufferCreateInfo{
-            .byteSize = asserted_cast<uint32_t>(b.data.size()),
-            .usage = vk::BufferUsageFlagBits::
-                         eAccelerationStructureBuildInputReadOnlyKHR |
-                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                     vk::BufferUsageFlagBits::eStorageBuffer |
-                     vk::BufferUsageFlagBits::eTransferDst,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .desc =
+                BufferDescription{
+                    .byteSize = asserted_cast<uint32_t>(b.data.size()),
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureBuildInputReadOnlyKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
             .initialData = b.data.data(),
             .debugName = "GeometryBuffer",
         }));
@@ -565,14 +571,17 @@ void World::loadModels(const tinygltf::Model &gltfModel)
         }
     }
     _meshBuffersBuffer = _device->createBuffer(BufferCreateInfo{
-        .byteSize =
-            asserted_cast<uint32_t>(_meshBuffers.size() * sizeof(MeshBuffers)),
-        .usage = vk::BufferUsageFlagBits::
-                     eAccelerationStructureBuildInputReadOnlyKHR |
-                 vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                 vk::BufferUsageFlagBits::eStorageBuffer |
-                 vk::BufferUsageFlagBits::eTransferDst,
-        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        .desc =
+            BufferDescription{
+                .byteSize = asserted_cast<uint32_t>(
+                    _meshBuffers.size() * sizeof(MeshBuffers)),
+                .usage = vk::BufferUsageFlagBits::
+                             eAccelerationStructureBuildInputReadOnlyKHR |
+                         vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                         vk::BufferUsageFlagBits::eStorageBuffer |
+                         vk::BufferUsageFlagBits::eTransferDst,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
         .initialData = _meshBuffers.data(),
         .debugName = "MeshBuffersBuffer",
     });
@@ -919,11 +928,15 @@ void World::createBlases()
                 {rangeInfo.primitiveCount});
 
         blas.buffer = _device->createBuffer(BufferCreateInfo{
-            .byteSize = sizeInfo.accelerationStructureSize,
-            .usage = vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
-                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                     vk::BufferUsageFlagBits::eStorageBuffer,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .desc =
+                BufferDescription{
+                    .byteSize = sizeInfo.accelerationStructureSize,
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureStorageKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
             .debugName = "BLASBuffer",
         });
 
@@ -939,10 +952,13 @@ void World::createBlases()
 
         // TODO: Reuse and grow scratch
         const auto scratchBuffer = _device->createBuffer(BufferCreateInfo{
-            .byteSize = sizeInfo.buildScratchSize,
-            .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                     vk::BufferUsageFlagBits::eStorageBuffer,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .desc =
+                BufferDescription{
+                    .byteSize = sizeInfo.buildScratchSize,
+                    .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
             .debugName = "ScratchBuffer",
         });
 
@@ -1006,12 +1022,15 @@ void World::createTlases(ScopedScratch scopeAlloc)
         }
 
         auto instancesBuffer = _device->createBuffer(BufferCreateInfo{
-            .byteSize = sizeof(instances[0]) * instances.size(),
-            .usage = vk::BufferUsageFlagBits::eTransferDst |
-                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                     vk::BufferUsageFlagBits::
-                         eAccelerationStructureBuildInputReadOnlyKHR,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .desc =
+                BufferDescription{
+                    .byteSize = sizeof(instances[0]) * instances.size(),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::
+                                 eAccelerationStructureBuildInputReadOnlyKHR,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
             .initialData = instances.data(),
             .debugName = "InstancesBuffer",
         });
@@ -1048,11 +1067,15 @@ void World::createTlases(ScopedScratch scopeAlloc)
                 {rangeInfo.primitiveCount});
 
         tlas.buffer = _device->createBuffer(BufferCreateInfo{
-            .byteSize = sizeInfo.accelerationStructureSize,
-            .usage = vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
-                     vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                     vk::BufferUsageFlagBits::eStorageBuffer,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .desc =
+                BufferDescription{
+                    .byteSize = sizeInfo.accelerationStructureSize,
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureStorageKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
             .debugName = "TLASBuffer",
         });
 
@@ -1068,10 +1091,13 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         // TODO: Reuse and grow scratch
         const auto scratchBuffer = _device->createBuffer(BufferCreateInfo{
-            .byteSize = sizeInfo.buildScratchSize,
-            .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                     vk::BufferUsageFlagBits::eStorageBuffer,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            .desc =
+                BufferDescription{
+                    .byteSize = sizeInfo.buildScratchSize,
+                    .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
             .debugName = "ScratchBuffer",
         });
 
@@ -1098,10 +1124,13 @@ void World::createTlases(ScopedScratch scopeAlloc)
 void World::createBuffers()
 {
     _materialsBuffer = _device->createBuffer(BufferCreateInfo{
-        .byteSize = _materials.size() * sizeof(_materials[0]),
-        .usage = vk::BufferUsageFlagBits::eStorageBuffer |
-                 vk::BufferUsageFlagBits::eTransferDst,
-        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        .desc =
+            BufferDescription{
+                .byteSize = _materials.size() * sizeof(_materials[0]),
+                .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                         vk::BufferUsageFlagBits::eTransferDst,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
         .initialData = _materials.data(),
         .debugName = "MaterialsBuffer",
     });
@@ -1116,21 +1145,30 @@ void World::createBuffers()
                 for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.modelInstanceTransformsBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
-                            .byteSize = bufferSize,
-                            .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                            .properties =
-                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            .desc =
+                                BufferDescription{
+                                    .byteSize = bufferSize,
+                                    .usage =
+                                        vk::BufferUsageFlagBits::eStorageBuffer,
+                                    .properties = vk::MemoryPropertyFlagBits::
+                                                      eHostVisible |
+                                                  vk::MemoryPropertyFlagBits::
+                                                      eHostCoherent,
+                                },
                             .createMapped = true,
                             .debugName = "InstanceTransforms",
                         }));
             }
 
             scene.rtInstancesBuffer = _device->createBuffer(BufferCreateInfo{
-                .byteSize = sizeof(Scene::RTInstance) * scene.rtInstanceCount,
-                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
+                .desc =
+                    BufferDescription{
+                        .byteSize =
+                            sizeof(Scene::RTInstance) * scene.rtInstanceCount,
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                      vk::MemoryPropertyFlagBits::eHostCoherent,
+                    },
                 .createMapped = true,
                 .debugName = "RTInstances",
             });
@@ -1141,11 +1179,16 @@ void World::createBuffers()
                 for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.lights.directionalLight.uniformBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
-                            .byteSize = bufferSize,
-                            .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-                            .properties =
-                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            .desc =
+                                BufferDescription{
+                                    .byteSize = bufferSize,
+                                    .usage =
+                                        vk::BufferUsageFlagBits::eUniformBuffer,
+                                    .properties = vk::MemoryPropertyFlagBits::
+                                                      eHostVisible |
+                                                  vk::MemoryPropertyFlagBits::
+                                                      eHostCoherent,
+                                },
                             .createMapped = true,
                             .debugName = "DirectionalLightUniforms",
                         }));
@@ -1155,11 +1198,16 @@ void World::createBuffers()
                 for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.lights.pointLights.storageBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
-                            .byteSize = PointLights::sBufferByteSize,
-                            .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                            .properties =
-                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            .desc =
+                                BufferDescription{
+                                    .byteSize = PointLights::sBufferByteSize,
+                                    .usage =
+                                        vk::BufferUsageFlagBits::eStorageBuffer,
+                                    .properties = vk::MemoryPropertyFlagBits::
+                                                      eHostVisible |
+                                                  vk::MemoryPropertyFlagBits::
+                                                      eHostCoherent,
+                                },
                             .createMapped = true,
                             .debugName = "PointLightsBuffer",
                         }));
@@ -1169,11 +1217,16 @@ void World::createBuffers()
                 for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
                     scene.lights.spotLights.storageBuffers.push_back(
                         _device->createBuffer(BufferCreateInfo{
-                            .byteSize = SpotLights::sBufferByteSize,
-                            .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                            .properties =
-                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                            .desc =
+                                BufferDescription{
+                                    .byteSize = SpotLights::sBufferByteSize,
+                                    .usage =
+                                        vk::BufferUsageFlagBits::eStorageBuffer,
+                                    .properties = vk::MemoryPropertyFlagBits::
+                                                      eHostVisible |
+                                                  vk::MemoryPropertyFlagBits::
+                                                      eHostCoherent,
+                                },
                             .createMapped = true,
                             .debugName = "SpotLightsBuffer",
                         }));
@@ -1187,10 +1240,14 @@ void World::createBuffers()
         {
             _skyboxUniformBuffers.push_back(
                 _device->createBuffer(BufferCreateInfo{
-                    .byteSize = bufferSize,
-                    .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                    .desc =
+                        BufferDescription{
+                            .byteSize = bufferSize,
+                            .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+                            .properties =
+                                vk::MemoryPropertyFlagBits::eHostVisible |
+                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                        },
                     .createMapped = true,
                     .debugName = "SkyboxUniforms",
                 }));

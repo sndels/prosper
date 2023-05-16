@@ -207,13 +207,17 @@ void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
 
     auto &image = _resources->images.finalComposite;
     image = _device->createImage(ImageCreateInfo{
-        .format = sFinalCompositeFormat,
-        .width = renderExtent.width,
-        .height = renderExtent.height,
-        .usageFlags =
-            vk::ImageUsageFlagBits::eColorAttachment | // Render
-            vk::ImageUsageFlagBits::eTransferDst |     // Blit from tone mapped
-            vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
+        .desc =
+            ImageDescription{
+                .format = sFinalCompositeFormat,
+                .width = renderExtent.width,
+                .height = renderExtent.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eColorAttachment | // Render
+                    vk::ImageUsageFlagBits::eTransferDst |     // Blit from tone
+                                                               // mapped
+                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
+            },
         .debugName = "ui",
     });
 

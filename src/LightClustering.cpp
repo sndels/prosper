@@ -41,19 +41,22 @@ LightClustering::LightClustering(
 
     createDescriptorSets();
 
-    _resources->buffers.lightClusters.indicesCount =
-        _device->createTexelBuffer(TexelBufferCreateInfo{
-            .bufferInfo =
-                BufferCreateInfo{
-                    .byteSize = sizeof(uint32_t),
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eStorageTexelBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                    .debugName = "LightClusteringIndicesCounter",
-                },
-            .format = vk::Format::eR32Uint,
-            .supportAtomics = true,
-        });
+    _resources->buffers.lightClusters
+        .indicesCount = _device->createTexelBuffer(TexelBufferCreateInfo{
+        .desc =
+            TexelBufferDescription{
+                .bufferDesc =
+                    BufferDescription{
+                        .byteSize = sizeof(uint32_t),
+                        .usage = vk::BufferUsageFlagBits::eTransferDst |
+                                 vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                .format = vk::Format::eR32Uint,
+                .supportAtomics = true,
+            },
+        .debugName = "LightClusteringIndicesCounter",
+    });
 
     recreate(renderExtent, camDSLayout, worldDSLayouts);
 }
@@ -223,12 +226,15 @@ void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
 
     _resources->buffers.lightClusters.pointers =
         _device->createImage(ImageCreateInfo{
-            .imageType = vk::ImageType::e3D,
-            .format = vk::Format::eR32G32Uint,
-            .width = pointersWidth,
-            .height = pointersHeight,
-            .depth = pointersDepth,
-            .usageFlags = vk::ImageUsageFlagBits::eStorage,
+            .desc =
+                ImageDescription{
+                    .imageType = vk::ImageType::e3D,
+                    .format = vk::Format::eR32G32Uint,
+                    .width = pointersWidth,
+                    .height = pointersHeight,
+                    .depth = pointersDepth,
+                    .usageFlags = vk::ImageUsageFlagBits::eStorage,
+                },
             .debugName = "lightClusterPointers",
         });
 
@@ -236,17 +242,20 @@ void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
         static_cast<vk::DeviceSize>(
             maxSpotIndicesPerTile + maxPointIndicesPerTile) *
         pointersWidth * pointersHeight * pointersDepth;
-    _resources->buffers.lightClusters.indices =
-        _device->createTexelBuffer(TexelBufferCreateInfo{
-            .bufferInfo =
-                BufferCreateInfo{
-                    .byteSize = indicesSize * sizeof(uint16_t),
-                    .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                    .debugName = "lightClusterIndices",
-                },
-            .format = vk::Format::eR16Uint,
-        });
+    _resources->buffers.lightClusters
+        .indices = _device->createTexelBuffer(TexelBufferCreateInfo{
+        .desc =
+            TexelBufferDescription{
+                .bufferDesc =
+                    BufferDescription{
+                        .byteSize = indicesSize * sizeof(uint16_t),
+                        .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                .format = vk::Format::eR16Uint,
+            },
+        .debugName = "lightClusterIndices",
+    });
 }
 
 void LightClustering::createDescriptorSets()
