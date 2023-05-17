@@ -119,7 +119,7 @@ void ImGuiRenderer::endFrame(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
 
-        _resources->staticImages.finalComposite.transition(
+        _resources->finalComposite.transition(
             cb,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
@@ -198,14 +198,14 @@ void ImGuiRenderer::createRenderPass()
 void ImGuiRenderer::destroySwapchainRelated()
 {
     _device->logical().destroy(_fbo);
-    _device->destroy(_resources->staticImages.finalComposite);
+    _device->destroy(_resources->finalComposite);
 }
 
 void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
 {
     destroySwapchainRelated();
 
-    auto &image = _resources->staticImages.finalComposite;
+    auto &image = _resources->finalComposite;
     image = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{

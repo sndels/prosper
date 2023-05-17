@@ -33,7 +33,6 @@ class RenderResources
         Image sceneDepth;
         Image albedoRoughness;
         Image normalMetalness;
-        Image finalComposite;
     };
 
     struct Buffers
@@ -92,6 +91,11 @@ class RenderResources
 
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;
+
+    // Have this be static because ImGuiRenderer uses it in its framebuffer.
+    // Don't want to reallocate FBs each frame if this ends up ping-ponging with
+    // some other resource
+    Image finalComposite;
 };
 
 #endif // PROSPER_RENDER_RESOURCES_HPP
