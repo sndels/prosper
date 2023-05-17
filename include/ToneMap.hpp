@@ -54,8 +54,6 @@ class ToneMap
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 
-    vk::Framebuffer _fbo;
-
     float _exposure{1.f};
 };
 
