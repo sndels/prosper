@@ -48,8 +48,8 @@ struct RenderResources
     // until the end of the program. As such, reset() shouldn't be called so
     // that users can rely on the descriptors being there once allocated.
     DescriptorAllocator staticDescriptorsAlloc;
-    Images images;
-    Buffers buffers;
+    Images staticImages;
+    Buffers staticBuffers;
 };
 
 #endif // PROSPER_RENDER_RESOURCES_HPP

@@ -448,7 +448,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     const auto &scene = _world->currentScene();
 
-    auto &debugLines = _resources->buffers.debugLines[nextFrame];
+    auto &debugLines = _resources->staticBuffers.debugLines[nextFrame];
     debugLines.reset();
     { // Add debug geom for lights
         constexpr auto debugLineLength = 0.2f;
@@ -530,16 +530,18 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         // Blit tonemapped into cleared final composite before drawing ui on top
         {
             const StaticArray barriers{{
-                _resources->images.toneMapped.transitionBarrier(ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                    .accessMask = vk::AccessFlagBits2::eTransferRead,
-                    .layout = vk::ImageLayout::eTransferSrcOptimal,
-                }),
-                _resources->images.finalComposite.transitionBarrier(ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                    .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                    .layout = vk::ImageLayout::eTransferDstOptimal,
-                }),
+                _resources->staticImages.toneMapped.transitionBarrier(
+                    ImageState{
+                        .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                        .accessMask = vk::AccessFlagBits2::eTransferRead,
+                        .layout = vk::ImageLayout::eTransferSrcOptimal,
+                    }),
+                _resources->staticImages.finalComposite.transitionBarrier(
+                    ImageState{
+                        .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                        .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                        .layout = vk::ImageLayout::eTransferDstOptimal,
+                    }),
             }};
 
             cb.pipelineBarrier2(vk::DependencyInfo{
@@ -558,7 +560,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             .layerCount = 1,
         };
         cb.clearColorImage(
-            _resources->images.finalComposite.handle,
+            _resources->staticImages.finalComposite.handle,
             vk::ImageLayout::eTransferDstOptimal, &clearColor, 1,
             &subresourceRange);
 
@@ -612,9 +614,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             .dstOffsets = dstOffsets,
         };
         cb.blitImage(
-            _resources->images.toneMapped.handle,
+            _resources->staticImages.toneMapped.handle,
             vk::ImageLayout::eTransferSrcOptimal,
-            _resources->images.finalComposite.handle,
+            _resources->staticImages.finalComposite.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
             vk::Filter::eLinear);
     }
@@ -631,11 +633,12 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         const auto &swapImage = _swapchain->image(nextImage);
 
         const StaticArray barriers{{
-            _resources->images.finalComposite.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .accessMask = vk::AccessFlagBits2::eTransferRead,
-                .layout = vk::ImageLayout::eTransferSrcOptimal,
-            }),
+            _resources->staticImages.finalComposite.transitionBarrier(
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                    .accessMask = vk::AccessFlagBits2::eTransferRead,
+                    .layout = vk::ImageLayout::eTransferSrcOptimal,
+                }),
             vk::ImageMemoryBarrier2{
                 .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
                 .srcAccessMask = vk::AccessFlags2{},
@@ -663,10 +666,10 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .layerCount = 1};
 
             assert(
-                _resources->images.finalComposite.extent.width ==
+                _resources->staticImages.finalComposite.extent.width ==
                 swapImage.extent.width);
             assert(
-                _resources->images.finalComposite.extent.height ==
+                _resources->staticImages.finalComposite.extent.height ==
                 swapImage.extent.height);
             const std::array offsets{
                 vk::Offset3D{0, 0, 0},
@@ -683,7 +686,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .dstOffsets = offsets,
             };
             cb.blitImage(
-                _resources->images.finalComposite.handle,
+                _resources->staticImages.finalComposite.handle,
                 vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
                 vk::ImageLayout::eTransferDstOptimal, 1, &blit,
                 vk::Filter::eLinear);

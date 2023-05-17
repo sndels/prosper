@@ -95,22 +95,26 @@ void GBufferRenderer::record(
         const auto _s = profiler->createCpuGpuScope(cb, "GBuffer");
 
         const StaticArray imageBarriers{
-            _resources->images.albedoRoughness.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
-            _resources->images.normalMetalness.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
-            _resources->images.sceneDepth.transitionBarrier(ImageState{
+            _resources->staticImages.albedoRoughness.transitionBarrier(
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                    .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                    .layout = vk::ImageLayout::eColorAttachmentOptimal,
+                }),
+            _resources->staticImages.normalMetalness.transitionBarrier(
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                    .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                    .layout = vk::ImageLayout::eColorAttachmentOptimal,
+                }),
+            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
                 .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
                 .layout = vk::ImageLayout::eDepthAttachmentOptimal,
             }),
-            _resources->buffers.lightClusters.pointers.transitionBarrier(
+            _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -119,12 +123,12 @@ void GBufferRenderer::record(
         };
 
         const StaticArray bufferBarriers{
-            _resources->buffers.lightClusters.indicesCount.transitionBarrier(
-                BufferState{
+            _resources->staticBuffers.lightClusters.indicesCount
+                .transitionBarrier(BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
                 }),
-            _resources->buffers.lightClusters.indices.transitionBarrier(
+            _resources->staticBuffers.lightClusters.indices.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -281,8 +285,8 @@ void GBufferRenderer::destroyViewportRelated()
     {
         destroyGraphicsPipeline();
 
-        _device->destroy(_resources->images.albedoRoughness);
-        _device->destroy(_resources->images.normalMetalness);
+        _device->destroy(_resources->staticImages.albedoRoughness);
+        _device->destroy(_resources->staticImages.normalMetalness);
         // Depth owned by Renderer
 
         _colorAttachments.resize(_colorAttachments.capacity(), {});
@@ -297,51 +301,53 @@ void GBufferRenderer::destroyGraphicsPipeline()
 
 void GBufferRenderer::createOutputs(const vk::Extent2D &renderExtent)
 {
-    _resources->images.albedoRoughness = _device->createImage(ImageCreateInfo{
-        .desc =
-            ImageDescription{
-                .format = vk::Format::eR8G8B8A8Unorm,
-                .width = renderExtent.width,
-                .height = renderExtent.height,
-                .usageFlags =
-                    vk::ImageUsageFlagBits::eColorAttachment | // Render
-                    vk::ImageUsageFlagBits::eStorage,          // Shading
-            },
-        .debugName = "albedoRoughness",
-    });
-    _resources->images.normalMetalness = _device->createImage(ImageCreateInfo{
-        .desc =
-            ImageDescription{
-                .format = vk::Format::eR16G16B16A16Sfloat,
-                .width = renderExtent.width,
-                .height = renderExtent.height,
-                .usageFlags =
-                    vk::ImageUsageFlagBits::eColorAttachment | // Render
-                    vk::ImageUsageFlagBits::eStorage,          // Shading
-            },
-        .debugName = "normalMetalness",
-    });
+    _resources->staticImages.albedoRoughness =
+        _device->createImage(ImageCreateInfo{
+            .desc =
+                ImageDescription{
+                    .format = vk::Format::eR8G8B8A8Unorm,
+                    .width = renderExtent.width,
+                    .height = renderExtent.height,
+                    .usageFlags =
+                        vk::ImageUsageFlagBits::eColorAttachment | // Render
+                        vk::ImageUsageFlagBits::eStorage,          // Shading
+                },
+            .debugName = "albedoRoughness",
+        });
+    _resources->staticImages.normalMetalness =
+        _device->createImage(ImageCreateInfo{
+            .desc =
+                ImageDescription{
+                    .format = vk::Format::eR16G16B16A16Sfloat,
+                    .width = renderExtent.width,
+                    .height = renderExtent.height,
+                    .usageFlags =
+                        vk::ImageUsageFlagBits::eColorAttachment | // Render
+                        vk::ImageUsageFlagBits::eStorage,          // Shading
+                },
+            .debugName = "normalMetalness",
+        });
     // Depth created by Renderer
 }
 
 void GBufferRenderer::createAttachments()
 {
     _colorAttachments[0] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.albedoRoughness.view,
+        .imageView = _resources->staticImages.albedoRoughness.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
     };
     _colorAttachments[1] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.normalMetalness.view,
+        .imageView = _resources->staticImages.normalMetalness.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
     };
     _depthAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneDepth.view,
+        .imageView = _resources->staticImages.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -437,8 +443,8 @@ void GBufferRenderer::createGraphicsPipelines(
         });
 
     const StaticArray colorAttachmentFormats{
-        _resources->images.albedoRoughness.format,
-        _resources->images.normalMetalness.format,
+        _resources->staticImages.albedoRoughness.format,
+        _resources->staticImages.normalMetalness.format,
     };
 
     vk::StructureChain<
@@ -461,7 +467,8 @@ void GBufferRenderer::createGraphicsPipelines(
                 .colorAttachmentCount =
                     asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
                 .pColorAttachmentFormats = colorAttachmentFormats.data(),
-                .depthAttachmentFormat = _resources->images.sceneDepth.format,
+                .depthAttachmentFormat =
+                    _resources->staticImages.sceneDepth.format,
             }};
 
     {

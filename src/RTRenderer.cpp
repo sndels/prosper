@@ -162,7 +162,7 @@ void RTRenderer::record(
     {
         const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
-        _resources->images.sceneColor.transition(
+        _resources->staticImages.sceneColor.transition(
             cb,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
@@ -403,7 +403,7 @@ void RTRenderer::createDescriptorSets()
 void RTRenderer::updateDescriptorSets()
 {
     const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT> descriptorWrites;

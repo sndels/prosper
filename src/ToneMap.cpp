@@ -104,12 +104,12 @@ void ToneMap::record(
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
         const StaticArray barriers{
-            _resources->images.sceneColor.transitionBarrier(ImageState{
+            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
                 .layout = vk::ImageLayout::eGeneral,
             }),
-            _resources->images.toneMapped.transitionBarrier(ImageState{
+            _resources->staticImages.toneMapped.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderWrite,
                 .layout = vk::ImageLayout::eGeneral,
@@ -134,7 +134,7 @@ void ToneMap::record(
             _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PCBlock), &pcBlock);
 
-        const auto &extent = _resources->images.sceneColor.extent;
+        const auto &extent = _resources->staticImages.sceneColor.extent;
         const auto groups =
             (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
         cb.dispatch(groups.x, groups.y, 1);
@@ -148,7 +148,7 @@ void ToneMap::destroyViewportRelated()
         destroyPipelines();
 
         // Descriptor sets are cleaned up when the pool is destroyed
-        _device->destroy(_resources->images.toneMapped);
+        _device->destroy(_resources->staticImages.toneMapped);
     }
 }
 
@@ -160,7 +160,7 @@ void ToneMap::destroyPipelines()
 
 void ToneMap::createOutputImage(const vk::Extent2D &renderExtent)
 {
-    _resources->images.toneMapped = _device->createImage(ImageCreateInfo{
+    _resources->staticImages.toneMapped = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR8G8B8A8Unorm,
@@ -205,11 +205,11 @@ void ToneMap::createDescriptorSets()
 void ToneMap::updateDescriptorSets()
 {
     const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo mappedInfo{
-        .imageView = _resources->images.toneMapped.view,
+        .imageView = _resources->staticImages.toneMapped.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
 

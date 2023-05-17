@@ -41,7 +41,7 @@ LightClustering::LightClustering(
 
     createDescriptorSets();
 
-    _resources->buffers.lightClusters
+    _resources->staticBuffers.lightClusters
         .indicesCount = _device->createTexelBuffer(TexelBufferCreateInfo{
         .desc =
             TexelBufferDescription{
@@ -67,9 +67,9 @@ LightClustering::~LightClustering()
     {
         destroyViewportRelated();
 
-        _device->destroy(_resources->buffers.lightClusters.indicesCount);
+        _device->destroy(_resources->staticBuffers.lightClusters.indicesCount);
         _device->logical().destroy(
-            _resources->buffers.lightClusters.descriptorSetLayout);
+            _resources->staticBuffers.lightClusters.descriptorSetLayout);
 
         _device->logical().destroy(_compSM);
     }
@@ -108,7 +108,7 @@ void LightClustering::record(
         const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
 
         const auto imageBarrier =
-            _resources->buffers.lightClusters.pointers.transitionBarrier(
+            _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderWrite,
@@ -116,13 +116,13 @@ void LightClustering::record(
                 });
 
         const StaticArray bufferBarriers{
-            _resources->buffers.lightClusters.indices.transitionBarrier(
+            _resources->staticBuffers.lightClusters.indices.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderWrite,
                 }),
-            _resources->buffers.lightClusters.indicesCount.transitionBarrier(
-                BufferState{
+            _resources->staticBuffers.lightClusters.indicesCount
+                .transitionBarrier(BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                     .accessMask = vk::AccessFlagBits2::eTransferWrite,
                 }),
@@ -137,10 +137,10 @@ void LightClustering::record(
         });
 
         cb.fillBuffer(
-            _resources->buffers.lightClusters.indicesCount.handle, 0,
-            _resources->buffers.lightClusters.indicesCount.size, 0);
+            _resources->staticBuffers.lightClusters.indicesCount.handle, 0,
+            _resources->staticBuffers.lightClusters.indicesCount.size, 0);
 
-        _resources->buffers.lightClusters.indicesCount.transition(
+        _resources->staticBuffers.lightClusters.indicesCount.transition(
             cb, BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead |
@@ -153,7 +153,7 @@ void LightClustering::record(
         descriptorSets[sLightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
         descriptorSets[sLightClustersBindingSet] =
-            _resources->buffers.lightClusters.descriptorSets[nextFrame];
+            _resources->staticBuffers.lightClusters.descriptorSets[nextFrame];
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
 
         cb.bindDescriptorSets(
@@ -171,7 +171,8 @@ void LightClustering::record(
             0, // offset
             sizeof(ClusteringPCBlock), &pcBlock);
 
-        const auto &extent = _resources->buffers.lightClusters.pointers.extent;
+        const auto &extent =
+            _resources->staticBuffers.lightClusters.pointers.extent;
         cb.dispatch(extent.width, extent.height, extent.depth);
     }
 }
@@ -213,8 +214,8 @@ void LightClustering::destroyViewportRelated()
     {
         destroyPipeline();
 
-        _device->destroy(_resources->buffers.lightClusters.pointers);
-        _device->destroy(_resources->buffers.lightClusters.indices);
+        _device->destroy(_resources->staticBuffers.lightClusters.pointers);
+        _device->destroy(_resources->staticBuffers.lightClusters.indices);
     }
 }
 
@@ -224,7 +225,7 @@ void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
     const auto pointersHeight = ((renderExtent.height - 1u) / clusterDim) + 1u;
     const auto pointersDepth = zSlices + 1;
 
-    _resources->buffers.lightClusters.pointers =
+    _resources->staticBuffers.lightClusters.pointers =
         _device->createImage(ImageCreateInfo{
             .desc =
                 ImageDescription{
@@ -242,7 +243,7 @@ void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
         static_cast<vk::DeviceSize>(
             maxSpotIndicesPerTile + maxPointIndicesPerTile) *
         pointersWidth * pointersHeight * pointersDepth;
-    _resources->buffers.lightClusters
+    _resources->staticBuffers.lightClusters
         .indices = _device->createTexelBuffer(TexelBufferCreateInfo{
         .desc =
             TexelBufferDescription{
@@ -283,7 +284,7 @@ void LightClustering::createDescriptorSets()
                           vk::ShaderStageFlagBits::eCompute,
         },
     };
-    _resources->buffers.lightClusters.descriptorSetLayout =
+    _resources->staticBuffers.lightClusters.descriptorSetLayout =
         _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
                 .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
@@ -291,22 +292,24 @@ void LightClustering::createDescriptorSets()
             });
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _resources->buffers.lightClusters.descriptorSetLayout};
+        _resources->staticBuffers.lightClusters.descriptorSetLayout};
     _resources->staticDescriptorsAlloc.allocate(
-        layouts, Span{
-                     _resources->buffers.lightClusters.descriptorSets.data(),
-                     _resources->buffers.lightClusters.descriptorSets.size()});
+        layouts,
+        Span{
+            _resources->staticBuffers.lightClusters.descriptorSets.data(),
+            _resources->staticBuffers.lightClusters.descriptorSets.size()});
 }
 
 void LightClustering::updateDescriptorSets()
 {
     const vk::DescriptorImageInfo pointersInfo{
-        .imageView = _resources->buffers.lightClusters.pointers.view,
+        .imageView = _resources->staticBuffers.lightClusters.pointers.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 3>
         descriptorWrites;
-    for (const auto &ds : _resources->buffers.lightClusters.descriptorSets)
+    for (const auto &ds :
+         _resources->staticBuffers.lightClusters.descriptorSets)
     {
         descriptorWrites.push_back(vk::WriteDescriptorSet{
             .dstSet = ds,
@@ -321,14 +324,15 @@ void LightClustering::updateDescriptorSets()
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
             .pTexelBufferView =
-                &_resources->buffers.lightClusters.indicesCount.view,
+                &_resources->staticBuffers.lightClusters.indicesCount.view,
         });
         descriptorWrites.push_back(vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 2,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .pTexelBufferView = &_resources->buffers.lightClusters.indices.view,
+            .pTexelBufferView =
+                &_resources->staticBuffers.lightClusters.indices.view,
         });
     }
     _device->logical().updateDescriptorSets(
@@ -343,7 +347,7 @@ void LightClustering::createPipeline(
     StaticArray<vk::DescriptorSetLayout, 3> setLayouts{VK_NULL_HANDLE};
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
     setLayouts[sLightClustersBindingSet] =
-        _resources->buffers.lightClusters.descriptorSetLayout;
+        _resources->staticBuffers.lightClusters.descriptorSetLayout;
     setLayouts[sCameraBindingSet] = camDSLayout;
 
     const vk::PushConstantRange pcRange{

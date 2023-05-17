@@ -164,22 +164,24 @@ void DeferredShading::record(
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
         const StaticArray barriers{
-            _resources->images.albedoRoughness.transitionBarrier(ImageState{
+            _resources->staticImages.albedoRoughness.transitionBarrier(
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
+            _resources->staticImages.normalMetalness.transitionBarrier(
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
+            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
                 .layout = vk::ImageLayout::eGeneral,
             }),
-            _resources->images.normalMetalness.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
-            _resources->images.sceneDepth.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
-            _resources->images.sceneColor.transitionBarrier(ImageState{
+            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderWrite,
                 .layout = vk::ImageLayout::eGeneral,
@@ -200,7 +202,7 @@ void DeferredShading::record(
         descriptorSets[LightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
         descriptorSets[LightClustersBindingSet] =
-            _resources->buffers.lightClusters.descriptorSets[nextFrame];
+            _resources->staticBuffers.lightClusters.descriptorSets[nextFrame];
         descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[MaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[StorageBindingSet] = _descriptorSets[nextFrame];
@@ -217,7 +219,7 @@ void DeferredShading::record(
             _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PCBlock), &pcBlock);
 
-        const auto &extent = _resources->images.sceneColor.extent;
+        const auto &extent = _resources->staticImages.sceneColor.extent;
         const auto groups =
             (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
         cb.dispatch(groups.x, groups.y, 1);
@@ -288,19 +290,19 @@ void DeferredShading::createDescriptorSets()
 void DeferredShading::updateDescriptorSets()
 {
     const vk::DescriptorImageInfo albedoRoughnessInfo{
-        .imageView = _resources->images.albedoRoughness.view,
+        .imageView = _resources->staticImages.albedoRoughness.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo normalMetalnessInfo{
-        .imageView = _resources->images.normalMetalness.view,
+        .imageView = _resources->staticImages.normalMetalness.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo depthInfo{
-        .imageView = _resources->images.sceneDepth.view,
+        .imageView = _resources->staticImages.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo sceneColorInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo depthSamplerInfo{
@@ -367,7 +369,7 @@ void DeferredShading::createPipeline(
         VK_NULL_HANDLE};
     setLayouts[LightsBindingSet] = worldDSLayouts.lights;
     setLayouts[LightClustersBindingSet] =
-        _resources->buffers.lightClusters.descriptorSetLayout;
+        _resources->staticBuffers.lightClusters.descriptorSetLayout;
     setLayouts[CameraBindingSet] = camDSLayout;
     setLayouts[MaterialsBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[StorageBindingSet] = _descriptorSetLayout;

@@ -45,7 +45,7 @@ DebugRenderer::~DebugRenderer()
     {
         _device->logical().destroy(_linesDSLayout);
 
-        for (auto &ls : _resources->buffers.debugLines)
+        for (auto &ls : _resources->staticBuffers.debugLines)
             _device->destroy(ls.buffer);
 
         destroyViewportRelated();
@@ -83,19 +83,19 @@ void DebugRenderer::record(
         const auto _s = profiler->createCpuGpuScope(cb, "Debug");
 
         const StaticArray imageBarriers{
-            _resources->images.sceneColor.transitionBarrier(ImageState{
+            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
                 .layout = vk::ImageLayout::eColorAttachmentOptimal,
             }),
-            _resources->images.sceneDepth.transitionBarrier(ImageState{
+            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
                 .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
                 .layout = vk::ImageLayout::eDepthAttachmentOptimal,
             }),
         };
 
-        const auto &lines = _resources->buffers.debugLines[nextFrame];
+        const auto &lines = _resources->staticBuffers.debugLines[nextFrame];
         // No need for barrier, mapped writes
 
         cb.pipelineBarrier2(vk::DependencyInfo{
@@ -207,7 +207,7 @@ void DebugRenderer::destroyGraphicsPipeline()
 void DebugRenderer::createBuffers()
 {
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _resources->buffers.debugLines.push_back(DebugLines{
+        _resources->staticBuffers.debugLines.push_back(DebugLines{
             .buffer = _device->createBuffer(BufferCreateInfo{
                 .desc =
                     BufferDescription{
@@ -247,7 +247,7 @@ void DebugRenderer::createDescriptorSets()
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {
         const vk::DescriptorBufferInfo info{
-            .buffer = _resources->buffers.debugLines[i].buffer.handle,
+            .buffer = _resources->staticBuffers.debugLines[i].buffer.handle,
             .range = VK_WHOLE_SIZE,
         };
 
@@ -265,13 +265,13 @@ void DebugRenderer::createDescriptorSets()
 void DebugRenderer::createAttachments()
 {
     _colorAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
     };
     _depthAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneDepth.view,
+        .imageView = _resources->staticImages.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -362,8 +362,9 @@ void DebugRenderer::createGraphicsPipeline(
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats =
-                    &_resources->images.sceneColor.format,
-                .depthAttachmentFormat = _resources->images.sceneDepth.format,
+                    &_resources->staticImages.sceneColor.format,
+                .depthAttachmentFormat =
+                    _resources->staticImages.sceneDepth.format,
             }};
 
     {

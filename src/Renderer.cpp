@@ -115,17 +115,17 @@ void Renderer::record(
             cb, render_transparents ? "Transparent" : "Opaque");
 
         const StaticArray imageBarriers{
-            _resources->images.sceneColor.transitionBarrier(ImageState{
+            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
                 .layout = vk::ImageLayout::eColorAttachmentOptimal,
             }),
-            _resources->images.sceneDepth.transitionBarrier(ImageState{
+            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
                 .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
                 .layout = vk::ImageLayout::eDepthAttachmentOptimal,
             }),
-            _resources->buffers.lightClusters.pointers.transitionBarrier(
+            _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -134,12 +134,12 @@ void Renderer::record(
         };
 
         const StaticArray bufferBarriers{
-            _resources->buffers.lightClusters.indicesCount.transitionBarrier(
-                BufferState{
+            _resources->staticBuffers.lightClusters.indicesCount
+                .transitionBarrier(BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
                 }),
-            _resources->buffers.lightClusters.indices.transitionBarrier(
+            _resources->staticBuffers.lightClusters.indices.transitionBarrier(
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -172,7 +172,7 @@ void Renderer::record(
         descriptorSets[sLightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
         descriptorSets[sLightClustersBindingSet] =
-            _resources->buffers.lightClusters.descriptorSets[nextFrame];
+            _resources->staticBuffers.lightClusters.descriptorSets[nextFrame];
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;
@@ -310,8 +310,8 @@ void Renderer::destroyViewportRelated()
     {
         destroyGraphicsPipelines();
 
-        _device->destroy(_resources->images.sceneColor);
-        _device->destroy(_resources->images.sceneDepth);
+        _device->destroy(_resources->staticImages.sceneColor);
+        _device->destroy(_resources->staticImages.sceneDepth);
 
         _colorAttachments.resize(_colorAttachments.capacity(), {});
         _depthAttachments.resize(_colorAttachments.capacity(), {});
@@ -328,18 +328,19 @@ void Renderer::destroyGraphicsPipelines()
 void Renderer::createOutputs(const vk::Extent2D &renderExtent)
 {
     {
-        _resources->images.sceneColor = _device->createImage(ImageCreateInfo{
-            .desc =
-                ImageDescription{
-                    .format = vk::Format::eR16G16B16A16Sfloat,
-                    .width = renderExtent.width,
-                    .height = renderExtent.height,
-                    .usageFlags =
-                        vk::ImageUsageFlagBits::eColorAttachment | // Render
-                        vk::ImageUsageFlagBits::eStorage,          // ToneMap
-                },
-            .debugName = "sceneColor",
-        });
+        _resources->staticImages.sceneColor =
+            _device->createImage(ImageCreateInfo{
+                .desc =
+                    ImageDescription{
+                        .format = vk::Format::eR16G16B16A16Sfloat,
+                        .width = renderExtent.width,
+                        .height = renderExtent.height,
+                        .usageFlags =
+                            vk::ImageUsageFlagBits::eColorAttachment | // Render
+                            vk::ImageUsageFlagBits::eStorage, // ToneMap
+                    },
+                .debugName = "sceneColor",
+            });
     }
     {
         // Check depth buffer without stencil is supported
@@ -350,7 +351,8 @@ void Renderer::createOutputs(const vk::Extent2D &renderExtent)
         if ((properties.optimalTilingFeatures & features) != features)
             throw std::runtime_error("Depth format unsupported");
 
-        _resources->images.sceneDepth = _device->createImage(ImageCreateInfo{
+        _resources->staticImages
+            .sceneDepth = _device->createImage(ImageCreateInfo{
             .desc =
                 ImageDescription{
                     .format = sDepthFormat,
@@ -366,7 +368,7 @@ void Renderer::createOutputs(const vk::Extent2D &renderExtent)
 
         const auto commandBuffer = _device->beginGraphicsCommands();
 
-        _resources->images.sceneDepth.transition(
+        _resources->staticImages.sceneDepth.transition(
             commandBuffer,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
@@ -381,27 +383,27 @@ void Renderer::createOutputs(const vk::Extent2D &renderExtent)
 void Renderer::createAttachments()
 {
     _colorAttachments[0] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
     };
     _colorAttachments[1] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
     };
     _depthAttachments[0] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneDepth.view,
+        .imageView = _resources->staticImages.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
         .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
     };
     _depthAttachments[1] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneDepth.view,
+        .imageView = _resources->staticImages.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -470,7 +472,7 @@ void Renderer::createGraphicsPipelines(
     StaticArray<vk::DescriptorSetLayout, 6> setLayouts{VK_NULL_HANDLE};
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
     setLayouts[sLightClustersBindingSet] =
-        _resources->buffers.lightClusters.descriptorSetLayout;
+        _resources->staticBuffers.lightClusters.descriptorSetLayout;
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[sGeometryBuffersBindingSet] = worldDSLayouts.geometry;
@@ -509,8 +511,9 @@ void Renderer::createGraphicsPipelines(
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats =
-                    &_resources->images.sceneColor.format,
-                .depthAttachmentFormat = _resources->images.sceneDepth.format,
+                    &_resources->staticImages.sceneColor.format,
+                .depthAttachmentFormat =
+                    _resources->staticImages.sceneDepth.format,
             }};
 
     {

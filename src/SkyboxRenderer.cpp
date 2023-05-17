@@ -64,12 +64,12 @@ void SkyboxRenderer::record(
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
         const StaticArray barriers{
-            _resources->images.sceneColor.transitionBarrier(ImageState{
+            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
                 .layout = vk::ImageLayout::eColorAttachmentOptimal,
             }),
-            _resources->images.sceneDepth.transitionBarrier(ImageState{
+            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
                 .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
                 .layout = vk::ImageLayout::eDepthAttachmentOptimal,
@@ -184,13 +184,13 @@ void SkyboxRenderer::destroyGraphicsPipelines()
 void SkyboxRenderer::createAttachments()
 {
     _colorAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneColor.view,
+        .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
     };
     _depthAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->images.sceneDepth.view,
+        .imageView = _resources->staticImages.sceneDepth.view,
         .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eLoad,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -295,8 +295,9 @@ void SkyboxRenderer::createGraphicsPipelines(
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats =
-                    &_resources->images.sceneColor.format,
-                .depthAttachmentFormat = _resources->images.sceneDepth.format,
+                    &_resources->staticImages.sceneColor.format,
+                .depthAttachmentFormat =
+                    _resources->staticImages.sceneDepth.format,
             }};
 
     {
