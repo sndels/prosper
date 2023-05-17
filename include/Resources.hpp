@@ -16,6 +16,17 @@ struct BufferDescription
     vk::DeviceSize byteSize{0};
     vk::BufferUsageFlags usage;
     vk::MemoryPropertyFlags properties;
+
+    [[nodiscard]] bool matches(const BufferDescription &other) const
+    {
+        if (byteSize != other.byteSize)
+            return false;
+        if (usage != other.usage)
+            return false;
+        if (properties != other.properties)
+            return false;
+        return true;
+    }
 };
 
 struct BufferCreateInfo
@@ -41,6 +52,17 @@ struct TexelBufferDescription
     BufferDescription bufferDesc;
     vk::Format format{vk::Format::eUndefined};
     bool supportAtomics{false};
+
+    [[nodiscard]] bool matches(const TexelBufferDescription &other) const
+    {
+        if (!bufferDesc.matches(other.bufferDesc))
+            return false;
+        if (format != other.format)
+            return false;
+        if (supportAtomics != other.supportAtomics)
+            return false;
+        return true;
+    }
 };
 
 struct TexelBufferCreateInfo
@@ -83,6 +105,31 @@ struct ImageDescription
     vk::ImageUsageFlags usageFlags;
     vk::MemoryPropertyFlags properties{
         vk::MemoryPropertyFlagBits::eDeviceLocal};
+
+    [[nodiscard]] bool matches(const ImageDescription &other) const
+    {
+        if (imageType != other.imageType)
+            return false;
+        if (format != other.format)
+            return false;
+        if (width != other.width)
+            return false;
+        if (height != other.height)
+            return false;
+        if (depth != other.depth)
+            return false;
+        if (mipCount != other.mipCount)
+            return false;
+        if (layerCount != other.layerCount)
+            return false;
+        if (createFlags != other.createFlags)
+            return false;
+        if (usageFlags != other.usageFlags)
+            return false;
+        if (properties != other.properties)
+            return false;
+        return true;
+    }
 };
 
 struct ImageCreateInfo
