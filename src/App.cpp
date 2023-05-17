@@ -526,7 +526,10 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             cb, *_world, renderArea, nextFrame, _profiler.get());
     }
 
-    _debugRenderer->record(cb, *_cam, renderArea, nextFrame, _profiler.get());
+    // RT doesn't output non-linear depth
+    if (!_renderRT)
+        _debugRenderer->record(
+            cb, *_cam, renderArea, nextFrame, _profiler.get());
 
     const ImageHandle toneMapped =
         _toneMap->record(cb, _viewportExtent, nextFrame, _profiler.get())
