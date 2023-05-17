@@ -23,8 +23,7 @@ class DebugRenderer
 
     DebugRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::Extent2D &renderExtent,
-        vk::DescriptorSetLayout camDSLayout);
+        RenderResources *resources, vk::DescriptorSetLayout camDSLayout);
     ~DebugRenderer();
 
     DebugRenderer(const DebugRenderer &other) = delete;
@@ -33,11 +32,9 @@ class DebugRenderer
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
-        vk::DescriptorSetLayout camDSLayout);
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout);
 
-    void recreate(
-        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout);
+    void recreate(vk::DescriptorSetLayout camDSLayout);
 
     void record(
         vk::CommandBuffer cb, const Camera &cam, const vk::Rect2D &renderArea,
@@ -52,8 +49,7 @@ class DebugRenderer
     void createBuffers();
     void createDescriptorSets();
     void createAttachments();
-    void createGraphicsPipeline(
-        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout);
+    void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

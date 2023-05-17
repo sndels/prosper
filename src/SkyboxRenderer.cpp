@@ -10,7 +10,7 @@ using namespace wheels;
 
 SkyboxRenderer::SkyboxRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
+    const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -22,7 +22,7 @@ SkyboxRenderer::SkyboxRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 
-    recreate(renderExtent, worldDSLayouts);
+    recreate(worldDSLayouts);
 }
 
 SkyboxRenderer::~SkyboxRenderer()
@@ -37,23 +37,21 @@ SkyboxRenderer::~SkyboxRenderer()
 }
 
 void SkyboxRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
-    const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipelines();
-        createGraphicsPipelines(renderExtent, worldDSLayouts);
+        createGraphicsPipelines(worldDSLayouts);
     }
 }
 
-void SkyboxRenderer::recreate(
-    const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
+void SkyboxRenderer::recreate(const World::DSLayouts &worldDSLayouts)
 {
     destroyViewportRelated();
 
     createAttachments();
-    createGraphicsPipelines(renderExtent, worldDSLayouts);
+    createGraphicsPipelines(worldDSLayouts);
 }
 
 void SkyboxRenderer::record(
@@ -99,6 +97,22 @@ void SkyboxRenderer::record(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
             1, &world._skyboxDSs[nextImage], 0, nullptr);
+
+        const vk::Viewport viewport{
+            .x = 0.f,
+            .y = 0.f,
+            .width = static_cast<float>(renderArea.extent.width),
+            .height = static_cast<float>(renderArea.extent.height),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        };
+        cb.setViewport(0, 1, &viewport);
+
+        const vk::Rect2D scissor{
+            .offset = {0, 0},
+            .extent = renderArea.extent,
+        };
+        cb.setScissor(0, 1, &scissor);
 
         world.drawSkybox(cb);
 
@@ -184,7 +198,7 @@ void SkyboxRenderer::createAttachments()
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
-    const vk::Extent2D &renderExtent, const World::DSLayouts &worldDSLayouts)
+    const World::DSLayouts &worldDSLayouts)
 {
     const vk::VertexInputBindingDescription vertexBindingDescription{
         .binding = 0,
@@ -208,24 +222,10 @@ void SkyboxRenderer::createGraphicsPipelines(
         .topology = vk::PrimitiveTopology::eTriangleList,
     };
 
-    // TODO: Dynamic viewport state?
-    const vk::Viewport viewport{
-        .x = 0.f,
-        .y = 0.f,
-        .width = static_cast<float>(renderExtent.width),
-        .height = static_cast<float>(renderExtent.height),
-        .minDepth = 0.f,
-        .maxDepth = 1.f,
-    };
-    const vk::Rect2D scissor{
-        .offset = {0, 0},
-        .extent = renderExtent,
-    };
+    // Dynamic state
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,
-        .pViewports = &viewport,
         .scissorCount = 1,
-        .pScissors = &scissor,
     };
 
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
@@ -262,6 +262,14 @@ void SkyboxRenderer::createGraphicsPipelines(
         .pAttachments = &colorBlendAttachment,
     };
 
+    const StaticArray dynamicStates = {
+        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+
+    const vk::PipelineDynamicStateCreateInfo dynamicState{
+        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data(),
+    };
+
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1,
@@ -281,6 +289,7 @@ void SkyboxRenderer::createGraphicsPipelines(
                 .pMultisampleState = &multisampleState,
                 .pDepthStencilState = &depthStencilState,
                 .pColorBlendState = &colorBlendState,
+                .pDynamicState = &dynamicState,
                 .layout = _pipelineLayout,
             },
             vk::PipelineRenderingCreateInfo{

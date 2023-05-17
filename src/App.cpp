@@ -87,10 +87,10 @@ App::App(
         _cam->descriptorSetLayout(), _world->_dsLayouts));
     _skyboxRenderer.reset(new SkyboxRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _viewportExtent, _world->_dsLayouts));
+        _world->_dsLayouts));
     _debugRenderer.reset(new DebugRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _viewportExtent, _cam->descriptorSetLayout()));
+        _cam->descriptorSetLayout()));
     _toneMap.reset(new ToneMap(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _viewportExtent));
@@ -187,8 +187,8 @@ void App::recreateViewportRelated()
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
     _deferredShading->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
     _rtRenderer->recreate();
-    _skyboxRenderer->recreate(_viewportExtent, _world->_dsLayouts);
-    _debugRenderer->recreate(_viewportExtent, _cam->descriptorSetLayout());
+    _skyboxRenderer->recreate(_world->_dsLayouts);
+    _debugRenderer->recreate(_cam->descriptorSetLayout());
     _toneMap->recreate(_viewportExtent);
 
     _cam->perspective(
@@ -259,10 +259,10 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _renderer->recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _cam->descriptorSetLayout(),
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _gbufferRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _cam->descriptorSetLayout(),
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _deferredShading->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
@@ -271,9 +271,9 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _skyboxRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _world->_dsLayouts);
+        scopeAlloc.child_scope(), _world->_dsLayouts);
     _debugRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _viewportExtent, _cam->descriptorSetLayout());
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout());
     _toneMap->recompileShaders(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());

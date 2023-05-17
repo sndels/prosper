@@ -34,8 +34,7 @@ class Renderer
     Renderer &operator=(Renderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
@@ -60,7 +59,7 @@ class Renderer
     void createOutputs(const vk::Extent2D &renderExtent);
     void createAttachments();
     void createGraphicsPipelines(
-        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};

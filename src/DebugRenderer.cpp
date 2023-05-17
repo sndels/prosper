@@ -20,7 +20,7 @@ constexpr uint32_t sGeometryBuffersBindingSet = 1;
 
 DebugRenderer::DebugRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
+    const vk::DescriptorSetLayout camDSLayout)
 : _device{device}
 , _resources{resources}
 {
@@ -36,7 +36,7 @@ DebugRenderer::DebugRenderer(
     createBuffers();
     createDescriptorSets();
 
-    recreate(renderExtent, camDSLayout);
+    recreate(camDSLayout);
 }
 
 DebugRenderer::~DebugRenderer()
@@ -56,23 +56,21 @@ DebugRenderer::~DebugRenderer()
 }
 
 void DebugRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
-    const vk::DescriptorSetLayout camDSLayout)
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout)
 {
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipeline();
-        createGraphicsPipeline(renderExtent, camDSLayout);
+        createGraphicsPipeline(camDSLayout);
     }
 }
 
-void DebugRenderer::recreate(
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
+void DebugRenderer::recreate(const vk::DescriptorSetLayout camDSLayout)
 {
     destroyViewportRelated();
 
     createAttachments();
-    createGraphicsPipeline(renderExtent, camDSLayout);
+    createGraphicsPipeline(camDSLayout);
 }
 
 void DebugRenderer::record(
@@ -126,6 +124,22 @@ void DebugRenderer::record(
             0, // firstSet
             asserted_cast<uint32_t>(descriptorSets.size()),
             descriptorSets.data(), 0, nullptr);
+
+        const vk::Viewport viewport{
+            .x = 0.f,
+            .y = 0.f,
+            .width = static_cast<float>(renderArea.extent.width),
+            .height = static_cast<float>(renderArea.extent.height),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        };
+        cb.setViewport(0, 1, &viewport);
+
+        const vk::Rect2D scissor{
+            .offset = {0, 0},
+            .extent = renderArea.extent,
+        };
+        cb.setScissor(0, 1, &scissor);
 
         cb.draw(lines.count * 2, 1, 0, 0);
 
@@ -260,7 +274,7 @@ void DebugRenderer::createAttachments()
 }
 
 void DebugRenderer::createGraphicsPipeline(
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout)
+    const vk::DescriptorSetLayout camDSLayout)
 {
     // Empty as we'll load vertices manually from a buffer
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
@@ -269,24 +283,11 @@ void DebugRenderer::createGraphicsPipeline(
         .topology = vk::PrimitiveTopology::eLineList,
     };
 
-    // TODO: Dynamic viewport state?
-    const vk::Viewport viewport{
-        .x = 0.f,
-        .y = 0.f,
-        .width = static_cast<float>(renderExtent.width),
-        .height = static_cast<float>(renderExtent.height),
-        .minDepth = 0.f,
-        .maxDepth = 1.f,
-    };
-    const vk::Rect2D scissor{
-        .offset = {0, 0},
-        .extent = renderExtent,
-    };
+    // Dynamic state
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,
-        .pViewports = &viewport,
         .scissorCount = 1,
-        .pScissors = &scissor};
+    };
 
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .lineWidth = 1.0,
@@ -319,6 +320,14 @@ void DebugRenderer::createGraphicsPipeline(
         .pAttachments = &opaqueColorBlendAttachment,
     };
 
+    const StaticArray dynamicStates = {
+        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+
+    const vk::PipelineDynamicStateCreateInfo dynamicState{
+        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data(),
+    };
+
     StaticArray<vk::DescriptorSetLayout, 2> setLayouts{VK_NULL_HANDLE};
     setLayouts[sCameraBindingSet] = camDSLayout;
     setLayouts[sGeometryBuffersBindingSet] = _linesDSLayout;
@@ -342,6 +351,7 @@ void DebugRenderer::createGraphicsPipeline(
                 .pMultisampleState = &multisampleState,
                 .pDepthStencilState = &depthStencilState,
                 .pColorBlendState = &opaqueColorBlendState,
+                .pDynamicState = &dynamicState,
                 .layout = _pipelineLayout,
             },
             vk::PipelineRenderingCreateInfo{

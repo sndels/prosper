@@ -66,14 +66,13 @@ Renderer::~Renderer()
 }
 
 void Renderer::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
-    const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyGraphicsPipelines();
-        createGraphicsPipelines(renderExtent, camDSLayout, worldDSLayouts);
+        createGraphicsPipelines(camDSLayout, worldDSLayouts);
     }
 }
 
@@ -85,7 +84,7 @@ void Renderer::recreate(
 
     createOutputs(renderExtent);
     createAttachments();
-    createGraphicsPipelines(renderExtent, camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
 void Renderer::drawUi()
@@ -185,6 +184,22 @@ void Renderer::record(
             0, // firstSet
             asserted_cast<uint32_t>(descriptorSets.size()),
             descriptorSets.data(), 0, nullptr);
+
+        const vk::Viewport viewport{
+            .x = 0.f,
+            .y = 0.f,
+            .width = static_cast<float>(renderArea.extent.width),
+            .height = static_cast<float>(renderArea.extent.height),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        };
+        cb.setViewport(0, 1, &viewport);
+
+        const vk::Rect2D scissor{
+            .offset = {0, 0},
+            .extent = renderArea.extent,
+        };
+        cb.setScissor(0, 1, &scissor);
 
         for (const auto &instance : scene.modelInstances)
         {
@@ -386,7 +401,7 @@ void Renderer::createAttachments()
 }
 
 void Renderer::createGraphicsPipelines(
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
+    const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     // Empty as we'll load vertices manually from a buffer
@@ -396,24 +411,11 @@ void Renderer::createGraphicsPipelines(
         .topology = vk::PrimitiveTopology::eTriangleList,
     };
 
-    // TODO: Dynamic viewport state?
-    const vk::Viewport viewport{
-        .x = 0.f,
-        .y = 0.f,
-        .width = static_cast<float>(renderExtent.width),
-        .height = static_cast<float>(renderExtent.height),
-        .minDepth = 0.f,
-        .maxDepth = 1.f,
-    };
-    const vk::Rect2D scissor{
-        .offset = {0, 0},
-        .extent = renderExtent,
-    };
+    // Dynamic state
     const vk::PipelineViewportStateCreateInfo viewportState{
         .viewportCount = 1,
-        .pViewports = &viewport,
         .scissorCount = 1,
-        .pScissors = &scissor};
+    };
 
     const vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .polygonMode = vk::PolygonMode::eFill,
@@ -447,6 +449,14 @@ void Renderer::createGraphicsPipelines(
     const vk::PipelineColorBlendStateCreateInfo opaqueColorBlendState{
         .attachmentCount = 1,
         .pAttachments = &opaqueColorBlendAttachment,
+    };
+
+    const StaticArray dynamicStates = {
+        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+
+    const vk::PipelineDynamicStateCreateInfo dynamicState{
+        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data(),
     };
 
     StaticArray<vk::DescriptorSetLayout, 6> setLayouts{VK_NULL_HANDLE};
@@ -485,6 +495,7 @@ void Renderer::createGraphicsPipelines(
                 .pMultisampleState = &multisampleState,
                 .pDepthStencilState = &depthStencilState,
                 .pColorBlendState = &opaqueColorBlendState,
+                .pDynamicState = &dynamicState,
                 .layout = _pipelineLayout,
             },
             vk::PipelineRenderingCreateInfo{

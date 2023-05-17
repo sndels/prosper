@@ -16,8 +16,7 @@ class SkyboxRenderer
   public:
     SkyboxRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::Extent2D &renderExtent,
-        const World::DSLayouts &worldDSLayouts);
+        RenderResources *resources, const World::DSLayouts &worldDSLayouts);
     ~SkyboxRenderer();
 
     SkyboxRenderer(const SkyboxRenderer &other) = delete;
@@ -26,11 +25,11 @@ class SkyboxRenderer
     SkyboxRenderer &operator=(SkyboxRenderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, const vk::Extent2D &renderExtent,
+        wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const vk::Extent2D &renderExtent,
+
         const World::DSLayouts &worldDSLayouts);
 
     void record(
@@ -44,9 +43,7 @@ class SkyboxRenderer
     void destroyGraphicsPipelines();
 
     void createAttachments();
-    void createGraphicsPipelines(
-        const vk::Extent2D &renderExtent,
-        const World::DSLayouts &worldDSLayouts);
+    void createGraphicsPipelines(const World::DSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
