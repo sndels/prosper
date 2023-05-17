@@ -1,21 +1,5 @@
-- Make ui less ad hoc
-  - Separate settings windows per renderer type make e.g. docking behavior flaky
-    - SetNextWindowPos -> ImGuiCond_FirstUseEver  
-  - Easier to maintain if the windows are shared between similar components
-  - Just need to render centrally and pass settings blocks, or have window
-    setup/end code centrally and call per-renderer ui draw code there
 - Resource aliasing
-  - No actual aliasing first, just reuse matching textures/buffesr
-  - Reference tracking or manual mark 'unused' after last use
-    - Reference tracking more involved but should be safe
-      - Need some kind of framegraph to keep track of users?
-    - Should support keeping references over frame boundaries
-  - ResourceManager
-     - hold the 'physical' resources
-     - hand out the reference tracked handles for passes that write the initial data?
-       - handles passed for subsequent passes
-       - handle.free()?
-         - No need for framegraph, subsequent use can be asserted invalid
-         - Need to explicitly free after last use, extra thing to remember and
-           will cause at crashes on the assert or unnecessary duplicate resources
-     - allocate new resources on demand
+  - Move light resources as well
+- GPU mem Ui
+  - Allocation counts, sizes per type
+  - Available budget?
