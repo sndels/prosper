@@ -21,8 +21,7 @@ struct PCBlock
 } // namespace
 
 ToneMap::ToneMap(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::Extent2D &renderExtent)
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources)
 : _device{device}
 , _resources{resources}
 {
@@ -35,15 +34,14 @@ ToneMap::ToneMap(
         throw std::runtime_error("ToneMap shader compilation failed");
 
     createDescriptorSets();
-
-    recreate(renderExtent);
+    createPipelines();
 }
 
 ToneMap::~ToneMap()
 {
     if (_device != nullptr)
     {
-        destroyViewportRelated();
+        destroyPipelines();
 
         _device->logical().destroy(_descriptorSetLayout);
 
@@ -82,26 +80,34 @@ bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void ToneMap::recreate(const vk::Extent2D &renderExtent)
-{
-    destroyViewportRelated();
-    createOutputImage(renderExtent);
-    updateDescriptorSets();
-    createPipelines();
-}
-
 void ToneMap::drawUi()
 {
     ImGui::DragFloat("Exposure", &_exposure, 0.5f, 0.001f, 10000.f);
 }
 
-void ToneMap::record(
-    vk::CommandBuffer cb, const uint32_t nextFrame, Profiler *profiler) const
+ToneMap::Output ToneMap::record(
+    vk::CommandBuffer cb, const vk::Extent2D &renderExtent,
+    const uint32_t nextFrame, Profiler *profiler)
 {
     assert(profiler != nullptr);
 
+    Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
+
+        ret.toneMapped = _resources->images.create(
+            ImageDescription{
+                .format = vk::Format::eR8G8B8A8Unorm,
+                .width = renderExtent.width,
+                .height = renderExtent.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eStorage |         // ToneMap
+                    vk::ImageUsageFlagBits::eColorAttachment | // ImGui
+                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
+            },
+            "toneMapped");
+
+        updateDescriptorSet(nextFrame, ret.toneMapped);
 
         const StaticArray barriers{
             _resources->staticImages.sceneColor.transitionBarrier(ImageState{
@@ -109,11 +115,13 @@ void ToneMap::record(
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
                 .layout = vk::ImageLayout::eGeneral,
             }),
-            _resources->staticImages.toneMapped.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            _resources->images.transitionBarrier(
+                ret.toneMapped,
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
         };
 
         cb.pipelineBarrier2(vk::DependencyInfo{
@@ -139,6 +147,8 @@ void ToneMap::record(
             (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
         cb.dispatch(groups.x, groups.y, 1);
     }
+
+    return ret;
 }
 
 void ToneMap::destroyViewportRelated()
@@ -148,7 +158,6 @@ void ToneMap::destroyViewportRelated()
         destroyPipelines();
 
         // Descriptor sets are cleaned up when the pool is destroyed
-        _device->destroy(_resources->staticImages.toneMapped);
     }
 }
 
@@ -156,23 +165,6 @@ void ToneMap::destroyPipelines()
 {
     _device->logical().destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
-}
-
-void ToneMap::createOutputImage(const vk::Extent2D &renderExtent)
-{
-    _resources->staticImages.toneMapped = _device->createImage(ImageCreateInfo{
-        .desc =
-            ImageDescription{
-                .format = vk::Format::eR8G8B8A8Unorm,
-                .width = renderExtent.width,
-                .height = renderExtent.height,
-                .usageFlags =
-                    vk::ImageUsageFlagBits::eStorage |         // ToneMap
-                    vk::ImageUsageFlagBits::eColorAttachment | // ImGui
-                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
-            },
-        .debugName = "toneMapped",
-    });
 }
 
 void ToneMap::createDescriptorSets()
@@ -202,36 +194,35 @@ void ToneMap::createDescriptorSets()
     _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 }
 
-void ToneMap::updateDescriptorSets()
+void ToneMap::updateDescriptorSet(uint32_t nextFrame, ImageHandle toneMapped)
 {
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
     const vk::DescriptorImageInfo colorInfo{
         .imageView = _resources->staticImages.sceneColor.view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo mappedInfo{
-        .imageView = _resources->staticImages.toneMapped.view,
+        .imageView = _resources->images.resource(toneMapped).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
 
-    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 2>
-        descriptorWrites;
-    for (const auto &ds : _descriptorSets)
-    {
-        descriptorWrites.push_back({
-            .dstSet = ds,
+    StaticArray descriptorWrites{
+        vk::WriteDescriptorSet{
+            .dstSet = _descriptorSets[nextFrame],
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &colorInfo,
-        });
-        descriptorWrites.push_back({
-            .dstSet = ds,
+        },
+        vk::WriteDescriptorSet{
+            .dstSet = _descriptorSets[nextFrame],
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &mappedInfo,
-        });
-    }
+        }};
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);

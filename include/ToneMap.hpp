@@ -15,7 +15,7 @@ class ToneMap
   public:
     ToneMap(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::Extent2D &renderExtent);
+        RenderResources *resources);
     ~ToneMap();
 
     ToneMap(const ToneMap &other) = delete;
@@ -25,12 +25,15 @@ class ToneMap
 
     void recompileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void recreate(const vk::Extent2D &renderExtent);
-
     void drawUi();
 
-    void record(
-        vk::CommandBuffer cb, uint32_t nextFrame, Profiler *profiler) const;
+    struct Output
+    {
+        ImageHandle toneMapped;
+    };
+    [[nodiscard]] Output record(
+        vk::CommandBuffer cb, const vk::Extent2D &renderExtent,
+        uint32_t nextFrame, Profiler *profiler);
 
   private:
     bool compileShaders(wheels::ScopedScratch scopeAlloc);
@@ -40,8 +43,9 @@ class ToneMap
 
     void createOutputImage(const vk::Extent2D &renderExtent);
     void createDescriptorSets();
-    void updateDescriptorSets();
     void createPipelines();
+
+    void updateDescriptorSet(uint32_t nextFrame, ImageHandle toneMapped);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
@@ -53,6 +57,7 @@ class ToneMap
         _descriptorSets{{}};
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
+    vk::Extent2D _extent{};
 
     float _exposure{1.f};
 };

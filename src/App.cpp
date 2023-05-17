@@ -91,9 +91,8 @@ App::App(
     _debugRenderer.reset(new DebugRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _cam->descriptorSetLayout()));
-    _toneMap.reset(new ToneMap(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _viewportExtent));
+    _toneMap.reset(
+        new ToneMap(scopeAlloc.child_scope(), _device.get(), _resources.get()));
     _imguiRenderer.reset(new ImGuiRenderer(
         _device.get(), _resources.get(), _swapchain->config().extent,
         _window->ptr(), _swapchain->config()));
@@ -171,6 +170,8 @@ void App::recreateViewportRelated()
     // Wait for resources to be out of use
     _device->logical().waitIdle();
 
+    _resources->destroyResources();
+
     const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
     _viewportExtent = vk::Extent2D{
         asserted_cast<uint32_t>(viewportSize.x),
@@ -189,7 +190,6 @@ void App::recreateViewportRelated()
     _rtRenderer->recreate();
     _skyboxRenderer->recreate(_world->_dsLayouts);
     _debugRenderer->recreate(_cam->descriptorSetLayout());
-    _toneMap->recreate(_viewportExtent);
 
     _cam->perspective(
         PerspectiveParameters{
@@ -209,6 +209,8 @@ void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
     }
     // Wait for resources to be out of use
     _device->logical().waitIdle();
+
+    _resources->destroyResources();
 
     { // Drop the config as we should always use swapchain's active config
         const SwapchainConfig config{
@@ -524,13 +526,16 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _debugRenderer->record(cb, *_cam, renderArea, nextFrame, _profiler.get());
 
-    _toneMap->record(cb, nextFrame, _profiler.get());
+    const ImageHandle toneMapped =
+        _toneMap->record(cb, _viewportExtent, nextFrame, _profiler.get())
+            .toneMapped;
 
     { // TODO: Split into function
         // Blit tonemapped into cleared final composite before drawing ui on top
         {
             const StaticArray barriers{{
-                _resources->staticImages.toneMapped.transitionBarrier(
+                _resources->images.transitionBarrier(
+                    toneMapped,
                     ImageState{
                         .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                         .accessMask = vk::AccessFlagBits2::eTransferRead,
@@ -614,12 +619,13 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             .dstOffsets = dstOffsets,
         };
         cb.blitImage(
-            _resources->staticImages.toneMapped.handle,
+            _resources->images.nativeHandle(toneMapped),
             vk::ImageLayout::eTransferSrcOptimal,
             _resources->staticImages.finalComposite.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
             vk::Filter::eLinear);
     }
+    _resources->images.release(toneMapped);
 
     const vk::Rect2D backbufferArea{
         .offset = {0, 0},

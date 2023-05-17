@@ -31,7 +31,6 @@ class RenderResources
     {
         Image sceneColor;
         Image sceneDepth;
-        Image toneMapped;
         Image albedoRoughness;
         Image normalMetalness;
         Image finalComposite;
