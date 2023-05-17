@@ -17,8 +17,7 @@ class GBufferRenderer
   public:
     GBufferRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::Extent2D &renderExtent,
-        vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~GBufferRenderer();
 
@@ -32,15 +31,19 @@ class GBufferRenderer
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
 
-    void record(
+    struct Output
+    {
+        ImageHandle albedoRoughness;
+        ImageHandle normalMetalness;
+    };
+    [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextFrame,
-        Profiler *profiler) const;
+        const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -50,8 +53,6 @@ class GBufferRenderer
     void destroyViewportRelated();
     void destroyGraphicsPipeline();
 
-    void createOutputs(const vk::Extent2D &renderExtent);
-    void createAttachments();
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -60,9 +61,6 @@ class GBufferRenderer
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{{}};
-
-    wheels::StaticArray<vk::RenderingAttachmentInfo, 2> _colorAttachments{{}};
-    vk::RenderingAttachmentInfo _depthAttachment;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

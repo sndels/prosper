@@ -12,6 +12,10 @@ using namespace wheels;
 
 namespace
 {
+
+const vk::Format sAlbedoRoughnessFormat = vk::Format::eR8G8B8A8Unorm;
+const vk::Format sNormalMetalnessFormat = vk::Format::eR16G16B16A16Sfloat;
+
 enum BindingSet : uint32_t
 {
     CameraBindingSet = 0,
@@ -35,7 +39,7 @@ struct PCBlock
 
 GBufferRenderer::GBufferRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
+    const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -48,14 +52,14 @@ GBufferRenderer::GBufferRenderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("GBufferRenderer shader compilation failed");
 
-    recreate(renderExtent, camDSLayout, worldDSLayouts);
+    recreate(camDSLayout, worldDSLayouts);
 }
 
 GBufferRenderer::~GBufferRenderer()
 {
     if (_device != nullptr)
     {
-        destroyViewportRelated();
+        destroyGraphicsPipeline();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -74,35 +78,56 @@ void GBufferRenderer::recompileShaders(
 }
 
 void GBufferRenderer::recreate(
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
+    const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    destroyViewportRelated();
+    destroyGraphicsPipeline();
 
-    createOutputs(renderExtent);
-    createAttachments();
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
-void GBufferRenderer::record(
+GBufferRenderer::Output GBufferRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const uint32_t nextFrame,
-    Profiler *profiler) const
+    const vk::Rect2D &renderArea, const uint32_t nextFrame, Profiler *profiler)
 {
     assert(profiler != nullptr);
 
+    Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "GBuffer");
 
+        ret.albedoRoughness = _resources->images.create(
+            ImageDescription{
+                .format = sAlbedoRoughnessFormat,
+                .width = renderArea.extent.width,
+                .height = renderArea.extent.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eColorAttachment | // Render
+                    vk::ImageUsageFlagBits::eStorage,          // Shading
+            },
+            "albedoRoughness");
+        ret.normalMetalness = _resources->images.create(
+            ImageDescription{
+                .format = sNormalMetalnessFormat,
+                .width = renderArea.extent.width,
+                .height = renderArea.extent.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eColorAttachment | // Render
+                    vk::ImageUsageFlagBits::eStorage,          // Shading
+            },
+            "normalMetalness");
+
         const StaticArray imageBarriers{
-            _resources->staticImages.albedoRoughness.transitionBarrier(
+            _resources->images.transitionBarrier(
+                ret.albedoRoughness,
                 ImageState{
                     .stageMask =
                         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                     .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
                     .layout = vk::ImageLayout::eColorAttachmentOptimal,
                 }),
-            _resources->staticImages.normalMetalness.transitionBarrier(
+            _resources->images.transitionBarrier(
+                ret.normalMetalness,
                 ImageState{
                     .stageMask =
                         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
@@ -144,13 +169,38 @@ void GBufferRenderer::record(
             .pImageMemoryBarriers = imageBarriers.data(),
         });
 
+        const StaticArray colorAttachments{
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(ret.albedoRoughness).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(ret.normalMetalness).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            }};
+        const vk::RenderingAttachmentInfo depthAttachment{
+            .imageView = _resources->staticImages.sceneDepth.view,
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
+        };
+
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
             .colorAttachmentCount =
-                asserted_cast<uint32_t>(_colorAttachments.capacity()),
-            .pColorAttachments = _colorAttachments.data(),
-            .pDepthAttachment = &_depthAttachment,
+                asserted_cast<uint32_t>(colorAttachments.capacity()),
+            .pColorAttachments = colorAttachments.data(),
+            .pDepthAttachment = &depthAttachment,
         });
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
@@ -218,6 +268,8 @@ void GBufferRenderer::record(
 
         cb.endRendering();
     }
+
+    return ret;
 }
 
 bool GBufferRenderer::compileShaders(
@@ -279,80 +331,10 @@ bool GBufferRenderer::compileShaders(
     return false;
 }
 
-void GBufferRenderer::destroyViewportRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyGraphicsPipeline();
-
-        _device->destroy(_resources->staticImages.albedoRoughness);
-        _device->destroy(_resources->staticImages.normalMetalness);
-        // Depth owned by Renderer
-
-        _colorAttachments.resize(_colorAttachments.capacity(), {});
-    }
-}
-
 void GBufferRenderer::destroyGraphicsPipeline()
 {
     _device->logical().destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
-}
-
-void GBufferRenderer::createOutputs(const vk::Extent2D &renderExtent)
-{
-    _resources->staticImages.albedoRoughness =
-        _device->createImage(ImageCreateInfo{
-            .desc =
-                ImageDescription{
-                    .format = vk::Format::eR8G8B8A8Unorm,
-                    .width = renderExtent.width,
-                    .height = renderExtent.height,
-                    .usageFlags =
-                        vk::ImageUsageFlagBits::eColorAttachment | // Render
-                        vk::ImageUsageFlagBits::eStorage,          // Shading
-                },
-            .debugName = "albedoRoughness",
-        });
-    _resources->staticImages.normalMetalness =
-        _device->createImage(ImageCreateInfo{
-            .desc =
-                ImageDescription{
-                    .format = vk::Format::eR16G16B16A16Sfloat,
-                    .width = renderExtent.width,
-                    .height = renderExtent.height,
-                    .usageFlags =
-                        vk::ImageUsageFlagBits::eColorAttachment | // Render
-                        vk::ImageUsageFlagBits::eStorage,          // Shading
-                },
-            .debugName = "normalMetalness",
-        });
-    // Depth created by Renderer
-}
-
-void GBufferRenderer::createAttachments()
-{
-    _colorAttachments[0] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.albedoRoughness.view,
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-    };
-    _colorAttachments[1] = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.normalMetalness.view,
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-    };
-    _depthAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.sceneDepth.view,
-        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
-    };
 }
 
 void GBufferRenderer::createGraphicsPipelines(
@@ -443,8 +425,8 @@ void GBufferRenderer::createGraphicsPipelines(
         });
 
     const StaticArray colorAttachmentFormats{
-        _resources->staticImages.albedoRoughness.format,
-        _resources->staticImages.normalMetalness.format,
+        sAlbedoRoughnessFormat,
+        sNormalMetalnessFormat,
     };
 
     vk::StructureChain<

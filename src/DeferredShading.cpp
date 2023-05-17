@@ -135,7 +135,6 @@ void DeferredShading::recreate(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
     destroyViewportRelated();
-    updateDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -156,21 +155,26 @@ void DeferredShading::drawUi()
 
 void DeferredShading::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const uint32_t nextFrame, Profiler *profiler) const
+    const GBufferRenderer::Output &gbuffer, const uint32_t nextFrame,
+    Profiler *profiler)
 {
     assert(profiler != nullptr);
 
     {
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
+        updateDescriptorSet(nextFrame, gbuffer);
+
         const StaticArray barriers{
-            _resources->staticImages.albedoRoughness.transitionBarrier(
+            _resources->images.transitionBarrier(
+                gbuffer.albedoRoughness,
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
                     .layout = vk::ImageLayout::eGeneral,
                 }),
-            _resources->staticImages.normalMetalness.transitionBarrier(
+            _resources->images.transitionBarrier(
+                gbuffer.normalMetalness,
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -287,14 +291,19 @@ void DeferredShading::createDescriptorSets()
     _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 }
 
-void DeferredShading::updateDescriptorSets()
+void DeferredShading::updateDescriptorSet(
+    uint32_t nextFrame, const GBufferRenderer::Output &gbuffer)
 {
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
+
     const vk::DescriptorImageInfo albedoRoughnessInfo{
-        .imageView = _resources->staticImages.albedoRoughness.view,
+        .imageView = _resources->images.resource(gbuffer.albedoRoughness).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo normalMetalnessInfo{
-        .imageView = _resources->staticImages.normalMetalness.view,
+        .imageView = _resources->images.resource(gbuffer.normalMetalness).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo depthInfo{
@@ -308,49 +317,44 @@ void DeferredShading::updateDescriptorSets()
     const vk::DescriptorImageInfo depthSamplerInfo{
         .sampler = _depthSampler,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 5>
-        descriptorWrites;
-    for (const auto &ds : _descriptorSets)
-    {
-        // TODO:
-        // Can these be one write as the range is contiguous and the type
-        // shared?
-        descriptorWrites.push_back({
+
+    const vk::DescriptorSet ds = _descriptorSets[nextFrame];
+    StaticArray descriptorWrites{
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &albedoRoughnessInfo,
-        });
-        descriptorWrites.push_back({
+        },
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &normalMetalnessInfo,
-        });
-        descriptorWrites.push_back({
+        },
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 2,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eSampledImage,
             .pImageInfo = &depthInfo,
-        });
-        descriptorWrites.push_back({
+        },
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 3,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &sceneColorInfo,
-        });
-        descriptorWrites.push_back({
+        },
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 4,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eSampler,
             .pImageInfo = &depthSamplerInfo,
-        });
-    }
+        }};
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);

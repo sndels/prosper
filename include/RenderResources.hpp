@@ -31,8 +31,6 @@ class RenderResources
     {
         Image sceneColor;
         Image sceneDepth;
-        Image albedoRoughness;
-        Image normalMetalness;
     };
 
     struct Buffers

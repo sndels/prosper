@@ -78,7 +78,7 @@ App::App(
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
     _gbufferRenderer.reset(new GBufferRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
+        _cam->descriptorSetLayout(), _world->_dsLayouts));
     _deferredShading.reset(new DeferredShading(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _cam->descriptorSetLayout(), _world->_dsLayouts));
@@ -184,8 +184,7 @@ void App::recreateViewportRelated()
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
     _renderer->recreate(
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
-    _gbufferRenderer->recreate(
-        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _gbufferRenderer->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
     _deferredShading->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
     _rtRenderer->recreate();
     _skyboxRenderer->recreate(_world->_dsLayouts);
@@ -500,14 +499,17 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     }
     else
     {
-
         // Opaque
         if (_renderDeferred)
         {
-            _gbufferRenderer->record(
+            const GBufferRenderer::Output gbuffer = _gbufferRenderer->record(
                 cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
+
             _deferredShading->record(
-                cb, *_world, *_cam, nextFrame, _profiler.get());
+                cb, *_world, *_cam, gbuffer, nextFrame, _profiler.get());
+
+            _resources->images.release(gbuffer.albedoRoughness);
+            _resources->images.release(gbuffer.normalMetalness);
         }
         else
         {

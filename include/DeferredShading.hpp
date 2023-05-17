@@ -7,6 +7,7 @@
 #include "Camera.hpp"
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
+#include "GBufferRenderer.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
@@ -45,7 +46,8 @@ class DeferredShading
 
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        uint32_t nextFrame, Profiler *profiler) const;
+        const GBufferRenderer::Output &gbuffer, uint32_t nextFrame,
+        Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -56,7 +58,8 @@ class DeferredShading
     void destroyPipelines();
 
     void createDescriptorSets();
-    void updateDescriptorSets();
+    void updateDescriptorSet(
+        uint32_t nextFrame, const GBufferRenderer::Output &gbuffer);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
