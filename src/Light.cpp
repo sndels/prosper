@@ -15,10 +15,10 @@ void DirectionalLight::bufferInfos(Span<vk::DescriptorBufferInfo> output) const
         };
 }
 
-void DirectionalLight::updateBuffer(const uint32_t nextImage) const
+void DirectionalLight::updateBuffer(const uint32_t nextFrame) const
 {
     memcpy(
-        this->uniformBuffers[nextImage].mapped, &this->parameters,
+        this->uniformBuffers[nextFrame].mapped, &this->parameters,
         sizeof(Parameters));
 }
 
@@ -35,14 +35,14 @@ void PointLights::bufferInfos(Span<vk::DescriptorBufferInfo> output) const
         };
 }
 
-void PointLights::updateBuffer(const uint32_t nextImage) const
+void PointLights::updateBuffer(const uint32_t nextFrame) const
 {
     memcpy(
-        this->storageBuffers[nextImage].mapped, this->data.data(),
+        this->storageBuffers[nextFrame].mapped, this->data.data(),
         sizeof(PointLight) * this->data.size());
     const uint32_t size = asserted_cast<uint32_t>(this->data.size());
     memcpy(
-        reinterpret_cast<uint8_t *>(this->storageBuffers[nextImage].mapped) +
+        reinterpret_cast<uint8_t *>(this->storageBuffers[nextFrame].mapped) +
             sBufferByteSize - sizeof(uint32_t),
         &size, sizeof(size));
 }
@@ -60,14 +60,14 @@ void SpotLights::bufferInfos(Span<vk::DescriptorBufferInfo> output) const
         };
 }
 
-void SpotLights::updateBuffer(const uint32_t nextImage) const
+void SpotLights::updateBuffer(const uint32_t nextFrame) const
 {
     memcpy(
-        this->storageBuffers[nextImage].mapped, this->data.data(),
+        this->storageBuffers[nextFrame].mapped, this->data.data(),
         sizeof(SpotLight) * this->data.size());
     const uint32_t size = asserted_cast<uint32_t>(this->data.size());
     memcpy(
-        reinterpret_cast<uint8_t *>(this->storageBuffers[nextImage].mapped) +
+        reinterpret_cast<uint8_t *>(this->storageBuffers[nextFrame].mapped) +
             sBufferByteSize - sizeof(uint32_t),
         &size, sizeof(size));
 }

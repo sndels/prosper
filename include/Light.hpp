@@ -22,7 +22,7 @@ struct DirectionalLight
     // output should have a size matching storageBuffers
     void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
 
-    void updateBuffer(uint32_t nextImage) const;
+    void updateBuffer(uint32_t nextFrame) const;
 };
 
 struct PointLights
@@ -50,7 +50,7 @@ struct PointLights
     // output should have a size matching storageBuffers
     void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
 
-    void updateBuffer(uint32_t nextImage) const;
+    void updateBuffer(uint32_t nextFrame) const;
 };
 
 struct SpotLights
@@ -79,7 +79,7 @@ struct SpotLights
     // output should have a size matching storageBuffers
     void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
 
-    void updateBuffer(uint32_t nextImage) const;
+    void updateBuffer(uint32_t nextFrame) const;
 };
 
 #endif // PROSPER_LIGHT_HPP

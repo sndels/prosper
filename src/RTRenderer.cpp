@@ -154,7 +154,7 @@ void RTRenderer::drawUi()
 
 void RTRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, uint32_t nextImage, bool colorDirty,
+    const vk::Rect2D &renderArea, uint32_t nextFrame, bool colorDirty,
     Profiler *profiler)
 {
     _frameIndex = ++_frameIndex % sFramePeriod;
@@ -176,16 +176,16 @@ void RTRenderer::record(
         const auto &scene = world._scenes[world._currentScene];
 
         StaticArray<vk::DescriptorSet, 8> descriptorSets{VK_NULL_HANDLE};
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
-        descriptorSets[sOutputBindingSet] = _descriptorSets[nextImage];
+        descriptorSets[sOutputBindingSet] = _descriptorSets[nextFrame];
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[sGeometryBindingSet] = world._geometryDS;
         descriptorSets[sSkyboxBindingSet] = world._skyboxOnlyDS;
         descriptorSets[sModelInstanceTrfnsBindingSet] =
-            scene.modelInstancesDescriptorSets[nextImage];
+            scene.modelInstancesDescriptorSets[nextFrame];
         descriptorSets[sLightsBindingSet] =
-            scene.lights.descriptorSets[nextImage];
+            scene.lights.descriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,

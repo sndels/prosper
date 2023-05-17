@@ -45,7 +45,7 @@ class DeferredShading
 
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        uint32_t nextImage, Profiler *profiler) const;
+        uint32_t nextFrame, Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(

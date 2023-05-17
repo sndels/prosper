@@ -43,7 +43,7 @@ class LightClustering
 
     void record(
         vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextImage, Profiler *profiler);
+        const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);

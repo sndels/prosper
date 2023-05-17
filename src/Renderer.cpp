@@ -104,7 +104,7 @@ void Renderer::drawUi()
 
 void Renderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const uint32_t nextImage,
+    const vk::Rect2D &renderArea, const uint32_t nextFrame,
     bool render_transparents, Profiler *profiler) const
 {
     assert(profiler != nullptr);
@@ -170,14 +170,14 @@ void Renderer::record(
 
         StaticArray<vk::DescriptorSet, 6> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sLightsBindingSet] =
-            scene.lights.descriptorSets[nextImage];
+            scene.lights.descriptorSets[nextFrame];
         descriptorSets[sLightClustersBindingSet] =
-            _resources->buffers.lightClusters.descriptorSets[nextImage];
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+            _resources->buffers.lightClusters.descriptorSets[nextFrame];
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;
         descriptorSets[sModelInstanceTrfnsBindingSet] =
-            scene.modelInstancesDescriptorSets[nextImage];
+            scene.modelInstancesDescriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,

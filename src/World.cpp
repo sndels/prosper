@@ -238,14 +238,14 @@ World::~World()
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
 void World::updateUniformBuffers(
-    const Camera &cam, const uint32_t nextImage, ScopedScratch scopeAlloc) const
+    const Camera &cam, const uint32_t nextFrame, ScopedScratch scopeAlloc) const
 {
     {
         const mat4 worldToClip =
             cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
 
         memcpy(
-            _skyboxUniformBuffers[nextImage].mapped, &worldToClip,
+            _skyboxUniformBuffers[nextFrame].mapped, &worldToClip,
             sizeof(mat4));
     }
 
@@ -273,7 +273,7 @@ void World::updateUniformBuffers(
         }
 
         memcpy(
-            scene.modelInstanceTransformsBuffers[nextImage].mapped,
+            scene.modelInstanceTransformsBuffers[nextFrame].mapped,
             transforms.data(),
             sizeof(ModelInstance::Transforms) * transforms.size());
 
@@ -282,9 +282,9 @@ void World::updateUniformBuffers(
             sizeof(Scene::RTInstance) * rtInstances.size());
     }
 
-    scene.lights.directionalLight.updateBuffer(nextImage);
-    scene.lights.pointLights.updateBuffer(nextImage);
-    scene.lights.spotLights.updateBuffer(nextImage);
+    scene.lights.directionalLight.updateBuffer(nextFrame);
+    scene.lights.pointLights.updateBuffer(nextFrame);
+    scene.lights.spotLights.updateBuffer(nextFrame);
 }
 
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
@@ -708,11 +708,11 @@ void World::loadScenes(
                 {
                     scene.camera = *params;
                     scene.camera.eye =
-                        vec3{modelToWorld *vec4{0.f, 0.f, 0.f, 1.f}};
+                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
                     scene.camera.target =
-                        vec3{modelToWorld *vec4{0.f, 0.f, -1.f, 1.f}};
+                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
                 }
                 if (size_t const *light_i = lights.find(node);
@@ -764,7 +764,7 @@ void World::loadScenes(
 
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
-                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
@@ -794,7 +794,7 @@ void World::loadScenes(
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
                         sceneLight.positionAndAngleOffset =
-                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
 
                         sceneLight.direction = vec4{

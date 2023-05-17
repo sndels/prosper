@@ -96,7 +96,7 @@ void LightClustering::recreate(
 
 void LightClustering::record(
     vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
-    const vk::Rect2D &renderArea, const uint32_t nextImage, Profiler *profiler)
+    const vk::Rect2D &renderArea, const uint32_t nextFrame, Profiler *profiler)
 {
     if (renderArea.offset != vk::Offset2D{})
         throw std::runtime_error("Offset area not implemented!");
@@ -148,10 +148,10 @@ void LightClustering::record(
 
         StaticArray<vk::DescriptorSet, 3> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sLightsBindingSet] =
-            scene.lights.descriptorSets[nextImage];
+            scene.lights.descriptorSets[nextFrame];
         descriptorSets[sLightClustersBindingSet] =
-            _resources->buffers.lightClusters.descriptorSets[nextImage];
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+            _resources->buffers.lightClusters.descriptorSets[nextFrame];
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, _pipelineLayout,

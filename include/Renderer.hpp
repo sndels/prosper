@@ -45,7 +45,7 @@ class Renderer
 
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextImage, bool transparents,
+        const vk::Rect2D &renderArea, uint32_t nextFrame, bool transparents,
         Profiler *profiler) const;
 
   private:

@@ -86,7 +86,7 @@ void GBufferRenderer::recreate(
 
 void GBufferRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const uint32_t nextImage,
+    const vk::Rect2D &renderArea, const uint32_t nextFrame,
     Profiler *profiler) const
 {
     assert(profiler != nullptr);
@@ -155,11 +155,11 @@ void GBufferRenderer::record(
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextImage);
+        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[MaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
-            scene.modelInstancesDescriptorSets[nextImage];
+            scene.modelInstancesDescriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,

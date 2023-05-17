@@ -39,7 +39,7 @@ class GBufferRenderer
 
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextImage,
+        const vk::Rect2D &renderArea, uint32_t nextFrame,
         Profiler *profiler) const;
 
   private:

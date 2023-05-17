@@ -75,7 +75,7 @@ void DebugRenderer::recreate(const vk::DescriptorSetLayout camDSLayout)
 
 void DebugRenderer::record(
     vk::CommandBuffer cb, const Camera &cam, const vk::Rect2D &renderArea,
-    const uint32_t nextImage, Profiler *profiler) const
+    const uint32_t nextFrame, Profiler *profiler) const
 {
     assert(profiler != nullptr);
 
@@ -95,7 +95,7 @@ void DebugRenderer::record(
             }),
         };
 
-        const auto &lines = _resources->buffers.debugLines[nextImage];
+        const auto &lines = _resources->buffers.debugLines[nextFrame];
         // No need for barrier, mapped writes
 
         cb.pipelineBarrier2(vk::DependencyInfo{
@@ -115,9 +115,9 @@ void DebugRenderer::record(
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
         StaticArray<vk::DescriptorSet, 2> descriptorSets{VK_NULL_HANDLE};
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextImage);
+        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[sGeometryBuffersBindingSet] =
-            _linesDescriptorSets[nextImage];
+            _linesDescriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,

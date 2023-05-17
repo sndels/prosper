@@ -30,7 +30,7 @@ class ToneMap
     void drawUi();
 
     void record(
-        vk::CommandBuffer cb, uint32_t nextImage, Profiler *profiler) const;
+        vk::CommandBuffer cb, uint32_t nextFrame, Profiler *profiler) const;
 
   private:
     bool compileShaders(wheels::ScopedScratch scopeAlloc);

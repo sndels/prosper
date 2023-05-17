@@ -96,7 +96,7 @@ void ToneMap::drawUi()
 }
 
 void ToneMap::record(
-    vk::CommandBuffer cb, const uint32_t nextImage, Profiler *profiler) const
+    vk::CommandBuffer cb, const uint32_t nextFrame, Profiler *profiler) const
 {
     assert(profiler != nullptr);
 
@@ -125,7 +125,7 @@ void ToneMap::record(
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
-            &_descriptorSets[nextImage], 0, nullptr);
+            &_descriptorSets[nextFrame], 0, nullptr);
 
         const PCBlock pcBlock{
             .exposure = _exposure,

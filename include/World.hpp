@@ -48,7 +48,7 @@ class World
 
     [[nodiscard]] const Scene &currentScene() const;
     void updateUniformBuffers(
-        const Camera &cam, uint32_t nextImage,
+        const Camera &cam, uint32_t nextFrame,
         wheels::ScopedScratch scopeAlloc) const;
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 

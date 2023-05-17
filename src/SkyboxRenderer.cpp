@@ -56,7 +56,7 @@ void SkyboxRenderer::recreate(const World::DSLayouts &worldDSLayouts)
 
 void SkyboxRenderer::record(
     vk::CommandBuffer cb, const World &world, const vk::Rect2D &renderArea,
-    const uint32_t nextImage, Profiler *profiler) const
+    const uint32_t nextFrame, Profiler *profiler) const
 {
     assert(profiler != nullptr);
 
@@ -96,7 +96,7 @@ void SkyboxRenderer::record(
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
-            1, &world._skyboxDSs[nextImage], 0, nullptr);
+            1, &world._skyboxDSs[nextFrame], 0, nullptr);
 
         const vk::Viewport viewport{
             .x = 0.f,

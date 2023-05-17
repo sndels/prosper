@@ -156,7 +156,7 @@ void DeferredShading::drawUi()
 
 void DeferredShading::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const uint32_t nextImage, Profiler *profiler) const
+    const uint32_t nextFrame, Profiler *profiler) const
 {
     assert(profiler != nullptr);
 
@@ -198,12 +198,12 @@ void DeferredShading::record(
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[LightsBindingSet] =
-            scene.lights.descriptorSets[nextImage];
+            scene.lights.descriptorSets[nextFrame];
         descriptorSets[LightClustersBindingSet] =
-            _resources->buffers.lightClusters.descriptorSets[nextImage];
-        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextImage);
+            _resources->buffers.lightClusters.descriptorSets[nextFrame];
+        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[MaterialsBindingSet] = world._materialTexturesDS;
-        descriptorSets[StorageBindingSet] = _descriptorSets[nextImage];
+        descriptorSets[StorageBindingSet] = _descriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, // firstSet
