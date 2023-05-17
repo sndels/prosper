@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "LightClustering.hpp"
+#include "RenderTargets.hpp"
 #include "Utils.hpp"
 
 using namespace glm;
@@ -72,7 +73,7 @@ DeferredShading::~DeferredShading()
 {
     if (_device != nullptr)
     {
-        destroyViewportRelated();
+        destroyPipelines();
 
         _device->logical().destroy(_descriptorSetLayout);
 
@@ -134,7 +135,7 @@ bool DeferredShading::compileShaders(
 void DeferredShading::recreate(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
-    destroyViewportRelated();
+    destroyPipelines();
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -153,17 +154,48 @@ void DeferredShading::drawUi()
     }
 }
 
-void DeferredShading::record(
+DeferredShading::Output DeferredShading::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const GBufferRenderer::Output &gbuffer, const uint32_t nextFrame,
     Profiler *profiler)
 {
     assert(profiler != nullptr);
 
+    const vk::Extent3D targetExtent =
+        _resources->images.resource(gbuffer.albedoRoughness).extent;
+    assert(targetExtent.depth == 1);
+
+    const vk::Extent2D renderExtent{
+        .width = targetExtent.width,
+        .height = targetExtent.height,
+    };
+    assert(
+        renderExtent.width ==
+        _resources->images.resource(gbuffer.normalMetalness).extent.width);
+    assert(
+        renderExtent.height ==
+        _resources->images.resource(gbuffer.normalMetalness).extent.height);
+    assert(
+        renderExtent.width ==
+        _resources->images.resource(gbuffer.depth).extent.width);
+    assert(
+        renderExtent.height ==
+        _resources->images.resource(gbuffer.depth).extent.height);
+
+    Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
-        updateDescriptorSet(nextFrame, gbuffer);
+        ret.illumination =
+            createIllumination(*_resources, renderExtent, "illumination");
+
+        updateDescriptorSet(
+            nextFrame, BoundImages{
+                           .albedoRoughness = gbuffer.albedoRoughness,
+                           .normalMetalness = gbuffer.normalMetalness,
+                           .depth = gbuffer.depth,
+                           .illumination = ret.illumination,
+                       });
 
         const StaticArray barriers{
             _resources->images.transitionBarrier(
@@ -180,16 +212,20 @@ void DeferredShading::record(
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
                     .layout = vk::ImageLayout::eGeneral,
                 }),
-            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
-            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            _resources->images.transitionBarrier(
+                gbuffer.depth,
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
+            _resources->images.transitionBarrier(
+                ret.illumination,
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
         };
 
         cb.pipelineBarrier2(vk::DependencyInfo{
@@ -223,21 +259,13 @@ void DeferredShading::record(
             _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PCBlock), &pcBlock);
 
-        const auto &extent = _resources->staticImages.sceneColor.extent;
         const auto groups =
-            (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
+            (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
+            1u;
         cb.dispatch(groups.x, groups.y, 1);
     }
-}
 
-void DeferredShading::destroyViewportRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyPipelines();
-
-        // Descriptor sets are cleaned up when the pool is destroyed
-    }
+    return ret;
 }
 
 void DeferredShading::destroyPipelines()
@@ -292,26 +320,26 @@ void DeferredShading::createDescriptorSets()
 }
 
 void DeferredShading::updateDescriptorSet(
-    uint32_t nextFrame, const GBufferRenderer::Output &gbuffer)
+    uint32_t nextFrame, const BoundImages &images)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
 
     const vk::DescriptorImageInfo albedoRoughnessInfo{
-        .imageView = _resources->images.resource(gbuffer.albedoRoughness).view,
+        .imageView = _resources->images.resource(images.albedoRoughness).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo normalMetalnessInfo{
-        .imageView = _resources->images.resource(gbuffer.normalMetalness).view,
+        .imageView = _resources->images.resource(images.normalMetalness).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo depthInfo{
-        .imageView = _resources->staticImages.sceneDepth.view,
+        .imageView = _resources->images.resource(images.depth).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo sceneColorInfo{
-        .imageView = _resources->staticImages.sceneColor.view,
+        .imageView = _resources->images.resource(images.illumination).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo depthSamplerInfo{

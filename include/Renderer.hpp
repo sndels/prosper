@@ -23,8 +23,7 @@ class Renderer
 
     Renderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::Extent2D &renderExtent,
-        vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~Renderer();
 
@@ -38,37 +37,50 @@ class Renderer
         const World::DSLayouts &worldDSLayouts);
 
     void recreate(
-        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
 
-    void record(
+    struct OpaqueOutput
+    {
+        ImageHandle illumination;
+        ImageHandle depth;
+    };
+    [[nodiscard]] OpaqueOutput recordOpaque(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextFrame, bool transparents,
-        Profiler *profiler) const;
+        const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
+
+    struct RecordInOut
+    {
+        ImageHandle illumination;
+        ImageHandle depth;
+    };
+    void recordTransparent(
+        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        const RecordInOut &inOutTargets, uint32_t nextFrame,
+        Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void destroyViewportRelated();
     void destroyGraphicsPipelines();
 
-    void createOutputs(const vk::Extent2D &renderExtent);
-    void createAttachments();
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
+
+    void record(
+        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        uint32_t nextFrame, const RecordInOut &inOutTargets, bool transparents,
+        Profiler *profiler);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{{}};
-
-    wheels::StaticArray<vk::RenderingAttachmentInfo, 2> _colorAttachments{{}};
-    wheels::StaticArray<vk::RenderingAttachmentInfo, 2> _depthAttachments{{}};
 
     vk::PipelineLayout _pipelineLayout;
     wheels::StaticArray<vk::Pipeline, 2> _pipelines{{}};

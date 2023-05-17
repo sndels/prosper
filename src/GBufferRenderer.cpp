@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 #include "LightClustering.hpp"
+#include "RenderTargets.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
@@ -116,6 +117,8 @@ GBufferRenderer::Output GBufferRenderer::record(
                     vk::ImageUsageFlagBits::eStorage,          // Shading
             },
             "normalMetalness");
+        ret.depth =
+            createDepth(*_device, *_resources, renderArea.extent, "depth");
 
         const StaticArray imageBarriers{
             _resources->images.transitionBarrier(
@@ -134,11 +137,15 @@ GBufferRenderer::Output GBufferRenderer::record(
                     .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
                     .layout = vk::ImageLayout::eColorAttachmentOptimal,
                 }),
-            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            _resources->images.transitionBarrier(
+                ret.depth,
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                    .accessMask =
+                        vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+                    .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+                }),
             _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
@@ -187,7 +194,7 @@ GBufferRenderer::Output GBufferRenderer::record(
                 .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
             }};
         const vk::RenderingAttachmentInfo depthAttachment{
-            .imageView = _resources->staticImages.sceneDepth.view,
+            .imageView = _resources->images.resource(ret.depth).view,
             .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
@@ -449,8 +456,7 @@ void GBufferRenderer::createGraphicsPipelines(
                 .colorAttachmentCount =
                     asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
                 .pColorAttachmentFormats = colorAttachmentFormats.data(),
-                .depthAttachmentFormat =
-                    _resources->staticImages.sceneDepth.format,
+                .depthAttachmentFormat = sDepthFormat,
             }};
 
     {

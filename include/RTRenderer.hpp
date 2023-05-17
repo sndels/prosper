@@ -35,11 +35,13 @@ class RTRenderer
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreate();
-
     void drawUi();
 
-    void record(
+    struct Output
+    {
+        ImageHandle illumination;
+    };
+    [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea, uint32_t nextFrame, bool colorDirty,
         Profiler *profiler);
@@ -53,7 +55,7 @@ class RTRenderer
         const World::DSLayouts &worldDSLayouts);
 
     void createDescriptorSets();
-    void updateDescriptorSets();
+    void updateDescriptorSet(uint32_t nextFrame, ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -77,6 +79,7 @@ class RTRenderer
     Buffer _shaderBindingTable;
 
     DrawType _drawType{DrawType::Default};
+    vk::Extent2D _accumulationExtent{};
     bool _accumulationDirty{true};
     bool _accumulate{true};
     bool _ibl{false};

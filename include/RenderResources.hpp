@@ -27,12 +27,6 @@ class RenderResources
         ImageHandle, Image, ImageDescription, ImageCreateInfo, ImageState,
         vk::ImageMemoryBarrier2, vk::Image, VkImage, vk::ObjectType::eImage>;
 
-    struct Images
-    {
-        Image sceneColor;
-        Image sceneDepth;
-    };
-
     struct Buffers
     {
         struct
@@ -84,7 +78,6 @@ class RenderResources
     // TODO: Does this have to be here? Shouldn't this only be used to construct
     // things up front?
     DescriptorAllocator staticDescriptorsAlloc;
-    Images staticImages;
     Buffers staticBuffers;
 
     RenderImageCollection images;

@@ -44,7 +44,11 @@ class DeferredShading
 
     void drawUi();
 
-    void record(
+    struct Output
+    {
+        ImageHandle illumination;
+    };
+    [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const GBufferRenderer::Output &gbuffer, uint32_t nextFrame,
         Profiler *profiler);
@@ -54,12 +58,17 @@ class DeferredShading
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void destroyViewportRelated();
     void destroyPipelines();
 
     void createDescriptorSets();
-    void updateDescriptorSet(
-        uint32_t nextFrame, const GBufferRenderer::Output &gbuffer);
+    struct BoundImages
+    {
+        ImageHandle albedoRoughness;
+        ImageHandle normalMetalness;
+        ImageHandle depth;
+        ImageHandle illumination;
+    };
+    void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);

@@ -75,7 +75,7 @@ App::App(
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
     _renderer.reset(new Renderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
+        _cam->descriptorSetLayout(), _world->_dsLayouts));
     _gbufferRenderer.reset(new GBufferRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _cam->descriptorSetLayout(), _world->_dsLayouts));
@@ -182,11 +182,9 @@ void App::recreateViewportRelated()
     // written to!
     _lightClustering->recreate(
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
-    _renderer->recreate(
-        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _renderer->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
     _gbufferRenderer->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
     _deferredShading->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
-    _rtRenderer->recreate();
     _skyboxRenderer->recreate(_world->_dsLayouts);
     _debugRenderer->recreate(_cam->descriptorSetLayout());
 
@@ -491,49 +489,76 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     _lightClustering->record(
         cb, scene, *_cam, renderArea, nextFrame, _profiler.get());
 
+    ImageHandle illumination;
     if (_renderRT)
     {
-        _rtRenderer->record(
-            cb, *_world, *_cam, renderArea, nextFrame,
-            uiChanges.rtPickedThisFrame, _profiler.get());
+        illumination = _rtRenderer
+                           ->record(
+                               cb, *_world, *_cam, renderArea, nextFrame,
+                               uiChanges.rtPickedThisFrame, _profiler.get())
+                           .illumination;
     }
     else
     {
+        ImageHandle depth;
         // Opaque
         if (_renderDeferred)
         {
             const GBufferRenderer::Output gbuffer = _gbufferRenderer->record(
                 cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
 
-            _deferredShading->record(
-                cb, *_world, *_cam, gbuffer, nextFrame, _profiler.get());
+            illumination =
+                _deferredShading
+                    ->record(
+                        cb, *_world, *_cam, gbuffer, nextFrame, _profiler.get())
+                    .illumination;
 
             _resources->images.release(gbuffer.albedoRoughness);
             _resources->images.release(gbuffer.normalMetalness);
+
+            depth = gbuffer.depth;
         }
         else
         {
-            _renderer->record(
-                cb, *_world, *_cam, renderArea, nextFrame, false,
-                _profiler.get());
+            const Renderer::OpaqueOutput output = _renderer->recordOpaque(
+                cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
+            illumination = output.illumination;
+            depth = output.depth;
         }
 
         // Transparent
-        _renderer->record(
-            cb, *_world, *_cam, renderArea, nextFrame, true, _profiler.get());
+        _renderer->recordTransparent(
+            cb, *_world, *_cam,
+            Renderer::RecordInOut{
+                .illumination = illumination,
+                .depth = depth,
+            },
+            nextFrame, _profiler.get());
 
         _skyboxRenderer->record(
-            cb, *_world, renderArea, nextFrame, _profiler.get());
+            cb, *_world,
+            SkyboxRenderer::RecordInOut{
+                .illumination = illumination,
+                .depth = depth,
+            },
+            nextFrame, _profiler.get());
+
+        _debugRenderer->record(
+            cb, *_cam,
+            DebugRenderer::RecordInOut{
+                .color = illumination,
+                .depth = depth,
+            },
+            nextFrame, _profiler.get());
+
+        _resources->images.release(depth);
     }
 
-    // RT doesn't output non-linear depth
-    if (!_renderRT)
-        _debugRenderer->record(
-            cb, *_cam, renderArea, nextFrame, _profiler.get());
-
     const ImageHandle toneMapped =
-        _toneMap->record(cb, _viewportExtent, nextFrame, _profiler.get())
+        _toneMap->record(cb, illumination, nextFrame, _profiler.get())
             .toneMapped;
+
+    _resources->images.release(illumination);
 
     { // TODO: Split into function
         // Blit tonemapped into cleared final composite before drawing ui on top

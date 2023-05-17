@@ -32,20 +32,24 @@ class ToneMap
         ImageHandle toneMapped;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const vk::Extent2D &renderExtent,
-        uint32_t nextFrame, Profiler *profiler);
+        vk::CommandBuffer cb, ImageHandle inColor, uint32_t nextFrame,
+        Profiler *profiler);
 
   private:
     bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroyViewportRelated();
     void destroyPipelines();
 
     void createOutputImage(const vk::Extent2D &renderExtent);
     void createDescriptorSets();
     void createPipelines();
 
-    void updateDescriptorSet(uint32_t nextFrame, ImageHandle toneMapped);
+    struct BoundImages
+    {
+        ImageHandle inColor;
+        ImageHandle toneMapped;
+    };
+    void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

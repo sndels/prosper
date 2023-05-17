@@ -1,5 +1,6 @@
 #include "RTRenderer.hpp"
 
+#include "RenderTargets.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
@@ -92,8 +93,6 @@ RTRenderer::RTRenderer(
     createDescriptorSets();
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
-
-    recreate();
 }
 
 RTRenderer::~RTRenderer()
@@ -121,12 +120,6 @@ void RTRenderer::recompileShaders(
     }
 }
 
-void RTRenderer::recreate()
-{
-    updateDescriptorSets();
-    _accumulationDirty = true;
-}
-
 void RTRenderer::drawUi()
 {
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
@@ -152,18 +145,30 @@ void RTRenderer::drawUi()
     }
 }
 
-void RTRenderer::record(
+RTRenderer::Output RTRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, uint32_t nextFrame, bool colorDirty,
     Profiler *profiler)
 {
     _frameIndex = ++_frameIndex % sFramePeriod;
 
+    Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
-        _resources->staticImages.sceneColor.transition(
-            cb,
+        ret.illumination =
+            createIllumination(*_resources, renderArea.extent, "illumination");
+
+        updateDescriptorSet(nextFrame, ret.illumination);
+        if (renderArea.extent.width != _accumulationExtent.width ||
+            renderArea.extent.height != _accumulationExtent.height)
+        {
+            _accumulationDirty = true;
+            _accumulationExtent = renderArea.extent;
+        }
+
+        _resources->images.transition(
+            cb, ret.illumination,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
                 .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
@@ -241,6 +246,8 @@ void RTRenderer::record(
     }
 
     _accumulationDirty = false;
+
+    return ret;
 }
 
 void RTRenderer::destroyShaders()
@@ -400,26 +407,25 @@ void RTRenderer::createDescriptorSets()
     _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 }
 
-void RTRenderer::updateDescriptorSets()
+void RTRenderer::updateDescriptorSet(
+    uint32_t nextFrame, ImageHandle illumination)
 {
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
+
     const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->staticImages.sceneColor.view,
+        .imageView = _resources->images.resource(illumination).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT> descriptorWrites;
-    for (const auto &ds : _descriptorSets)
-    {
-        descriptorWrites.push_back({
-            .dstSet = ds,
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &colorInfo,
-        });
-    }
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
+    const vk::WriteDescriptorSet descriptorWrite{
+        .dstSet = _descriptorSets[nextFrame],
+        .dstBinding = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eStorageImage,
+        .pImageInfo = &colorInfo,
+    };
+    _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 }
 
 void RTRenderer::createPipeline(

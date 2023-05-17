@@ -32,26 +32,27 @@ class SkyboxRenderer
 
         const World::DSLayouts &worldDSLayouts);
 
+    struct RecordInOut
+    {
+        ImageHandle illumination;
+        ImageHandle depth;
+    };
     void record(
-        vk::CommandBuffer cb, const World &world, const vk::Rect2D &renderArea,
-        uint32_t nextFrame, Profiler *profiler) const;
+        vk::CommandBuffer cb, const World &world,
+        const RecordInOut &inOutTargets, uint32_t nextFrame,
+        Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroyViewportRelated();
     void destroyGraphicsPipelines();
 
-    void createAttachments();
     void createGraphicsPipelines(const World::DSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
-
-    vk::RenderingAttachmentInfo _colorAttachment;
-    vk::RenderingAttachmentInfo _depthAttachment;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

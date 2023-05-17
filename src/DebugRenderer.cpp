@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 #include "LightClustering.hpp"
+#include "RenderTargets.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
@@ -48,7 +49,7 @@ DebugRenderer::~DebugRenderer()
         for (auto &ls : _resources->staticBuffers.debugLines)
             _device->destroy(ls.buffer);
 
-        destroyViewportRelated();
+        destroyGraphicsPipeline();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -67,32 +68,57 @@ void DebugRenderer::recompileShaders(
 
 void DebugRenderer::recreate(const vk::DescriptorSetLayout camDSLayout)
 {
-    destroyViewportRelated();
+    destroyGraphicsPipeline();
 
-    createAttachments();
     createGraphicsPipeline(camDSLayout);
 }
 
 void DebugRenderer::record(
-    vk::CommandBuffer cb, const Camera &cam, const vk::Rect2D &renderArea,
+    vk::CommandBuffer cb, const Camera &cam, const RecordInOut &inOutTargets,
     const uint32_t nextFrame, Profiler *profiler) const
 {
     assert(profiler != nullptr);
+
+    const vk::Extent3D targetExtent =
+        _resources->images.resource(inOutTargets.color).extent;
+    assert(targetExtent.depth == 1);
+
+    const vk::Rect2D renderArea{
+        .offset = {0, 0},
+        .extent =
+            {
+                targetExtent.width,
+                targetExtent.height,
+            },
+    };
+    assert(
+        renderArea.extent.width ==
+        _resources->images.resource(inOutTargets.depth).extent.width);
+    assert(
+        renderArea.extent.height ==
+        _resources->images.resource(inOutTargets.depth).extent.height);
 
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Debug");
 
         const StaticArray imageBarriers{
-            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
-            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            _resources->images.transitionBarrier(
+                inOutTargets.color,
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                    .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                    .layout = vk::ImageLayout::eColorAttachmentOptimal,
+                }),
+            _resources->images.transitionBarrier(
+                inOutTargets.depth,
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                    .accessMask =
+                        vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+                    .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+                }),
         };
 
         const auto &lines = _resources->staticBuffers.debugLines[nextFrame];
@@ -104,12 +130,25 @@ void DebugRenderer::record(
             .pImageMemoryBarriers = imageBarriers.data(),
         });
 
+        const vk::RenderingAttachmentInfo colorAttachment{
+            .imageView = _resources->images.resource(inOutTargets.color).view,
+            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        };
+        const vk::RenderingAttachmentInfo depthAttachment{
+            .imageView = _resources->images.resource(inOutTargets.depth).view,
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        };
+
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
             .colorAttachmentCount = 1,
-            .pColorAttachments = &_colorAttachment,
-            .pDepthAttachment = &_depthAttachment,
+            .pColorAttachments = &colorAttachment,
+            .pDepthAttachment = &depthAttachment,
         });
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
@@ -196,8 +235,6 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void DebugRenderer::destroyViewportRelated() { destroyGraphicsPipeline(); }
-
 void DebugRenderer::destroyGraphicsPipeline()
 {
     _device->logical().destroy(_pipeline);
@@ -260,22 +297,6 @@ void DebugRenderer::createDescriptorSets()
         _device->logical().updateDescriptorSets(
             1, &descriptorWrite, 0, nullptr);
     }
-}
-
-void DebugRenderer::createAttachments()
-{
-    _colorAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.sceneColor.view,
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-    };
-    _depthAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.sceneDepth.view,
-        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-    };
 }
 
 void DebugRenderer::createGraphicsPipeline(
@@ -361,10 +382,8 @@ void DebugRenderer::createGraphicsPipeline(
             },
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
-                .pColorAttachmentFormats =
-                    &_resources->staticImages.sceneColor.format,
-                .depthAttachmentFormat =
-                    _resources->staticImages.sceneDepth.format,
+                .pColorAttachmentFormats = &sIlluminationFormat,
+                .depthAttachmentFormat = sDepthFormat,
             }};
 
     {

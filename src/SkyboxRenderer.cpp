@@ -2,6 +2,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "RenderTargets.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
 
@@ -29,7 +30,7 @@ SkyboxRenderer::~SkyboxRenderer()
 {
     if (_device != nullptr)
     {
-        destroyViewportRelated();
+        destroyGraphicsPipelines();
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -48,32 +49,57 @@ void SkyboxRenderer::recompileShaders(
 
 void SkyboxRenderer::recreate(const World::DSLayouts &worldDSLayouts)
 {
-    destroyViewportRelated();
+    destroyGraphicsPipelines();
 
-    createAttachments();
     createGraphicsPipelines(worldDSLayouts);
 }
 
 void SkyboxRenderer::record(
-    vk::CommandBuffer cb, const World &world, const vk::Rect2D &renderArea,
+    vk::CommandBuffer cb, const World &world, const RecordInOut &inOutTargets,
     const uint32_t nextFrame, Profiler *profiler) const
 {
     assert(profiler != nullptr);
+
+    const vk::Extent3D targetExtent =
+        _resources->images.resource(inOutTargets.illumination).extent;
+    assert(targetExtent.depth == 1);
+
+    const vk::Rect2D renderArea{
+        .offset = {0, 0},
+        .extent =
+            {
+                targetExtent.width,
+                targetExtent.height,
+            },
+    };
+    assert(
+        renderArea.extent.width ==
+        _resources->images.resource(inOutTargets.depth).extent.width);
+    assert(
+        renderArea.extent.height ==
+        _resources->images.resource(inOutTargets.depth).extent.height);
 
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
         const StaticArray barriers{
-            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
-            _resources->staticImages.sceneDepth.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            _resources->images.transitionBarrier(
+                inOutTargets.illumination,
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                    .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                    .layout = vk::ImageLayout::eColorAttachmentOptimal,
+                }),
+            _resources->images.transitionBarrier(
+                inOutTargets.depth,
+                ImageState{
+                    .stageMask =
+                        vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                    .accessMask =
+                        vk::AccessFlagBits2::eDepthStencilAttachmentRead,
+                    .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+                }),
         };
 
         cb.pipelineBarrier2(vk::DependencyInfo{
@@ -81,12 +107,26 @@ void SkyboxRenderer::record(
             .pImageMemoryBarriers = barriers.data(),
         });
 
+        const vk::RenderingAttachmentInfo colorAttachment{
+            .imageView =
+                _resources->images.resource(inOutTargets.illumination).view,
+            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        };
+        const vk::RenderingAttachmentInfo depthAttachment{
+            .imageView = _resources->images.resource(inOutTargets.depth).view,
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        };
+
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
             .colorAttachmentCount = 1,
-            .pColorAttachments = &_colorAttachment,
-            .pDepthAttachment = &_depthAttachment,
+            .pColorAttachments = &colorAttachment,
+            .pDepthAttachment = &depthAttachment,
         });
 
         // Skybox doesn't need to be drawn under opaque geometry but should be
@@ -164,37 +204,10 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void SkyboxRenderer::destroyViewportRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyGraphicsPipelines();
-
-        _colorAttachment = vk::RenderingAttachmentInfo{};
-        _depthAttachment = vk::RenderingAttachmentInfo{};
-    }
-}
-
 void SkyboxRenderer::destroyGraphicsPipelines()
 {
     _device->logical().destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
-}
-
-void SkyboxRenderer::createAttachments()
-{
-    _colorAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.sceneColor.view,
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-    };
-    _depthAttachment = vk::RenderingAttachmentInfo{
-        .imageView = _resources->staticImages.sceneDepth.view,
-        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-    };
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
@@ -294,10 +307,8 @@ void SkyboxRenderer::createGraphicsPipelines(
             },
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
-                .pColorAttachmentFormats =
-                    &_resources->staticImages.sceneColor.format,
-                .depthAttachmentFormat =
-                    _resources->staticImages.sceneDepth.format,
+                .pColorAttachmentFormats = &sIlluminationFormat,
+                .depthAttachmentFormat = sDepthFormat,
             }};
 
     {

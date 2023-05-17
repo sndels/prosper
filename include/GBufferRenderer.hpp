@@ -40,6 +40,7 @@ class GBufferRenderer
     {
         ImageHandle albedoRoughness;
         ImageHandle normalMetalness;
+        ImageHandle depth;
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
@@ -50,7 +51,6 @@ class GBufferRenderer
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void destroyViewportRelated();
     void destroyGraphicsPipeline();
 
     void createGraphicsPipelines(

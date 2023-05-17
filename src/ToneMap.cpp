@@ -86,10 +86,14 @@ void ToneMap::drawUi()
 }
 
 ToneMap::Output ToneMap::record(
-    vk::CommandBuffer cb, const vk::Extent2D &renderExtent,
-    const uint32_t nextFrame, Profiler *profiler)
+    vk::CommandBuffer cb, ImageHandle inColor, const uint32_t nextFrame,
+    Profiler *profiler)
 {
     assert(profiler != nullptr);
+
+    const vk::Extent3D renderExtent =
+        _resources->images.resource(inColor).extent;
+    assert(renderExtent.depth == 1);
 
     Output ret;
     {
@@ -107,14 +111,20 @@ ToneMap::Output ToneMap::record(
             },
             "toneMapped");
 
-        updateDescriptorSet(nextFrame, ret.toneMapped);
+        updateDescriptorSet(
+            nextFrame, BoundImages{
+                           .inColor = inColor,
+                           .toneMapped = ret.toneMapped,
+                       });
 
         const StaticArray barriers{
-            _resources->staticImages.sceneColor.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            _resources->images.transitionBarrier(
+                inColor,
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
             _resources->images.transitionBarrier(
                 ret.toneMapped,
                 ImageState{
@@ -142,23 +152,13 @@ ToneMap::Output ToneMap::record(
             _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PCBlock), &pcBlock);
 
-        const auto &extent = _resources->staticImages.sceneColor.extent;
         const auto groups =
-            (glm::uvec2{extent.width, extent.height} - 1u) / 16u + 1u;
+            (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
+            1u;
         cb.dispatch(groups.x, groups.y, 1);
     }
 
     return ret;
-}
-
-void ToneMap::destroyViewportRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyPipelines();
-
-        // Descriptor sets are cleaned up when the pool is destroyed
-    }
 }
 
 void ToneMap::destroyPipelines()
@@ -194,17 +194,17 @@ void ToneMap::createDescriptorSets()
     _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
 }
 
-void ToneMap::updateDescriptorSet(uint32_t nextFrame, ImageHandle toneMapped)
+void ToneMap::updateDescriptorSet(uint32_t nextFrame, const BoundImages &images)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
     const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->staticImages.sceneColor.view,
+        .imageView = _resources->images.resource(images.inColor).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo mappedInfo{
-        .imageView = _resources->images.resource(toneMapped).view,
+        .imageView = _resources->images.resource(images.toneMapped).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
 

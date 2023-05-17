@@ -36,28 +36,29 @@ class DebugRenderer
 
     void recreate(vk::DescriptorSetLayout camDSLayout);
 
+    struct RecordInOut
+    {
+        ImageHandle color;
+        ImageHandle depth;
+    };
     void record(
-        vk::CommandBuffer cb, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextFrame, Profiler *profiler) const;
+        vk::CommandBuffer cb, const Camera &cam,
+        const RecordInOut &inOutTargets, uint32_t nextFrame,
+        Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroyViewportRelated();
     void destroyGraphicsPipeline();
 
     void createBuffers();
     void createDescriptorSets();
-    void createAttachments();
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
-
-    vk::RenderingAttachmentInfo _colorAttachment;
-    vk::RenderingAttachmentInfo _depthAttachment;
 
     vk::DescriptorSetLayout _linesDSLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
