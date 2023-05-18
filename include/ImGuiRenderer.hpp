@@ -35,7 +35,6 @@ class ImGuiRenderer
 
   private:
     void createRenderPass();
-    void createOutput(const vk::Extent2D &renderExtent);
 
     void destroySwapchainRelated();
     void createDescriptorPool();
