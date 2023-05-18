@@ -53,7 +53,7 @@ GBufferRenderer::GBufferRenderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("GBufferRenderer shader compilation failed");
 
-    recreate(camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
 GBufferRenderer::~GBufferRenderer()
@@ -76,15 +76,6 @@ void GBufferRenderer::recompileShaders(
         destroyGraphicsPipeline();
         createGraphicsPipelines(camDSLayout, worldDSLayouts);
     }
-}
-
-void GBufferRenderer::recreate(
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
-{
-    destroyGraphicsPipeline();
-
-    createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
 GBufferRenderer::Output GBufferRenderer::record(

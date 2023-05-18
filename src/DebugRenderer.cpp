@@ -33,11 +33,9 @@ DebugRenderer::DebugRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
-    // These don't depend on rendering viewport
     createBuffers();
     createDescriptorSets();
-
-    recreate(camDSLayout);
+    createGraphicsPipeline(camDSLayout);
 }
 
 DebugRenderer::~DebugRenderer()
@@ -64,13 +62,6 @@ void DebugRenderer::recompileShaders(
         destroyGraphicsPipeline();
         createGraphicsPipeline(camDSLayout);
     }
-}
-
-void DebugRenderer::recreate(const vk::DescriptorSetLayout camDSLayout)
-{
-    destroyGraphicsPipeline();
-
-    createGraphicsPipeline(camDSLayout);
 }
 
 void DebugRenderer::record(

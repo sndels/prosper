@@ -38,10 +38,6 @@ class DeferredShading
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreate(
-        vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
-
     void drawUi();
 
     struct Output

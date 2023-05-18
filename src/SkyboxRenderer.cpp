@@ -23,7 +23,7 @@ SkyboxRenderer::SkyboxRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 
-    recreate(worldDSLayouts);
+    createGraphicsPipelines(worldDSLayouts);
 }
 
 SkyboxRenderer::~SkyboxRenderer()
@@ -45,13 +45,6 @@ void SkyboxRenderer::recompileShaders(
         destroyGraphicsPipelines();
         createGraphicsPipelines(worldDSLayouts);
     }
-}
-
-void SkyboxRenderer::recreate(const World::DSLayouts &worldDSLayouts)
-{
-    destroyGraphicsPipelines();
-
-    createGraphicsPipelines(worldDSLayouts);
 }
 
 void SkyboxRenderer::record(

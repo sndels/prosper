@@ -182,11 +182,6 @@ void App::recreateViewportRelated()
     // written to!
     _lightClustering->recreate(
         _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
-    _renderer->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
-    _gbufferRenderer->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
-    _deferredShading->recreate(_cam->descriptorSetLayout(), _world->_dsLayouts);
-    _skyboxRenderer->recreate(_world->_dsLayouts);
-    _debugRenderer->recreate(_cam->descriptorSetLayout());
 
     _cam->perspective(
         PerspectiveParameters{

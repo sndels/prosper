@@ -28,10 +28,6 @@ class SkyboxRenderer
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreate(
-
-        const World::DSLayouts &worldDSLayouts);
-
     struct RecordInOut
     {
         ImageHandle illumination;

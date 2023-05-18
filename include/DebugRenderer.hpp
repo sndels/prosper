@@ -34,8 +34,6 @@ class DebugRenderer
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout);
 
-    void recreate(vk::DescriptorSetLayout camDSLayout);
-
     struct RecordInOut
     {
         ImageHandle color;

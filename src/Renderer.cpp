@@ -50,7 +50,7 @@ Renderer::Renderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("Renderer shader compilation failed");
 
-    recreate(camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
 Renderer::~Renderer()
@@ -73,15 +73,6 @@ void Renderer::recompileShaders(
         destroyGraphicsPipelines();
         createGraphicsPipelines(camDSLayout, worldDSLayouts);
     }
-}
-
-void Renderer::recreate(
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
-{
-    destroyGraphicsPipelines();
-
-    createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
 void Renderer::drawUi()

@@ -66,7 +66,7 @@ DeferredShading::DeferredShading(
     };
     _depthSampler = _device->logical().createSampler(info);
 
-    recreate(camDSLayout, worldDSLayouts);
+    createPipeline(camDSLayout, worldDSLayouts);
 }
 
 DeferredShading::~DeferredShading()
@@ -130,13 +130,6 @@ bool DeferredShading::compileShaders(
     }
 
     return false;
-}
-
-void DeferredShading::recreate(
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
-{
-    destroyPipelines();
-    createPipeline(camDSLayout, worldDSLayouts);
 }
 
 void DeferredShading::drawUi()
