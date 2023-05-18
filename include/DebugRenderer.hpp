@@ -47,6 +47,16 @@ class DebugRenderer
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
+    void recordBarriers(
+        vk::CommandBuffer cb, const RecordInOut &inOutTargets) const;
+    struct Attachments
+    {
+        vk::RenderingAttachmentInfo color;
+        vk::RenderingAttachmentInfo depth;
+    };
+    [[nodiscard]] Attachments createAttachments(
+        const RecordInOut &inOutTargets) const;
+
     void destroyGraphicsPipeline();
 
     void createBuffers();
