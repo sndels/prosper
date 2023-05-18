@@ -195,7 +195,7 @@ void App::recreateViewportRelated()
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
 }
 
-void App::recreateSwapchainAndRelated(wheels::ScopedScratch scopeAlloc)
+void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
 {
     while (_window->width() == 0 && _window->height() == 0)
     {
@@ -391,49 +391,15 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
     const uint32_t nextFrame = asserted_cast<uint32_t>(_swapchain->nextFrame());
-    // Corresponds to the swapchain image
-    const auto nextImage = [&]
-    {
-        const auto imageAvailable = _imageAvailableSemaphores[nextFrame];
-        auto nextImage = _swapchain->acquireNextImage(imageAvailable);
-        while (!nextImage.has_value())
-        {
-            // Wait on the acquire semaphore to have it properly unsignaled.
-            // Validation would otherwise complain on next acquire below even
-            // with the wait for idle.
-            const vk::SubmitInfo submitInfo{
-                .waitSemaphoreCount = 1,
-                .pWaitSemaphores = &imageAvailable,
-            };
 
-            checkSuccess(
-                _device->graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
-                "recreate_swap_dummy_submit");
-
-            // Recreate the swap chain as necessary
-            recreateSwapchainAndRelated(scopeAlloc.child_scope());
-            nextImage = _swapchain->acquireNextImage(imageAvailable);
-        }
-
-        return *nextImage;
-    }();
+    const uint32_t nextImage =
+        nextSwapchainImage(scopeAlloc.child_scope(), nextFrame);
 
     _profiler->startGpuFrame(nextFrame);
 
     const auto profilerDatas = _profiler->getPreviousData(scopeAlloc);
 
-    // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
-    // Note that this is always based on the previous frame so it only limits
-    // fps and doesn't help actual frame timing
-    {
-        const float minDt =
-            _useFpsLimit ? 1.f / static_cast<float>(_fpsLimit) : 0.f;
-        while (_frameTimer.getSeconds() < minDt)
-        {
-            ;
-        }
-    }
-    _frameTimer.reset();
+    capFramerate();
 
     _imguiRenderer->startFrame();
 
@@ -449,10 +415,247 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         "Camera update assumes no render offset");
     _cam->updateBuffer(
         nextFrame, uvec2{renderArea.extent.width, renderArea.extent.height});
+
     _world->updateUniformBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
 
     const auto &scene = _world->currentScene();
 
+    updateDebugLines(scene, nextFrame);
+
+    const vk::CommandBuffer cb = render(
+        renderArea,
+        RenderIndices{
+            .nextFrame = nextFrame,
+            .nextImage = nextImage,
+        },
+        scene, uiChanges);
+
+    const bool shouldResizeSwapchain = !submitAndPresent(cb, nextFrame);
+
+    handleResizes(scopeAlloc.child_scope(), shouldResizeSwapchain);
+}
+
+uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
+{
+
+    const vk::Semaphore imageAvailable = _imageAvailableSemaphores[nextFrame];
+    Optional<uint32_t> nextImage = _swapchain->acquireNextImage(imageAvailable);
+    while (!nextImage.has_value())
+    {
+        // Wait on the acquire semaphore to have it properly unsignaled.
+        // Validation would otherwise complain on next acquire below even
+        // with the wait for idle.
+        const vk::SubmitInfo submitInfo{
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &imageAvailable,
+        };
+
+        checkSuccess(
+            _device->graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
+            "recreate_swap_dummy_submit");
+
+        // Recreate the swap chain as necessary
+        recreateSwapchainAndRelated(scopeAlloc.child_scope());
+        nextImage = _swapchain->acquireNextImage(imageAvailable);
+    }
+
+    return *nextImage;
+}
+
+void App::capFramerate()
+{
+    // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
+    // Note that this is always based on the previous frame so it only limits
+    // fps and doesn't help actual frame timing
+    const float minDt =
+        _useFpsLimit ? 1.f / static_cast<float>(_fpsLimit) : 0.f;
+    while (_frameTimer.getSeconds() < minDt)
+    {
+        ;
+    }
+    _frameTimer.reset();
+}
+
+App::UiChanges App::drawUi(
+    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
+{
+    UiChanges ret;
+
+    drawOptions();
+
+    drawRendererSettings(ret);
+
+    drawProfiling(scopeAlloc.child_scope(), profilerDatas);
+
+    return ret;
+}
+
+void App::drawOptions()
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
+    ImGui::Begin("Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    ImGui::Text(
+        "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+        ImGui::GetIO().Framerate);
+
+    ImGui::Checkbox("Limit FPS", &_useFpsLimit);
+    if (_useFpsLimit)
+    {
+        ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
+    }
+
+    ImGui::Checkbox("Recompile shaders", &_recompileShaders);
+
+    ImGui::End();
+}
+
+void App::drawRendererSettings(UiChanges &uiChanges)
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_FirstUseEver);
+    ImGui::Begin(
+        "Renderer settings ", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    // TODO: Droplist for main renderer type
+    uiChanges.rtPickedThisFrame =
+        ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
+    if (!_renderRT)
+        ImGui::Checkbox("Use deferred shading", &_renderDeferred);
+
+    if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
+        _toneMap->drawUi();
+
+    if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        if (_renderRT)
+            _rtRenderer->drawUi();
+        else if (_renderDeferred)
+            _deferredShading->drawUi();
+        else
+            _renderer->drawUi();
+    }
+
+    ImGui::End();
+}
+
+void App::drawProfiling(
+    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
+
+{
+
+    ImGui::SetNextWindowPos(
+        ImVec2{static_cast<float>(WIDTH) - 300.f, 60.f},
+        ImGuiCond_FirstUseEver);
+    ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    size_t longestNameLength = 0;
+    for (const auto &t : profilerDatas)
+        if (t.name.size() > longestNameLength)
+            longestNameLength = asserted_cast<size_t>(t.name.size());
+
+    // Double the maximum name length for headroom
+    String tmp{scopeAlloc};
+    tmp.resize(longestNameLength * 2);
+    const auto leftJustified =
+        [&tmp, longestNameLength](StrSpan str, size_t extraWidth = 0)
+    {
+        // No realloc, please
+        assert(longestNameLength + extraWidth <= tmp.size());
+
+        tmp.clear();
+        tmp.extend(str);
+        tmp.resize(
+            std::max(
+                str.size(),
+                static_cast<size_t>(longestNameLength + extraWidth)),
+            ' ');
+
+        return tmp.c_str();
+    };
+
+    // Force minimum window size with whitespace
+    if (ImGui::CollapsingHeader(
+            leftJustified("GPU"), ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        for (const auto &t : profilerDatas)
+            if (t.gpuMillis >= 0.f)
+                ImGui::Text("%s %.3fms", leftJustified(t.name), t.gpuMillis);
+        if (!profilerDatas.empty())
+        {
+            static int scopeIndex = 0;
+            const char *comboTitle =
+                profilerDatas[scopeIndex].gpuMillis < 0.f
+                    ? "##EmptyGPUScopeTitle"
+                    : profilerDatas[scopeIndex].name.data();
+            if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
+            {
+                for (int n = 0; n < asserted_cast<int>(profilerDatas.size());
+                     n++)
+                {
+                    // Only have scopes that have gpu data
+                    if (profilerDatas[n].gpuMillis >= 0.f)
+                    {
+                        const bool selected = scopeIndex == n;
+                        if (ImGui::Selectable(
+                                profilerDatas[n].name.data(), selected))
+                            scopeIndex = n;
+
+                        if (selected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            if (profilerDatas[scopeIndex].gpuMillis >= 0.f)
+            {
+                const auto &stats = profilerDatas[scopeIndex].stats;
+                const auto &swapExtent = _viewportExtent;
+                const uint32_t pixelCount =
+                    swapExtent.width * swapExtent.height;
+
+                // Stats from AMD's 'D3D12 Right On Queue' GDC2016
+                const float rasterPrimPerPrim =
+                    stats.iaPrimitives == 0
+                        ? -1.f
+                        : static_cast<float>(stats.clipPrimitives) /
+                              static_cast<float>(stats.iaPrimitives);
+
+                const float fragsPerPrim =
+                    stats.clipPrimitives == 0
+                        ? -1.f
+                        : static_cast<float>(stats.fragInvocations) /
+                              static_cast<float>(stats.clipPrimitives);
+
+                const float overdraw =
+                    stats.fragInvocations == 0
+                        ? -1.f
+                        : static_cast<float>(stats.fragInvocations) /
+                              static_cast<float>(pixelCount);
+
+                ImGui::Indent();
+
+                ImGui::Text("Raster prim per prim: %.2f", rasterPrimPerPrim);
+                ImGui::Text("Frags per prim: %.2f", fragsPerPrim);
+                ImGui::Text("Overdraw: %.2f", overdraw);
+
+                ImGui::Unindent();
+            }
+        }
+    }
+
+    if (ImGui::CollapsingHeader(
+            leftJustified("CPU"), ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        for (const auto &t : profilerDatas)
+            if (t.cpuMillis >= 0.f)
+                ImGui::Text("%s %.3fms", leftJustified(t.name), t.cpuMillis);
+    }
+
+    ImGui::End();
+}
+
+void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
+{
     auto &debugLines = _resources->staticBuffers.debugLines[nextFrame];
     debugLines.reset();
     { // Add debug geom for lights
@@ -484,8 +687,13 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             debugLines.addLine(pos, pos + fwd * debugLineLength, debugBlue);
         }
     }
+}
 
-    const auto cb = _commandBuffers[nextFrame];
+vk::CommandBuffer App::render(
+    const vk::Rect2D &renderArea, const RenderIndices &indices,
+    const Scene &scene, const UiChanges &uiChanges)
+{
+    const auto cb = _commandBuffers[indices.nextFrame];
     cb.reset();
 
     cb.begin(vk::CommandBufferBeginInfo{
@@ -493,16 +701,17 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     });
 
     const LightClustering::Output lightClusters = _lightClustering->record(
-        cb, scene, *_cam, _viewportExtent, nextFrame, _profiler.get());
+        cb, scene, *_cam, _viewportExtent, indices.nextFrame, _profiler.get());
 
     ImageHandle illumination;
     if (_renderRT)
     {
-        illumination = _rtRenderer
-                           ->record(
-                               cb, *_world, *_cam, renderArea, nextFrame,
-                               uiChanges.rtPickedThisFrame, _profiler.get())
-                           .illumination;
+        illumination =
+            _rtRenderer
+                ->record(
+                    cb, *_world, *_cam, renderArea, indices.nextFrame,
+                    uiChanges.rtPickedThisFrame, _profiler.get())
+                .illumination;
     }
     else
     {
@@ -511,7 +720,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         if (_renderDeferred)
         {
             const GBufferRenderer::Output gbuffer = _gbufferRenderer->record(
-                cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
+                cb, *_world, *_cam, renderArea, indices.nextFrame,
+                _profiler.get());
 
             illumination = _deferredShading
                                ->record(
@@ -520,7 +730,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                                        .gbuffer = gbuffer,
                                        .lightClusters = lightClusters,
                                    },
-                                   nextFrame, _profiler.get())
+                                   indices.nextFrame, _profiler.get())
                                .illumination;
 
             _resources->images.release(gbuffer.albedoRoughness);
@@ -531,8 +741,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         else
         {
             const Renderer::OpaqueOutput output = _renderer->recordOpaque(
-                cb, *_world, *_cam, renderArea, lightClusters, nextFrame,
-                _profiler.get());
+                cb, *_world, *_cam, renderArea, lightClusters,
+                indices.nextFrame, _profiler.get());
             illumination = output.illumination;
             depth = output.depth;
         }
@@ -544,7 +754,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .illumination = illumination,
                 .depth = depth,
             },
-            lightClusters, nextFrame, _profiler.get());
+            lightClusters, indices.nextFrame, _profiler.get());
 
         _skyboxRenderer->record(
             cb, *_world,
@@ -552,7 +762,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .illumination = illumination,
                 .depth = depth,
             },
-            nextFrame, _profiler.get());
+            indices.nextFrame, _profiler.get());
 
         _debugRenderer->record(
             cb, *_cam,
@@ -560,7 +770,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .color = illumination,
                 .depth = depth,
             },
-            nextFrame, _profiler.get());
+            indices.nextFrame, _profiler.get());
 
         _resources->images.release(depth);
     }
@@ -569,105 +779,12 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     _resources->texelBuffers.release(lightClusters.indices);
 
     const ImageHandle toneMapped =
-        _toneMap->record(cb, illumination, nextFrame, _profiler.get())
+        _toneMap->record(cb, illumination, indices.nextFrame, _profiler.get())
             .toneMapped;
 
     _resources->images.release(illumination);
 
-    { // TODO: Split into function
-        // Blit tonemapped into cleared final composite before drawing ui on top
-        {
-            const StaticArray barriers{{
-                _resources->images.transitionBarrier(
-                    toneMapped,
-                    ImageState{
-                        .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                        .accessMask = vk::AccessFlagBits2::eTransferRead,
-                        .layout = vk::ImageLayout::eTransferSrcOptimal,
-                    }),
-                _resources->finalComposite.transitionBarrier(ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                    .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                    .layout = vk::ImageLayout::eTransferDstOptimal,
-                }),
-            }};
-
-            cb.pipelineBarrier2(vk::DependencyInfo{
-                .imageMemoryBarrierCount =
-                    asserted_cast<uint32_t>(barriers.size()),
-                .pImageMemoryBarriers = barriers.data(),
-            });
-        }
-
-        const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
-        const vk::ImageSubresourceRange subresourceRange{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        };
-        cb.clearColorImage(
-            _resources->finalComposite.handle,
-            vk::ImageLayout::eTransferDstOptimal, &clearColor, 1,
-            &subresourceRange);
-
-        cb.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{}, {}, {},
-            {});
-
-        const vk::ImageSubresourceLayers layers{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-
-        const std::array srcOffsets{
-            vk::Offset3D{0, 0, 0},
-            vk::Offset3D{
-                asserted_cast<int32_t>(_viewportExtent.width),
-                asserted_cast<int32_t>(_viewportExtent.height),
-                1,
-            },
-        };
-
-        const ImVec2 dstOffset = _imguiRenderer->centerAreaOffset();
-        const ImVec2 dstSize = _imguiRenderer->centerAreaSize();
-        const vk::Extent2D backbufferExtent = _swapchain->config().extent;
-        const std::array dstOffsets{
-            vk::Offset3D{
-                std::min(
-                    asserted_cast<int32_t>(dstOffset.x),
-                    asserted_cast<int32_t>(backbufferExtent.width - 1)),
-                std::min(
-                    asserted_cast<int32_t>(dstOffset.y),
-                    asserted_cast<int32_t>(backbufferExtent.height - 1)),
-                0,
-            },
-            vk::Offset3D{
-                std::min(
-                    asserted_cast<int32_t>(dstOffset.x + dstSize.x),
-                    asserted_cast<int32_t>(backbufferExtent.width)),
-                std::min(
-                    asserted_cast<int32_t>(dstOffset.y + dstSize.y),
-                    asserted_cast<int32_t>(backbufferExtent.height)),
-                1,
-            },
-        };
-        const vk::ImageBlit blit = {
-            .srcSubresource = layers,
-            .srcOffsets = srcOffsets,
-            .dstSubresource = layers,
-            .dstOffsets = dstOffsets,
-        };
-        cb.blitImage(
-            _resources->images.nativeHandle(toneMapped),
-            vk::ImageLayout::eTransferSrcOptimal,
-            _resources->finalComposite.handle,
-            vk::ImageLayout::eTransferDstOptimal, 1, &blit,
-            vk::Filter::eLinear);
-    }
+    blitToneMapped(cb, toneMapped);
     _resources->images.release(toneMapped);
 
     const vk::Rect2D backbufferArea{
@@ -676,10 +793,118 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     };
     _imguiRenderer->endFrame(cb, backbufferArea, _profiler.get());
 
+    blitFinalComposite(cb, indices.nextImage);
+
+    _profiler->endGpuFrame(cb);
+
+    cb.end();
+
+    return cb;
+}
+
+void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
+{
+    const auto _s = _profiler->createCpuGpuScope(cb, "BlitToneMapped");
+
+    // Blit tonemapped into cleared final composite before drawing ui on top
     {
-        // Blit to support different internal rendering resolution (and color
-        // format?) the future
-        const auto &swapImage = _swapchain->image(nextImage);
+        const StaticArray barriers{{
+            _resources->images.transitionBarrier(
+                toneMapped,
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                    .accessMask = vk::AccessFlagBits2::eTransferRead,
+                    .layout = vk::ImageLayout::eTransferSrcOptimal,
+                }),
+            _resources->finalComposite.transitionBarrier(ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                .layout = vk::ImageLayout::eTransferDstOptimal,
+            }),
+        }};
+
+        cb.pipelineBarrier2(vk::DependencyInfo{
+            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+            .pImageMemoryBarriers = barriers.data(),
+        });
+    }
+
+    const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
+    const vk::ImageSubresourceRange subresourceRange{
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+    cb.clearColorImage(
+        _resources->finalComposite.handle, vk::ImageLayout::eTransferDstOptimal,
+        &clearColor, 1, &subresourceRange);
+
+    cb.pipelineBarrier(
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{}, {}, {},
+        {});
+
+    const vk::ImageSubresourceLayers layers{
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .mipLevel = 0,
+        .baseArrayLayer = 0,
+        .layerCount = 1};
+
+    const std::array srcOffsets{
+        vk::Offset3D{0, 0, 0},
+        vk::Offset3D{
+            asserted_cast<int32_t>(_viewportExtent.width),
+            asserted_cast<int32_t>(_viewportExtent.height),
+            1,
+        },
+    };
+
+    const ImVec2 dstOffset = _imguiRenderer->centerAreaOffset();
+    const ImVec2 dstSize = _imguiRenderer->centerAreaSize();
+    const vk::Extent2D backbufferExtent = _swapchain->config().extent;
+    const std::array dstOffsets{
+        vk::Offset3D{
+            std::min(
+                asserted_cast<int32_t>(dstOffset.x),
+                asserted_cast<int32_t>(backbufferExtent.width - 1)),
+            std::min(
+                asserted_cast<int32_t>(dstOffset.y),
+                asserted_cast<int32_t>(backbufferExtent.height - 1)),
+            0,
+        },
+        vk::Offset3D{
+            std::min(
+                asserted_cast<int32_t>(dstOffset.x + dstSize.x),
+                asserted_cast<int32_t>(backbufferExtent.width)),
+            std::min(
+                asserted_cast<int32_t>(dstOffset.y + dstSize.y),
+                asserted_cast<int32_t>(backbufferExtent.height)),
+            1,
+        },
+    };
+    const vk::ImageBlit blit = {
+        .srcSubresource = layers,
+        .srcOffsets = srcOffsets,
+        .dstSubresource = layers,
+        .dstOffsets = dstOffsets,
+    };
+    cb.blitImage(
+        _resources->images.nativeHandle(toneMapped),
+        vk::ImageLayout::eTransferSrcOptimal, _resources->finalComposite.handle,
+        vk::ImageLayout::eTransferDstOptimal, 1, &blit, vk::Filter::eLinear);
+}
+
+void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
+{
+    // Blit to support different internal rendering resolution (and color
+    // format?) the future
+
+    const auto &swapImage = _swapchain->image(nextImage);
+
+    {
+        const auto _s = _profiler->createCpuGpuScope(cb, "BlitFinalComposite");
 
         const StaticArray barriers{{
             _resources->finalComposite.transitionBarrier(ImageState{
@@ -739,33 +964,33 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 vk::ImageLayout::eTransferDstOptimal, 1, &blit,
                 vk::Filter::eLinear);
         }
-
-        {
-            const vk::ImageMemoryBarrier2 barrier{
-                .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-                .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-                .newLayout = vk::ImageLayout::ePresentSrcKHR,
-                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = swapImage.handle,
-                .subresourceRange = swapImage.subresourceRange,
-            };
-
-            cb.pipelineBarrier2(vk::DependencyInfo{
-                .imageMemoryBarrierCount = 1,
-                .pImageMemoryBarriers = &barrier,
-            });
-        }
-
-        _profiler->endGpuFrame(cb);
-
-        cb.end();
+        // Profiler scope ends here because we need the barrier to happen after
+        // it for the timestamps to make sense
     }
 
-    // Submit queue
+    {
+        const vk::ImageMemoryBarrier2 barrier{
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
+            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+            .newLayout = vk::ImageLayout::ePresentSrcKHR,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = swapImage.handle,
+            .subresourceRange = swapImage.subresourceRange,
+        };
+
+        cb.pipelineBarrier2(vk::DependencyInfo{
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier,
+        });
+    }
+}
+
+bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
+{
     const StaticArray waitSemaphores = {_imageAvailableSemaphores[nextFrame]};
     const StaticArray waitStages{{vk::PipelineStageFlags{
         vk::PipelineStageFlagBits::eColorAttachmentOutput}}};
@@ -786,6 +1011,11 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             1, &submitInfo, _swapchain->currentFence()),
         "submit");
 
+    return _swapchain->present(signalSemaphores);
+}
+
+void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
+{
     const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
     const bool viewportResized =
         asserted_cast<uint32_t>(viewportSize.x) != _viewportExtent.width ||
@@ -793,182 +1023,11 @@ void App::drawFrame(ScopedScratch scopeAlloc)
     // TODO: End gesture when mouse is released on top of imgui
 
     // Recreate swapchain if so indicated and explicitly handle resizes
-    if (!_swapchain->present(signalSemaphores) || _window->resized())
+    if (shouldResizeSwapchain || _window->resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
     else if (viewportResized)
     { // Don't recreate viewport related on the same frame as swapchain is
       // resized since we don't know the new viewport area until the next frame
         recreateViewportRelated();
     }
-}
-
-App::UiChanges App::drawUi(
-    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
-{
-    UiChanges ret;
-
-    {
-        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
-        ImGui::Begin("Options", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        ImGui::Text(
-            "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-            ImGui::GetIO().Framerate);
-
-        ImGui::Checkbox("Limit FPS", &_useFpsLimit);
-        if (_useFpsLimit)
-        {
-            ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
-        }
-
-        ImGui::Checkbox("Recompile shaders", &_recompileShaders);
-
-        ImGui::End();
-    }
-
-    {
-        ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_FirstUseEver);
-        ImGui::Begin(
-            "Renderer settings ", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        // TODO: Droplist for main renderer type
-        ret.rtPickedThisFrame =
-            ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
-        if (!_renderRT)
-            ImGui::Checkbox("Use deferred shading", &_renderDeferred);
-
-        if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
-            _toneMap->drawUi();
-
-        if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (_renderRT)
-                _rtRenderer->drawUi();
-            else if (_renderDeferred)
-                _deferredShading->drawUi();
-            else
-                _renderer->drawUi();
-        }
-
-        ImGui::End();
-    }
-
-    {
-        ImGui::SetNextWindowPos(
-            ImVec2{static_cast<float>(WIDTH) - 300.f, 60.f},
-            ImGuiCond_FirstUseEver);
-        ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        {
-            size_t longestNameLength = 0;
-            for (const auto &t : profilerDatas)
-                if (t.name.size() > longestNameLength)
-                    longestNameLength = asserted_cast<size_t>(t.name.size());
-
-            // Double the maximum name length for headroom
-            String tmp{scopeAlloc};
-            tmp.resize(longestNameLength * 2);
-            const auto leftJustified =
-                [&tmp, longestNameLength](StrSpan str, size_t extraWidth = 0)
-            {
-                // No realloc, please
-                assert(longestNameLength + extraWidth <= tmp.size());
-
-                tmp.clear();
-                tmp.extend(str);
-                tmp.resize(
-                    std::max(
-                        str.size(),
-                        static_cast<size_t>(longestNameLength + extraWidth)),
-                    ' ');
-
-                return tmp.c_str();
-            };
-
-            // Force minimum window size with whitespace
-            if (ImGui::CollapsingHeader(
-                    leftJustified("GPU"), ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                for (const auto &t : profilerDatas)
-                    if (t.gpuMillis >= 0.f)
-                        ImGui::Text(
-                            "%s %.3fms", leftJustified(t.name), t.gpuMillis);
-                if (!profilerDatas.empty())
-                {
-                    static int scopeIndex = 0;
-                    const char *comboTitle =
-                        profilerDatas[scopeIndex].gpuMillis < 0.f
-                            ? "##EmptyGPUScopeTitle"
-                            : profilerDatas[scopeIndex].name.data();
-                    if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
-                    {
-                        for (int n = 0;
-                             n < asserted_cast<int>(profilerDatas.size()); n++)
-                        {
-                            // Only have scopes that have gpu data
-                            if (profilerDatas[n].gpuMillis >= 0.f)
-                            {
-                                const bool selected = scopeIndex == n;
-                                if (ImGui::Selectable(
-                                        profilerDatas[n].name.data(), selected))
-                                    scopeIndex = n;
-
-                                if (selected)
-                                    ImGui::SetItemDefaultFocus();
-                            }
-                        }
-                        ImGui::EndCombo();
-                    }
-                    if (profilerDatas[scopeIndex].gpuMillis >= 0.f)
-                    {
-                        const auto &stats = profilerDatas[scopeIndex].stats;
-                        const auto &swapExtent = _viewportExtent;
-                        const uint32_t pixelCount =
-                            swapExtent.width * swapExtent.height;
-
-                        // Stats from AMD's 'D3D12 Right On Queue' GDC2016
-                        const float rasterPrimPerPrim =
-                            stats.iaPrimitives == 0
-                                ? -1.f
-                                : static_cast<float>(stats.clipPrimitives) /
-                                      static_cast<float>(stats.iaPrimitives);
-
-                        const float fragsPerPrim =
-                            stats.clipPrimitives == 0
-                                ? -1.f
-                                : static_cast<float>(stats.fragInvocations) /
-                                      static_cast<float>(stats.clipPrimitives);
-
-                        const float overdraw =
-                            stats.fragInvocations == 0
-                                ? -1.f
-                                : static_cast<float>(stats.fragInvocations) /
-                                      static_cast<float>(pixelCount);
-
-                        ImGui::Indent();
-
-                        ImGui::Text(
-                            "Raster prim per prim: %.2f", rasterPrimPerPrim);
-                        ImGui::Text("Frags per prim: %.2f", fragsPerPrim);
-                        ImGui::Text("Overdraw: %.2f", overdraw);
-
-                        ImGui::Unindent();
-                    }
-                }
-            }
-
-            if (ImGui::CollapsingHeader(
-                    leftJustified("CPU"), ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                for (const auto &t : profilerDatas)
-                    if (t.cpuMillis >= 0.f)
-                        ImGui::Text(
-                            "%s %.3fms", leftJustified(t.name), t.cpuMillis);
-            }
-        }
-
-        ImGui::End();
-    }
-
-    return ret;
 }

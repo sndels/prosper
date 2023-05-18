@@ -45,7 +45,13 @@ class App
     void createCommandBuffers();
 
     void handleMouseGestures();
+
     void drawFrame(wheels::ScopedScratch scopeAlloc);
+
+    uint32_t nextSwapchainImage(
+        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
+
+    void capFramerate();
 
     struct UiChanges
     {
@@ -54,6 +60,29 @@ class App
     UiChanges drawUi(
         wheels::ScopedScratch scopeAlloc,
         const wheels::Array<Profiler::ScopeData> &profilerDatas);
+    void drawOptions();
+    void drawRendererSettings(UiChanges &uiChanges);
+    void drawProfiling(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::Array<Profiler::ScopeData> &profilerDatas);
+
+    void updateDebugLines(const Scene &scene, uint32_t nextFrame);
+
+    struct RenderIndices
+    {
+        uint32_t nextFrame{0xFFFFFFFF};
+        uint32_t nextImage{0xFFFFFFFF};
+    };
+    [[nodiscard]] vk::CommandBuffer render(
+        const vk::Rect2D &renderArea, const RenderIndices &indices,
+        const Scene &scene, const UiChanges &uiChanges);
+    void blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped);
+    void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);
+    // Returns true if present succeeded, false if swapchain should be recreated
+    [[nodiscard]] bool submitAndPresent(
+        vk::CommandBuffer cb, uint32_t nextFrame);
+    void handleResizes(
+        wheels::ScopedScratch scopeAlloc, bool shouldResizeSwapchain);
 
     wheels::CstdlibAllocator _generalAlloc;
 
