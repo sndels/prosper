@@ -38,7 +38,7 @@ constexpr std::array<
 
 DeferredShading::DeferredShading(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    const InputDSLayouts &dsLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -47,7 +47,7 @@ DeferredShading::DeferredShading(
 
     printf("Creating DeferredShading\n");
 
-    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
+    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("DeferredShading shader compilation failed");
 
     createDescriptorSets();
@@ -66,7 +66,7 @@ DeferredShading::DeferredShading(
     };
     _depthSampler = _device->logical().createSampler(info);
 
-    createPipeline(camDSLayout, worldDSLayouts);
+    createPipeline(dsLayouts);
 }
 
 DeferredShading::~DeferredShading()
@@ -83,13 +83,12 @@ DeferredShading::~DeferredShading()
 }
 
 void DeferredShading::recompileShaders(
-    wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
-    if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
+    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
     {
         destroyPipelines();
-        createPipeline(camDSLayout, worldDSLayouts);
+        createPipeline(dsLayouts);
     }
 }
 
@@ -149,13 +148,12 @@ void DeferredShading::drawUi()
 
 DeferredShading::Output DeferredShading::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRenderer::Output &gbuffer, const uint32_t nextFrame,
-    Profiler *profiler)
+    const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
     assert(profiler != nullptr);
 
     const vk::Extent3D targetExtent =
-        _resources->images.resource(gbuffer.albedoRoughness).extent;
+        _resources->images.resource(input.gbuffer.albedoRoughness).extent;
     assert(targetExtent.depth == 1);
 
     const vk::Extent2D renderExtent{
@@ -164,16 +162,18 @@ DeferredShading::Output DeferredShading::record(
     };
     assert(
         renderExtent.width ==
-        _resources->images.resource(gbuffer.normalMetalness).extent.width);
+        _resources->images.resource(input.gbuffer.normalMetalness)
+            .extent.width);
     assert(
         renderExtent.height ==
-        _resources->images.resource(gbuffer.normalMetalness).extent.height);
+        _resources->images.resource(input.gbuffer.normalMetalness)
+            .extent.height);
     assert(
         renderExtent.width ==
-        _resources->images.resource(gbuffer.depth).extent.width);
+        _resources->images.resource(input.gbuffer.depth).extent.width);
     assert(
         renderExtent.height ==
-        _resources->images.resource(gbuffer.depth).extent.height);
+        _resources->images.resource(input.gbuffer.depth).extent.height);
 
     Output ret;
     {
@@ -184,29 +184,29 @@ DeferredShading::Output DeferredShading::record(
 
         updateDescriptorSet(
             nextFrame, BoundImages{
-                           .albedoRoughness = gbuffer.albedoRoughness,
-                           .normalMetalness = gbuffer.normalMetalness,
-                           .depth = gbuffer.depth,
+                           .albedoRoughness = input.gbuffer.albedoRoughness,
+                           .normalMetalness = input.gbuffer.normalMetalness,
+                           .depth = input.gbuffer.depth,
                            .illumination = ret.illumination,
                        });
 
-        const StaticArray barriers{
+        const StaticArray imageBarriers{
             _resources->images.transitionBarrier(
-                gbuffer.albedoRoughness,
+                input.gbuffer.albedoRoughness,
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
                     .layout = vk::ImageLayout::eGeneral,
                 }),
             _resources->images.transitionBarrier(
-                gbuffer.normalMetalness,
+                input.gbuffer.normalMetalness,
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
                     .layout = vk::ImageLayout::eGeneral,
                 }),
             _resources->images.transitionBarrier(
-                gbuffer.depth,
+                input.gbuffer.depth,
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -219,11 +219,37 @@ DeferredShading::Output DeferredShading::record(
                     .accessMask = vk::AccessFlagBits2::eShaderWrite,
                     .layout = vk::ImageLayout::eGeneral,
                 }),
+            _resources->images.transitionBarrier(
+                input.lightClusters.pointers,
+                ImageState{
+                    .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                    .layout = vk::ImageLayout::eGeneral,
+                }),
+        };
+
+        const StaticArray bufferBarriers{
+            _resources->texelBuffers.transitionBarrier(
+                input.lightClusters.indicesCount,
+                BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                }),
+            _resources->texelBuffers.transitionBarrier(
+                input.lightClusters.indices,
+                BufferState{
+                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead,
+                }),
         };
 
         cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-            .pImageMemoryBarriers = barriers.data(),
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(bufferBarriers.size()),
+            .pBufferMemoryBarriers = bufferBarriers.data(),
+            .imageMemoryBarrierCount =
+                asserted_cast<uint32_t>(imageBarriers.size()),
+            .pImageMemoryBarriers = imageBarriers.data(),
         });
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
@@ -235,7 +261,7 @@ DeferredShading::Output DeferredShading::record(
         descriptorSets[LightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
         descriptorSets[LightClustersBindingSet] =
-            _resources->staticBuffers.lightClusters.descriptorSets[nextFrame];
+            input.lightClusters.descriptorSet;
         descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
         descriptorSets[MaterialsBindingSet] = world._materialTexturesDS;
         descriptorSets[StorageBindingSet] = _descriptorSets[nextFrame];
@@ -381,8 +407,7 @@ void DeferredShading::updateDescriptorSet(
         descriptorWrites.data(), 0, nullptr);
 }
 
-void DeferredShading::createPipeline(
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+void DeferredShading::createPipeline(const InputDSLayouts &dsLayouts)
 {
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eCompute,
@@ -392,11 +417,10 @@ void DeferredShading::createPipeline(
 
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};
-    setLayouts[LightsBindingSet] = worldDSLayouts.lights;
-    setLayouts[LightClustersBindingSet] =
-        _resources->staticBuffers.lightClusters.descriptorSetLayout;
-    setLayouts[CameraBindingSet] = camDSLayout;
-    setLayouts[MaterialsBindingSet] = worldDSLayouts.materialTextures;
+    setLayouts[LightsBindingSet] = dsLayouts.world.lights;
+    setLayouts[LightClustersBindingSet] = dsLayouts.lightClusters;
+    setLayouts[CameraBindingSet] = dsLayouts.camera;
+    setLayouts[MaterialsBindingSet] = dsLayouts.world.materialTextures;
     setLayouts[StorageBindingSet] = _descriptorSetLayout;
 
     _pipelineLayout =

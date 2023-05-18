@@ -29,7 +29,7 @@ struct ClusteringPCBlock
 
 LightClustering::LightClustering(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
+    const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -40,39 +40,24 @@ LightClustering::LightClustering(
         throw std::runtime_error("LightClustering shader compilation failed");
 
     createDescriptorSets();
-
-    _resources->staticBuffers.lightClusters
-        .indicesCount = _device->createTexelBuffer(TexelBufferCreateInfo{
-        .desc =
-            TexelBufferDescription{
-                .bufferDesc =
-                    BufferDescription{
-                        .byteSize = sizeof(uint32_t),
-                        .usage = vk::BufferUsageFlagBits::eTransferDst |
-                                 vk::BufferUsageFlagBits::eStorageTexelBuffer,
-                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                    },
-                .format = vk::Format::eR32Uint,
-                .supportAtomics = true,
-            },
-        .debugName = "LightClusteringIndicesCounter",
-    });
-
-    recreate(renderExtent, camDSLayout, worldDSLayouts);
+    createPipeline(camDSLayout, worldDSLayouts);
 }
 
 LightClustering::~LightClustering()
 {
     if (_device != nullptr)
     {
-        destroyViewportRelated();
+        destroyPipeline();
 
-        _device->destroy(_resources->staticBuffers.lightClusters.indicesCount);
-        _device->logical().destroy(
-            _resources->staticBuffers.lightClusters.descriptorSetLayout);
-
+        _device->logical().destroy(_descriptorSetLayout);
         _device->logical().destroy(_compSM);
     }
+}
+
+[[nodiscard]] vk::DescriptorSetLayout LightClustering::descriptorSetLayout()
+    const
+{
+    return _descriptorSetLayout;
 }
 
 void LightClustering::recompileShaders(
@@ -86,29 +71,21 @@ void LightClustering::recompileShaders(
     }
 }
 
-void LightClustering::recreate(
-    const vk::Extent2D &renderExtent, const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
-{
-    destroyViewportRelated();
-
-    createOutputs(renderExtent);
-    updateDescriptorSets();
-    createPipeline(camDSLayout, worldDSLayouts);
-}
-
-void LightClustering::record(
+LightClustering::Output LightClustering::record(
     vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
-    const vk::Rect2D &renderArea, const uint32_t nextFrame, Profiler *profiler)
+    const vk::Extent2D &renderExtent, const uint32_t nextFrame,
+    Profiler *profiler)
 {
-    if (renderArea.offset != vk::Offset2D{})
-        throw std::runtime_error("Offset area not implemented!");
-
+    Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
 
-        const auto imageBarrier =
-            _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
+        ret = createOutputs(renderExtent);
+        updateDescriptorSet(nextFrame, ret);
+
+        const vk::ImageMemoryBarrier2 imageBarrier =
+            _resources->images.transitionBarrier(
+                ret.pointers,
                 ImageState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderWrite,
@@ -116,13 +93,15 @@ void LightClustering::record(
                 });
 
         const StaticArray bufferBarriers{
-            _resources->staticBuffers.lightClusters.indices.transitionBarrier(
+            _resources->texelBuffers.transitionBarrier(
+                ret.indices,
                 BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                     .accessMask = vk::AccessFlagBits2::eShaderWrite,
                 }),
-            _resources->staticBuffers.lightClusters.indicesCount
-                .transitionBarrier(BufferState{
+            _resources->texelBuffers.transitionBarrier(
+                ret.indicesCount,
+                BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eTransfer,
                     .accessMask = vk::AccessFlagBits2::eTransferWrite,
                 }),
@@ -136,24 +115,25 @@ void LightClustering::record(
             .pImageMemoryBarriers = &imageBarrier,
         });
 
-        cb.fillBuffer(
-            _resources->staticBuffers.lightClusters.indicesCount.handle, 0,
-            _resources->staticBuffers.lightClusters.indicesCount.size, 0);
+        const TexelBuffer &indicesCount =
+            _resources->texelBuffers.resource(ret.indicesCount);
 
-        _resources->staticBuffers.lightClusters.indicesCount.transition(
-            cb, BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead |
-                                  vk::AccessFlagBits2::eShaderWrite,
-                });
+        cb.fillBuffer(indicesCount.handle, 0, indicesCount.size, 0);
+
+        _resources->texelBuffers.transition(
+            cb, ret.indicesCount,
+            BufferState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead |
+                              vk::AccessFlagBits2::eShaderWrite,
+            });
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
         StaticArray<vk::DescriptorSet, 3> descriptorSets{VK_NULL_HANDLE};
         descriptorSets[sLightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
-        descriptorSets[sLightClustersBindingSet] =
-            _resources->staticBuffers.lightClusters.descriptorSets[nextFrame];
+        descriptorSets[sLightClustersBindingSet] = ret.descriptorSet;
         descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
 
         cb.bindDescriptorSets(
@@ -163,18 +143,19 @@ void LightClustering::record(
             descriptorSets.data(), 0, nullptr);
 
         const ClusteringPCBlock pcBlock{
-            .resolution =
-                uvec2(renderArea.extent.width, renderArea.extent.height),
+            .resolution = uvec2(renderExtent.width, renderExtent.height),
         };
         cb.pushConstants(
             _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
             0, // offset
             sizeof(ClusteringPCBlock), &pcBlock);
 
-        const auto &extent =
-            _resources->staticBuffers.lightClusters.pointers.extent;
+        const vk::Extent3D &extent =
+            _resources->images.resource(ret.pointers).extent;
         cb.dispatch(extent.width, extent.height, extent.depth);
     }
+
+    return ret;
 }
 
 bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
@@ -208,55 +189,58 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-void LightClustering::destroyViewportRelated()
-{
-    if (_device != nullptr)
-    {
-        destroyPipeline();
-
-        _device->destroy(_resources->staticBuffers.lightClusters.pointers);
-        _device->destroy(_resources->staticBuffers.lightClusters.indices);
-    }
-}
-
-void LightClustering::createOutputs(const vk::Extent2D &renderExtent)
+LightClustering::Output LightClustering::createOutputs(
+    const vk::Extent2D &renderExtent)
 {
     const auto pointersWidth = ((renderExtent.width - 1u) / clusterDim) + 1u;
     const auto pointersHeight = ((renderExtent.height - 1u) / clusterDim) + 1u;
     const auto pointersDepth = zSlices + 1;
 
-    _resources->staticBuffers.lightClusters.pointers =
-        _device->createImage(ImageCreateInfo{
-            .desc =
-                ImageDescription{
-                    .imageType = vk::ImageType::e3D,
-                    .format = vk::Format::eR32G32Uint,
-                    .width = pointersWidth,
-                    .height = pointersHeight,
-                    .depth = pointersDepth,
-                    .usageFlags = vk::ImageUsageFlagBits::eStorage,
+    Output ret;
+
+    ret.pointers = _resources->images.create(
+        ImageDescription{
+            .imageType = vk::ImageType::e3D,
+            .format = vk::Format::eR32G32Uint,
+            .width = pointersWidth,
+            .height = pointersHeight,
+            .depth = pointersDepth,
+            .usageFlags = vk::ImageUsageFlagBits::eStorage,
+        },
+        "lightClusterPointers");
+
+    ret.indicesCount = _resources->texelBuffers.create(
+        TexelBufferDescription{
+            .bufferDesc =
+                BufferDescription{
+                    .byteSize = sizeof(uint32_t),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst |
+                             vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                 },
-            .debugName = "lightClusterPointers",
-        });
+            .format = vk::Format::eR32Uint,
+            .supportAtomics = true,
+        },
+        "LightClusteringIndicesCounter");
 
     const vk::DeviceSize indicesSize =
         static_cast<vk::DeviceSize>(
             maxSpotIndicesPerTile + maxPointIndicesPerTile) *
         pointersWidth * pointersHeight * pointersDepth;
-    _resources->staticBuffers.lightClusters
-        .indices = _device->createTexelBuffer(TexelBufferCreateInfo{
-        .desc =
-            TexelBufferDescription{
-                .bufferDesc =
-                    BufferDescription{
-                        .byteSize = indicesSize * sizeof(uint16_t),
-                        .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
-                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                    },
-                .format = vk::Format::eR16Uint,
-            },
-        .debugName = "lightClusterIndices",
-    });
+
+    ret.indices = _resources->texelBuffers.create(
+        TexelBufferDescription{
+            .bufferDesc =
+                BufferDescription{
+                    .byteSize = indicesSize * sizeof(uint16_t),
+                    .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .format = vk::Format::eR16Uint,
+        },
+        "lightClusterIndices");
+
+    return ret;
 }
 
 void LightClustering::createDescriptorSets()
@@ -284,60 +268,59 @@ void LightClustering::createDescriptorSets()
                           vk::ShaderStageFlagBits::eCompute,
         },
     };
-    _resources->staticBuffers.lightClusters.descriptorSetLayout =
-        _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-                .pBindings = layoutBindings.data(),
-            });
+    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
+        vk::DescriptorSetLayoutCreateInfo{
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+            .pBindings = layoutBindings.data(),
+        });
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _resources->staticBuffers.lightClusters.descriptorSetLayout};
+        _descriptorSetLayout};
     _resources->staticDescriptorsAlloc.allocate(
-        layouts,
-        Span{
-            _resources->staticBuffers.lightClusters.descriptorSets.data(),
-            _resources->staticBuffers.lightClusters.descriptorSets.size()});
+        layouts, Span{_descriptorSets.data(), _descriptorSets.size()});
 }
 
-void LightClustering::updateDescriptorSets()
+void LightClustering::updateDescriptorSet(uint32_t nextFrame, Output &output)
 {
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
+
     const vk::DescriptorImageInfo pointersInfo{
-        .imageView = _resources->staticBuffers.lightClusters.pointers.view,
+        .imageView = _resources->images.resource(output.pointers).view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
-    StaticArray<vk::WriteDescriptorSet, MAX_FRAMES_IN_FLIGHT * 3>
-        descriptorWrites;
-    for (const auto &ds :
-         _resources->staticBuffers.lightClusters.descriptorSets)
-    {
-        descriptorWrites.push_back(vk::WriteDescriptorSet{
+
+    const vk::DescriptorSet ds = _descriptorSets[nextFrame];
+    const StaticArray descriptorWrites{
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &pointersInfo,
-        });
-        descriptorWrites.push_back(vk::WriteDescriptorSet{
+        },
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
             .pTexelBufferView =
-                &_resources->staticBuffers.lightClusters.indicesCount.view,
-        });
-        descriptorWrites.push_back(vk::WriteDescriptorSet{
+                &_resources->texelBuffers.resource(output.indicesCount).view,
+        },
+        vk::WriteDescriptorSet{
             .dstSet = ds,
             .dstBinding = 2,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
             .pTexelBufferView =
-                &_resources->staticBuffers.lightClusters.indices.view,
-        });
-    }
+                &_resources->texelBuffers.resource(output.indices).view,
+        }};
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
+
+    output.descriptorSet = ds;
 }
 
 void LightClustering::createPipeline(
@@ -346,8 +329,7 @@ void LightClustering::createPipeline(
 {
     StaticArray<vk::DescriptorSetLayout, 3> setLayouts{VK_NULL_HANDLE};
     setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
-    setLayouts[sLightClustersBindingSet] =
-        _resources->staticBuffers.lightClusters.descriptorSetLayout;
+    setLayouts[sLightClustersBindingSet] = _descriptorSetLayout;
     setLayouts[sCameraBindingSet] = camDSLayout;
 
     const vk::PushConstantRange pcRange{

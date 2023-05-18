@@ -72,16 +72,24 @@ App::App(
     Timer gpuPassesInitTimer;
     _lightClustering.reset(new LightClustering(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts));
+        _cam->descriptorSetLayout(), _world->_dsLayouts));
     _renderer.reset(new Renderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->_dsLayouts));
+        Renderer::InputDSLayouts{
+            .camera = _cam->descriptorSetLayout(),
+            .lightClusters = _lightClustering->descriptorSetLayout(),
+            .world = _world->_dsLayouts,
+        }));
     _gbufferRenderer.reset(new GBufferRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _cam->descriptorSetLayout(), _world->_dsLayouts));
     _deferredShading.reset(new DeferredShading(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->_dsLayouts));
+        DeferredShading::InputDSLayouts{
+            .camera = _cam->descriptorSetLayout(),
+            .lightClusters = _lightClustering->descriptorSetLayout(),
+            .world = _world->_dsLayouts,
+        }));
     _rtRenderer.reset(new RTRenderer(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _cam->descriptorSetLayout(), _world->_dsLayouts));
@@ -178,11 +186,6 @@ void App::recreateViewportRelated()
         asserted_cast<uint32_t>(viewportSize.y),
     };
 
-    // NOTE: These need to be in the order that RenderResources contents are
-    // written to!
-    _lightClustering->recreate(
-        _viewportExtent, _cam->descriptorSetLayout(), _world->_dsLayouts);
-
     _cam->perspective(
         PerspectiveParameters{
             .fov = radians(CAMERA_FOV),
@@ -253,14 +256,22 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _renderer->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        scopeAlloc.child_scope(),
+        Renderer::InputDSLayouts{
+            .camera = _cam->descriptorSetLayout(),
+            .lightClusters = _lightClustering->descriptorSetLayout(),
+            .world = _world->_dsLayouts,
+        });
     _gbufferRenderer->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _deferredShading->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        scopeAlloc.child_scope(),
+        DeferredShading::InputDSLayouts{
+            .camera = _cam->descriptorSetLayout(),
+            .lightClusters = _lightClustering->descriptorSetLayout(),
+            .world = _world->_dsLayouts,
+        });
     _rtRenderer->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
@@ -481,8 +492,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    _lightClustering->record(
-        cb, scene, *_cam, renderArea, nextFrame, _profiler.get());
+    const LightClustering::Output lightClusters = _lightClustering->record(
+        cb, scene, *_cam, _viewportExtent, nextFrame, _profiler.get());
 
     ImageHandle illumination;
     if (_renderRT)
@@ -502,11 +513,15 @@ void App::drawFrame(ScopedScratch scopeAlloc)
             const GBufferRenderer::Output gbuffer = _gbufferRenderer->record(
                 cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
 
-            illumination =
-                _deferredShading
-                    ->record(
-                        cb, *_world, *_cam, gbuffer, nextFrame, _profiler.get())
-                    .illumination;
+            illumination = _deferredShading
+                               ->record(
+                                   cb, *_world, *_cam,
+                                   DeferredShading::Input{
+                                       .gbuffer = gbuffer,
+                                       .lightClusters = lightClusters,
+                                   },
+                                   nextFrame, _profiler.get())
+                               .illumination;
 
             _resources->images.release(gbuffer.albedoRoughness);
             _resources->images.release(gbuffer.normalMetalness);
@@ -516,7 +531,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         else
         {
             const Renderer::OpaqueOutput output = _renderer->recordOpaque(
-                cb, *_world, *_cam, renderArea, nextFrame, _profiler.get());
+                cb, *_world, *_cam, renderArea, lightClusters, nextFrame,
+                _profiler.get());
             illumination = output.illumination;
             depth = output.depth;
         }
@@ -528,7 +544,7 @@ void App::drawFrame(ScopedScratch scopeAlloc)
                 .illumination = illumination,
                 .depth = depth,
             },
-            nextFrame, _profiler.get());
+            lightClusters, nextFrame, _profiler.get());
 
         _skyboxRenderer->record(
             cb, *_world,
@@ -548,6 +564,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
         _resources->images.release(depth);
     }
+    _resources->images.release(lightClusters.pointers);
+    _resources->texelBuffers.release(lightClusters.indicesCount);
+    _resources->texelBuffers.release(lightClusters.indices);
 
     const ImageHandle toneMapped =
         _toneMap->record(cb, illumination, nextFrame, _profiler.get())

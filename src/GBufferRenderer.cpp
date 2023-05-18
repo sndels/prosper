@@ -137,31 +137,9 @@ GBufferRenderer::Output GBufferRenderer::record(
                         vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
                     .layout = vk::ImageLayout::eDepthAttachmentOptimal,
                 }),
-            _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-        };
-
-        const StaticArray bufferBarriers{
-            _resources->staticBuffers.lightClusters.indicesCount
-                .transitionBarrier(BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                }),
-            _resources->staticBuffers.lightClusters.indices.transitionBarrier(
-                BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                }),
         };
 
         cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount =
-                asserted_cast<uint32_t>(bufferBarriers.size()),
-            .pBufferMemoryBarriers = bufferBarriers.data(),
             .imageMemoryBarrierCount =
                 asserted_cast<uint32_t>(imageBarriers.size()),
             .pImageMemoryBarriers = imageBarriers.data(),

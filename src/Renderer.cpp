@@ -37,8 +37,7 @@ constexpr std::array<
 
 Renderer::Renderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const InputDSLayouts &dsLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -47,10 +46,10 @@ Renderer::Renderer(
 
     printf("Creating Renderer\n");
 
-    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
+    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("Renderer shader compilation failed");
 
-    createGraphicsPipelines(camDSLayout, worldDSLayouts);
+    createGraphicsPipelines(dsLayouts);
 }
 
 Renderer::~Renderer()
@@ -65,13 +64,12 @@ Renderer::~Renderer()
 }
 
 void Renderer::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
-    if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
+    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
     {
         destroyGraphicsPipelines();
-        createGraphicsPipelines(camDSLayout, worldDSLayouts);
+        createGraphicsPipelines(dsLayouts);
     }
 }
 
@@ -92,7 +90,8 @@ void Renderer::drawUi()
 
 Renderer::OpaqueOutput Renderer::recordOpaque(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler)
+    const vk::Rect2D &renderArea, const LightClustering::Output &lightClusters,
+    uint32_t nextFrame, Profiler *profiler)
 {
     OpaqueOutput ret;
     {
@@ -109,18 +108,21 @@ Renderer::OpaqueOutput Renderer::recordOpaque(
                 .illumination = ret.illumination,
                 .depth = ret.depth,
             },
-            false, profiler);
+            lightClusters, false, profiler);
     }
     return ret;
 }
 
 void Renderer::recordTransparent(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const RecordInOut &inOutTargets, uint32_t nextFrame, Profiler *profiler)
+    const RecordInOut &inOutTargets,
+    const LightClustering::Output &lightClusters, uint32_t nextFrame,
+    Profiler *profiler)
 {
     const auto _s = profiler->createCpuGpuScope(cb, "TransparentGeometry");
 
-    record(cb, world, cam, nextFrame, inOutTargets, true, profiler);
+    record(
+        cb, world, cam, nextFrame, inOutTargets, lightClusters, true, profiler);
 }
 
 bool Renderer::compileShaders(
@@ -198,9 +200,7 @@ void Renderer::destroyGraphicsPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void Renderer::createGraphicsPipelines(
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 {
     // Empty as we'll load vertices manually from a buffer
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
@@ -258,13 +258,12 @@ void Renderer::createGraphicsPipelines(
     };
 
     StaticArray<vk::DescriptorSetLayout, 6> setLayouts{VK_NULL_HANDLE};
-    setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
-    setLayouts[sLightClustersBindingSet] =
-        _resources->staticBuffers.lightClusters.descriptorSetLayout;
-    setLayouts[sCameraBindingSet] = camDSLayout;
-    setLayouts[sMaterialsBindingSet] = worldDSLayouts.materialTextures;
-    setLayouts[sGeometryBuffersBindingSet] = worldDSLayouts.geometry;
-    setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
+    setLayouts[sLightsBindingSet] = dsLayouts.world.lights;
+    setLayouts[sLightClustersBindingSet] = dsLayouts.lightClusters;
+    setLayouts[sCameraBindingSet] = dsLayouts.camera;
+    setLayouts[sMaterialsBindingSet] = dsLayouts.world.materialTextures;
+    setLayouts[sGeometryBuffersBindingSet] = dsLayouts.world.geometry;
+    setLayouts[sModelInstanceTrfnsBindingSet] = dsLayouts.world.modelInstances;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
@@ -360,7 +359,8 @@ void Renderer::createGraphicsPipelines(
 void Renderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    bool transparents, Profiler *profiler)
+    const LightClustering::Output &lightClusters, bool transparents,
+    Profiler *profiler)
 {
     assert(profiler != nullptr);
 
@@ -400,7 +400,8 @@ void Renderer::record(
                 .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
                 .layout = vk::ImageLayout::eDepthAttachmentOptimal,
             }),
-        _resources->staticBuffers.lightClusters.pointers.transitionBarrier(
+        _resources->images.transitionBarrier(
+            lightClusters.pointers,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -409,12 +410,14 @@ void Renderer::record(
     };
 
     const StaticArray bufferBarriers{
-        _resources->staticBuffers.lightClusters.indicesCount.transitionBarrier(
+        _resources->texelBuffers.transitionBarrier(
+            lightClusters.indicesCount,
             BufferState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
             }),
-        _resources->staticBuffers.lightClusters.indices.transitionBarrier(
+        _resources->texelBuffers.transitionBarrier(
+            lightClusters.indices,
             BufferState{
                 .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
@@ -475,8 +478,7 @@ void Renderer::record(
 
     StaticArray<vk::DescriptorSet, 6> descriptorSets{VK_NULL_HANDLE};
     descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextFrame];
-    descriptorSets[sLightClustersBindingSet] =
-        _resources->staticBuffers.lightClusters.descriptorSets[nextFrame];
+    descriptorSets[sLightClustersBindingSet] = lightClusters.descriptorSet;
     descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
     descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
     descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;

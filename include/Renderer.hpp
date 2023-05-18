@@ -4,6 +4,7 @@
 #include "Camera.hpp"
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
+#include "LightClustering.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
@@ -21,10 +22,15 @@ class Renderer
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
+    struct InputDSLayouts
+    {
+        vk::DescriptorSetLayout camera;
+        vk::DescriptorSetLayout lightClusters;
+        const World::DSLayouts &world;
+    };
     Renderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        RenderResources *resources, const InputDSLayouts &dsLayouts);
     ~Renderer();
 
     Renderer(const Renderer &other) = delete;
@@ -33,8 +39,7 @@ class Renderer
     Renderer &operator=(Renderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
 
     void drawUi();
 
@@ -45,7 +50,9 @@ class Renderer
     };
     [[nodiscard]] OpaqueOutput recordOpaque(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
+        const vk::Rect2D &renderArea,
+        const LightClustering::Output &lightClusters, uint32_t nextFrame,
+        Profiler *profiler);
 
     struct RecordInOut
     {
@@ -54,7 +61,8 @@ class Renderer
     };
     void recordTransparent(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const RecordInOut &inOutTargets, uint32_t nextFrame,
+        const RecordInOut &inOutTargets,
+        const LightClustering::Output &lightClusters, uint32_t nextFrame,
         Profiler *profiler);
 
   private:
@@ -63,14 +71,12 @@ class Renderer
         const World::DSLayouts &worldDSLayouts);
 
     void destroyGraphicsPipelines();
-
-    void createGraphicsPipelines(
-        vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+    void createGraphicsPipelines(const InputDSLayouts &dsLayouts);
 
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        uint32_t nextFrame, const RecordInOut &inOutTargets, bool transparents,
+        uint32_t nextFrame, const RecordInOut &inOutTargets,
+        const LightClustering::Output &lightClusters, bool transparents,
         Profiler *profiler);
 
     Device *_device{nullptr};

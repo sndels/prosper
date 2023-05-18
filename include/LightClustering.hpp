@@ -23,8 +23,7 @@ class LightClustering
 
     LightClustering(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::Extent2D &renderExtent,
-        vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~LightClustering();
 
@@ -33,27 +32,32 @@ class LightClustering
     LightClustering &operator=(const LightClustering &other) = delete;
     LightClustering &operator=(LightClustering &&other) = delete;
 
+    [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
+
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
-    void recreate(
-        const vk::Extent2D &renderExtent, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
-
-    void record(
+    struct Output
+    {
+        ImageHandle pointers;
+        TexelBufferHandle indicesCount;
+        TexelBufferHandle indices;
+        vk::DescriptorSet descriptorSet;
+    } lightClusters;
+    [[nodiscard]] Output record(
         vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
+        const vk::Extent2D &renderExtent, uint32_t nextFrame,
+        Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void destroyViewportRelated();
     void destroyPipeline();
 
-    void createOutputs(const vk::Extent2D &renderExtent);
+    [[nodiscard]] Output createOutputs(const vk::Extent2D &renderExtent);
     void createDescriptorSets();
-    void updateDescriptorSets();
+    void updateDescriptorSet(uint32_t nextFrame, Output &outputs);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -62,6 +66,10 @@ class LightClustering
     RenderResources *_resources{nullptr};
 
     vk::ShaderModule _compSM;
+
+    vk::DescriptorSetLayout _descriptorSetLayout;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+        _descriptorSets{{}};
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

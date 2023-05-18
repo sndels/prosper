@@ -8,6 +8,7 @@
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
 #include "GBufferRenderer.hpp"
+#include "LightClustering.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
 #include "Swapchain.hpp"
@@ -23,10 +24,16 @@ class DeferredShading
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
+    struct InputDSLayouts
+    {
+        vk::DescriptorSetLayout camera;
+        vk::DescriptorSetLayout lightClusters;
+        const World::DSLayouts &world;
+    };
     DeferredShading(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        RenderResources *resources, const InputDSLayouts &dsLayouts);
+
     ~DeferredShading();
 
     DeferredShading(const DeferredShading &other) = delete;
@@ -35,19 +42,22 @@ class DeferredShading
     DeferredShading &operator=(DeferredShading &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
 
     void drawUi();
 
+    struct Input
+    {
+        const GBufferRenderer::Output &gbuffer;
+        const LightClustering::Output &lightClusters;
+    };
     struct Output
     {
         ImageHandle illumination;
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const GBufferRenderer::Output &gbuffer, uint32_t nextFrame,
-        Profiler *profiler);
+        const Input &input, uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -65,9 +75,7 @@ class DeferredShading
         ImageHandle illumination;
     };
     void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
-    void createPipeline(
-        vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+    void createPipeline(const InputDSLayouts &dsLayouts);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

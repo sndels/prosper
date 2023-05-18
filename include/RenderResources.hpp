@@ -29,15 +29,6 @@ class RenderResources
 
     struct Buffers
     {
-        struct
-        {
-            Image pointers;
-            TexelBuffer indicesCount;
-            TexelBuffer indices;
-            vk::DescriptorSetLayout descriptorSetLayout;
-            wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-                descriptorSets{{}};
-        } lightClusters;
         // One lines buffer per swap image to leave mapped
         wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
     };
