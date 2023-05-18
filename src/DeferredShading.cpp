@@ -8,6 +8,7 @@
 #include "LightClustering.hpp"
 #include "RenderTargets.hpp"
 #include "Utils.hpp"
+#include "VkUtils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -33,6 +34,19 @@ struct PCBlock
 constexpr std::array<
     const char *, static_cast<size_t>(DeferredShading::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
+
+vk::Extent2D getRenderExtent(
+    const RenderResources &resources, const GBufferRenderer::Output &gbuffer)
+{
+    const vk::Extent3D targetExtent =
+        resources.images.resource(gbuffer.albedoRoughness).extent;
+    assert(targetExtent.depth == 1);
+
+    return vk::Extent2D{
+        .width = targetExtent.width,
+        .height = targetExtent.height,
+    };
+}
 
 } // namespace
 
@@ -152,32 +166,12 @@ DeferredShading::Output DeferredShading::record(
 {
     assert(profiler != nullptr);
 
-    const vk::Extent3D targetExtent =
-        _resources->images.resource(input.gbuffer.albedoRoughness).extent;
-    assert(targetExtent.depth == 1);
-
-    const vk::Extent2D renderExtent{
-        .width = targetExtent.width,
-        .height = targetExtent.height,
-    };
-    assert(
-        renderExtent.width ==
-        _resources->images.resource(input.gbuffer.normalMetalness)
-            .extent.width);
-    assert(
-        renderExtent.height ==
-        _resources->images.resource(input.gbuffer.normalMetalness)
-            .extent.height);
-    assert(
-        renderExtent.width ==
-        _resources->images.resource(input.gbuffer.depth).extent.width);
-    assert(
-        renderExtent.height ==
-        _resources->images.resource(input.gbuffer.depth).extent.height);
-
     Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
+
+        const vk::Extent2D renderExtent =
+            getRenderExtent(*_resources, input.gbuffer);
 
         ret.illumination =
             createIllumination(*_resources, renderExtent, "illumination");
@@ -190,67 +184,7 @@ DeferredShading::Output DeferredShading::record(
                            .illumination = ret.illumination,
                        });
 
-        const StaticArray imageBarriers{
-            _resources->images.transitionBarrier(
-                input.gbuffer.albedoRoughness,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-            _resources->images.transitionBarrier(
-                input.gbuffer.normalMetalness,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-            _resources->images.transitionBarrier(
-                input.gbuffer.depth,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-            _resources->images.transitionBarrier(
-                ret.illumination,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-            _resources->images.transitionBarrier(
-                input.lightClusters.pointers,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-        };
-
-        const StaticArray bufferBarriers{
-            _resources->texelBuffers.transitionBarrier(
-                input.lightClusters.indicesCount,
-                BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                }),
-            _resources->texelBuffers.transitionBarrier(
-                input.lightClusters.indices,
-                BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                }),
-        };
-
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount =
-                asserted_cast<uint32_t>(bufferBarriers.size()),
-            .pBufferMemoryBarriers = bufferBarriers.data(),
-            .imageMemoryBarrierCount =
-                asserted_cast<uint32_t>(imageBarriers.size()),
-            .pImageMemoryBarriers = imageBarriers.data(),
-        });
+        recordBarriers(cb, input, ret);
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
@@ -285,6 +219,72 @@ DeferredShading::Output DeferredShading::record(
     }
 
     return ret;
+}
+
+void DeferredShading::recordBarriers(
+    vk::CommandBuffer cb, const Input &input, const Output &output) const
+{
+    const StaticArray imageBarriers{
+        _resources->images.transitionBarrier(
+            input.gbuffer.albedoRoughness,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+        _resources->images.transitionBarrier(
+            input.gbuffer.normalMetalness,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+        _resources->images.transitionBarrier(
+            input.gbuffer.depth,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+        _resources->images.transitionBarrier(
+            output.illumination,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+        _resources->images.transitionBarrier(
+            input.lightClusters.pointers,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+    };
+
+    const StaticArray bufferBarriers{
+        _resources->texelBuffers.transitionBarrier(
+            input.lightClusters.indicesCount,
+            BufferState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+            }),
+        _resources->texelBuffers.transitionBarrier(
+            input.lightClusters.indices,
+            BufferState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+            }),
+    };
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .bufferMemoryBarrierCount =
+            asserted_cast<uint32_t>(bufferBarriers.size()),
+        .pBufferMemoryBarriers = bufferBarriers.data(),
+        .imageMemoryBarrierCount =
+            asserted_cast<uint32_t>(imageBarriers.size()),
+        .pImageMemoryBarriers = imageBarriers.data(),
+    });
 }
 
 void DeferredShading::destroyPipelines()

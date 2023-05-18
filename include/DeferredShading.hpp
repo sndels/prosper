@@ -64,6 +64,9 @@ class DeferredShading
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
+    void recordBarriers(
+        vk::CommandBuffer cb, const Input &input, const Output &output) const;
+
     void destroyPipelines();
 
     void createDescriptorSets();
