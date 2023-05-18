@@ -9,6 +9,31 @@
 using namespace glm;
 using namespace wheels;
 
+namespace
+{
+
+vk::Rect2D getRenderArea(
+    const RenderResources &resources,
+    const SkyboxRenderer::RecordInOut &inOutTargets)
+{
+    const vk::Extent3D targetExtent =
+        resources.images.resource(inOutTargets.illumination).extent;
+    assert(targetExtent.depth == 1);
+    assert(
+        targetExtent == resources.images.resource(inOutTargets.depth).extent);
+
+    return vk::Rect2D{
+        .offset = {0, 0},
+        .extent =
+            {
+                targetExtent.width,
+                targetExtent.height,
+            },
+    };
+}
+
+} // namespace
+
 SkyboxRenderer::SkyboxRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const World::DSLayouts &worldDSLayouts)
@@ -53,73 +78,21 @@ void SkyboxRenderer::record(
 {
     assert(profiler != nullptr);
 
-    const vk::Extent3D targetExtent =
-        _resources->images.resource(inOutTargets.illumination).extent;
-    assert(targetExtent.depth == 1);
-
-    const vk::Rect2D renderArea{
-        .offset = {0, 0},
-        .extent =
-            {
-                targetExtent.width,
-                targetExtent.height,
-            },
-    };
-    assert(
-        renderArea.extent.width ==
-        _resources->images.resource(inOutTargets.depth).extent.width);
-    assert(
-        renderArea.extent.height ==
-        _resources->images.resource(inOutTargets.depth).extent.height);
-
     {
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
-        const StaticArray barriers{
-            _resources->images.transitionBarrier(
-                inOutTargets.illumination,
-                ImageState{
-                    .stageMask =
-                        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                    .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                    .layout = vk::ImageLayout::eColorAttachmentOptimal,
-                }),
-            _resources->images.transitionBarrier(
-                inOutTargets.depth,
-                ImageState{
-                    .stageMask =
-                        vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                    .accessMask =
-                        vk::AccessFlagBits2::eDepthStencilAttachmentRead,
-                    .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-                }),
-        };
+        const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-            .pImageMemoryBarriers = barriers.data(),
-        });
+        recordBarriers(cb, inOutTargets);
 
-        const vk::RenderingAttachmentInfo colorAttachment{
-            .imageView =
-                _resources->images.resource(inOutTargets.illumination).view,
-            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-        };
-        const vk::RenderingAttachmentInfo depthAttachment{
-            .imageView = _resources->images.resource(inOutTargets.depth).view,
-            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-        };
+        const Attachments attachments = createAttachments(inOutTargets);
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
             .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachment,
-            .pDepthAttachment = &depthAttachment,
+            .pColorAttachments = &attachments.color,
+            .pDepthAttachment = &attachments.depth,
         });
 
         // Skybox doesn't need to be drawn under opaque geometry but should be
@@ -131,21 +104,7 @@ void SkyboxRenderer::record(
             0, // firstSet
             1, &world._skyboxDSs[nextFrame], 0, nullptr);
 
-        const vk::Viewport viewport{
-            .x = 0.f,
-            .y = 0.f,
-            .width = static_cast<float>(renderArea.extent.width),
-            .height = static_cast<float>(renderArea.extent.height),
-            .minDepth = 0.f,
-            .maxDepth = 1.f,
-        };
-        cb.setViewport(0, 1, &viewport);
-
-        const vk::Rect2D scissor{
-            .offset = {0, 0},
-            .extent = renderArea.extent,
-        };
-        cb.setScissor(0, 1, &scissor);
+        setViewportScissor(cb, renderArea);
 
         world.drawSkybox(cb);
 
@@ -195,6 +154,55 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         _device->logical().destroy(*fragSM);
 
     return false;
+}
+
+void SkyboxRenderer::recordBarriers(
+    vk::CommandBuffer cb, const RecordInOut &inOutTargets) const
+{
+    const StaticArray barriers{
+        _resources->images.transitionBarrier(
+            inOutTargets.illumination,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+                .layout = vk::ImageLayout::eColorAttachmentOptimal,
+            }),
+        _resources->images.transitionBarrier(
+            inOutTargets.depth,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
+                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
+                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
+            }),
+    };
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data(),
+    });
+}
+
+SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(
+    const RecordInOut &inOutTargets) const
+{
+    return Attachments{
+        .color =
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(inOutTargets.illumination).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+            },
+        .depth =
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(inOutTargets.depth).view,
+                .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+            },
+    };
 }
 
 void SkyboxRenderer::destroyGraphicsPipelines()
