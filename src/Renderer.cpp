@@ -33,6 +33,25 @@ constexpr std::array<
     const char *, static_cast<size_t>(Renderer::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
+vk::Rect2D getRenderArea(
+    const RenderResources &resources, const Renderer::RecordInOut &inOutTargets)
+{
+    const vk::Extent3D targetExtent =
+        resources.images.resource(inOutTargets.illumination).extent;
+    assert(targetExtent.depth == 1);
+    assert(
+        targetExtent == resources.images.resource(inOutTargets.depth).extent);
+
+    return vk::Rect2D{
+        .offset = {0, 0},
+        .extent =
+            {
+                targetExtent.width,
+                targetExtent.height,
+            },
+    };
+}
+
 } // namespace
 
 Renderer::Renderer(
@@ -108,7 +127,7 @@ Renderer::OpaqueOutput Renderer::recordOpaque(
                 .illumination = ret.illumination,
                 .depth = ret.depth,
             },
-            lightClusters, false, profiler);
+            lightClusters, false);
     }
     return ret;
 }
@@ -121,8 +140,7 @@ void Renderer::recordTransparent(
 {
     const auto _s = profiler->createCpuGpuScope(cb, "TransparentGeometry");
 
-    record(
-        cb, world, cam, nextFrame, inOutTargets, lightClusters, true, profiler);
+    record(cb, world, cam, nextFrame, inOutTargets, lightClusters, true);
 }
 
 bool Renderer::compileShaders(
@@ -359,32 +377,85 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 void Renderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClustering::Output &lightClusters, bool transparents,
-    Profiler *profiler)
+    const LightClustering::Output &lightClusters, bool transparents)
 {
-    assert(profiler != nullptr);
-
-    const vk::Extent3D targetExtent =
-        _resources->images.resource(inOutTargets.illumination).extent;
-    assert(targetExtent.depth == 1);
-
-    const vk::Rect2D renderArea{
-        .offset = {0, 0},
-        .extent =
-            {
-                targetExtent.width,
-                targetExtent.height,
-            },
-    };
-    assert(
-        renderArea.extent.width ==
-        _resources->images.resource(inOutTargets.depth).extent.width);
-    assert(
-        renderArea.extent.height ==
-        _resources->images.resource(inOutTargets.depth).extent.height);
+    const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
     const size_t pipelineIndex = transparents ? 1 : 0;
 
+    recordBarriers(cb, inOutTargets, lightClusters);
+
+    const Attachments attachments =
+        createAttachments(inOutTargets, transparents);
+
+    cb.beginRendering(vk::RenderingInfo{
+        .renderArea = renderArea,
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &attachments.color,
+        .pDepthAttachment = &attachments.depth,
+    });
+
+    cb.bindPipeline(
+        vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
+
+    const auto &scene = world._scenes[world._currentScene];
+
+    StaticArray<vk::DescriptorSet, 6> descriptorSets{VK_NULL_HANDLE};
+    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextFrame];
+    descriptorSets[sLightClustersBindingSet] = lightClusters.descriptorSet;
+    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
+    descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
+    descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;
+    descriptorSets[sModelInstanceTrfnsBindingSet] =
+        scene.modelInstancesDescriptorSets[nextFrame];
+
+    cb.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        0, // firstSet
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        0, nullptr);
+
+    setViewportScissor(cb, renderArea);
+
+    for (const auto &instance : scene.modelInstances)
+    {
+        const auto &model = world._models[instance.modelID];
+        for (const auto &subModel : model.subModels)
+        {
+            const auto &material = world._materials[subModel.materialID];
+            const auto &info = world._meshInfos[subModel.meshID];
+            const auto isTransparent =
+                material.alphaMode == Material::AlphaMode::Blend;
+            if ((transparents && isTransparent) ||
+                (!transparents && !isTransparent))
+            {
+                // TODO: Push buffers and offsets
+                const PCBlock pcBlock{
+                    .modelInstanceID = instance.id,
+                    .meshID = subModel.meshID,
+                    .materialID = subModel.materialID,
+                    .drawType = static_cast<uint32_t>(_drawType),
+                };
+                cb.pushConstants(
+                    _pipelineLayout,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
+                    0, // offset
+                    sizeof(PCBlock), &pcBlock);
+
+                cb.draw(info.indexCount, 1, 0, 0);
+            }
+        }
+    }
+
+    cb.endRendering();
+}
+
+void Renderer::recordBarriers(
+    vk::CommandBuffer cb, const RecordInOut &inOutTargets,
+    const LightClustering::Output &lightClusters) const
+{
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
             inOutTargets.illumination,
@@ -432,111 +503,46 @@ void Renderer::record(
             asserted_cast<uint32_t>(imageBarriers.size()),
         .pImageMemoryBarriers = imageBarriers.data(),
     });
+}
 
-    const vk::RenderingAttachmentInfo colorAttachment = transparents ? vk::RenderingAttachmentInfo{
-            .imageView = _resources->images.resource(inOutTargets.illumination).view,
+Renderer::Attachments Renderer::createAttachments(
+    const RecordInOut &inOutTargets, bool transparents) const
+{
+    Attachments ret;
+    if (transparents)
+    {
+        ret.color = vk::RenderingAttachmentInfo{
+            .imageView =
+                _resources->images.resource(inOutTargets.illumination).view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
-        }:
-        vk::RenderingAttachmentInfo{
-            .imageView = _resources->images.resource(inOutTargets.illumination).view,
+        };
+        ret.depth = vk::RenderingAttachmentInfo{
+            .imageView = _resources->images.resource(inOutTargets.depth).view,
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        };
+    }
+    else
+    {
+        ret.color = vk::RenderingAttachmentInfo{
+            .imageView =
+                _resources->images.resource(inOutTargets.illumination).view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
             .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
         };
-    const vk::RenderingAttachmentInfo depthAttachment =
-        transparents
-            ?
-            vk::RenderingAttachmentInfo{
-                .imageView = _resources->images.resource(inOutTargets.depth).view,
-                .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eLoad,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-            }
-            : vk::RenderingAttachmentInfo{ .imageView = _resources->images.resource(inOutTargets.depth).view,
-                  .imageLayout =
-                      vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                  .loadOp = vk::AttachmentLoadOp::eClear,
-                  .storeOp = vk::AttachmentStoreOp::eStore,
-                  .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
-              };
-
-    cb.beginRendering(vk::RenderingInfo{
-        .renderArea = renderArea,
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment,
-        .pDepthAttachment = &depthAttachment,
-    });
-
-    cb.bindPipeline(
-        vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
-
-    const auto &scene = world._scenes[world._currentScene];
-
-    StaticArray<vk::DescriptorSet, 6> descriptorSets{VK_NULL_HANDLE};
-    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextFrame];
-    descriptorSets[sLightClustersBindingSet] = lightClusters.descriptorSet;
-    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
-    descriptorSets[sMaterialsBindingSet] = world._materialTexturesDS;
-    descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;
-    descriptorSets[sModelInstanceTrfnsBindingSet] =
-        scene.modelInstancesDescriptorSets[nextFrame];
-
-    cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
-        0, // firstSet
-        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
-
-    const vk::Viewport viewport{
-        .x = 0.f,
-        .y = 0.f,
-        .width = static_cast<float>(renderArea.extent.width),
-        .height = static_cast<float>(renderArea.extent.height),
-        .minDepth = 0.f,
-        .maxDepth = 1.f,
-    };
-    cb.setViewport(0, 1, &viewport);
-
-    const vk::Rect2D scissor{
-        .offset = {0, 0},
-        .extent = renderArea.extent,
-    };
-    cb.setScissor(0, 1, &scissor);
-
-    for (const auto &instance : scene.modelInstances)
-    {
-        const auto &model = world._models[instance.modelID];
-        for (const auto &subModel : model.subModels)
-        {
-            const auto &material = world._materials[subModel.materialID];
-            const auto &info = world._meshInfos[subModel.meshID];
-            const auto isTransparent =
-                material.alphaMode == Material::AlphaMode::Blend;
-            if ((transparents && isTransparent) ||
-                (!transparents && !isTransparent))
-            {
-                // TODO: Push buffers and offsets
-                const PCBlock pcBlock{
-                    .modelInstanceID = instance.id,
-                    .meshID = subModel.meshID,
-                    .materialID = subModel.materialID,
-                    .drawType = static_cast<uint32_t>(_drawType),
-                };
-                cb.pushConstants(
-                    _pipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex |
-                        vk::ShaderStageFlagBits::eFragment,
-                    0, // offset
-                    sizeof(PCBlock), &pcBlock);
-
-                cb.draw(info.indexCount, 1, 0, 0);
-            }
-        }
+        ret.depth = vk::RenderingAttachmentInfo{
+            .imageView = _resources->images.resource(inOutTargets.depth).view,
+            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
+        };
     }
 
-    cb.endRendering();
+    return ret;
 }
