@@ -52,62 +52,65 @@ App::App(
     ScopedScratch scopeAlloc, const std::filesystem::path &scene,
     bool enableDebugLayers)
 {
-    _window.reset(
-        new Window{Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper"});
-    _device.reset(new Device(
-        scopeAlloc.child_scope(), _window->ptr(), enableDebugLayers));
-    _swapchain.reset(new Swapchain(
+    _window = std::make_unique<Window>(
+        Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper");
+    _device = std::make_unique<Device>(
+        scopeAlloc.child_scope(), _window->ptr(), enableDebugLayers);
+    _swapchain = std::make_unique<Swapchain>(
         _device.get(), SwapchainConfig{
                            scopeAlloc.child_scope(),
                            _device.get(),
-                           {_window->width(), _window->height()}}));
+                           {_window->width(), _window->height()}});
     _commandBuffers = allocateCommandBuffers(_device.get());
 
-    _viewportExtent = _swapchain->config().extent;
-    _resources.reset(new RenderResources(_generalAlloc, _device.get()));
+    _viewportExtent =
+        _swapchain->config().extent; // This is a clang-tidy false-negative
+    _resources =
+        std::make_unique<RenderResources>(_generalAlloc, _device.get());
 
-    _cam.reset(new Camera(_device.get(), _resources.get()));
-    _world.reset(new World(scopeAlloc.child_scope(), _device.get(), scene));
+    _cam = std::make_unique<Camera>(_device.get(), _resources.get());
+    _world =
+        std::make_unique<World>(scopeAlloc.child_scope(), _device.get(), scene);
 
-    Timer gpuPassesInitTimer;
-    _lightClustering.reset(new LightClustering(
+    const Timer gpuPassesInitTimer;
+    _lightClustering = std::make_unique<LightClustering>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->_dsLayouts));
-    _renderer.reset(new Renderer(
+        _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _renderer = std::make_unique<Renderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         Renderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
-        }));
-    _gbufferRenderer.reset(new GBufferRenderer(
+        });
+    _gbufferRenderer = std::make_unique<GBufferRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->_dsLayouts));
-    _deferredShading.reset(new DeferredShading(
+        _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _deferredShading = std::make_unique<DeferredShading>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         DeferredShading::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
-        }));
-    _rtRenderer.reset(new RTRenderer(
+        });
+    _rtRenderer = std::make_unique<RTRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->_dsLayouts));
-    _skyboxRenderer.reset(new SkyboxRenderer(
+        _cam->descriptorSetLayout(), _world->_dsLayouts);
+    _skyboxRenderer = std::make_unique<SkyboxRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _world->_dsLayouts));
-    _debugRenderer.reset(new DebugRenderer(
+        _world->_dsLayouts);
+    _debugRenderer = std::make_unique<DebugRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout()));
-    _toneMap.reset(
-        new ToneMap(scopeAlloc.child_scope(), _device.get(), _resources.get()));
-    _imguiRenderer.reset(new ImGuiRenderer(
+        _cam->descriptorSetLayout());
+    _toneMap = std::make_unique<ToneMap>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get());
+    _imguiRenderer = std::make_unique<ImGuiRenderer>(
         _device.get(), _resources.get(), _swapchain->config().extent,
-        _window->ptr(), _swapchain->config()));
+        _window->ptr(), _swapchain->config());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
-    _profiler.reset(new Profiler(_generalAlloc, _device.get()));
+    _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
 
     const auto &allocs = _device->memoryAllocations();
     printf("Active GPU allocations:\n");
