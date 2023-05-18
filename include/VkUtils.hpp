@@ -44,4 +44,6 @@ constexpr vk::ImageAspectFlags aspectMask(vk::Format format)
     }
 }
 
+void setViewportScissor(vk::CommandBuffer cb, const vk::Rect2D &area);
+
 #endif // PROSPER_VKUTILS_HPP
