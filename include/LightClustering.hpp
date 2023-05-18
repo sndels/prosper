@@ -53,6 +53,8 @@ class LightClustering
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
+    void recordBarriers(vk::CommandBuffer cb, const Output &output) const;
+
     void destroyPipeline();
 
     [[nodiscard]] Output createOutputs(const vk::Extent2D &renderExtent);

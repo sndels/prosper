@@ -83,76 +83,50 @@ LightClustering::Output LightClustering::record(
         ret = createOutputs(renderExtent);
         updateDescriptorSet(nextFrame, ret);
 
-        const vk::ImageMemoryBarrier2 imageBarrier =
-            _resources->images.transitionBarrier(
-                ret.pointers,
-                ImageState{
+        recordBarriers(cb, ret);
+
+        { // Reset count
+            const TexelBuffer &indicesCount =
+                _resources->texelBuffers.resource(ret.indicesCount);
+
+            cb.fillBuffer(indicesCount.handle, 0, indicesCount.size, 0);
+
+            _resources->texelBuffers.transition(
+                cb, ret.indicesCount,
+                BufferState{
                     .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                    .layout = vk::ImageLayout::eGeneral,
+                    .accessMask = vk::AccessFlagBits2::eShaderRead |
+                                  vk::AccessFlagBits2::eShaderWrite,
                 });
+        }
 
-        const StaticArray bufferBarriers{
-            _resources->texelBuffers.transitionBarrier(
-                ret.indices,
-                BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                }),
-            _resources->texelBuffers.transitionBarrier(
-                ret.indicesCount,
-                BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                    .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                }),
-        };
+        { // Main dispatch
+            cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount =
-                asserted_cast<uint32_t>(bufferBarriers.size()),
-            .pBufferMemoryBarriers = bufferBarriers.data(),
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &imageBarrier,
-        });
+            StaticArray<vk::DescriptorSet, 3> descriptorSets{VK_NULL_HANDLE};
+            descriptorSets[sLightsBindingSet] =
+                scene.lights.descriptorSets[nextFrame];
+            descriptorSets[sLightClustersBindingSet] = ret.descriptorSet;
+            descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
 
-        const TexelBuffer &indicesCount =
-            _resources->texelBuffers.resource(ret.indicesCount);
+            cb.bindDescriptorSets(
+                vk::PipelineBindPoint::eCompute, _pipelineLayout,
+                0, // firstSet
+                asserted_cast<uint32_t>(descriptorSets.size()),
+                descriptorSets.data(), 0, nullptr);
 
-        cb.fillBuffer(indicesCount.handle, 0, indicesCount.size, 0);
+            const ClusteringPCBlock pcBlock{
+                .resolution = uvec2(renderExtent.width, renderExtent.height),
+            };
+            cb.pushConstants(
+                _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
+                0, // offset
+                sizeof(ClusteringPCBlock), &pcBlock);
 
-        _resources->texelBuffers.transition(
-            cb, ret.indicesCount,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead |
-                              vk::AccessFlagBits2::eShaderWrite,
-            });
-
-        cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
-
-        StaticArray<vk::DescriptorSet, 3> descriptorSets{VK_NULL_HANDLE};
-        descriptorSets[sLightsBindingSet] =
-            scene.lights.descriptorSets[nextFrame];
-        descriptorSets[sLightClustersBindingSet] = ret.descriptorSet;
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
-
-        cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eCompute, _pipelineLayout,
-            0, // firstSet
-            asserted_cast<uint32_t>(descriptorSets.size()),
-            descriptorSets.data(), 0, nullptr);
-
-        const ClusteringPCBlock pcBlock{
-            .resolution = uvec2(renderExtent.width, renderExtent.height),
-        };
-        cb.pushConstants(
-            _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
-            0, // offset
-            sizeof(ClusteringPCBlock), &pcBlock);
-
-        const vk::Extent3D &extent =
-            _resources->images.resource(ret.pointers).extent;
-        cb.dispatch(extent.width, extent.height, extent.depth);
+            const vk::Extent3D &extent =
+                _resources->images.resource(ret.pointers).extent;
+            cb.dispatch(extent.width, extent.height, extent.depth);
+        }
     }
 
     return ret;
@@ -187,6 +161,42 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
     }
 
     return false;
+}
+
+void LightClustering::recordBarriers(
+    vk::CommandBuffer cb, const Output &output) const
+{
+    const vk::ImageMemoryBarrier2 imageBarrier =
+        _resources->images.transitionBarrier(
+            output.pointers,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                .layout = vk::ImageLayout::eGeneral,
+            });
+
+    const StaticArray bufferBarriers{
+        _resources->texelBuffers.transitionBarrier(
+            output.indices,
+            BufferState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderWrite,
+            }),
+        _resources->texelBuffers.transitionBarrier(
+            output.indicesCount,
+            BufferState{
+                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                .accessMask = vk::AccessFlagBits2::eTransferWrite,
+            }),
+    };
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .bufferMemoryBarrierCount =
+            asserted_cast<uint32_t>(bufferBarriers.size()),
+        .pBufferMemoryBarriers = bufferBarriers.data(),
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &imageBarrier,
+    });
 }
 
 LightClustering::Output LightClustering::createOutputs(
