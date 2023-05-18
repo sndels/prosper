@@ -81,7 +81,8 @@ struct TexelBuffer
     BufferState state;
     VmaAllocation allocation{nullptr};
 
-    vk::BufferMemoryBarrier2 transitionBarrier(const BufferState &newState);
+    [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
+        const BufferState &newState);
     void transition(vk::CommandBuffer buffer, const BufferState &newState);
 };
 
@@ -151,7 +152,8 @@ struct Image
     ImageState state;
     VmaAllocation allocation{nullptr};
 
-    vk::ImageMemoryBarrier2 transitionBarrier(const ImageState &newState);
+    [[nodiscard]] vk::ImageMemoryBarrier2 transitionBarrier(
+        const ImageState &newState);
     void transition(vk::CommandBuffer buffer, const ImageState &newState);
 };
 
