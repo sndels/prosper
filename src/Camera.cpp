@@ -11,17 +11,20 @@
 using namespace glm;
 using namespace wheels;
 
-Camera::Camera(Device *device, RenderResources *renderResources)
+Camera::Camera(
+    Device *device, RenderResources *renderResources,
+    DescriptorAllocator *staticDescriptorsAlloc)
 : _device{device}
 , _renderResources{renderResources}
 {
     assert(_device != nullptr);
     assert(_renderResources != nullptr);
+    assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating Camera\n");
 
     createUniformBuffers();
-    createDescriptorSets();
+    createDescriptorSets(staticDescriptorsAlloc);
 }
 
 Camera::~Camera()
@@ -182,7 +185,7 @@ void Camera::createUniformBuffers()
     }
 }
 
-void Camera::createDescriptorSets()
+void Camera::createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc)
 {
     const vk::DescriptorSetLayoutBinding layoutBinding{
         .binding = 0, // binding
@@ -202,7 +205,7 @@ void Camera::createDescriptorSets()
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts;
     layouts.resize(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
     _descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    _renderResources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 
     const auto infos = bufferInfos();
     for (size_t i = 0; i < _descriptorSets.size(); ++i)

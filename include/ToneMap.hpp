@@ -15,7 +15,8 @@ class ToneMap
   public:
     ToneMap(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources);
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
     ~ToneMap();
 
     ToneMap(const ToneMap &other) = delete;
@@ -41,7 +42,7 @@ class ToneMap
     void destroyPipelines();
 
     void createOutputImage(const vk::Extent2D &renderExtent);
-    void createDescriptorSets();
+    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
     void createPipelines();
 
     Output createOutputs(const vk::Extent2D &size);

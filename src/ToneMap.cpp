@@ -33,19 +33,21 @@ vk::Extent2D getRenderExtent(
 } // namespace
 
 ToneMap::ToneMap(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources)
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc)
 : _device{device}
 , _resources{resources}
 {
     assert(_device != nullptr);
     assert(_resources != nullptr);
+    assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating ToneMap\n");
 
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("ToneMap shader compilation failed");
 
-    createDescriptorSets();
+    createDescriptorSets(staticDescriptorsAlloc);
     createPipelines();
 }
 
@@ -151,7 +153,7 @@ void ToneMap::destroyPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void ToneMap::createDescriptorSets()
+void ToneMap::createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc)
 {
     const StaticArray layoutBindings{
         vk::DescriptorSetLayoutBinding{
@@ -175,7 +177,7 @@ void ToneMap::createDescriptorSets()
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 }
 
 void ToneMap::updateDescriptorSet(uint32_t nextFrame, const BoundImages &images)

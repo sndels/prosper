@@ -52,19 +52,21 @@ vk::Extent2D getRenderExtent(
 
 DeferredShading::DeferredShading(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
 : _device{device}
 , _resources{resources}
 {
     assert(_device != nullptr);
     assert(_resources != nullptr);
+    assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating DeferredShading\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("DeferredShading shader compilation failed");
 
-    createDescriptorSets();
+    createDescriptorSets(staticDescriptorsAlloc);
 
     const vk::SamplerCreateInfo info{
         .magFilter = vk::Filter::eNearest,
@@ -293,7 +295,8 @@ void DeferredShading::destroyPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void DeferredShading::createDescriptorSets()
+void DeferredShading::createDescriptorSets(
+    DescriptorAllocator *staticDescriptorsAlloc)
 {
     const StaticArray layoutBindings{
         vk::DescriptorSetLayoutBinding{
@@ -335,7 +338,7 @@ void DeferredShading::createDescriptorSets()
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 }
 
 void DeferredShading::updateDescriptorSet(

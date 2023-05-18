@@ -41,12 +41,14 @@ vk::Rect2D getRenderArea(
 
 DebugRenderer::DebugRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout)
 : _device{device}
 , _resources{resources}
 {
     assert(_device != nullptr);
     assert(_resources != nullptr);
+    assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating DebugRenderer\n");
 
@@ -54,7 +56,7 @@ DebugRenderer::DebugRenderer(
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
     createBuffers();
-    createDescriptorSets();
+    createDescriptorSets(staticDescriptorsAlloc);
     createGraphicsPipeline(camDSLayout);
 }
 
@@ -253,7 +255,8 @@ void DebugRenderer::createBuffers()
         });
 }
 
-void DebugRenderer::createDescriptorSets()
+void DebugRenderer::createDescriptorSets(
+    DescriptorAllocator *staticDescriptorsAlloc)
 {
     const vk::DescriptorSetLayoutBinding layoutBinding{
         .binding = 0, // binding
@@ -271,7 +274,7 @@ void DebugRenderer::createDescriptorSets()
         _linesDSLayout};
     _linesDescriptorSets.resize(
         _linesDescriptorSets.capacity(), VK_NULL_HANDLE);
-    _resources->staticDescriptorsAlloc.allocate(layouts, _linesDescriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _linesDescriptorSets);
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {

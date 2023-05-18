@@ -23,7 +23,8 @@ class DebugRenderer
 
     DebugRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, vk::DescriptorSetLayout camDSLayout);
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout);
     ~DebugRenderer();
 
     DebugRenderer(const DebugRenderer &other) = delete;
@@ -60,7 +61,7 @@ class DebugRenderer
     void destroyGraphicsPipeline();
 
     void createBuffers();
-    void createDescriptorSets();
+    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     Device *_device{nullptr};

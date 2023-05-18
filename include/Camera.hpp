@@ -58,7 +58,9 @@ struct CameraUniforms
 class Camera
 {
   public:
-    Camera(Device *device, RenderResources *renderResources);
+    Camera(
+        Device *device, RenderResources *renderResources,
+        DescriptorAllocator *staticDescriptorsAlloc);
     ~Camera();
 
     Camera(const Camera &other) = delete;
@@ -95,7 +97,7 @@ class Camera
   private:
     void createUniformBuffers();
     // Create uniform buffers first
-    void createDescriptorSets();
+    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
 
     void updateWorldToCamera();
 

@@ -78,19 +78,21 @@ constexpr std::array<
 
 RTRenderer::RTRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
     assert(_device != nullptr);
     assert(_resources != nullptr);
+    assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating RTRenderer\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RTRenderer shader compilation failed");
 
-    createDescriptorSets();
+    createDescriptorSets(staticDescriptorsAlloc);
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 }
@@ -388,7 +390,8 @@ bool RTRenderer::compileShaders(
     return false;
 }
 
-void RTRenderer::createDescriptorSets()
+void RTRenderer::createDescriptorSets(
+    DescriptorAllocator *staticDescriptorsAlloc)
 {
     const vk::DescriptorSetLayoutBinding layoutBinding{
         .binding = 0,
@@ -404,7 +407,7 @@ void RTRenderer::createDescriptorSets()
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->staticDescriptorsAlloc.allocate(layouts, _descriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 }
 
 void RTRenderer::updateDescriptorSet(

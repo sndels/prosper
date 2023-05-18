@@ -23,7 +23,8 @@ class LightClustering
 
     LightClustering(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~LightClustering();
 
@@ -58,7 +59,7 @@ class LightClustering
     void destroyPipeline();
 
     [[nodiscard]] Output createOutputs(const vk::Extent2D &renderExtent);
-    void createDescriptorSets();
+    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(uint32_t nextFrame, Output &outputs);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,

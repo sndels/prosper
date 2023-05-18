@@ -29,8 +29,7 @@ class RenderResources
 
     // Both alloc and device need to live as long as this
     RenderResources(wheels::Allocator &alloc, Device *device)
-    : staticDescriptorsAlloc{alloc, device}
-    , images{alloc, device}
+    : images{alloc, device}
     , texelBuffers{alloc, device}
     {
     }
@@ -56,13 +55,6 @@ class RenderResources
         images.destroyResources();
         texelBuffers.destroyResources();
     }
-
-    // This allocator should only be used for the descriptors that can live
-    // until the end of the program. As such, reset() shouldn't be called so
-    // that users can rely on the descriptors being there once allocated.
-    // TODO: Does this have to be here? Shouldn't this only be used to construct
-    // things up front?
-    DescriptorAllocator staticDescriptorsAlloc;
 
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;

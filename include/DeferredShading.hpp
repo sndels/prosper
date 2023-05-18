@@ -32,7 +32,8 @@ class DeferredShading
     };
     DeferredShading(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const InputDSLayouts &dsLayouts);
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        const InputDSLayouts &dsLayouts);
 
     ~DeferredShading();
 
@@ -69,7 +70,7 @@ class DeferredShading
 
     void destroyPipelines();
 
-    void createDescriptorSets();
+    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
     struct BoundImages
     {
         ImageHandle albedoRoughness;

@@ -22,7 +22,8 @@ class RTRenderer
 
     RTRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
     ~RTRenderer();
 
@@ -54,7 +55,7 @@ class RTRenderer
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void createDescriptorSets();
+    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(uint32_t nextFrame, ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,

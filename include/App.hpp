@@ -91,6 +91,11 @@ class App
     std::unique_ptr<Device>
         _device; // Needs to be valid before and after all other vk resources
 
+    // This allocator should only be used for the descriptors that can live
+    // until the end of the program. As such, reset() shouldn't be called so
+    // that users can rely on the descriptors being there once allocated.
+    std::unique_ptr<DescriptorAllocator> _staticDescriptorsAlloc;
+
     std::unique_ptr<Swapchain> _swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
         _commandBuffers;

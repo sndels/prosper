@@ -29,17 +29,22 @@ struct ClusteringPCBlock
 
 LightClustering::LightClustering(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
+    assert(_device != nullptr);
+    assert(_resources != nullptr);
+    assert(staticDescriptorsAlloc != nullptr);
+
     printf("Creating LightClustering\n");
 
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("LightClustering shader compilation failed");
 
-    createDescriptorSets();
+    createDescriptorSets(staticDescriptorsAlloc);
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -253,7 +258,8 @@ LightClustering::Output LightClustering::createOutputs(
     return ret;
 }
 
-void LightClustering::createDescriptorSets()
+void LightClustering::createDescriptorSets(
+    DescriptorAllocator *staticDescriptorsAlloc)
 {
     const StaticArray layoutBindings{
         vk::DescriptorSetLayoutBinding{
@@ -286,7 +292,7 @@ void LightClustering::createDescriptorSets()
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    _resources->staticDescriptorsAlloc.allocate(
+    staticDescriptorsAlloc->allocate(
         layouts, Span{_descriptorSets.data(), _descriptorSets.size()});
 }
 
