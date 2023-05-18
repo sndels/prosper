@@ -64,7 +64,7 @@ DebugRenderer::~DebugRenderer()
     {
         _device->logical().destroy(_linesDSLayout);
 
-        for (auto &ls : _resources->staticBuffers.debugLines)
+        for (auto &ls : _resources->debugLines)
             _device->destroy(ls.buffer);
 
         destroyGraphicsPipeline();
@@ -122,7 +122,7 @@ void DebugRenderer::record(
 
         setViewportScissor(cb, renderArea);
 
-        const auto &lines = _resources->staticBuffers.debugLines[nextFrame];
+        const auto &lines = _resources->debugLines[nextFrame];
         // No need for lines barrier, writes are mapped
 
         cb.draw(lines.count * 2, 1, 0, 0);
@@ -236,7 +236,7 @@ void DebugRenderer::destroyGraphicsPipeline()
 void DebugRenderer::createBuffers()
 {
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _resources->staticBuffers.debugLines.push_back(DebugLines{
+        _resources->debugLines.push_back(DebugLines{
             .buffer = _device->createBuffer(BufferCreateInfo{
                 .desc =
                     BufferDescription{
@@ -276,7 +276,7 @@ void DebugRenderer::createDescriptorSets()
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {
         const vk::DescriptorBufferInfo info{
-            .buffer = _resources->staticBuffers.debugLines[i].buffer.handle,
+            .buffer = _resources->debugLines[i].buffer.handle,
             .range = VK_WHOLE_SIZE,
         };
 

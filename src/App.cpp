@@ -659,7 +659,7 @@ void App::drawProfiling(
 
 void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 {
-    auto &debugLines = _resources->staticBuffers.debugLines[nextFrame];
+    auto &debugLines = _resources->debugLines[nextFrame];
     debugLines.reset();
     { // Add debug geom for lights
         constexpr auto debugLineLength = 0.2f;

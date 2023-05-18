@@ -27,12 +27,6 @@ class RenderResources
         ImageHandle, Image, ImageDescription, ImageCreateInfo, ImageState,
         vk::ImageMemoryBarrier2, vk::Image, VkImage, vk::ObjectType::eImage>;
 
-    struct Buffers
-    {
-        // One lines buffer per swap image to leave mapped
-        wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
-    };
-
     // Both alloc and device need to live as long as this
     RenderResources(wheels::Allocator &alloc, Device *device)
     : staticDescriptorsAlloc{alloc, device}
@@ -69,7 +63,6 @@ class RenderResources
     // TODO: Does this have to be here? Shouldn't this only be used to construct
     // things up front?
     DescriptorAllocator staticDescriptorsAlloc;
-    Buffers staticBuffers;
 
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;
@@ -78,6 +71,9 @@ class RenderResources
     // Don't want to reallocate FBs each frame if this ends up ping-ponging with
     // some other resource
     Image finalComposite;
+
+    // One lines buffer per frame to leave mapped
+    wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
 };
 
 #endif // PROSPER_RENDER_RESOURCES_HPP
