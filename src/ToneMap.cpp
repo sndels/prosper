@@ -18,6 +18,18 @@ struct PCBlock
     float exposure{1.f};
 };
 
+vk::Extent2D getRenderExtent(
+    const RenderResources &resources, ImageHandle inColor)
+{
+    const vk::Extent3D extent = resources.images.resource(inColor).extent;
+    assert(extent.depth == 1);
+
+    return vk::Extent2D{
+        .width = extent.width,
+        .height = extent.height,
+    };
+}
+
 } // namespace
 
 ToneMap::ToneMap(
@@ -91,25 +103,13 @@ ToneMap::Output ToneMap::record(
 {
     assert(profiler != nullptr);
 
-    const vk::Extent3D renderExtent =
-        _resources->images.resource(inColor).extent;
-    assert(renderExtent.depth == 1);
-
     Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
-        ret.toneMapped = _resources->images.create(
-            ImageDescription{
-                .format = vk::Format::eR8G8B8A8Unorm,
-                .width = renderExtent.width,
-                .height = renderExtent.height,
-                .usageFlags =
-                    vk::ImageUsageFlagBits::eStorage |         // ToneMap
-                    vk::ImageUsageFlagBits::eColorAttachment | // ImGui
-                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
-            },
-            "toneMapped");
+        const vk::Extent2D renderExtent = getRenderExtent(*_resources, inColor);
+
+        ret = createOutputs(renderExtent);
 
         updateDescriptorSet(
             nextFrame, BoundImages{
@@ -117,27 +117,11 @@ ToneMap::Output ToneMap::record(
                            .toneMapped = ret.toneMapped,
                        });
 
-        const StaticArray barriers{
-            _resources->images.transitionBarrier(
-                inColor,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-            _resources->images.transitionBarrier(
-                ret.toneMapped,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                    .layout = vk::ImageLayout::eGeneral,
-                }),
-        };
-
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-            .pImageMemoryBarriers = barriers.data(),
-        });
+        recordBarriers(
+            cb, BoundImages{
+                    .inColor = inColor,
+                    .toneMapped = ret.toneMapped,
+                });
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
@@ -270,4 +254,48 @@ void ToneMap::createPipelines()
                 .pObjectName = "ToneMap",
             });
     }
+}
+
+ToneMap::Output ToneMap::createOutputs(const vk::Extent2D &size)
+{
+    return Output{
+        .toneMapped = _resources->images.create(
+            ImageDescription{
+                .format = vk::Format::eR8G8B8A8Unorm,
+                .width = size.width,
+                .height = size.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eStorage |         // ToneMap
+                    vk::ImageUsageFlagBits::eColorAttachment | // ImGui
+                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
+            },
+            "toneMapped"),
+    };
+}
+
+void ToneMap::recordBarriers(
+    vk::CommandBuffer cb, const BoundImages &images) const
+{
+    // TODO: This to recordBarriers()
+    const StaticArray barriers{
+        _resources->images.transitionBarrier(
+            images.inColor,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderRead,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+        _resources->images.transitionBarrier(
+            images.toneMapped,
+            ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .accessMask = vk::AccessFlagBits2::eShaderWrite,
+                .layout = vk::ImageLayout::eGeneral,
+            }),
+    };
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data(),
+    });
 }

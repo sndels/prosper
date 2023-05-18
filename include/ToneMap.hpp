@@ -44,12 +44,16 @@ class ToneMap
     void createDescriptorSets();
     void createPipelines();
 
+    Output createOutputs(const vk::Extent2D &size);
+
     struct BoundImages
     {
         ImageHandle inColor;
         ImageHandle toneMapped;
     };
     void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
+
+    void recordBarriers(vk::CommandBuffer cb, const BoundImages &images) const;
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
