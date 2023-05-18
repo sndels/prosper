@@ -49,6 +49,17 @@ class GBufferRenderer
 
     void destroyGraphicsPipeline();
 
+    [[nodiscard]] Output createOutputs(const vk::Extent2D &size) const;
+
+    struct Attachments
+    {
+        wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
+        vk::RenderingAttachmentInfo depth;
+    };
+    [[nodiscard]] Attachments createAttachments(const Output &output) const;
+
+    void recordBarriers(vk::CommandBuffer cb, const Output &output) const;
+
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
