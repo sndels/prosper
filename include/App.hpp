@@ -65,6 +65,7 @@ class App
     void drawProfiling(
         wheels::ScopedScratch scopeAlloc,
         const wheels::Array<Profiler::ScopeData> &profilerDatas);
+    void drawMemory();
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 

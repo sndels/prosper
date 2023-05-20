@@ -499,6 +499,8 @@ App::UiChanges App::drawUi(
 
     drawProfiling(scopeAlloc.child_scope(), profilerDatas);
 
+    drawMemory();
+
     return ret;
 }
 
@@ -662,6 +664,31 @@ void App::drawProfiling(
             if (t.cpuMillis >= 0.f)
                 ImGui::Text("%s %.3fms", leftJustified(t.name), t.cpuMillis);
     }
+
+    ImGui::End();
+}
+
+void App::drawMemory()
+{
+    ImGui::SetNextWindowPos(
+        ImVec2{
+            static_cast<float>(WIDTH) - 300.f,
+            static_cast<float>(HEIGHT) - 300.f},
+        ImGuiCond_FirstUseEver);
+
+    ImGui::Begin("Memory", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    const MemoryAllocationBytes &allocs = _device->memoryAllocations();
+    ImGui::Text("Active GPU allocations:\n");
+    ImGui::Text(
+        "  Buffers: %uMB\n",
+        asserted_cast<uint32_t>(allocs.buffers / 1024 / 1024));
+    ImGui::Text(
+        "  TexelBuffers: %uMB\n",
+        asserted_cast<uint32_t>(allocs.texelBuffers / 1024 / 1024));
+    ImGui::Text(
+        "  Images: %uMB\n",
+        asserted_cast<uint32_t>(allocs.images / 1024 / 1024));
 
     ImGui::End();
 }
