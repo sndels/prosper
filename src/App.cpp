@@ -125,13 +125,13 @@ App::App(
     printf("Active GPU allocations:\n");
     printf(
         "  Buffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.buffers / 1024 / 1024));
+        asserted_cast<uint32_t>(allocs.buffers / 1000 / 1000));
     printf(
         "  TexelBuffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.texelBuffers / 1024 / 1024));
+        asserted_cast<uint32_t>(allocs.texelBuffers / 1000 / 1000));
     printf(
         "  Images: %uMB\n",
-        asserted_cast<uint32_t>(allocs.images / 1024 / 1024));
+        asserted_cast<uint32_t>(allocs.images / 1000 / 1000));
 
     _cam->init(_world->_scenes[_world->_currentScene].camera);
     _cam->perspective(
@@ -682,13 +682,13 @@ void App::drawMemory()
     ImGui::Text("Active GPU allocations:\n");
     ImGui::Text(
         "  Buffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.buffers / 1024 / 1024));
+        asserted_cast<uint32_t>(allocs.buffers / 1000 / 1000));
     ImGui::Text(
         "  TexelBuffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.texelBuffers / 1024 / 1024));
+        asserted_cast<uint32_t>(allocs.texelBuffers / 1000 / 1000));
     ImGui::Text(
         "  Images: %uMB\n",
-        asserted_cast<uint32_t>(allocs.images / 1024 / 1024));
+        asserted_cast<uint32_t>(allocs.images / 1000 / 1000));
 
     ImGui::End();
 }
