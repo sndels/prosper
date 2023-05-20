@@ -20,6 +20,11 @@ Current features include:
   - View space clusters with depth slices
 - Bindless materials
 - Bindless geometry
+- Managed render resources
+  - Opaque handles
+  - Manual create/release
+  - Released resources are reused
+- Deferred and forward rendering paths
 - Pipeline ray tracing
   - Naive path tracing
 - Polling shader recompilation
