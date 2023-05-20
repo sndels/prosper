@@ -309,7 +309,7 @@ void Swapchain::createImages()
         });
     }
     // We might get more images than we asked for and acquire will use them all
-    _config.imageCount = _images.size();
+    _config.imageCount = asserted_cast<uint32_t>(_images.size());
 }
 
 void Swapchain::createFences()
