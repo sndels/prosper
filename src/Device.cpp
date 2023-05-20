@@ -613,6 +613,8 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
         .desc = bufferDesc,
         .debugName = info.debugName,
     });
+    // This will be tracked as a texel buffer
+    untrackBuffer(buffer);
 
     const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
         .buffer = buffer.handle,
@@ -621,13 +623,16 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
         .range = bufferDesc.byteSize,
     });
 
-    return TexelBuffer{
+    const TexelBuffer ret{
         .handle = buffer.handle,
         .view = view,
         .format = desc.format,
         .size = bufferDesc.byteSize,
         .allocation = buffer.allocation,
     };
+    trackTexelBuffer(ret);
+
+    return ret;
 }
 
 void Device::destroy(const TexelBuffer &buffer)
