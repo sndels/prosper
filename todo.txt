@@ -1,5 +1,0 @@
-- Resource aliasing
-  - Move light resources as well
-- GPU mem Ui
-  - Allocation counts, sizes per type
-  - Available budget?
