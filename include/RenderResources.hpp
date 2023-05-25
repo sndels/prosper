@@ -14,8 +14,6 @@
 using TexelBufferHandle = RenderResourceHandle<TexelBuffer>;
 using ImageHandle = RenderResourceHandle<Image>;
 
-// Renderpasses that create the resources are responsible for their recreation,
-// lifetime
 class RenderResources
 {
   public:
