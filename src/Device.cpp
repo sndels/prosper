@@ -321,6 +321,8 @@ Device::Device(
     _compilerOptions.SetIncluder(std::make_unique<FileIncluder>(_generalAlloc));
     _compilerOptions.SetGenerateDebugInfo();
     _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
+    _compilerOptions.SetTargetEnvironment(
+        shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
 
     const vk::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
