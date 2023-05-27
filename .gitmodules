@@ -22,3 +22,6 @@
 [submodule "ext/wheels"]
 	path = ext/wheels
 	url = https://github.com/sndels/wheels.git
+[submodule "ext/cxxopts"]
+	path = ext/cxxopts
+	url = https://github.com/jarro2783/cxxopts.git

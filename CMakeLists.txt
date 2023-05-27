@@ -64,6 +64,7 @@ target_include_directories(prosper
 )
 target_link_libraries(prosper
     PRIVATE
+    cxxopts
     glfw
     gli
     glm
