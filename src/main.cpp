@@ -56,7 +56,12 @@ int main(int argc, char *argv[])
 
         LinearAllocator scratchBacking{megabytes(256)};
 
-        App app{ScopedScratch{scratchBacking}, scenePath, enableDebugLayers};
+        App app{
+            ScopedScratch{scratchBacking},
+            App::Settings{
+                .scene = scenePath,
+                .enableDebugLayers = enableDebugLayers,
+            }};
         app.run();
     }
     catch (std::exception &e)

@@ -27,8 +27,14 @@
 class App
 {
   public:
-    App(wheels::ScopedScratch scopeAlloc, const std::filesystem::path &scene,
-        bool enableDebugLayers);
+    struct Settings
+    {
+        std::filesystem::path scene;
+        bool enableDebugLayers{false};
+    };
+
+  public:
+    App(wheels::ScopedScratch scopeAlloc, const Settings &settings);
     ~App();
 
     App(const App &other) = delete;

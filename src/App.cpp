@@ -48,14 +48,12 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 } // namespace
 
-App::App(
-    ScopedScratch scopeAlloc, const std::filesystem::path &scene,
-    bool enableDebugLayers)
+App::App(ScopedScratch scopeAlloc, const Settings &settings)
 {
     _window = std::make_unique<Window>(
         Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper");
     _device = std::make_unique<Device>(
-        scopeAlloc.child_scope(), _window->ptr(), enableDebugLayers);
+        scopeAlloc.child_scope(), _window->ptr(), settings.enableDebugLayers);
 
     _staticDescriptorsAlloc =
         std::make_unique<DescriptorAllocator>(_generalAlloc, _device.get());
@@ -74,8 +72,8 @@ App::App(
 
     _cam = std::make_unique<Camera>(
         _device.get(), _resources.get(), _staticDescriptorsAlloc.get());
-    _world =
-        std::make_unique<World>(scopeAlloc.child_scope(), _device.get(), scene);
+    _world = std::make_unique<World>(
+        scopeAlloc.child_scope(), _device.get(), settings.scene);
 
     const Timer gpuPassesInitTimer;
     _lightClustering = std::make_unique<LightClustering>(
