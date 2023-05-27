@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include <cxxopts.hpp>
 #include <wheels/allocators/linear_allocator.hpp>
 
 #include "App.hpp"
@@ -11,57 +12,55 @@
 
 using namespace wheels;
 
-static const char *const default_scene_path =
+namespace
+{
+const char *const s_default_scene_path =
     "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
+
+App::Settings parseCli(int argc, char *argv[])
+{
+    cxxopts::Options options("prosper", "A toy Vulkan renderer");
+    // clang-format off
+        options.add_options()
+            ("debugLayers", "Enable Vulkan debug layers")
+            ("sceneFile", std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
+             cxxopts::value<std::string>()->default_value(""));
+    // clang-format on
+    options.parse_positional({"sceneFile"});
+    const cxxopts::ParseResult args = options.parse(argc, argv);
+
+    std::filesystem::path scenePath{args["sceneFile"].as<std::string>()};
+    if (scenePath.empty())
+    {
+        const auto sceneConfPath = resPath("scene.txt");
+        if (std::filesystem::exists(sceneConfPath))
+        {
+            std::ifstream file{sceneConfPath};
+            std::string scenePathStr;
+            std::getline(file, scenePathStr);
+            scenePath = scenePathStr;
+        }
+    }
+    if (scenePath.empty())
+        scenePath = s_default_scene_path;
+
+    return App::Settings{
+        .scene = scenePath,
+        .enableDebugLayers = args["debugLayers"].as<bool>(),
+    };
+}
+
+} // namespace
 
 int main(int argc, char *argv[])
 {
     try
     {
-        std::filesystem::path scenePath{default_scene_path};
-        bool enableDebugLayers = false;
-        if (argc == 2)
-        {
-            if (StrSpan{argv[1]} == "--debugLayers")
-                enableDebugLayers = true;
-            else
-                scenePath = argv[1];
-        }
-        else if (argc == 3)
-        {
-            if (StrSpan{argv[1]} == "--debugLayers")
-                enableDebugLayers = true;
-            else
-                throw std::runtime_error(
-                    "Unexpected argument '" + std::string{argv[1]} + "'");
-            scenePath = argv[2];
-        }
-        else if (argc != 1)
-        {
-            throw std::runtime_error(
-                "Expected 0-2 cli args, got " + std::to_string(argc - 1));
-        }
-
-        if (scenePath == default_scene_path)
-        {
-            const auto sceneConfPath = resPath("scene.txt");
-            if (std::filesystem::exists(sceneConfPath))
-            {
-                std::ifstream file{sceneConfPath};
-                std::string scenePathStr;
-                std::getline(file, scenePathStr);
-                scenePath = scenePathStr;
-            }
-        }
+        const App::Settings settings = parseCli(argc, argv);
 
         LinearAllocator scratchBacking{megabytes(256)};
 
-        App app{
-            ScopedScratch{scratchBacking},
-            App::Settings{
-                .scene = scenePath,
-                .enableDebugLayers = enableDebugLayers,
-            }};
+        App app{ScopedScratch{scratchBacking}, settings};
         app.run();
     }
     catch (std::exception &e)
