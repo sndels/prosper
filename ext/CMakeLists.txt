@@ -39,6 +39,9 @@ add_subdirectory(shaderc)
 get_target_property(shaderc_include_dirs shaderc INTERFACE_INCLUDE_DIRECTORIES)
 set_target_properties(shaderc PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${shaderc_include_dirs}")
 
+add_library(spirv_headers INTERFACE)
+target_include_directories(spirv_headers SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/shaderc/third_party/spirv-headers/include/spirv/unified1)
+
 add_library(imgui STATIC "")
 target_compile_features(imgui
     PRIVATE

@@ -70,6 +70,7 @@ target_link_libraries(prosper
     glm
     imgui
     shaderc
+    spirv_headers
     stb_image
     vma
     vulkan
