@@ -18,6 +18,7 @@ struct SpvFloat;
 struct SpvVector;
 struct SpvMatrix;
 struct SpvImage;
+struct SpvSampledImage;
 struct SpvSampler;
 struct SpvArray;
 struct SpvRuntimeArray;
@@ -29,9 +30,9 @@ struct SpvVariable;
 
 // SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = Optional<std::variant<
-    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampler,
-    SpvRuntimeArray, SpvArray, SpvStruct, SpvPointer, SpvAccelerationStructure,
-    SpvConstantU32, SpvVariable>>;
+    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampledImage,
+    SpvSampler, SpvRuntimeArray, SpvArray, SpvStruct, SpvPointer,
+    SpvAccelerationStructure, SpvConstantU32, SpvVariable>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -69,6 +70,10 @@ struct SpvImage
 {
     spv::Dim dimensionality{spv::DimMax};
     uint32_t sampled{sUninitialized};
+};
+
+struct SpvSampledImage
+{
 };
 
 struct SpvSampler
@@ -228,6 +233,14 @@ void firstPass(
             const uint32_t result = args[0];
 
             results[result].type.emplace(SpvSampler{});
+        }
+        break;
+        case spv::OpTypeSampledImage:
+        {
+            const uint32_t result = args[0];
+            // const uint32_t imageTypeId = args[1];
+
+            results[result].type.emplace(SpvSampledImage{});
         }
         break;
         case spv::OpTypeStruct:
