@@ -76,17 +76,21 @@ bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling ToneMap shaders\n");
 
-    const auto compSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/tone_map.comp",
-                                      .debugName = "tonemapCS",
-                                  });
+    const Optional<Device::ShaderCompileResult> compResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/tone_map.comp",
+                                          .debugName = "tonemapCS",
+                                      });
 
-    if (compSM.has_value())
+    if (compResult.has_value())
     {
         _device->logical().destroy(_compSM);
 
-        _compSM = *compSM;
+        const ShaderReflection &reflection = compResult->reflection;
+        assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
+
+        _compSM = compResult->module;
 
         return true;
     }

@@ -2,6 +2,7 @@
 #define PROSPER_DEVICE_HPP
 
 #include "Resources.hpp"
+#include "ShaderReflection.hpp"
 
 #include <GLFW/glfw3.h>
 #include <shaderc/shaderc.hpp>
@@ -107,9 +108,13 @@ class Device
         const char *debugName{nullptr};
         wheels::StrSpan defines{""};
     };
-    [[nodiscard]] wheels::Optional<vk::ShaderModule> compileShaderModule(
-        wheels::ScopedScratch scopeAlloc,
-        const CompileShaderModuleArgs &info) const;
+    struct ShaderCompileResult
+    {
+        vk::ShaderModule module;
+        ShaderReflection reflection;
+    };
+    [[nodiscard]] wheels::Optional<ShaderCompileResult> compileShaderModule(
+        wheels::ScopedScratch scopeAlloc, const CompileShaderModuleArgs &info);
 
     [[nodiscard]] Buffer create(const BufferCreateInfo &info);
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);

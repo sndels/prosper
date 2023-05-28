@@ -304,52 +304,75 @@ bool RTRenderer::compileShaders(
         anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
         sModelInstanceTrfnsBindingSet);
 
-    const auto raygenSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/rt/scene.rgen",
-                                      .debugName = "sceneRGEN",
-                                      .defines = raygenDefines,
-                                  });
-    const auto rayMissSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/rt/scene.rmiss",
-                                      .debugName = "sceneRMISS",
-                                  });
-    const auto closestHitSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/rt/scene.rchit",
-                                      .debugName = "sceneRCHIT",
-                                  });
-    const auto anyHitSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/rt/scene.rahit",
-                                      .debugName = "sceneRAHIT",
-                                      .defines = anyhitDefines,
-                                  });
+    const Optional<Device::ShaderCompileResult> raygenResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/rt/scene.rgen",
+                                          .debugName = "sceneRGEN",
+                                          .defines = raygenDefines,
+                                      });
+    const Optional<Device::ShaderCompileResult> rayMissResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/rt/scene.rmiss",
+                                          .debugName = "sceneRMISS",
+                                      });
+    const Optional<Device::ShaderCompileResult> closestHitResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/rt/scene.rchit",
+                                          .debugName = "sceneRCHIT",
+                                      });
+    const Optional<Device::ShaderCompileResult> anyHitResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/rt/scene.rahit",
+                                          .debugName = "sceneRAHIT",
+                                          .defines = anyhitDefines,
+                                      });
 
-    if (raygenSM.has_value() && rayMissSM.has_value() &&
-        closestHitSM.has_value() && anyHitSM.has_value())
+    if (raygenResult.has_value() && rayMissResult.has_value() &&
+        closestHitResult.has_value() && anyHitResult.has_value())
     {
         destroyShaders();
 
+        const ShaderReflection &raygenReflection = raygenResult->reflection;
+        assert(sizeof(PCBlock) == raygenReflection.pushConstantsBytesize());
+
+        const ShaderReflection &rayMissReflection = rayMissResult->reflection;
+        assert(
+            rayMissReflection.pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == rayMissReflection.pushConstantsBytesize());
+
+        const ShaderReflection &closestHitReflection =
+            closestHitResult->reflection;
+        assert(
+            closestHitReflection.pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == closestHitReflection.pushConstantsBytesize());
+
+        const ShaderReflection &anyHitReflection = anyHitResult->reflection;
+        assert(
+            anyHitReflection.pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == anyHitReflection.pushConstantsBytesize());
+
         _shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,
-            .module = *raygenSM,
+            .module = raygenResult->module,
             .pName = "main",
         };
         _shaderStages[static_cast<uint32_t>(StageIndex::Miss)] = {
             .stage = vk::ShaderStageFlagBits::eMissKHR,
-            .module = *rayMissSM,
+            .module = rayMissResult->module,
             .pName = "main",
         };
         _shaderStages[static_cast<uint32_t>(StageIndex::ClosestHit)] = {
             .stage = vk::ShaderStageFlagBits::eClosestHitKHR,
-            .module = *closestHitSM,
+            .module = closestHitResult->module,
             .pName = "main",
         };
         _shaderStages[static_cast<uint32_t>(StageIndex::AnyHit)] = {
             .stage = vk::ShaderStageFlagBits::eAnyHitKHR,
-            .module = *anyHitSM,
+            .module = anyHitResult->module,
             .pName = "main",
         };
 
@@ -378,14 +401,14 @@ bool RTRenderer::compileShaders(
         return true;
     }
 
-    if (raygenSM.has_value())
-        _device->logical().destroy(*raygenSM);
-    if (rayMissSM.has_value())
-        _device->logical().destroy(*rayMissSM);
-    if (closestHitSM.has_value())
-        _device->logical().destroy(*closestHitSM);
-    if (anyHitSM.has_value())
-        _device->logical().destroy(*anyHitSM);
+    if (raygenResult.has_value())
+        _device->logical().destroy(raygenResult->module);
+    if (rayMissResult.has_value())
+        _device->logical().destroy(rayMissResult->module);
+    if (closestHitResult.has_value())
+        _device->logical().destroy(closestHitResult->module);
+    if (anyHitResult.has_value())
+        _device->logical().destroy(anyHitResult->module);
 
     return false;
 }

@@ -128,18 +128,23 @@ bool DeferredShading::compileShaders(
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
 
-    const auto compSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/deferred_shading.comp",
-                                      .debugName = "DeferredShadingCS",
-                                      .defines = defines,
-                                  });
+    const Optional<Device::ShaderCompileResult> compResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(),
+            Device::CompileShaderModuleArgs{
+                .relPath = "shader/deferred_shading.comp",
+                .debugName = "DeferredShadingCS",
+                .defines = defines,
+            });
 
-    if (compSM.has_value())
+    if (compResult.has_value())
     {
         _device->logical().destroy(_compSM);
 
-        _compSM = *compSM;
+        const ShaderReflection &reflection = compResult->reflection;
+        assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
+
+        _compSM = compResult->module;
 
         return true;
     }

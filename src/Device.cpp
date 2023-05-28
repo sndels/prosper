@@ -10,6 +10,7 @@
 
 #include "App.hpp"
 #include "ForEach.hpp"
+#include "ShaderReflection.hpp"
 #include "Swapchain.hpp"
 #include "Utils.hpp"
 #include "VkUtils.hpp"
@@ -418,8 +419,8 @@ const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 
 const DeviceProperties &Device::properties() const { return _properties; }
 
-wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
-    ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info) const
+wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
+    ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info)
 {
     assert(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
@@ -478,10 +479,15 @@ wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
         }
     }
 
+    const Span<const uint32_t> spvWords{
+        result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
+
+    const ShaderReflection reflection{
+        scopeAlloc.child_scope(), _generalAlloc, spvWords};
+
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = asserted_cast<size_t>(result.end() - result.begin()) *
-                    sizeof(uint32_t),
-        .pCode = result.begin(),
+        .codeSize = spvWords.size() * sizeof(uint32_t),
+        .pCode = spvWords.data(),
     });
 
     _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
@@ -491,7 +497,10 @@ wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
         .pObjectName = info.debugName,
     });
 
-    return sm;
+    return ShaderCompileResult{
+        .module = sm,
+        .reflection = reflection,
+    };
 }
 
 Buffer Device::create(const BufferCreateInfo &info)

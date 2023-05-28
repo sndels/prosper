@@ -153,12 +153,13 @@ bool Renderer::compileShaders(
     appendDefineStr(vertDefines, "GEOMETRY_SET", sGeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
-    const auto vertSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/forward.vert",
-                                      .debugName = "geometryVS",
-                                      .defines = vertDefines,
-                                  });
+    const Optional<Device::ShaderCompileResult> vertResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/forward.vert",
+                                          .debugName = "geometryVS",
+                                          .defines = vertDefines,
+                                      });
 
     String fragDefines{scopeAlloc, 256};
     appendDefineStr(fragDefines, "LIGHTS_SET", sLightsBindingSet);
@@ -176,37 +177,44 @@ bool Renderer::compileShaders(
     PointLights::appendShaderDefines(fragDefines);
     SpotLights::appendShaderDefines(fragDefines);
 
-    const auto fragSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/forward.frag",
-                                      .debugName = "geometryPS",
-                                      .defines = fragDefines,
-                                  });
+    const Optional<Device::ShaderCompileResult> fragResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/forward.frag",
+                                          .debugName = "geometryPS",
+                                          .defines = fragDefines,
+                                      });
 
-    if (vertSM.has_value() && fragSM.has_value())
+    if (vertResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
+        const ShaderReflection &vertReflection = vertResult->reflection;
+        assert(sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
+
+        const ShaderReflection &fragReflection = fragResult->reflection;
+        assert(sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
+
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eVertex,
-                .module = *vertSM,
+                .module = vertResult->module,
                 .pName = "main",
             },
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eFragment,
-                .module = *fragSM,
+                .module = fragResult->module,
                 .pName = "main",
             }};
 
         return true;
     }
 
-    if (vertSM.has_value())
-        _device->logical().destroy(*vertSM);
-    if (fragSM.has_value())
-        _device->logical().destroy(*fragSM);
+    if (vertResult.has_value())
+        _device->logical().destroy(vertResult->module);
+    if (fragResult.has_value())
+        _device->logical().destroy(fragResult->module);
 
     return false;
 }

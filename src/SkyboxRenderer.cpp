@@ -116,18 +116,20 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling SkyboxRenderer shaders\n");
 
-    const auto vertSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/skybox.vert",
-                                      .debugName = "skyboxVS",
-                                  });
-    const auto fragSM = _device->compileShaderModule(
-        scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                      .relPath = "shader/skybox.frag",
-                                      .debugName = "skyboxPS",
-                                  });
+    const Optional<Device::ShaderCompileResult> vertResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/skybox.vert",
+                                          .debugName = "skyboxVS",
+                                      });
+    const Optional<Device::ShaderCompileResult> fragResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/skybox.frag",
+                                          .debugName = "skyboxPS",
+                                      });
 
-    if (vertSM.has_value() && fragSM.has_value())
+    if (vertResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -135,12 +137,12 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eVertex,
-                .module = *vertSM,
+                .module = vertResult->module,
                 .pName = "main",
             },
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eFragment,
-                .module = *fragSM,
+                .module = fragResult->module,
                 .pName = "main",
             },
         };
@@ -148,10 +150,10 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         return true;
     }
 
-    if (vertSM.has_value())
-        _device->logical().destroy(*vertSM);
-    if (fragSM.has_value())
-        _device->logical().destroy(*fragSM);
+    if (vertResult.has_value())
+        _device->logical().destroy(vertResult->module);
+    if (fragResult.has_value())
+        _device->logical().destroy(fragResult->module);
 
     return false;
 }
