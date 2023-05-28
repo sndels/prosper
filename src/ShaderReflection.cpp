@@ -518,6 +518,7 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                     std::get_if<SpvVariable>(&*result.type);
                 variable != nullptr)
             {
+                // TODO: Generalize the common parts
                 switch (variable->storageClass)
                 {
                 case spv::StorageClassStorageBuffer:
@@ -554,6 +555,37 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                         .binding = binding,
                         .descriptorType = vk::DescriptorType::eStorageBuffer,
                         .descriptorCount = descriptorCount,
+                    });
+                }
+                break;
+                case spv::StorageClassUniform:
+                {
+                    const uint32_t descriptorSet =
+                        result.decorations.descriptorSet;
+                    assert(descriptorSet != sUninitialized);
+                    const uint32_t binding = result.decorations.binding;
+                    assert(binding != sUninitialized);
+
+                    Array<DescriptorSetMetadata> *setMetadatas =
+                        ret.find(descriptorSet);
+                    assert(setMetadatas != nullptr);
+
+                    const SpvResult &typePtrResult = results[variable->typeId];
+                    assert(typePtrResult.type.has_value());
+                    assert(std::holds_alternative<SpvPointer>(
+                        *typePtrResult.type));
+                    const SpvPointer &typePtr =
+                        std::get<SpvPointer>(*typePtrResult.type);
+
+                    const SpvResult &typeResult = results[typePtr.typeId];
+                    assert(typeResult.type.has_value());
+                    assert(std::holds_alternative<SpvStruct>(*typeResult.type));
+
+                    setMetadatas->push_back(DescriptorSetMetadata{
+                        .name = String{alloc, result.name},
+                        .binding = binding,
+                        .descriptorType = vk::DescriptorType::eUniformBuffer,
+                        .descriptorCount = 1,
                     });
                 }
                 break;
