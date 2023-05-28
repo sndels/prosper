@@ -88,11 +88,18 @@ struct SpvVariable
     spv::StorageClass storageClass{spv::StorageClassMax};
 };
 
+struct Decorations
+{
+    uint32_t descriptorSet{sUninitialized};
+    uint32_t binding{sUninitialized};
+};
+
 // Only valid until the bytecode is freed
 struct SpvResult
 {
     const char *name{nullptr};
     SpvType type;
+    Decorations decorations;
 };
 
 const size_t firstOpOffset = 5;
@@ -267,6 +274,26 @@ void secondPass(
 
         switch (op)
         {
+        case spv::OpDecorate:
+        {
+            const uint32_t resultId = args[0];
+            const uint32_t decoration = static_cast<spv::Decoration>(args[1]);
+
+            SpvResult &result = results[resultId];
+
+            switch (decoration)
+            {
+            case spv::DecorationDescriptorSet:
+                result.decorations.descriptorSet = args[2];
+                break;
+            case spv::DecorationBinding:
+                result.decorations.binding = args[2];
+                break;
+            default:
+                break;
+            }
+        }
+        break;
         case spv::OpMemberDecorate:
         {
             const uint32_t resultId = args[0];
