@@ -531,7 +531,8 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                     std::get_if<SpvVariable>(&*result.type);
                 variable != nullptr)
             {
-                // TODO: Generalize the common parts
+                // TODO: Generalize the common parts, pull out case noise into
+                // helpers
                 switch (variable->storageClass)
                 {
                 case spv::StorageClassStorageBuffer:
@@ -600,6 +601,80 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                         .descriptorType = vk::DescriptorType::eUniformBuffer,
                         .descriptorCount = 1,
                     });
+                }
+                break;
+                case spv::StorageClassUniformConstant:
+                {
+                    const uint32_t descriptorSet =
+                        result.decorations.descriptorSet;
+                    assert(descriptorSet != sUninitialized);
+                    const uint32_t binding = result.decorations.binding;
+                    assert(binding != sUninitialized);
+
+                    Array<DescriptorSetMetadata> *setMetadatas =
+                        ret.find(descriptorSet);
+                    assert(setMetadatas != nullptr);
+
+                    const SpvResult &typePtrResult = results[variable->typeId];
+                    assert(typePtrResult.type.has_value());
+                    assert(std::holds_alternative<SpvPointer>(
+                        *typePtrResult.type));
+                    const SpvPointer &typePtr =
+                        std::get<SpvPointer>(*typePtrResult.type);
+                    const SpvResult &typeResult = results[typePtr.typeId];
+                    assert(typeResult.type.has_value());
+
+                    if (const SpvImage *image =
+                            std::get_if<SpvImage>(&*typeResult.type);
+                        image != nullptr)
+                    {
+                        vk::DescriptorType descriptorType{
+                            vk::DescriptorType::eSampler};
+                        switch (image->dimensionality)
+                        {
+                        case spv::Dim1D:
+                        case spv::Dim2D:
+                        case spv::Dim3D:
+                        case spv::DimCube:
+                            if (image->sampled == 1)
+                                descriptorType =
+                                    vk::DescriptorType::eSampledImage;
+                            else
+                            {
+                                assert(
+                                    image->sampled == 2 &&
+                                    "Sampled yes/no has to be known at shader "
+                                    "compile time");
+                                descriptorType =
+                                    vk::DescriptorType::eStorageImage;
+                            }
+                            break;
+                        case spv::DimBuffer:
+                            descriptorType =
+                                vk::DescriptorType::eStorageTexelBuffer;
+                            break;
+                        default:
+                            assert(!"Unimplemented image dimensionality");
+                            break;
+                        }
+                        setMetadatas->push_back(DescriptorSetMetadata{
+                            .name = String{alloc, result.name},
+                            .binding = binding,
+                            .descriptorType = descriptorType,
+                            .descriptorCount = 1,
+                        });
+                    }
+                    else if (std::holds_alternative<SpvSampledImage>(
+                                 *typeResult.type))
+                    {
+                        setMetadatas->push_back(DescriptorSetMetadata{
+                            .name = String{alloc, result.name},
+                            .binding = binding,
+                            .descriptorType =
+                                vk::DescriptorType::eCombinedImageSampler,
+                            .descriptorCount = 1,
+                        });
+                    }
                 }
                 break;
                 default:
