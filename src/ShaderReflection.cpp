@@ -685,6 +685,17 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                             .descriptorCount = 1,
                         });
                     }
+                    else if (std::holds_alternative<SpvAccelerationStructure>(
+                                 *typeResult.type))
+                    {
+                        setMetadatas->push_back(DescriptorSetMetadata{
+                            .name = String{alloc, result.name},
+                            .binding = binding,
+                            .descriptorType =
+                                vk::DescriptorType::eAccelerationStructureKHR,
+                            .descriptorCount = 1,
+                        });
+                    }
                 }
                 break;
                 default:
