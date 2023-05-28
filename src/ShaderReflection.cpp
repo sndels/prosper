@@ -20,6 +20,7 @@ struct SpvMatrix;
 struct SpvImage;
 struct SpvSampler;
 struct SpvArray;
+struct SpvRuntimeArray;
 struct SpvStruct;
 struct SpvPointer;
 struct SpvAccelerationStructure;
@@ -28,9 +29,9 @@ struct SpvVariable;
 
 // SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = Optional<std::variant<
-    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampler, SpvArray,
-    SpvStruct, SpvPointer, SpvAccelerationStructure, SpvConstantU32,
-    SpvVariable>>;
+    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampler,
+    SpvRuntimeArray, SpvArray, SpvStruct, SpvPointer, SpvAccelerationStructure,
+    SpvConstantU32, SpvVariable>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -78,6 +79,11 @@ struct SpvArray
 {
     uint32_t elementTypeId{sUninitialized};
     uint32_t length{sUninitialized};
+};
+
+struct SpvRuntimeArray
+{
+    uint32_t elementTypeId{sUninitialized};
 };
 
 struct MemberDecorations
@@ -258,6 +264,16 @@ void firstPass(
             results[result].type.emplace(SpvArray{
                 .elementTypeId = elementType,
                 .length = length->value,
+            });
+        }
+        break;
+        case spv::OpTypeRuntimeArray:
+        {
+            const uint32_t result = args[0];
+            const uint32_t elementTypeId = args[1];
+
+            results[result].type.emplace(SpvRuntimeArray{
+                .elementTypeId = elementTypeId,
             });
         }
         break;
