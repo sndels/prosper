@@ -664,6 +664,16 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                             .descriptorCount = 1,
                         });
                     }
+                    else if (std::holds_alternative<SpvSampler>(
+                                 *typeResult.type))
+                    {
+                        setMetadatas->push_back(DescriptorSetMetadata{
+                            .name = String{alloc, result.name},
+                            .binding = binding,
+                            .descriptorType = vk::DescriptorType::eSampler,
+                            .descriptorCount = 1,
+                        });
+                    }
                     else if (std::holds_alternative<SpvSampledImage>(
                                  *typeResult.type))
                     {
