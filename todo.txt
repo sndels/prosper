@@ -1,0 +1,9 @@
+- Use reflection for binding layouts
+  - Have helper that compiles only ds header
+    - Can we do this in a generic way that doesn't cull away the 'unused' descriptors?
+- Use reflection for descriptor updates
+  - Generalize like binding layout creation
+- Clean up shader reflection implementation
+  - At least the nested metadata parsing is messy
+- Generalize binding layout creation
+  - First pass will probably have sameish boilerplate in every user 
