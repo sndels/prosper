@@ -492,6 +492,34 @@ uint32_t getPushConstantsBytesize(
     return memberBytesize(pcResult.type, MemberDecorations{}, results);
 }
 
+vk::DescriptorType imageDescriptorType(const SpvImage &image)
+{
+    switch (image.dimensionality)
+    {
+    case spv::Dim1D:
+    case spv::Dim2D:
+    case spv::Dim3D:
+    case spv::DimCube:
+        if (image.sampled == 1)
+            return vk::DescriptorType::eSampledImage;
+        else
+        {
+            assert(
+                image.sampled == 2 &&
+                "Sampled yes/no has to be known at shader "
+                "compile time");
+            return vk::DescriptorType::eStorageImage;
+        }
+        break;
+    case spv::DimBuffer:
+        return vk::DescriptorType::eStorageTexelBuffer;
+        break;
+    default:
+        assert(!"Unimplemented image dimensionality");
+        return vk::DescriptorType::eSampler;
+    }
+}
+
 HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
     ScopedScratch scopeAlloc, Allocator &alloc, const Array<SpvResult> &results)
 {
@@ -628,35 +656,8 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                             std::get_if<SpvImage>(&*typeResult.type);
                         image != nullptr)
                     {
-                        vk::DescriptorType descriptorType{
-                            vk::DescriptorType::eSampler};
-                        switch (image->dimensionality)
-                        {
-                        case spv::Dim1D:
-                        case spv::Dim2D:
-                        case spv::Dim3D:
-                        case spv::DimCube:
-                            if (image->sampled == 1)
-                                descriptorType =
-                                    vk::DescriptorType::eSampledImage;
-                            else
-                            {
-                                assert(
-                                    image->sampled == 2 &&
-                                    "Sampled yes/no has to be known at shader "
-                                    "compile time");
-                                descriptorType =
-                                    vk::DescriptorType::eStorageImage;
-                            }
-                            break;
-                        case spv::DimBuffer:
-                            descriptorType =
-                                vk::DescriptorType::eStorageTexelBuffer;
-                            break;
-                        default:
-                            assert(!"Unimplemented image dimensionality");
-                            break;
-                        }
+                        vk::DescriptorType descriptorType =
+                            imageDescriptorType(*image);
                         setMetadatas->push_back(DescriptorSetMetadata{
                             .name = String{alloc, result.name},
                             .binding = binding,
@@ -685,6 +686,85 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                             .descriptorCount = 1,
                         });
                     }
+                    else if (const SpvArray *array =
+                                 std::get_if<SpvArray>(&*typeResult.type);
+                             array != nullptr)
+                    {
+                        // TODO: simpler tmp names once this is in a helper and
+                        // the parent ifs aren't in scope
+                        const SpvResult &elementTypeResult =
+                            results[array->elementTypeId];
+                        assert(elementTypeResult.type.has_value());
+
+                        vk::DescriptorType descriptorType{
+                            vk::DescriptorType::eSampler};
+                        if (const SpvImage *iimage =
+                                std::get_if<SpvImage>(&*elementTypeResult.type);
+                            iimage != nullptr)
+                        {
+                            descriptorType = imageDescriptorType(*iimage);
+                        }
+                        else if (std::holds_alternative<SpvSampler>(
+                                     *elementTypeResult.type))
+                        {
+                            descriptorType = vk::DescriptorType::eSampler;
+                        }
+                        else if (std::holds_alternative<SpvSampledImage>(
+                                     *elementTypeResult.type))
+                        {
+                            descriptorType =
+                                vk::DescriptorType::eCombinedImageSampler;
+                        }
+                        else
+                            assert(!"Unimplemented variant");
+
+                        setMetadatas->push_back(DescriptorSetMetadata{
+                            .name = String{alloc, result.name},
+                            .binding = binding,
+                            .descriptorType = descriptorType,
+                            .descriptorCount = array->length,
+                        });
+                    }
+                    else if (const SpvRuntimeArray *runtimeArray =
+                                 std::get_if<SpvRuntimeArray>(
+                                     &*typeResult.type);
+                             runtimeArray != nullptr)
+                    {
+                        // TODO: simpler tmp names once this is in a helper and
+                        // the parent ifs aren't in scope
+                        const SpvResult &elementTypeResult =
+                            results[runtimeArray->elementTypeId];
+                        assert(elementTypeResult.type.has_value());
+
+                        vk::DescriptorType descriptorType{
+                            vk::DescriptorType::eSampler};
+                        if (const SpvImage *iimage =
+                                std::get_if<SpvImage>(&*elementTypeResult.type);
+                            iimage != nullptr)
+                        {
+                            descriptorType = imageDescriptorType(*iimage);
+                        }
+                        else if (std::holds_alternative<SpvSampler>(
+                                     *elementTypeResult.type))
+                        {
+                            descriptorType = vk::DescriptorType::eSampler;
+                        }
+                        else if (std::holds_alternative<SpvSampledImage>(
+                                     *elementTypeResult.type))
+                        {
+                            descriptorType =
+                                vk::DescriptorType::eCombinedImageSampler;
+                        }
+                        else
+                            assert(!"Unimplemented variant");
+
+                        setMetadatas->push_back(DescriptorSetMetadata{
+                            .name = String{alloc, result.name},
+                            .binding = binding,
+                            .descriptorType = descriptorType,
+                            .descriptorCount = 0,
+                        });
+                    }
                     else if (std::holds_alternative<SpvAccelerationStructure>(
                                  *typeResult.type))
                     {
@@ -696,6 +776,8 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                             .descriptorCount = 1,
                         });
                     }
+                    else
+                        assert(!"Unimplemented variant");
                 }
                 break;
                 default:
