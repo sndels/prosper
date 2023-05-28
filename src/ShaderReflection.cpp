@@ -22,13 +22,15 @@ struct SpvSampler;
 struct SpvArray;
 struct SpvStruct;
 struct SpvPointer;
+struct SpvAccelerationStructure;
 struct SpvConstantU32;
 struct SpvVariable;
 
 // SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = Optional<std::variant<
     SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampler, SpvArray,
-    SpvStruct, SpvPointer, SpvConstantU32, SpvVariable>>;
+    SpvStruct, SpvPointer, SpvAccelerationStructure, SpvConstantU32,
+    SpvVariable>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -93,6 +95,10 @@ struct SpvPointer
 {
     uint32_t typeId{sUninitialized};
     spv::StorageClass storageClass{spv::StorageClassMax};
+};
+
+struct SpvAccelerationStructure
+{
 };
 
 // Can also hold 8bit and 16bit values
@@ -314,6 +320,13 @@ void firstPass(
                 .typeId = typeId,
                 .storageClass = storageClass,
             });
+        }
+        break;
+        case spv::OpTypeAccelerationStructureKHR:
+        {
+            const uint32_t result = args[0];
+
+            results[result].type.emplace(SpvAccelerationStructure{});
         }
         break;
         default:
