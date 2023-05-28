@@ -19,9 +19,10 @@ struct SpvVector;
 struct SpvMatrix;
 struct SpvImage;
 struct SpvStruct;
+struct SpvPointer;
 
-using SpvType = Optional<
-    std::variant<SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct>>;
+using SpvType = Optional<std::variant<
+    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct, SpvPointer>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -71,6 +72,11 @@ struct SpvStruct
 {
     Array<uint32_t> memberTypeIds;
     Array<MemberDecorations> memberDecorations;
+};
+struct SpvPointer
+{
+    uint32_t typeId{sUninitialized};
+    spv::StorageClass storageClass{spv::StorageClassMax};
 };
 
 // Only valid until the bytecode is freed
@@ -190,8 +196,8 @@ void firstPass(
         break;
         case spv::OpTypePointer:
         {
-            // const uint32_t result = args[0];
-            const uint32_t storageClass =
+            const uint32_t result = args[0];
+            const spv::StorageClass storageClass =
                 static_cast<spv::StorageClass>(args[1]);
             const uint32_t typeId = args[2];
 
@@ -211,6 +217,11 @@ void firstPass(
                     pushConstantMetadataId = typeId;
                 }
             }
+
+            results[result].type.emplace(SpvPointer{
+                .typeId = typeId,
+                .storageClass = storageClass,
+            });
         }
         break;
         default:
