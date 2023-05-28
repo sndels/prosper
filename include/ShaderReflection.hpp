@@ -31,8 +31,9 @@ class ShaderReflection
     ShaderReflection &operator=(const ShaderReflection &) = delete;
     ShaderReflection &operator=(ShaderReflection &&) = default;
 
-    uint32_t pushConstantsBytesize() const;
-    wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>> const &
+    [[nodiscard]] uint32_t pushConstantsBytesize() const;
+    [[nodiscard]] wheels::HashMap<
+        uint32_t, wheels::Array<DescriptorSetMetadata>> const &
     descriptorSetMetadatas() const;
 
   private:
