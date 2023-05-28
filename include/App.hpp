@@ -30,7 +30,7 @@ class App
     struct Settings
     {
         std::filesystem::path scene;
-        bool enableDebugLayers{false};
+        Device::Settings device;
     };
 
   public:

@@ -68,9 +68,16 @@ struct MemoryAllocationBytes
 class Device
 {
   public:
+    struct Settings
+    {
+        bool enableDebugLayers{false};
+        bool dumpShaderDisassembly{false};
+    };
+
+  public:
     Device(
         wheels::ScopedScratch scopeAlloc, GLFWwindow *window,
-        bool enableDebugLayers);
+        const Settings &settings);
     ~Device();
 
     Device(const Device &other) = delete;
@@ -155,6 +162,7 @@ class Device
 
     VmaAllocator _allocator{nullptr};
 
+    bool _dumpShaderDisassembly{false};
     shaderc::CompileOptions _compilerOptions;
     shaderc::Compiler _compiler;
 

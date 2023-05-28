@@ -23,6 +23,7 @@ App::Settings parseCli(int argc, char *argv[])
     // clang-format off
         options.add_options()
             ("debugLayers", "Enable Vulkan debug layers")
+            ("dumpShaderDisassembly", "Dump shader disassembly to stdout")
             ("sceneFile", std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
              cxxopts::value<std::string>()->default_value(""));
     // clang-format on
@@ -46,7 +47,12 @@ App::Settings parseCli(int argc, char *argv[])
 
     return App::Settings{
         .scene = scenePath,
-        .enableDebugLayers = args["debugLayers"].as<bool>(),
+        .device =
+            Device::Settings{
+                .enableDebugLayers = args["debugLayers"].as<bool>(),
+                .dumpShaderDisassembly =
+                    args["dumpShaderDisassembly"].as<bool>(),
+            },
     };
 }
 

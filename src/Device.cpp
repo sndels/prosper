@@ -313,7 +313,8 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 }
 
 Device::Device(
-    ScopedScratch scopeAlloc, GLFWwindow *window, bool enableDebugLayers)
+    ScopedScratch scopeAlloc, GLFWwindow *window, const Settings &settings)
+: _dumpShaderDisassembly{settings.dumpShaderDisassembly}
 {
     printf("Creating Vulkan device\n");
 
@@ -329,7 +330,7 @@ Device::Device(
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-    createInstance(scopeAlloc.child_scope(), enableDebugLayers);
+    createInstance(scopeAlloc.child_scope(), settings.enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
 
     {
@@ -353,7 +354,7 @@ Device::Device(
     selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
-    createLogicalDevice(scopeAlloc.child_scope(), enableDebugLayers);
+    createLogicalDevice(scopeAlloc.child_scope(), settings.enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
 
     createAllocator();
@@ -451,6 +452,30 @@ wheels::Optional<vk::ShaderModule> Device::compileShaderModule(
             shaderPath.string().c_str());
         fprintf(stderr, "%s\n", statusString(status));
         return {};
+    }
+
+    if (_dumpShaderDisassembly)
+    {
+        const shaderc::AssemblyCompilationResult resultAsm =
+            _compiler.CompileGlslToSpvAssembly(
+                fullSource.c_str(), fullSource.size(),
+                shaderc_glsl_infer_from_source, shaderPath.string().c_str(),
+                _compilerOptions);
+        if (const shaderc_compilation_status status =
+                result.GetCompilationStatus();
+            status == shaderc_compilation_status_success)
+            fprintf(stdout, "%s\n", resultAsm.begin());
+        else
+        {
+            const std::string err = result.GetErrorMessage();
+            if (!err.empty())
+                fprintf(stderr, "%s\n", err.c_str());
+            fprintf(
+                stderr, "Compilation of '%s' failed\n",
+                shaderPath.string().c_str());
+            fprintf(stderr, "%s\n", statusString(status));
+            return {};
+        }
     }
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
