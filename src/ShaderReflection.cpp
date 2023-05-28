@@ -17,10 +17,11 @@ struct SpvInt;
 struct SpvFloat;
 struct SpvVector;
 struct SpvMatrix;
+struct SpvImage;
 struct SpvStruct;
 
-using SpvType =
-    Optional<std::variant<SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvStruct>>;
+using SpvType = Optional<
+    std::variant<SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -52,6 +53,12 @@ struct SpvMatrix
 {
     uint32_t columnId{sUninitialized};
     uint32_t columnCount{0};
+};
+
+struct SpvImage
+{
+    spv::Dim dimensionality{spv::DimMax};
+    uint32_t sampled{sUninitialized};
 };
 
 struct MemberDecorations
@@ -142,6 +149,24 @@ void firstPass(
             results[result].type.emplace(SpvMatrix{
                 .columnId = columnType,
                 .columnCount = columnCount,
+            });
+        }
+        break;
+        case spv::OpTypeImage:
+        {
+            const uint32_t result = args[0];
+            // const uint32_t sampledTypeId= args[1];
+            const spv::Dim dimensionality = static_cast<spv::Dim>(args[2]);
+            // const uint32_t depth = args[3];
+            // const uint32_t arrayed = args[4];
+            // const uint32_t multiSampled = args[5];
+            const uint32_t sampled = args[6];
+            // const spv::ImageFormat format =
+            //     static_cast<spv::ImageFormat>(args[7]);
+
+            results[result].type.emplace(SpvImage{
+                .dimensionality = dimensionality,
+                .sampled = sampled,
             });
         }
         break;
@@ -287,6 +312,11 @@ uint32_t memberBytesize(
                     lastMemberDecorations.offset + lastMemberBytesize;
 
                 return bytesize;
+            },
+            [](const auto &) -> uint32_t
+            {
+                assert(!"Unimplemented");
+                return 0;
             }},
         *type);
 }
