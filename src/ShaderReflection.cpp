@@ -20,12 +20,13 @@ struct SpvMatrix;
 struct SpvImage;
 struct SpvStruct;
 struct SpvPointer;
+struct SpvConstantU32;
 struct SpvVariable;
 
 // SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = Optional<std::variant<
     SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct, SpvPointer,
-    SpvVariable>>;
+    SpvConstantU32, SpvVariable>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -80,6 +81,12 @@ struct SpvPointer
 {
     uint32_t typeId{sUninitialized};
     spv::StorageClass storageClass{spv::StorageClassMax};
+};
+
+// Can also hold 8bit and 16bit values
+struct SpvConstantU32
+{
+    uint32_t value{sUninitialized};
 };
 
 struct SpvVariable
@@ -240,6 +247,24 @@ void firstPass(
             });
         }
         break;
+        case spv::OpConstant:
+        {
+            const uint32_t typeId = args[0];
+            const uint32_t result = args[1];
+
+            const SpvResult &type = results[typeId];
+            assert(type.type.has_value());
+
+            if (const SpvInt *spvInt = std::get_if<SpvInt>(&*type.type);
+                spvInt != nullptr)
+            {
+                if (!spvInt->isSigned && spvInt->width == 32)
+                    results[result].type.emplace(SpvConstantU32{
+                        .value = args[2],
+                    });
+            }
+        }
+        break;
         case spv::OpVariable:
         {
             const uint32_t typeId = args[0];
@@ -334,8 +359,6 @@ uint32_t memberBytesize(
     const SpvType &type, const MemberDecorations &memberDecorations,
     const Array<SpvResult> &results)
 {
-    // Implementing this requires implementing OpConstant for the size which is
-    // a bit of work so let's not until we actually need it.
     assert(
         type.has_value() && "Unimplemented member type, probably OpTypeArray");
 
