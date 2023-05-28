@@ -479,10 +479,99 @@ uint32_t getPushConstantsBytesize(
     return memberBytesize(pcResult.type, MemberDecorations{}, results);
 }
 
+HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
+    ScopedScratch scopeAlloc, Allocator &alloc, const Array<SpvResult> &results)
+{
+    // Get counts first so we can allocate return memory exactly
+    HashMap<uint32_t, uint32_t> descriptorSetBindingCounts{scopeAlloc, 16};
+    for (const SpvResult &result : results)
+    {
+        if (result.decorations.descriptorSet != sUninitialized)
+        {
+            if (descriptorSetBindingCounts.contains(
+                    result.decorations.descriptorSet))
+            {
+                uint32_t &count = *descriptorSetBindingCounts.find(
+                    result.decorations.descriptorSet);
+                count++;
+            }
+            else
+            {
+                descriptorSetBindingCounts.insert_or_assign(
+                    result.decorations.descriptorSet, 1u);
+            }
+        }
+    }
+
+    HashMap<uint32_t, Array<DescriptorSetMetadata>> ret{
+        alloc, descriptorSetBindingCounts.size() * 2};
+    for (const auto &iter : descriptorSetBindingCounts)
+        ret.insert_or_assign(
+            *iter.first, Array<DescriptorSetMetadata>{alloc, *iter.second});
+
+    // Fill the metadata
+    for (const SpvResult &result : results)
+    {
+        if (result.type.has_value())
+        {
+            if (const SpvVariable *variable =
+                    std::get_if<SpvVariable>(&*result.type);
+                variable != nullptr)
+            {
+                switch (variable->storageClass)
+                {
+                case spv::StorageClassStorageBuffer:
+                {
+                    const uint32_t descriptorSet =
+                        result.decorations.descriptorSet;
+                    assert(descriptorSet != sUninitialized);
+                    const uint32_t binding = result.decorations.binding;
+                    assert(binding != sUninitialized);
+
+                    Array<DescriptorSetMetadata> *setMetadatas =
+                        ret.find(descriptorSet);
+                    assert(setMetadatas != nullptr);
+
+                    const SpvResult &typePtrResult = results[variable->typeId];
+                    assert(typePtrResult.type.has_value());
+                    assert(std::holds_alternative<SpvPointer>(
+                        *typePtrResult.type));
+                    const SpvPointer &typePtr =
+                        std::get<SpvPointer>(*typePtrResult.type);
+
+                    const SpvResult &typeResult = results[typePtr.typeId];
+                    assert(typeResult.type.has_value());
+
+                    uint32_t descriptorCount = 0;
+                    if (std::holds_alternative<SpvStruct>(*typeResult.type))
+                        descriptorCount = 1;
+                    else // Assert the initialized 0 is correct
+                        assert(std::holds_alternative<SpvRuntimeArray>(
+                            *typeResult.type));
+
+                    setMetadatas->push_back(DescriptorSetMetadata{
+                        .name = String{alloc, result.name},
+                        .binding = binding,
+                        .descriptorType = vk::DescriptorType::eStorageBuffer,
+                        .descriptorCount = descriptorCount,
+                    });
+                }
+                break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
 } // namespace
 
 ShaderReflection::ShaderReflection(
     ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords)
+: _descriptorSetMetadatas{alloc}
 {
     const uint32_t *words = spvWords.data();
     const size_t wordCount = spvWords.size();
@@ -498,22 +587,31 @@ ShaderReflection::ShaderReflection(
     const uint32_t idBound = words[3];
     // const uint32_t schema = words[4];
 
-    Array<SpvResult> ids{alloc};
-    ids.resize(idBound);
+    Array<SpvResult> results{alloc};
+    results.resize(idBound);
 
     uint32_t pushConstantMetadataId = sUninitialized;
 
     // Run in two passes because type definitons come after decorations.
     // Data relations are simpler this way.
-    firstPass(scopeAlloc, words, wordCount, ids, pushConstantMetadataId);
-    secondPass(words, wordCount, ids);
+    firstPass(scopeAlloc, words, wordCount, results, pushConstantMetadataId);
+    secondPass(words, wordCount, results);
 
     if (pushConstantMetadataId != sUninitialized)
         _pushConstantsBytesize =
-            getPushConstantsBytesize(ids, pushConstantMetadataId);
+            getPushConstantsBytesize(results, pushConstantMetadataId);
+
+    _descriptorSetMetadatas =
+        fillDescriptorSetMetadatas(scopeAlloc.child_scope(), alloc, results);
 }
 
 uint32_t ShaderReflection::pushConstantsBytesize() const
 {
     return _pushConstantsBytesize;
+}
+
+HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
+    descriptorSetMetadatas() const
+{
+    return _descriptorSetMetadatas;
 }

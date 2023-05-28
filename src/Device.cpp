@@ -482,7 +482,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     const Span<const uint32_t> spvWords{
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
-    const ShaderReflection reflection{
+    ShaderReflection reflection{
         scopeAlloc.child_scope(), _generalAlloc, spvWords};
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
@@ -499,7 +499,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
 
     return ShaderCompileResult{
         .module = sm,
-        .reflection = reflection,
+        .reflection = WHEELS_MOV(reflection),
     };
 }
 
