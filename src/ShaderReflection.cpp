@@ -18,6 +18,7 @@ struct SpvFloat;
 struct SpvVector;
 struct SpvMatrix;
 struct SpvImage;
+struct SpvArray;
 struct SpvStruct;
 struct SpvPointer;
 struct SpvConstantU32;
@@ -25,8 +26,8 @@ struct SpvVariable;
 
 // SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = Optional<std::variant<
-    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct, SpvPointer,
-    SpvConstantU32, SpvVariable>>;
+    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvArray, SpvStruct,
+    SpvPointer, SpvConstantU32, SpvVariable>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -64,6 +65,12 @@ struct SpvImage
 {
     spv::Dim dimensionality{spv::DimMax};
     uint32_t sampled{sUninitialized};
+};
+
+struct SpvArray
+{
+    uint32_t elementTypeId{sUninitialized};
+    uint32_t length{sUninitialized};
 };
 
 struct MemberDecorations
@@ -215,6 +222,25 @@ void firstPass(
             spvStruct.memberDecorations.resize(memberCount);
 
             results[result].type.emplace(WHEELS_MOV(spvStruct));
+        }
+        break;
+        case spv::OpTypeArray:
+        {
+            const uint32_t result = args[0];
+            const uint32_t elementType = args[1];
+            const uint32_t lengthId = args[2];
+
+            const SpvResult &lengthResult = results[lengthId];
+            assert(lengthResult.type.has_value());
+            const SpvConstantU32 *length =
+                std::get_if<SpvConstantU32>(&*lengthResult.type);
+            assert(length != nullptr);
+            assert(length->value != sUninitialized);
+
+            results[result].type.emplace(SpvArray{
+                .elementTypeId = elementType,
+                .length = length->value,
+            });
         }
         break;
         case spv::OpTypePointer:
