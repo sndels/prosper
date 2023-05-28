@@ -20,9 +20,12 @@ struct SpvMatrix;
 struct SpvImage;
 struct SpvStruct;
 struct SpvPointer;
+struct SpvVariable;
 
+// SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = Optional<std::variant<
-    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct, SpvPointer>>;
+    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvStruct, SpvPointer,
+    SpvVariable>>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -74,6 +77,12 @@ struct SpvStruct
     Array<MemberDecorations> memberDecorations;
 };
 struct SpvPointer
+{
+    uint32_t typeId{sUninitialized};
+    spv::StorageClass storageClass{spv::StorageClassMax};
+};
+
+struct SpvVariable
 {
     uint32_t typeId{sUninitialized};
     spv::StorageClass storageClass{spv::StorageClassMax};
@@ -219,6 +228,19 @@ void firstPass(
             }
 
             results[result].type.emplace(SpvPointer{
+                .typeId = typeId,
+                .storageClass = storageClass,
+            });
+        }
+        break;
+        case spv::OpVariable:
+        {
+            const uint32_t typeId = args[0];
+            const uint32_t result = args[1];
+            const spv::StorageClass storageClass =
+                static_cast<spv::StorageClass>(args[2]);
+
+            results[result].type.emplace(SpvVariable{
                 .typeId = typeId,
                 .storageClass = storageClass,
             });
