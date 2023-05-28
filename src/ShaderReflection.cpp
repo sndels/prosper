@@ -1,0 +1,339 @@
+#include "ShaderReflection.hpp"
+
+#include <spirv.hpp>
+#include <wheels/containers/array.hpp>
+#include <wheels/containers/optional.hpp>
+
+#include <cstring>
+#include <stdexcept>
+#include <variant>
+
+using namespace wheels;
+
+namespace
+{
+
+struct SpvInt;
+struct SpvFloat;
+struct SpvVector;
+struct SpvMatrix;
+struct SpvStruct;
+
+using SpvType =
+    Optional<std::variant<SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvStruct>>;
+
+// From https://en.cppreference.com/w/cpp/utility/variant/visit
+template <class... Ts> struct overloaded : Ts...
+{
+    using Ts::operator()...;
+};
+template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+const uint32_t sUninitialized = 0xFFFFFFFF;
+
+struct SpvInt
+{
+    uint32_t width{sUninitialized};
+    bool isSigned{true};
+};
+
+struct SpvFloat
+{
+    uint32_t width{sUninitialized};
+};
+
+struct SpvVector
+{
+    uint32_t componentId{sUninitialized};
+    uint32_t componentCount{0};
+};
+
+struct SpvMatrix
+{
+    uint32_t columnId{sUninitialized};
+    uint32_t columnCount{0};
+};
+
+struct MemberDecorations
+{
+    uint32_t offset{sUninitialized};
+    uint32_t matrixStride{sUninitialized};
+};
+
+struct SpvStruct
+{
+    Array<uint32_t> memberTypeIds;
+    Array<MemberDecorations> memberDecorations;
+};
+
+// Only valid until the bytecode is freed
+struct SpvResult
+{
+    const char *name{nullptr};
+    SpvType type;
+};
+
+const size_t firstOpOffset = 5;
+
+void firstPass(
+    Allocator &alloc, const uint32_t *words, size_t wordCount,
+    Array<SpvResult> &results, uint32_t &pushConstantMetadataId)
+{
+    // Collect names and types
+    size_t opFirstWord = firstOpOffset;
+    while (opFirstWord < wordCount)
+    {
+        const uint16_t opWordCount =
+            static_cast<uint16_t>(words[opFirstWord] >> 16);
+        const uint16_t op = static_cast<uint16_t>(words[opFirstWord] & 0xFFFF);
+        const uint32_t *args = &words[opFirstWord + 1];
+
+        switch (op)
+        {
+        case spv::OpName:
+        {
+            const uint32_t result = args[0];
+            const char *name = reinterpret_cast<const char *>(&args[1]);
+
+            results[result].name = name;
+        }
+        break;
+        case spv::OpTypeInt:
+        {
+            const uint32_t result = args[0];
+            const uint32_t width = args[1];
+            const uint32_t signedness = args[2];
+            assert(signedness == 0 || signedness == 1);
+
+            results[result].type.emplace(SpvInt{
+                .width = width,
+                .isSigned = signedness == 1,
+            });
+        }
+        break;
+        case spv::OpTypeFloat:
+        {
+            const uint32_t result = args[0];
+            const uint32_t width = args[1];
+
+            results[result].type.emplace(SpvFloat{
+                .width = width,
+            });
+        }
+        break;
+        case spv::OpTypeVector:
+        {
+            const uint32_t result = args[0];
+            const uint32_t componentType = args[1];
+            const uint32_t componentCount = args[2];
+
+            results[result].type.emplace(SpvVector{
+                .componentId = componentType,
+                .componentCount = componentCount,
+            });
+        }
+        break;
+        case spv::OpTypeMatrix:
+        {
+            const uint32_t result = args[0];
+            const uint32_t columnType = args[1];
+            const uint32_t columnCount = args[2];
+
+            results[result].type.emplace(SpvMatrix{
+                .columnId = columnType,
+                .columnCount = columnCount,
+            });
+        }
+        break;
+        case spv::OpTypeStruct:
+        {
+            const uint32_t result = args[0];
+            const uint32_t memberCount = opWordCount - 2;
+
+            SpvStruct spvStruct{
+                .memberTypeIds = Array<uint32_t>{alloc, memberCount},
+                .memberDecorations = Array<MemberDecorations>{alloc},
+            };
+
+            for (uint32_t i = 1; i <= memberCount; ++i)
+                spvStruct.memberTypeIds.push_back(args[i]);
+
+            spvStruct.memberDecorations.resize(memberCount);
+
+            results[result].type.emplace(WHEELS_MOV(spvStruct));
+        }
+        break;
+        case spv::OpTypePointer:
+        {
+            // const uint32_t result = args[0];
+            const uint32_t storageClass =
+                static_cast<spv::StorageClass>(args[1]);
+            const uint32_t typeId = args[2];
+
+            if (storageClass == spv::StorageClassPushConstant)
+            {
+                const SpvType &type = results[typeId].type;
+                // Accessors into PC struct members are also this storage class,
+                // so let's just pick the struct
+                if (type.has_value() &&
+                    std::holds_alternative<SpvStruct>(*type))
+                {
+                    // This probably fires if we have structs within the push
+                    // constants struct, if that's even possible
+                    assert(
+                        pushConstantMetadataId == sUninitialized &&
+                        "Unexpected second push constant struct pointer");
+                    pushConstantMetadataId = typeId;
+                }
+            }
+        }
+        break;
+        default:
+            break;
+        }
+        opFirstWord += opWordCount;
+    }
+}
+
+void secondPass(
+    const uint32_t *words, size_t wordCount, Array<SpvResult> &results)
+{
+    // Collect decorations
+    size_t opFirstWord = firstOpOffset;
+    while (opFirstWord < wordCount)
+    {
+        const uint16_t opWordCount =
+            static_cast<uint16_t>(words[opFirstWord] >> 16);
+        const uint16_t op = static_cast<uint16_t>(words[opFirstWord] & 0xFFFF);
+        const uint32_t *args = &words[opFirstWord + 1];
+
+        switch (op)
+        {
+        case spv::OpMemberDecorate:
+        {
+            const uint32_t resultId = args[0];
+            const uint32_t memberIndex = args[1];
+            const uint32_t decoration = static_cast<spv::Decoration>(args[2]);
+
+            SpvResult &result = results[resultId];
+            if (result.type.has_value())
+            {
+                SpvStruct *spvStruct = std::get_if<SpvStruct>(&*result.type);
+                assert(spvStruct != nullptr);
+
+                switch (decoration)
+                {
+                case spv::DecorationOffset:
+                    spvStruct->memberDecorations[memberIndex].offset = args[3];
+                    break;
+                case spv::DecorationMatrixStride:
+                    spvStruct->memberDecorations[memberIndex].matrixStride =
+                        args[3];
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        break;
+        default:
+            break;
+        }
+        opFirstWord += opWordCount;
+    }
+}
+
+// Takes in the member and its decorations from the parent struct
+// Returns the raw size of the member, without padding to alignment
+uint32_t memberBytesize(
+    const SpvType &type, const MemberDecorations &memberDecorations,
+    const Array<SpvResult> &results)
+{
+    // Implementing this requires implementing OpConstant for the size which is
+    // a bit of work so let's not until we actually need it.
+    assert(
+        type.has_value() && "Unimplemented member type, probably OpTypeArray");
+
+    return std::visit(
+        overloaded{
+            [](const SpvInt &v) -> uint32_t { return v.width / 8; },
+            [](const SpvFloat &v) -> uint32_t { return v.width / 8; },
+            [&results](const SpvVector &v) -> uint32_t
+            {
+                const SpvResult &componentResult = results[v.componentId];
+                const uint32_t componentBytesize = memberBytesize(
+                    componentResult.type, MemberDecorations{}, results);
+
+                return componentBytesize * v.componentCount;
+            },
+            [&memberDecorations](const SpvMatrix &v) -> uint32_t
+            {
+                assert(memberDecorations.matrixStride != sUninitialized);
+                return memberDecorations.matrixStride * v.columnCount;
+            },
+            [&results](const SpvStruct &v) -> uint32_t
+            {
+                const uint32_t lastMemberId = v.memberTypeIds.back();
+                const MemberDecorations &lastMemberDecorations =
+                    v.memberDecorations.back();
+
+                const SpvResult &lastMemberResult = results[lastMemberId];
+
+                const uint32_t lastMemberBytesize = memberBytesize(
+                    lastMemberResult.type, MemberDecorations{}, results);
+
+                assert(lastMemberDecorations.offset != sUninitialized);
+                const uint32_t bytesize =
+                    lastMemberDecorations.offset + lastMemberBytesize;
+
+                return bytesize;
+            }},
+        *type);
+}
+
+uint32_t getPushConstantsBytesize(
+    const Array<SpvResult> &results, uint32_t metadataId)
+{
+    const SpvResult &pcResult = results[metadataId];
+
+    return memberBytesize(pcResult.type, MemberDecorations{}, results);
+}
+
+} // namespace
+
+ShaderReflection::ShaderReflection(
+    ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords)
+{
+    const uint32_t *words = spvWords.data();
+    const size_t wordCount = spvWords.size();
+
+    const uint32_t spvMagic = 0x07230203;
+    if (words[0] != spvMagic)
+        throw std::runtime_error(
+            "Tried to read reflection from invalid SPIR-V words");
+
+    // bytes 0 | major | minor | 0, 0x00010300 is 1.3
+    // const uint32_t version = words[1];
+    // const uint32_t generatorMagic = words[2];
+    const uint32_t idBound = words[3];
+    // const uint32_t schema = words[4];
+
+    Array<SpvResult> ids{alloc};
+    ids.resize(idBound);
+
+    uint32_t pushConstantMetadataId = sUninitialized;
+
+    // Run in two passes because type definitons come after decorations.
+    // Data relations are simpler this way.
+    firstPass(scopeAlloc, words, wordCount, ids, pushConstantMetadataId);
+    secondPass(words, wordCount, ids);
+
+    if (pushConstantMetadataId != sUninitialized)
+        _pushConstantsBytesize =
+            getPushConstantsBytesize(ids, pushConstantMetadataId);
+}
+
+uint32_t ShaderReflection::pushConstantsBytesize() const
+{
+    return _pushConstantsBytesize;
+}

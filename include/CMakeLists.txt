@@ -30,6 +30,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RTRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Scene.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/ShaderReflection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
