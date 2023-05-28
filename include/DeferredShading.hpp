@@ -2,6 +2,7 @@
 #define PROSPER_DEFERRED_SHADING_HPP
 
 #include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
 #include "Camera.hpp"
@@ -61,7 +62,7 @@ class DeferredShading
         const Input &input, uint32_t nextFrame, Profiler *profiler);
 
   private:
-    [[nodiscard]] bool compileShaders(
+    [[nodiscard]] wheels::Optional<ShaderReflection> compileShaders(
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
@@ -70,7 +71,10 @@ class DeferredShading
 
     void destroyPipelines();
 
-    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc,
+        const ShaderReflection &reflection);
     struct BoundImages
     {
         ImageHandle albedoRoughness;

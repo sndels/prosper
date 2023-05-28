@@ -62,11 +62,13 @@ DeferredShading::DeferredShading(
     assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating DeferredShading\n");
-
-    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
+    const wheels::Optional<ShaderReflection> reflection =
+        compileShaders(scopeAlloc.child_scope(), dsLayouts.world);
+    if (!reflection.has_value())
         throw std::runtime_error("DeferredShading shader compilation failed");
 
-    createDescriptorSets(staticDescriptorsAlloc);
+    createDescriptorSets(
+        scopeAlloc.child_scope(), staticDescriptorsAlloc, *reflection);
 
     const vk::SamplerCreateInfo info{
         .magFilter = vk::Filter::eNearest,
@@ -101,14 +103,14 @@ DeferredShading::~DeferredShading()
 void DeferredShading::recompileShaders(
     wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
-    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
+    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world).has_value())
     {
         destroyPipelines();
         createPipeline(dsLayouts);
     }
 }
 
-bool DeferredShading::compileShaders(
+Optional<ShaderReflection> DeferredShading::compileShaders(
     ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
     printf("Compiling DeferredShading shaders\n");
@@ -128,7 +130,7 @@ bool DeferredShading::compileShaders(
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
 
-    const Optional<Device::ShaderCompileResult> compResult =
+    Optional<Device::ShaderCompileResult> compResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(),
             Device::CompileShaderModuleArgs{
@@ -141,15 +143,15 @@ bool DeferredShading::compileShaders(
     {
         _device->logical().destroy(_compSM);
 
-        const ShaderReflection &reflection = compResult->reflection;
+        ShaderReflection &reflection = compResult->reflection;
         assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
 
         _compSM = compResult->module;
 
-        return true;
+        return WHEELS_MOV(reflection);
     }
 
-    return false;
+    return {};
 }
 
 void DeferredShading::drawUi()
@@ -301,43 +303,31 @@ void DeferredShading::destroyPipelines()
 }
 
 void DeferredShading::createDescriptorSets(
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
+    const ShaderReflection &reflection)
 {
-    const StaticArray layoutBindings{
-        vk::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
+    Array<vk::DescriptorSetLayoutBinding> layoutBindings{
+        scopeAlloc, reflection.descriptorSetMetadatas().size()};
+
+    const Array<DescriptorSetMetadata> *metadatas =
+        reflection.descriptorSetMetadatas().find(StorageBindingSet);
+    assert(metadatas != nullptr);
+
+    for (const DescriptorSetMetadata &metadata : *metadatas)
+    {
+        // Assuming not runtime arrays
+        assert(metadata.descriptorCount != 0);
+        layoutBindings.push_back(vk::DescriptorSetLayoutBinding{
+            .binding = metadata.binding,
+            .descriptorType = metadata.descriptorType,
+            .descriptorCount = metadata.descriptorCount,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vk::DescriptorType::eSampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 3,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 4,
-            .descriptorType = vk::DescriptorType::eSampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-    };
+        });
+    }
+
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.capacity()),
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
             .pBindings = layoutBindings.data(),
         });
 
