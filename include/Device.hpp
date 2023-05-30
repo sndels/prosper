@@ -113,6 +113,8 @@ class Device
         vk::ShaderModule module;
         ShaderReflection reflection;
     };
+    // TODO: Should this take in an allocator for the reflection and
+    // not use the interal general one?
     [[nodiscard]] wheels::Optional<ShaderCompileResult> compileShaderModule(
         wheels::ScopedScratch scopeAlloc, const CompileShaderModuleArgs &info);
 
