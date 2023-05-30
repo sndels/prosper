@@ -62,13 +62,10 @@ DeferredShading::DeferredShading(
     assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating DeferredShading\n");
-    const wheels::Optional<ShaderReflection> reflection =
-        compileShaders(scopeAlloc.child_scope(), dsLayouts.world);
-    if (!reflection.has_value())
+    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("DeferredShading shader compilation failed");
 
-    createDescriptorSets(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc, *reflection);
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
 
     const vk::SamplerCreateInfo info{
         .magFilter = vk::Filter::eNearest,
@@ -103,14 +100,14 @@ DeferredShading::~DeferredShading()
 void DeferredShading::recompileShaders(
     wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
-    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world).has_value())
+    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
     {
         destroyPipelines();
         createPipeline(dsLayouts);
     }
 }
 
-Optional<ShaderReflection> DeferredShading::compileShaders(
+bool DeferredShading::compileShaders(
     ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
     printf("Compiling DeferredShading shaders\n");
@@ -147,11 +144,12 @@ Optional<ShaderReflection> DeferredShading::compileShaders(
         assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
 
         _compSM = compResult->module;
+        _shaderReflection = WHEELS_MOV(reflection);
 
-        return WHEELS_MOV(reflection);
+        return true;
     }
 
-    return {};
+    return false;
 }
 
 void DeferredShading::drawUi()
@@ -303,11 +301,11 @@ void DeferredShading::destroyPipelines()
 }
 
 void DeferredShading::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const ShaderReflection &reflection)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
+    assert(_shaderReflection.has_value());
     const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        reflection.generateLayoutBindings(
+        _shaderReflection->generateLayoutBindings(
             scopeAlloc, StorageBindingSet, vk::ShaderStageFlagBits::eCompute);
 
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
@@ -349,42 +347,19 @@ void DeferredShading::updateDescriptorSet(
     };
 
     const vk::DescriptorSet ds = _descriptorSets[nextFrame];
-    StaticArray descriptorWrites{
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &albedoRoughnessInfo,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &normalMetalnessInfo,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 2,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eSampledImage,
-            .pImageInfo = &depthInfo,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 3,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &sceneColorInfo,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 4,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eSampler,
-            .pImageInfo = &depthSamplerInfo,
-        }};
+
+    assert(_shaderReflection.has_value());
+    const StaticArray descriptorWrites =
+        _shaderReflection->generateDescriptorWrites<5>(
+            StorageBindingSet, ds,
+            {
+                Pair{0u, &albedoRoughnessInfo},
+                Pair{1u, &normalMetalnessInfo},
+                Pair{2u, &depthInfo},
+                Pair{3u, &sceneColorInfo},
+                Pair{4u, &depthSamplerInfo},
+            });
+
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);

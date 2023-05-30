@@ -62,7 +62,7 @@ class DeferredShading
         const Input &input, uint32_t nextFrame, Profiler *profiler);
 
   private:
-    [[nodiscard]] wheels::Optional<ShaderReflection> compileShaders(
+    [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
@@ -73,8 +73,7 @@ class DeferredShading
 
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        const ShaderReflection &reflection);
+        DescriptorAllocator *staticDescriptorsAlloc);
     struct BoundImages
     {
         ImageHandle albedoRoughness;
@@ -89,6 +88,7 @@ class DeferredShading
     RenderResources *_resources{nullptr};
 
     vk::ShaderModule _compSM;
+    wheels::Optional<ShaderReflection> _shaderReflection;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
