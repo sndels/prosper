@@ -47,7 +47,7 @@ ToneMap::ToneMap(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("ToneMap shader compilation failed");
 
-    createDescriptorSets(staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createPipelines();
 }
 
@@ -76,7 +76,7 @@ bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling ToneMap shaders\n");
 
-    const Optional<Device::ShaderCompileResult> compResult =
+    Optional<Device::ShaderCompileResult> compResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/tone_map.comp",
@@ -87,10 +87,11 @@ bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
     {
         _device->logical().destroy(_compSM);
 
-        const ShaderReflection &reflection = compResult->reflection;
+        ShaderReflection &reflection = compResult->reflection;
         assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
 
         _compSM = compResult->module;
+        _shaderReflection = WHEELS_MOV(reflection);
 
         return true;
     }
@@ -157,22 +158,14 @@ void ToneMap::destroyPipelines()
     _device->logical().destroy(_pipelineLayout);
 }
 
-void ToneMap::createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc)
+void ToneMap::createDescriptorSets(
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    const StaticArray layoutBindings{
-        vk::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        },
-    };
+    assert(_shaderReflection.has_value());
+    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+        _shaderReflection->generateLayoutBindings(
+            scopeAlloc, 0, vk::ShaderStageFlagBits::eCompute);
+
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
             .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
@@ -198,21 +191,15 @@ void ToneMap::updateDescriptorSet(uint32_t nextFrame, const BoundImages &images)
         .imageLayout = vk::ImageLayout::eGeneral,
     };
 
-    StaticArray descriptorWrites{
-        vk::WriteDescriptorSet{
-            .dstSet = _descriptorSets[nextFrame],
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &colorInfo,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = _descriptorSets[nextFrame],
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &mappedInfo,
-        }};
+    assert(_shaderReflection.has_value());
+    const StaticArray descriptorWrites =
+        _shaderReflection->generateDescriptorWrites<2>(
+            0, _descriptorSets[nextFrame],
+            {
+                Pair{0u, &colorInfo},
+                Pair{1u, &mappedInfo},
+            });
+
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);

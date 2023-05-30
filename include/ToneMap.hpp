@@ -42,7 +42,9 @@ class ToneMap
     void destroyPipelines();
 
     void createOutputImage(const vk::Extent2D &renderExtent);
-    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc);
     void createPipelines();
 
     Output createOutputs(const vk::Extent2D &size);
@@ -60,6 +62,7 @@ class ToneMap
     RenderResources *_resources{nullptr};
 
     vk::ShaderModule _compSM;
+    wheels::Optional<ShaderReflection> _shaderReflection;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
