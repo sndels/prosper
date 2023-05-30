@@ -766,3 +766,29 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
 {
     return _descriptorSetMetadatas;
 }
+
+Array<vk::DescriptorSetLayoutBinding> ShaderReflection::generateLayoutBindings(
+    Allocator &alloc, uint32_t descriptorSet,
+    vk::ShaderStageFlags stageFlags) const
+{
+    const Array<DescriptorSetMetadata> *metadatas =
+        _descriptorSetMetadatas.find(descriptorSet);
+    assert(metadatas != nullptr);
+
+    Array<vk::DescriptorSetLayoutBinding> layoutBindings{
+        alloc, metadatas->size()};
+
+    for (const DescriptorSetMetadata &metadata : *metadatas)
+    {
+        // Assuming not runtime arrays
+        assert(metadata.descriptorCount != 0);
+        layoutBindings.push_back(vk::DescriptorSetLayoutBinding{
+            .binding = metadata.binding,
+            .descriptorType = metadata.descriptorType,
+            .descriptorCount = metadata.descriptorCount,
+            .stageFlags = stageFlags,
+        });
+    }
+
+    return layoutBindings;
+}

@@ -36,6 +36,11 @@ class ShaderReflection
         uint32_t, wheels::Array<DescriptorSetMetadata>> const &
     descriptorSetMetadatas() const;
 
+    [[nodiscard]] wheels::Array<vk::DescriptorSetLayoutBinding>
+    generateLayoutBindings(
+        wheels::Allocator &alloc, uint32_t descriptorSet,
+        vk::ShaderStageFlags stageFlags) const;
+
   private:
     uint32_t _pushConstantsBytesize{0};
     wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>>
