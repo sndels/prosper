@@ -29,10 +29,10 @@ struct SpvConstantU32;
 struct SpvVariable;
 
 // SpvVariable is not a really a type-type, but it is a type of result
-using SpvType = Optional<std::variant<
+using SpvType = std::variant<
     SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampledImage,
     SpvSampler, SpvRuntimeArray, SpvArray, SpvStruct, SpvPointer,
-    SpvAccelerationStructure, SpvConstantU32, SpvVariable>>;
+    SpvAccelerationStructure, SpvConstantU32, SpvVariable>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -134,7 +134,7 @@ struct Decorations
 struct SpvResult
 {
     const char *name{nullptr};
-    SpvType type;
+    Optional<SpvType> type;
     Decorations decorations;
 };
 
@@ -299,7 +299,7 @@ void firstPass(
 
             if (storageClass == spv::StorageClassPushConstant)
             {
-                const SpvType &type = results[typeId].type;
+                const Optional<SpvType> &type = results[typeId].type;
                 // Accessors into PC struct members are also this storage class,
                 // so let's just pick the struct
                 if (type.has_value() &&
@@ -436,7 +436,7 @@ void secondPass(
 // Takes in the member and its decorations from the parent struct
 // Returns the raw size of the member, without padding to alignment
 uint32_t memberBytesize(
-    const SpvType &type, const MemberDecorations &memberDecorations,
+    const Optional<SpvType> &type, const MemberDecorations &memberDecorations,
     const Array<SpvResult> &results)
 {
     assert(
@@ -520,6 +520,151 @@ vk::DescriptorType imageDescriptorType(const SpvImage &image)
     }
 }
 
+Array<DescriptorSetMetadata> &getSetMetadatas(
+    const Decorations &decorations,
+    HashMap<uint32_t, Array<DescriptorSetMetadata>> &metadatas)
+{
+    assert(decorations.descriptorSet != sUninitialized);
+
+    Array<DescriptorSetMetadata> *setMetadatas =
+        metadatas.find(decorations.descriptorSet);
+    assert(setMetadatas != nullptr);
+
+    return *setMetadatas;
+}
+
+const SpvResult &getType(
+    const SpvVariable &variable, const Array<SpvResult> &results)
+{
+    const SpvResult &typePtrResult = results[variable.typeId];
+    assert(typePtrResult.type.has_value());
+    assert(std::holds_alternative<SpvPointer>(*typePtrResult.type));
+    const SpvPointer &typePtr = std::get<SpvPointer>(*typePtrResult.type);
+
+    const SpvResult &typeResult = results[typePtr.typeId];
+    assert(typeResult.type.has_value());
+
+    return typeResult;
+}
+
+void fillMetadata(
+    String &&name, const Decorations &decorations, const SpvVariable &variable,
+    const Array<SpvResult> &results,
+    HashMap<uint32_t, Array<DescriptorSetMetadata>> &metadatas)
+{
+    // TODO: Generalize the common parts, pull out case noise into
+    // helpers
+    bool fill = false;
+
+    vk::DescriptorType descriptorType = vk::DescriptorType::eSampler;
+    uint32_t descriptorCount = 1;
+    switch (variable.storageClass)
+    {
+    case spv::StorageClassStorageBuffer:
+    {
+        fill = true;
+        descriptorType = vk::DescriptorType::eStorageBuffer;
+
+        const SpvResult &typeResult = getType(variable, results);
+        if (std::holds_alternative<SpvRuntimeArray>(*typeResult.type))
+            descriptorCount = 0;
+        else // Struct is the default count 1
+            assert(std::holds_alternative<SpvStruct>(*typeResult.type));
+    }
+    break;
+    case spv::StorageClassUniform:
+    {
+        fill = true;
+        descriptorType = vk::DescriptorType::eUniformBuffer;
+
+        const SpvResult &typeResult = getType(variable, results);
+        assert(std::holds_alternative<SpvStruct>(*typeResult.type));
+    }
+    break;
+    case spv::StorageClassUniformConstant:
+    {
+        fill = true;
+
+        const SpvResult &typeResult = getType(variable, results);
+        if (std::holds_alternative<SpvSampler>(*typeResult.type))
+            descriptorType = vk::DescriptorType::eSampler;
+        else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
+            descriptorType = vk::DescriptorType::eCombinedImageSampler;
+        else if (const SpvImage *image =
+                     std::get_if<SpvImage>(&*typeResult.type);
+                 image != nullptr)
+            descriptorType = imageDescriptorType(*image);
+        else if (const SpvArray *array =
+                     std::get_if<SpvArray>(&*typeResult.type);
+                 array != nullptr)
+        {
+            const SpvResult &typeResult = results[array->elementTypeId];
+            assert(typeResult.type.has_value());
+
+            if (std::holds_alternative<SpvSampler>(*typeResult.type))
+                descriptorType = vk::DescriptorType::eSampler;
+            else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
+                descriptorType = vk::DescriptorType::eCombinedImageSampler;
+            else if (const SpvImage *iimage =
+                         std::get_if<SpvImage>(&*typeResult.type);
+                     iimage != nullptr)
+                descriptorType = imageDescriptorType(*iimage);
+            else
+                assert(!"Unimplemented variant");
+
+            descriptorCount = array->length;
+        }
+        else if (const SpvRuntimeArray *runtimeArray =
+                     std::get_if<SpvRuntimeArray>(&*typeResult.type);
+                 runtimeArray != nullptr)
+        {
+            // TODO: simpler tmp names once this is in a helper and
+            // the parent ifs aren't in scope
+            const SpvResult &typeResult = results[runtimeArray->elementTypeId];
+            assert(typeResult.type.has_value());
+
+            if (std::holds_alternative<SpvSampler>(*typeResult.type))
+                descriptorType = vk::DescriptorType::eSampler;
+            else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
+                descriptorType = vk::DescriptorType::eCombinedImageSampler;
+            else if (const SpvImage *iimage =
+                         std::get_if<SpvImage>(&*typeResult.type);
+                     iimage != nullptr)
+                descriptorType = imageDescriptorType(*iimage);
+            else
+                assert(!"Unimplemented variant");
+
+            descriptorCount = 0;
+        }
+        else if (std::holds_alternative<SpvAccelerationStructure>(
+                     *typeResult.type))
+        {
+            descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
+        }
+        else
+            assert(!"Unimplemented variant");
+    }
+    break;
+    default:
+        break;
+    }
+
+    if (fill)
+    {
+        assert(decorations.binding != sUninitialized);
+
+        Array<DescriptorSetMetadata> &setMetadatas =
+            getSetMetadatas(decorations, metadatas);
+
+        setMetadatas.push_back(DescriptorSetMetadata{
+            .name = WHEELS_MOV(name),
+            .binding = decorations.binding,
+            .descriptorType = descriptorType,
+            .descriptorCount = descriptorCount,
+        });
+    }
+}
+
 HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
     ScopedScratch scopeAlloc, Allocator &alloc, const Array<SpvResult> &results)
 {
@@ -553,237 +698,20 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
     // Fill the metadata
     for (const SpvResult &result : results)
     {
-        if (result.type.has_value())
+        // All descriptor bindings should have a name
+        if (result.name == nullptr)
+            continue;
+
+        // Is this use case why std::get_if takes in a pointer instead of a
+        // reference?
+        const SpvType *typePtr =
+            result.type.has_value() ? &*result.type : nullptr;
+        if (const SpvVariable *variable = std::get_if<SpvVariable>(typePtr);
+            variable != nullptr)
         {
-            if (const SpvVariable *variable =
-                    std::get_if<SpvVariable>(&*result.type);
-                variable != nullptr)
-            {
-                // TODO: Generalize the common parts, pull out case noise into
-                // helpers
-                switch (variable->storageClass)
-                {
-                case spv::StorageClassStorageBuffer:
-                {
-                    const uint32_t descriptorSet =
-                        result.decorations.descriptorSet;
-                    assert(descriptorSet != sUninitialized);
-                    const uint32_t binding = result.decorations.binding;
-                    assert(binding != sUninitialized);
-
-                    Array<DescriptorSetMetadata> *setMetadatas =
-                        ret.find(descriptorSet);
-                    assert(setMetadatas != nullptr);
-
-                    const SpvResult &typePtrResult = results[variable->typeId];
-                    assert(typePtrResult.type.has_value());
-                    assert(std::holds_alternative<SpvPointer>(
-                        *typePtrResult.type));
-                    const SpvPointer &typePtr =
-                        std::get<SpvPointer>(*typePtrResult.type);
-
-                    const SpvResult &typeResult = results[typePtr.typeId];
-                    assert(typeResult.type.has_value());
-
-                    uint32_t descriptorCount = 0;
-                    if (std::holds_alternative<SpvStruct>(*typeResult.type))
-                        descriptorCount = 1;
-                    else // Assert the initialized 0 is correct
-                        assert(std::holds_alternative<SpvRuntimeArray>(
-                            *typeResult.type));
-
-                    setMetadatas->push_back(DescriptorSetMetadata{
-                        .name = String{alloc, result.name},
-                        .binding = binding,
-                        .descriptorType = vk::DescriptorType::eStorageBuffer,
-                        .descriptorCount = descriptorCount,
-                    });
-                }
-                break;
-                case spv::StorageClassUniform:
-                {
-                    const uint32_t descriptorSet =
-                        result.decorations.descriptorSet;
-                    assert(descriptorSet != sUninitialized);
-                    const uint32_t binding = result.decorations.binding;
-                    assert(binding != sUninitialized);
-
-                    Array<DescriptorSetMetadata> *setMetadatas =
-                        ret.find(descriptorSet);
-                    assert(setMetadatas != nullptr);
-
-                    const SpvResult &typePtrResult = results[variable->typeId];
-                    assert(typePtrResult.type.has_value());
-                    assert(std::holds_alternative<SpvPointer>(
-                        *typePtrResult.type));
-                    const SpvPointer &typePtr =
-                        std::get<SpvPointer>(*typePtrResult.type);
-
-                    const SpvResult &typeResult = results[typePtr.typeId];
-                    assert(typeResult.type.has_value());
-                    assert(std::holds_alternative<SpvStruct>(*typeResult.type));
-
-                    setMetadatas->push_back(DescriptorSetMetadata{
-                        .name = String{alloc, result.name},
-                        .binding = binding,
-                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-                        .descriptorCount = 1,
-                    });
-                }
-                break;
-                case spv::StorageClassUniformConstant:
-                {
-                    const uint32_t descriptorSet =
-                        result.decorations.descriptorSet;
-                    assert(descriptorSet != sUninitialized);
-                    const uint32_t binding = result.decorations.binding;
-                    assert(binding != sUninitialized);
-
-                    Array<DescriptorSetMetadata> *setMetadatas =
-                        ret.find(descriptorSet);
-                    assert(setMetadatas != nullptr);
-
-                    const SpvResult &typePtrResult = results[variable->typeId];
-                    assert(typePtrResult.type.has_value());
-                    assert(std::holds_alternative<SpvPointer>(
-                        *typePtrResult.type));
-                    const SpvPointer &typePtr =
-                        std::get<SpvPointer>(*typePtrResult.type);
-                    const SpvResult &typeResult = results[typePtr.typeId];
-                    assert(typeResult.type.has_value());
-
-                    if (const SpvImage *image =
-                            std::get_if<SpvImage>(&*typeResult.type);
-                        image != nullptr)
-                    {
-                        vk::DescriptorType descriptorType =
-                            imageDescriptorType(*image);
-                        setMetadatas->push_back(DescriptorSetMetadata{
-                            .name = String{alloc, result.name},
-                            .binding = binding,
-                            .descriptorType = descriptorType,
-                            .descriptorCount = 1,
-                        });
-                    }
-                    else if (std::holds_alternative<SpvSampler>(
-                                 *typeResult.type))
-                    {
-                        setMetadatas->push_back(DescriptorSetMetadata{
-                            .name = String{alloc, result.name},
-                            .binding = binding,
-                            .descriptorType = vk::DescriptorType::eSampler,
-                            .descriptorCount = 1,
-                        });
-                    }
-                    else if (std::holds_alternative<SpvSampledImage>(
-                                 *typeResult.type))
-                    {
-                        setMetadatas->push_back(DescriptorSetMetadata{
-                            .name = String{alloc, result.name},
-                            .binding = binding,
-                            .descriptorType =
-                                vk::DescriptorType::eCombinedImageSampler,
-                            .descriptorCount = 1,
-                        });
-                    }
-                    else if (const SpvArray *array =
-                                 std::get_if<SpvArray>(&*typeResult.type);
-                             array != nullptr)
-                    {
-                        // TODO: simpler tmp names once this is in a helper and
-                        // the parent ifs aren't in scope
-                        const SpvResult &elementTypeResult =
-                            results[array->elementTypeId];
-                        assert(elementTypeResult.type.has_value());
-
-                        vk::DescriptorType descriptorType{
-                            vk::DescriptorType::eSampler};
-                        if (const SpvImage *iimage =
-                                std::get_if<SpvImage>(&*elementTypeResult.type);
-                            iimage != nullptr)
-                        {
-                            descriptorType = imageDescriptorType(*iimage);
-                        }
-                        else if (std::holds_alternative<SpvSampler>(
-                                     *elementTypeResult.type))
-                        {
-                            descriptorType = vk::DescriptorType::eSampler;
-                        }
-                        else if (std::holds_alternative<SpvSampledImage>(
-                                     *elementTypeResult.type))
-                        {
-                            descriptorType =
-                                vk::DescriptorType::eCombinedImageSampler;
-                        }
-                        else
-                            assert(!"Unimplemented variant");
-
-                        setMetadatas->push_back(DescriptorSetMetadata{
-                            .name = String{alloc, result.name},
-                            .binding = binding,
-                            .descriptorType = descriptorType,
-                            .descriptorCount = array->length,
-                        });
-                    }
-                    else if (const SpvRuntimeArray *runtimeArray =
-                                 std::get_if<SpvRuntimeArray>(
-                                     &*typeResult.type);
-                             runtimeArray != nullptr)
-                    {
-                        // TODO: simpler tmp names once this is in a helper and
-                        // the parent ifs aren't in scope
-                        const SpvResult &elementTypeResult =
-                            results[runtimeArray->elementTypeId];
-                        assert(elementTypeResult.type.has_value());
-
-                        vk::DescriptorType descriptorType{
-                            vk::DescriptorType::eSampler};
-                        if (const SpvImage *iimage =
-                                std::get_if<SpvImage>(&*elementTypeResult.type);
-                            iimage != nullptr)
-                        {
-                            descriptorType = imageDescriptorType(*iimage);
-                        }
-                        else if (std::holds_alternative<SpvSampler>(
-                                     *elementTypeResult.type))
-                        {
-                            descriptorType = vk::DescriptorType::eSampler;
-                        }
-                        else if (std::holds_alternative<SpvSampledImage>(
-                                     *elementTypeResult.type))
-                        {
-                            descriptorType =
-                                vk::DescriptorType::eCombinedImageSampler;
-                        }
-                        else
-                            assert(!"Unimplemented variant");
-
-                        setMetadatas->push_back(DescriptorSetMetadata{
-                            .name = String{alloc, result.name},
-                            .binding = binding,
-                            .descriptorType = descriptorType,
-                            .descriptorCount = 0,
-                        });
-                    }
-                    else if (std::holds_alternative<SpvAccelerationStructure>(
-                                 *typeResult.type))
-                    {
-                        setMetadatas->push_back(DescriptorSetMetadata{
-                            .name = String{alloc, result.name},
-                            .binding = binding,
-                            .descriptorType =
-                                vk::DescriptorType::eAccelerationStructureKHR,
-                            .descriptorCount = 1,
-                        });
-                    }
-                    else
-                        assert(!"Unimplemented variant");
-                }
-                break;
-                default:
-                    break;
-                }
-            }
+            fillMetadata(
+                String{alloc, result.name}, result.decorations, *variable,
+                results, ret);
         }
     }
 
