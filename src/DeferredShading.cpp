@@ -306,24 +306,9 @@ void DeferredShading::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const ShaderReflection &reflection)
 {
-    const Array<DescriptorSetMetadata> *metadatas =
-        reflection.descriptorSetMetadatas().find(StorageBindingSet);
-    assert(metadatas != nullptr);
-
-    Array<vk::DescriptorSetLayoutBinding> layoutBindings{
-        scopeAlloc, metadatas->size()};
-
-    for (const DescriptorSetMetadata &metadata : *metadatas)
-    {
-        // Assuming not runtime arrays
-        assert(metadata.descriptorCount != 0);
-        layoutBindings.push_back(vk::DescriptorSetLayoutBinding{
-            .binding = metadata.binding,
-            .descriptorType = metadata.descriptorType,
-            .descriptorCount = metadata.descriptorCount,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        });
-    }
+    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+        reflection.generateLayoutBindings(
+            scopeAlloc, StorageBindingSet, vk::ShaderStageFlagBits::eCompute);
 
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
