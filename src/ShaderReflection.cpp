@@ -720,6 +720,11 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
 
 } // namespace
 
+ShaderReflection::ShaderReflection(Allocator &alloc)
+: _descriptorSetMetadatas{alloc}
+{
+}
+
 ShaderReflection::ShaderReflection(
     ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords)
 : _descriptorSetMetadatas{alloc}

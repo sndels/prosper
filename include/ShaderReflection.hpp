@@ -21,6 +21,7 @@ struct DescriptorSetMetadata
 class ShaderReflection
 {
   public:
+    ShaderReflection(wheels::Allocator &alloc);
     ShaderReflection(
         wheels::ScopedScratch scopeAlloc, wheels::Allocator &alloc,
         wheels::Span<const uint32_t> spvWords);
