@@ -118,6 +118,12 @@ class Device
     [[nodiscard]] wheels::Optional<ShaderCompileResult> compileShaderModule(
         wheels::ScopedScratch scopeAlloc, const CompileShaderModuleArgs &info);
 
+    // TODO: Should this take in an allocator for the reflection and
+    // not use the interal general one?
+    [[nodiscard]] wheels::Optional<ShaderReflection> reflectShader(
+        wheels::ScopedScratch scopeAlloc, const CompileShaderModuleArgs &info,
+        bool add_dummy_compute_boilerplate);
+
     [[nodiscard]] Buffer create(const BufferCreateInfo &info);
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);
     void destroy(const Buffer &buffer);

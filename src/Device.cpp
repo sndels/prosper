@@ -503,6 +503,69 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     };
 }
 
+wheels::Optional<ShaderReflection> Device::reflectShader(
+    ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info,
+    bool add_dummy_compute_boilerplate)
+{
+    assert(info.relPath.string().starts_with("shader/"));
+    const auto shaderPath = resPath(info.relPath);
+
+    // Prepend version, defines and reset line offset before the actual source
+    const String source = readFileString(scopeAlloc, shaderPath);
+
+    const StaticArray versionLine = "#version 460\n";
+    const StaticArray line1Tag = "#line 1\n";
+
+    const StaticArray computeBoilerplate1 = "#pragma shader_stage(compute)\n";
+    const StaticArray computeBoilerplate2 =
+        R"(
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+}
+)";
+
+    const size_t fullSize =
+        versionLine.size() - 1 + line1Tag.size() - 1 + info.defines.size() +
+        source.size() +
+        (add_dummy_compute_boilerplate
+             ? (computeBoilerplate1.size() + computeBoilerplate2.size() - 2)
+             : 0);
+    String fullSource{scopeAlloc, fullSize};
+    fullSource.extend(versionLine.data());
+    if (add_dummy_compute_boilerplate)
+        fullSource.extend(computeBoilerplate1.data());
+    fullSource.extend(info.defines);
+    fullSource.extend(line1Tag.data());
+    fullSource.extend(source);
+    if (add_dummy_compute_boilerplate)
+        fullSource.extend(computeBoilerplate2.data());
+
+    const auto result = _compiler.CompileGlslToSpv(
+        fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
+        shaderPath.string().c_str(), _compilerOptions);
+
+    if (const auto status = result.GetCompilationStatus(); status)
+    {
+        const auto err = result.GetErrorMessage();
+        if (!err.empty())
+            fprintf(stderr, "%s\n", err.c_str());
+        fprintf(
+            stderr, "Compilation of '%s' failed\n",
+            shaderPath.string().c_str());
+        fprintf(stderr, "%s\n", statusString(status));
+        return {};
+    }
+
+    const Span<const uint32_t> spvWords{
+        result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
+
+    ShaderReflection reflection{
+        scopeAlloc.child_scope(), _generalAlloc, spvWords};
+
+    return WHEELS_MOV(reflection);
+}
+
 Buffer Device::create(const BufferCreateInfo &info)
 {
     return createBuffer(info);
