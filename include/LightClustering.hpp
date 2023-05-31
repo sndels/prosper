@@ -59,7 +59,9 @@ class LightClustering
     void destroyPipeline();
 
     [[nodiscard]] Output createOutputs(const vk::Extent2D &renderExtent);
-    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(uint32_t nextFrame, Output &outputs);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
@@ -69,6 +71,7 @@ class LightClustering
     RenderResources *_resources{nullptr};
 
     vk::ShaderModule _compSM;
+    wheels::Optional<ShaderReflection> _shaderReflection;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>

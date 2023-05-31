@@ -44,7 +44,7 @@ LightClustering::LightClustering(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("LightClustering shader compilation failed");
 
-    createDescriptorSets(staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createPipeline(camDSLayout, worldDSLayouts);
 }
 
@@ -149,7 +149,7 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
     SpotLights::appendShaderDefines(defines);
     appendShaderDefines(defines);
 
-    const Optional<Device::ShaderCompileResult> compResult =
+    Optional<Device::ShaderCompileResult> compResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(),
             Device::CompileShaderModuleArgs{
@@ -162,10 +162,11 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
     {
         _device->logical().destroy(_compSM);
 
-        const ShaderReflection &reflection = compResult->reflection;
+        ShaderReflection &reflection = compResult->reflection;
         assert(sizeof(ClusteringPCBlock) == reflection.pushConstantsBytesize());
 
         _compSM = compResult->module;
+        _shaderReflection = WHEELS_MOV(reflection);
 
         return true;
     }
@@ -264,31 +265,15 @@ LightClustering::Output LightClustering::createOutputs(
 }
 
 void LightClustering::createDescriptorSets(
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    const StaticArray layoutBindings{
-        vk::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eCompute,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eCompute,
-        },
-    };
+    assert(_shaderReflection.has_value());
+    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+        _shaderReflection->generateLayoutBindings(
+            scopeAlloc, sLightClustersBindingSet,
+            vk::ShaderStageFlagBits::eFragment |
+                vk::ShaderStageFlagBits::eCompute);
+
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
             .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
@@ -313,30 +298,23 @@ void LightClustering::updateDescriptorSet(uint32_t nextFrame, Output &output)
     };
 
     const vk::DescriptorSet ds = _descriptorSets[nextFrame];
-    const StaticArray descriptorWrites{
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageImage,
-            .pImageInfo = &pointersInfo,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .pTexelBufferView =
-                &_resources->texelBuffers.resource(output.indicesCount).view,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = ds,
-            .dstBinding = 2,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageTexelBuffer,
-            .pTexelBufferView =
-                &_resources->texelBuffers.resource(output.indices).view,
-        }};
+
+    assert(_shaderReflection.has_value());
+    const StaticArray descriptorWrites =
+        _shaderReflection->generateDescriptorWrites<3>(
+            sLightClustersBindingSet, ds,
+            {
+                Pair{0u, DescriptorInfoPtr{&pointersInfo}},
+                Pair{
+                    1u, DescriptorInfoPtr{&_resources->texelBuffers
+                                               .resource(output.indicesCount)
+                                               .view}},
+                Pair{
+                    2u, DescriptorInfoPtr{&_resources->texelBuffers
+                                               .resource(output.indices)
+                                               .view}},
+            });
+
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
