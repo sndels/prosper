@@ -547,6 +547,22 @@ const SpvResult &getType(
     return typeResult;
 }
 
+vk::DescriptorType intoArrayDescriptorType(const SpvResult &typeResult)
+{
+    assert(typeResult.type.has_value());
+
+    if (std::holds_alternative<SpvSampler>(*typeResult.type))
+        return vk::DescriptorType::eSampler;
+    else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
+        return vk::DescriptorType::eCombinedImageSampler;
+    else if (const SpvImage *iimage = std::get_if<SpvImage>(&*typeResult.type);
+             iimage != nullptr)
+        return imageDescriptorType(*iimage);
+    else
+        assert(!"Unimplemented variant");
+    return vk::DescriptorType::eSampler;
+}
+
 void fillMetadata(
     String &&name, const Decorations &decorations, const SpvVariable &variable,
     const Array<SpvResult> &results,
@@ -598,42 +614,16 @@ void fillMetadata(
                      std::get_if<SpvArray>(&*typeResult.type);
                  array != nullptr)
         {
-            const SpvResult &typeResult = results[array->elementTypeId];
-            assert(typeResult.type.has_value());
-
-            if (std::holds_alternative<SpvSampler>(*typeResult.type))
-                descriptorType = vk::DescriptorType::eSampler;
-            else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
-                descriptorType = vk::DescriptorType::eCombinedImageSampler;
-            else if (const SpvImage *iimage =
-                         std::get_if<SpvImage>(&*typeResult.type);
-                     iimage != nullptr)
-                descriptorType = imageDescriptorType(*iimage);
-            else
-                assert(!"Unimplemented variant");
-
+            descriptorType =
+                intoArrayDescriptorType(results[array->elementTypeId]);
             descriptorCount = array->length;
         }
         else if (const SpvRuntimeArray *runtimeArray =
                      std::get_if<SpvRuntimeArray>(&*typeResult.type);
                  runtimeArray != nullptr)
         {
-            // TODO: simpler tmp names once this is in a helper and
-            // the parent ifs aren't in scope
-            const SpvResult &typeResult = results[runtimeArray->elementTypeId];
-            assert(typeResult.type.has_value());
-
-            if (std::holds_alternative<SpvSampler>(*typeResult.type))
-                descriptorType = vk::DescriptorType::eSampler;
-            else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
-                descriptorType = vk::DescriptorType::eCombinedImageSampler;
-            else if (const SpvImage *iimage =
-                         std::get_if<SpvImage>(&*typeResult.type);
-                     iimage != nullptr)
-                descriptorType = imageDescriptorType(*iimage);
-            else
-                assert(!"Unimplemented variant");
-
+            descriptorType =
+                intoArrayDescriptorType(results[runtimeArray->elementTypeId]);
             descriptorCount = 0;
         }
         else if (std::holds_alternative<SpvAccelerationStructure>(
