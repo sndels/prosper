@@ -59,7 +59,8 @@ class Camera
 {
   public:
     Camera(
-        Device *device, RenderResources *renderResources,
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *renderResources,
         DescriptorAllocator *staticDescriptorsAlloc);
     ~Camera();
 
@@ -95,9 +96,12 @@ class Camera
     void applyOffset();
 
   private:
+    void createBindingsReflection(wheels::ScopedScratch scopeAlloc);
     void createUniformBuffers();
     // Create uniform buffers first
-    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void updateWorldToCamera();
 
@@ -108,6 +112,7 @@ class Camera
     glm::mat4 _cameraToClip{1.f};
     glm::mat4 _clipToWorld{1.f};
 
+    wheels::Optional<ShaderReflection> _bindingsReflection;
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
         _descriptorSets;

@@ -11,8 +11,15 @@
 using namespace glm;
 using namespace wheels;
 
+namespace
+{
+
+const uint32_t sBindingSetIndex = 0;
+
+}
+
 Camera::Camera(
-    Device *device, RenderResources *renderResources,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *renderResources,
     DescriptorAllocator *staticDescriptorsAlloc)
 : _device{device}
 , _renderResources{renderResources}
@@ -23,8 +30,9 @@ Camera::Camera(
 
     printf("Creating Camera\n");
 
+    createBindingsReflection(scopeAlloc.child_scope());
     createUniformBuffers();
-    createDescriptorSets(staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
 }
 
 Camera::~Camera()
@@ -165,6 +173,24 @@ void Camera::applyOffset()
     updateWorldToCamera();
 }
 
+void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
+{
+    String defines{scopeAlloc, 64};
+    appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
+
+    Optional<ShaderReflection> compResult = _device->reflectShader(
+        scopeAlloc.child_scope(),
+        Device::CompileShaderModuleArgs{
+            .relPath = "shader/scene/camera.glsl",
+            .defines = defines,
+        },
+        true);
+    if (!compResult.has_value())
+        throw std::runtime_error("Failed to create camera bindings reflection");
+
+    _bindingsReflection = WHEELS_MOV(*compResult);
+}
+
 void Camera::createUniformBuffers()
 {
     const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
@@ -185,21 +211,22 @@ void Camera::createUniformBuffers()
     }
 }
 
-void Camera::createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc)
+void Camera::createDescriptorSets(
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    const vk::DescriptorSetLayoutBinding layoutBinding{
-        .binding = 0, // binding
-        .descriptorType = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1, // descriptorCount
-        .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                      vk::ShaderStageFlagBits::eFragment |
-                      vk::ShaderStageFlagBits::eCompute |
-                      vk::ShaderStageFlagBits::eRaygenKHR,
-    };
+    assert(_bindingsReflection.has_value());
+    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+        _bindingsReflection->generateLayoutBindings(
+            scopeAlloc, 0,
+            vk::ShaderStageFlagBits::eVertex |
+                vk::ShaderStageFlagBits::eFragment |
+                vk::ShaderStageFlagBits::eCompute |
+                vk::ShaderStageFlagBits::eRaygenKHR);
+
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = 1,
-            .pBindings = &layoutBinding,
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+            .pBindings = layoutBindings.data(),
         });
 
     StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts;
@@ -207,17 +234,20 @@ void Camera::createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc)
     _descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 
-    const auto infos = bufferInfos();
-    for (size_t i = 0; i < _descriptorSets.size(); ++i)
+    const StaticArray<vk::DescriptorBufferInfo, 2> infos = bufferInfos();
+    assert(infos.size() == _descriptorSets.size());
+    for (uint32_t i = 0; i < _descriptorSets.size(); ++i)
     {
-        const vk::WriteDescriptorSet descriptorWrite{
-            .dstSet = _descriptorSets[i],
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eUniformBuffer,
-            .pBufferInfo = &infos[i],
-        };
+        const StaticArray descriptorWrites =
+            _bindingsReflection->generateDescriptorWrites<1>(
+                sBindingSetIndex, _descriptorSets[i],
+                StaticArray{{
+                    Pair{0u, DescriptorInfoPtr{&infos[i]}},
+                }});
+
         _device->logical().updateDescriptorSets(
-            1, &descriptorWrite, 0, nullptr);
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 }
 
