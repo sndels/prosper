@@ -22,7 +22,8 @@ struct DescriptorSetMetadata
 };
 
 using DescriptorInfoPtr = std::variant<
-    const vk::DescriptorImageInfo *, const vk::DescriptorBufferInfo *>;
+    const vk::DescriptorImageInfo *, const vk::DescriptorBufferInfo *,
+    const vk::BufferView *>;
 
 class ShaderReflection
 {
@@ -83,6 +84,8 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
             std::get_if<const vk::DescriptorImageInfo *>(&descriptorInfoPtr);
         const vk::DescriptorBufferInfo *const *ppBufferInfo =
             std::get_if<const vk::DescriptorBufferInfo *>(&descriptorInfoPtr);
+        const vk::BufferView *const *ppTexelBufferView =
+            std::get_if<const vk::BufferView *>(&descriptorInfoPtr);
 
         bool found = false;
         for (const DescriptorSetMetadata &metadata : *metadatas)
@@ -99,6 +102,9 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
                         ppImageInfo == nullptr ? nullptr : *ppImageInfo,
                     .pBufferInfo =
                         ppBufferInfo == nullptr ? nullptr : *ppBufferInfo,
+                    .pTexelBufferView = ppTexelBufferView == nullptr
+                                            ? nullptr
+                                            : *ppTexelBufferView,
                 });
             }
         }
