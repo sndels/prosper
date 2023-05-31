@@ -10,6 +10,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <variant>
+
 struct DescriptorSetMetadata
 {
     wheels::String name;
@@ -18,6 +20,9 @@ struct DescriptorSetMetadata
     // 0 signals a runtime array
     uint32_t descriptorCount{0xFFFFFFFF};
 };
+
+using DescriptorInfoPtr = std::variant<
+    const vk::DescriptorImageInfo *, const vk::DescriptorBufferInfo *>;
 
 class ShaderReflection
 {
@@ -48,9 +53,8 @@ class ShaderReflection
     [[nodiscard]] wheels::StaticArray<vk::WriteDescriptorSet, N>
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        wheels::StaticArray<
-            wheels::Pair<uint32_t, const vk::DescriptorImageInfo *>, N>
-            bindingImageInfos) const;
+        wheels::StaticArray<wheels::Pair<uint32_t, DescriptorInfoPtr>, N>
+            bindingInfos) const;
 
   private:
     uint32_t _pushConstantsBytesize{0};
@@ -62,19 +66,23 @@ template <size_t N>
 wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        wheels::StaticArray<
-            wheels::Pair<uint32_t, const vk::DescriptorImageInfo *>, N>
-            bindingImageInfos) const
+        wheels::StaticArray<wheels::Pair<uint32_t, DescriptorInfoPtr>, N>
+            bindingInfos) const
 {
     const wheels::Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSetIndex);
     assert(metadatas != nullptr);
 
     wheels::StaticArray<vk::WriteDescriptorSet, N> descriptorWrites;
-    for (const auto &bindingInfo : bindingImageInfos)
+    for (const auto &bindingInfo : bindingInfos)
     {
-        uint32_t binding = bindingInfo.first;
-        const vk::DescriptorImageInfo *pImageInfo = bindingInfo.second;
+        const uint32_t binding = bindingInfo.first;
+        const DescriptorInfoPtr descriptorInfoPtr = bindingInfo.second;
+
+        const vk::DescriptorImageInfo *const *ppImageInfo =
+            std::get_if<const vk::DescriptorImageInfo *>(&descriptorInfoPtr);
+        const vk::DescriptorBufferInfo *const *ppBufferInfo =
+            std::get_if<const vk::DescriptorBufferInfo *>(&descriptorInfoPtr);
 
         bool found = false;
         for (const DescriptorSetMetadata &metadata : *metadatas)
@@ -87,7 +95,10 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
                     .dstBinding = binding,
                     .descriptorCount = 1,
                     .descriptorType = metadata.descriptorType,
-                    .pImageInfo = pImageInfo,
+                    .pImageInfo =
+                        ppImageInfo == nullptr ? nullptr : *ppImageInfo,
+                    .pBufferInfo =
+                        ppBufferInfo == nullptr ? nullptr : *ppBufferInfo,
                 });
             }
         }

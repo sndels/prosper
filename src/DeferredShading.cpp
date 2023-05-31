@@ -353,11 +353,11 @@ void DeferredShading::updateDescriptorSet(
         _shaderReflection->generateDescriptorWrites<5>(
             StorageBindingSet, ds,
             {
-                Pair{0u, &albedoRoughnessInfo},
-                Pair{1u, &normalMetalnessInfo},
-                Pair{2u, &depthInfo},
-                Pair{3u, &sceneColorInfo},
-                Pair{4u, &depthSamplerInfo},
+                Pair{0u, DescriptorInfoPtr{&albedoRoughnessInfo}},
+                Pair{1u, DescriptorInfoPtr{&normalMetalnessInfo}},
+                Pair{2u, DescriptorInfoPtr{&depthInfo}},
+                Pair{3u, DescriptorInfoPtr{&sceneColorInfo}},
+                Pair{4u, DescriptorInfoPtr{&depthSamplerInfo}},
             });
 
     _device->logical().updateDescriptorSets(
