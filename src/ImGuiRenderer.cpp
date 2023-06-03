@@ -117,8 +117,6 @@ void ImGuiRenderer::endFrame(
     ImDrawData *drawData = ImGui::GetDrawData();
 
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
-
         _resources->finalComposite.transition(
             cb,
             ImageState{
@@ -126,6 +124,8 @@ void ImGuiRenderer::endFrame(
                 .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
                 .layout = vk::ImageLayout::eColorAttachmentOptimal,
             });
+
+        const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
 
         cb.beginRenderPass(
             vk::RenderPassBeginInfo{

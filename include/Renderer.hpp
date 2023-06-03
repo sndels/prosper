@@ -76,7 +76,8 @@ class Renderer
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         uint32_t nextFrame, const RecordInOut &inOutTargets,
-        const LightClustering::Output &lightClusters, bool transparents);
+        const LightClustering::Output &lightClusters, bool transparents,
+        Profiler *profiler, const char *debugName);
     void recordBarriers(
         vk::CommandBuffer cb, const RecordInOut &inOutTargets,
         const LightClustering::Output &lightClusters) const;

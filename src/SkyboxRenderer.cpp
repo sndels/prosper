@@ -79,13 +79,13 @@ void SkyboxRenderer::record(
     assert(profiler != nullptr);
 
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
-
         const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
         recordBarriers(cb, inOutTargets);
 
         const Attachments attachments = createAttachments(inOutTargets);
+
+        const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

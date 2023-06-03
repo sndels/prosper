@@ -113,22 +113,18 @@ Renderer::OpaqueOutput Renderer::recordOpaque(
     uint32_t nextFrame, Profiler *profiler)
 {
     OpaqueOutput ret;
-    {
-        const auto _s = profiler->createCpuGpuScope(cb, "OpaqueGeometry");
+    ret.illumination =
+        createIllumination(*_resources, renderArea.extent, "illumination");
+    ret.depth = createDepth(*_device, *_resources, renderArea.extent, "depth");
 
-        ret.illumination =
-            createIllumination(*_resources, renderArea.extent, "illumination");
-        ret.depth =
-            createDepth(*_device, *_resources, renderArea.extent, "depth");
+    record(
+        cb, world, cam, nextFrame,
+        RecordInOut{
+            .illumination = ret.illumination,
+            .depth = ret.depth,
+        },
+        lightClusters, false, profiler, "OpaqueGeometry");
 
-        record(
-            cb, world, cam, nextFrame,
-            RecordInOut{
-                .illumination = ret.illumination,
-                .depth = ret.depth,
-            },
-            lightClusters, false);
-    }
     return ret;
 }
 
@@ -138,9 +134,9 @@ void Renderer::recordTransparent(
     const LightClustering::Output &lightClusters, uint32_t nextFrame,
     Profiler *profiler)
 {
-    const auto _s = profiler->createCpuGpuScope(cb, "TransparentGeometry");
-
-    record(cb, world, cam, nextFrame, inOutTargets, lightClusters, true);
+    record(
+        cb, world, cam, nextFrame, inOutTargets, lightClusters, true, profiler,
+        "TransparentGeometry");
 }
 
 bool Renderer::compileShaders(
@@ -385,7 +381,8 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 void Renderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClustering::Output &lightClusters, bool transparents)
+    const LightClustering::Output &lightClusters, bool transparents,
+    Profiler *profiler, const char *debugName)
 {
     const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
@@ -395,6 +392,8 @@ void Renderer::record(
 
     const Attachments attachments =
         createAttachments(inOutTargets, transparents);
+
+    const auto _s = profiler->createCpuGpuScope(cb, debugName);
 
     cb.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,

@@ -209,6 +209,10 @@ class Profiler
 
     // Scopes can be created between the startFrame and endFrame -calls
     [[nodiscard]] Scope createCpuScope(const char *name);
+
+    // GPU scopes shouldn't contain barriers because it might produce weird
+    // results when they block the current scope on work that belongs to the
+    // previous one.
     [[nodiscard]] Scope createCpuGpuScope(
         vk::CommandBuffer cb, const char *name);
 

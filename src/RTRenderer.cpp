@@ -156,8 +156,6 @@ RTRenderer::Output RTRenderer::record(
 
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "RT");
-
         ret.illumination =
             createIllumination(*_resources, renderArea.extent, "illumination");
 
@@ -177,6 +175,8 @@ RTRenderer::Output RTRenderer::record(
                               vk::AccessFlagBits2::eShaderStorageRead,
                 .layout = vk::ImageLayout::eGeneral,
             });
+
+        const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
 

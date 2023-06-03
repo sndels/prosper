@@ -842,8 +842,6 @@ vk::CommandBuffer App::render(
 
 void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
 {
-    const auto _s = _profiler->createCpuGpuScope(cb, "BlitToneMapped");
-
     // Blit tonemapped into cleared final composite before drawing ui on top
     {
         const StaticArray barriers{{
@@ -866,6 +864,10 @@ void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
             .pImageMemoryBarriers = barriers.data(),
         });
     }
+
+    // This scope has a barrier, but that's intentional as it should contain
+    // both the clear and the blit
+    const auto _s = _profiler->createCpuGpuScope(cb, "BlitToneMapped");
 
     const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
     const vk::ImageSubresourceRange subresourceRange{
@@ -941,69 +943,64 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
 
     const auto &swapImage = _swapchain->image(nextImage);
 
+    const StaticArray barriers{{
+        _resources->finalComposite.transitionBarrier(ImageState{
+            .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .accessMask = vk::AccessFlagBits2::eTransferRead,
+            .layout = vk::ImageLayout::eTransferSrcOptimal,
+        }),
+        vk::ImageMemoryBarrier2{
+            .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
+            .srcAccessMask = vk::AccessFlags2{},
+            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .oldLayout = vk::ImageLayout::eUndefined,
+            .newLayout = vk::ImageLayout::eTransferDstOptimal,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = swapImage.handle,
+            .subresourceRange = swapImage.subresourceRange,
+        },
+    }};
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+        .pImageMemoryBarriers = barriers.data(),
+    });
+
     {
         const auto _s = _profiler->createCpuGpuScope(cb, "BlitFinalComposite");
 
-        const StaticArray barriers{{
-            _resources->finalComposite.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .accessMask = vk::AccessFlagBits2::eTransferRead,
-                .layout = vk::ImageLayout::eTransferSrcOptimal,
-            }),
-            vk::ImageMemoryBarrier2{
-                .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
-                .srcAccessMask = vk::AccessFlags2{},
-                .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
-                .oldLayout = vk::ImageLayout::eUndefined,
-                .newLayout = vk::ImageLayout::eTransferDstOptimal,
-                .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                .image = swapImage.handle,
-                .subresourceRange = swapImage.subresourceRange,
+        const vk::ImageSubresourceLayers layers{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+
+        assert(
+            _resources->finalComposite.extent.width == swapImage.extent.width);
+        assert(
+            _resources->finalComposite.extent.height ==
+            swapImage.extent.height);
+        const std::array offsets{
+            vk::Offset3D{0, 0, 0},
+            vk::Offset3D{
+                asserted_cast<int32_t>(_swapchain->config().extent.width),
+                asserted_cast<int32_t>(_swapchain->config().extent.height),
+                1,
             },
-        }};
-
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-            .pImageMemoryBarriers = barriers.data(),
-        });
-
-        {
-            const vk::ImageSubresourceLayers layers{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .mipLevel = 0,
-                .baseArrayLayer = 0,
-                .layerCount = 1};
-
-            assert(
-                _resources->finalComposite.extent.width ==
-                swapImage.extent.width);
-            assert(
-                _resources->finalComposite.extent.height ==
-                swapImage.extent.height);
-            const std::array offsets{
-                vk::Offset3D{0, 0, 0},
-                vk::Offset3D{
-                    asserted_cast<int32_t>(_swapchain->config().extent.width),
-                    asserted_cast<int32_t>(_swapchain->config().extent.height),
-                    1,
-                },
-            };
-            const auto blit = vk::ImageBlit{
-                .srcSubresource = layers,
-                .srcOffsets = offsets,
-                .dstSubresource = layers,
-                .dstOffsets = offsets,
-            };
-            cb.blitImage(
-                _resources->finalComposite.handle,
-                vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
-                vk::ImageLayout::eTransferDstOptimal, 1, &blit,
-                vk::Filter::eLinear);
-        }
-        // Profiler scope ends here because we need the barrier to happen after
-        // it for the timestamps to make sense
+        };
+        const auto blit = vk::ImageBlit{
+            .srcSubresource = layers,
+            .srcOffsets = offsets,
+            .dstSubresource = layers,
+            .dstOffsets = offsets,
+        };
+        cb.blitImage(
+            _resources->finalComposite.handle,
+            vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
+            vk::ImageLayout::eTransferDstOptimal, 1, &blit,
+            vk::Filter::eLinear);
     }
 
     {

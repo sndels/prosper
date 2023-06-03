@@ -112,8 +112,6 @@ ToneMap::Output ToneMap::record(
 
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
-
         const vk::Extent2D renderExtent = getRenderExtent(*_resources, inColor);
 
         ret = createOutputs(renderExtent);
@@ -129,6 +127,8 @@ ToneMap::Output ToneMap::record(
                     .inColor = inColor,
                     .toneMapped = ret.toneMapped,
                 });
+
+        const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 

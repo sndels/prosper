@@ -175,8 +175,6 @@ DeferredShading::Output DeferredShading::record(
 
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
-
         const vk::Extent2D renderExtent =
             getRenderExtent(*_resources, input.gbuffer);
 
@@ -192,6 +190,8 @@ DeferredShading::Output DeferredShading::record(
                        });
 
         recordBarriers(cb, input, ret);
+
+        const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 

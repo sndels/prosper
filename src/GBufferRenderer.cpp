@@ -86,13 +86,13 @@ GBufferRenderer::Output GBufferRenderer::record(
 
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "GBuffer");
-
         ret = createOutputs(renderArea.extent);
 
         recordBarriers(cb, ret);
 
         const Attachments attachments = createAttachments(ret);
+
+        const auto _s = profiler->createCpuGpuScope(cb, "GBuffer");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
