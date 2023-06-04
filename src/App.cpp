@@ -896,10 +896,17 @@ void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
         _resources->finalComposite.handle, vk::ImageLayout::eTransferDstOptimal,
         &clearColor, 1, &subresourceRange);
 
+    // Memory barrier for finalComposite, layout is already correct
     cb.pipelineBarrier(
         vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{}, {}, {},
-        {});
+        vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{},
+        {
+            vk::MemoryBarrier{
+                .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
+                .dstAccessMask = vk::AccessFlagBits::eTransferWrite,
+            },
+        },
+        {}, {});
 
     const vk::ImageSubresourceLayers layers{
         .aspectMask = vk::ImageAspectFlagBits::eColor,
