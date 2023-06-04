@@ -491,13 +491,13 @@ void Renderer::recordBarriers(
         _resources->texelBuffers.transitionBarrier(
             lightClusters.indicesCount,
             BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
             }),
         _resources->texelBuffers.transitionBarrier(
             lightClusters.indices,
             BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
+                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,
             }),
     };
