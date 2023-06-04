@@ -208,7 +208,7 @@ bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
         .pSwapchains = &_swapchain,
         .pImageIndices = &_nextImage,
     };
-    const vk::Result result = _device->presentQueue().presentKHR(&presentInfo);
+    const vk::Result result = _device->graphicsQueue().presentKHR(&presentInfo);
 
     // Swapchain should be recreated if out of date or suboptimal
     const bool good_swap = [&]
@@ -250,28 +250,6 @@ void Swapchain::destroy()
 
 void Swapchain::createSwapchain()
 {
-    const QueueFamilies indices = _device->queueFamilies();
-    const StaticArray queueFamilyIndices = {
-        *indices.graphicsFamily,
-        *indices.presentFamily,
-    };
-
-    // Handle ownership of images
-    const auto [imageSharingMode, queueFamilyIndexCount, pQueueFamilyIndices] =
-        [&]
-    {
-        if (indices.graphicsFamily != indices.presentFamily)
-        {
-            // Pick concurrent to skip in-depth ownership jazz for now
-            return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
-                vk::SharingMode::eConcurrent,
-                asserted_cast<uint32_t>(queueFamilyIndices.size()),
-                queueFamilyIndices.data());
-        }
-        return std::tuple<vk::SharingMode, uint32_t, const uint32_t *>(
-            vk::SharingMode::eExclusive, 0, nullptr);
-    }();
-
     _swapchain =
         _device->logical().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
             .surface = _device->surface(),
@@ -281,9 +259,7 @@ void Swapchain::createSwapchain()
             .imageExtent = _config.extent,
             .imageArrayLayers = 1,
             .imageUsage = vk::ImageUsageFlagBits::eTransferDst,
-            .imageSharingMode = imageSharingMode,
-            .queueFamilyIndexCount = queueFamilyIndexCount,
-            .pQueueFamilyIndices = pQueueFamilyIndices,
+            .imageSharingMode = vk::SharingMode::eExclusive,
             .preTransform = _config.transform,
             .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
             .presentMode = _config.presentMode,

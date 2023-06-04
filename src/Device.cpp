@@ -74,9 +74,12 @@ QueueFamilies findQueueFamilies(
 
             // Set index to matching families
             if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
+            {
                 families.graphicsFamily = i;
-            if (presentSupport == VK_TRUE)
-                families.presentFamily = i;
+                assert(
+                    presentSupport &&
+                    "We expect to present from the graphics queue");
+            }
         }
 
         if (families.isComplete())
@@ -86,10 +89,6 @@ QueueFamilies findQueueFamilies(
     assert(
         (!families.graphicsFamily.has_value() ||
          (allFamilies[*families.graphicsFamily].timestampValidBits == 64)) &&
-        "All bits assumed to be valid for simplicity in profiler");
-    assert(
-        (!families.presentFamily.has_value() ||
-         (allFamilies[*families.presentFamily].timestampValidBits == 64)) &&
         "All bits assumed to be valid for simplicity in profiler");
 
     return families;
@@ -412,8 +411,6 @@ vk::SurfaceKHR Device::surface() const { return _surface; }
 vk::CommandPool Device::graphicsPool() const { return _graphicsPool; }
 
 vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
-
-vk::Queue Device::presentQueue() const { return _presentQueue; }
 
 const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 
@@ -1021,10 +1018,8 @@ void Device::createLogicalDevice(
     ScopedScratch scopeAlloc, bool enableDebugLayers)
 {
     assert(_queueFamilies.graphicsFamily.has_value());
-    assert(_queueFamilies.presentFamily.has_value());
 
     const uint32_t graphicsFamily = *_queueFamilies.graphicsFamily;
-    const uint32_t presentFamily = *_queueFamilies.presentFamily;
 
     // Config queues, concat duplicate families
     const float queuePriority = 1;
@@ -1032,7 +1027,6 @@ void Device::createLogicalDevice(
     {
         HashSet<uint32_t> uniqueQueueFamilies{scopeAlloc, 4};
         uniqueQueueFamilies.insert(graphicsFamily);
-        uniqueQueueFamilies.insert(presentFamily);
 
         Array<vk::DeviceQueueCreateInfo> cis{
             scopeAlloc, uniqueQueueFamilies.size()};
@@ -1074,9 +1068,7 @@ void Device::createLogicalDevice(
 
     _logical = _physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
 
-    // Get the created queues
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
-    _presentQueue = _logical.getQueue(presentFamily, 0);
 }
 
 void Device::createAllocator()

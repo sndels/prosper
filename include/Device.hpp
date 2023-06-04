@@ -18,12 +18,8 @@
 struct QueueFamilies
 {
     wheels::Optional<uint32_t> graphicsFamily;
-    wheels::Optional<uint32_t> presentFamily;
 
-    [[nodiscard]] bool isComplete() const
-    {
-        return graphicsFamily.has_value() && presentFamily.has_value();
-    }
+    [[nodiscard]] bool isComplete() const { return graphicsFamily.has_value(); }
 };
 
 struct DeviceProperties
@@ -92,7 +88,6 @@ class Device
     [[nodiscard]] vk::SurfaceKHR surface() const;
     [[nodiscard]] vk::CommandPool graphicsPool() const;
     [[nodiscard]] vk::Queue graphicsQueue() const;
-    [[nodiscard]] vk::Queue presentQueue() const;
     [[nodiscard]] const QueueFamilies &queueFamilies() const;
     [[nodiscard]] const DeviceProperties &properties() const;
 
@@ -183,7 +178,6 @@ class Device
 
     QueueFamilies _queueFamilies;
     vk::Queue _graphicsQueue;
-    vk::Queue _presentQueue;
 
     vk::CommandPool _graphicsPool;
 
