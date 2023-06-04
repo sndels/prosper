@@ -64,11 +64,6 @@ class World
     wheels::HashMap<Scene::Node *, CameraParameters> _cameras{_generalAlloc};
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
-    struct Texture2DSampler
-    {
-        uint32_t texture{0};
-        uint32_t sampler{0};
-    };
     wheels::Array<Texture2DSampler> _texture2DSamplers{_generalAlloc};
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
     Buffer _meshBuffersBuffer;

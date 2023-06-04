@@ -339,10 +339,7 @@ void World::loadTextures(
 
     {
         _texture2Ds.emplace_back(_device, resPath("texture/empty.png"), false);
-        _texture2DSamplers.push_back(Texture2DSampler{
-            .texture = 0,
-            .sampler = 0,
-        });
+        _texture2DSamplers.emplace_back();
     }
 
     assert(
@@ -350,13 +347,12 @@ void World::loadTextures(
         "Too many textures to pack in u32 texture index");
     if (deferredLoading)
     {
+        // Fill with defaults, correct ones will be filled in when the textures
+        // are loaded in
         for (const auto &texture : gltfModel.textures)
         {
             (void)texture;
-            _texture2DSamplers.push_back(Texture2DSampler{
-                .texture = 0,
-                .sampler = 0,
-            });
+            _texture2DSamplers.emplace_back();
         }
     }
     else
@@ -371,10 +367,9 @@ void World::loadTextures(
         }
 
         for (const auto &texture : gltfModel.textures)
-            _texture2DSamplers.push_back(Texture2DSampler{
-                .texture = asserted_cast<uint32_t>(texture.source + 1),
-                .sampler = asserted_cast<uint32_t>(texture.sampler + 1),
-            });
+            _texture2DSamplers.emplace_back(
+                asserted_cast<uint32_t>(texture.source + 1),
+                asserted_cast<uint32_t>(texture.sampler + 1));
     }
 }
 
@@ -389,9 +384,7 @@ void World::loadMaterials(
         if (const auto &elem = material.values.find("baseColorTexture");
             elem != material.values.end())
         {
-            const auto &tex =
-                _texture2DSamplers[elem->second.TextureIndex() + 1];
-            mat.baseColor = (tex.sampler << 24) | tex.texture;
+            mat.baseColor = _texture2DSamplers[elem->second.TextureIndex() + 1];
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Base color TexCoord isn't 0\n",
@@ -400,9 +393,8 @@ void World::loadMaterials(
         if (const auto &elem = material.values.find("metallicRoughnessTexture");
             elem != material.values.end())
         {
-            const auto &tex =
+            mat.metallicRoughness =
                 _texture2DSamplers[elem->second.TextureIndex() + 1];
-            mat.metallicRoughness = (tex.sampler << 24) | tex.texture;
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Metallic roughness TexCoord isn't 0\n",
@@ -411,9 +403,7 @@ void World::loadMaterials(
         if (const auto &elem = material.additionalValues.find("normalTexture");
             elem != material.additionalValues.end())
         {
-            const auto &tex =
-                _texture2DSamplers[elem->second.TextureIndex() + 1];
-            mat.normal = (tex.sampler << 24) | tex.texture;
+            mat.normal = _texture2DSamplers[elem->second.TextureIndex() + 1];
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Normal TexCoord isn't 0\n",
