@@ -176,10 +176,17 @@ World::World(
         printf("%s took %.2fs\n", stage, t.getSeconds());
     };
 
-    tl("Texture loading", [&]()
-       { loadTextures(scopeAlloc.child_scope(), gltfModel, deferredLoading); });
+    Array<Texture2DSampler> texture2DSamplers{
+        _generalAlloc, gltfModel.textures.size() + 1};
+    tl("Texture loading",
+       [&]()
+       {
+           loadTextures(
+               scopeAlloc.child_scope(), gltfModel, texture2DSamplers,
+               deferredLoading);
+       });
     tl("Material loading",
-       [&]() { loadMaterials(gltfModel, deferredLoading); });
+       [&]() { loadMaterials(gltfModel, texture2DSamplers, deferredLoading); });
     tl("Model loading ", [&]() { loadModels(gltfModel); });
     tl("Scene loading ",
        [&]() { loadScenes(scopeAlloc.child_scope(), gltfModel); });
@@ -300,7 +307,7 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
 
 void World::loadTextures(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-    bool deferredLoading)
+    Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading)
 {
     {
         const vk::SamplerCreateInfo info{
@@ -339,7 +346,7 @@ void World::loadTextures(
 
     {
         _texture2Ds.emplace_back(_device, resPath("texture/empty.png"), false);
-        _texture2DSamplers.emplace_back();
+        texture2DSamplers.emplace_back();
     }
 
     assert(
@@ -352,7 +359,7 @@ void World::loadTextures(
         for (const auto &texture : gltfModel.textures)
         {
             (void)texture;
-            _texture2DSamplers.emplace_back();
+            texture2DSamplers.emplace_back();
         }
     }
     else
@@ -367,14 +374,15 @@ void World::loadTextures(
         }
 
         for (const auto &texture : gltfModel.textures)
-            _texture2DSamplers.emplace_back(
+            texture2DSamplers.emplace_back(
                 asserted_cast<uint32_t>(texture.source + 1),
                 asserted_cast<uint32_t>(texture.sampler + 1));
     }
 }
 
 void World::loadMaterials(
-    const tinygltf::Model &gltfModel, bool deferredLoading)
+    const tinygltf::Model &gltfModel,
+    const Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading)
 {
     _materials.push_back(Material{});
 
@@ -384,7 +392,7 @@ void World::loadMaterials(
         if (const auto &elem = material.values.find("baseColorTexture");
             elem != material.values.end())
         {
-            mat.baseColor = _texture2DSamplers[elem->second.TextureIndex() + 1];
+            mat.baseColor = texture2DSamplers[elem->second.TextureIndex() + 1];
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Base color TexCoord isn't 0\n",
@@ -394,7 +402,7 @@ void World::loadMaterials(
             elem != material.values.end())
         {
             mat.metallicRoughness =
-                _texture2DSamplers[elem->second.TextureIndex() + 1];
+                texture2DSamplers[elem->second.TextureIndex() + 1];
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Metallic roughness TexCoord isn't 0\n",
@@ -403,7 +411,7 @@ void World::loadMaterials(
         if (const auto &elem = material.additionalValues.find("normalTexture");
             elem != material.additionalValues.end())
         {
-            mat.normal = _texture2DSamplers[elem->second.TextureIndex() + 1];
+            mat.normal = texture2DSamplers[elem->second.TextureIndex() + 1];
             if (elem->second.TextureTexCoord() != 0)
                 fprintf(
                     stderr, "%s: Normal TexCoord isn't 0\n",

@@ -64,7 +64,6 @@ class World
     wheels::HashMap<Scene::Node *, CameraParameters> _cameras{_generalAlloc};
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
-    wheels::Array<Texture2DSampler> _texture2DSamplers{_generalAlloc};
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
     Buffer _meshBuffersBuffer;
     wheels::Array<Material> _materials{_generalAlloc};
@@ -90,8 +89,12 @@ class World
   private:
     void loadTextures(
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        wheels::Array<Texture2DSampler> &texture2DSamplers,
         bool deferredLoading);
-    void loadMaterials(const tinygltf::Model &gltfModel, bool deferredLoading);
+    void loadMaterials(
+        const tinygltf::Model &gltfModel,
+        const wheels::Array<Texture2DSampler> &texture2DSamplers,
+        bool deferredLoading);
     void loadModels(const tinygltf::Model &gltfModel);
     void loadScenes(
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
