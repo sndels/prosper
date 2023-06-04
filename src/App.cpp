@@ -50,10 +50,25 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 App::App(ScopedScratch scopeAlloc, const Settings &settings)
 {
-    _window = std::make_unique<Window>(
-        Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper");
-    _device = std::make_unique<Device>(
-        scopeAlloc.child_scope(), _window->ptr(), settings.device);
+    const auto &tl = [](const char *stage, std::function<void()> const &fn)
+    {
+        Timer t;
+        fn();
+        printf("%s took %.2fs\n", stage, t.getSeconds());
+    };
+
+    tl("Window creation",
+       [&]
+       {
+           _window = std::make_unique<Window>(
+               Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper");
+       });
+    tl("Device creation",
+       [&]
+       {
+           _device = std::make_unique<Device>(
+               scopeAlloc.child_scope(), _window->ptr(), settings.device);
+       });
 
     _staticDescriptorsAlloc =
         std::make_unique<DescriptorAllocator>(_generalAlloc, _device.get());
