@@ -468,7 +468,15 @@ void World::loadMaterials(
         }
 
         if (deferredLoading)
-            _materials.push_back(Material{});
+        {
+            assert(_deferredLoadingContext.has_value());
+            // Copy the alpha mode of the real material because that's used to
+            // set opaque flag in rt
+            _materials.push_back(Material{
+                .alphaMode = mat.alphaMode,
+            });
+            _deferredLoadingContext->materials.push_back(mat);
+        }
         else
             _materials.push_back(mat);
     }
