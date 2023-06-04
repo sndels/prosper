@@ -37,12 +37,17 @@ class Texture
 class Texture2D : public Texture
 {
   public:
+    // The image is ready and stagingBuffer can be freed once cb is submitted
+    // and has finished executing.
     Texture2D(
-        Device *device, const std::filesystem::path &path,
+        Device *device, const std::filesystem::path &path, vk::CommandBuffer cb,
         const Buffer &stagingBuffer, bool mipmap);
+    // The image is ready and stagingBuffer can be freed once cb is submitted
+    // and has finished executing.
     Texture2D(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        const tinygltf::Image &image, const Buffer &stagingBuffer, bool mipmap);
+        const tinygltf::Image &image, vk::CommandBuffer cb,
+        const Buffer &stagingBuffer, bool mipmap);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
@@ -50,8 +55,11 @@ class Texture2D : public Texture
     void stagePixels(
         const Buffer &stagingBuffer, const uint8_t *pixels,
         const vk::Extent2D &extent) const;
-    void createImage(const Buffer &stagingBuffer, const ImageCreateInfo &info);
-    void createMipmaps(const vk::Extent2D &extent, uint32_t mipLevels);
+    void createImage(
+        vk::CommandBuffer cb, const Buffer &stagingBuffer,
+        const ImageCreateInfo &info);
+    void createMipmaps(
+        vk::CommandBuffer cb, const vk::Extent2D &extent, uint32_t mipLevels);
 };
 
 class TextureCubemap : public Texture

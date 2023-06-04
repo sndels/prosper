@@ -358,8 +358,11 @@ void World::loadTextures(
     });
 
     {
+        const vk::CommandBuffer cb = _device->beginGraphicsCommands();
         _texture2Ds.emplace_back(
-            _device, resPath("texture/empty.png"), stagingBuffer, false);
+            _device, resPath("texture/empty.png"), cb, stagingBuffer, false);
+        _device->endGraphicsCommands(cb);
+
         texture2DSamplers.emplace_back();
     }
 
@@ -370,13 +373,15 @@ void World::loadTextures(
     {
         for (const auto &image : gltfModel.images)
         {
+            const vk::CommandBuffer cb = _device->beginGraphicsCommands();
             if (image.uri.empty())
                 _texture2Ds.emplace_back(
-                    scopeAlloc.child_scope(), _device, image, stagingBuffer,
+                    scopeAlloc.child_scope(), _device, image, cb, stagingBuffer,
                     true);
             else
                 _texture2Ds.emplace_back(
-                    _device, _sceneDir / image.uri, stagingBuffer, true);
+                    _device, _sceneDir / image.uri, cb, stagingBuffer, true);
+            _device->endGraphicsCommands(cb);
         }
     }
 

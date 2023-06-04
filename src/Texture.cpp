@@ -91,7 +91,7 @@ void Texture::destroy()
 }
 
 Texture2D::Texture2D(
-    Device *device, const std::filesystem::path &path,
+    Device *device, const std::filesystem::path &path, vk::CommandBuffer cb,
     const Buffer &stagingBuffer, const bool mipmap)
 : Texture(device)
 {
@@ -108,7 +108,7 @@ Texture2D::Texture2D(
                : 1;
 
     createImage(
-        stagingBuffer,
+        cb, stagingBuffer,
         ImageCreateInfo{
             .desc =
                 ImageDescription{
@@ -129,7 +129,7 @@ Texture2D::Texture2D(
 
 Texture2D::Texture2D(
     ScopedScratch scopeAlloc, Device *device, const tinygltf::Image &image,
-    const Buffer &stagingBuffer, const bool mipmap)
+    vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap)
 : Texture(device)
 {
     assert(device != nullptr);
@@ -173,7 +173,7 @@ Texture2D::Texture2D(
                : 1;
 
     createImage(
-        stagingBuffer,
+        cb, stagingBuffer,
         ImageCreateInfo{
             .desc =
                 ImageDescription{
@@ -212,20 +212,19 @@ void Texture2D::stagePixels(
 }
 
 void Texture2D::createImage(
-    const Buffer &stagingBuffer, const ImageCreateInfo &info)
+    vk::CommandBuffer cb, const Buffer &stagingBuffer,
+    const ImageCreateInfo &info)
 {
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
     _image = _device->createImage(info);
 
-    const auto commandBuffer = _device->beginGraphicsCommands();
-
     _image.transition(
-        commandBuffer, ImageState{
-                           .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                           .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                           .layout = vk::ImageLayout::eTransferDstOptimal,
-                       });
+        cb, ImageState{
+                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                .layout = vk::ImageLayout::eTransferDstOptimal,
+            });
 
     const vk::BufferImageCopy region{
         .bufferOffset = 0,
@@ -241,13 +240,12 @@ void Texture2D::createImage(
         .imageOffset = {0, 0, 0},
         .imageExtent = _image.extent,
     };
-    commandBuffer.copyBufferToImage(
+    cb.copyBufferToImage(
         stagingBuffer.handle, _image.handle,
         vk::ImageLayout::eTransferDstOptimal, 1, &region);
 
-    _device->endGraphicsCommands(commandBuffer);
-
     createMipmaps(
+        cb,
         vk::Extent2D{
             .width = info.desc.width,
             .height = info.desc.height,
@@ -256,11 +254,9 @@ void Texture2D::createImage(
 }
 
 void Texture2D::createMipmaps(
-    const vk::Extent2D &extent, const uint32_t mipLevels)
+    vk::CommandBuffer cb, const vk::Extent2D &extent, const uint32_t mipLevels)
 {
     // TODO: Check that the texture format supports linear filtering
-    const auto buffer = _device->beginGraphicsCommands();
-
     vk::ImageSubresourceRange subresourceRange{
         .aspectMask = vk::ImageAspectFlagBits::eColor,
         .baseMipLevel = 0,
@@ -276,7 +272,7 @@ void Texture2D::createMipmaps(
         // Make sure last operation finished and source is transitioned
         subresourceRange.baseMipLevel = i - 1;
         transitionImageLayout(
-            buffer, _image.handle, subresourceRange,
+            cb, _image.handle, subresourceRange,
             vk::ImageLayout::eTransferDstOptimal,
             vk::ImageLayout::eTransferSrcOptimal,
             vk::AccessFlagBits::eTransferWrite,
@@ -310,14 +306,14 @@ void Texture2D::createMipmaps(
                     mipHeight > 1 ? mipHeight / 2 : 1, 1},
             }},
         };
-        buffer.blitImage(
+        cb.blitImage(
             _image.handle, vk::ImageLayout::eTransferSrcOptimal, _image.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
             vk::Filter::eLinear);
 
         // Source needs to be transitioned to shader read optimal
         transitionImageLayout(
-            buffer, _image.handle, subresourceRange,
+            cb, _image.handle, subresourceRange,
             vk::ImageLayout::eTransferSrcOptimal,
             vk::ImageLayout::eShaderReadOnlyOptimal,
             vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eShaderRead,
@@ -334,7 +330,7 @@ void Texture2D::createMipmaps(
     // Last mip level needs to be transitioned to shader read optimal
     subresourceRange.baseMipLevel = mipLevels - 1;
     transitionImageLayout(
-        buffer, _image.handle, subresourceRange,
+        cb, _image.handle, subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
         vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
@@ -350,8 +346,6 @@ void Texture2D::createMipmaps(
         .accessMask = vk::AccessFlagBits2::eShaderRead,
         .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
-
-    _device->endGraphicsCommands(buffer);
 }
 
 TextureCubemap::TextureCubemap(
