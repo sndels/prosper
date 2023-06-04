@@ -3,7 +3,6 @@
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
-#include <tiny_gltf.h>
 
 #include <cstdlib>
 #include <iostream>
@@ -147,6 +146,23 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
     return vk::SamplerAddressMode::eClampToEdge;
 }
 
+Buffer createTextureStaging(Device *device)
+{
+    // Assume at most 4k at 8bits per channel
+    const vk::DeviceSize stagingSize = 4096 * 4096 * sizeof(uint32_t);
+    return device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = stagingSize,
+                .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .createMapped = true,
+        .debugName = "Texture2DStaging",
+    });
+}
+
 } // namespace
 
 World::World(
@@ -168,6 +184,9 @@ World::World(
     Timer t;
     const auto gltfModel = loadGLTFModel(resPath(scene));
     printf("glTF model loading took %.2fs\n", t.getSeconds());
+
+    if (deferredLoading)
+        _deferredLoadingContext.emplace(_generalAlloc, _device, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -343,19 +362,8 @@ void World::loadTextures(
         };
         _samplers.push_back(_device->logical().createSampler(info));
     }
-    // Assume at most 4k at 8bits per channel
-    const vk::DeviceSize stagingSize = 4096 * 4096 * sizeof(uint32_t);
-    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = stagingSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .createMapped = true,
-        .debugName = "Texture2DStaging",
-    });
+
+    const Buffer stagingBuffer = createTextureStaging(_device);
 
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
@@ -1815,4 +1823,22 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+}
+
+World::DeferredLoadingContext::DeferredLoadingContext(
+    Allocator &alloc, Device *device, const tinygltf::Model &gltfModel)
+: device{device}
+, gltfModel{gltfModel}
+, materials{alloc, gltfModel.materials.size()}
+{
+    assert(device != nullptr);
+    for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
+        stagingBuffers.push_back(createTextureStaging(device));
+}
+
+World::DeferredLoadingContext::~DeferredLoadingContext()
+{
+    if (device != nullptr)
+        for (const Buffer &buffer : stagingBuffers)
+            device->destroy(buffer);
 }
