@@ -343,9 +343,23 @@ void World::loadTextures(
         };
         _samplers.push_back(_device->logical().createSampler(info));
     }
+    // Assume at most 4k at 8bits per channel
+    const vk::DeviceSize stagingSize = 4096 * 4096 * sizeof(uint32_t);
+    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = stagingSize,
+                .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .createMapped = true,
+        .debugName = "Texture2DStaging",
+    });
 
     {
-        _texture2Ds.emplace_back(_device, resPath("texture/empty.png"), false);
+        _texture2Ds.emplace_back(
+            _device, resPath("texture/empty.png"), stagingBuffer, false);
         texture2DSamplers.emplace_back();
     }
 
@@ -358,11 +372,15 @@ void World::loadTextures(
         {
             if (image.uri.empty())
                 _texture2Ds.emplace_back(
-                    scopeAlloc.child_scope(), _device, image, true);
+                    scopeAlloc.child_scope(), _device, image, stagingBuffer,
+                    true);
             else
-                _texture2Ds.emplace_back(_device, _sceneDir / image.uri, true);
+                _texture2Ds.emplace_back(
+                    _device, _sceneDir / image.uri, stagingBuffer, true);
         }
     }
+
+    _device->destroy(stagingBuffer);
 
     for (const auto &texture : gltfModel.textures)
         texture2DSamplers.emplace_back(

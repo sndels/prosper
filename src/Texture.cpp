@@ -91,13 +91,15 @@ void Texture::destroy()
 }
 
 Texture2D::Texture2D(
-    Device *device, const std::filesystem::path &path, const bool mipmap)
+    Device *device, const std::filesystem::path &path,
+    const Buffer &stagingBuffer, const bool mipmap)
 : Texture(device)
 {
     assert(device != nullptr);
 
     const auto [pixels, extent] = pixelsFromFile(path);
-    const auto stagingBuffer = stagePixels(pixels, extent);
+
+    stagePixels(stagingBuffer, pixels, extent);
 
     const uint32_t mipLevels =
         mipmap ? asserted_cast<uint32_t>(
@@ -123,12 +125,11 @@ Texture2D::Texture2D(
         });
 
     stbi_image_free(pixels);
-    _device->destroy(stagingBuffer);
 }
 
 Texture2D::Texture2D(
     ScopedScratch scopeAlloc, Device *device, const tinygltf::Image &image,
-    const bool mipmap)
+    const Buffer &stagingBuffer, const bool mipmap)
 : Texture(device)
 {
     assert(device != nullptr);
@@ -163,7 +164,7 @@ Texture2D::Texture2D(
     const vk::Extent2D extent{
         asserted_cast<uint32_t>(image.width),
         asserted_cast<uint32_t>(image.height)};
-    const auto stagingBuffer = stagePixels(pixels, extent);
+    stagePixels(stagingBuffer, pixels, extent);
 
     const uint32_t mipLevels =
         mipmap ? asserted_cast<uint32_t>(
@@ -187,8 +188,6 @@ Texture2D::Texture2D(
                 },
             .debugName = "Texture2D",
         });
-
-    _device->destroy(stagingBuffer);
 }
 
 vk::DescriptorImageInfo Texture2D::imageInfo() const
@@ -199,29 +198,17 @@ vk::DescriptorImageInfo Texture2D::imageInfo() const
     };
 }
 
-Buffer Texture2D::stagePixels(
-    const uint8_t *pixels, const vk::Extent2D &extent) const
+void Texture2D::stagePixels(
+    const Buffer &stagingBuffer, const uint8_t *pixels,
+    const vk::Extent2D &extent) const
 {
     assert(pixels != nullptr);
 
     const vk::DeviceSize imageSize =
         static_cast<vk::DeviceSize>(extent.width) * extent.height * 4;
-
-    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = imageSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .createMapped = true,
-        .debugName = "Texture2DStaging",
-    });
+    assert(imageSize <= stagingBuffer.byteSize);
 
     memcpy(stagingBuffer.mapped, pixels, asserted_cast<size_t>(imageSize));
-
-    return stagingBuffer;
 }
 
 void Texture2D::createImage(
