@@ -151,7 +151,7 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 
 World::World(
     ScopedScratch scopeAlloc, Device *device,
-    const std::filesystem::path &scene)
+    const std::filesystem::path &scene, bool deferredLoading)
 : _linearAlloc{sWorldMemSize}
 , _sceneDir{resPath(scene.parent_path())}
 , _skyboxTexture{scopeAlloc.child_scope(), device, resPath("env/storm.ktx")}
@@ -176,9 +176,10 @@ World::World(
         printf("%s took %.2fs\n", stage, t.getSeconds());
     };
 
-    tl("Texture loading",
-       [&]() { loadTextures(scopeAlloc.child_scope(), gltfModel); });
-    tl("Material loading", [&]() { loadMaterials(gltfModel); });
+    tl("Texture loading", [&]()
+       { loadTextures(scopeAlloc.child_scope(), gltfModel, deferredLoading); });
+    tl("Material loading",
+       [&]() { loadMaterials(gltfModel, deferredLoading); });
     tl("Model loading ", [&]() { loadModels(gltfModel); });
     tl("Scene loading ",
        [&]() { loadScenes(scopeAlloc.child_scope(), gltfModel); });
@@ -298,7 +299,8 @@ void World::drawSkybox(const vk::CommandBuffer &buffer) const
 }
 
 void World::loadTextures(
-    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
+    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+    bool deferredLoading)
 {
     {
         const vk::SamplerCreateInfo info{
@@ -346,23 +348,38 @@ void World::loadTextures(
     assert(
         gltfModel.images.size() < 0xFFFFFE &&
         "Too many textures to pack in u32 texture index");
-    for (const auto &image : gltfModel.images)
+    if (deferredLoading)
     {
-        if (image.uri.empty())
-            _texture2Ds.emplace_back(
-                scopeAlloc.child_scope(), _device, image, true);
-        else
-            _texture2Ds.emplace_back(_device, _sceneDir / image.uri, true);
+        for (const auto &texture : gltfModel.textures)
+        {
+            (void)texture;
+            _texture2DSamplers.push_back(Texture2DSampler{
+                .texture = 0,
+                .sampler = 0,
+            });
+        }
     }
+    else
+    {
+        for (const auto &image : gltfModel.images)
+        {
+            if (image.uri.empty())
+                _texture2Ds.emplace_back(
+                    scopeAlloc.child_scope(), _device, image, true);
+            else
+                _texture2Ds.emplace_back(_device, _sceneDir / image.uri, true);
+        }
 
-    for (const auto &texture : gltfModel.textures)
-        _texture2DSamplers.push_back(Texture2DSampler{
-            .texture = asserted_cast<uint32_t>(texture.source + 1),
-            .sampler = asserted_cast<uint32_t>(texture.sampler + 1),
-        });
+        for (const auto &texture : gltfModel.textures)
+            _texture2DSamplers.push_back(Texture2DSampler{
+                .texture = asserted_cast<uint32_t>(texture.source + 1),
+                .sampler = asserted_cast<uint32_t>(texture.sampler + 1),
+            });
+    }
 }
 
-void World::loadMaterials(const tinygltf::Model &gltfModel)
+void World::loadMaterials(
+    const tinygltf::Model &gltfModel, bool deferredLoading)
 {
     _materials.push_back(Material{});
 
@@ -430,7 +447,11 @@ void World::loadMaterials(const tinygltf::Model &gltfModel)
         {
             mat.alphaCutoff = static_cast<float>(elem->second.Factor());
         }
-        _materials.push_back(mat);
+
+        if (deferredLoading)
+            _materials.push_back(Material{});
+        else
+            _materials.push_back(mat);
     }
 }
 
@@ -717,11 +738,11 @@ void World::loadScenes(
                 {
                     scene.camera = *params;
                     scene.camera.eye =
-                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
+                        vec3{modelToWorld *vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
                     scene.camera.target =
-                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
+                        vec3{modelToWorld *vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
                 }
                 if (size_t const *light_i = lights.find(node);
@@ -773,7 +794,7 @@ void World::loadScenes(
 
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
-                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
@@ -803,7 +824,7 @@ void World::loadScenes(
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
                         sceneLight.positionAndAngleOffset =
-                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
 
                         sceneLight.direction = vec4{

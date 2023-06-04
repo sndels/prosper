@@ -78,6 +78,7 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
                            scopeAlloc.child_scope(),
                            _device.get(),
                            {_window->width(), _window->height()}});
+
     _commandBuffers = allocateCommandBuffers(_device.get());
 
     _viewportExtent =
@@ -89,7 +90,8 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
     _world = std::make_unique<World>(
-        scopeAlloc.child_scope(), _device.get(), settings.scene);
+        scopeAlloc.child_scope(), _device.get(), settings.scene,
+        settings.deferredLoading);
 
     const Timer gpuPassesInitTimer;
     _lightClustering = std::make_unique<LightClustering>(

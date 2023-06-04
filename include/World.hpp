@@ -38,7 +38,7 @@ class World
     };
     World(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        const std::filesystem::path &scene);
+        const std::filesystem::path &scene, bool deferredLoading);
     ~World();
 
     World(const World &other) = delete;
@@ -94,8 +94,9 @@ class World
 
   private:
     void loadTextures(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
-    void loadMaterials(const tinygltf::Model &gltfModel);
+        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        bool deferredLoading);
+    void loadMaterials(const tinygltf::Model &gltfModel, bool deferredLoading);
     void loadModels(const tinygltf::Model &gltfModel);
     void loadScenes(
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);

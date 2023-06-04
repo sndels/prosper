@@ -30,6 +30,7 @@ class App
     struct Settings
     {
         std::filesystem::path scene;
+        bool deferredLoading{false};
         Device::Settings device;
     };
 
