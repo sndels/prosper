@@ -157,8 +157,8 @@ World::World(
 , _skyboxTexture{scopeAlloc.child_scope(), device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
 , _device{device}
-// Use general for descriptors because the interal storage because we don't know
-// the required storage up front and the internal array will be reallocated
+// Use general for descriptors because because we don't know the required
+// storage up front and the internal array will be reallocated
 , _descriptorAllocator{_generalAlloc, device}
 {
     assert(_device != nullptr);
