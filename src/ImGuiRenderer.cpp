@@ -121,7 +121,8 @@ void ImGuiRenderer::endFrame(
             cb,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentRead,
+                .accessMask = vk::AccessFlagBits2::eColorAttachmentRead |
+                              vk::AccessFlagBits2::eColorAttachmentWrite,
                 .layout = vk::ImageLayout::eColorAttachmentOptimal,
             });
 
