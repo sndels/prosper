@@ -606,6 +606,8 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         _allocator, vkpBufferInfo, &allocCreateInfo, alignment, vkpBuffer,
         &buffer.allocation, &allocInfo);
 
+    buffer.byteSize = desc.byteSize;
+
     if (info.createMapped)
     {
         assert(allocInfo.pMappedData);

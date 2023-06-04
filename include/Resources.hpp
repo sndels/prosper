@@ -43,6 +43,7 @@ struct BufferCreateInfo
 struct Buffer
 {
     vk::Buffer handle;
+    vk::DeviceSize byteSize{0};
     void *mapped{nullptr};
     VmaAllocation allocation{nullptr};
 };
