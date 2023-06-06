@@ -438,6 +438,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         .extent = _viewportExtent,
     };
 
+    _world->uploadMaterialDatas(nextFrame);
+
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");

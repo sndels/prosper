@@ -268,6 +268,24 @@ World::~World()
         _device->logical().destroy(sampler);
 }
 
+void World::uploadMaterialDatas(uint32_t nextFrame)
+{
+    if (_deferredLoadingContext.has_value())
+    {
+        if (_materialsGenerations[nextFrame] !=
+            _deferredLoadingContext->materialsGeneration)
+        {
+            Material *mapped = (Material *)_materialsBuffers[nextFrame].mapped;
+            memcpy(
+                mapped, _materials.data(),
+                _materials.size() * sizeof(_materials[0]));
+
+            _materialsGenerations[nextFrame] =
+                _deferredLoadingContext->materialsGeneration;
+        }
+    }
+}
+
 void World::handleDeferredLoading(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
     Profiler &profiler)
@@ -275,8 +293,8 @@ void World::handleDeferredLoading(
     if (!_deferredLoadingContext.has_value())
         return;
 
-    if (_deferredLoadingContext->loadedImageCount ==
-        _deferredLoadingContext->gltfModel.images.size())
+    if (_deferredLoadingContext->loadedMaterialCount ==
+        _deferredLoadingContext->gltfModel.materials.size())
     {
         // Don't clean up until all in flight uploads are finished
         if (_deferredLoadingContext->framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
@@ -315,10 +333,32 @@ void World::handleDeferredLoading(
 
     ctx.loadedImageCount++;
 
-    // TODO:
-    // Update material texture indices for remaining mats until unloaded texture
-    // found Also change reset condition to check loaded material count once
-    // implemented
+    // Update next material(s) in line if the required textures are loaded
+    bool materialsUpdated = false;
+    for (size_t i = ctx.loadedMaterialCount; i < ctx.materials.size(); ++i)
+    {
+        const Material &material = ctx.materials[i];
+        const uint32_t baseColorIndex = material.baseColor.texture();
+        const uint32_t normalIndex = material.normal.texture();
+        const uint32_t metallicRoughnessIndex =
+            material.metallicRoughness.texture();
+        // Inclusive as 0 is our default, starting gltf indices from 1
+        if (baseColorIndex <= ctx.loadedImageCount &&
+            normalIndex <= ctx.loadedImageCount &&
+            metallicRoughnessIndex <= ctx.loadedImageCount)
+        {
+            // These are gltf material indices so we have to take our default
+            // material into account
+            _materials[i + 1] = material;
+            ctx.loadedMaterialCount++;
+            materialsUpdated = true;
+        }
+        else
+            break;
+    }
+
+    if (materialsUpdated)
+        ctx.materialsGeneration++;
 }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
@@ -1235,7 +1275,8 @@ void World::createBuffers()
                     .byteSize = _materials.size() * sizeof(_materials[0]),
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                              vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
             .initialData = _materials.data(),
             .createMapped = true,

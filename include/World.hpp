@@ -51,6 +51,7 @@ class World
     World &operator=(const World &other) = delete;
     World &operator=(World &&other) = delete;
 
+    void uploadMaterialDatas(uint32_t nextFrame);
     void handleDeferredLoading(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame, Profiler &profiler);
@@ -87,6 +88,8 @@ class World
     size_t _currentScene{0};
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
+    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
+        0};
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
         _materialDatasDSs;
     vk::DescriptorSet _materialTexturesDS;
@@ -140,6 +143,7 @@ class World
 
         Device *device{nullptr};
         tinygltf::Model gltfModel;
+        uint32_t materialsGeneration{0};
         uint32_t framesSinceFinish{0};
         uint32_t textureArrayBinding{0};
         uint32_t loadedImageCount{0};

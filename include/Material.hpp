@@ -12,6 +12,8 @@ struct Texture2DSampler
     Texture2DSampler() = default;
     Texture2DSampler(uint32_t texture, uint32_t sampler)
     : packed{(sampler << 24) | texture} {};
+
+    uint32_t texture() const { return packed & 0xFFFFFF; }
 };
 static_assert(sizeof(Texture2DSampler) == sizeof(uint32_t));
 
