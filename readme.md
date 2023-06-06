@@ -19,6 +19,8 @@ Current features include:
   - Sphere bounds
   - View space clusters with depth slices
 - Bindless materials
+  - Streaming texture loads
+    - Not asynchronous yet: mip generation uses blits for now and I need to support having only a single graphics queue
 - Bindless geometry
 - Managed render resources
   - Opaque handles
