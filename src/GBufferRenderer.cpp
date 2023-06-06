@@ -20,10 +20,11 @@ const vk::Format sNormalMetalnessFormat = vk::Format::eR16G16B16A16Sfloat;
 enum BindingSet : uint32_t
 {
     CameraBindingSet = 0,
-    MaterialsBindingSet = 1,
-    GeometryBuffersBindingSet = 2,
-    ModelInstanceTrfnsBindingSet = 3,
-    BindingSetCount = 4
+    MaterialDatasBindingSet = 1,
+    MaterialTexturesBindingSet = 2,
+    GeometryBuffersBindingSet = 3,
+    ModelInstanceTrfnsBindingSet = 4,
+    BindingSetCount = 5
 };
 
 struct PCBlock
@@ -110,7 +111,9 @@ GBufferRenderer::Output GBufferRenderer::record(
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
-        descriptorSets[MaterialsBindingSet] = world._materialTexturesDS;
+        descriptorSets[MaterialDatasBindingSet] =
+            world._materialDatasDSs[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
         descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextFrame];
@@ -178,7 +181,9 @@ bool GBufferRenderer::compileShaders(
 
     String fragDefines{scopeAlloc, 128};
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
-    appendDefineStr(fragDefines, "MATERIALS_SET", MaterialsBindingSet);
+    appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
+    appendDefineStr(
+        fragDefines, "MATERIAL_TEXTURES_SET", MaterialTexturesBindingSet);
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
@@ -394,7 +399,8 @@ void GBufferRenderer::createGraphicsPipelines(
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};
     setLayouts[CameraBindingSet] = camDSLayout;
-    setLayouts[MaterialsBindingSet] = worldDSLayouts.materialTextures;
+    setLayouts[MaterialDatasBindingSet] = worldDSLayouts.materialDatas;
+    setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = worldDSLayouts.geometry;
     setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
 

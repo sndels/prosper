@@ -21,9 +21,10 @@ enum BindingSet : uint32_t
     LightsBindingSet = 0,
     LightClustersBindingSet = 1,
     CameraBindingSet = 2,
-    MaterialsBindingSet = 3,
-    StorageBindingSet = 4,
-    BindingSetCount = 5,
+    MaterialDatasBindingSet = 3,
+    MaterialTexturesBindingSet = 4,
+    StorageBindingSet = 5,
+    BindingSetCount = 6,
 };
 
 struct PCBlock
@@ -116,7 +117,9 @@ bool DeferredShading::compileShaders(
     appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
-    appendDefineStr(defines, "MATERIALS_SET", MaterialsBindingSet);
+    appendDefineStr(defines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
+    appendDefineStr(
+        defines, "MATERIAL_TEXTURES_SET", MaterialTexturesBindingSet);
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
     appendDefineStr(
         defines, "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
@@ -204,7 +207,9 @@ DeferredShading::Output DeferredShading::record(
         descriptorSets[LightClustersBindingSet] =
             input.lightClusters.descriptorSet;
         descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
-        descriptorSets[MaterialsBindingSet] = world._materialTexturesDS;
+        descriptorSets[MaterialDatasBindingSet] =
+            world._materialDatasDSs[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
         descriptorSets[StorageBindingSet] = _descriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
@@ -378,7 +383,8 @@ void DeferredShading::createPipeline(const InputDSLayouts &dsLayouts)
     setLayouts[LightsBindingSet] = dsLayouts.world.lights;
     setLayouts[LightClustersBindingSet] = dsLayouts.lightClusters;
     setLayouts[CameraBindingSet] = dsLayouts.camera;
-    setLayouts[MaterialsBindingSet] = dsLayouts.world.materialTextures;
+    setLayouts[MaterialDatasBindingSet] = dsLayouts.world.materialDatas;
+    setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
     setLayouts[StorageBindingSet] = _descriptorSetLayout;
 
     _pipelineLayout =

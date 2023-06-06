@@ -32,6 +32,7 @@ class World
     struct DSLayouts
     {
         uint32_t materialSamplerCount{0};
+        vk::DescriptorSetLayout materialDatas;
         vk::DescriptorSetLayout materialTextures;
         vk::DescriptorSetLayout geometry;
         vk::DescriptorSetLayout modelInstances;
@@ -85,8 +86,11 @@ class World
     wheels::Array<Scene> _scenes{_generalAlloc};
     size_t _currentScene{0};
 
-    Buffer _materialsBuffer;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
+        _materialDatasDSs;
     vk::DescriptorSet _materialTexturesDS;
+
     vk::DescriptorSet _geometryDS;
     DSLayouts _dsLayouts;
 

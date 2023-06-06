@@ -227,9 +227,11 @@ World::~World()
     _device->logical().destroy(_dsLayouts.modelInstances);
     _device->logical().destroy(_dsLayouts.geometry);
     _device->logical().destroy(_dsLayouts.materialTextures);
+    _device->logical().destroy(_dsLayouts.materialDatas);
 
     _device->destroy(_skyboxVertexBuffer);
-    _device->destroy(_materialsBuffer);
+    for (auto &buffer : _materialsBuffers)
+        _device->destroy(buffer);
 
     for (auto &blas : _blases)
     {
@@ -1226,17 +1228,19 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
 void World::createBuffers()
 {
-    _materialsBuffer = _device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = _materials.size() * sizeof(_materials[0]),
-                .usage = vk::BufferUsageFlagBits::eStorageBuffer |
-                         vk::BufferUsageFlagBits::eTransferDst,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-        .initialData = _materials.data(),
-        .debugName = "MaterialsBuffer",
-    });
+    for (size_t i = 0; i < _materialsBuffers.capacity(); ++i)
+        _materialsBuffers.push_back(_device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = _materials.size() * sizeof(_materials[0]),
+                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible,
+                },
+            .initialData = _materials.data(),
+            .createMapped = true,
+            .debugName = "MaterialsBuffer",
+        }));
 
     {
         for (auto &scene : _scenes)
@@ -1368,13 +1372,55 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     //  reallocations in the linear scope allocator
     Array<vk::WriteDescriptorSet> dss{_generalAlloc};
 
+    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
+        materialDatasInfos;
+    {
+        const vk::DescriptorSetLayoutBinding materialDatasBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                          vk::ShaderStageFlagBits::eRaygenKHR |
+                          vk::ShaderStageFlagBits::eAnyHitKHR,
+        };
+        _dsLayouts.materialDatas = _device->logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = 1,
+                .pBindings = &materialDatasBinding,
+            });
+    }
+
+    {
+        StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
+            materialDatasLayouts;
+        materialDatasLayouts.resize(
+            MAX_FRAMES_IN_FLIGHT, _dsLayouts.materialDatas);
+        _materialDatasDSs.resize(MAX_FRAMES_IN_FLIGHT);
+        _descriptorAllocator.allocate(materialDatasLayouts, _materialDatasDSs);
+    }
+
+    dss.reserve(MAX_FRAMES_IN_FLIGHT);
+    assert(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
+    assert(_materialDatasDSs.size() == MAX_FRAMES_IN_FLIGHT);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        materialDatasInfos.push_back(vk::DescriptorBufferInfo{
+            .buffer = _materialsBuffers[i].handle,
+            .range = VK_WHOLE_SIZE,
+        });
+
+        dss.push_back(vk::WriteDescriptorSet{
+            .dstSet = _materialDatasDSs[i],
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &materialDatasInfos.back(),
+        });
+    }
+
     // Materials layout and descriptors set
     // Define outside the helper scope to keep alive until
     // updateDescriptorSets
-    const vk::DescriptorBufferInfo materialDatasInfo{
-        .buffer = _materialsBuffer.handle,
-        .range = VK_WHOLE_SIZE,
-    };
     Array<vk::DescriptorImageInfo> materialSamplerInfos{
         scopeAlloc, _samplers.size()};
     // Use capacity instead of size so that this allocates descriptors for
@@ -1411,14 +1457,6 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const StaticArray layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
-                .descriptorType = vk::DescriptorType::eStorageBuffer,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR |
-                              vk::ShaderStageFlagBits::eAnyHitKHR,
-            },
-            vk::DescriptorSetLayoutBinding{
-                .binding = 1,
                 .descriptorType = vk::DescriptorType::eSampler,
                 .descriptorCount = samplerInfoCount,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
@@ -1426,7 +1464,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                               vk::ShaderStageFlagBits::eAnyHitKHR,
             },
             vk::DescriptorSetLayoutBinding{
-                .binding = 1 + samplerInfoCount,
+                .binding = samplerInfoCount,
                 .descriptorType = vk::DescriptorType::eSampledImage,
                 .descriptorCount = imageInfoCount,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
@@ -1435,7 +1473,6 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             },
         };
         const StaticArray layoutFlags{
-            vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
@@ -1465,17 +1502,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _materialTexturesDS = _descriptorAllocator.allocate(
             _dsLayouts.materialTextures, imageInfoCount);
 
-        dss.reserve(dss.size() + 3);
+        dss.reserve(dss.size() + 2);
         dss.push_back(vk::WriteDescriptorSet{
             .dstSet = _materialTexturesDS,
             .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = &materialDatasInfo,
-        });
-        dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _materialTexturesDS,
-            .dstBinding = 1,
             .dstArrayElement = 0,
             .descriptorCount =
                 asserted_cast<uint32_t>(materialSamplerInfos.size()),
@@ -1484,7 +1514,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         });
 
         const uint32_t textureArrayBinding =
-            1 + asserted_cast<uint32_t>(materialSamplerInfos.size());
+            asserted_cast<uint32_t>(materialSamplerInfos.size());
         if (_deferredLoadingContext.has_value())
             _deferredLoadingContext->textureArrayBinding = textureArrayBinding;
 

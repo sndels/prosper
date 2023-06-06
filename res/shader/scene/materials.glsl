@@ -20,14 +20,16 @@ struct MaterialData
     uint pad;
 };
 
-layout(std430, set = MATERIALS_SET, binding = 0) readonly buffer MaterialDatas
+layout(std430, set = MATERIAL_DATAS_SET, binding = 0) readonly buffer
+    MaterialDatas
 {
     MaterialData materials[];
 }
 materialDatas;
-layout(set = MATERIALS_SET, binding = 1) uniform sampler
+
+layout(set = MATERIAL_TEXTURES_SET, binding = 0) uniform sampler
     materialSamplers[NUM_MATERIAL_SAMPLERS];
-layout(set = MATERIALS_SET, binding = 1 + NUM_MATERIAL_SAMPLERS)
+layout(set = MATERIAL_TEXTURES_SET, binding = NUM_MATERIAL_SAMPLERS)
     uniform texture2D materialTextures[];
 
 float sRGBtoLinear(float x)
