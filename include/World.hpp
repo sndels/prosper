@@ -7,6 +7,7 @@
 #include "Profiler.hpp"
 #include "Scene.hpp"
 #include "Texture.hpp"
+#include "Timer.hpp"
 
 #include <filesystem>
 #include <mutex>
@@ -150,6 +151,7 @@ class World
         uint32_t loadedMaterialCount{0};
         wheels::Array<Material> materials;
         wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
+        Timer timer;
     };
     wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
 

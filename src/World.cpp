@@ -298,7 +298,12 @@ void World::handleDeferredLoading(
     {
         // Don't clean up until all in flight uploads are finished
         if (_deferredLoadingContext->framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
+        {
+            printf(
+                "Material streaming took %.2fs\n",
+                _deferredLoadingContext->timer.getSeconds());
             _deferredLoadingContext.reset();
+        }
         return;
     }
 
@@ -307,6 +312,9 @@ void World::handleDeferredLoading(
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
     assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+
+    if (ctx.loadedImageCount == 0)
+        ctx.timer.reset();
 
     const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
     if (image.uri.empty())
