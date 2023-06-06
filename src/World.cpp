@@ -352,17 +352,7 @@ void World::loadTextures(
     assert(
         gltfModel.images.size() < 0xFFFFFE &&
         "Too many textures to pack in u32 texture index");
-    if (deferredLoading)
-    {
-        // Fill with defaults, correct ones will be filled in when the textures
-        // are loaded in
-        for (const auto &texture : gltfModel.textures)
-        {
-            (void)texture;
-            texture2DSamplers.emplace_back();
-        }
-    }
-    else
+    if (!deferredLoading)
     {
         for (const auto &image : gltfModel.images)
         {
@@ -372,12 +362,12 @@ void World::loadTextures(
             else
                 _texture2Ds.emplace_back(_device, _sceneDir / image.uri, true);
         }
-
-        for (const auto &texture : gltfModel.textures)
-            texture2DSamplers.emplace_back(
-                asserted_cast<uint32_t>(texture.source + 1),
-                asserted_cast<uint32_t>(texture.sampler + 1));
     }
+
+    for (const auto &texture : gltfModel.textures)
+        texture2DSamplers.emplace_back(
+            asserted_cast<uint32_t>(texture.source + 1),
+            asserted_cast<uint32_t>(texture.sampler + 1));
 }
 
 void World::loadMaterials(
