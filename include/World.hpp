@@ -90,8 +90,8 @@ class World
     vk::DescriptorSet _geometryDS;
     DSLayouts _dsLayouts;
 
-    wheels::Array<Buffer> _skyboxUniformBuffers{_generalAlloc};
-    wheels::Array<vk::DescriptorSet> _skyboxDSs{_generalAlloc};
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _skyboxUniformBuffers;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _skyboxDSs;
     vk::DescriptorSet _skyboxOnlyDS;
 
     struct DeferredLoadingContext

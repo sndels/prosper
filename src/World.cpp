@@ -1827,8 +1827,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     }
 
     // Skybox layout and descriptor sets
-    Array<vk::DescriptorBufferInfo> skyboxBufferInfos{
-        scopeAlloc, _skyboxUniformBuffers.size()};
+    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
+        skyboxBufferInfos;
     vk::DescriptorImageInfo skyboxImageInfo;
     {
         const StaticArray skyboxLayoutBindings{
@@ -1864,8 +1864,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 .pBindings = &skyboxOnlyLayoutBinding,
             });
 
-        Array<vk::DescriptorSetLayout> skyboxLayouts{
-            scopeAlloc, MAX_FRAMES_IN_FLIGHT};
+        StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
+            skyboxLayouts;
         skyboxLayouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.skybox);
         _skyboxDSs.resize(MAX_FRAMES_IN_FLIGHT);
         _descriptorAllocator.allocate(skyboxLayouts, _skyboxDSs);
