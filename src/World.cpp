@@ -365,6 +365,7 @@ void World::loadTextures(
 
     const Buffer stagingBuffer = createTextureStaging(_device);
 
+    _texture2Ds.reserve(gltfModel.images.size() + 1);
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
         _texture2Ds.emplace_back(
@@ -1322,8 +1323,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     };
     Array<vk::DescriptorImageInfo> materialSamplerInfos{
         scopeAlloc, _samplers.size()};
+    // Use capacity instead of size so that this allocates descriptors for
+    // textures that are loaded later
     Array<vk::DescriptorImageInfo> materialImageInfos{
-        scopeAlloc, _texture2Ds.size() + 1};
+        scopeAlloc, _texture2Ds.capacity()};
     {
         for (const auto &s : _samplers)
             materialSamplerInfos.push_back(
@@ -1332,8 +1335,22 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             asserted_cast<uint32_t>(materialSamplerInfos.size());
         _dsLayouts.materialSamplerCount = samplerInfoCount;
 
-        for (const auto &tex : _texture2Ds)
-            materialImageInfos.push_back(tex.imageInfo());
+        if (_deferredLoadingContext.has_value())
+        {
+            // Fill missing textures with the default info so potential reads
+            // are still to valid descriptors
+            assert(_texture2Ds.size() == 1);
+            const vk::DescriptorImageInfo defaultInfo =
+                _texture2Ds[0].imageInfo();
+            for (size_t i = 0; i < materialImageInfos.capacity(); ++i)
+                materialImageInfos.push_back(defaultInfo);
+        }
+        else
+        {
+            for (const auto &tex : _texture2Ds)
+                materialImageInfos.push_back(tex.imageInfo());
+        }
+
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
 
