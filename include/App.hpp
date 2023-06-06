@@ -81,9 +81,10 @@ class App
         uint32_t nextFrame{0xFFFFFFFF};
         uint32_t nextImage{0xFFFFFFFF};
     };
-    [[nodiscard]] vk::CommandBuffer render(
-        const vk::Rect2D &renderArea, const RenderIndices &indices,
-        const Scene &scene, const UiChanges &uiChanges);
+    void render(
+        vk::CommandBuffer cb, const vk::Rect2D &renderArea,
+        const RenderIndices &indices, const Scene &scene,
+        const UiChanges &uiChanges);
     void blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped);
     void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);
     // Returns true if present succeeded, false if swapchain should be recreated

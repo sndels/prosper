@@ -450,13 +450,24 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     updateDebugLines(scene, nextFrame);
 
-    const vk::CommandBuffer cb = render(
-        renderArea,
+    const auto cb = _commandBuffers[nextFrame];
+    cb.reset();
+
+    cb.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+
+    render(
+        cb, renderArea,
         RenderIndices{
             .nextFrame = nextFrame,
             .nextImage = nextImage,
         },
         scene, uiChanges);
+
+    _profiler->endGpuFrame(cb);
+
+    cb.end();
 
     const bool shouldResizeSwapchain = !submitAndPresent(cb, nextFrame);
 
@@ -744,17 +755,11 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
     }
 }
 
-vk::CommandBuffer App::render(
-    const vk::Rect2D &renderArea, const RenderIndices &indices,
-    const Scene &scene, const UiChanges &uiChanges)
+void App::render(
+    vk::CommandBuffer cb, const vk::Rect2D &renderArea,
+    const RenderIndices &indices, const Scene &scene,
+    const UiChanges &uiChanges)
 {
-    const auto cb = _commandBuffers[indices.nextFrame];
-    cb.reset();
-
-    cb.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-
     const LightClustering::Output lightClusters = _lightClustering->record(
         cb, scene, *_cam, _viewportExtent, indices.nextFrame, _profiler.get());
 
@@ -849,12 +854,6 @@ vk::CommandBuffer App::render(
     _imguiRenderer->endFrame(cb, backbufferArea, _profiler.get());
 
     blitFinalComposite(cb, indices.nextImage);
-
-    _profiler->endGpuFrame(cb);
-
-    cb.end();
-
-    return cb;
 }
 
 void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
