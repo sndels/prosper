@@ -64,17 +64,13 @@ constexpr std::array sDefaultPoolSizes{
     },
 };
 
-constexpr vk::DescriptorPoolCreateInfo sDefaultPoolInfo{
-    .maxSets = sDefaultDescriptorSetCount,
-    .poolSizeCount = asserted_cast<uint32_t>(sDefaultPoolSizes.size()),
-    .pPoolSizes = sDefaultPoolSizes.data(),
-};
-
 } // namespace
 
-DescriptorAllocator::DescriptorAllocator(Allocator &alloc, Device *device)
+DescriptorAllocator::DescriptorAllocator(
+    Allocator &alloc, Device *device, vk::DescriptorPoolCreateFlags flags)
 : _device{device}
 , _pools{alloc}
+, _flags{flags}
 {
     assert(_device != nullptr);
 
@@ -122,8 +118,14 @@ void DescriptorAllocator::nextPool()
     // initially -1 so this makes it 0 and allocates the first pool
     _activePool++;
     if (asserted_cast<size_t>(_activePool) >= _pools.size())
-        _pools.push_back(
-            _device->logical().createDescriptorPool(sDefaultPoolInfo));
+        _pools.push_back(_device->logical().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo{
+                .flags = _flags,
+                .maxSets = sDefaultDescriptorSetCount,
+                .poolSizeCount =
+                    asserted_cast<uint32_t>(sDefaultPoolSizes.size()),
+                .pPoolSizes = sDefaultPoolSizes.data(),
+            }));
 }
 
 void DescriptorAllocator::allocate(
