@@ -7,3 +7,4 @@
   - At least the nested metadata parsing is messy
 - Generalize binding layout creation
   - First pass will probably have sameish boilerplate in every user 
+- Document coverage for required features/limits from gpuinfo
