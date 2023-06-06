@@ -465,6 +465,9 @@ void App::drawFrame(ScopedScratch scopeAlloc)
         },
         scene, uiChanges);
 
+    _world->handleDeferredLoading(
+        scopeAlloc.child_scope(), cb, nextFrame, *_profiler);
+
     _profiler->endGpuFrame(cb);
 
     cb.end();

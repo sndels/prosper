@@ -176,6 +176,7 @@ World::World(
 // Use general for descriptors because because we don't know the required
 // storage up front and the internal array will be reallocated
 , _descriptorAllocator{_generalAlloc, device}
+
 {
     assert(_device != nullptr);
 
@@ -263,6 +264,59 @@ World::~World()
         _device->destroy(buffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
+}
+
+void World::handleDeferredLoading(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
+    Profiler &profiler)
+{
+    if (!_deferredLoadingContext.has_value())
+        return;
+
+    if (_deferredLoadingContext->loadedImageCount ==
+        _deferredLoadingContext->gltfModel.images.size())
+    {
+        // Don't clean up until all in flight uploads are finished
+        if (_deferredLoadingContext->framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
+            _deferredLoadingContext.reset();
+        return;
+    }
+
+    // No gpu as timestamps are flaky for this work
+    const auto _s = profiler.createCpuScope("DeferredLoading");
+
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+
+    const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
+    if (image.uri.empty())
+        _texture2Ds.emplace_back(
+            scopeAlloc.child_scope(), _device, image, cb,
+            ctx.stagingBuffers[nextFrame], true);
+    else
+        _texture2Ds.emplace_back(
+            _device, _sceneDir / image.uri, cb, ctx.stagingBuffers[nextFrame],
+            true);
+
+    const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
+    const vk::WriteDescriptorSet descriptorWrite{
+        .dstSet = _materialTexturesDS,
+        .dstBinding = ctx.textureArrayBinding,
+        // loadedImageCount is gltf images so bump by one to take our default
+        // texture into account
+        .dstArrayElement = ctx.loadedImageCount + 1,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eSampledImage,
+        .pImageInfo = &imageInfo,
+    };
+    _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+
+    ctx.loadedImageCount++;
+
+    // TODO:
+    // Update material texture indices for remaining mats until unloaded texture
+    // found Also change reset condition to check loaded material count once
+    // implemented
 }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
@@ -1384,7 +1438,12 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
-                vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
+                vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
+                // Texture bindings for deferred loads are updated before
+                // frame cb submission, for textures that aren't accessed any
+                // frame in flight
+                vk::DescriptorBindingFlagBits::ePartiallyBound |
+                vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending},
         };
         const vk::StructureChain<
             vk::DescriptorSetLayoutCreateInfo,
@@ -1423,10 +1482,15 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             .descriptorType = vk::DescriptorType::eSampler,
             .pImageInfo = materialSamplerInfos.data(),
         });
+
+        const uint32_t textureArrayBinding =
+            1 + asserted_cast<uint32_t>(materialSamplerInfos.size());
+        if (_deferredLoadingContext.has_value())
+            _deferredLoadingContext->textureArrayBinding = textureArrayBinding;
+
         dss.push_back(vk::WriteDescriptorSet{
             .dstSet = _materialTexturesDS,
-            .dstBinding =
-                1 + asserted_cast<uint32_t>(materialSamplerInfos.size()),
+            .dstBinding = textureArrayBinding,
             .dstArrayElement = 0,
             .descriptorCount =
                 asserted_cast<uint32_t>(materialImageInfos.size()),

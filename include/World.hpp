@@ -4,6 +4,7 @@
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "Model.hpp"
+#include "Profiler.hpp"
 #include "Scene.hpp"
 #include "Texture.hpp"
 
@@ -48,6 +49,10 @@ class World
     World(World &&other) = delete;
     World &operator=(const World &other) = delete;
     World &operator=(World &&other) = delete;
+
+    void handleDeferredLoading(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        uint32_t nextFrame, Profiler &profiler);
 
     [[nodiscard]] const Scene &currentScene() const;
     void updateUniformBuffers(
