@@ -30,8 +30,11 @@ using namespace wheels;
         features.shaderSampledImageArrayDynamicIndexing,                       \
         vk::PhysicalDeviceFeatures2, features.pipelineStatisticsQuery,         \
         vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                \
+        vk::PhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound,   \
         vk::PhysicalDeviceVulkan12Features,                                    \
         shaderSampledImageArrayNonUniformIndexing,                             \
+        vk::PhysicalDeviceVulkan12Features,                                    \
+        descriptorBindingUpdateUnusedWhilePending,                             \
         vk::PhysicalDeviceVulkan12Features,                                    \
         descriptorBindingVariableDescriptorCount,                              \
         vk::PhysicalDeviceVulkan12Features, runtimeDescriptorArray,            \
