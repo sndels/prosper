@@ -11,6 +11,7 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/pair.hpp>
 
+#include "Dds.hpp"
 #include "Utils.hpp"
 
 using namespace wheels;
@@ -104,15 +105,14 @@ bool cacheValid(const std::filesystem::path &cacheFile)
     return true;
 }
 
-void generateMipLevels(
-    gli::texture2d &tex, const UncompressedPixelData &pixels, uint32_t maxLevel)
+void generateMipLevels(Dds &dds, const UncompressedPixelData &pixels)
 {
     // GLI's implementation generated weird artifacts on sponza's fabrics so
     // let's do this ourselves.
     // TODO:
     // - Optimize
     // - Better algo for e.g. normals?
-    for (uint32_t level = 1; level < maxLevel; ++level)
+    for (uint32_t level = 1; level < dds.mipLevelCount; ++level)
     {
         const uint32_t parentWidth =
             std::max(pixels.extent.width >> (level - 1u), 1u);
@@ -125,9 +125,10 @@ void generateMipLevels(
         const uint32_t pixelStride = pixels.channels;
         const uint32_t parentRowStride = parentWidth * pixelStride;
 
-        const uint8_t *parentData =
-            reinterpret_cast<uint8_t *>(tex.data(0, 0, level - 1));
-        uint8_t *data = reinterpret_cast<uint8_t *>(tex.data(0, 0, level));
+        const uint8_t *parentData = reinterpret_cast<uint8_t *>(
+            dds.data.data() + dds.levelByteOffsets[level - 1]);
+        uint8_t *data = reinterpret_cast<uint8_t *>(
+            dds.data.data() + dds.levelByteOffsets[level]);
         for (uint32_t j = 0; j < height; ++j)
         {
             // Clamp to edge
@@ -164,31 +165,49 @@ void generateMipLevels(
 }
 
 void compress(
-    const std::filesystem::path &targetPath,
+    ScopedScratch scopeAlloc, const std::filesystem::path &targetPath,
     const UncompressedPixelData &pixels, bool generateMips)
 {
-    const auto maxLevel =
+    const uint32_t mipLevelCount =
         generateMips
             ? asserted_cast<uint32_t>(floor(
                   log2(std::max(pixels.extent.width, pixels.extent.height)))) +
                   1
             : 1;
 
-    gli::texture2d tex{
-        gli::FORMAT_RGBA8_UNORM_PACK8,
-        glm::ivec2{pixels.extent.width, pixels.extent.height}, maxLevel};
+    Dds dds{
+        .width = pixels.extent.width,
+        .height = pixels.extent.height,
+        .format = DxgiFormat::R8G8B8A8Unorm,
+        .mipLevelCount = mipLevelCount,
+        .data = Array<uint8_t>{scopeAlloc},
+        .levelByteOffsets = Array<uint32_t>{scopeAlloc},
+    };
+
+    const uint32_t pixelStride = 4;
+    // TODO: Expose from dds.cpp, reserve mem as well
+    uint32_t totalByteSize = 0;
+    for (uint32_t i = 0; i < dds.mipLevelCount; ++i)
+    {
+        const uint32_t levelWidth = std::max(dds.width >> i, 1u);
+        const uint32_t levelHeight = std::max(dds.height >> i, 1u);
+        const uint32_t levelByteSize = levelWidth * levelHeight * 4;
+
+        dds.levelByteOffsets.push_back(totalByteSize);
+        totalByteSize += levelByteSize;
+    }
+    dds.data.resize(totalByteSize);
+
     memcpy(
-        tex.data(), pixels.data,
-        pixels.extent.width * pixels.extent.height * pixels.channels);
+        dds.data.data(), pixels.data,
+        pixels.extent.width * pixels.extent.height * pixelStride);
 
     if (generateMips)
-        generateMipLevels(tex, pixels, maxLevel);
+        generateMipLevels(dds, pixels);
 
     // TODO: Compression
 
-    // TODO:
-    // Replace gli here? DDS seems be simple enough to write inline
-    assert(gli::save(tex, targetPath.string()) && "GLI save failed");
+    writeDds(dds, targetPath);
 
     const std::filesystem::path tagPath = cacheTagPath(targetPath);
     std::ofstream tagFile{tagPath, std::ios_base::binary};
@@ -317,25 +336,27 @@ Texture2D::Texture2D(
             pixels.channels = 4;
         }
 
-        compress(cached, pixels, mipmap);
+        compress(scopeAlloc.child_scope(), cached, pixels, mipmap);
 
         stbi_image_free(pixels.dataOwned);
     }
 
-    const gli::texture2d tex(gli::load(cached.string()));
-    assert(!tex.empty());
-    assert(tex.base_level() == 0 && "Incomplete mip chains aren't supported");
-    assert(tex.format() == gli::FORMAT_RGBA8_UNORM_PACK8);
+    // TODO:
+    // If cache was invalid, the newly cached one directly from memory
+    Dds dds = readDds(scopeAlloc, cached);
+
+    assert(!dds.data.empty());
+    assert(dds.format == DxgiFormat::R8G8B8A8Unorm);
 
     const vk::Extent2D extent{
-        asserted_cast<uint32_t>(tex.extent().x),
-        asserted_cast<uint32_t>(tex.extent().y),
+        asserted_cast<uint32_t>(dds.width),
+        asserted_cast<uint32_t>(dds.height),
     };
 
     assert(stagingBuffer.mapped != nullptr);
-    assert(tex.size() <= stagingBuffer.byteSize);
+    assert(dds.data.size() <= stagingBuffer.byteSize);
 
-    memcpy(stagingBuffer.mapped, tex.data(), tex.size());
+    memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
 
     // Both transfer source and destination as pixels will be transferred to it
     // and mipmaps will be generated from it
@@ -345,7 +366,7 @@ Texture2D::Texture2D(
                 .format = vk::Format::eR8G8B8A8Unorm,
                 .width = extent.width,
                 .height = extent.height,
-                .mipCount = asserted_cast<uint32_t>(tex.levels()),
+                .mipCount = dds.mipLevelCount,
                 .layerCount = 1,
                 .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
                               vk::ImageUsageFlagBits::eTransferDst |
@@ -362,13 +383,13 @@ Texture2D::Texture2D(
             });
 
     std::vector<vk::BufferImageCopy> regions;
-    regions.reserve(tex.levels());
-    for (auto i = 0; i < tex.levels(); ++i)
+    regions.reserve(dds.mipLevelCount);
+    assert(dds.levelByteOffsets.size() == dds.mipLevelCount);
+    for (uint32_t i = 0; i < dds.mipLevelCount; ++i)
     {
         regions.push_back(vk::BufferImageCopy{
-            .bufferOffset = asserted_cast<vk::DeviceSize>(
-                reinterpret_cast<const std::byte *>(tex.data(0, 0, i)) -
-                reinterpret_cast<const std::byte *>(tex.data())),
+            .bufferOffset =
+                asserted_cast<vk::DeviceSize>(dds.levelByteOffsets[i]),
             .bufferRowLength = 0,
             .bufferImageHeight = 0,
             .imageSubresource =
