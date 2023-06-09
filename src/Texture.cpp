@@ -176,31 +176,10 @@ void compress(
             : 1;
 
     Dds dds{
-        .width = pixels.extent.width,
-        .height = pixels.extent.height,
-        .format = DxgiFormat::R8G8B8A8Unorm,
-        .mipLevelCount = mipLevelCount,
-        .data = Array<uint8_t>{scopeAlloc},
-        .levelByteOffsets = Array<uint32_t>{scopeAlloc},
-    };
+        scopeAlloc, pixels.extent.width, pixels.extent.height,
+        DxgiFormat::R8G8B8A8Unorm, mipLevelCount};
 
-    const uint32_t pixelStride = 4;
-    // TODO: Expose from dds.cpp, reserve mem as well
-    uint32_t totalByteSize = 0;
-    for (uint32_t i = 0; i < dds.mipLevelCount; ++i)
-    {
-        const uint32_t levelWidth = std::max(dds.width >> i, 1u);
-        const uint32_t levelHeight = std::max(dds.height >> i, 1u);
-        const uint32_t levelByteSize = levelWidth * levelHeight * 4;
-
-        dds.levelByteOffsets.push_back(totalByteSize);
-        totalByteSize += levelByteSize;
-    }
-    dds.data.resize(totalByteSize);
-
-    memcpy(
-        dds.data.data(), pixels.data,
-        pixels.extent.width * pixels.extent.height * pixelStride);
+    memcpy(dds.data.data(), pixels.data, dds.data.size());
 
     if (generateMips)
         generateMipLevels(dds, pixels);

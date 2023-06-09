@@ -63,6 +63,33 @@ const uint32_t sDx10Magic = 0x30315844;
 
 } // namespace
 
+Dds::Dds(
+    wheels::Allocator &alloc, uint32_t width, uint32_t height,
+    DxgiFormat format, uint32_t mipLevelCount)
+: width{width}
+, height{height}
+, format{format}
+, mipLevelCount{mipLevelCount}
+, data{alloc}
+, levelByteOffsets{alloc}
+{
+    assert(format == DxgiFormat::R8G8B8A8Unorm);
+    const uint32_t pixelStride = 4;
+
+    uint32_t totalByteSize = 0;
+    levelByteOffsets.reserve(mipLevelCount);
+    for (uint32_t i = 0; i < mipLevelCount; ++i)
+    {
+        const uint32_t levelWidth = std::max(width >> i, 1u);
+        const uint32_t levelHeight = std::max(height >> i, 1u);
+        const uint32_t levelByteSize = levelWidth * levelHeight * pixelStride;
+
+        levelByteOffsets.push_back(totalByteSize);
+        totalByteSize += levelByteSize;
+    }
+    data.resize(totalByteSize);
+}
+
 void writeDds(const Dds &dds, const std::filesystem::path &path)
 {
     // NOTE:
@@ -185,26 +212,9 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     assert(ddsHeader.dwPitchOrLinearSize == ddsHeader.dwWidth * pixelStride);
 
     Dds ret{
-        .width = ddsHeader.dwWidth,
-        .height = ddsHeader.dwHeight,
-        .format = ddsHeaderDxt10.dxgiFormat,
-        .mipLevelCount = ddsHeader.dwMipMapCount,
-        .data = Array<uint8_t>{alloc},
-        .levelByteOffsets = Array<uint32_t>{alloc},
-    };
+        alloc, ddsHeader.dwWidth, ddsHeader.dwHeight, ddsHeaderDxt10.dxgiFormat,
+        ddsHeader.dwMipMapCount};
 
-    uint32_t totalByteSize = 0;
-    ret.levelByteOffsets.reserve(ret.mipLevelCount);
-    for (uint32_t i = 0; i < ret.mipLevelCount; ++i)
-    {
-        const uint32_t levelWidth = std::max(ret.width >> i, 1u);
-        const uint32_t levelHeight = std::max(ret.height >> i, 1u);
-        const uint32_t levelByteSize = levelWidth * levelHeight * pixelStride;
-
-        ret.levelByteOffsets.push_back(totalByteSize);
-        totalByteSize += levelByteSize;
-    }
-    ret.data.resize(totalByteSize);
     inFile.read(reinterpret_cast<char *>(ret.data.data()), ret.data.size());
 
     return ret;

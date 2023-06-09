@@ -24,6 +24,10 @@ struct Dds
     uint32_t mipLevelCount{0};
     wheels::Array<uint8_t> data;
     wheels::Array<uint32_t> levelByteOffsets;
+
+    // Allocates enough space in data and sets levelByteOffsets accordingly
+    Dds(wheels::Allocator &alloc, uint32_t width, uint32_t height,
+        DxgiFormat format, uint32_t mipLevelCount);
 };
 
 void writeDds(const Dds &dds, const std::filesystem::path &path);
