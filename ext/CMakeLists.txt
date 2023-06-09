@@ -93,3 +93,5 @@ set(WHEELS_BUILD_BENCHES OFF CACHE BOOL "Include benchmarks")
 add_subdirectory(wheels)
 
 add_subdirectory(cxxopts)
+
+include(ispc_texcomp_CMakeLists.txt)

@@ -1,0 +1,102 @@
+# Adapted from the ISPCTextureCompressor makefile and vcxproj
+if(UNIX AND NOT APPLE)
+    set(ISPC_PLATFORM_DIR ${CMAKE_CURRENT_LIST_DIR}/ispc_texcomp/ISPC/linux)
+    set(ISPC_ARCHIVE_NAME ispc-v1.20.0-linux)
+    set(ISPC_ARCHIVE_EXTENSION tar.gz)
+    set(ISPC_ARCHIVE_HASH dcb1695c3eb5ee92917026fc5a04f745)
+    set(ISPC_EXE ${ISPC_PLATFORM_DIR}/${ISPC_ARCHIVE_NAME}/bin/ispc)
+    set(ISPC_CXXFLAGS -O2 -fPIC -I.)
+    set(ISPC_PIC_FLAG --pic)
+    set(OBJ_EXTENSION o)
+elseif(WIN32)
+    set(ISPC_PLATFORM_DIR ${CMAKE_CURRENT_LIST_DIR}/ispc_texcomp/ISPC/win)
+    set(ISPC_ARCHIVE_NAME ispc-v1.20.0-windows)
+    set(ISPC_ARCHIVE_EXTENSION zip)
+    set(ISPC_ARCHIVE_HASH 5f473b1a77f019d1e692f588f51bcfe3)
+    set(ISPC_EXE ${ISPC_PLATFORM_DIR}/${ISPC_ARCHIVE_NAME}/bin/ispc.exe)
+    set(ISPC_CXXFLAGS /O2)
+    set(ISPC_PIC_FLAG)
+    set(OBJ_EXTENSION obj)
+else()
+    message(FATAL_ERROR "ISPC binaries missing for this build platform")
+endif()
+
+set(ISPC_ARCHIVE_PATH ${ISPC_PLATFORM_DIR}/${ISPC_ARCHIVE_NAME}.${ISPC_ARCHIVE_EXTENSION})
+file(
+    DOWNLOAD
+    https://github.com/ispc/ispc/releases/download/v1.20.0/${ISPC_ARCHIVE_NAME}.${ISPC_ARCHIVE_EXTENSION}
+    ${ISPC_ARCHIVE_PATH}
+    EXPECTED_HASH MD5=${ISPC_ARCHIVE_HASH}
+    SHOW_PROGRESS
+)
+
+# TODO:
+# This seems to run on every build in msbuild even though download isn't redone. Why?
+# Also seems like this sometimes confuses file tracking and makes ispc commands run again
+add_custom_command(
+    OUTPUT ${ISPC_EXE}
+    COMMAND tar xf ${ISPC_ARCHIVE_PATH}
+    WORKING_DIRECTORY ${ISPC_PLATFORM_DIR}
+    DEPENDS ${ISPC_ARCHIVE_PATH}
+    COMMENT "Unpacking ISPC"
+    VERBATIM
+)
+
+set(ISPC_FLAGS -O2 --arch=x86-64 --target=sse2,sse4,avx,avx2 --opt=fast-math ${ISPC_PIC_FLAG})
+
+# Custom target dependency from unpack since we need this for multiple commands
+add_custom_target(ispc_exe DEPENDS ${ISPC_EXE})
+
+set(ISPC_TEXCOMP_DIR ${CMAKE_CURRENT_LIST_DIR}/ispc_texcomp/ispc_texcomp)
+set(KERNEL_ISPC_OBJS
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_ispc.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_ispc_sse2.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_ispc_sse4.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_ispc_avx.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_ispc_avx2.${OBJ_EXTENSION}
+)
+set(KERNEL_ASTC_ISPC_OBJS
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_astc_ispc.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_astc_ispc_sse2.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_astc_ispc_sse4.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_astc_ispc_avx.${OBJ_EXTENSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/kernel_astc_ispc_avx2.${OBJ_EXTENSION}
+)
+
+# Generate ISPC kernel outputs
+# The dll picks the supported instruction set at runtime so let's compile for everything
+add_custom_command(
+    OUTPUT ${ISPC_TEXCOMP_DIR}/kernel_ispc.h ${KERNEL_ISPC_OBJS}
+    COMMAND ${ISPC_EXE} ${ISPC_FLAGS} kernel.ispc -o ${CMAKE_CURRENT_BINARY_DIR}/kernel_ispc.${OBJ_EXTENSION} -h kernel_ispc.h
+    DEPENDS ispc_exe ${ISPC_TEXCOMP_DIR}/kernel.ispc
+    WORKING_DIRECTORY ${ISPC_TEXCOMP_DIR}/
+    COMMENT "Generating ispc kernel outputs"
+    VERBATIM
+)
+add_custom_target(kernel_ispc_objs DEPENDS ${KERNEL_ISPC_OBJS})
+
+add_custom_command(
+    OUTPUT ${ISPC_TEXCOMP_DIR}/kernel_astc_ispc.h ${KERNEL_ASTC_ISPC_OBJS}
+    COMMAND ${ISPC_EXE} ${ISPC_FLAGS} kernel_astc.ispc -o ${CMAKE_CURRENT_BINARY_DIR}/kernel_astc_ispc.${OBJ_EXTENSION} -h kernel_astc_ispc.h
+    DEPENDS ispc_exe ${ISPC_TEXCOMP_DIR}/kernel_astc.ispc
+    WORKING_DIRECTORY ${ISPC_TEXCOMP_DIR}/
+    COMMENT "Generating ispc astc kernel outputs"
+    VERBATIM
+)
+add_custom_target(kernel_astc_ispc_objs DEPENDS ${KERNEL_ASTC_ISPC_OBJS})
+
+add_library(ispc_texcomp
+    STATIC
+    ${ISPC_TEXCOMP_DIR}/ispc_texcomp.def
+    ${ISPC_TEXCOMP_DIR}/ispc_texcomp.cpp
+    ${ISPC_TEXCOMP_DIR}/ispc_texcomp_astc.cpp
+    ${ISPC_TEXCOMP_DIR}/kernel_ispc.h
+    ${ISPC_TEXCOMP_DIR}/kernel_astc_ispc.h
+)
+add_compile_options(ispc_texcomp ISPC_CXXFLAGS)
+target_include_directories(ispc_texcomp PUBLIC ${ISPC_TEXCOMP_DIR})
+target_link_libraries(ispc_texcomp
+    ${KERNEL_ISPC_OBJS}
+    ${KERNEL_ASTC_ISPC_OBJS}
+)
+add_dependencies(ispc_texcomp kernel_ispc_objs kernel_astc_ispc_objs)

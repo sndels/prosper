@@ -25,3 +25,6 @@
 [submodule "ext/cxxopts"]
 	path = ext/cxxopts
 	url = https://github.com/jarro2783/cxxopts.git
+[submodule "ext/ispctex"]
+	path = ext/ispc_texcomp
+	url = https://github.com/GameTechDev/ISPCTextureCompressor.git
