@@ -12,6 +12,7 @@ enum class DxgiFormat
 {
     Unknown = 0,
     R8G8B8A8Unorm = 28,
+    BC7Unorm = 98,
 };
 
 // This is a pretty simple format so let's just do the support ourselves

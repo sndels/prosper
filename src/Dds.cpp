@@ -61,6 +61,20 @@ struct DdsHeaderDxt10
 const uint32_t sDdsMagic = 0x20534444;
 const uint32_t sDx10Magic = 0x30315844;
 
+bool isFormatCompressed(DxgiFormat format)
+{
+    switch (format)
+    {
+    case DxgiFormat::R8G8B8A8Unorm:
+        return false;
+    case DxgiFormat::BC7Unorm:
+        return true;
+    default:
+        break;
+    }
+    throw std::runtime_error("Unkown DxgiFormat");
+}
+
 } // namespace
 
 Dds::Dds(
@@ -73,16 +87,35 @@ Dds::Dds(
 , data{alloc}
 , levelByteOffsets{alloc}
 {
-    assert(format == DxgiFormat::R8G8B8A8Unorm);
-    const uint32_t pixelStride = 4;
-
     uint32_t totalByteSize = 0;
     levelByteOffsets.reserve(mipLevelCount);
     for (uint32_t i = 0; i < mipLevelCount; ++i)
     {
-        const uint32_t levelWidth = std::max(width >> i, 1u);
-        const uint32_t levelHeight = std::max(height >> i, 1u);
-        const uint32_t levelByteSize = levelWidth * levelHeight * pixelStride;
+        uint32_t levelWidth = 0;
+        uint32_t levelHeight = 0;
+        uint32_t levelByteSize = 0;
+        switch (format)
+        {
+        case DxgiFormat::R8G8B8A8Unorm:
+            levelWidth = std::max(width >> i, 1u);
+            levelHeight = std::max(height >> i, 1u);
+            levelByteSize = levelWidth * levelHeight * 4;
+            break;
+        case DxgiFormat::BC7Unorm:
+            // Each 4x4 block is 16bytes
+            levelWidth = std::max(width >> i, 1u);
+            levelHeight = std::max(height >> i, 1u);
+            assert(
+                levelWidth % 4 == 0 && levelHeight % 4 == 0 &&
+                "BC7 mips should be divide evenly by 4x4");
+            assert(
+                levelWidth >= 4 && levelHeight >= 4 &&
+                "BC7 mip dimensions should be at least 4x4");
+            levelByteSize = levelWidth / 4 * levelHeight / 4 * 16;
+            break;
+        default:
+            throw std::runtime_error("Unknown DxgiFormat");
+        }
 
         levelByteOffsets.push_back(totalByteSize);
         totalByteSize += levelByteSize;
@@ -99,26 +132,38 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
     outFile.write(
         reinterpret_cast<const char *>(&sDdsMagic), sizeof(sDdsMagic));
 
-    const uint32_t pixelBits = 32;
-    const uint32_t pixelStride = 4;
+    const bool isCompressed = isFormatCompressed(dds.format);
+    const uint32_t pixelStride = isCompressed ? 0 : 4;
+    const uint32_t pixelBits = isCompressed ? 0 : 32;
+    const uint32_t pitchOrLinearSize =
+        isCompressed ? (dds.mipLevelCount == 1
+                            ? dds.levelByteOffsets[0]
+                            : dds.levelByteOffsets[1] - dds.levelByteOffsets[0])
+                     : dds.width * dds.height * pixelStride;
 
+    // clang-format off
+    const uint32_t flags = isCompressed ?
+        // compressed | mipmapcount | required
+        0x000A1007u
+        // mipmapcount | uncompressed | required
+        : 0x0002100Fu;
+    // clang-format on
     // We don't use the legacy header so write it empty
     const DdsHeader ddsHeader{
-        // mipmapcount | uncompressed | required
-        .dwFlags = 0x0002100Fu,
+        .dwFlags = flags,
         .dwHeight = dds.height,
         .dwWidth = dds.width,
-        .dwPitchOrLinearSize = dds.width * pixelStride,
+        .dwPitchOrLinearSize = pitchOrLinearSize,
         .dwMipMapCount = dds.mipLevelCount,
         .ddspf =
             DdsPixelFormat{
                 .dwFlags = 0x4, // FourCC
                 .dwFourCC = sDx10Magic,
                 .dwRGBBitCount = pixelBits,
-                .dwRBitMask = 0x000000FF,
-                .dwGBitMask = 0x0000FF00,
-                .dwBBitMask = 0x00FF0000,
-                .dwABitMask = 0xFF000000,
+                .dwRBitMask = pixelBits == 32 ? 0x000000FF : 0u,
+                .dwGBitMask = pixelBits == 32 ? 0x0000FF00 : 0u,
+                .dwBBitMask = pixelBits == 32 ? 0x00FF0000 : 0u,
+                .dwABitMask = pixelBits == 32 ? 0xFF000000 : 0u,
             },
         // gli had mipmaps tagged even for textures that had 1 mipmap, let's
         // match
@@ -167,7 +212,9 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     // gli was pedantic here so let's do that as well. This is for our cache
     // after all...
     // mipmapcount | uncompressed | required
-    assert(ddsHeader.dwFlags == 0x0002100F && "Unexpexted DDS_FLAGS ");
+    assert(
+        (ddsHeader.dwFlags == 0x0002100F) ||
+        (ddsHeader.dwFlags == 0x000A1007) && "Unexpexted DDS_FLAGS ");
     assert(ddsHeader.ddspf.dwSize == 32 && "Unexpexted DDS_PIXEL_FORMAT size");
     assert(ddsHeader.ddspf.dwFlags == 0x4 && "Expected valid FourCC");
     assert(ddsHeader.ddspf.dwFourCC == sDx10Magic && "Expected a Dx10 header");
@@ -198,18 +245,15 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     inFile.read(
         reinterpret_cast<char *>(&ddsHeaderDxt10), sizeof(ddsHeaderDxt10));
     assert(
-        ddsHeaderDxt10.dxgiFormat == DxgiFormat::R8G8B8A8Unorm &&
-        "Only R8G8B8A8Unorm DDS textures are supported");
+        (ddsHeaderDxt10.dxgiFormat == DxgiFormat::R8G8B8A8Unorm ||
+         ddsHeaderDxt10.dxgiFormat == DxgiFormat::BC7Unorm) &&
+        "Only R8G8B8A8Unorm and BC7Unorm DDS textures are supported");
     assert(
         ddsHeaderDxt10.resourceDimension == D3d10ResourceDimension::Texture2d &&
         "Only Texture2d DDS resource dimension is supported");
     assert(
         ddsHeaderDxt10.arraySize == 1 &&
         "DDS texture arrays are not supported");
-
-    // Only valid for 32bpp as asserted from ddspf
-    const uint32_t pixelStride = 4;
-    assert(ddsHeader.dwPitchOrLinearSize == ddsHeader.dwWidth * pixelStride);
 
     Dds ret{
         alloc, ddsHeader.dwWidth, ddsHeader.dwHeight, ddsHeaderDxt10.dxgiFormat,
