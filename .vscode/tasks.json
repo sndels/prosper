@@ -111,6 +111,25 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "Ninja (Release)",
+            "type": "shell",
+            "dependsOn": [
+                "cmake ninja release"
+            ],
+            "command": "ninja",
+            "args": [],
+            "group": "build",
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "never"
+            },
+            "options": {
+                "cwd": "${workspaceRoot}/build",
+            },
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "Ninja (Debug)",
             "type": "shell",
             "dependsOn": [
@@ -176,6 +195,30 @@
                 "-B",
                 "build",
             ],
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "cmake ninja release",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=Release",
+                // Ninja color output
+                "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
+                "-G",
+                "Ninja",
+                "-B",
+                "build",
+            ],
+            "options": {
+                "env": {
+                    "CC": "clang",
+                    "CXX": "clang++",
+                }
+            },
             "presentation": {
                 // Reveal the output only if unrecognized errors occur.
                 "reveal": "silent"
