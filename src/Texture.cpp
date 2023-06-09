@@ -6,6 +6,7 @@
 #include <variant>
 
 #include <gli/gli.hpp>
+#include <ispc_texcomp.h>
 #include <stb_image.h>
 #include <tiny_gltf.h>
 #include <wheels/containers/array.hpp>
@@ -20,7 +21,7 @@ namespace
 {
 
 // This should be incremented when breaking changes are made to what's cached
-const uint32_t sShaderCacheVersion = 1;
+const uint32_t sShaderCacheVersion = 2;
 
 struct UncompressedPixelData
 {
@@ -105,14 +106,20 @@ bool cacheValid(const std::filesystem::path &cacheFile)
     return true;
 }
 
-void generateMipLevels(Dds &dds, const UncompressedPixelData &pixels)
+void generateMipLevels(
+    Array<uint8_t> &rawLevels, Array<uint32_t> &rawLevelByteOffsets,
+    const UncompressedPixelData &pixels)
 {
     // GLI's implementation generated weird artifacts on sponza's fabrics so
     // let's do this ourselves.
     // TODO:
     // - Optimize
     // - Better algo for e.g. normals?
-    for (uint32_t level = 1; level < dds.mipLevelCount; ++level)
+    const size_t mipLevelCount = rawLevelByteOffsets.size();
+    // TODO: Non-8bit channels?
+    const uint32_t pixelStride = pixels.channels;
+    rawLevelByteOffsets[0] = 0;
+    for (uint32_t level = 1; level < mipLevelCount; ++level)
     {
         const uint32_t parentWidth =
             std::max(pixels.extent.width >> (level - 1u), 1u);
@@ -121,14 +128,15 @@ void generateMipLevels(Dds &dds, const UncompressedPixelData &pixels)
         const uint32_t width = std::max(pixels.extent.width >> level, 1u);
         const uint32_t height = std::max(pixels.extent.height >> level, 1u);
 
-        // TODO: Non-8bit channels?
-        const uint32_t pixelStride = pixels.channels;
         const uint32_t parentRowStride = parentWidth * pixelStride;
 
+        rawLevelByteOffsets[level] =
+            rawLevelByteOffsets[level - 1] + parentWidth * parentRowStride;
+
         const uint8_t *parentData = reinterpret_cast<uint8_t *>(
-            dds.data.data() + dds.levelByteOffsets[level - 1]);
+            rawLevels.data() + rawLevelByteOffsets[level - 1]);
         uint8_t *data = reinterpret_cast<uint8_t *>(
-            dds.data.data() + dds.levelByteOffsets[level]);
+            rawLevels.data() + rawLevelByteOffsets[level]);
         for (uint32_t j = 0; j < height; ++j)
         {
             // Clamp to edge
@@ -168,31 +176,81 @@ void compress(
     ScopedScratch scopeAlloc, const std::filesystem::path &targetPath,
     const UncompressedPixelData &pixels, bool generateMips)
 {
-    const uint32_t mipLevelCount =
+    // First calculate mip count down to 1x1
+    const int32_t fullMipLevelCount =
         generateMips
-            ? asserted_cast<uint32_t>(floor(
+            ? asserted_cast<int32_t>(floor(
                   log2(std::max(pixels.extent.width, pixels.extent.height)))) +
                   1
             : 1;
+    // Truncate to 4x4 for the final level
+    const uint32_t mipLevelCount =
+        asserted_cast<uint32_t>(std::max(fullMipLevelCount - 2, 1));
 
+    const DxgiFormat format =
+        (pixels.extent.width >= 4 && pixels.extent.height >= 4)
+            ? DxgiFormat::BC7Unorm
+            : DxgiFormat::R8G8B8A8Unorm;
     Dds dds{
-        scopeAlloc, pixels.extent.width, pixels.extent.height,
-        DxgiFormat::R8G8B8A8Unorm, mipLevelCount};
+        scopeAlloc, pixels.extent.width, pixels.extent.height, format,
+        mipLevelCount};
 
-    memcpy(dds.data.data(), pixels.data, dds.data.size());
+    if (format == DxgiFormat::BC7Unorm)
+    {
+        Array<uint8_t> rawLevels{scopeAlloc};
+        // Twice the size of the first level should be plenty for mips
+        const size_t inputSize = pixels.extent.width * pixels.extent.height * 4;
+        rawLevels.resize(inputSize * 2);
 
-    if (generateMips)
-        generateMipLevels(dds, pixels);
+        memcpy(rawLevels.data(), pixels.data, inputSize);
 
-    // TODO: Compression
+        Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
+        rawLevelByteOffsets.resize(mipLevelCount);
+
+        if (mipLevelCount > 1)
+            generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
+
+        bc7_enc_settings bc7Settings;
+        // Don't really care about quality at this point, this is much faster
+        // than even veryfast
+        GetProfile_alpha_ultrafast(&bc7Settings);
+
+        for (uint32_t i = 0; i < mipLevelCount; ++i)
+        {
+
+            const uint32_t width = std::max(dds.width >> i, 1u);
+            const uint32_t height = std::max(dds.height >> i, 1u);
+            assert(
+                width % 4 == 0 && height % 4 == 0 &&
+                "BC7 mips should be divide evenly by 4x4");
+            assert(
+                width >= 4 && height >= 4 &&
+                "BC7 mip dimensions should be at least 4x4");
+
+            const rgba_surface rgbaSurface{
+                .ptr = rawLevels.data() + rawLevelByteOffsets[i],
+                .width = asserted_cast<int32_t>(width),
+                .height = asserted_cast<int32_t>(height),
+                .stride = asserted_cast<int32_t>(width * 4),
+            };
+            uint8_t *dst = dds.data.data() + dds.levelByteOffsets[i];
+            CompressBlocksBC7(&rgbaSurface, dst, &bc7Settings);
+        }
+    }
+    else
+    {
+        assert(format == DxgiFormat::R8G8B8A8Unorm);
+        assert(mipLevelCount == 1);
+        memcpy(dds.data.data(), pixels.data, dds.data.size());
+    }
 
     writeDds(dds, targetPath);
 
     const std::filesystem::path tagPath = cacheTagPath(targetPath);
     std::ofstream tagFile{tagPath, std::ios_base::binary};
     // NOTE:
-    // Caches aren't supposed to be portable so this doesn't pay attention to
-    // endianness.
+    // Caches aren't supposed to be portable so this doesn't pay
+    // attention to endianness.
     tagFile.write(
         reinterpret_cast<const char *>(&sShaderCacheVersion),
         sizeof(sShaderCacheVersion));
@@ -242,6 +300,20 @@ void stagePixels(
     assert(imageSize <= stagingBuffer.byteSize);
 
     memcpy(stagingBuffer.mapped, data, asserted_cast<size_t>(imageSize));
+}
+
+vk::Format asVkFormat(DxgiFormat format)
+{
+    switch (format)
+    {
+    case DxgiFormat::R8G8B8A8Unorm:
+        return vk::Format::eR8G8B8A8Unorm;
+    case DxgiFormat::BC7Unorm:
+        return vk::Format::eBc7UnormBlock;
+    default:
+        break;
+    }
+    throw std::runtime_error("Unkown DxgiFormat");
 }
 
 } // namespace
@@ -325,7 +397,6 @@ Texture2D::Texture2D(
     Dds dds = readDds(scopeAlloc, cached);
 
     assert(!dds.data.empty());
-    assert(dds.format == DxgiFormat::R8G8B8A8Unorm);
 
     const vk::Extent2D extent{
         asserted_cast<uint32_t>(dds.width),
@@ -337,12 +408,15 @@ Texture2D::Texture2D(
 
     memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
 
-    // Both transfer source and destination as pixels will be transferred to it
-    // and mipmaps will be generated from it
+    // TODO:
+    // Use srgb formats in dds for srgb data, have a flag in texture ctor for
+    // using unorm for snorm inputs. Having srgb data say it's unorm is
+    // potentially confusing.
+
     _image = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
-                .format = vk::Format::eR8G8B8A8Unorm,
+                .format = asVkFormat(dds.format),
                 .width = extent.width,
                 .height = extent.height,
                 .mipCount = dds.mipLevelCount,

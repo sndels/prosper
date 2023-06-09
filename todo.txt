@@ -8,3 +8,5 @@
 - Generalize binding layout creation
   - First pass will probably have sameish boilerplate in every user 
 - Document coverage for required features/limits from gpuinfo
+- Use better compression scheme for normals
+- Clean up unused variables warnings in release builds
