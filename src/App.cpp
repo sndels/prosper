@@ -174,7 +174,7 @@ App::~App()
 
 void App::run()
 {
-    LinearAllocator scopeBackingAlloc{megabytes(64)};
+    LinearAllocator scopeBackingAlloc{megabytes(256)};
     while (_window->open())
     {
         _profiler->startCpuFrame();
