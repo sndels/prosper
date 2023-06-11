@@ -190,11 +190,15 @@ bool Renderer::compileShaders(
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
+#ifndef NDEBUG
         const ShaderReflection &vertReflection = vertResult->reflection;
         assert(sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
+#ifndef NDEBUG
         const ShaderReflection &fragReflection = fragResult->reflection;
         assert(sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

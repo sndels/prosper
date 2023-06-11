@@ -109,6 +109,9 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
             }
         }
         assert(found && "Binding index not found");
+        // Supress unused variable warning. Let's not mask found with NDEBUG
+        // macro spaghetti since the logic is not expensive.
+        (void)found;
     }
 
     return descriptorWrites;

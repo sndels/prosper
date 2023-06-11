@@ -79,9 +79,12 @@ QueueFamilies findQueueFamilies(
             if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
             {
                 families.graphicsFamily = i;
-                assert(
-                    presentSupport &&
-                    "We expect to present from the graphics queue");
+
+                if (presentSupport != VK_TRUE)
+                    throw std::runtime_error(
+                        "Unexpected graphics queue family without present "
+                        "support. We expect to present from the graphics "
+                        "queue");
             }
         }
 

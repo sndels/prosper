@@ -288,20 +288,6 @@ void transitionImageLayout(
         nullptr, 1, &barrier);
 }
 
-void stagePixels(
-    const Buffer &stagingBuffer, const void *data, vk::Extent2D extent,
-    uint32_t bytesPerPixel)
-{
-    assert(stagingBuffer.mapped != nullptr);
-    assert(data != nullptr);
-
-    const vk::DeviceSize imageSize = static_cast<vk::DeviceSize>(extent.width) *
-                                     extent.height * bytesPerPixel;
-    assert(imageSize <= stagingBuffer.byteSize);
-
-    memcpy(stagingBuffer.mapped, data, asserted_cast<size_t>(imageSize));
-}
-
 vk::Format asVkFormat(DxgiFormat format)
 {
     switch (format)

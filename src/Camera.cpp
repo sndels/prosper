@@ -19,13 +19,11 @@ const uint32_t sBindingSetIndex = 0;
 }
 
 Camera::Camera(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *renderResources,
+    ScopedScratch scopeAlloc, Device *device,
     DescriptorAllocator *staticDescriptorsAlloc)
 : _device{device}
-, _renderResources{renderResources}
 {
     assert(_device != nullptr);
-    assert(_renderResources != nullptr);
     assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating Camera\n");

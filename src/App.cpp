@@ -89,8 +89,7 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
         std::make_unique<RenderResources>(_generalAlloc, _device.get());
 
     _cam = std::make_unique<Camera>(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
     _world = std::make_unique<World>(
         scopeAlloc.child_scope(), _device.get(), settings.scene,
         settings.deferredLoading);

@@ -345,24 +345,32 @@ bool RTRenderer::compileShaders(
     {
         destroyShaders();
 
+#ifndef NDEBUG
         const ShaderReflection &raygenReflection = raygenResult->reflection;
         assert(sizeof(PCBlock) == raygenReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
+#ifndef NDEBUG
         const ShaderReflection &rayMissReflection = rayMissResult->reflection;
         assert(
             rayMissReflection.pushConstantsBytesize() == 0 ||
             sizeof(PCBlock) == rayMissReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
+#ifndef NDEBUG
         const ShaderReflection &closestHitReflection =
             closestHitResult->reflection;
         assert(
             closestHitReflection.pushConstantsBytesize() == 0 ||
             sizeof(PCBlock) == closestHitReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
+#ifndef NDEBUG
         const ShaderReflection &anyHitReflection = anyHitResult->reflection;
         assert(
             anyHitReflection.pushConstantsBytesize() == 0 ||
             sizeof(PCBlock) == anyHitReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
         _shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,

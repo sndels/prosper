@@ -60,7 +60,6 @@ class Camera
   public:
     Camera(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *renderResources,
         DescriptorAllocator *staticDescriptorsAlloc);
     ~Camera();
 
@@ -106,7 +105,6 @@ class Camera
     void updateWorldToCamera();
 
     Device *_device{nullptr};
-    RenderResources *_renderResources{nullptr};
     CameraParameters _parameters;
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToClip{1.f};

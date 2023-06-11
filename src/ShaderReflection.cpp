@@ -593,8 +593,10 @@ void fillMetadata(
         fill = true;
         descriptorType = vk::DescriptorType::eUniformBuffer;
 
+#ifndef NDEBUG
         const SpvResult &typeResult = getType(variable, results);
         assert(std::holds_alternative<SpvStruct>(*typeResult.type));
+#endif // !NDEBUG
     }
     break;
     case spv::StorageClassUniformConstant:
