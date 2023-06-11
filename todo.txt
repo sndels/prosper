@@ -10,3 +10,6 @@
 - Document coverage for required features/limits from gpuinfo
 - Use better compression scheme for normals
 - Clean up unused variables warnings in release builds
+- Async transfer queue for texture loading/gen when all textures go through mipgen/compression
+  - Optional if no separate transfer, compute queue and only one graphics queue available?
+    Are there such gpus/drivers for modernish stuff?
