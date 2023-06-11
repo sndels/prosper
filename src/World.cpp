@@ -149,7 +149,9 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 Buffer createTextureStaging(Device *device)
 {
     // Assume at most 4k at 8bits per channel
-    const vk::DeviceSize stagingSize = 4096 * 4096 * sizeof(uint32_t);
+    const vk::DeviceSize stagingSize = static_cast<size_t>(4096) *
+                                       static_cast<size_t>(4096) *
+                                       sizeof(uint32_t);
     return device->createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
@@ -275,7 +277,8 @@ void World::uploadMaterialDatas(uint32_t nextFrame)
         if (_materialsGenerations[nextFrame] !=
             _deferredLoadingContext->materialsGeneration)
         {
-            Material *mapped = (Material *)_materialsBuffers[nextFrame].mapped;
+            Material *mapped = reinterpret_cast<Material *>(
+                _materialsBuffers[nextFrame].mapped);
             memcpy(
                 mapped, _materials.data(),
                 _materials.size() * sizeof(_materials[0]));

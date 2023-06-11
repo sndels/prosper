@@ -142,6 +142,12 @@ class World
             const tinygltf::Model &gltfModel);
         ~DeferredLoadingContext();
 
+        DeferredLoadingContext(const DeferredLoadingContext &) = delete;
+        DeferredLoadingContext(DeferredLoadingContext &&) = delete;
+        DeferredLoadingContext &operator=(const DeferredLoadingContext &) =
+            delete;
+        DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
+
         Device *device{nullptr};
         tinygltf::Model gltfModel;
         uint32_t materialsGeneration{0};

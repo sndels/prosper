@@ -17,6 +17,7 @@ namespace
 const char *const s_default_scene_path =
     "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
 
+// NOLINTNEXTLINE(*-avoid-c-arrays): Mandatory
 App::Settings parseCli(int argc, char *argv[])
 {
     cxxopts::Options options("prosper", "A toy Vulkan renderer");

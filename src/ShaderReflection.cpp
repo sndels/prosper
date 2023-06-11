@@ -553,13 +553,15 @@ vk::DescriptorType intoArrayDescriptorType(const SpvResult &typeResult)
 
     if (std::holds_alternative<SpvSampler>(*typeResult.type))
         return vk::DescriptorType::eSampler;
-    else if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
+
+    if (std::holds_alternative<SpvSampledImage>(*typeResult.type))
         return vk::DescriptorType::eCombinedImageSampler;
-    else if (const SpvImage *iimage = std::get_if<SpvImage>(&*typeResult.type);
-             iimage != nullptr)
+
+    if (const SpvImage *iimage = std::get_if<SpvImage>(&*typeResult.type);
+        iimage != nullptr)
         return imageDescriptorType(*iimage);
-    else
-        assert(!"Unimplemented variant");
+
+    assert(!"Unimplemented variant");
     return vk::DescriptorType::eSampler;
 }
 

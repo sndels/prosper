@@ -32,6 +32,7 @@ struct DdsHeader
     uint32_t dwPitchOrLinearSize{0};
     uint32_t dwDepth{0};
     uint32_t dwMipMapCount{0};
+    // NOLINTNEXTLINE(*-avoid-c-arrays): Match the original docs
     uint32_t dwReserved1[11]{};
     DdsPixelFormat ddspf{0};
     uint32_t dwCaps{0};
@@ -77,9 +78,11 @@ bool isFormatCompressed(DxgiFormat format)
 
 } // namespace
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 Dds::Dds(
     wheels::Allocator &alloc, uint32_t width, uint32_t height,
     DxgiFormat format, uint32_t mipLevelCount)
+// NOLINTEND(bugprone-easily-swappable-parameters)
 : width{width}
 , height{height}
 , format{format}

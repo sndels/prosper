@@ -87,7 +87,7 @@ bool cacheValid(const std::filesystem::path &cacheFile)
             return false;
 
         std::ifstream tagFile{tagPath};
-        uint32_t cacheVersion;
+        uint32_t cacheVersion = 0xFFFFFFFFu;
         assert(sizeof(cacheVersion) == sizeof(sShaderCacheVersion));
         // NOTE:
         // Caches aren't supposed to be portable so this doesn't pay attention
@@ -98,7 +98,7 @@ bool cacheValid(const std::filesystem::path &cacheFile)
         if (sShaderCacheVersion != cacheVersion)
             return false;
     }
-    catch (std::exception)
+    catch (std::exception &)
     {
         return false;
     }
@@ -199,7 +199,9 @@ void compress(
     {
         Array<uint8_t> rawLevels{scopeAlloc};
         // Twice the size of the first level should be plenty for mips
-        const size_t inputSize = pixels.extent.width * pixels.extent.height * 4;
+        const size_t inputSize = asserted_cast<size_t>(pixels.extent.width) *
+                                 asserted_cast<size_t>(pixels.extent.height) *
+                                 4;
         rawLevels.resize(inputSize * 2);
 
         memcpy(rawLevels.data(), pixels.data, inputSize);
@@ -210,7 +212,7 @@ void compress(
         if (mipLevelCount > 1)
             generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
 
-        bc7_enc_settings bc7Settings;
+        bc7_enc_settings bc7Settings{};
         // Don't really care about quality at this point, this is much faster
         // than even veryfast
         GetProfile_alpha_ultrafast(&bc7Settings);

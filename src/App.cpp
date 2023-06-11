@@ -54,7 +54,7 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
 {
     const auto &tl = [](const char *stage, std::function<void()> const &fn)
     {
-        Timer t;
+        const Timer t;
         fn();
         printf("%s took %.2fs\n", stage, t.getSeconds());
     };
@@ -83,8 +83,10 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
 
     _commandBuffers = allocateCommandBuffers(_device.get());
 
-    _viewportExtent =
-        _swapchain->config().extent; // This is a clang-tidy false-negative
+    // We don't know the extent in member inits
+    // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
+    _viewportExtent = _swapchain->config().extent;
+
     _resources =
         std::make_unique<RenderResources>(_generalAlloc, _device.get());
 

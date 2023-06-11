@@ -71,7 +71,6 @@ class Device
         bool dumpShaderDisassembly{false};
     };
 
-  public:
     Device(
         wheels::ScopedScratch scopeAlloc, GLFWwindow *window,
         const Settings &settings);
