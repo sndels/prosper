@@ -318,13 +318,13 @@ void World::handleDeferredLoading(
 
     const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
     if (image.uri.empty())
-        _texture2Ds.emplace_back(
-            scopeAlloc.child_scope(), _device, image, cb,
-            ctx.stagingBuffers[nextFrame], true);
-    else
-        _texture2Ds.emplace_back(
-            scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
-            ctx.stagingBuffers[nextFrame], true);
+        throw std::runtime_error(
+            "Embedded glTF textures aren't supported. Scene should be glTF + "
+            "bin + textures.");
+
+    _texture2Ds.emplace_back(
+        scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
+        ctx.stagingBuffers[nextFrame], true);
 
     const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
     const vk::WriteDescriptorSet descriptorWrite{
@@ -487,15 +487,17 @@ void World::loadTextures(
     {
         for (const auto &image : gltfModel.images)
         {
-            const vk::CommandBuffer cb = _device->beginGraphicsCommands();
             if (image.uri.empty())
-                _texture2Ds.emplace_back(
-                    scopeAlloc.child_scope(), _device, image, cb, stagingBuffer,
-                    true);
-            else
-                _texture2Ds.emplace_back(
-                    scopeAlloc.child_scope(), _device, _sceneDir / image.uri,
-                    cb, stagingBuffer, true);
+                throw std::runtime_error("Embedded glTF textures aren't "
+                                         "supported. Scene should be glTF + "
+                                         "bin + textures.");
+
+            const vk::CommandBuffer cb = _device->beginGraphicsCommands();
+
+            _texture2Ds.emplace_back(
+                scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
+                stagingBuffer, true);
+
             _device->endGraphicsCommands(cb);
         }
     }

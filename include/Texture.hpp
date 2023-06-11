@@ -47,12 +47,6 @@ class Texture2D : public Texture
         wheels::ScopedScratch scopeAlloc, Device *device,
         const std::filesystem::path &path, vk::CommandBuffer cb,
         const Buffer &stagingBuffer, bool mipmap);
-    // The image is ready and stagingBuffer can be freed once cb is submitted
-    // and has finished executing.
-    Texture2D(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        const tinygltf::Image &image, vk::CommandBuffer cb,
-        const Buffer &stagingBuffer, bool mipmap);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 
