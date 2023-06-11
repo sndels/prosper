@@ -20,7 +20,9 @@ Current features include:
   - View space clusters with depth slices
 - Bindless materials
   - Streaming texture loads
-    - Not asynchronous yet: mip generation uses blits for now and I need to support having only a single graphics queue
+    - Not asynchronous yet
+  - Texture cache with BC7 compression
+    - Generated during texture load when a scene is loaded the first time
 - Bindless geometry
 - Managed render resources
   - Opaque handles
@@ -35,7 +37,7 @@ Current features include:
   - CPU with `std::chrono`
   - Should be 1:1 mapping between the GPU frame and the CPU frame that recorded it
 
-Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and the dependencies of [glfw](https://github.com/glfw/glfw). Includes [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [libshaderc](https://github.com/google/shaderc), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
+Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and the dependencies of [glfw](https://github.com/glfw/glfw). Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
 
 ## Camera controls
 
