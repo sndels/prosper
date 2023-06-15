@@ -97,6 +97,8 @@ class Device
     [[nodiscard]] vk::SurfaceKHR surface() const;
     [[nodiscard]] vk::CommandPool graphicsPool() const;
     [[nodiscard]] vk::Queue graphicsQueue() const;
+    [[nodiscard]] wheels::Optional<vk::CommandPool> transferPool() const;
+    [[nodiscard]] wheels::Optional<vk::Queue> transferQueue() const;
     [[nodiscard]] const QueueFamilies &queueFamilies() const;
     [[nodiscard]] const DeviceProperties &properties() const;
 
@@ -158,8 +160,7 @@ class Device
     void createDebugMessenger();
     void createSurface(GLFWwindow *window);
     void selectPhysicalDevice(wheels::ScopedScratch scopeAlloc);
-    void createLogicalDevice(
-        wheels::ScopedScratch scopeAlloc, bool enableDebugLayers);
+    void createLogicalDevice(bool enableDebugLayers);
     void createAllocator();
     void createCommandPools();
 
@@ -187,8 +188,10 @@ class Device
 
     QueueFamilies _queueFamilies;
     vk::Queue _graphicsQueue;
+    wheels::Optional<vk::Queue> _transferQueue;
 
     vk::CommandPool _graphicsPool;
+    wheels::Optional<vk::CommandPool> _transferPool;
 
     vk::DebugUtilsMessengerEXT _debugMessenger;
 

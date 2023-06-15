@@ -406,7 +406,7 @@ Device::Device(
     selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
-    createLogicalDevice(scopeAlloc.child_scope(), settings.enableDebugLayers);
+    createLogicalDevice(settings.enableDebugLayers);
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
 
     createAllocator();
@@ -438,12 +438,16 @@ Device::Device(
 
         printf("%s\n", _properties.device.deviceName.data());
     }
+
+    assert(_transferQueue.has_value() == _transferPool.has_value());
 }
 
 Device::~Device()
 {
     // Also cleans up associated command buffers
     _logical.destroy(_graphicsPool);
+    if (_transferPool.has_value())
+        _logical.destroy(*_transferPool);
     vmaDestroyAllocator(_allocator);
     // Implicitly cleans up associated queues as well
     _logical.destroy();
@@ -463,6 +467,10 @@ vk::SurfaceKHR Device::surface() const { return _surface; }
 vk::CommandPool Device::graphicsPool() const { return _graphicsPool; }
 
 vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
+
+Optional<vk::CommandPool> Device::transferPool() const { return _transferPool; }
+
+Optional<vk::Queue> Device::transferQueue() const { return _transferQueue; }
 
 const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 
@@ -1074,28 +1082,41 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
     throw std::runtime_error("Failed to find a suitable GPU");
 }
 
-void Device::createLogicalDevice(
-    ScopedScratch scopeAlloc, bool enableDebugLayers)
+void Device::createLogicalDevice(bool enableDebugLayers)
 {
     assert(_queueFamilies.graphicsFamily.has_value());
+    assert(_queueFamilies.transferFamily.has_value());
 
     const uint32_t graphicsFamily = *_queueFamilies.graphicsFamily;
+    const uint32_t graphicsFamilyQueueCount =
+        _queueFamilies.graphicsFamilyQueueCount;
+    const uint32_t transferFamily = *_queueFamilies.transferFamily;
 
-    // Config queues, concat duplicate families
-    const float queuePriority = 1;
-    const Array<vk::DeviceQueueCreateInfo> queueCreateInfos = [&]
+    // First queue in family has largest queue, rest descend
+    const StaticArray queuePriorities = {1.f, 0.f};
+    const StaticArray<vk::DeviceQueueCreateInfo, 2> queueCreateInfos = [&]
     {
-        HashSet<uint32_t> uniqueQueueFamilies{scopeAlloc, 4};
-        uniqueQueueFamilies.insert(graphicsFamily);
-
-        Array<vk::DeviceQueueCreateInfo> cis{
-            scopeAlloc, uniqueQueueFamilies.size()};
-        for (auto family : uniqueQueueFamilies)
+        StaticArray<vk::DeviceQueueCreateInfo, 2> cis;
+        if (graphicsFamily == transferFamily)
+        {
+            assert(queuePriorities.size() >= 2);
+            cis.push_back(vk::DeviceQueueCreateInfo{
+                .queueFamilyIndex = graphicsFamily,
+                .queueCount = std::min(2u, graphicsFamilyQueueCount),
+                .pQueuePriorities = queuePriorities.data(),
+            });
+        }
+        else
         {
             cis.push_back(vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = family,
+                .queueFamilyIndex = graphicsFamily,
                 .queueCount = 1,
-                .pQueuePriorities = &queuePriority,
+                .pQueuePriorities = queuePriorities.data(),
+            });
+            cis.push_back(vk::DeviceQueueCreateInfo{
+                .queueFamilyIndex = transferFamily,
+                .queueCount = 1,
+                .pQueuePriorities = queuePriorities.data(),
             });
         }
 
@@ -1129,6 +1150,15 @@ void Device::createLogicalDevice(
     _logical = _physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
 
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
+    if (graphicsFamily == transferFamily)
+    {
+        if (graphicsFamilyQueueCount > 1)
+            _transferQueue = _logical.getQueue(graphicsFamily, 1);
+        // No separate transfer queue if it couldn't be created from the
+        // graphics family
+    }
+    else
+        _transferQueue = _logical.getQueue(transferFamily, 0);
 }
 
 void Device::createAllocator()
@@ -1153,6 +1183,18 @@ void Device::createCommandPools()
             .queueFamilyIndex = *_queueFamilies.graphicsFamily,
         };
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
+    }
+    {
+        if (_transferQueue.has_value())
+        {
+            assert(_queueFamilies.transferFamily.has_value());
+
+            const vk::CommandPoolCreateInfo poolInfo{
+                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+                .queueFamilyIndex = *_queueFamilies.transferFamily,
+            };
+            _transferPool = _logical.createCommandPool(poolInfo, nullptr);
+        }
     }
 }
 
