@@ -61,6 +61,23 @@ constexpr std::array deviceExtensions = {
     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 };
 
+bool supportsGraphics(vk::QueueFlags flags)
+{
+    return (flags & vk::QueueFlagBits::eGraphics) ==
+           vk::QueueFlagBits::eGraphics;
+}
+
+bool supportsCompute(vk::QueueFlags flags)
+{
+    return (flags & vk::QueueFlagBits::eCompute) == vk::QueueFlagBits::eCompute;
+}
+
+bool supportsTransfer(vk::QueueFlags flags)
+{
+    return (flags & vk::QueueFlagBits::eTransfer) ==
+           vk::QueueFlagBits::eTransfer;
+}
+
 QueueFamilies findQueueFamilies(
     const vk::PhysicalDevice device, const vk::SurfaceKHR surface)
 {
@@ -75,10 +92,16 @@ QueueFamilies findQueueFamilies(
             const vk::Bool32 presentSupport =
                 device.getSurfaceSupportKHR(i, surface);
 
+            const vk::QueueFlags queueFlags = allFamilies[i].queueFlags;
+
             // Set index to matching families
-            if (allFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
+            if (supportsGraphics(queueFlags))
             {
+                assert(supportsCompute(queueFlags));
+                assert(supportsTransfer(queueFlags));
+
                 families.graphicsFamily = i;
+                families.graphicsFamilyQueueCount = allFamilies[i].queueCount;
 
                 if (presentSupport != VK_TRUE)
                     throw std::runtime_error(
@@ -86,10 +109,33 @@ QueueFamilies findQueueFamilies(
                         "support. We expect to present from the graphics "
                         "queue");
             }
+            else if (supportsCompute(queueFlags))
+            {
+                assert(supportsTransfer(queueFlags));
+
+                families.computeFamily = i;
+                families.computeFamilyQueueCount = allFamilies[i].queueCount;
+            }
+            else if (supportsTransfer(queueFlags))
+            {
+                families.transferFamily = i;
+                families.transferFamilyQueueCount = allFamilies[i].queueCount;
+            }
         }
 
         if (families.isComplete())
             break;
+    }
+
+    if (!families.computeFamily.has_value())
+    {
+        families.computeFamily = families.graphicsFamily;
+        families.computeFamilyQueueCount = families.graphicsFamilyQueueCount;
+    }
+    if (!families.transferFamily.has_value())
+    {
+        families.transferFamily = families.computeFamily;
+        families.transferFamilyQueueCount = families.computeFamilyQueueCount;
     }
 
     assert(

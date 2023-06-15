@@ -18,8 +18,18 @@
 struct QueueFamilies
 {
     wheels::Optional<uint32_t> graphicsFamily;
+    uint32_t graphicsFamilyQueueCount{0};
+    wheels::Optional<uint32_t> computeFamily;
+    uint32_t computeFamilyQueueCount{0};
+    wheels::Optional<uint32_t> transferFamily;
+    uint32_t transferFamilyQueueCount{0};
 
-    [[nodiscard]] bool isComplete() const { return graphicsFamily.has_value(); }
+    [[nodiscard]] bool isComplete() const
+    {
+        return graphicsFamily.has_value() && graphicsFamilyQueueCount > 0 &&
+               computeFamily.has_value() && computeFamilyQueueCount > 0 &&
+               transferFamily.has_value() && transferFamilyQueueCount > 0;
+    }
 };
 
 struct DeviceProperties
