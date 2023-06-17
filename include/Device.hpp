@@ -74,6 +74,8 @@ struct MemoryAllocationBytes
     std::atomic<vk::DeviceSize> texelBuffers{0};
 };
 
+// Interfaces not labelled thread-unsafe can be assumed to be thread safe.
+// TODO: Checks for races, UnnecessaryLock from Gregory or something
 class Device
 {
   public:
@@ -123,29 +125,44 @@ class Device
     };
     // TODO: Should this take in an allocator for the reflection and
     // not use the interal general one?
+    // This is not thread-safe
     [[nodiscard]] wheels::Optional<ShaderCompileResult> compileShaderModule(
         wheels::ScopedScratch scopeAlloc, const CompileShaderModuleArgs &info);
 
     // TODO: Should this take in an allocator for the reflection and
     // not use the interal general one?
+    // This is not thread-safe
     [[nodiscard]] wheels::Optional<ShaderReflection> reflectShader(
         wheels::ScopedScratch scopeAlloc, const CompileShaderModuleArgs &info,
         bool add_dummy_compute_boilerplate);
 
+    // Initial data can only be given if the thread has exclusive access to
+    // graphicsPool and graphicsQueue.
     [[nodiscard]] Buffer create(const BufferCreateInfo &info);
+    // Initial data can only be given if the thread has exclusive access to
+    // graphicsPool and graphicsQueue.
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);
+    // buffer shouldn't be in use in other threads
     void destroy(const Buffer &buffer);
 
+    // Initial data can only be given if the thread has exclusive access to
+    // graphicsPool and graphicsQueue.
     [[nodiscard]] TexelBuffer create(const TexelBufferCreateInfo &info);
+    // Initial data can only be given if the thread has exclusive access to
+    // graphicsPool and graphicsQueue.
     [[nodiscard]] TexelBuffer createTexelBuffer(
         const TexelBufferCreateInfo &info);
+    // buffer shouldn't be in use in other threads
     void destroy(const TexelBuffer &buffer);
 
     [[nodiscard]] Image create(const ImageCreateInfo &info);
     [[nodiscard]] Image createImage(const ImageCreateInfo &info);
+    // image shouldn't be in use in other threads
     void destroy(const Image &image);
 
+    // This is not thread-safe
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
+    // This is not thread-safe
     void endGraphicsCommands(vk::CommandBuffer buffer) const;
 
     [[nodiscard]] const MemoryAllocationBytes &memoryAllocations() const;
