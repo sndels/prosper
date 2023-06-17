@@ -50,13 +50,6 @@ class Texture2D : public Texture
         const Buffer &stagingBuffer, bool mipmap);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
-
-  private:
-    void createImage(
-        vk::CommandBuffer cb, const Buffer &stagingBuffer,
-        const ImageCreateInfo &info);
-    void createMipmaps(
-        vk::CommandBuffer cb, const vk::Extent2D &extent, uint32_t mipLevels);
 };
 
 class TextureCubemap : public Texture
