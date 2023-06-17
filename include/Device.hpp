@@ -13,6 +13,7 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/string.hpp>
 
+#include <atomic>
 #include <filesystem>
 #include <mutex>
 
@@ -68,9 +69,9 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
 
 struct MemoryAllocationBytes
 {
-    vk::DeviceSize images{0};
-    vk::DeviceSize buffers{0};
-    vk::DeviceSize texelBuffers{0};
+    std::atomic<vk::DeviceSize> images{0};
+    std::atomic<vk::DeviceSize> buffers{0};
+    std::atomic<vk::DeviceSize> texelBuffers{0};
 };
 
 class Device
