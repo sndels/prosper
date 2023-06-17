@@ -14,6 +14,7 @@
 #include <wheels/containers/string.hpp>
 
 #include <filesystem>
+#include <mutex>
 
 struct QueueFamilies
 {
@@ -178,6 +179,7 @@ class Device
     vk::Device _logical;
     DeviceProperties _properties;
 
+    std::mutex _allocatorMutex;
     VmaAllocator _allocator{nullptr};
 
     bool _dumpShaderDisassembly{false};
