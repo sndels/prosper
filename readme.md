@@ -20,7 +20,7 @@ Current features include:
   - View space clusters with depth slices
 - Bindless materials
   - Streaming texture loads
-    - Not asynchronous yet
+    - Separate thread for loading when a distinct queue is available for transfers
   - Texture cache with BC7 compression
     - Generated during texture load when a scene is loaded the first time
 - Bindless geometry
