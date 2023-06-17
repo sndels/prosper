@@ -211,6 +211,8 @@ void compress(
 
         if (mipLevelCount > 1)
             generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
+        else
+            rawLevelByteOffsets[0] = 0u;
 
         bc7_enc_settings bc7Settings{};
         // Don't really care about quality at this point, this is much faster
