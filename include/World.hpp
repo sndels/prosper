@@ -178,6 +178,12 @@ class World
     void createBuffers();
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
 
+    void loadTextureSingleThreaded(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        uint32_t nextFrame);
+
+    void updateDescriptorsWithNewTexture();
+
     Device *_device{nullptr};
     DescriptorAllocator _descriptorAllocator;
 };

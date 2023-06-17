@@ -313,63 +313,12 @@ void World::handleDeferredLoading(
     // No gpu as timestamps are flaky for this work
     const auto _s = profiler.createCpuScope("DeferredLoading");
 
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+    if (_deferredLoadingContext->loadedImageCount == 0)
+        _deferredLoadingContext->timer.reset();
 
-    if (ctx.loadedImageCount == 0)
-        ctx.timer.reset();
+    loadTextureSingleThreaded(scopeAlloc.child_scope(), cb, nextFrame);
 
-    const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
-    if (image.uri.empty())
-        throw std::runtime_error(
-            "Embedded glTF textures aren't supported. Scene should be glTF + "
-            "bin + textures.");
-
-    _texture2Ds.emplace_back(
-        scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
-        ctx.stagingBuffers[nextFrame], true);
-
-    const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
-    const vk::WriteDescriptorSet descriptorWrite{
-        .dstSet = _materialTexturesDS,
-        .dstBinding = ctx.textureArrayBinding,
-        // loadedImageCount is gltf images so bump by one to take our default
-        // texture into account
-        .dstArrayElement = ctx.loadedImageCount + 1,
-        .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::eSampledImage,
-        .pImageInfo = &imageInfo,
-    };
-    _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
-
-    ctx.loadedImageCount++;
-
-    // Update next material(s) in line if the required textures are loaded
-    bool materialsUpdated = false;
-    for (size_t i = ctx.loadedMaterialCount; i < ctx.materials.size(); ++i)
-    {
-        const Material &material = ctx.materials[i];
-        const uint32_t baseColorIndex = material.baseColor.texture();
-        const uint32_t normalIndex = material.normal.texture();
-        const uint32_t metallicRoughnessIndex =
-            material.metallicRoughness.texture();
-        // Inclusive as 0 is our default, starting gltf indices from 1
-        if (baseColorIndex <= ctx.loadedImageCount &&
-            normalIndex <= ctx.loadedImageCount &&
-            metallicRoughnessIndex <= ctx.loadedImageCount)
-        {
-            // These are gltf material indices so we have to take our default
-            // material into account
-            _materials[i + 1] = material;
-            ctx.loadedMaterialCount++;
-            materialsUpdated = true;
-        }
-        else
-            break;
-    }
-
-    if (materialsUpdated)
-        ctx.materialsGeneration++;
+    updateDescriptorsWithNewTexture();
 }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
@@ -1998,6 +1947,76 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
+}
+
+void World::loadTextureSingleThreaded(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame)
+{
+    assert(_deferredLoadingContext.has_value());
+
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+
+    assert(ctx.gltfModel.images.size() > ctx.loadedImageCount);
+    const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
+    if (image.uri.empty())
+        throw std::runtime_error(
+            "Embedded glTF textures aren't supported. Scene should be glTF + "
+            "bin + textures.");
+
+    assert(ctx.stagingBuffers.size() > nextFrame);
+    _texture2Ds.emplace_back(
+        scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
+        ctx.stagingBuffers[nextFrame], true);
+}
+
+void World::updateDescriptorsWithNewTexture()
+{
+    assert(_deferredLoadingContext.has_value());
+
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+
+    const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
+    const vk::WriteDescriptorSet descriptorWrite{
+        .dstSet = _materialTexturesDS,
+        .dstBinding = ctx.textureArrayBinding,
+        // loadedImageCount is gltf images so bump by one to take our default
+        // texture into account
+        .dstArrayElement = ctx.loadedImageCount + 1,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eSampledImage,
+        .pImageInfo = &imageInfo,
+    };
+    _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+
+    ctx.loadedImageCount++;
+
+    // Update next material(s) in line if the required textures are loaded
+    bool materialsUpdated = false;
+    for (size_t i = ctx.loadedMaterialCount; i < ctx.materials.size(); ++i)
+    {
+        const Material &material = ctx.materials[i];
+        const uint32_t baseColorIndex = material.baseColor.texture();
+        const uint32_t normalIndex = material.normal.texture();
+        const uint32_t metallicRoughnessIndex =
+            material.metallicRoughness.texture();
+        // Inclusive as 0 is our default, starting gltf indices from 1
+        if (baseColorIndex <= ctx.loadedImageCount &&
+            normalIndex <= ctx.loadedImageCount &&
+            metallicRoughnessIndex <= ctx.loadedImageCount)
+        {
+            // These are gltf material indices so we have to take our default
+            // material into account
+            _materials[i + 1] = material;
+            ctx.loadedMaterialCount++;
+            materialsUpdated = true;
+        }
+        else
+            break;
+    }
+
+    if (materialsUpdated)
+        ctx.materialsGeneration++;
 }
 
 World::DeferredLoadingContext::DeferredLoadingContext(
