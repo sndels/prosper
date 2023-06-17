@@ -153,9 +153,6 @@ class Device
     [[nodiscard]] bool isDeviceSuitable(
         wheels::ScopedScratch scopeAlloc, vk::PhysicalDevice device) const;
 
-    [[nodiscard]] void *map(VmaAllocation allocation) const;
-    void unmap(VmaAllocation allocation) const;
-
     void createInstance(
         wheels::ScopedScratch scopeAlloc, bool enableDebugLayers);
     void createDebugMessenger();

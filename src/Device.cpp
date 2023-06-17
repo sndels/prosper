@@ -1011,22 +1011,6 @@ bool Device::isDeviceSuitable(
     return true;
 }
 
-void *Device::map(VmaAllocation allocation) const
-{
-    void *mapped = nullptr;
-    {
-        std::lock_guard _lock{_allocatorMutex};
-        vmaMapMemory(_allocator, allocation, &mapped);
-    }
-    return mapped;
-}
-
-void Device::unmap(VmaAllocation allocation) const
-{
-    std::lock_guard _lock{_allocatorMutex};
-    vmaUnmapMemory(_allocator, allocation);
-}
-
 void Device::createInstance(ScopedScratch scopeAlloc, bool enableDebugLayers)
 {
     if (enableDebugLayers && !checkValidationLayerSupport())
