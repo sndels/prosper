@@ -343,7 +343,8 @@ void Texture::destroy()
 
 Texture2D::Texture2D(
     ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
-    vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap)
+    vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap,
+    const bool skipPostTransition)
 : Texture(device)
 {
     const auto cached = cachePath(path);
@@ -457,8 +458,10 @@ Texture2D::Texture2D(
         vk::ImageLayout::eTransferDstOptimal,
         asserted_cast<uint32_t>(regions.size()), regions.data());
 
-    _image.transition(
-        cb, ImageState{
+    if (!skipPostTransition)
+        _image.transition(
+            cb,
+            ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eFragmentShader |
                              vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
                 .accessMask = vk::AccessFlagBits2::eShaderRead,

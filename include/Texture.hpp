@@ -47,7 +47,8 @@ class Texture2D : public Texture
     Texture2D(
         wheels::ScopedScratch scopeAlloc, Device *device,
         const std::filesystem::path &path, vk::CommandBuffer cb,
-        const Buffer &stagingBuffer, bool mipmap);
+        const Buffer &stagingBuffer, bool mipmap,
+        bool skipPostTransition = false);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 };
