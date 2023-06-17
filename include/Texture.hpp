@@ -29,6 +29,7 @@ class Texture
     Texture &operator=(Texture &&other) noexcept;
 
     [[nodiscard]] virtual vk::DescriptorImageInfo imageInfo() const = 0;
+    [[nodiscard]] virtual vk::Image nativeHandle() const;
 
   protected:
     void destroy();

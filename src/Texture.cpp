@@ -333,6 +333,8 @@ Texture &Texture::operator=(Texture &&other) noexcept
     return *this;
 }
 
+vk::Image Texture::nativeHandle() const { return _image.handle; }
+
 void Texture::destroy()
 {
     if (_device != nullptr)
