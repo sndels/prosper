@@ -183,19 +183,6 @@ void loadingWorker(
         if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
             break;
 
-        // TODO: wait on signal from main thread instead of this jank
-        bool has_tex = false;
-        {
-            std::lock_guard _lock{ctx->loadedTextureMutex};
-            has_tex = ctx->loadedTexture.has_value();
-        }
-        if (has_tex)
-        {
-            using namespace std::chrono_literals;
-            std::this_thread::sleep_for(10ms);
-            continue;
-        }
-
         assert(ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
         const tinygltf::Image &image =
             ctx->gltfModel.images[ctx->workerLoadedImageCount];
@@ -265,8 +252,15 @@ void loadingWorker(
         ctx->workerLoadedImageCount++;
 
         {
-            std::lock_guard _lock{ctx->loadedTextureMutex};
+            std::unique_lock lock{ctx->loadedTextureMutex};
+
+            if (ctx->loadedTexture.has_value())
+                ctx->loadedTextureTaken.wait(lock);
+            assert(!ctx->loadedTexture.has_value());
+
             ctx->loadedTexture.emplace(WHEELS_MOV(tex));
+
+            lock.unlock();
         }
     }
 }
@@ -2101,6 +2095,8 @@ bool World::pollTextureWorker(vk::CommandBuffer cb)
 
     if (newTextureLoaded)
     {
+        ctx.loadedTextureTaken.notify_all();
+
         const QueueFamilies &families = _device->queueFamilies();
         assert(families.graphicsFamily.has_value());
         assert(families.transferFamily.has_value());
@@ -2242,6 +2238,13 @@ World::DeferredLoadingContext::~DeferredLoadingContext()
     {
         if (worker.has_value())
         {
+            {
+                std::lock_guard _lock{loadedTextureMutex};
+                if (loadedTexture.has_value())
+                    Texture2D _tex = loadedTexture.take();
+            }
+            loadedTextureTaken.notify_all();
+
             interruptLoading = true;
             worker->join();
         }

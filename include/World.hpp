@@ -9,6 +9,7 @@
 #include "Texture.hpp"
 #include "Timer.hpp"
 
+#include <condition_variable>
 #include <filesystem>
 #include <mutex>
 #include <thread>
@@ -130,6 +131,7 @@ class World
 
         // Shared context
         std::mutex loadedTextureMutex;
+        std::condition_variable loadedTextureTaken;
         wheels::Optional<Texture2D> loadedTexture;
         std::atomic<bool> interruptLoading{false};
 
