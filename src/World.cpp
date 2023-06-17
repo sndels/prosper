@@ -5,6 +5,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include <cstdlib>
+#include <imgui.h>
 #include <iostream>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>
@@ -14,6 +15,7 @@
 
 #include "Timer.hpp"
 #include "Utils.hpp"
+#include "VkUtils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -165,6 +167,110 @@ Buffer createTextureStaging(Device *device)
     });
 }
 
+void loadingWorker(
+    std::filesystem::path sceneDir, World::DeferredLoadingContext *ctx)
+{
+    assert(ctx != nullptr);
+    assert(ctx->device != nullptr);
+    assert(ctx->device->transferQueue().has_value());
+    assert(ctx->device->graphicsQueue() != *ctx->device->transferQueue());
+
+    LinearAllocator scratchBacking{megabytes(256)};
+    ScopedScratch scopeAlloc{scratchBacking};
+
+    while (!ctx->interruptLoading)
+    {
+        if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
+            break;
+
+        // TODO: wait on signal from main thread instead of this jank
+        bool has_tex = false;
+        {
+            std::lock_guard _lock{ctx->loadedTextureMutex};
+            has_tex = ctx->loadedTexture.has_value();
+        }
+        if (has_tex)
+        {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(10ms);
+            continue;
+        }
+
+        assert(ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
+        const tinygltf::Image &image =
+            ctx->gltfModel.images[ctx->workerLoadedImageCount];
+        if (image.uri.empty())
+            throw std::runtime_error("Embedded glTF textures aren't supported. "
+                                     "Scene should be glTF + "
+                                     "bin + textures.");
+
+        ctx->cb.reset();
+        ctx->cb.begin(vk::CommandBufferBeginInfo{
+            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+        });
+
+        Texture2D tex{
+            scopeAlloc.child_scope(),
+            ctx->device,
+            sceneDir / image.uri,
+            ctx->cb,
+            ctx->stagingBuffers[0],
+            true,
+            true};
+
+        const QueueFamilies &families = ctx->device->queueFamilies();
+        assert(families.graphicsFamily.has_value());
+        assert(families.transferFamily.has_value());
+
+        if (*families.graphicsFamily != *families.transferFamily)
+        {
+            const vk::ImageMemoryBarrier2 releaseBarrier{
+                .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+                .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+                .dstStageMask = vk::PipelineStageFlagBits2::eNone,
+                .dstAccessMask = vk::AccessFlagBits2::eNone,
+                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                .srcQueueFamilyIndex = *families.transferFamily,
+                .dstQueueFamilyIndex = *families.graphicsFamily,
+                .image = tex.nativeHandle(),
+                .subresourceRange =
+                    vk::ImageSubresourceRange{
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .baseMipLevel = 0,
+                        .levelCount = VK_REMAINING_MIP_LEVELS,
+                        .baseArrayLayer = 0,
+                        .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                    },
+            };
+            ctx->cb.pipelineBarrier2(vk::DependencyInfo{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &releaseBarrier,
+            });
+        }
+
+        ctx->cb.end();
+
+        const vk::Queue transferQueue = *ctx->device->transferQueue();
+        const vk::SubmitInfo submitInfo{
+            .commandBufferCount = 1,
+            .pCommandBuffers = &ctx->cb,
+        };
+        checkSuccess(
+            transferQueue.submit(1, &submitInfo, vk::Fence{}),
+            "submitTextureUpload");
+        // We could have multiple uploads in flight, but let's be simple for now
+        transferQueue.waitIdle();
+
+        ctx->workerLoadedImageCount++;
+
+        {
+            std::lock_guard _lock{ctx->loadedTextureMutex};
+            ctx->loadedTexture.emplace(WHEELS_MOV(tex));
+        }
+    }
+}
+
 } // namespace
 
 World::World(
@@ -189,7 +295,8 @@ World::World(
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
     if (deferredLoading)
-        _deferredLoadingContext.emplace(_generalAlloc, _device, gltfModel);
+        _deferredLoadingContext.emplace(
+            _generalAlloc, _device, _sceneDir, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -305,6 +412,7 @@ void World::handleDeferredLoading(
             printf(
                 "Material streaming took %.2fs\n",
                 _deferredLoadingContext->timer.getSeconds());
+
             _deferredLoadingContext.reset();
         }
         return;
@@ -316,9 +424,34 @@ void World::handleDeferredLoading(
     if (_deferredLoadingContext->loadedImageCount == 0)
         _deferredLoadingContext->timer.reset();
 
-    loadTextureSingleThreaded(scopeAlloc.child_scope(), cb, nextFrame);
+    bool newTextureAvailable = false;
+    if (_deferredLoadingContext->worker.has_value())
+        newTextureAvailable = pollTextureWorker(cb);
+    else
+    {
+        loadTextureSingleThreaded(scopeAlloc.child_scope(), cb, nextFrame);
+        newTextureAvailable = true;
+    }
 
-    updateDescriptorsWithNewTexture();
+    if (newTextureAvailable)
+        updateDescriptorsWithNewTexture();
+}
+
+void World::drawDeferredLoadingUi() const
+{
+    if (_deferredLoadingContext.has_value())
+    {
+        ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_Appearing);
+        ImGui::Begin(
+            "DeferredLoadingProgress", nullptr,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Text(
+            "Images loaded: %u/%u", _deferredLoadingContext->loadedImageCount,
+            asserted_cast<uint32_t>(
+                _deferredLoadingContext->gltfModel.images.size()));
+        ImGui::End();
+    }
 }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
@@ -826,11 +959,11 @@ void World::loadScenes(
                 {
                     scene.camera = *params;
                     scene.camera.eye =
-                        vec3{modelToWorld *vec4{0.f, 0.f, 0.f, 1.f}};
+                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
                     scene.camera.target =
-                        vec3{modelToWorld *vec4{0.f, 0.f, -1.f, 1.f}};
+                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
                 }
                 if (size_t const *light_i = lights.find(node);
@@ -882,7 +1015,7 @@ void World::loadScenes(
 
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
-                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
@@ -912,7 +1045,7 @@ void World::loadScenes(
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
                         sceneLight.positionAndAngleOffset =
-                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
 
                         sceneLight.direction = vec4{
@@ -1949,6 +2082,62 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
 }
 
+bool World::pollTextureWorker(vk::CommandBuffer cb)
+{
+    assert(_deferredLoadingContext.has_value());
+
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+
+    bool newTextureLoaded = false;
+    {
+        std::lock_guard _lock{ctx.loadedTextureMutex};
+        if (ctx.loadedTexture.has_value())
+        {
+            _texture2Ds.emplace_back(ctx.loadedTexture.take());
+            newTextureLoaded = true;
+        }
+    }
+
+    if (newTextureLoaded)
+    {
+        const QueueFamilies &families = _device->queueFamilies();
+        assert(families.graphicsFamily.has_value());
+        assert(families.transferFamily.has_value());
+
+        if (*families.graphicsFamily != *families.transferFamily)
+        {
+            const vk::ImageMemoryBarrier2 acquireBarrier{
+                .srcStageMask = vk::PipelineStageFlagBits2::eNone,
+                .srcAccessMask = vk::AccessFlagBits2::eNone,
+                .dstStageMask =
+                    vk::PipelineStageFlagBits2::eFragmentShader |
+                    vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                .srcQueueFamilyIndex = *families.transferFamily,
+                .dstQueueFamilyIndex = *families.graphicsFamily,
+                .image = _texture2Ds.back().nativeHandle(),
+                .subresourceRange =
+                    vk::ImageSubresourceRange{
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .baseMipLevel = 0,
+                        .levelCount = VK_REMAINING_MIP_LEVELS,
+                        .baseArrayLayer = 0,
+                        .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                    },
+            };
+            cb.pipelineBarrier2(vk::DependencyInfo{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &acquireBarrier,
+            });
+        }
+    }
+
+    return newTextureLoaded;
+}
+
 void World::loadTextureSingleThreaded(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame)
 {
@@ -2020,19 +2209,44 @@ void World::updateDescriptorsWithNewTexture()
 }
 
 World::DeferredLoadingContext::DeferredLoadingContext(
-    Allocator &alloc, Device *device, const tinygltf::Model &gltfModel)
+    Allocator &alloc, Device *device, const std::filesystem::path &sceneDir,
+    const tinygltf::Model &gltfModel)
 : device{device}
 , gltfModel{gltfModel}
 , materials{alloc, gltfModel.materials.size()}
 {
     assert(device != nullptr);
+
+    // One of these is used by the worker implementation, all by the single
+    // threaded one
     for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
         stagingBuffers.push_back(createTextureStaging(device));
+
+    const Optional<vk::CommandPool> transferPool = device->transferPool();
+    if (transferPool.has_value())
+    {
+        assert(device->transferQueue().has_value());
+
+        cb = device->logical().allocateCommandBuffers(
+            vk::CommandBufferAllocateInfo{
+                .commandPool = *transferPool,
+                .level = vk::CommandBufferLevel::ePrimary,
+                .commandBufferCount = 1})[0];
+        worker = std::thread{&loadingWorker, sceneDir, this};
+    }
 }
 
 World::DeferredLoadingContext::~DeferredLoadingContext()
 {
     if (device != nullptr)
+    {
+        if (worker.has_value())
+        {
+            interruptLoading = true;
+            worker->join();
+        }
+
         for (const Buffer &buffer : stagingBuffers)
             device->destroy(buffer);
+    }
 }

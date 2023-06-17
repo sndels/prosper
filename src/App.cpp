@@ -201,13 +201,17 @@ void App::run()
     }
 
     // Wait for in flight rendering actions to finish
-    _device->logical().waitIdle();
+    // Don't wait for device idle as async loading might be using the transfer
+    // queue simultaneously
+    _device->graphicsQueue().waitIdle();
 }
 
 void App::recreateViewportRelated()
 {
     // Wait for resources to be out of use
-    _device->logical().waitIdle();
+    // Don't wait for device idle as async loading might be using the transfer
+    // queue simultaneously
+    _device->graphicsQueue().waitIdle();
 
     _resources->destroyResources();
 
@@ -234,7 +238,9 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
         glfwWaitEvents();
     }
     // Wait for resources to be out of use
-    _device->logical().waitIdle();
+    // Don't wait for device idle as async loading might be using the transfer
+    // queue simultaneously
+    _device->graphicsQueue().waitIdle();
 
     _resources->destroyResources();
 
@@ -277,7 +283,9 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         return;
 
     // Wait for resources to be out of use
-    _device->logical().waitIdle();
+    // Don't wait for device idle as async loading might be using the transfer
+    // queue simultaneously
+    _device->graphicsQueue().waitIdle();
 
     printf("Recompiling shaders\n");
 
@@ -854,6 +862,8 @@ void App::render(
 
     blitToneMapped(cb, toneMapped);
     _resources->images.release(toneMapped);
+
+    _world->drawDeferredLoadingUi();
 
     const vk::Rect2D backbufferArea{
         .offset = {0, 0},

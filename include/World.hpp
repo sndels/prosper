@@ -11,6 +11,7 @@
 
 #include <filesystem>
 #include <mutex>
+#include <thread>
 #include <tiny_gltf.h>
 #include <vulkan/vulkan_hash.hpp>
 
@@ -56,6 +57,8 @@ class World
     void handleDeferredLoading(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame, Profiler &profiler);
+
+    void drawDeferredLoadingUi() const;
 
     [[nodiscard]] const Scene &currentScene() const;
     void updateUniformBuffers(
@@ -104,41 +107,9 @@ class World
 
     struct DeferredLoadingContext
     {
-        // TODO:
-        // Rough outline:
-        // - At load time
-        //   - Texture descriptors are initialized to the default texture
-        //     - Removes need to allocate descriptors at runtime, we already
-        //       know the size we want
-        //   - Materials point to default tex, default sampler
-        //     - Separate gpu-side material buffer and DS per in-flight frame
-        //       - Generation id for material array so we can track which
-        //         gpu buffers are up to date and which aren't
-        //     - No need to have separate texture descriptors for in-flight
-        //       frames if frames don't access descriptors until they are loaded
-        //       in
-        //       - Need to check if this requires some flags for the shared
-        //         texture descriptors since the content will be written to
-        //         while they are bound
-        //   - AssyncLoadContext is initialized
-        // - Beginning of frame
-        //     - Transfer next texture, if loadedImageCount!= totalImages
-        //       - Image loading could be async on transfer if mips were
-        //         pre-generated or on compute if mips were generated on
-        //         compute. The current blitting requires a graphics queue and
-        //         we only might have one of them so can't do proper async.
-        //     - Write new texture descriptor
-        //     - For remaining unloaded materials
-        //       - If all textures transferred, overwrite main materials
-        //         info
-        //       - else break since we only store the number of loaded materials
-        //     - If new materials written, bump materials gen
-        //     - Check if current frame's gpu-side materials buffer gen matches
-        //       current main materials gen
-        //       - memcpy new stuff if not
-
         DeferredLoadingContext(
             wheels::Allocator &alloc, Device *device,
+            const std::filesystem::path &sceneDir,
             const tinygltf::Model &gltfModel);
         ~DeferredLoadingContext();
 
@@ -149,7 +120,20 @@ class World
         DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
 
         Device *device{nullptr};
+        // If there's no worker, main thread handles loading
+        wheels::Optional<std::thread> worker;
+
+        // Worker context
         tinygltf::Model gltfModel;
+        vk::CommandBuffer cb;
+        uint32_t workerLoadedImageCount{0};
+
+        // Shared context
+        std::mutex loadedTextureMutex;
+        wheels::Optional<Texture2D> loadedTexture;
+        std::atomic<bool> interruptLoading{false};
+
+        // Main context
         uint32_t materialsGeneration{0};
         uint32_t framesSinceFinish{0};
         uint32_t textureArrayBinding{0};
@@ -177,6 +161,8 @@ class World
     void createTlases(wheels::ScopedScratch scopeAlloc);
     void createBuffers();
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
+
+    [[nodiscard]] bool pollTextureWorker(vk::CommandBuffer cb);
 
     void loadTextureSingleThreaded(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
