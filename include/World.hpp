@@ -110,7 +110,7 @@ class World
     {
         DeferredLoadingContext(
             wheels::Allocator &alloc, Device *device,
-            const std::filesystem::path &sceneDir,
+            const std::filesystem::path *sceneDir,
             const tinygltf::Model &gltfModel);
         ~DeferredLoadingContext();
 

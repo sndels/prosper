@@ -168,8 +168,9 @@ Buffer createTextureStaging(Device *device)
 }
 
 void loadingWorker(
-    std::filesystem::path sceneDir, World::DeferredLoadingContext *ctx)
+    const std::filesystem::path *sceneDir, World::DeferredLoadingContext *ctx)
 {
+    assert(sceneDir != nullptr);
     assert(ctx != nullptr);
     assert(ctx->device != nullptr);
     assert(ctx->device->transferQueue().has_value());
@@ -199,7 +200,7 @@ void loadingWorker(
         Texture2D tex{
             scopeAlloc.child_scope(),
             ctx->device,
-            sceneDir / image.uri,
+            *sceneDir / image.uri,
             ctx->cb,
             ctx->stagingBuffers[0],
             true,
@@ -290,7 +291,7 @@ World::World(
 
     if (deferredLoading)
         _deferredLoadingContext.emplace(
-            _generalAlloc, _device, _sceneDir, gltfModel);
+            _generalAlloc, _device, &_sceneDir, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -2085,7 +2086,7 @@ bool World::pollTextureWorker(vk::CommandBuffer cb)
 
     bool newTextureLoaded = false;
     {
-        std::lock_guard _lock{ctx.loadedTextureMutex};
+        const std::lock_guard _lock{ctx.loadedTextureMutex};
         if (ctx.loadedTexture.has_value())
         {
             _texture2Ds.emplace_back(ctx.loadedTexture.take());
@@ -2205,12 +2206,13 @@ void World::updateDescriptorsWithNewTexture()
 }
 
 World::DeferredLoadingContext::DeferredLoadingContext(
-    Allocator &alloc, Device *device, const std::filesystem::path &sceneDir,
+    Allocator &alloc, Device *device, const std::filesystem::path *sceneDir,
     const tinygltf::Model &gltfModel)
 : device{device}
 , gltfModel{gltfModel}
 , materials{alloc, gltfModel.materials.size()}
 {
+    assert(sceneDir != nullptr);
     assert(device != nullptr);
 
     // One of these is used by the worker implementation, all by the single
@@ -2239,9 +2241,9 @@ World::DeferredLoadingContext::~DeferredLoadingContext()
         if (worker.has_value())
         {
             {
-                std::lock_guard _lock{loadedTextureMutex};
+                const std::lock_guard _lock{loadedTextureMutex};
                 if (loadedTexture.has_value())
-                    Texture2D _tex = loadedTexture.take();
+                    const Texture2D _tex = loadedTexture.take();
             }
             loadedTextureTaken.notify_all();
 

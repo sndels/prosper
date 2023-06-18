@@ -663,7 +663,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     // many individual buffers
     const vk::DeviceSize alignment = 256;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaCreateBufferWithAlignment(
             _allocator, vkpBufferInfo, &allocCreateInfo, alignment, vkpBuffer,
             &buffer.allocation, &allocInfo);
@@ -732,7 +732,7 @@ void Device::destroy(const Buffer &buffer)
 
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     }
 }
@@ -805,7 +805,7 @@ void Device::destroy(const TexelBuffer &buffer)
 
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     }
     _logical.destroy(buffer.view);
@@ -846,7 +846,7 @@ Image Device::createImage(const ImageCreateInfo &info)
         reinterpret_cast<const VkImageCreateInfo *>(&imageInfo);
     auto *vkpImage = reinterpret_cast<VkImage *>(&image.handle);
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaCreateImage(
             _allocator, vkpImageInfo, &allocInfo, vkpImage, &image.allocation,
             nullptr);
@@ -911,12 +911,12 @@ Image Device::createImage(const ImageCreateInfo &info)
     image.format = desc.format;
 
     {
-        VmaAllocationInfo info;
+        VmaAllocationInfo vmaInfo;
         {
-            std::lock_guard _lock{_allocatorMutex};
-            vmaGetAllocationInfo(_allocator, image.allocation, &info);
+            const std::lock_guard _lock{_allocatorMutex};
+            vmaGetAllocationInfo(_allocator, image.allocation, &vmaInfo);
         }
-        image.rawByteSize = info.size;
+        image.rawByteSize = vmaInfo.size;
     }
 
     trackImage(image);
@@ -930,7 +930,7 @@ void Device::destroy(const Image &image)
 
     auto *vkImage = static_cast<VkImage>(image.handle);
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaDestroyImage(_allocator, vkImage, image.allocation);
     }
     _logical.destroy(image.view);
@@ -1208,7 +1208,7 @@ void Device::trackBuffer(const Buffer &buffer)
 {
     VmaAllocationInfo info;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
     }
 
@@ -1222,7 +1222,7 @@ void Device::untrackBuffer(const Buffer &buffer)
 
     VmaAllocationInfo info;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
     }
 
@@ -1233,7 +1233,7 @@ void Device::trackTexelBuffer(const TexelBuffer &buffer)
 {
     VmaAllocationInfo info;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
     }
 
@@ -1247,7 +1247,7 @@ void Device::untrackTexelBuffer(const TexelBuffer &buffer)
 
     VmaAllocationInfo info;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
     }
 
@@ -1258,7 +1258,7 @@ void Device::trackImage(const Image &image)
 {
     VmaAllocationInfo info;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaGetAllocationInfo(_allocator, image.allocation, &info);
     }
 
@@ -1272,7 +1272,7 @@ void Device::untrackImage(const Image &image)
 
     VmaAllocationInfo info;
     {
-        std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard _lock{_allocatorMutex};
         vmaGetAllocationInfo(_allocator, image.allocation, &info);
     }
 
