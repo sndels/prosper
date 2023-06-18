@@ -1,15 +1,9 @@
-- Use reflection for binding layouts
-  - Have helper that compiles only ds header
-    - Can we do this in a generic way that doesn't cull away the 'unused' descriptors?
-- Use reflection for descriptor updates
-  - Generalize like binding layout creation
-- Clean up shader reflection implementation
-  - At least the nested metadata parsing is messy
-- Generalize binding layout creation
-  - First pass will probably have sameish boilerplate in every user 
 - Document coverage for required features/limits from gpuinfo
 - Use better compression scheme for normals
-- Clean up unused variables warnings in release builds
-- Async transfer queue for texture loading/gen when all textures go through mipgen/compression
-  - Optional if no separate transfer, compute queue and only one graphics queue available?
-    Are there such gpus/drivers for modernish stuff?
+- Optimize cache generation
+  - Make sure ISPC is using AVX
+  - Make mip gen faster if its speed is an issue
+  - When low-hanging fruits have been picked, parallelize cache generation
+    - Still one transfer thread
+    - Split cache generation out of texture ctor
+    - Run cache gen wide on the remaining threads
