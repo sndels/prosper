@@ -14,13 +14,17 @@ using namespace wheels;
 namespace
 {
 
-constexpr uint32_t sLightsBindingSet = 0;
-constexpr uint32_t sLightClustersBindingSet = 1;
-constexpr uint32_t sCameraBindingSet = 2;
-constexpr uint32_t sMaterialDatasBindingSet = 3;
-constexpr uint32_t sMaterialTexturesBindingSet = 4;
-constexpr uint32_t sGeometryBuffersBindingSet = 5;
-constexpr uint32_t sModelInstanceTrfnsBindingSet = 6;
+enum BindingSet : uint32_t
+{
+    LightsBindingSet = 0,
+    LightClustersBindingSet = 1,
+    CameraBindingSet = 2,
+    MaterialDatasBindingSet = 3,
+    MaterialTexturesBindingSet = 4,
+    GeometryBuffersBindingSet = 5,
+    ModelInstanceTrfnsBindingSet = 6,
+    BindingSetCount = 7,
+};
 
 struct PCBlock
 {
@@ -146,10 +150,10 @@ bool Renderer::compileShaders(
     printf("Compiling Renderer shaders\n");
 
     String vertDefines{scopeAlloc, 128};
-    appendDefineStr(vertDefines, "CAMERA_SET", sCameraBindingSet);
-    appendDefineStr(vertDefines, "GEOMETRY_SET", sGeometryBuffersBindingSet);
+    appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
-        vertDefines, "MODEL_INSTANCE_TRFNS_SET", sModelInstanceTrfnsBindingSet);
+        vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
@@ -159,14 +163,12 @@ bool Renderer::compileShaders(
                                       });
 
     String fragDefines{scopeAlloc, 256};
-    appendDefineStr(fragDefines, "LIGHTS_SET", sLightsBindingSet);
+    appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
+    appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
+    appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
     appendDefineStr(
-        fragDefines, "LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
-    appendDefineStr(fragDefines, "CAMERA_SET", sCameraBindingSet);
-    appendDefineStr(
-        fragDefines, "MATERIAL_DATAS_SET", sMaterialDatasBindingSet);
-    appendDefineStr(
-        fragDefines, "MATERIAL_TEXTURES_SET", sMaterialTexturesBindingSet);
+        fragDefines, "MATERIAL_TEXTURES_SET", MaterialTexturesBindingSet);
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
@@ -287,14 +289,15 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         .pDynamicStates = dynamicStates.data(),
     };
 
-    StaticArray<vk::DescriptorSetLayout, 7> setLayouts{VK_NULL_HANDLE};
-    setLayouts[sLightsBindingSet] = dsLayouts.world.lights;
-    setLayouts[sLightClustersBindingSet] = dsLayouts.lightClusters;
-    setLayouts[sCameraBindingSet] = dsLayouts.camera;
-    setLayouts[sMaterialDatasBindingSet] = dsLayouts.world.materialDatas;
-    setLayouts[sMaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
-    setLayouts[sGeometryBuffersBindingSet] = dsLayouts.world.geometry;
-    setLayouts[sModelInstanceTrfnsBindingSet] = dsLayouts.world.modelInstances;
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[LightsBindingSet] = dsLayouts.world.lights;
+    setLayouts[LightClustersBindingSet] = dsLayouts.lightClusters;
+    setLayouts[CameraBindingSet] = dsLayouts.camera;
+    setLayouts[MaterialDatasBindingSet] = dsLayouts.world.materialDatas;
+    setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
+    setLayouts[GeometryBuffersBindingSet] = dsLayouts.world.geometry;
+    setLayouts[ModelInstanceTrfnsBindingSet] = dsLayouts.world.modelInstances;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
@@ -417,15 +420,16 @@ void Renderer::record(
 
     const auto &scene = world._scenes[world._currentScene];
 
-    StaticArray<vk::DescriptorSet, 7> descriptorSets{VK_NULL_HANDLE};
-    descriptorSets[sLightsBindingSet] = scene.lights.descriptorSets[nextFrame];
-    descriptorSets[sLightClustersBindingSet] = lightClusters.descriptorSet;
-    descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
-    descriptorSets[sMaterialDatasBindingSet] =
+    StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+        VK_NULL_HANDLE};
+    descriptorSets[LightsBindingSet] = scene.lights.descriptorSets[nextFrame];
+    descriptorSets[LightClustersBindingSet] = lightClusters.descriptorSet;
+    descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+    descriptorSets[MaterialDatasBindingSet] =
         world._materialDatasDSs[nextFrame];
-    descriptorSets[sMaterialTexturesBindingSet] = world._materialTexturesDS;
-    descriptorSets[sGeometryBuffersBindingSet] = world._geometryDS;
-    descriptorSets[sModelInstanceTrfnsBindingSet] =
+    descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
+    descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
+    descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSets[nextFrame];
 
     cb.bindDescriptorSets(

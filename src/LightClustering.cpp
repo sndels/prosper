@@ -16,9 +16,13 @@ namespace
 constexpr uint32_t maxPointIndicesPerTile = 128;
 constexpr uint32_t maxSpotIndicesPerTile = 128;
 
-constexpr uint32_t sLightsBindingSet = 0;
-constexpr uint32_t sLightClustersBindingSet = 1;
-constexpr uint32_t sCameraBindingSet = 2;
+enum BindingSet : uint32_t
+{
+    LightsBindingSet = 0,
+    LightClustersBindingSet = 1,
+    CameraBindingSet = 2,
+    BindingSetCount = 3,
+};
 
 struct ClusteringPCBlock
 {
@@ -108,11 +112,12 @@ LightClustering::Output LightClustering::record(
         { // Main dispatch
             cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
-            StaticArray<vk::DescriptorSet, 3> descriptorSets{VK_NULL_HANDLE};
-            descriptorSets[sLightsBindingSet] =
+            StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+                VK_NULL_HANDLE};
+            descriptorSets[LightsBindingSet] =
                 scene.lights.descriptorSets[nextFrame];
-            descriptorSets[sLightClustersBindingSet] = ret.descriptorSet;
-            descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
+            descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
+            descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
 
             cb.bindDescriptorSets(
                 vk::PipelineBindPoint::eCompute, _pipelineLayout,
@@ -142,9 +147,9 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
     printf("Compiling LightClustering shaders\n");
 
     String defines{scopeAlloc, 256};
-    appendDefineStr(defines, "LIGHTS_SET", sLightsBindingSet);
-    appendDefineStr(defines, "LIGHT_CLUSTERS_SET", sLightClustersBindingSet);
-    appendDefineStr(defines, "CAMERA_SET", sCameraBindingSet);
+    appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
+    appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
+    appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
     appendShaderDefines(defines);
@@ -270,7 +275,7 @@ void LightClustering::createDescriptorSets(
     assert(_shaderReflection.has_value());
     const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
         _shaderReflection->generateLayoutBindings(
-            scopeAlloc, sLightClustersBindingSet,
+            scopeAlloc, LightClustersBindingSet,
             vk::ShaderStageFlagBits::eFragment |
                 vk::ShaderStageFlagBits::eCompute);
 
@@ -302,7 +307,7 @@ void LightClustering::updateDescriptorSet(uint32_t nextFrame, Output &output)
     assert(_shaderReflection.has_value());
     const StaticArray descriptorWrites =
         _shaderReflection->generateDescriptorWrites<3>(
-            sLightClustersBindingSet, ds,
+            LightClustersBindingSet, ds,
             {
                 Pair{0u, DescriptorInfoPtr{&pointersInfo}},
                 Pair{
@@ -326,10 +331,11 @@ void LightClustering::createPipeline(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    StaticArray<vk::DescriptorSetLayout, 3> setLayouts{VK_NULL_HANDLE};
-    setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
-    setLayouts[sLightClustersBindingSet] = _descriptorSetLayout;
-    setLayouts[sCameraBindingSet] = camDSLayout;
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[LightsBindingSet] = worldDSLayouts.lights;
+    setLayouts[LightClustersBindingSet] = _descriptorSetLayout;
+    setLayouts[CameraBindingSet] = camDSLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eCompute,

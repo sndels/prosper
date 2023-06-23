@@ -14,8 +14,12 @@ using namespace wheels;
 namespace
 {
 
-constexpr uint32_t sCameraBindingSet = 0;
-constexpr uint32_t sGeometryBuffersBindingSet = 1;
+enum BindingSet : uint32_t
+{
+    CameraBindingSet = 0,
+    GeometryBuffersBindingSet = 1,
+    BindingSetCount = 2,
+};
 
 vk::Rect2D getRenderArea(
     const RenderResources &resources,
@@ -111,9 +115,10 @@ void DebugRenderer::record(
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-        StaticArray<vk::DescriptorSet, 2> descriptorSets{VK_NULL_HANDLE};
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
-        descriptorSets[sGeometryBuffersBindingSet] =
+        StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+            VK_NULL_HANDLE};
+        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+        descriptorSets[GeometryBuffersBindingSet] =
             _linesDescriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
@@ -138,8 +143,8 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     printf("Compiling DebugRenderer shaders\n");
 
     String vertDefines{scopeAlloc, 128};
-    appendDefineStr(vertDefines, "CAMERA_SET", sCameraBindingSet);
-    appendDefineStr(vertDefines, "GEOMETRY_SET", sGeometryBuffersBindingSet);
+    appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -351,9 +356,10 @@ void DebugRenderer::createGraphicsPipeline(
         .pDynamicStates = dynamicStates.data(),
     };
 
-    StaticArray<vk::DescriptorSetLayout, 2> setLayouts{VK_NULL_HANDLE};
-    setLayouts[sCameraBindingSet] = camDSLayout;
-    setLayouts[sGeometryBuffersBindingSet] = _linesDSLayout;
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[CameraBindingSet] = camDSLayout;
+    setLayouts[GeometryBuffersBindingSet] = _linesDSLayout;
 
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{

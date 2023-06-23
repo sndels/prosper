@@ -15,15 +15,19 @@ namespace
 
 constexpr uint32_t sFramePeriod = 4096;
 
-constexpr uint32_t sCameraBindingSet = 0;
-constexpr uint32_t sRTBindingSet = 1;
-constexpr uint32_t sOutputBindingSet = 2;
-constexpr uint32_t sMaterialDatasBindingSet = 3;
-constexpr uint32_t sMaterialTexturesBindingSet = 4;
-constexpr uint32_t sGeometryBindingSet = 5;
-constexpr uint32_t sSkyboxBindingSet = 6;
-constexpr uint32_t sModelInstanceTrfnsBindingSet = 7;
-constexpr uint32_t sLightsBindingSet = 8;
+enum BindingSet : uint32_t
+{
+    CameraBindingSet = 0,
+    RTBindingSet = 1,
+    OutputBindingSet = 2,
+    MaterialDatasBindingSet = 3,
+    MaterialTexturesBindingSet = 4,
+    GeometryBindingSet = 5,
+    SkyboxBindingSet = 6,
+    ModelInstanceTrfnsBindingSet = 7,
+    LightsBindingSet = 8,
+    BindingSetCount = 9,
+};
 
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eAnyHitKHR |
@@ -183,18 +187,19 @@ RTRenderer::Output RTRenderer::record(
 
         const auto &scene = world._scenes[world._currentScene];
 
-        StaticArray<vk::DescriptorSet, 9> descriptorSets{VK_NULL_HANDLE};
-        descriptorSets[sCameraBindingSet] = cam.descriptorSet(nextFrame);
-        descriptorSets[sRTBindingSet] = scene.rtDescriptorSet;
-        descriptorSets[sOutputBindingSet] = _descriptorSets[nextFrame];
-        descriptorSets[sMaterialDatasBindingSet] =
+        StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+            VK_NULL_HANDLE};
+        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+        descriptorSets[RTBindingSet] = scene.rtDescriptorSet;
+        descriptorSets[OutputBindingSet] = _descriptorSets[nextFrame];
+        descriptorSets[MaterialDatasBindingSet] =
             world._materialDatasDSs[nextFrame];
-        descriptorSets[sMaterialTexturesBindingSet] = world._materialTexturesDS;
-        descriptorSets[sGeometryBindingSet] = world._geometryDS;
-        descriptorSets[sSkyboxBindingSet] = world._skyboxOnlyDS;
-        descriptorSets[sModelInstanceTrfnsBindingSet] =
+        descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
+        descriptorSets[GeometryBindingSet] = world._geometryDS;
+        descriptorSets[SkyboxBindingSet] = world._skyboxOnlyDS;
+        descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextFrame];
-        descriptorSets[sLightsBindingSet] =
+        descriptorSets[LightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
 
         cb.bindDescriptorSets(
@@ -274,44 +279,44 @@ bool RTRenderer::compileShaders(
 
     String raygenDefines{scopeAlloc, 256};
     appendDefineStr(raygenDefines, "NON_UNIFORM_MATERIAL_INDICES");
-    appendDefineStr(raygenDefines, "CAMERA_SET", sCameraBindingSet);
-    appendDefineStr(raygenDefines, "RAY_TRACING_SET", sRTBindingSet);
-    appendDefineStr(raygenDefines, "OUTPUT_SET", sOutputBindingSet);
+    appendDefineStr(raygenDefines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(raygenDefines, "RAY_TRACING_SET", RTBindingSet);
+    appendDefineStr(raygenDefines, "OUTPUT_SET", OutputBindingSet);
     appendEnumVariantsAsDefines(
         raygenDefines, "DrawType",
         Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
     appendDefineStr(
-        raygenDefines, "MATERIAL_DATAS_SET", sMaterialDatasBindingSet);
+        raygenDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
     appendDefineStr(
-        raygenDefines, "MATERIAL_TEXTURES_SET", sMaterialTexturesBindingSet);
+        raygenDefines, "MATERIAL_TEXTURES_SET", MaterialTexturesBindingSet);
     appendDefineStr(
         raygenDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
-    appendDefineStr(raygenDefines, "GEOMETRY_SET", sGeometryBindingSet);
-    appendDefineStr(raygenDefines, "SKYBOX_SET", sSkyboxBindingSet);
+    appendDefineStr(raygenDefines, "GEOMETRY_SET", GeometryBindingSet);
+    appendDefineStr(raygenDefines, "SKYBOX_SET", SkyboxBindingSet);
     appendDefineStr(
         raygenDefines, "MODEL_INSTANCE_TRFNS_SET",
-        sModelInstanceTrfnsBindingSet);
-    appendDefineStr(raygenDefines, "LIGHTS_SET", sLightsBindingSet);
+        ModelInstanceTrfnsBindingSet);
+    appendDefineStr(raygenDefines, "LIGHTS_SET", LightsBindingSet);
     PointLights::appendShaderDefines(raygenDefines);
     SpotLights::appendShaderDefines(raygenDefines);
 
     String anyhitDefines{scopeAlloc, 256};
-    appendDefineStr(anyhitDefines, "RAY_TRACING_SET", sRTBindingSet);
+    appendDefineStr(anyhitDefines, "RAY_TRACING_SET", RTBindingSet);
     appendEnumVariantsAsDefines(
         anyhitDefines, "DrawType",
         Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
     appendDefineStr(
-        anyhitDefines, "MATERIAL_DATAS_SET", sMaterialDatasBindingSet);
+        anyhitDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
     appendDefineStr(
-        anyhitDefines, "MATERIAL_TEXTURES_SET", sMaterialTexturesBindingSet);
+        anyhitDefines, "MATERIAL_TEXTURES_SET", MaterialTexturesBindingSet);
     appendDefineStr(
         anyhitDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
-    appendDefineStr(anyhitDefines, "GEOMETRY_SET", sGeometryBindingSet);
+    appendDefineStr(anyhitDefines, "GEOMETRY_SET", GeometryBindingSet);
     appendDefineStr(
         anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
-        sModelInstanceTrfnsBindingSet);
+        ModelInstanceTrfnsBindingSet);
 
     const Optional<Device::ShaderCompileResult> raygenResult =
         _device->compileShaderModule(
@@ -475,16 +480,17 @@ void RTRenderer::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
-    StaticArray<vk::DescriptorSetLayout, 9> setLayouts{VK_NULL_HANDLE};
-    setLayouts[sCameraBindingSet] = camDSLayout;
-    setLayouts[sRTBindingSet] = worldDSLayouts.rayTracing;
-    setLayouts[sOutputBindingSet] = _descriptorSetLayout;
-    setLayouts[sMaterialDatasBindingSet] = worldDSLayouts.materialDatas;
-    setLayouts[sMaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
-    setLayouts[sGeometryBindingSet] = worldDSLayouts.geometry;
-    setLayouts[sSkyboxBindingSet] = worldDSLayouts.skyboxOnly;
-    setLayouts[sModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
-    setLayouts[sLightsBindingSet] = worldDSLayouts.lights;
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[CameraBindingSet] = camDSLayout;
+    setLayouts[RTBindingSet] = worldDSLayouts.rayTracing;
+    setLayouts[OutputBindingSet] = _descriptorSetLayout;
+    setLayouts[MaterialDatasBindingSet] = worldDSLayouts.materialDatas;
+    setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
+    setLayouts[GeometryBindingSet] = worldDSLayouts.geometry;
+    setLayouts[SkyboxBindingSet] = worldDSLayouts.skyboxOnly;
+    setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
+    setLayouts[LightsBindingSet] = worldDSLayouts.lights;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = sVkShaderStageFlagsAllRt,
