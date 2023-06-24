@@ -32,6 +32,10 @@ Current features include:
 - Pipeline ray tracing
   - Naive path tracing
 - Polling shader recompilation
+- Artisanal SPIR-V parsing into shader reflection
+  - Rough push constants validation
+  - Descriptor set layout generation
+  - Descriptor write generation
 - Scoped profiling
   - GPU with timestamps
   - CPU with `std::chrono`
