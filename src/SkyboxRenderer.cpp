@@ -234,101 +234,23 @@ void SkyboxRenderer::createGraphicsPipelines(
         .pVertexAttributeDescriptions = &vertexAttributeDescription,
     };
 
-    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList,
-    };
-
-    // Dynamic state
-    const vk::PipelineViewportStateCreateInfo viewportState{
-        .viewportCount = 1,
-        .scissorCount = 1,
-    };
-
-    const vk::PipelineRasterizationStateCreateInfo rasterizerState{
-        .polygonMode = vk::PolygonMode::eFill,
-        .cullMode = vk::CullModeFlagBits::eNone, // Draw the skybox from inside
-        .frontFace = vk::FrontFace::eCounterClockwise,
-        .lineWidth = 1.0,
-    };
-
-    const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1,
-    };
-
-    const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLessOrEqual,
-    };
-
-    const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-        .srcColorBlendFactor = vk::BlendFactor::eOne,
-        .dstColorBlendFactor = vk::BlendFactor::eZero,
-        .colorBlendOp = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
-        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
-        .alphaBlendOp = vk::BlendOp::eAdd,
-        .colorWriteMask =
-            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-    };
-    const vk::PipelineColorBlendStateCreateInfo colorBlendState{
-        .logicOp = vk::LogicOp::eCopy,
-        .attachmentCount = 1,
-        .pAttachments = &colorBlendAttachment,
-    };
-
-    const StaticArray dynamicStates = {
-        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
-
-    const vk::PipelineDynamicStateCreateInfo dynamicState{
-        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
-        .pDynamicStates = dynamicStates.data(),
-    };
-
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1,
             .pSetLayouts = &worldDSLayouts.skybox,
         });
 
-    vk::StructureChain<
-        vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
-        pipelineChain{
-            vk::GraphicsPipelineCreateInfo{
-                .stageCount = asserted_cast<uint32_t>(_shaderStages.size()),
-                .pStages = _shaderStages.data(),
-                .pVertexInputState = &vertInputInfo,
-                .pInputAssemblyState = &inputAssembly,
-                .pViewportState = &viewportState,
-                .pRasterizationState = &rasterizerState,
-                .pMultisampleState = &multisampleState,
-                .pDepthStencilState = &depthStencilState,
-                .pColorBlendState = &colorBlendState,
-                .pDynamicState = &dynamicState,
-                .layout = _pipelineLayout,
-            },
-            vk::PipelineRenderingCreateInfo{
-                .colorAttachmentCount = 1,
-                .pColorAttachmentFormats = &sIlluminationFormat,
-                .depthAttachmentFormat = sDepthFormat,
-            }};
+    const vk::PipelineColorBlendAttachmentState blendAttachment =
+        opaqueColorBlendAttachment();
 
-    {
-        auto pipeline = _device->logical().createGraphicsPipeline(
-            vk::PipelineCache{},
-            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create skybox pipeline");
-
-        _pipeline = pipeline.value;
-
-        _device->logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "SkyboxRenderer",
-            });
-    }
+    _pipeline = createGraphicsPipeline(
+        _device->logical(), vk::PrimitiveTopology::eTriangleList,
+        _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eNone,
+        vk::CompareOp::eLessOrEqual, Span{&blendAttachment, 1}, _shaderStages,
+        vk::PipelineRenderingCreateInfo{
+            .colorAttachmentCount = 1,
+            .pColorAttachmentFormats = &sIlluminationFormat,
+            .depthAttachmentFormat = sDepthFormat,
+        },
+        "SkyboxRenderer");
 }

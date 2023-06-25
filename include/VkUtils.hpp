@@ -2,6 +2,7 @@
 #define PROSPER_VKUTILS_HPP
 
 #include <vulkan/vulkan.hpp>
+#include <wheels/containers/span.hpp>
 
 constexpr void checkSuccess(vk::Result result, const char *source)
 {
@@ -50,5 +51,50 @@ void setViewportScissor(vk::CommandBuffer cb, const vk::Rect2D &area);
 vk::Pipeline createComputePipeline(
     vk::Device device, const vk::ComputePipelineCreateInfo &info,
     const char *debugName);
+
+// Creates a graphics pipeline and assigns debugName to it. Throws on error.
+vk::Pipeline createGraphicsPipeline(
+    vk::Device device, vk::PrimitiveTopology topology,
+    vk::PipelineLayout pipelineLayout,
+    const vk::PipelineVertexInputStateCreateInfo &vertInputInfo,
+    vk::CullModeFlags cullMode, vk::CompareOp depthCompareOp,
+    wheels::Span<const vk::PipelineColorBlendAttachmentState>
+        colorBlendAttachments,
+    wheels::Span<const vk::PipelineShaderStageCreateInfo> shaderStages,
+    const vk::PipelineRenderingCreateInfo &pipelineRenderingInfo,
+    const char *debugName);
+
+constexpr vk::PipelineColorBlendAttachmentState opaqueColorBlendAttachment()
+{
+    return vk::PipelineColorBlendAttachmentState{
+        .blendEnable = VK_FALSE,
+        .srcColorBlendFactor = vk::BlendFactor::eOne,
+        .dstColorBlendFactor = vk::BlendFactor::eZero,
+        .colorBlendOp = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .alphaBlendOp = vk::BlendOp::eAdd,
+        .colorWriteMask =
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
+}
+
+constexpr vk::PipelineColorBlendAttachmentState
+transparentColorBlendAttachment()
+{
+    return vk::PipelineColorBlendAttachmentState{
+        .blendEnable = VK_TRUE,
+        .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
+        .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
+        .colorBlendOp = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .alphaBlendOp = vk::BlendOp::eAdd,
+        .colorWriteMask =
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
+    };
+}
 
 #endif // PROSPER_VKUTILS_HPP

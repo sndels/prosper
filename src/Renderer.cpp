@@ -234,61 +234,6 @@ void Renderer::destroyGraphicsPipelines()
 
 void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 {
-    // Empty as we'll load vertices manually from a buffer
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
-
-    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList,
-    };
-
-    // Dynamic state
-    const vk::PipelineViewportStateCreateInfo viewportState{
-        .viewportCount = 1,
-        .scissorCount = 1,
-    };
-
-    const vk::PipelineRasterizationStateCreateInfo rasterizerState{
-        .polygonMode = vk::PolygonMode::eFill,
-        .cullMode = vk::CullModeFlagBits::eBack,
-        .frontFace = vk::FrontFace::eCounterClockwise,
-        .lineWidth = 1.0,
-    };
-
-    const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1,
-    };
-
-    const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLess,
-    };
-
-    const vk::PipelineColorBlendAttachmentState opaqueColorBlendAttachment{
-        .blendEnable = VK_FALSE,
-        .srcColorBlendFactor = vk::BlendFactor::eOne,
-        .dstColorBlendFactor = vk::BlendFactor::eZero,
-        .colorBlendOp = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
-        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
-        .alphaBlendOp = vk::BlendOp::eAdd,
-        .colorWriteMask =
-            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-    };
-    const vk::PipelineColorBlendStateCreateInfo opaqueColorBlendState{
-        .attachmentCount = 1,
-        .pAttachments = &opaqueColorBlendAttachment,
-    };
-
-    const StaticArray dynamicStates = {
-        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
-
-    const vk::PipelineDynamicStateCreateInfo dynamicState{
-        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
-        .pDynamicStates = dynamicStates.data(),
-    };
-
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};
     setLayouts[LightsBindingSet] = dsLayouts.world.lights;
@@ -313,80 +258,39 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             .pPushConstantRanges = &pcRange,
         });
 
-    vk::StructureChain<
-        vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
-        pipelineChain{
-            vk::GraphicsPipelineCreateInfo{
-                .stageCount = asserted_cast<uint32_t>(_shaderStages.size()),
-                .pStages = _shaderStages.data(),
-                .pVertexInputState = &vertInputInfo,
-                .pInputAssemblyState = &inputAssembly,
-                .pViewportState = &viewportState,
-                .pRasterizationState = &rasterizerState,
-                .pMultisampleState = &multisampleState,
-                .pDepthStencilState = &depthStencilState,
-                .pColorBlendState = &opaqueColorBlendState,
-                .pDynamicState = &dynamicState,
-                .layout = _pipelineLayout,
-            },
+    // Empty as we'll load vertices manually from a buffer
+    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
+
+    {
+        const vk::PipelineColorBlendAttachmentState blendAttachment =
+            opaqueColorBlendAttachment();
+
+        _pipelines[0] = createGraphicsPipeline(
+            _device->logical(), vk::PrimitiveTopology::eTriangleList,
+            _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
+            vk::CompareOp::eLess, Span{&blendAttachment, 1}, _shaderStages,
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats = &sIlluminationFormat,
                 .depthAttachmentFormat = sDepthFormat,
-            }};
-
-    {
-        auto pipeline = _device->logical().createGraphicsPipeline(
-            vk::PipelineCache{},
-            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create pbr pipeline");
-
-        _pipelines[0] = pipeline.value;
-
-        _device->logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipelines[0])),
-                .pObjectName = "Renderer::Opaque",
-            });
+            },
+            "Renderer::Opaque");
     }
 
-    const vk::PipelineColorBlendAttachmentState transparentColorBlendAttachment{
-        .blendEnable = VK_TRUE,
-        .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
-        .dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
-        .colorBlendOp = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
-        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
-        .alphaBlendOp = vk::BlendOp::eAdd,
-        .colorWriteMask =
-            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-    };
-    const vk::PipelineColorBlendStateCreateInfo transparentColorBlendState{
-        .attachmentCount = 1,
-        .pAttachments = &transparentColorBlendAttachment,
-    };
-    pipelineChain.get<vk::GraphicsPipelineCreateInfo>().pColorBlendState =
-        &transparentColorBlendState;
     {
-        auto pipeline = _device->logical().createGraphicsPipeline(
-            vk::PipelineCache{},
-            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create pbr pipeline");
+        const vk::PipelineColorBlendAttachmentState blendAttachment =
+            transparentColorBlendAttachment();
 
-        _pipelines[1] = pipeline.value;
-
-        _device->logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipelines[1])),
-                .pObjectName = "Renderer::Transparent",
-            });
+        _pipelines[1] = createGraphicsPipeline(
+            _device->logical(), vk::PrimitiveTopology::eTriangleList,
+            _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
+            vk::CompareOp::eLess, Span{&blendAttachment, 1}, _shaderStages,
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount = 1,
+                .pColorAttachmentFormats = &sIlluminationFormat,
+                .depthAttachmentFormat = sDepthFormat,
+            },
+            "Renderer::Transparent");
     }
 }
 

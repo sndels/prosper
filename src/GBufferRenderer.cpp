@@ -338,68 +338,6 @@ void GBufferRenderer::createGraphicsPipelines(
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    // Empty as we'll load vertices manually from a buffer
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
-
-    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList,
-    };
-
-    // Dynamic state
-    const vk::PipelineViewportStateCreateInfo viewportState{
-        .viewportCount = 1,
-        .scissorCount = 1,
-    };
-
-    const vk::PipelineRasterizationStateCreateInfo rasterizerState{
-        .polygonMode = vk::PolygonMode::eFill,
-        .cullMode = vk::CullModeFlagBits::eBack,
-        .frontFace = vk::FrontFace::eCounterClockwise,
-        .lineWidth = 1.0,
-    };
-
-    const vk::PipelineMultisampleStateCreateInfo multisampleState{
-        .rasterizationSamples = vk::SampleCountFlagBits::e1,
-    };
-
-    const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = vk::CompareOp::eLess,
-    };
-
-    const vk::PipelineColorBlendAttachmentState colorBlendAttachment{
-        .blendEnable = VK_FALSE,
-        .srcColorBlendFactor = vk::BlendFactor::eOne,
-        .dstColorBlendFactor = vk::BlendFactor::eZero,
-        .colorBlendOp = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
-        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
-        .alphaBlendOp = vk::BlendOp::eAdd,
-        .colorWriteMask =
-            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-            vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
-    };
-
-    // TODO:
-    // Make wheels::StaticArray::capacity() a static constexpr, use
-    // _colorAttachments.capacity() here
-    const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
-        colorBlendAttachments{colorBlendAttachment};
-    const vk::PipelineColorBlendStateCreateInfo colorBlendState{
-        .attachmentCount =
-            asserted_cast<uint32_t>(colorBlendAttachments.capacity()),
-        .pAttachments = colorBlendAttachments.data(),
-    };
-
-    const StaticArray dynamicStates = {
-        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
-
-    const vk::PipelineDynamicStateCreateInfo dynamicState{
-        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
-        .pDynamicStates = dynamicStates.data(),
-    };
-
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};
     setLayouts[CameraBindingSet] = camDSLayout;
@@ -427,44 +365,21 @@ void GBufferRenderer::createGraphicsPipelines(
         sNormalMetalnessFormat,
     };
 
-    vk::StructureChain<
-        vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
-        pipelineChain{
-            vk::GraphicsPipelineCreateInfo{
-                .stageCount = asserted_cast<uint32_t>(_shaderStages.size()),
-                .pStages = _shaderStages.data(),
-                .pVertexInputState = &vertInputInfo,
-                .pInputAssemblyState = &inputAssembly,
-                .pViewportState = &viewportState,
-                .pRasterizationState = &rasterizerState,
-                .pMultisampleState = &multisampleState,
-                .pDepthStencilState = &depthStencilState,
-                .pColorBlendState = &colorBlendState,
-                .pDynamicState = &dynamicState,
-                .layout = _pipelineLayout,
-            },
-            vk::PipelineRenderingCreateInfo{
-                .colorAttachmentCount =
-                    asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
-                .pColorAttachmentFormats = colorAttachmentFormats.data(),
-                .depthAttachmentFormat = sDepthFormat,
-            }};
+    const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
+        colorBlendAttachments{opaqueColorBlendAttachment()};
 
-    {
-        auto pipeline = _device->logical().createGraphicsPipeline(
-            vk::PipelineCache{},
-            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create pbr pipeline");
+    // Empty as we'll load vertices manually from a buffer
+    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
-        _pipeline = pipeline.value;
-
-        _device->logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "GBufferRenderer",
-            });
-    }
+    _pipeline = createGraphicsPipeline(
+        _device->logical(), vk::PrimitiveTopology::eTriangleList,
+        _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
+        vk::CompareOp::eLess, colorBlendAttachments, _shaderStages,
+        vk::PipelineRenderingCreateInfo{
+            .colorAttachmentCount =
+                asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
+            .pColorAttachmentFormats = colorAttachmentFormats.data(),
+            .depthAttachmentFormat = sDepthFormat,
+        },
+        "GBufferRenderer");
 }
