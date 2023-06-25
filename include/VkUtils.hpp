@@ -46,4 +46,9 @@ constexpr vk::ImageAspectFlags aspectMask(vk::Format format)
 
 void setViewportScissor(vk::CommandBuffer cb, const vk::Rect2D &area);
 
+// Creates a compute pipeline and assigns debugName to it. Throws on error.
+vk::Pipeline createComputePipeline(
+    vk::Device device, const vk::ComputePipelineCreateInfo &info,
+    const char *debugName);
+
 #endif // PROSPER_VKUTILS_HPP

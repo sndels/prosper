@@ -360,22 +360,8 @@ void LightClustering::createPipeline(
         .layout = _pipelineLayout,
     };
 
-    {
-        auto pipeline = _device->logical().createComputePipeline(
-            vk::PipelineCache{}, createInfo);
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create pbr pipeline");
-
-        _pipeline = pipeline.value;
-
-        _device->logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "LightClustering",
-            });
-    }
+    _pipeline = createComputePipeline(
+        _device->logical(), createInfo, "LightClustering");
 }
 
 void LightClustering::destroyPipeline()
