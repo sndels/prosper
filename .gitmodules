@@ -28,3 +28,6 @@
 [submodule "ext/ispctex"]
 	path = ext/ispc_texcomp
 	url = https://github.com/GameTechDev/ISPCTextureCompressor.git
+[submodule "ext/ffx_spd"]
+	path = ext/ffx_spd
+	url = https://github.com/GPUOpen-Effects/FidelityFX-SPD.git

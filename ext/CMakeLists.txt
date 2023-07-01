@@ -95,3 +95,9 @@ add_subdirectory(wheels)
 add_subdirectory(cxxopts)
 
 include(ispc_texcomp_CMakeLists.txt)
+
+# ffx_spd is header only
+add_library(ffx_spd INTERFACE)
+
+# Define as system to suppress warnings
+target_include_directories(ffx_spd SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/ffx_spd/ffx-spd)
