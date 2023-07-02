@@ -150,6 +150,7 @@ struct Image
 {
     vk::Image handle;
     vk::ImageView view;
+    vk::ImageType imageType{vk::ImageType::e2D};
     vk::Format format{vk::Format::eUndefined};
     // Keep extent and subresource range in full to avoid having to refill them
     // on every use
