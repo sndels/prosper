@@ -75,6 +75,16 @@ inline void appendDefineStr(wheels::String &str, wheels::StrSpan name)
     str.push_back('\n');
 }
 
+inline void appendDefineStr(
+    wheels::String &str, wheels::StrSpan name, const char *value)
+{
+    str.extend("#define ");
+    str.extend(name);
+    str.push_back(' ');
+    str.extend(value);
+    str.push_back('\n');
+}
+
 template <typename T>
 void appendDefineStr(wheels::String &str, wheels::StrSpan name, T value)
 {
