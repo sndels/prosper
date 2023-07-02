@@ -5,7 +5,8 @@ ImageHandle createDepth(
     const char *debugName)
 {
     // Check depth buffer without stencil is supported
-    const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+    const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment |
+                          vk::FormatFeatureFlagBits::eSampledImage;
     const auto properties = device.physical().getFormatProperties(sDepthFormat);
     if ((properties.optimalTilingFeatures & features) != features)
         throw std::runtime_error("Depth format unsupported");
