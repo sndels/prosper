@@ -11,12 +11,17 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/static_array.hpp>
 
+using BufferHandle = RenderResourceHandle<Buffer>;
 using TexelBufferHandle = RenderResourceHandle<TexelBuffer>;
 using ImageHandle = RenderResourceHandle<Image>;
 
 class RenderResources
 {
   public:
+    using RenderBufferCollection = RenderResourceCollection<
+        BufferHandle, Buffer, BufferDescription, BufferCreateInfo, BufferState,
+        vk::BufferMemoryBarrier2, vk::Buffer, VkBuffer,
+        vk::ObjectType::eBuffer>;
     using RenderTexelBufferCollection = RenderResourceCollection<
         TexelBufferHandle, TexelBuffer, TexelBufferDescription,
         TexelBufferCreateInfo, BufferState, vk::BufferMemoryBarrier2,
@@ -29,6 +34,7 @@ class RenderResources
     RenderResources(wheels::Allocator &alloc, Device *device)
     : images{alloc, device}
     , texelBuffers{alloc, device}
+    , buffers{alloc, device}
     {
     }
     ~RenderResources() = default;
@@ -44,6 +50,7 @@ class RenderResources
     {
         images.clearDebugNames();
         texelBuffers.clearDebugNames();
+        buffers.clearDebugNames();
     }
 
     // Should be called e.g. when viewport is resized since the render resources
@@ -52,10 +59,12 @@ class RenderResources
     {
         images.destroyResources();
         texelBuffers.destroyResources();
+        buffers.destroyResources();
     }
 
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;
+    RenderBufferCollection buffers;
 
     // Have this be static because ImGuiRenderer uses it in its framebuffer.
     // Don't want to reallocate FBs each frame if this ends up ping-ponging with
