@@ -955,6 +955,57 @@ void Device::destroy(const Image &image)
     _logical.destroy(image.view);
 }
 
+void Device::createSubresourcesViews(
+    const Image &image, Span<vk::ImageView> outViews) const
+{
+    assert(
+        image.subresourceRange.layerCount == 1 &&
+        "Texture arrays not supported");
+    assert(
+        image.subresourceRange.levelCount > 1 &&
+        "You can just use the global view when no mips are present");
+    assert(image.subresourceRange.baseMipLevel == 0);
+    assert(image.subresourceRange.levelCount == outViews.size());
+
+    const vk::ImageAspectFlags aspect = aspectMask(image.format);
+    const vk::ImageViewType viewType = [&image]()
+    {
+        switch (image.imageType)
+        {
+        case vk::ImageType::e1D:
+            return vk::ImageViewType::e1D;
+        case vk::ImageType::e2D:
+            return vk::ImageViewType::e2D;
+        case vk::ImageType::e3D:
+            return vk::ImageViewType::e3D;
+        default:
+            throw std::runtime_error(
+                "Unexpected image type " + to_string(image.imageType));
+        }
+    }();
+
+    for (uint32_t i = 0; i < image.subresourceRange.levelCount; ++i)
+        outViews[i] = _logical.createImageView(vk::ImageViewCreateInfo{
+            .image = image.handle,
+            .viewType = viewType,
+            .format = image.format,
+            .subresourceRange =
+                vk::ImageSubresourceRange{
+                    .aspectMask = aspect,
+                    .baseMipLevel = i,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+        });
+}
+
+void Device::destroy(Span<const vk::ImageView> views) const
+{
+    for (const vk::ImageView view : views)
+        _logical.destroy(view);
+}
+
 vk::CommandBuffer Device::beginGraphicsCommands() const
 {
     const auto buffer =

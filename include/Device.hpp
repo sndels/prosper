@@ -159,6 +159,11 @@ class Device
     [[nodiscard]] Image createImage(const ImageCreateInfo &info);
     // image shouldn't be in use in other threads
     void destroy(const Image &image);
+    // Creates views to the individual subresources of the image
+    // NOTE: Caller is responsible of destroying the views
+    void createSubresourcesViews(
+        const Image &image, wheels::Span<vk::ImageView> outViews) const;
+    void destroy(wheels::Span<const vk::ImageView> views) const;
 
     // This is not thread-safe
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
