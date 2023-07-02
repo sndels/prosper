@@ -4,6 +4,11 @@
 #include <iostream>
 #include <stdexcept>
 
+#ifdef _WIN32
+// for __debug_break()
+#include <intrin.h>
+#endif // _WIN32
+
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
@@ -220,7 +225,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 {
     (void)messageSeverity;
     (void)messageType;
-    (void)pUserData;
+    const bool breakOnError =
+        static_cast<bool>(reinterpret_cast<uintptr_t>(pUserData));
 
     // VK_TRUE is reserved
     constexpr auto ret = VK_FALSE;
@@ -234,6 +240,16 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 #undef DEVICE_EXTENSION_STR
 
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+    if (breakOnError &&
+        messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+#ifdef _WIN32
+        // Assumes MSVC
+        __debugbreak();
+#else  // !__WIN32
+       // Assumes gcc or a new enough clang
+        __builtin_trap();
+#endif // __WIN32
 
     return ret;
 }
@@ -403,7 +419,7 @@ Device::Device(
         }
     }
 
-    createDebugMessenger();
+    createDebugMessenger(settings.breakOnValidationError);
     createSurface(window);
     selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
@@ -1045,7 +1061,7 @@ void Device::createInstance(ScopedScratch scopeAlloc, bool enableDebugLayers)
     });
 }
 
-void Device::createDebugMessenger()
+void Device::createDebugMessenger(bool breakOnError)
 {
     const vk::DebugUtilsMessengerCreateInfoEXT createInfo{
         .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
@@ -1055,6 +1071,7 @@ void Device::createDebugMessenger()
                        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
                        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
         .pfnUserCallback = debugCallback,
+        .pUserData = reinterpret_cast<void *>(breakOnError),
     };
     CreateDebugUtilsMessengerEXT(
         _instance, &createInfo, nullptr, &_debugMessenger);

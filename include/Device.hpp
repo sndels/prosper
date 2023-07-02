@@ -82,6 +82,7 @@ class Device
     {
         bool enableDebugLayers{false};
         bool dumpShaderDisassembly{false};
+        bool breakOnValidationError{false};
     };
 
     Device(
@@ -172,7 +173,7 @@ class Device
 
     void createInstance(
         wheels::ScopedScratch scopeAlloc, bool enableDebugLayers);
-    void createDebugMessenger();
+    void createDebugMessenger(bool breakOnError);
     void createSurface(GLFWwindow *window);
     void selectPhysicalDevice(wheels::ScopedScratch scopeAlloc);
     void createLogicalDevice(bool enableDebugLayers);
