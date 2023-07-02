@@ -45,7 +45,12 @@ struct Buffer
     vk::Buffer handle;
     vk::DeviceSize byteSize{0};
     void *mapped{nullptr};
+    BufferState state;
     VmaAllocation allocation{nullptr};
+
+    [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
+        const BufferState &newState);
+    void transition(vk::CommandBuffer cb, const BufferState &newState);
 };
 
 struct TexelBufferDescription
