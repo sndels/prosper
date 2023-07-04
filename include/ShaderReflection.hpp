@@ -12,6 +12,8 @@
 
 #include <variant>
 
+#include "Utils.hpp"
+
 struct DescriptorSetMetadata
 {
     wheels::String name;
@@ -23,7 +25,7 @@ struct DescriptorSetMetadata
 
 using DescriptorInfoPtr = std::variant<
     const vk::DescriptorImageInfo *, const vk::DescriptorBufferInfo *,
-    const vk::BufferView *>;
+    const vk::BufferView *, wheels::Span<const vk::DescriptorImageInfo>>;
 
 class ShaderReflection
 {
@@ -86,6 +88,22 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
             std::get_if<const vk::DescriptorBufferInfo *>(&descriptorInfoPtr);
         const vk::BufferView *const *ppTexelBufferView =
             std::get_if<const vk::BufferView *>(&descriptorInfoPtr);
+        // TODO:
+        // Refactor this so that single image is also a span? How are the
+        // ergonomics?
+        const wheels::Span<const vk::DescriptorImageInfo> *pImageInfoSpan =
+            std::get_if<wheels::Span<const vk::DescriptorImageInfo>>(
+                &descriptorInfoPtr);
+
+        uint32_t descriptorCount = 1;
+
+        const vk::DescriptorImageInfo *pImageInfo =
+            ppImageInfo == nullptr ? nullptr : *ppImageInfo;
+        if (pImageInfoSpan != nullptr)
+        {
+            pImageInfo = pImageInfoSpan->data();
+            descriptorCount = asserted_cast<uint32_t>(pImageInfoSpan->size());
+        }
 
         bool found = false;
         for (const DescriptorSetMetadata &metadata : *metadatas)
@@ -96,10 +114,9 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
                 descriptorWrites.push_back(vk::WriteDescriptorSet{
                     .dstSet = descriptorSetHandle,
                     .dstBinding = binding,
-                    .descriptorCount = 1,
+                    .descriptorCount = descriptorCount,
                     .descriptorType = metadata.descriptorType,
-                    .pImageInfo =
-                        ppImageInfo == nullptr ? nullptr : *ppImageInfo,
+                    .pImageInfo = pImageInfo,
                     .pBufferInfo =
                         ppBufferInfo == nullptr ? nullptr : *ppBufferInfo,
                     .pTexelBufferView = ppTexelBufferView == nullptr
