@@ -146,6 +146,9 @@ App::App(const Settings &settings)
     _depthOfField = std::make_unique<DepthOfField>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
+    _downSampler = std::make_unique<DownSampler>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -340,6 +343,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _textureDebug->recompileShaders(scopeAlloc.child_scope());
     _depthOfField->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout());
+    _downSampler->recompileShaders(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -859,6 +863,8 @@ void App::render(
                     cb, *_world, *_cam, renderArea, indices.nextFrame,
                     uiChanges.rtPickedThisFrame, _profiler.get())
                 .illumination;
+        // TODO:
+        // Output depth so post processing can be shared with raster pipelines
     }
     else
     {
@@ -932,6 +938,14 @@ void App::render(
             _resources->images.release(illumination);
             illumination = dofOutput.combinedIlluminationDoF;
         }
+
+        const ImageHandle hierarchicalDepth =
+            _downSampler
+                ->record(
+                    cb, depth, DownSampler::Operation::MaxDepth,
+                    indices.nextFrame, _profiler.get())
+                .downSampled;
+        _resources->images.release(hierarchicalDepth);
 
         _resources->images.release(depth);
     }

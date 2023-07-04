@@ -6,6 +6,7 @@
 #include "DeferredShading.hpp"
 #include "DepthOfField.hpp"
 #include "Device.hpp"
+#include "DownSampler.hpp"
 #include "GBufferRenderer.hpp"
 #include "ImGuiRenderer.hpp"
 #include "LightClustering.hpp"
@@ -132,15 +133,19 @@ class App
     std::unique_ptr<ImGuiRenderer> _imguiRenderer;
     std::unique_ptr<TextureDebug> _textureDebug;
     std::unique_ptr<DepthOfField> _depthOfField;
+    std::unique_ptr<DownSampler> _downSampler;
 
     std::unique_ptr<Profiler> _profiler;
 
     bool _useFpsLimit{true};
     int32_t _fpsLimit{140};
     bool _recompileShaders{false};
-    bool _renderRT{false};
+    bool _renderRT
+    {
+        false {false};
+        bool _renderDoF
+    };
     bool _renderDeferred{false};
-    bool _renderDoF{false};
     bool _textureDebugActive{false};
 
     uint32_t _ctorScratchHighWatermark{0};
