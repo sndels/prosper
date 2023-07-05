@@ -225,8 +225,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 {
     (void)messageSeverity;
     (void)messageType;
+
     const bool breakOnError =
-        static_cast<bool>(reinterpret_cast<uintptr_t>(pUserData));
+        reinterpret_cast<Device::Settings *>(pUserData)->breakOnValidationError;
 
     // VK_TRUE is reserved
     constexpr auto ret = VK_FALSE;
@@ -384,7 +385,7 @@ Device::Device(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, GLFWwindow *window,
     const Settings &settings)
 : _generalAlloc{generalAlloc}
-, _dumpShaderDisassembly{settings.dumpShaderDisassembly}
+, _settings{settings}
 {
     printf("Creating Vulkan device\n");
 
@@ -400,7 +401,7 @@ Device::Device(
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-    createInstance(scopeAlloc.child_scope(), settings.enableDebugLayers);
+    createInstance(scopeAlloc.child_scope());
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
 
     {
@@ -419,12 +420,12 @@ Device::Device(
         }
     }
 
-    createDebugMessenger(settings.breakOnValidationError);
+    createDebugMessenger();
     createSurface(window);
     selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
-    createLogicalDevice(settings.enableDebugLayers);
+    createLogicalDevice();
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
 
     createAllocator();
@@ -530,7 +531,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
         return {};
     }
 
-    if (_dumpShaderDisassembly)
+    if (_settings.dumpShaderDisassembly)
     {
         const shaderc::AssemblyCompilationResult resultAsm =
             _compiler.CompileGlslToSpvAssembly(
@@ -1081,9 +1082,9 @@ bool Device::isDeviceSuitable(
     return true;
 }
 
-void Device::createInstance(ScopedScratch scopeAlloc, bool enableDebugLayers)
+void Device::createInstance(ScopedScratch scopeAlloc)
 {
-    if (enableDebugLayers && !checkValidationLayerSupport())
+    if (_settings.enableDebugLayers && !checkValidationLayerSupport())
         throw std::runtime_error("Validation layers not available");
 
     const vk::ApplicationInfo appInfo{
@@ -1103,17 +1104,18 @@ void Device::createInstance(ScopedScratch scopeAlloc, bool enableDebugLayers)
     _instance = vk::createInstance(vk::InstanceCreateInfo{
         .pApplicationInfo = &appInfo,
         .enabledLayerCount =
-            enableDebugLayers ? asserted_cast<uint32_t>(validationLayers.size())
-                              : 0,
+            _settings.enableDebugLayers
+                ? asserted_cast<uint32_t>(validationLayers.size())
+                : 0,
         .ppEnabledLayerNames =
-            enableDebugLayers ? validationLayers.data() : nullptr,
+            _settings.enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount =
             asserted_cast<uint32_t>(extension_cstrs.size()),
         .ppEnabledExtensionNames = extension_cstrs.data(),
     });
 }
 
-void Device::createDebugMessenger(bool breakOnError)
+void Device::createDebugMessenger()
 {
     const vk::DebugUtilsMessengerCreateInfoEXT createInfo{
         .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
@@ -1123,7 +1125,7 @@ void Device::createDebugMessenger(bool breakOnError)
                        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
                        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
         .pfnUserCallback = debugCallback,
-        .pUserData = reinterpret_cast<void *>(breakOnError),
+        .pUserData = &_settings,
     };
     CreateDebugUtilsMessengerEXT(
         _instance, &createInfo, nullptr, &_debugMessenger);
@@ -1159,7 +1161,7 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
     throw std::runtime_error("Failed to find a suitable GPU");
 }
 
-void Device::createLogicalDevice(bool enableDebugLayers)
+void Device::createLogicalDevice()
 {
     assert(_queueFamilies.graphicsFamily.has_value());
     assert(_queueFamilies.transferFamily.has_value());
@@ -1208,10 +1210,11 @@ void Device::createLogicalDevice(bool enableDebugLayers)
             asserted_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
         .enabledLayerCount =
-            enableDebugLayers ? asserted_cast<uint32_t>(validationLayers.size())
-                              : 0,
+            _settings.enableDebugLayers
+                ? asserted_cast<uint32_t>(validationLayers.size())
+                : 0,
         .ppEnabledLayerNames =
-            enableDebugLayers ? validationLayers.data() : nullptr,
+            _settings.enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount =
             asserted_cast<uint32_t>(deviceExtensions.size()),
         .ppEnabledExtensionNames = deviceExtensions.data(),

@@ -176,12 +176,11 @@ class Device
     [[nodiscard]] bool isDeviceSuitable(
         wheels::ScopedScratch scopeAlloc, vk::PhysicalDevice device) const;
 
-    void createInstance(
-        wheels::ScopedScratch scopeAlloc, bool enableDebugLayers);
-    void createDebugMessenger(bool breakOnError);
+    void createInstance(wheels::ScopedScratch scopeAlloc);
+    void createDebugMessenger();
     void createSurface(GLFWwindow *window);
     void selectPhysicalDevice(wheels::ScopedScratch scopeAlloc);
-    void createLogicalDevice(bool enableDebugLayers);
+    void createLogicalDevice();
     void createAllocator();
     void createCommandPools();
 
@@ -193,6 +192,7 @@ class Device
     void untrackImage(const Image &image);
 
     wheels::Allocator &_generalAlloc;
+    Settings _settings;
 
     vk::Instance _instance;
     vk::PhysicalDevice _physical;
@@ -202,7 +202,6 @@ class Device
     std::mutex _allocatorMutex;
     VmaAllocator _allocator{nullptr};
 
-    bool _dumpShaderDisassembly{false};
     shaderc::CompileOptions _compilerOptions;
     shaderc::Compiler _compiler;
 
