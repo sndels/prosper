@@ -4,6 +4,7 @@
 #include "DebugGeometry.hpp"
 #include "DescriptorAllocator.hpp"
 #include "Device.hpp"
+#include "RenderImageCollection.hpp"
 #include "RenderResourceCollection.hpp"
 #include "Utils.hpp"
 
@@ -13,7 +14,6 @@
 
 using BufferHandle = RenderResourceHandle<Buffer>;
 using TexelBufferHandle = RenderResourceHandle<TexelBuffer>;
-using ImageHandle = RenderResourceHandle<Image>;
 
 class RenderResources
 {
@@ -26,9 +26,6 @@ class RenderResources
         TexelBufferHandle, TexelBuffer, TexelBufferDescription,
         TexelBufferCreateInfo, BufferState, vk::BufferMemoryBarrier2,
         vk::Buffer, VkBuffer, vk::ObjectType::eBuffer>;
-    using RenderImageCollection = RenderResourceCollection<
-        ImageHandle, Image, ImageDescription, ImageCreateInfo, ImageState,
-        vk::ImageMemoryBarrier2, vk::Image, VkImage, vk::ObjectType::eImage>;
 
     // Both alloc and device need to live as long as this
     RenderResources(wheels::Allocator &alloc, Device *device)
