@@ -15,6 +15,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.cpp
     ${CMAKE_CURRENT_LIST_DIR}/main.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Profiler.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp
