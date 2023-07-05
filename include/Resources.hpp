@@ -89,7 +89,7 @@ struct TexelBuffer
 
     [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
         const BufferState &newState);
-    void transition(vk::CommandBuffer buffer, const BufferState &newState);
+    void transition(vk::CommandBuffer cb, const BufferState &newState);
 };
 
 struct ImageState
