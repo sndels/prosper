@@ -38,6 +38,9 @@
 #    Arguable false positives in scene parsing
 # readability-identifier-length
 #    e.g. dt for time deltas, cb for command buffer is readable enough in context
+# readability-static-accessed-through-instance
+#    Valid use when accessing e.g. the capacity of a compile time array, where using the
+#    type is both verbose and prone to becoming wrong if the instance's template params change
 # readability-uppercase-literal-suffix:
 #    Only really needed for 'l' and my font/highlighting is clear even if I use it
 Checks: "*,
@@ -69,6 +72,7 @@ Checks: "*,
         -readability-function-cognitive-complexity,
         -readability-identifier-length,
         -readability-magic-numbers,
+        -readability-static-accessed-through-instance,
         -readability-uppercase-literal-suffix
 "
 WarningsAsErrors: ''
