@@ -43,7 +43,7 @@ class RenderResourceCollection
 {
   public:
     RenderResourceCollection(wheels::Allocator &alloc, Device *device);
-    ~RenderResourceCollection();
+    virtual ~RenderResourceCollection();
 
     RenderResourceCollection(RenderResourceCollection &) = delete;
     RenderResourceCollection(RenderResourceCollection &&) = delete;
@@ -51,7 +51,7 @@ class RenderResourceCollection
     RenderResourceCollection &operator=(RenderResourceCollection &&) = delete;
 
     void clearDebugNames();
-    void destroyResources();
+    virtual void destroyResources();
 
     [[nodiscard]] Handle create(const Description &desc, const char *debugName);
     [[nodiscard]] CppNativeType nativeHandle(Handle handle) const;
@@ -62,16 +62,20 @@ class RenderResourceCollection
         Handle handle, const ResourceState &state);
     void release(Handle handle);
 
+  protected:
+    Device *_device{nullptr};
+    wheels::Allocator &_alloc;
+
+    void assertValidHandle(Handle handle) const;
+
   private:
     static const uint64_t sNotInUseGenerationFlag = static_cast<size_t>(1)
                                                     << 63;
 
     [[nodiscard]] bool resourceInUse(uint32_t i) const;
-    void assertValidHandle(Handle handle) const;
 
-    Device *_device{nullptr};
-    wheels::Allocator &_alloc;
-
+    // RenderImageCollection depends on returned handle indices being
+    // contiguous.
     wheels::Array<Resource> _resources;
     wheels::Array<Description> _descriptions;
     wheels::Array<wheels::String> _debugNames;
@@ -104,7 +108,7 @@ RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::~RenderResourceCollection()
 {
-    destroyResources();
+    RenderResourceCollection::destroyResources();
 }
 
 template <
