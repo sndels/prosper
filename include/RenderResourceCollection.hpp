@@ -67,6 +67,7 @@ class RenderResourceCollection
                                                     << 63;
 
     [[nodiscard]] bool resourceInUse(uint32_t i) const;
+    void assertValidHandle(Handle handle) const;
 
     Device *_device{nullptr};
     wheels::Allocator &_alloc;
@@ -200,10 +201,14 @@ Handle RenderResourceCollection<
     // to be portable? Can conversions be supported for literals only?
     _generations.push_back(static_cast<uint64_t>(0));
 
-    return Handle{
+    const Handle handle{
         .index = asserted_cast<uint32_t>(_resources.size() - 1),
         .generation = 0,
     };
+
+    assertValidHandle(handle);
+
+    return handle;
 }
 
 template <
@@ -214,10 +219,7 @@ CppNativeType RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::nativeHandle(Handle handle) const
 {
-    assert(handle.isValid());
-    assert(handle.index < _generations.size());
-    assert(handle.generation == _generations[handle.index]);
-    assert(handle.index < _resources.size());
+    assertValidHandle(handle);
 
     return _resources[handle.index].handle;
 }
@@ -230,10 +232,7 @@ const Resource &RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::resource(Handle handle) const
 {
-    assert(handle.isValid());
-    assert(handle.index < _generations.size());
-    assert(handle.generation == _generations[handle.index]);
-    assert(handle.index < _descriptions.size());
+    assertValidHandle(handle);
 
     return _resources[handle.index];
 }
@@ -247,10 +246,7 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::
     transition(vk::CommandBuffer cb, Handle handle, const ResourceState &state)
 {
-    assert(handle.isValid());
-    assert(handle.index < _generations.size());
-    assert(handle.generation == _generations[handle.index]);
-    assert(handle.index < _resources.size());
+    assertValidHandle(handle);
 
     _resources[handle.index].transition(cb, state);
 }
@@ -264,10 +260,7 @@ Barrier RenderResourceCollection<
     CppNativeType, NativeType,
     ObjectType>::transitionBarrier(Handle handle, const ResourceState &state)
 {
-    assert(handle.isValid());
-    assert(handle.index < _generations.size());
-    assert(handle.generation == _generations[handle.index]);
-    assert(handle.index < _resources.size());
+    assertValidHandle(handle);
 
     return _resources[handle.index].transitionBarrier(state);
 }
@@ -280,6 +273,21 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::release(Handle handle)
 {
+    assertValidHandle(handle);
+
+    _generations[handle.index]++;
+    _generations[handle.index] |= sNotInUseGenerationFlag;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::assertValidHandle(Handle handle)
+    const
+{
     assert(handle.isValid());
     assert(handle.index < _resources.size());
     assert(handle.index < _generations.size());
@@ -287,9 +295,6 @@ void RenderResourceCollection<
     assert(
         resourceInUse(handle.index) &&
         "Release called on an already released resource");
-
-    _generations[handle.index]++;
-    _generations[handle.index] |= sNotInUseGenerationFlag;
 }
 
 template <
