@@ -62,6 +62,15 @@ class RenderResourceCollection
         Handle handle, const ResourceState &state);
     void release(Handle handle);
 
+    // Shouldn't be used by anything other than debug views, will only be valid
+    // if the last aliased use for a resource. Marked debug resource will be
+    // always valid.
+    [[nodiscard]] wheels::Span<const wheels::String> debugNames() const;
+    [[nodiscard]] const wheels::Optional<Handle> &activeDebugHandle() const;
+    [[nodiscard]] wheels::Optional<wheels::StrSpan> activeDebugName() const;
+    void markForDebug(wheels::StrSpan debugName);
+    void clearDebug();
+
   protected:
     Device *_device{nullptr};
     wheels::Allocator &_alloc;
@@ -78,8 +87,11 @@ class RenderResourceCollection
     // contiguous.
     wheels::Array<Resource> _resources;
     wheels::Array<Description> _descriptions;
-    wheels::Array<wheels::String> _debugNames;
+    wheels::Array<wheels::String> _aliasedDebugNames;
     wheels::Array<uint64_t> _generations;
+    wheels::Array<wheels::String> _debugNames;
+    wheels::Optional<wheels::String> _markedDebugName;
+    wheels::Optional<Handle> _markedDebugHandle;
 };
 
 template <
@@ -94,8 +106,9 @@ RenderResourceCollection<
 , _alloc{alloc}
 , _resources{alloc}
 , _descriptions{alloc}
-, _debugNames{alloc}
+, _aliasedDebugNames{alloc}
 , _generations{alloc}
+, _debugNames{alloc}
 {
     assert(device != nullptr);
 }
@@ -119,8 +132,14 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::clearDebugNames()
 {
+    // These are mapped to persistent resource indices
+    for (wheels::String &str : _aliasedDebugNames)
+        str.clear();
+
+    // These are collected each frame for every created resource
     for (wheels::String &str : _debugNames)
         str.clear();
+    _debugNames.clear();
 }
 
 template <
@@ -136,8 +155,12 @@ void RenderResourceCollection<
 
     _resources.clear();
     _descriptions.clear();
-    _debugNames.clear();
+    _aliasedDebugNames.clear();
     _generations.clear();
+    _debugNames.clear();
+    // _markedDebugName should be persistent and only cleared through an
+    // explicit call to clearDebug()
+    _markedDebugHandle.reset();
 }
 
 template <
@@ -160,8 +183,26 @@ Handle RenderResourceCollection<
             const Description &existingDesc = _descriptions[i];
             if (existingDesc.matches(desc))
             {
+                // Don't reuse the actively debugged resource to avoid stomping
+                // it
+                if (_markedDebugName.has_value() &&
+                    _aliasedDebugNames[i].ends_with(*_markedDebugName))
+                {
+                    // Make sure we're not just partially matching the last part
+                    // of the concatenated debug identifier
+                    const size_t breakPosition = _aliasedDebugNames[i].size() -
+                                                 1 - _markedDebugName->size();
+                    if (_aliasedDebugNames[i].size() ==
+                            _markedDebugName->size() ||
+                        _aliasedDebugNames[i][breakPosition] == '|')
+                        continue;
+                }
+
                 _generations[i] &= ~sNotInUseGenerationFlag;
-                _debugNames[i].extend(debugName);
+                wheels::String &aliasedName = _aliasedDebugNames[i];
+                if (!aliasedName.empty())
+                    aliasedName.push_back('|');
+                aliasedName.extend(debugName);
 
                 // TODO: Set these at once? Need to be careful to set before
                 // submits?
@@ -170,13 +211,21 @@ Handle RenderResourceCollection<
                         .objectType = ObjectType,
                         .objectHandle = reinterpret_cast<uint64_t>(
                             static_cast<NativeType>(_resources[i].handle)),
-                        .pObjectName = _debugNames[i].c_str(),
+                        .pObjectName = _aliasedDebugNames[i].c_str(),
                     });
 
-                return Handle{
+                const Handle handle{
                     .index = i,
                     .generation = _generations[i],
                 };
+
+                _debugNames.emplace_back(_alloc, debugName);
+
+                if (_markedDebugName.has_value() &&
+                    debugName == *_markedDebugName)
+                    _markedDebugHandle = handle;
+
+                return handle;
             }
         }
 #ifndef NDEBUG
@@ -199,11 +248,12 @@ Handle RenderResourceCollection<
         .debugName = debugName,
     }));
     _descriptions.push_back(desc);
-    _debugNames.emplace_back(_alloc, debugName);
+    _aliasedDebugNames.emplace_back(_alloc, debugName);
     // TODO:
     // Allow implicit conversions on push_back since literal suffixes don't seem
     // to be portable? Can conversions be supported for literals only?
     _generations.push_back(static_cast<uint64_t>(0));
+    _debugNames.emplace_back(_alloc, debugName);
 
     const Handle handle{
         .index = asserted_cast<uint32_t>(_resources.size() - 1),
@@ -211,6 +261,9 @@ Handle RenderResourceCollection<
     };
 
     assertValidHandle(handle);
+
+    if (_markedDebugName.has_value() && debugName == *_markedDebugName)
+        _markedDebugHandle = handle;
 
     return handle;
 }
@@ -287,18 +340,92 @@ template <
     typename Handle, typename Resource, typename Description,
     typename CreateInfo, typename ResourceState, typename Barrier,
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+wheels::Span<const wheels::String> RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::debugNames() const
+{
+    return _debugNames;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+const wheels::Optional<Handle> &RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::activeDebugHandle() const
+{
+    return _markedDebugHandle;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+wheels::Optional<wheels::StrSpan> RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::activeDebugName() const
+{
+    if (_markedDebugName.has_value())
+        return wheels::Optional<wheels::StrSpan>{*_markedDebugName};
+
+    return wheels::Optional<wheels::StrSpan>{};
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::markForDebug(wheels::StrSpan
+                                                             debugName)
+{
+    _markedDebugName = wheels::String{_alloc, debugName};
+    // Let's not worry about finding the resource immediately, we'll have it on
+    // the next frame.
+    _markedDebugHandle.reset();
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::clearDebug()
+{
+    _markedDebugName.reset();
+    _markedDebugHandle.reset();
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
 void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::assertValidHandle(Handle handle)
     const
 {
+
     assert(handle.isValid());
     assert(handle.index < _resources.size());
     assert(handle.index < _generations.size());
-    assert(handle.generation == _generations[handle.index]);
-    assert(
-        resourceInUse(handle.index) &&
-        "Release called on an already released resource");
+    if (_markedDebugHandle.has_value() &&
+        handle.index == _markedDebugHandle->index)
+        assert(
+            handle.generation ==
+                (_generations[handle.index] & ~sNotInUseGenerationFlag) ||
+            (handle.generation + 1) ==
+                (_generations[handle.index] & ~sNotInUseGenerationFlag));
+    else
+    {
+        assert(handle.generation == _generations[handle.index]);
+        assert(
+            resourceInUse(handle.index) &&
+            "Release called on an already released resource");
+    }
 }
 
 template <
