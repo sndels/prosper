@@ -1,0 +1,77 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+
+// Based on A Life of a Bokeh by Guillaume Abadie
+// https://advances.realtimerendering.com/s2018/index.htm
+
+#include "../common/math.glsl"
+#include "../scene/camera.glsl"
+#include "bilateral.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(set = STORAGE_SET, binding = 0, rgba16f) uniform readonly image2D
+    inIllumination;
+layout(set = STORAGE_SET, binding = 1) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 2, rgba16f) uniform image2D outIllumination;
+// TODO:
+// 16bits seems like a lot of precision. Can this be r8snorm storing (1-P/z)
+// with users multiplying by MaxBgdCoC?
+layout(set = STORAGE_SET, binding = 3, r16f) uniform image2D
+    outCircleOfConfusion;
+layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+
+layout(push_constant) uniform SetupPC
+{
+    float focusDistance;
+    float maxBackgroundCoC;
+}
+PC;
+
+float circleOfConfusion(float viewDepth)
+{
+    return (1 - (PC.focusDistance / viewDepth)) * PC.maxBackgroundCoC;
+}
+
+void main()
+{
+    ivec2 inRes = imageSize(inIllumination);
+    ivec2 outRes = imageSize(outIllumination);
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(coord, outRes)))
+    {
+        return;
+    }
+
+    ivec2 coord01 = coord * 2 + ivec2(0, 1);
+    ivec2 coord11 = coord * 2 + ivec2(1, 1);
+    ivec2 coord10 = coord * 2 + ivec2(1, 0);
+    ivec2 coord00 = coord * 2 + ivec2(0, 0);
+
+    // TODO: 0.5 offset correct?
+    vec2 uv00 = vec2(coord00 + 0.5) / vec2(inRes);
+    vec4 nonLinearDepths =
+        textureGather(sampler2D(inNonLinearDepth, depthSampler), uv00, 0);
+
+    float viewDepth01 = linearizeDepth(nonLinearDepths[0]);
+    float viewDepth11 = linearizeDepth(nonLinearDepths[1]);
+    float viewDepth10 = linearizeDepth(nonLinearDepths[2]);
+    float viewDepth00 = linearizeDepth(nonLinearDepths[3]);
+
+    BilateralInput bilaInput;
+    bilaInput.illuminationWeight01.rgb = imageLoad(inIllumination, coord01).rgb;
+    bilaInput.illuminationWeight11.rgb = imageLoad(inIllumination, coord11).rgb;
+    bilaInput.illuminationWeight10.rgb = imageLoad(inIllumination, coord10).rgb;
+    bilaInput.illuminationWeight00.rgb = imageLoad(inIllumination, coord00).rgb;
+
+    // Cam fwd is -z in viewspace
+    bilaInput.illuminationWeight01.a = circleOfConfusion(-viewDepth01);
+    bilaInput.illuminationWeight11.a = circleOfConfusion(-viewDepth11);
+    bilaInput.illuminationWeight10.a = circleOfConfusion(-viewDepth10);
+    bilaInput.illuminationWeight00.a = circleOfConfusion(-viewDepth00);
+
+    vec4 illuWeight = bilateralFilter(bilaInput);
+
+    imageStore(outIllumination, coord, vec4(illuWeight.rgb, 1));
+    imageStore(outCircleOfConfusion, coord, vec4(illuWeight.a, 0, 0, 0));
+}
