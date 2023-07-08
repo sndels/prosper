@@ -554,6 +554,8 @@ App::UiChanges App::drawUi(
 {
     UiChanges ret;
 
+    _cam->drawUI();
+
     drawOptions();
 
     drawRendererSettings(ret);

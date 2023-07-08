@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <imgui.h>
 
 #include "Utils.hpp"
 
@@ -66,15 +67,24 @@ void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
 void Camera::perspective(const PerspectiveParameters &params, const float ar)
 {
     _parameters.fov = params.fov;
+    _parameters.ar = ar;
     _parameters.zN = params.zN;
     _parameters.zF = params.zF;
 
-    perspective(ar);
+    perspective();
 }
 
 void Camera::perspective(const float ar)
 {
+    _parameters.ar = ar;
+
+    perspective();
+}
+
+void Camera::perspective()
+{
     const auto fov = _parameters.fov;
+    const auto ar = _parameters.ar;
     const auto zN = _parameters.zN;
     const auto zF = _parameters.zF;
 
@@ -94,6 +104,33 @@ void Camera::perspective(const float ar)
     // clang-format on
 
     _clipToWorld = inverse(_cameraToClip * _worldToCamera);
+
+    const float sensorHeight = sensorWidth() / ar;
+
+    _focalLength = sensorHeight * tf * 0.5f;
+}
+
+void Camera::drawUI()
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
+    ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    // TODO: Tweak this in millimeters?
+    ImGui::DragFloat(
+        "Aperture Diameter", &_apertureDiameter, 0.00001f, 0.0000001f, 0.1f,
+        "%.6f");
+    ImGui::DragFloat("FocusDistance", &_focusDistance, 0.01f, 0.001f, 100.f);
+
+    float fovDegrees = degrees(_parameters.fov);
+    if (ImGui::DragFloat("Field of View", &fovDegrees, 0.1f, 0.1f, 179.f))
+    {
+        _parameters.fov = radians(fovDegrees);
+        perspective();
+    }
+
+    ImGui::Text("Focal length: %.3fmm", _focalLength * 1e3);
+
+    ImGui::End();
 }
 
 void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
@@ -155,6 +192,14 @@ const glm::mat4 &Camera::worldToCamera() const { return _worldToCamera; }
 const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
 
 const CameraParameters &Camera::parameters() const { return _parameters; }
+
+float Camera::apertureDiameter() const { return _apertureDiameter; }
+
+float Camera::focalLength() const { return _focalLength; }
+
+float Camera::focusDistance() const { return _focusDistance; }
+
+float Camera::sensorWidth() const { return 0.035f; }
 
 void Camera::clearChangedThisFrame() { _changedThisFrame = false; }
 
@@ -253,7 +298,7 @@ void Camera::updateWorldToCamera()
 {
     const auto parameters =
         offset.has_value() ? _parameters.apply(*offset) : _parameters;
-    auto const &[eye, target, up, _fov, _zN, _zF] = parameters;
+    auto const &[eye, target, up, _fov, _ar, _zN, _zF] = parameters;
 
     const vec3 fwd = normalize(target - eye);
     const vec3 z = -fwd;

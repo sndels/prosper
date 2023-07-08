@@ -29,6 +29,7 @@ struct CameraParameters
     glm::vec3 target{0.f, 0.f, 0.f};
     glm::vec3 up{0.f, 1.f, 0.f};
     float fov{glm::radians(59.f)};
+    float ar{16.f / 9.f};
     float zN{0.1f};
     float zF{100.f};
 
@@ -74,6 +75,9 @@ class Camera
         const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
     void perspective(const PerspectiveParameters &params, float ar);
     void perspective(float ar);
+    void perspective();
+
+    void drawUI();
 
     void updateBuffer(uint32_t index, const glm::uvec2 &resolution);
 
@@ -85,6 +89,11 @@ class Camera
     [[nodiscard]] const glm::mat4 &worldToCamera() const;
     [[nodiscard]] const glm::mat4 &cameraToClip() const;
     [[nodiscard]] const CameraParameters &parameters() const;
+
+    [[nodiscard]] float apertureDiameter() const;
+    [[nodiscard]] float focalLength() const;
+    [[nodiscard]] float focusDistance() const;
+    [[nodiscard]] float sensorWidth() const;
 
     void clearChangedThisFrame();
     [[nodiscard]] bool changedThisFrame() const;
@@ -106,6 +115,9 @@ class Camera
 
     Device *_device{nullptr};
     CameraParameters _parameters;
+    float _apertureDiameter{0.00001f};
+    float _focusDistance{1.f};
+    float _focalLength{0.f};
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToClip{1.f};
     glm::mat4 _clipToWorld{1.f};
