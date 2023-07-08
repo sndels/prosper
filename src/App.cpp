@@ -140,6 +140,9 @@ App::App(const Settings &settings)
     _imguiRenderer = std::make_unique<ImGuiRenderer>(
         _device.get(), _resources.get(), _swapchain->config().extent,
         _window->ptr(), _swapchain->config());
+    _textureDebug = std::make_unique<TextureDebug>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -331,6 +334,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _debugRenderer->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout());
     _toneMap->recompileShaders(scopeAlloc.child_scope());
+    _textureDebug->recompileShaders(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -585,6 +589,10 @@ void App::drawOptions()
     }
 
     ImGui::Checkbox("Recompile shaders", &_recompileShaders);
+
+    if (ImGui::Checkbox("Texture Debug", &_textureDebugActive) &&
+        !_textureDebugActive)
+        _resources->images.clearDebug();
 
     ImGui::End();
 }
@@ -915,10 +923,29 @@ void App::render(
 
     _resources->images.release(illumination);
 
-    blitToneMapped(cb, toneMapped);
+    if (_textureDebugActive)
+    {
+        const ImageHandle debugOutput = _textureDebug->record(
+            cb, renderArea.extent, indices.nextFrame, _profiler.get());
+
+        blitColorToFinalComposite(cb, debugOutput);
+
+        _resources->images.release(debugOutput);
+    }
+    else
+        blitColorToFinalComposite(cb, toneMapped);
+
     _resources->images.release(toneMapped);
 
     _world->drawDeferredLoadingUi();
+
+    if (_textureDebugActive)
+    {
+        // Draw this after so that the first frame debug is active for a new
+        // texture, we draw black instead of a potentially wrong output from the
+        // shared texture that wasn't protected yet
+        _textureDebug->drawUi();
+    }
 
     const vk::Rect2D backbufferArea{
         .offset = {0, 0},
@@ -929,7 +956,8 @@ void App::render(
     blitFinalComposite(cb, indices.nextImage);
 }
 
-void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
+void App::blitColorToFinalComposite(
+    vk::CommandBuffer cb, ImageHandle toneMapped)
 {
     // Blit tonemapped into cleared final composite before drawing ui on top
     {
@@ -956,7 +984,8 @@ void App::blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped)
 
     // This scope has a barrier, but that's intentional as it should contain
     // both the clear and the blit
-    const auto _s = _profiler->createCpuGpuScope(cb, "BlitToneMapped");
+    const auto _s =
+        _profiler->createCpuGpuScope(cb, "blitColorToFinalComposite");
 
     const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
     const vk::ImageSubresourceRange subresourceRange{

@@ -14,6 +14,7 @@
 #include "Renderer.hpp"
 #include "SkyboxRenderer.hpp"
 #include "Swapchain.hpp"
+#include "TextureDebug.hpp"
 #include "Timer.hpp"
 #include "ToneMap.hpp"
 #include "Window.hpp"
@@ -87,7 +88,8 @@ class App
         vk::CommandBuffer cb, const vk::Rect2D &renderArea,
         const RenderIndices &indices, const Scene &scene,
         const UiChanges &uiChanges);
-    void blitToneMapped(vk::CommandBuffer cb, ImageHandle toneMapped);
+    void blitColorToFinalComposite(
+        vk::CommandBuffer cb, ImageHandle toneMapped);
     void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);
     // Returns true if present succeeded, false if swapchain should be recreated
     [[nodiscard]] bool submitAndPresent(
@@ -128,6 +130,7 @@ class App
     std::unique_ptr<DebugRenderer> _debugRenderer;
     std::unique_ptr<ToneMap> _toneMap;
     std::unique_ptr<ImGuiRenderer> _imguiRenderer;
+    std::unique_ptr<TextureDebug> _textureDebug;
 
     std::unique_ptr<Profiler> _profiler;
 
@@ -136,6 +139,7 @@ class App
     bool _recompileShaders{false};
     bool _renderRT{false};
     bool _renderDeferred{false};
+    bool _textureDebugActive{false};
 
     uint32_t _ctorScratchHighWatermark{0};
 
