@@ -452,6 +452,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     capFramerate();
 
+    _resources->clearDebugNames();
+
     _imguiRenderer->startFrame();
 
     const UiChanges uiChanges =
