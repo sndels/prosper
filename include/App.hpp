@@ -4,6 +4,7 @@
 #include "Camera.hpp"
 #include "DebugRenderer.hpp"
 #include "DeferredShading.hpp"
+#include "DepthOfField.hpp"
 #include "Device.hpp"
 #include "GBufferRenderer.hpp"
 #include "ImGuiRenderer.hpp"
@@ -130,6 +131,7 @@ class App
     std::unique_ptr<ToneMap> _toneMap;
     std::unique_ptr<ImGuiRenderer> _imguiRenderer;
     std::unique_ptr<TextureDebug> _textureDebug;
+    std::unique_ptr<DepthOfField> _depthOfField;
 
     std::unique_ptr<Profiler> _profiler;
 
@@ -138,6 +140,7 @@ class App
     bool _recompileShaders{false};
     bool _renderRT{false};
     bool _renderDeferred{false};
+    bool _renderDoF{false};
     bool _textureDebugActive{false};
 
     uint32_t _ctorScratchHighWatermark{0};

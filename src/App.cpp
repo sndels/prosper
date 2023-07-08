@@ -143,6 +143,9 @@ App::App(const Settings &settings)
     _textureDebug = std::make_unique<TextureDebug>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
+    _depthOfField = std::make_unique<DepthOfField>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -335,6 +338,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), _cam->descriptorSetLayout());
     _toneMap->recompileShaders(scopeAlloc.child_scope());
     _textureDebug->recompileShaders(scopeAlloc.child_scope());
+    _depthOfField->recompileShaders(
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -607,7 +612,10 @@ void App::drawRendererSettings(UiChanges &uiChanges)
     uiChanges.rtPickedThisFrame =
         ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
     if (!_renderRT)
+    {
         ImGui::Checkbox("Use deferred shading", &_renderDeferred);
+        ImGui::Checkbox("Depth of field", &_renderDoF);
+    }
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
         _toneMap->drawUi();
@@ -910,6 +918,20 @@ void App::render(
                 .depth = depth,
             },
             indices.nextFrame, _profiler.get());
+
+        if (_renderDoF)
+        {
+            const DepthOfField::Output dofOutput = _depthOfField->record(
+                cb, *_cam,
+                DepthOfField::Input{
+                    .illumination = illumination,
+                    .depth = depth,
+                },
+                indices.nextFrame, _profiler.get());
+
+            _resources->images.release(illumination);
+            illumination = dofOutput.combinedIlluminationDoF;
+        }
 
         _resources->images.release(depth);
     }
