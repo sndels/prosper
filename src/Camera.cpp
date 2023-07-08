@@ -240,7 +240,7 @@ void Camera::createDescriptorSets(
             _bindingsReflection->generateDescriptorWrites<1>(
                 sBindingSetIndex, _descriptorSets[i],
                 StaticArray{{
-                    Pair{0u, DescriptorInfoPtr{&infos[i]}},
+                    Pair{0u, DescriptorInfo{infos[i]}},
                 }});
 
         _device->logical().updateDescriptorSets(

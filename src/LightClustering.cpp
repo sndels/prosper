@@ -309,15 +309,15 @@ void LightClustering::updateDescriptorSet(uint32_t nextFrame, Output &output)
         _shaderReflection->generateDescriptorWrites<3>(
             LightClustersBindingSet, ds,
             {
-                Pair{0u, DescriptorInfoPtr{&pointersInfo}},
+                Pair{0u, DescriptorInfo{pointersInfo}},
                 Pair{
-                    1u, DescriptorInfoPtr{&_resources->texelBuffers
-                                               .resource(output.indicesCount)
-                                               .view}},
+                    1u, DescriptorInfo{_resources->texelBuffers
+                                           .resource(output.indicesCount)
+                                           .view}},
                 Pair{
-                    2u, DescriptorInfoPtr{&_resources->texelBuffers
-                                               .resource(output.indices)
-                                               .view}},
+                    2u, DescriptorInfo{_resources->texelBuffers
+                                           .resource(output.indices)
+                                           .view}},
             });
 
     _device->logical().updateDescriptorSets(

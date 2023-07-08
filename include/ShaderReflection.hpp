@@ -23,9 +23,9 @@ struct DescriptorSetMetadata
     uint32_t descriptorCount{0xFFFFFFFF};
 };
 
-using DescriptorInfoPtr = std::variant<
-    const vk::DescriptorImageInfo *, const vk::DescriptorBufferInfo *,
-    const vk::BufferView *, wheels::Span<const vk::DescriptorImageInfo>>;
+using DescriptorInfo = std::variant<
+    vk::DescriptorImageInfo, vk::DescriptorBufferInfo, vk::BufferView,
+    wheels::Span<const vk::DescriptorImageInfo>>;
 
 class ShaderReflection
 {
@@ -56,7 +56,7 @@ class ShaderReflection
     [[nodiscard]] wheels::StaticArray<vk::WriteDescriptorSet, N>
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        wheels::StaticArray<wheels::Pair<uint32_t, DescriptorInfoPtr>, N>
+        wheels::StaticArray<wheels::Pair<uint32_t, DescriptorInfo>, N>
             bindingInfos) const;
 
   private:
@@ -69,7 +69,7 @@ template <size_t N>
 wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        wheels::StaticArray<wheels::Pair<uint32_t, DescriptorInfoPtr>, N>
+        wheels::StaticArray<wheels::Pair<uint32_t, DescriptorInfo>, N>
             bindingInfos) const
 {
     const wheels::Array<DescriptorSetMetadata> *metadatas =
@@ -80,25 +80,23 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     for (const auto &bindingInfo : bindingInfos)
     {
         const uint32_t binding = bindingInfo.first;
-        const DescriptorInfoPtr descriptorInfoPtr = bindingInfo.second;
+        const DescriptorInfo &descriptorInfo = bindingInfo.second;
 
-        const vk::DescriptorImageInfo *const *ppImageInfo =
-            std::get_if<const vk::DescriptorImageInfo *>(&descriptorInfoPtr);
-        const vk::DescriptorBufferInfo *const *ppBufferInfo =
-            std::get_if<const vk::DescriptorBufferInfo *>(&descriptorInfoPtr);
-        const vk::BufferView *const *ppTexelBufferView =
-            std::get_if<const vk::BufferView *>(&descriptorInfoPtr);
+        const vk::DescriptorImageInfo *pImageInfo =
+            std::get_if<vk::DescriptorImageInfo>(&descriptorInfo);
+        const vk::DescriptorBufferInfo *pBufferInfo =
+            std::get_if<vk::DescriptorBufferInfo>(&descriptorInfo);
+        const vk::BufferView *pTexelBufferView =
+            std::get_if<vk::BufferView>(&descriptorInfo);
         // TODO:
         // Refactor this so that single image is also a span? How are the
         // ergonomics?
         const wheels::Span<const vk::DescriptorImageInfo> *pImageInfoSpan =
             std::get_if<wheels::Span<const vk::DescriptorImageInfo>>(
-                &descriptorInfoPtr);
+                &descriptorInfo);
 
         uint32_t descriptorCount = 1;
 
-        const vk::DescriptorImageInfo *pImageInfo =
-            ppImageInfo == nullptr ? nullptr : *ppImageInfo;
         if (pImageInfoSpan != nullptr)
         {
             pImageInfo = pImageInfoSpan->data();
@@ -117,11 +115,8 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
                     .descriptorCount = descriptorCount,
                     .descriptorType = metadata.descriptorType,
                     .pImageInfo = pImageInfo,
-                    .pBufferInfo =
-                        ppBufferInfo == nullptr ? nullptr : *ppBufferInfo,
-                    .pTexelBufferView = ppTexelBufferView == nullptr
-                                            ? nullptr
-                                            : *ppTexelBufferView,
+                    .pBufferInfo = pBufferInfo,
+                    .pTexelBufferView = pTexelBufferView,
                 });
             }
         }
