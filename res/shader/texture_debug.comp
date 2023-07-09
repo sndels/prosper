@@ -1,0 +1,75 @@
+
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "common/math.glsl"
+
+layout(binding = 0) uniform texture2D inColor;
+layout(binding = 1, rgba8) uniform writeonly image2D outColor;
+layout(binding = 2) uniform sampler inSampler;
+
+layout(push_constant) uniform TextureDebugPC
+{
+    ivec2 inRes;
+    ivec2 outRes;
+
+    vec2 range;
+    uint lod;
+    uint channel;
+
+    uint absBeforeRange;
+}
+PC;
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 outCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(outCoord, PC.outRes)))
+        return;
+
+    float inAspectRatio = float(PC.inRes.x) / float(PC.inRes.y);
+    float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
+    vec2 inUv = vec2(outCoord) / vec2(PC.outRes);
+    if (!any(equal(PC.inRes, PC.outRes)))
+    {
+        if (inAspectRatio > outAspectRatio)
+        {
+            // Scale limited by height
+            int scaledHeight = int(PC.outRes.x / inAspectRatio);
+            int bottomRow = int(PC.outRes.y - scaledHeight) / 2;
+            inUv.y = float(outCoord.y - bottomRow) / float(scaledHeight);
+        }
+        else
+        {
+            // Scale limited by width
+            int scaledWidth = int(PC.outRes.y * inAspectRatio);
+            int leftColumn = (PC.outRes.x - scaledWidth) / 2;
+            inUv.x = float(outCoord.x - leftColumn) / float(scaledWidth);
+        }
+    }
+
+    vec3 color = vec3(0);
+    if (all(greaterThanEqual(inUv, vec2(0))) &&
+        all(lessThanEqual(inUv, vec2(1))))
+    {
+        if (PC.channel > 3)
+            color =
+                textureLod(sampler2D(inColor, inSampler), inUv, float(PC.lod))
+                    .xyz;
+        else
+        {
+            color = vec3(textureLod(
+                sampler2D(inColor, inSampler), inUv,
+                float(PC.lod))[PC.channel]);
+        }
+    }
+
+    if (PC.absBeforeRange == 1)
+        color = abs(color);
+
+    vec3 scaledColor = (color - PC.range.x) / (PC.range.y - PC.range.x);
+
+    imageStore(outColor, outCoord, vec4(scaledColor, 1));
+}

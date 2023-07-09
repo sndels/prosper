@@ -35,6 +35,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/ShaderReflection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.hpp
     ${CMAKE_CURRENT_LIST_DIR}/VkUtils.hpp

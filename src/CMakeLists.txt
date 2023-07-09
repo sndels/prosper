@@ -24,6 +24,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.cpp
     ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
