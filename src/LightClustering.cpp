@@ -231,7 +231,8 @@ LightClustering::Output LightClustering::createOutputs(
             .width = pointersWidth,
             .height = pointersHeight,
             .depth = pointersDepth,
-            .usageFlags = vk::ImageUsageFlagBits::eStorage,
+            .usageFlags = vk::ImageUsageFlagBits::eSampled | // Debug
+                          vk::ImageUsageFlagBits::eStorage,
         },
         "lightClusterPointers");
 

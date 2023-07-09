@@ -250,6 +250,7 @@ GBufferRenderer::Output GBufferRenderer::createOutputs(
                 .width = size.width,
                 .height = size.height,
                 .usageFlags =
+                    vk::ImageUsageFlagBits::eSampled |         // Debug
                     vk::ImageUsageFlagBits::eColorAttachment | // Render
                     vk::ImageUsageFlagBits::eStorage,          // Shading
             },
@@ -260,6 +261,7 @@ GBufferRenderer::Output GBufferRenderer::createOutputs(
                 .width = size.width,
                 .height = size.height,
                 .usageFlags =
+                    vk::ImageUsageFlagBits::eSampled |         // Debug
                     vk::ImageUsageFlagBits::eColorAttachment | // Render
                     vk::ImageUsageFlagBits::eStorage,          // Shading
             },

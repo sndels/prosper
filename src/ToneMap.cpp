@@ -245,6 +245,7 @@ ToneMap::Output ToneMap::createOutputs(const vk::Extent2D &size)
                 .width = size.width,
                 .height = size.height,
                 .usageFlags =
+                    vk::ImageUsageFlagBits::eSampled |         // Debug
                     vk::ImageUsageFlagBits::eStorage |         // ToneMap
                     vk::ImageUsageFlagBits::eColorAttachment | // ImGui
                     vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image

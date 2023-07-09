@@ -31,7 +31,8 @@ ImageHandle createIllumination(
             .format = sIlluminationFormat,
             .width = size.width,
             .height = size.height,
-            .usageFlags = vk::ImageUsageFlagBits::eColorAttachment | // Render
+            .usageFlags = vk::ImageUsageFlagBits::eSampled |         // Debug
+                          vk::ImageUsageFlagBits::eColorAttachment | // Render
                           vk::ImageUsageFlagBits::eStorage,          // ToneMap
         },
         debugName);
