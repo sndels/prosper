@@ -128,7 +128,9 @@ void Window::mouseButtonCallback(
     const ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse)
         ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-    else
+    // Make sure we don't just drop camera drag end events when mouse moves over
+    // a UI element
+    if (!io.WantCaptureMouse || action == GLFW_RELEASE)
         InputHandler::instance().handleMouseButton(button, action, mods);
 }
 
