@@ -95,7 +95,6 @@ class DeferredShading
         _descriptorSets{{}};
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
-    vk::Sampler _depthSampler;
 
     DrawType _drawType{DrawType::Default};
 };

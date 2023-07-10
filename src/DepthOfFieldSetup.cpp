@@ -57,21 +57,6 @@ DepthOfFieldSetup::DepthOfFieldSetup(
         throw std::runtime_error("DepthOfFieldSetup shader compilation failed");
 
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-
-    const vk::SamplerCreateInfo info{
-        .magFilter = vk::Filter::eNearest,
-        .minFilter = vk::Filter::eNearest,
-        .mipmapMode = vk::SamplerMipmapMode::eNearest,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 1,
-        .minLod = 0,
-        .maxLod = VK_LOD_CLAMP_NONE,
-    };
-    _depthSampler = _device->logical().createSampler(info);
-
     createPipeline(camDsLayout);
 }
 
@@ -84,7 +69,6 @@ DepthOfFieldSetup::~DepthOfFieldSetup()
         _device->logical().destroy(_descriptorSetLayout);
 
         _device->logical().destroy(_compSM);
-        _device->logical().destroy(_depthSampler);
     }
 }
 
@@ -287,7 +271,7 @@ void DepthOfFieldSetup::updateDescriptorSet(
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo depthSamplerInfo{
-        .sampler = _depthSampler,
+        .sampler = _resources->nearestSampler,
     };
 
     const vk::DescriptorSet ds = _descriptorSets[nextFrame];

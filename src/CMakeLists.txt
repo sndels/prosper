@@ -18,6 +18,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Profiler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderResources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RTRenderer.cpp

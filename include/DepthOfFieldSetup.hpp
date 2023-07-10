@@ -73,7 +73,6 @@ class DepthOfFieldSetup
         _descriptorSets{{}};
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
-    vk::Sampler _depthSampler;
 };
 
 #endif // PROSPER_DEPTH_OF_FIELD_SETUP_HPP

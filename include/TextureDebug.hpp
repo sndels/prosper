@@ -80,14 +80,12 @@ class TextureDebug
         _descriptorSets{{}};
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
-    vk::Sampler _linearSampler;
-    vk::Sampler _nearestSampler;
 
     glm::vec2 _range{0.f, 1.f};
     int32_t _lod{0};
     ChannelType _channelType{ChannelType::RGB};
     bool _absBeforeRange{false};
-    bool _useLinearSampler{false};
+    bool _useBilinearSampler{false};
 };
 
 #endif // PROSPER_TEXTURE_DEBUG_HPP

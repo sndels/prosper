@@ -28,13 +28,8 @@ class RenderResources
         vk::Buffer, VkBuffer, vk::ObjectType::eBuffer>;
 
     // Both alloc and device need to live as long as this
-    RenderResources(wheels::Allocator &alloc, Device *device)
-    : images{alloc, device}
-    , texelBuffers{alloc, device}
-    , buffers{alloc, device}
-    {
-    }
-    ~RenderResources() = default;
+    RenderResources(wheels::Allocator &alloc, Device *device);
+    ~RenderResources();
 
     RenderResources(RenderResources &) = delete;
     RenderResources(RenderResources &&) = delete;
@@ -43,21 +38,13 @@ class RenderResources
 
     // Should be called at the start of the frame so resources will get the
     // correct names set
-    void clearDebugNames()
-    {
-        images.clearDebugNames();
-        texelBuffers.clearDebugNames();
-        buffers.clearDebugNames();
-    }
+    void clearDebugNames();
 
     // Should be called e.g. when viewport is resized since the render resources
     // will be created with different sizes on the next frame
-    void destroyResources()
-    {
-        images.destroyResources();
-        texelBuffers.destroyResources();
-        buffers.destroyResources();
-    }
+    void destroyResources();
+
+    Device *device{nullptr};
 
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;
@@ -67,6 +54,9 @@ class RenderResources
     // Don't want to reallocate FBs each frame if this ends up ping-ponging with
     // some other resource
     Image finalComposite;
+
+    vk::Sampler nearestSampler;
+    vk::Sampler bilinearSampler;
 
     // One lines buffer per frame to leave mapped
     wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;

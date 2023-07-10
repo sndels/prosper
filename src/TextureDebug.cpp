@@ -50,24 +50,6 @@ TextureDebug::TextureDebug(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("TextureDebug shader compilation failed");
 
-    vk::SamplerCreateInfo info{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eNearest,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 1,
-        .minLod = 0,
-        .maxLod = VK_LOD_CLAMP_NONE,
-    };
-    _linearSampler = _device->logical().createSampler(info);
-
-    info.magFilter = vk::Filter::eNearest;
-    info.minFilter = vk::Filter::eNearest;
-    _nearestSampler = _device->logical().createSampler(info);
-
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createPipelines();
 }
@@ -79,8 +61,6 @@ TextureDebug::~TextureDebug()
         destroyPipelines();
 
         _device->logical().destroy(_descriptorSetLayout);
-        _device->logical().destroy(_nearestSampler);
-        _device->logical().destroy(_linearSampler);
         _device->logical().destroy(_compSM);
     }
 }
@@ -229,7 +209,7 @@ void TextureDebug::drawUi()
     }
 
     ImGui::Checkbox("Abs before range", &_absBeforeRange);
-    ImGui::Checkbox("Linear sampler", &_useLinearSampler);
+    ImGui::Checkbox("Bilinear sampler", &_useBilinearSampler);
 
     ImGui::End();
 }
@@ -356,7 +336,8 @@ void TextureDebug::updateDescriptorSet(
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo samplerInfo{
-        .sampler = _useLinearSampler ? _linearSampler : _nearestSampler,
+        .sampler = _useBilinearSampler ? _resources->bilinearSampler
+                                       : _resources->nearestSampler,
     };
 
     assert(_shaderReflection.has_value());
