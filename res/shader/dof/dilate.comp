@@ -1,0 +1,51 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+
+// Based on A Life of a Bokeh by Guillaume Abadie
+// https://advances.realtimerendering.com/s2018/index.htm
+
+layout(set = 0, binding = 0, rg16f) uniform readonly image2D inTileMinMaxCoC;
+// TODO: Need this much precision?
+layout(set = 0, binding = 1, rg16f) uniform writeonly image2D
+    outDilatedTileMinMaxCoC;
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 res = imageSize(inTileMinMaxCoC);
+    if (any(greaterThanEqual(coord, res)))
+    {
+        return;
+    }
+
+    float dilatedMinCoC = 1.f / 0.f;  // inf
+    float dilatedMaxCoC = -1.f / 0.f; //-inf
+    // TODO:
+    // Limit range to MaxBackgroundCoC? Foreground bokeh can be significantly
+    // larger but limiting them to a smaller diameter might not be noticeable
+    for (int j = 0; j < res.y; ++j)
+    {
+        for (int i = 0; i < res.x; ++i)
+        {
+            vec2 minMaxCoC = imageLoad(inTileMinMaxCoC, ivec2(i, j)).xy;
+
+            float minCoC = minMaxCoC[0];
+            float maxCoC = minMaxCoC[1];
+
+            float halfResDist = distance(ivec2(i, j), coord) * 8;
+
+            if (halfResDist <= abs(minCoC) + 4)
+                dilatedMinCoC = min(dilatedMinCoC, minCoC);
+            if (halfResDist <= abs(maxCoC) + 4)
+                dilatedMaxCoC = max(dilatedMaxCoC, maxCoC);
+        }
+    }
+
+    imageStore(
+        outDilatedTileMinMaxCoC, coord,
+        vec4(dilatedMinCoC, dilatedMaxCoC, 0, 0));
+}
