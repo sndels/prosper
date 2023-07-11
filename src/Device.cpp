@@ -449,10 +449,6 @@ Device::Device(
             const auto minor = VK_API_VERSION_MINOR(apiPacked);
             const auto patch = VK_API_VERSION_PATCH(apiPacked);
             printf("Vulkan %u.%u.%u\n", major, minor, patch);
-
-            if (major < 1 || minor < 3)
-                throw std::runtime_error(
-                    "Vulkan 1.3 required, missing support on device");
         }
 
         printf("%s\n", _properties.device.deviceName.data());
@@ -1079,6 +1075,18 @@ bool Device::isDeviceSuitable(
 
     const auto props = device.getProperties2<
         vk::PhysicalDeviceProperties2, vk::PhysicalDeviceSubgroupProperties>();
+
+    {
+        const vk::PhysicalDeviceProperties2 &deviceProps =
+            props.get<vk::PhysicalDeviceProperties2>();
+
+        if (deviceProps.properties.apiVersion < VK_VERSION_1_3)
+        {
+            fprintf(stderr, "Missing Vulkan 1.3 support\n");
+            return false;
+        }
+    }
+
     {
         const vk::PhysicalDeviceSubgroupProperties &subgroupProps =
             props.get<vk::PhysicalDeviceSubgroupProperties>();
