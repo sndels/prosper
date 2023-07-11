@@ -1077,6 +1077,25 @@ bool Device::isDeviceSuitable(
 
 #undef CHECK_REQUIRED_FEATURES
 
+    const auto props = device.getProperties2<
+        vk::PhysicalDeviceProperties2, vk::PhysicalDeviceSubgroupProperties>();
+    {
+        const vk::PhysicalDeviceSubgroupProperties &subgroupProps =
+            props.get<vk::PhysicalDeviceSubgroupProperties>();
+
+        // Vulkan 1.1 requires
+        //   - support in compute
+        //   - basic ops
+
+        if ((subgroupProps.supportedOperations &
+             vk::SubgroupFeatureFlagBits::eArithmetic) !=
+            vk::SubgroupFeatureFlagBits::eArithmetic)
+        {
+            fprintf(stderr, "Missing subgroup arithmetic op support\n");
+            return false;
+        }
+    }
+
     printf("Required features are supported\n");
 
     return true;
