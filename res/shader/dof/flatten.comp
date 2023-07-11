@@ -1,0 +1,55 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+
+// Based on A Life of a Bokeh by Guillaume Abadie
+// https://advances.realtimerendering.com/s2018/index.htm
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D inHalfResCoC;
+// TODO: Need this much precision?
+layout(set = 0, binding = 1, rg16f) uniform writeonly image2D outTileMinMaxCoC;
+
+// This might be overtly safe
+shared float subgroupMinCoCs[8 * 8];
+shared float subgroupMaxCoCs[8 * 8];
+
+layout(local_size_x = 8, local_size_y = 8) in;
+void main()
+{
+    ivec2 inCoord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 inRes = imageSize(inHalfResCoC);
+    // No early out as it breaks subgroup operations
+
+    // TODO:
+    // How much faster is a separate impl for the one subgroup case on a device
+    // that doesn't run this with multiple?
+
+    // Collect subgroup min and max
+    float threadCoC = imageLoad(inHalfResCoC, min(inCoord, inRes - 1)).x;
+    float groupMinCoC = subgroupMin(threadCoC);
+    float groupMaxCoC = subgroupMax(threadCoC);
+    if (subgroupElect())
+    {
+        subgroupMinCoCs[gl_SubgroupID] = groupMinCoC;
+        subgroupMaxCoCs[gl_SubgroupID] = groupMaxCoC;
+    }
+
+    barrier();
+
+    if (gl_LocalInvocationIndex == 0)
+    {
+        // Collect whole tile min/max if there are multiple subgroups
+        float minCoC = subgroupMinCoCs[0];
+        float maxCoC = subgroupMaxCoCs[0];
+        for (uint i = 1; i < gl_NumSubgroups; ++i)
+        {
+            minCoC = min(minCoC, subgroupMinCoCs[i]);
+            maxCoC = max(maxCoC, subgroupMaxCoCs[i]);
+        }
+
+        ivec2 outCoord = inCoord / 8;
+        imageStore(outTileMinMaxCoC, outCoord, vec4(minCoC, maxCoC, 0, 0));
+    }
+}
