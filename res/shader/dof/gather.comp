@@ -1,0 +1,248 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "../common/math.glsl"
+#include "../common/random.glsl"
+
+// Based on A Life of a Bokeh by Guillaume Abadie
+// https://advances.realtimerendering.com/s2018/index.htm
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D
+    inHalfResIllumination;
+layout(set = 0, binding = 1, r16f) uniform readonly image2D inHalfResCoC;
+layout(set = 0, binding = 2, rg16f) uniform readonly image2D
+    inDilatedTileMinMaxCoC;
+layout(set = 0, binding = 3, rgba16f) uniform writeonly image2D
+    outHalfResBokehColorWeight;
+
+layout(push_constant) uniform GatherPC { uint frameIndex; }
+PC;
+
+int octawebRingSampleCount(int ring)
+{
+    int ringSampleFactor = 8;
+    return ring == 0 ? 1 : ringSampleFactor * ring;
+}
+
+float octawebRingSpacing(float kernelRadius, int ringCount)
+{
+    // Need to place n-1 rings along the radius since center is ring 0
+    return kernelRadius / float(ringCount - 1);
+}
+
+vec2 octawebSample(
+    int ring, int s, int ringSampleCount, int ringCount, float kernelRadius)
+{
+    // Need to place n-1 rings along the radius since center is ring 0
+    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
+    float r = float(ring) * ringSpacing;
+
+    float rimSpacing = 2.0 * PI / float(ringSampleCount);
+    float phi = float(s) * rimSpacing;
+    // Rings are 'interleaved', probably to make the pattern less obviously
+    // repeating
+    if (ring % 2 == 0)
+        phi += rimSpacing * 0.5;
+
+    float x = r * cos(phi);
+    float y = r * sin(phi);
+
+    return vec2(x, y);
+}
+
+#define MAX_COC_ERROR 0.05
+
+vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
+{
+    // TODO:
+    // Larger, smaller early out?
+    float minCoC = 1.;
+
+    if (tileMaxCoC < minCoC)
+        return vec4(0);
+
+    // The center sample counts as a ring, so ringCount should be at least 2
+    int ringCount = 4;
+    float kernelRadius = tileMaxCoC;
+    // Jitter radius to get rid of tile artifacts
+    kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
+    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
+
+    ivec2 res = imageSize(inHalfResIllumination);
+
+    vec2 jitter = rnd2d01() * 2 - 1;
+    jitter *= ringSpacing;
+    coord += jitter;
+    coord = max(coord, vec2(0));
+    coord = min(coord, vec2(res - 1));
+
+    // TODO: Fastpath?
+    // - Criteria just abs(tileMaxCoC - tileMinCoC) > (1 - MAX_COC_ERROR) *
+    // tileMaxCoC?
+    //   - Just average over all kernel samples?
+    //   - Use bilinear sampling?
+
+    // TODO:
+    // Collect rings moving from the edges toward the center to approximate
+    // occlusion. Smaller background CoCs are for surfaces that are in front of
+    // surfaces that have larger ones.
+    vec3 colorSum = vec3(0);
+    float cocSum = 0;
+    float totalWeight = 0;
+    int totalSamples = 0;
+    for (int ring = 0; ring < ringCount; ++ring)
+    {
+        int ringSampleCount = octawebRingSampleCount(ring);
+        for (int si = 0; si < ringSampleCount; ++si)
+        {
+            vec2 s = octawebSample(
+                ring, si, ringSampleCount, ringCount, kernelRadius);
+
+            // TODO: Just use a nearest sampler that clamps?
+            ivec2 sampleCoord = ivec2(coord + s);
+            sampleCoord = max(sampleCoord, ivec2(0));
+            sampleCoord = min(sampleCoord, res - 1);
+
+            float sampleCoC = imageLoad(inHalfResCoC, sampleCoord).x;
+            if (sampleCoC < minCoC)
+                continue;
+
+            float sampleDistance = length(s);
+            if (sampleCoC >= sampleDistance - ringSpacing)
+            {
+                // Scheumerman(?) via Sousa: weigh samples with max CoC
+                // TODO: Is this what was meant? What does it do?
+                float sampleWeight = sampleCoC;
+                colorSum += imageLoad(inHalfResIllumination, sampleCoord).rgb *
+                            sampleWeight;
+                cocSum += sampleCoC;
+                totalWeight += sampleWeight;
+                totalSamples++;
+            }
+        }
+    }
+
+    vec3 color = colorSum / max(totalWeight, 1);
+    float weight = cocSum / max(totalSamples, 1);
+
+    return vec4(color, weight);
+}
+
+float sampleAlpha(float sampleCoC)
+{
+    // From Next Generation Post Processing in Call of Duty Advanced
+    // Warfare
+    // by Jimenez
+    return min(1.0 / (PI * sampleCoC * sampleCoC), PI);
+}
+
+vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
+{
+    // TODO:
+    // Larger, smaller early out?
+    float maxCoC = -1.;
+
+    if (tileMinCoC > maxCoC)
+        return vec4(0);
+
+    // The center sample counts as a ring, so ringCount should be at least 2
+    int ringCount = 5;
+    // Foreground CoC is negative
+    float kernelRadius = -tileMinCoC;
+    // Jitter radius to get rid of tile artifacts
+    kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
+    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
+
+    ivec2 res = imageSize(inHalfResIllumination);
+
+    vec2 jitter = rnd2d01() * 2 - 1;
+    jitter *= ringSpacing;
+    coord += jitter;
+    coord = max(coord, vec2(0));
+    coord = min(coord, vec2(res - 1));
+
+    // TODO: Fastpath?
+    // - Criteria just (tileMinCoC - tileMaxCoC) < 0.95 * tileMinCoC?
+    //   - Just average over all kernel samples?
+    //   - Use bilinear sampling?
+
+    vec3 colorSum = vec3(0);
+    float alphaSum = 0;
+    float totalWeight = 0;
+    int sampleCount = 0;
+    for (int ring = 0; ring < ringCount; ++ring)
+    {
+        int ringSampleCount = octawebRingSampleCount(ring);
+        sampleCount += ringSampleCount;
+        for (int si = 0; si < ringSampleCount; ++si)
+        {
+            vec2 s = octawebSample(
+                ring, si, ringSampleCount, ringCount, kernelRadius);
+
+            // TODO: Just use a nearest sampler that clamps?
+            ivec2 sampleCoord = ivec2(coord + s);
+            sampleCoord = max(sampleCoord, ivec2(0));
+            sampleCoord = min(sampleCoord, res - 1);
+
+            // Foreground CoC is negative
+            float sampleCoC = -imageLoad(inHalfResCoC, sampleCoord).x;
+            if (sampleCoC < -maxCoC)
+                continue;
+
+            float sampleDistance = length(s);
+            if (sampleCoC >= sampleDistance - ringSpacing)
+            {
+                // Sousa: weigh samples with tile max CoC
+                // against near CoC
+                // TODO:
+                // Is this what was meant? Seems to add blending between
+                // 'layers' in foreground
+                float sampleWeight = kernelRadius / sampleCoC;
+                colorSum += imageLoad(inHalfResIllumination, sampleCoord).rgb *
+                            sampleWeight;
+                alphaSum += sampleAlpha(sampleCoC);
+                totalWeight += sampleWeight;
+            }
+        }
+    }
+
+    vec3 color = colorSum / max(totalWeight, 0.001);
+    // From Next Generation Post Processing in Call of Duty Advanced
+    // Warfare
+    // by Jimenez
+    // Bake in sample count normalization
+    // 2. moves blend start outward from objects, avoiding background
+    // reconstruction
+    float weight = saturate(
+        2. * (1. / sampleCount) * (1. / sampleAlpha(kernelRadius)) * alphaSum);
+
+    return vec4(color, weight);
+}
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 res = imageSize(inHalfResIllumination);
+    if (any(greaterThanEqual(coord, res)))
+        return;
+
+    pcg_state = uvec3(coord, PC.frameIndex);
+
+    ivec2 tileCoord = coord / 8;
+    vec2 tileMinMaxCoC = imageLoad(inDilatedTileMinMaxCoC, tileCoord).xy;
+    float tileMinCoC = tileMinMaxCoC[0];
+    float tileMaxCoC = tileMinMaxCoC[1];
+
+    vec2 coordf = vec2(coord) + 0.5;
+
+    vec4 outColorWeight = vec4(0);
+#ifdef GATHER_BACKGROUND
+    outColorWeight = gatherBackground(coordf, tileMinCoC, tileMaxCoC);
+#else  // !GATHER_BACKGROUND
+    outColorWeight = gatherForeground(coordf, tileMinCoC, tileMaxCoC);
+#endif // GATHER_BACKGROUND
+
+    imageStore(outHalfResBokehColorWeight, coord, outColorWeight);
+}

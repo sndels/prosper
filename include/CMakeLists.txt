@@ -13,6 +13,7 @@ set(PROSPER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.hpp

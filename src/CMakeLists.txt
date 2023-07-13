@@ -8,6 +8,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
