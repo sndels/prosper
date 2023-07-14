@@ -1,0 +1,87 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+
+#include "../common/math.glsl"
+#include "bilateral.glsl"
+
+// Based on A Life of a Bokeh by Guillaume Abadie
+// https://advances.realtimerendering.com/s2018/index.htm
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D
+    inHalfResFgBokehWeight;
+layout(set = 0, binding = 1, rgba16f) uniform readonly image2D
+    inHalfResBgBokehWeight;
+layout(set = 0, binding = 2, r16f) uniform readonly image2D inHalfResCoC;
+layout(set = 0, binding = 3, rgba16f) uniform readonly image2D inIllumination;
+layout(set = 0, binding = 4, rgba16f) uniform writeonly image2D outIllumination;
+
+vec4 upscaleBackground(ivec2 fullResCoord, float fullResCoC)
+{
+    ivec2 halfResCoord00 = ivec2((vec2(fullResCoord) + vec2(0, 0)) / 2);
+    ivec2 halfResCoord01 = ivec2((vec2(fullResCoord) + vec2(0, 1)) / 2);
+    ivec2 halfResCoord11 = ivec2((vec2(fullResCoord) + vec2(1, 1)) / 2);
+    ivec2 halfResCoord10 = ivec2((vec2(fullResCoord) + vec2(1, 0)) / 2);
+
+    vec4 colorWeight00 = imageLoad(inHalfResBgBokehWeight, halfResCoord00);
+    vec4 colorWeight01 = imageLoad(inHalfResBgBokehWeight, halfResCoord01);
+    vec4 colorWeight11 = imageLoad(inHalfResBgBokehWeight, halfResCoord11);
+    vec4 colorWeight10 = imageLoad(inHalfResBgBokehWeight, halfResCoord10);
+
+    // TODO:
+    // - Weights based on CoC vs fullResCoC?
+    // - Bicubic filter?
+    vec4 filteredColorWeight =
+        mix(mix(colorWeight00, colorWeight10, 0.5),
+            mix(colorWeight10, colorWeight11, 0.5), 0.5);
+
+    return filteredColorWeight;
+}
+
+vec4 upscaleForeground(ivec2 fullResCoord, float fullResCoC)
+{
+    ivec2 halfResCoord00 = ivec2((fullResCoord + vec2(0, 0)) / 2);
+    ivec2 halfResCoord01 = ivec2((fullResCoord + vec2(0, 1)) / 2);
+    ivec2 halfResCoord11 = ivec2((fullResCoord + vec2(1, 1)) / 2);
+    ivec2 halfResCoord10 = ivec2((fullResCoord + vec2(1, 0)) / 2);
+
+    BilateralInput bilaInput;
+    bilaInput.illuminationWeight01 =
+        imageLoad(inHalfResFgBokehWeight, halfResCoord00);
+    bilaInput.illuminationWeight11 =
+        imageLoad(inHalfResFgBokehWeight, halfResCoord01);
+    bilaInput.illuminationWeight10 =
+        imageLoad(inHalfResFgBokehWeight, halfResCoord11);
+    bilaInput.illuminationWeight00 =
+        imageLoad(inHalfResFgBokehWeight, halfResCoord10);
+
+    return bilateralFilter(bilaInput);
+}
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 res = imageSize(outIllumination);
+    if (any(greaterThanEqual(coord, res)))
+        return;
+
+    float coc = imageLoad(inHalfResCoC, coord / 2).x;
+
+    vec4 inColorAlpha = imageLoad(inIllumination, coord);
+    vec3 outColor = inColorAlpha.rgb;
+
+    vec4 bgColorWeight = upscaleBackground(coord, coc);
+    // Stored CoC is in half res pixels
+    float bgFactor = coc > .5 ? saturate(log(bgColorWeight.a)) : 0;
+    outColor = mix(outColor, bgColorWeight.rgb, bgFactor);
+
+    vec4 fgColorWeight = upscaleForeground(coord, coc);
+    // TODO:
+    // There is a hard edge between in focus and fg, also a dark line in some
+    // conditions
+    if (fgColorWeight.a > 0.)
+        outColor = mix(outColor, fgColorWeight.rgb, fgColorWeight.a);
+
+    imageStore(outIllumination, coord, vec4(outColor, inColorAlpha.a));
+}
