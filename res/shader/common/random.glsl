@@ -49,8 +49,11 @@ vec3 rngTo01(vec3 u) { return u / float(0xFFFFFFFFu); }
 uvec3 pcg_state;
 float rnd01()
 {
-    // TODO: Verify this doesn't break subsequent pcg3d samples
-    pcg_state.x = pcg(pcg_state.x);
+    // TODO:
+    // Separate state for 1d pcg to use it here?
+    // Calling pcg on a single component of the 3d state breaks subsequent pcg3d
+    // samples
+    pcg_state = pcg3d(pcg_state);
     return rngTo01(pcg_state.x);
 }
 vec2 rnd2d01()
