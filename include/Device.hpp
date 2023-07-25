@@ -7,7 +7,6 @@
 #include <GLFW/glfw3.h>
 #include <shaderc/shaderc.hpp>
 
-#include <wheels/allocators/cstdlib_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/optional.hpp>
@@ -86,8 +85,8 @@ class Device
     };
 
     Device(
-        wheels::ScopedScratch scopeAlloc, GLFWwindow *window,
-        const Settings &settings);
+        wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
+        GLFWwindow *window, const Settings &settings);
     ~Device();
 
     Device(const Device &other) = delete;
@@ -187,7 +186,7 @@ class Device
     void trackImage(const Image &image);
     void untrackImage(const Image &image);
 
-    wheels::CstdlibAllocator _generalAlloc;
+    wheels::Allocator &_generalAlloc;
 
     vk::Instance _instance;
     vk::PhysicalDevice _physical;

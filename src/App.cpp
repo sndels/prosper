@@ -51,6 +51,7 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 } // namespace
 
 App::App(ScopedScratch scopeAlloc, const Settings &settings)
+: _generalAlloc{megabytes(32)}
 {
     const auto &tl = [](const char *stage, std::function<void()> const &fn)
     {
@@ -69,7 +70,8 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
        [&]
        {
            _device = std::make_unique<Device>(
-               scopeAlloc.child_scope(), _window->ptr(), settings.device);
+               _generalAlloc, scopeAlloc.child_scope(), _window->ptr(),
+               settings.device);
        });
 
     _staticDescriptorsAlloc =
@@ -93,7 +95,7 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
     _cam = std::make_unique<Camera>(
         scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
     _world = std::make_unique<World>(
-        scopeAlloc.child_scope(), _device.get(), settings.scene,
+        _generalAlloc, scopeAlloc.child_scope(), _device.get(), settings.scene,
         settings.deferredLoading);
 
     const Timer gpuPassesInitTimer;
@@ -163,6 +165,24 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
         _renderFinishedSemaphores.push_back(
             _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
     }
+
+    TlsfAllocator::Stats const &allocStats = _generalAlloc.stats();
+    printf("General allocator stats:\n");
+    printf(
+        "  count: %u\n", asserted_cast<uint32_t>(allocStats.allocation_count));
+    printf(
+        "  small count: %u\n",
+        asserted_cast<uint32_t>(allocStats.small_allocation_count));
+    printf(
+        "  size: %uKB\n",
+        asserted_cast<uint32_t>(allocStats.allocated_byte_count / 1000));
+    printf(
+        "  size high watermark: %uKB\n",
+        asserted_cast<uint32_t>(
+            allocStats.allocated_byte_count_high_watermark / 1000));
+    printf(
+        "  free size: %uKB\n",
+        asserted_cast<uint32_t>(allocStats.free_byte_count / 1000));
 }
 
 App::~App()
@@ -732,6 +752,24 @@ void App::drawMemory()
     ImGui::Text(
         "  Images: %uMB\n",
         asserted_cast<uint32_t>(allocs.images / 1000 / 1000));
+
+    TlsfAllocator::Stats const &allocStats = _generalAlloc.stats();
+    ImGui::Text("General allocator stats:\n");
+    ImGui::Text(
+        "  count: %u\n", asserted_cast<uint32_t>(allocStats.allocation_count));
+    ImGui::Text(
+        "  small count: %u\n",
+        asserted_cast<uint32_t>(allocStats.small_allocation_count));
+    ImGui::Text(
+        "  size: %uKB\n",
+        asserted_cast<uint32_t>(allocStats.allocated_byte_count / 1000));
+    ImGui::Text(
+        "  size high watermark: %uKB\n",
+        asserted_cast<uint32_t>(
+            allocStats.allocated_byte_count_high_watermark / 1000));
+    ImGui::Text(
+        "  free size: %uKB\n",
+        asserted_cast<uint32_t>(allocStats.free_byte_count / 1000));
 
     ImGui::End();
 }

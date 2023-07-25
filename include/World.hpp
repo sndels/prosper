@@ -16,7 +16,6 @@
 #include <tiny_gltf.h>
 #include <vulkan/vulkan_hash.hpp>
 
-#include <wheels/allocators/cstdlib_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/hash_map.hpp>
@@ -45,8 +44,9 @@ class World
         vk::DescriptorSetLayout skyboxOnly;
     };
     World(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        const std::filesystem::path &scene, bool deferredLoading);
+        wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
+        Device *device, const std::filesystem::path &scene,
+        bool deferredLoading);
     ~World();
 
     World(const World &other) = delete;
@@ -67,7 +67,7 @@ class World
         wheels::ScopedScratch scopeAlloc) const;
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
-    wheels::CstdlibAllocator _generalAlloc;
+    wheels::Allocator &_generalAlloc;
     wheels::LinearAllocator _linearAlloc;
 
     std::filesystem::path _sceneDir;

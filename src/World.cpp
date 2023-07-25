@@ -269,9 +269,10 @@ void loadingWorker(
 } // namespace
 
 World::World(
-    ScopedScratch scopeAlloc, Device *device,
+    Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
     const std::filesystem::path &scene, bool deferredLoading)
-: _linearAlloc{sWorldMemSize}
+: _generalAlloc{generalAlloc}
+, _linearAlloc{sWorldMemSize}
 , _sceneDir{resPath(scene.parent_path())}
 , _skyboxTexture{scopeAlloc.child_scope(), device, resPath("env/storm.ktx")}
 , _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}

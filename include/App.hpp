@@ -20,8 +20,8 @@
 #include "World.hpp"
 
 #include <filesystem>
-#include <wheels/allocators/cstdlib_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/static_array.hpp>
 
 class App
@@ -93,7 +93,7 @@ class App
     void handleResizes(
         wheels::ScopedScratch scopeAlloc, bool shouldResizeSwapchain);
 
-    wheels::CstdlibAllocator _generalAlloc;
+    wheels::TlsfAllocator _generalAlloc;
 
     std::unique_ptr<Window>
         _window; // Needs to be valid before and after everything else

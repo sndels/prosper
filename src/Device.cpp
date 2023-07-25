@@ -365,8 +365,10 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 }
 
 Device::Device(
-    ScopedScratch scopeAlloc, GLFWwindow *window, const Settings &settings)
-: _dumpShaderDisassembly{settings.dumpShaderDisassembly}
+    Allocator &generalAlloc, ScopedScratch scopeAlloc, GLFWwindow *window,
+    const Settings &settings)
+: _generalAlloc{generalAlloc}
+, _dumpShaderDisassembly{settings.dumpShaderDisassembly}
 {
     printf("Creating Vulkan device\n");
 
