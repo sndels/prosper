@@ -212,6 +212,8 @@ void App::run()
 
         recompileShaders(scopeAlloc.child_scope());
 
+        _resources->clearDebugNames();
+
         drawFrame(scopeAlloc.child_scope());
 
         InputHandler::instance().clearSingleFrameGestures();
