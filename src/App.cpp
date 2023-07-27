@@ -50,9 +50,12 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 } // namespace
 
-App::App(ScopedScratch scopeAlloc, const Settings &settings)
-: _generalAlloc{megabytes(32)}
+App::App(const Settings &settings)
+: _generalAlloc{megabytes(16)}
 {
+    LinearAllocator scratchBacking{megabytes(16)};
+    ScopedScratch scopeAlloc{scratchBacking};
+
     const auto &tl = [](const char *stage, std::function<void()> const &fn)
     {
         const Timer t;
@@ -165,24 +168,8 @@ App::App(ScopedScratch scopeAlloc, const Settings &settings)
         _renderFinishedSemaphores.push_back(
             _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
     }
-
-    TlsfAllocator::Stats const &allocStats = _generalAlloc.stats();
-    printf("General allocator stats:\n");
-    printf(
-        "  count: %u\n", asserted_cast<uint32_t>(allocStats.allocation_count));
-    printf(
-        "  small count: %u\n",
-        asserted_cast<uint32_t>(allocStats.small_allocation_count));
-    printf(
-        "  size: %uKB\n",
-        asserted_cast<uint32_t>(allocStats.allocated_byte_count / 1000));
-    printf(
-        "  size high watermark: %uKB\n",
-        asserted_cast<uint32_t>(
-            allocStats.allocated_byte_count_high_watermark / 1000));
-    printf(
-        "  free size: %uKB\n",
-        asserted_cast<uint32_t>(allocStats.free_byte_count / 1000));
+    _ctorScratchHighWatermark = asserted_cast<uint32_t>(
+        scratchBacking.allocated_byte_count_high_watermark());
 }
 
 App::~App()
@@ -195,7 +182,7 @@ App::~App()
 
 void App::run()
 {
-    LinearAllocator scopeBackingAlloc{megabytes(256)};
+    LinearAllocator scopeBackingAlloc{megabytes(16)};
     while (_window->open())
     {
         _profiler->startCpuFrame();
@@ -214,7 +201,10 @@ void App::run()
 
         _resources->clearDebugNames();
 
-        drawFrame(scopeAlloc.child_scope());
+        drawFrame(
+            scopeAlloc.child_scope(),
+            asserted_cast<uint32_t>(
+                scopeBackingAlloc.allocated_byte_count_high_watermark()));
 
         InputHandler::instance().clearSingleFrameGestures();
         _cam->clearChangedThisFrame();
@@ -448,7 +438,7 @@ void App::handleMouseGestures()
     }
 }
 
-void App::drawFrame(ScopedScratch scopeAlloc)
+void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
     const uint32_t nextFrame = asserted_cast<uint32_t>(_swapchain->nextFrame());
@@ -464,7 +454,8 @@ void App::drawFrame(ScopedScratch scopeAlloc)
 
     _imguiRenderer->startFrame();
 
-    const UiChanges uiChanges = drawUi(scopeAlloc.child_scope(), profilerDatas);
+    const UiChanges uiChanges =
+        drawUi(scopeAlloc.child_scope(), profilerDatas, scopeHighWatermark);
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -554,7 +545,8 @@ void App::capFramerate()
 }
 
 App::UiChanges App::drawUi(
-    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
+    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas,
+    uint32_t scopeHighWatermark)
 {
     UiChanges ret;
 
@@ -564,7 +556,7 @@ App::UiChanges App::drawUi(
 
     drawProfiling(scopeAlloc.child_scope(), profilerDatas);
 
-    drawMemory();
+    drawMemory(scopeHighWatermark);
 
     return ret;
 }
@@ -733,7 +725,7 @@ void App::drawProfiling(
     ImGui::End();
 }
 
-void App::drawMemory()
+void App::drawMemory(uint32_t scopeHighWatermark)
 {
     ImGui::SetNextWindowPos(
         ImVec2{
@@ -756,6 +748,25 @@ void App::drawMemory()
         asserted_cast<uint32_t>(allocs.images / 1000 / 1000));
 
     TlsfAllocator::Stats const &allocStats = _generalAlloc.stats();
+
+    ImGui::Text("High watermarks:\n");
+    ImGui::Text(
+        "  ctors : %uKB\n",
+        asserted_cast<uint32_t>(_ctorScratchHighWatermark) / 1000);
+    ImGui::Text(
+        "  deferred loading: %uMB\n",
+        asserted_cast<uint32_t>(
+            _world->_deferredLoadingAllocationHighWatermark / 1000 / 1000));
+    ImGui::Text(
+        "  world: %uKB\n",
+        asserted_cast<uint32_t>(
+            _world->_linearAlloc.allocated_byte_count_high_watermark() / 1000));
+    ImGui::Text(
+        "  general: %uKB\n",
+        asserted_cast<uint32_t>(
+            allocStats.allocated_byte_count_high_watermark / 1000));
+    ImGui::Text("  frame scope: %uKB\n", scopeHighWatermark / 1000);
+
     ImGui::Text("General allocator stats:\n");
     ImGui::Text(
         "  count: %u\n", asserted_cast<uint32_t>(allocStats.allocation_count));
@@ -765,10 +776,6 @@ void App::drawMemory()
     ImGui::Text(
         "  size: %uKB\n",
         asserted_cast<uint32_t>(allocStats.allocated_byte_count / 1000));
-    ImGui::Text(
-        "  size high watermark: %uKB\n",
-        asserted_cast<uint32_t>(
-            allocStats.allocated_byte_count_high_watermark / 1000));
     ImGui::Text(
         "  free size: %uKB\n",
         asserted_cast<uint32_t>(allocStats.free_byte_count / 1000));

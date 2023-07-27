@@ -29,9 +29,7 @@ using namespace wheels;
 namespace
 {
 
-// A GB should be plenty for the types of scenes I use, but not so much that
-// a reasonable device wouldn't have enough available
-constexpr size_t sWorldMemSize = megabytes(1024);
+constexpr size_t sWorldMemSize = megabytes(16);
 
 constexpr size_t SKYBOX_VERTS_SIZE = 36;
 
@@ -176,6 +174,7 @@ void loadingWorker(
     assert(ctx->device->transferQueue().has_value());
     assert(ctx->device->graphicsQueue() != *ctx->device->transferQueue());
 
+    // Enough for 4K textures, it seems
     LinearAllocator scratchBacking{megabytes(256)};
     ScopedScratch scopeAlloc{scratchBacking};
 
@@ -251,6 +250,14 @@ void loadingWorker(
         transferQueue.waitIdle();
 
         ctx->workerLoadedImageCount++;
+
+        uint32_t previousHighWatermark = ctx->allocationHighWatermark;
+        if (scratchBacking.allocated_byte_count_high_watermark() >
+            previousHighWatermark)
+        {
+            ctx->allocationHighWatermark = asserted_cast<uint32_t>(
+                scratchBacking.allocated_byte_count_high_watermark());
+        }
 
         {
             std::unique_lock lock{ctx->loadedTextureMutex};
@@ -398,6 +405,10 @@ void World::handleDeferredLoading(
 {
     if (!_deferredLoadingContext.has_value())
         return;
+
+    _deferredLoadingAllocationHighWatermark = std::max(
+        _deferredLoadingAllocationHighWatermark,
+        _deferredLoadingContext->allocationHighWatermark.load());
 
     if (_deferredLoadingContext->loadedMaterialCount ==
         _deferredLoadingContext->gltfModel.materials.size())

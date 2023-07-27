@@ -134,6 +134,7 @@ class World
         std::condition_variable loadedTextureTaken;
         wheels::Optional<Texture2D> loadedTexture;
         std::atomic<bool> interruptLoading{false};
+        std::atomic<uint32_t> allocationHighWatermark{0};
 
         // Main context
         uint32_t materialsGeneration{0};
@@ -146,6 +147,7 @@ class World
         Timer timer;
     };
     wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
+    uint32_t _deferredLoadingAllocationHighWatermark{0};
 
   private:
     void loadTextures(

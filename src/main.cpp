@@ -67,9 +67,7 @@ int main(int argc, char *argv[])
     {
         const App::Settings settings = parseCli(argc, argv);
 
-        LinearAllocator scratchBacking{megabytes(256)};
-
-        App app{ScopedScratch{scratchBacking}, settings};
+        App app{settings};
         app.run();
     }
     catch (std::exception &e)

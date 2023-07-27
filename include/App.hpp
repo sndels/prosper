@@ -35,7 +35,7 @@ class App
     };
 
   public:
-    App(wheels::ScopedScratch scopeAlloc, const Settings &settings);
+    App(const Settings &settings);
     ~App();
 
     App(const App &other) = delete;
@@ -53,7 +53,8 @@ class App
 
     void handleMouseGestures();
 
-    void drawFrame(wheels::ScopedScratch scopeAlloc);
+    void drawFrame(
+        wheels::ScopedScratch scopeAlloc, uint32_t scopeHighWatermark);
 
     uint32_t nextSwapchainImage(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
@@ -66,13 +67,14 @@ class App
     };
     UiChanges drawUi(
         wheels::ScopedScratch scopeAlloc,
-        const wheels::Array<Profiler::ScopeData> &profilerDatas);
+        const wheels::Array<Profiler::ScopeData> &profilerDatas,
+        uint32_t scopeHighWatermark);
     void drawOptions();
     void drawRendererSettings(UiChanges &uiChanges);
     void drawProfiling(
         wheels::ScopedScratch scopeAlloc,
         const wheels::Array<Profiler::ScopeData> &profilerDatas);
-    void drawMemory();
+    void drawMemory(uint32_t scopeHighWatermark);
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 
@@ -134,6 +136,8 @@ class App
     bool _recompileShaders{false};
     bool _renderRT{false};
     bool _renderDeferred{false};
+
+    uint32_t _ctorScratchHighWatermark{0};
 
     Timer _frameTimer;
     std::chrono::time_point<std::chrono::file_clock> _recompileTime;
