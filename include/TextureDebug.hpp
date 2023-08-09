@@ -2,6 +2,7 @@
 #define PROSPER_TEXTURE_DEBUG_HPP
 
 #include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/static_array.hpp>
 
 #include "Device.hpp"
@@ -30,8 +31,8 @@ class TextureDebug
     };
 
     TextureDebug(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
+        wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
+        Device *device, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
     ~TextureDebug();
 
@@ -81,11 +82,18 @@ class TextureDebug
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 
-    glm::vec2 _range{0.f, 1.f};
-    int32_t _lod{0};
-    ChannelType _channelType{ChannelType::RGB};
-    bool _absBeforeRange{false};
-    bool _useBilinearSampler{false};
+    struct TargetSettings
+    {
+        glm::vec2 range{0.f, 1.f};
+        int32_t lod{0};
+        ChannelType channelType{ChannelType::RGB};
+        bool absBeforeRange{false};
+        bool useBilinearSampler{false};
+    };
+    // TODO:
+    // Not a String because type conversions and allocations from StrSpan. Is
+    // there a better universal solution?
+    wheels::HashMap<uint64_t, TargetSettings> _targetSettings;
 };
 
 #endif // PROSPER_TEXTURE_DEBUG_HPP

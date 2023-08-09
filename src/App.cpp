@@ -141,8 +141,8 @@ App::App(const Settings &settings)
         _device.get(), _resources.get(), _swapchain->config().extent,
         _window->ptr(), _swapchain->config());
     _textureDebug = std::make_unique<TextureDebug>(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _staticDescriptorsAlloc.get());
+        _generalAlloc, scopeAlloc.child_scope(), _device.get(),
+        _resources.get(), _staticDescriptorsAlloc.get());
     _depthOfField = std::make_unique<DepthOfField>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());

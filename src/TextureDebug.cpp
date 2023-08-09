@@ -12,8 +12,26 @@
 using namespace glm;
 using namespace wheels;
 
+namespace wheels
+{
+
+// TODO:
+// Implement in wheels? Should ensure that this matches between a string and its
+// full span.
+template <> struct Hash<StrSpan>
+{
+    [[nodiscard]] uint64_t operator()(StrSpan const &value) const noexcept
+    {
+        return wyhash(value.data(), value.size(), 0, _wyp);
+    }
+};
+
+}; // namespace wheels
+
 namespace
 {
+
+const Hash<StrSpan> sStrSpanHash = Hash<StrSpan>{};
 
 struct PCBlock
 {
@@ -36,10 +54,11 @@ constexpr std::array<
 } // namespace
 
 TextureDebug::TextureDebug(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    Allocator &alloc, ScopedScratch scopeAlloc, Device *device,
+    RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc)
 : _device{device}
 , _resources{resources}
+, _targetSettings{alloc}
 {
     assert(_device != nullptr);
     assert(_resources != nullptr);
@@ -108,6 +127,7 @@ void TextureDebug::drawUi()
     ImGui::SetNextWindowSize(ImVec2{50.f, 80.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("TextureDebug", nullptr);
 
+    TargetSettings *settings = nullptr;
     {
         const Span<const String> debugNames = _resources->images.debugNames();
         int activeNameIndex = -1;
@@ -162,7 +182,14 @@ void TextureDebug::drawUi()
             }
             ImGui::EndCombo();
         }
+
+        const uint64_t nameHash = sStrSpanHash(StrSpan{comboTitle});
+        if (!_targetSettings.contains(nameHash))
+            _targetSettings.insert_or_assign(nameHash, TargetSettings{});
+        settings = _targetSettings.find(nameHash);
+        assert(settings != nullptr);
     }
+    assert(settings != nullptr);
 
     {
         const Optional<ImageHandle> activeHandle =
@@ -173,12 +200,13 @@ void TextureDebug::drawUi()
                          _resources->images.resource(*activeHandle)
                              .subresourceRange.levelCount) -
                      1;
-        ImGui::DragInt("LoD##TextureDebug", &_lod, 0.02f, 0, maxLod);
-        _lod = std::clamp(_lod, 0, maxLod);
+        ImGui::DragInt("LoD##TextureDebug", &settings->lod, 0.02f, 0, maxLod);
+        settings->lod = std::clamp(settings->lod, 0, maxLod);
     }
 
     {
-        auto *currentType = reinterpret_cast<uint32_t *>(&_channelType);
+        auto *currentType =
+            reinterpret_cast<uint32_t *>(&settings->channelType);
         if (ImGui::BeginCombo(
                 "Channel##TextureDebug", sChannelTypeNames[*currentType]))
         {
@@ -187,7 +215,7 @@ void TextureDebug::drawUi()
             {
                 bool selected = *currentType == i;
                 if (ImGui::Selectable(sChannelTypeNames[i], &selected))
-                    _channelType = static_cast<ChannelType>(i);
+                    settings->channelType = static_cast<ChannelType>(i);
             }
             ImGui::EndCombo();
         }
@@ -196,20 +224,22 @@ void TextureDebug::drawUi()
     {
         // Having drag speed react to the absolute range makes this nicer to use
         // Zero makes things misbehave so avoid it
-        const float rangeLen = std::max(std::abs(_range[1] - _range[0]), 1e-3f);
+        const float rangeLen =
+            std::max(std::abs(settings->range[1] - settings->range[0]), 1e-3f);
         const float rangeSpeed = rangeLen * 1e-3f;
         // Adapt formatting to range, this also controls actual precicion of the
         // values we get
         const char *format = rangeLen < 0.01 ? "%.6f" : "%.3f";
         ImGui::DragFloat2(
-            "Range##TextureDebug", &_range[0], rangeSpeed, -1e6f, 1e6f, format);
+            "Range##TextureDebug", &settings->range[0], rangeSpeed, -1e6f, 1e6f,
+            format);
         // Don't allow the limits swapping places
-        _range[0] = std::min(_range[0], _range[1]);
-        _range[1] = std::max(_range[0], _range[1]);
+        settings->range[0] = std::min(settings->range[0], settings->range[1]);
+        settings->range[1] = std::max(settings->range[0], settings->range[1]);
     }
 
-    ImGui::Checkbox("Abs before range", &_absBeforeRange);
-    ImGui::Checkbox("Bilinear sampler", &_useBilinearSampler);
+    ImGui::Checkbox("Abs before range", &settings->absBeforeRange);
+    ImGui::Checkbox("Bilinear sampler", &settings->useBilinearSampler);
 
     ImGui::End();
 }
@@ -267,6 +297,19 @@ ImageHandle TextureDebug::record(
             const vk::Extent3D outExtent =
                 _resources->images.resource(images.outColor).extent;
 
+            const Optional<StrSpan> activeName =
+                _resources->images.activeDebugName();
+
+            TargetSettings settings;
+            if (activeName.has_value())
+            {
+                const uint64_t nameHash = sStrSpanHash(*activeName);
+                const TargetSettings *settings_ptr =
+                    _targetSettings.find(nameHash);
+                if (settings_ptr != nullptr)
+                    settings = *settings_ptr;
+            }
+
             const PCBlock pcBlock{
                 .inRes =
                     uvec2{
@@ -278,10 +321,11 @@ ImageHandle TextureDebug::record(
                         asserted_cast<int32_t>(outExtent.width),
                         asserted_cast<int32_t>(outExtent.height),
                     },
-                .range = _range,
-                .lod = asserted_cast<uint32_t>(_lod),
-                .channelType = static_cast<uint32_t>(_channelType),
-                .absBeforeRange = static_cast<uint32_t>(_absBeforeRange),
+                .range = settings.range,
+                .lod = asserted_cast<uint32_t>(settings.lod),
+                .channelType = static_cast<uint32_t>(settings.channelType),
+                .absBeforeRange =
+                    static_cast<uint32_t>(settings.absBeforeRange),
             };
             cb.pushConstants(
                 _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
@@ -324,6 +368,17 @@ void TextureDebug::createDescriptorSets(
 void TextureDebug::updateDescriptorSet(
     uint32_t nextFrame, const BoundImages &images)
 {
+    const Optional<StrSpan> activeName = _resources->images.activeDebugName();
+
+    TargetSettings settings;
+    if (activeName.has_value())
+    {
+        const uint64_t nameHash = sStrSpanHash(*activeName);
+        const TargetSettings *settings_ptr = _targetSettings.find(nameHash);
+        if (settings_ptr != nullptr)
+            settings = *settings_ptr;
+    }
+
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
@@ -336,8 +391,8 @@ void TextureDebug::updateDescriptorSet(
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     const vk::DescriptorImageInfo samplerInfo{
-        .sampler = _useBilinearSampler ? _resources->bilinearSampler
-                                       : _resources->nearestSampler,
+        .sampler = settings.useBilinearSampler ? _resources->bilinearSampler
+                                               : _resources->nearestSampler,
     };
 
     assert(_shaderReflection.has_value());
