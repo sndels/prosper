@@ -513,9 +513,13 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
         // Wait on the acquire semaphore to have it properly unsignaled.
         // Validation would otherwise complain on next acquire below even
         // with the wait for idle.
+        const vk::PipelineStageFlags dstMask{};
         const vk::SubmitInfo submitInfo{
             .waitSemaphoreCount = 1,
             .pWaitSemaphores = &imageAvailable,
+            // Fun fact: Windows NV and Linux AMD-PRO don't seem to use this
+            // or have special cases for null
+            .pWaitDstStageMask = &dstMask,
         };
 
         checkSuccess(
