@@ -132,8 +132,9 @@ void main()
 
     uint groupThreads = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
 
+    uint totalPoints = pointLights.count;
+    if (totalPoints > 0)
     {
-        uint totalPoints = pointLights.count;
         uint threadPoints = (totalPoints - 1) / groupThreads + 1;
         for (uint i = 0; i < threadPoints; ++i)
         {
@@ -147,8 +148,11 @@ void main()
                 pointIndices[writeIndex] = pi;
             }
         }
+    }
 
-        uint totalSpots = spotLights.count;
+    uint totalSpots = spotLights.count;
+    if (totalSpots > 0)
+    {
         uint threadSpots = (totalSpots - 1) / groupThreads + 1;
         for (uint i = 0; i < threadSpots; ++i)
         {
@@ -182,26 +186,32 @@ void main()
     // Only barrier() since only clusterIndexOffset sync is required
     barrier();
 
-    uint threadPoints = (pointCount - 1) / groupThreads + 1;
-    for (uint i = 0; i < threadPoints; ++i)
+    if (pointCount > 0)
     {
-        uint index = localIndex * threadPoints + i;
-        if (index >= pointCount)
-            break;
-        imageStore(
-            lightIndices, int(clusterIndexOffset + index),
-            uvec4(pointIndices[index], 0, 0, 0));
+        uint threadPoints = (pointCount - 1) / groupThreads + 1;
+        for (uint i = 0; i < threadPoints; ++i)
+        {
+            uint index = localIndex * threadPoints + i;
+            if (index >= pointCount)
+                break;
+            imageStore(
+                lightIndices, int(clusterIndexOffset + index),
+                uvec4(pointIndices[index], 0, 0, 0));
+        }
     }
 
-    uint threadSpots = (spotCount - 1) / groupThreads + 1;
-    for (uint i = 0; i < threadSpots; ++i)
+    if (spotCount > 0)
     {
-        uint index = localIndex * threadSpots + i;
-        if (index >= spotCount)
-            break;
-        imageStore(
-            lightIndices, int(clusterIndexOffset + pointCount + index),
-            uvec4(spotIndices[index], 0, 0, 0));
+        uint threadSpots = (spotCount - 1) / groupThreads + 1;
+        for (uint i = 0; i < threadSpots; ++i)
+        {
+            uint index = localIndex * threadSpots + i;
+            if (index >= spotCount)
+                break;
+            imageStore(
+                lightIndices, int(clusterIndexOffset + pointCount + index),
+                uvec4(spotIndices[index], 0, 0, 0));
+        }
     }
 }
 
