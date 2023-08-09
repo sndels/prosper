@@ -112,7 +112,7 @@ void main()
 {
     uvec3 cluster = gl_WorkGroupID.xyz;
     uvec2 clusterCorner = cluster.xy * LIGHT_CLUSTER_DIMENSION;
-    if (all(greaterThanEqual(clusterCorner, clusteringPC.resolution)))
+    if (any(greaterThanEqual(clusterCorner, clusteringPC.resolution)))
         return;
 
     uint localIndex = gl_LocalInvocationIndex;
