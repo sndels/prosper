@@ -1,0 +1,73 @@
+- Base on UE4 - A Life of a Bokeh by Abadie
+- Scatter as gather
+- Paraphrasing from McGuire (A Reconstruction Filter for Plausible Motion Blur)
+    - A bounded offset 'scatter' algorithm can be converted to a 'gather' algorithm
+    - Idea: Gather a disk that has the worst-case scatter radius of all pixels
+    in the neighborhood of the gathering pixel
+    - Intersects with all pixels that might influence a given pixel
+    - When gathering, skip samples whose scatter radius doesn't overlap with the current pixel
+    - We can avoid gathering the entire image by first finding the upper bound 
+    for each pixels' neighborhood.
+    -> For source pixel with scatter radius X, dilate the value to all pixels at radius<=X.
+        Store maximum radius found for each pixel.
+    - Can optimize by dilating larger tiles instead of pixel, e.g. tile = 8x8 pixels like Abadie
+- Minimal first
+- Setup
+    - In: Color, Depth
+    - Out (halfres): Color, CoC
+    - CoC based bilateral downsample
+    - See tweak in UE slides
+- (Stabilize TAA if jittering)
+- Flatten CoC
+    - In: CoC
+    - Out (1/8th of CoC res): CoC minFg&maxBg (R8G8)
+    - 8x8 tiles from input
+    - Use 8x8 groups, wavemin/max operations
+    - Still need to gather waves' results within group
+- Dilate CoC
+    - In:  CoC minFg&maxBg
+    - Out:  Dilated CoC minFg&maxBg
+    - "Max kernel size - Scatter as gather intersection kriteria is going to be
+        the max kernel radius found independently for foreground and background
+        in the neighborhood."
+    - So dilate fg and bg by kernel size separately with no crosstalk?
+- Gather
+    - In: Dilated 1/8th CoC minFg&Bg, Halfres CoC, Halfres Color
+    - Out: Hafres color, weight
+    - Separate for fg/bg
+    - Octaweb kernel, random offset per pixel
+    - Write some kind of alpha to bokeh for blending?
+    - Souza13
+    - Far
+        - scale kernel size and weight samples with far CoC - Scheumerman05 (Improved Depth of Field Rendering, ShaderX3)
+        - pre-multiply far field with far CoC - Gotanda09 (Star Ocean 4: Flexible Shader Management and Post Processing)
+    - Near
+        - Scatter as gather 
+        - scale kernel size and weight samples with tile max CoC against near coc
+        - pre-multiply with near CoC
+        - only want to blur near field fragments
+- Combine:
+    - In: Fg boke, bg bokeh, Halfres CoC, (tileCoC?) Halfres Color
+    - InOut: Color
+    - Just pick fg, skip, bg based on CoC? What about alpha?
+    - Abadie18
+    - Fast-gather when possible(Sousa13, Jimenez14)
+    - Far
+        - Gather rings from outside to get occlusion, blend with given algo
+        - Same translucency term for near as well? See Jimenez14 if it seems similar
+    - Sousa13
+    - Far
+        - upscale via bilateral filter
+        - 4 taps from half res CoC, compare against full res CoC
+        - weigh using bicubic filtering - Sigg05 (Fast Third-Order Texture Filtering)
+        - far CoC for blending
+    - Near
+        - Half res near CoC for blending
+        - bleed as much as possible
+        - bicubic filtering
+    - Use non-linear bleding
+- Then optimizations and quality improvement passes
+    - Use nearest sampler instead of raw loads?
+    - Pass resolutions in push constants?
+    - Is this noticeably faster than just reading the image size in shader
+        on modern nv/amd?
