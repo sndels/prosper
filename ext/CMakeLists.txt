@@ -28,7 +28,7 @@ set_target_properties(glfw PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${gl
 
 message(STATUS "Sync shaderc dependencies")
 execute_process(COMMAND
-    utils/git-sync-deps
+    python3 utils/git-sync-deps
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/shaderc
 )
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Skip installation")
