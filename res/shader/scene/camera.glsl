@@ -4,6 +4,7 @@
 layout(set = CAMERA_SET, binding = 0) uniform Camera
 {
     mat4 worldToCamera;
+    mat4 cameraToWorld;
     mat4 cameraToClip;
     mat4 clipToWorld;
     vec4 eye;

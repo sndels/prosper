@@ -148,6 +148,7 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
 
     CameraUniforms uniforms{
         .worldToCamera = _worldToCamera,
+        .cameraToWorld = _cameraToWorld,
         .cameraToClip = _cameraToClip,
         .clipToWorld = _clipToWorld,
         .eye =
@@ -317,6 +318,7 @@ void Camera::updateWorldToCamera()
              right.y,          newUp.y,          z.y,          0.f,
              right.z,          newUp.z,          z.z,          0.f,
              -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
+    _cameraToWorld = inverse(_worldToCamera);
 
     _clipToWorld = inverse(_cameraToClip * _worldToCamera);
 

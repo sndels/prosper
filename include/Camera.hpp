@@ -48,6 +48,7 @@ struct CameraParameters
 struct CameraUniforms
 {
     glm::mat4 worldToCamera;
+    glm::mat4 cameraToWorld;
     glm::mat4 cameraToClip;
     glm::mat4 clipToWorld;
     glm::vec4 eye;
@@ -120,6 +121,7 @@ class Camera
     float _focusDistance{1.f};
     float _focalLength{0.f};
     glm::mat4 _worldToCamera{1.f};
+    glm::mat4 _cameraToWorld{1.f};
     glm::mat4 _cameraToClip{1.f};
     glm::mat4 _clipToWorld{1.f};
 
