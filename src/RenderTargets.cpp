@@ -33,7 +33,8 @@ ImageHandle createIllumination(
             .height = size.height,
             .usageFlags = vk::ImageUsageFlagBits::eSampled |         // Debug
                           vk::ImageUsageFlagBits::eColorAttachment | // Render
-                          vk::ImageUsageFlagBits::eStorage,          // ToneMap
+                          vk::ImageUsageFlagBits::eStorage |         // ToneMap
+                          vk::ImageUsageFlagBits::eTransferDst, // RT blit hack
         },
         debugName);
 }

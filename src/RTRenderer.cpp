@@ -161,10 +161,21 @@ RTRenderer::Output RTRenderer::record(
 
     Output ret;
     {
-        ret.illumination =
-            createIllumination(*_resources, renderArea.extent, "illumination");
+        // Need 32 bits of precision to accumulate properly
+        // TODO:
+        // This happens to be the same physical image as last frame for now, but
+        // resources should support this kind of accumulation use explicitly
+        ImageHandle illumination = _resources->images.create(
+            ImageDescription{
+                .format = vk::Format::eR32G32B32A32Sfloat,
+                .width = renderArea.extent.width,
+                .height = renderArea.extent.height,
+                .usageFlags = vk::ImageUsageFlagBits::eStorage |
+                              vk::ImageUsageFlagBits::eTransferSrc,
+            },
+            "rtIllumination");
 
-        updateDescriptorSet(nextFrame, ret.illumination);
+        updateDescriptorSet(nextFrame, illumination);
         if (renderArea.extent.width != _accumulationExtent.width ||
             renderArea.extent.height != _accumulationExtent.height)
         {
@@ -173,7 +184,7 @@ RTRenderer::Output RTRenderer::record(
         }
 
         _resources->images.transition(
-            cb, ret.illumination,
+            cb, illumination,
             ImageState{
                 .stageMask = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
                 .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
@@ -253,6 +264,69 @@ RTRenderer::Output RTRenderer::record(
         cb.traceRaysKHR(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
+
+        // Further passes expect 16bit illumination
+        // TODO:
+        // Remove this and return the 32bit illumination when shaders are in
+        // HLSL and 16bit/32bit texture read layout doesn't matter
+        {
+            ret.illumination = createIllumination(
+                *_resources, renderArea.extent, "illumination");
+
+            {
+                const StaticArray barriers{{
+                    _resources->images.transitionBarrier(
+                        illumination,
+                        ImageState{
+                            .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                            .accessMask = vk::AccessFlagBits2::eTransferRead,
+                            .layout = vk::ImageLayout::eTransferSrcOptimal,
+                        }),
+                    _resources->images.transitionBarrier(
+                        ret.illumination,
+                        ImageState{
+                            .stageMask = vk::PipelineStageFlagBits2::eTransfer,
+                            .accessMask = vk::AccessFlagBits2::eTransferWrite,
+                            .layout = vk::ImageLayout::eTransferDstOptimal,
+                        }),
+                }};
+
+                cb.pipelineBarrier2(vk::DependencyInfo{
+                    .imageMemoryBarrierCount =
+                        asserted_cast<uint32_t>(barriers.size()),
+                    .pImageMemoryBarriers = barriers.data(),
+                });
+            }
+
+            const vk::ImageSubresourceLayers layers{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1};
+
+            const std::array offsets{
+                vk::Offset3D{0, 0, 0},
+                vk::Offset3D{
+                    asserted_cast<int32_t>(renderArea.extent.width),
+                    asserted_cast<int32_t>(renderArea.extent.height),
+                    1,
+                },
+            };
+            const auto blit = vk::ImageBlit{
+                .srcSubresource = layers,
+                .srcOffsets = offsets,
+                .dstSubresource = layers,
+                .dstOffsets = offsets,
+            };
+            cb.blitImage(
+                _resources->images.nativeHandle(illumination),
+                vk::ImageLayout::eTransferSrcOptimal,
+                _resources->images.nativeHandle(ret.illumination),
+                vk::ImageLayout::eTransferDstOptimal, 1, &blit,
+                vk::Filter::eLinear);
+
+            _resources->images.release(illumination);
+        }
     }
 
     _accumulationDirty = false;
