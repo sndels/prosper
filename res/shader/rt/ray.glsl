@@ -32,14 +32,47 @@ Ray pinholeCameraRay(vec2 uv)
     vec3 up = vec3(
         camera.worldToCamera[0].y, camera.worldToCamera[1].y,
         camera.worldToCamera[2].y);
-    vec3 fwd = -vec3(
-        camera.worldToCamera[0].z, camera.worldToCamera[1].z,
-        camera.worldToCamera[2].z);
+    vec3 fwd = cameraWorldFwd();
 
     // Compute the ray direction.
     ray.d = normalize(
         (nd.x * right * tanHalfFovY * aspect) + (nd.y * up * tanHalfFovY) +
         fwd);
+
+    return ray;
+}
+
+// Adapted from RT Gems 2 chapter 3
+Ray thinLensCameraRay(
+    vec2 uv, vec2 lensOffset, float apertureDiameter, float focusDistance,
+    float focalLength)
+{
+    Ray pinholeRay = pinholeCameraRay(uv);
+
+    float theta = lensOffset.x * 2. * PI;
+    float radius = lensOffset.y;
+
+    float u = cos(theta) * sqrt(radius);
+    float v = sin(theta) * sqrt(radius);
+
+    // Original calculated focal plane from image distance and had the ray in
+    // view space. Let's use the focus distance we already have and keep this in
+    // world space.
+    vec3 focusPoint =
+        pinholeRay.o +
+        pinholeRay.d * (focusDistance / dot(pinholeRay.d, cameraWorldFwd()));
+
+    float fStop = focalLength / apertureDiameter;
+    float circleOfConfusionRadius = focalLength / (2. * fStop);
+
+    vec3 lensPos = vec3(1, 0, 0) * (u * circleOfConfusionRadius) +
+                   vec3(0, 1, 0) * (v * circleOfConfusionRadius);
+
+    Ray ray;
+    ray.o = (camera.cameraToWorld * vec4(lensPos, 1)).xyz;
+    ray.d = normalize(focusPoint - ray.o);
+    ray.tMin = 0.;
+    ray.tMax = 1. / 0.; // INF
 
     return ray;
 }

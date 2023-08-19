@@ -565,7 +565,7 @@ App::UiChanges App::drawUi(
 {
     UiChanges ret;
 
-    _cam->drawUI();
+    ret.rtDirty |= _cam->drawUI();
 
     drawOptions();
 
@@ -609,13 +609,10 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         "Renderer settings ", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     // TODO: Droplist for main renderer type
-    uiChanges.rtPickedThisFrame =
-        ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
+    uiChanges.rtDirty |= ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
+    uiChanges.rtDirty |= ImGui::Checkbox("Depth of field", &_renderDoF);
     if (!_renderRT)
-    {
         ImGui::Checkbox("Use deferred shading", &_renderDeferred);
-        ImGui::Checkbox("Depth of field", &_renderDoF);
-    }
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
         _toneMap->drawUi();
@@ -856,8 +853,8 @@ void App::render(
         illumination =
             _rtRenderer
                 ->record(
-                    cb, *_world, *_cam, renderArea, indices.nextFrame,
-                    uiChanges.rtPickedThisFrame, _profiler.get())
+                    cb, *_world, *_cam, _renderDoF, renderArea,
+                    indices.nextFrame, uiChanges.rtDirty, _profiler.get())
                 .illumination;
     }
     else

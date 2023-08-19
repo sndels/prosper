@@ -35,4 +35,11 @@ vec3 worldPos(vec2 uv, float nonLinearDepth)
     return surfaceVS.xyz / surfaceVS.w;
 }
 
+vec3 cameraWorldFwd()
+{
+    return -vec3(
+        camera.worldToCamera[0].z, camera.worldToCamera[1].z,
+        camera.worldToCamera[2].z);
+}
+
 #endif // SCENE_CAMERA_GLSL

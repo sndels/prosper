@@ -55,12 +55,16 @@ struct PCBlock
     uint32_t drawType{0};
     uint32_t flags{0};
     uint32_t frameIndex{0};
+    float apertureDiameter{0.00001f};
+    float focusDistance{1.f};
+    float focalLength{0.f};
 
     struct Flags
     {
         bool colorDirty{false};
         bool accumulate{false};
         bool ibl{false};
+        bool depthOfField{false};
     };
 };
 
@@ -71,6 +75,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
     ret |= (uint32_t)flags.colorDirty;
     ret |= (uint32_t)flags.accumulate << 1;
     ret |= (uint32_t)flags.ibl << 2;
+    ret |= (uint32_t)flags.depthOfField << 3;
 
     return ret;
 }
@@ -154,8 +159,8 @@ void RTRenderer::drawUi()
 
 RTRenderer::Output RTRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, uint32_t nextFrame, bool colorDirty,
-    Profiler *profiler)
+    bool depthOfField, const vk::Rect2D &renderArea, uint32_t nextFrame,
+    bool colorDirty, Profiler *profiler)
 {
     _frameIndex = ++_frameIndex % sFramePeriod;
 
@@ -225,8 +230,12 @@ RTRenderer::Output RTRenderer::record(
                     cam.changedThisFrame() || colorDirty || _accumulationDirty,
                 .accumulate = _accumulate,
                 .ibl = _ibl,
+                .depthOfField = depthOfField,
             }),
             .frameIndex = _frameIndex,
+            .apertureDiameter = cam.apertureDiameter(),
+            .focusDistance = cam.focusDistance(),
+            .focalLength = cam.focalLength(),
         };
         cb.pushConstants(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),

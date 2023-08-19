@@ -64,7 +64,7 @@ class App
 
     struct UiChanges
     {
-        bool rtPickedThisFrame{false};
+        bool rtDirty{false};
     };
     UiChanges drawUi(
         wheels::ScopedScratch scopeAlloc,
