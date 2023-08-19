@@ -77,7 +77,8 @@ class Camera
     void perspective(float ar);
     void perspective();
 
-    void drawUI();
+    // Returns true if settings changed
+    bool drawUI();
 
     void updateBuffer(uint32_t index, const glm::uvec2 &resolution);
 
