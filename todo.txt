@@ -1,4 +1,4 @@
-- Add high watermark tracking for linear allocators as well
+- Match bokeh size between post-process and RT
 - Have separate resource debug name arrays for frames in flight?
   - Is there problem with having just one array that's cleared at the start of each frame?
 - Document coverage for required features/limits from gpuinfo
