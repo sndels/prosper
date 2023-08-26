@@ -610,7 +610,7 @@ void App::drawRendererSettings(UiChanges &uiChanges)
 
     // TODO: Droplist for main renderer type
     uiChanges.rtDirty |= ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
-    uiChanges.rtDirty |= ImGui::Checkbox("Depth of field", &_renderDoF);
+    uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &_renderDoF);
     if (!_renderRT)
         ImGui::Checkbox("Use deferred shading", &_renderDeferred);
 
