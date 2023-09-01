@@ -65,6 +65,7 @@ class RenderResourceCollection
         vk::CommandBuffer cb, Handle handle, const ResourceState &state);
     [[nodiscard]] Barrier transitionBarrier(
         Handle handle, const ResourceState &state);
+    void appendDebugName(Handle handle, wheels::StrSpan name);
     void release(Handle handle);
 
     // Shouldn't be used by anything other than debug views, will only be valid
@@ -204,31 +205,13 @@ Handle RenderResourceCollection<
                 }
 
                 _generations[i] &= ~sNotInUseGenerationFlag;
-                wheels::String &aliasedName = _aliasedDebugNames[i];
-                if (!aliasedName.empty())
-                    aliasedName.push_back('|');
-                aliasedName.extend(debugName);
-
-                // TODO: Set these at once? Need to be careful to set before
-                // submits?
-                _device->logical().setDebugUtilsObjectNameEXT(
-                    vk::DebugUtilsObjectNameInfoEXT{
-                        .objectType = ObjectType,
-                        .objectHandle = reinterpret_cast<uint64_t>(
-                            static_cast<NativeType>(_resources[i].handle)),
-                        .pObjectName = _aliasedDebugNames[i].c_str(),
-                    });
 
                 const Handle handle{
                     .index = i,
                     .generation = _generations[i],
                 };
 
-                _debugNames.emplace_back(_alloc, debugName);
-
-                if (_markedDebugName.has_value() &&
-                    debugName == *_markedDebugName)
-                    _markedDebugHandle = handle;
+                appendDebugName(handle, debugName);
 
                 return handle;
             }
@@ -357,6 +340,38 @@ Barrier RenderResourceCollection<
     assertValidHandle(handle);
 
     return _resources[handle.index].transitionBarrier(state);
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType,
+    ObjectType>::appendDebugName(Handle handle, wheels::StrSpan debugName)
+{
+    assertValidHandle(handle);
+
+    wheels::String &aliasedName = _aliasedDebugNames[handle.index];
+    if (!aliasedName.empty())
+        aliasedName.push_back('|');
+    aliasedName.extend(debugName);
+
+    // TODO: Set these at once? Need to be careful to set before
+    // submits?
+    _device->logical().setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = ObjectType,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<NativeType>(_resources[handle.index].handle)),
+            .pObjectName = _aliasedDebugNames[handle.index].c_str(),
+        });
+
+    _debugNames.emplace_back(_alloc, debugName);
+
+    if (_markedDebugName.has_value() && debugName == *_markedDebugName)
+        _markedDebugHandle = handle;
 }
 
 template <
