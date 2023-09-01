@@ -54,6 +54,11 @@ class RenderResourceCollection
     virtual void destroyResources();
 
     [[nodiscard]] Handle create(const Description &desc, const char *debugName);
+    // Caller is expected to check validity before calling methods with the
+    // handle. This design assumes that the code that creates and releases
+    // resources is single-threaded and the handle isn't be released between
+    // isValidHandle() and following accessor calls.
+    [[nodiscard]] bool isValidHandle(Handle handle) const;
     [[nodiscard]] CppNativeType nativeHandle(Handle handle) const;
     [[nodiscard]] const Resource &resource(Handle handle) const;
     void transition(
@@ -272,6 +277,38 @@ template <
     typename Handle, typename Resource, typename Description,
     typename CreateInfo, typename ResourceState, typename Barrier,
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+bool RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::isValidHandle(Handle handle) const
+{
+    // NOTE:
+    // Any changes need to be mirrored in assertValidHandle().
+    if (!handle.isValid())
+        return false;
+    if (handle.index >= _resources.size())
+        return false;
+    if (handle.index >= _generations.size())
+        return false;
+    if (_markedDebugHandle.has_value() &&
+        handle.index == _markedDebugHandle->index)
+    {
+        const uint64_t storedGeneration =
+            _generations[handle.index] & ~sNotInUseGenerationFlag;
+        if (handle.generation != storedGeneration &&
+            (handle.generation + 1) != storedGeneration)
+            return false;
+    }
+    else
+        // Handle generation matching means held generation isn't flagged unused
+        if (handle.generation != _generations[handle.index])
+            return false;
+    return true;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
 CppNativeType RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::nativeHandle(Handle handle) const
@@ -408,24 +445,25 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::assertValidHandle(Handle handle)
     const
 {
-
+    // NOTE:
+    // Any changes need to be mirrored in isValidHandle()!
+    // Mirrored implementations so that this asserting version provides granular
+    // info in a debugger
     assert(handle.isValid());
     assert(handle.index < _resources.size());
     assert(handle.index < _generations.size());
     if (_markedDebugHandle.has_value() &&
         handle.index == _markedDebugHandle->index)
-        assert(
-            handle.generation ==
-                (_generations[handle.index] & ~sNotInUseGenerationFlag) ||
-            (handle.generation + 1) ==
-                (_generations[handle.index] & ~sNotInUseGenerationFlag));
-    else
     {
-        assert(handle.generation == _generations[handle.index]);
+        const uint64_t storedGeneration =
+            _generations[handle.index] & ~sNotInUseGenerationFlag;
         assert(
-            resourceInUse(handle.index) &&
-            "Release called on an already released resource");
+            handle.generation == storedGeneration ||
+            (handle.generation + 1) == storedGeneration);
     }
+    else
+        // Handle generation matching means held generation isn't flagged unused
+        assert(handle.generation == _generations[handle.index]);
 }
 
 template <
