@@ -205,7 +205,7 @@ void App::run()
 
         recompileShaders(scopeAlloc.child_scope());
 
-        _resources->clearDebugNames();
+        _resources->startFrame();
 
         drawFrame(
             scopeAlloc.child_scope(),
@@ -460,8 +460,6 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     const auto profilerDatas = _profiler->getPreviousData(scopeAlloc);
 
     capFramerate();
-
-    _resources->clearDebugNames();
 
     _imguiRenderer->startFrame();
 

@@ -38,7 +38,7 @@ class RenderResources
 
     // Should be called at the start of the frame so resources will get the
     // correct names set
-    void clearDebugNames();
+    void startFrame();
 
     // Should be called e.g. when viewport is resized since the render resources
     // will be created with different sizes on the next frame

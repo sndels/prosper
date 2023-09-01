@@ -43,11 +43,11 @@ RenderResources::~RenderResources()
     }
 }
 
-void RenderResources::clearDebugNames()
+void RenderResources::startFrame()
 {
-    images.clearDebugNames();
-    texelBuffers.clearDebugNames();
-    buffers.clearDebugNames();
+    images.startFrame();
+    texelBuffers.startFrame();
+    buffers.startFrame();
 }
 
 void RenderResources::destroyResources()

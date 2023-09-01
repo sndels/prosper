@@ -50,7 +50,7 @@ class RenderResourceCollection
     RenderResourceCollection &operator=(RenderResourceCollection &) = delete;
     RenderResourceCollection &operator=(RenderResourceCollection &&) = delete;
 
-    void clearDebugNames();
+    void startFrame();
     virtual void destroyResources();
 
     [[nodiscard]] Handle create(const Description &desc, const char *debugName);
@@ -137,7 +137,7 @@ template <
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
 void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
-    CppNativeType, NativeType, ObjectType>::clearDebugNames()
+    CppNativeType, NativeType, ObjectType>::startFrame()
 {
     // These are mapped to persistent resource indices
     for (wheels::String &str : _aliasedDebugNames)
