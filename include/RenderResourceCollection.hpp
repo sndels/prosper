@@ -88,6 +88,7 @@ class RenderResourceCollection
                                                     << 63;
 
     [[nodiscard]] bool resourceInUse(uint32_t i) const;
+    void assertUniqueDebugName(wheels::StrSpan debugName) const;
 
     // RenderImageCollection depends on returned handle indices being
     // contiguous.
@@ -241,6 +242,8 @@ Handle RenderResourceCollection<
     // Allow implicit conversions on push_back since literal suffixes don't seem
     // to be portable? Can conversions be supported for literals only?
     _generations.push_back(static_cast<uint64_t>(0));
+
+    assertUniqueDebugName(debugName);
     _debugNames.emplace_back(_alloc, debugName);
 
     const Handle handle{
@@ -368,6 +371,7 @@ void RenderResourceCollection<
             .pObjectName = _aliasedDebugNames[handle.index].c_str(),
         });
 
+    assertUniqueDebugName(debugName);
     _debugNames.emplace_back(_alloc, debugName);
 
     if (_markedDebugName.has_value() && debugName == *_markedDebugName)
@@ -491,6 +495,23 @@ bool RenderResourceCollection<
 {
     assert(i < _generations.size());
     return (_generations[i] & sNotInUseGenerationFlag) == 0;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType,
+    ObjectType>::assertUniqueDebugName(wheels::StrSpan debugName) const
+{
+#ifndef NDEBUG
+    for (const wheels::String &name : _debugNames)
+        assert(
+            debugName != name &&
+            "Debug names need to be unique within a frame");
+#endif // NDEBUG
 }
 
 #endif // PROSPER_RENDER_RESOURCE_COLLECTION_HPP
