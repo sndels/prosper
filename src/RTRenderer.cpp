@@ -61,7 +61,7 @@ struct PCBlock
 
     struct Flags
     {
-        bool colorDirty{false};
+        bool skipHistory{false};
         bool accumulate{false};
         bool ibl{false};
         bool depthOfField{false};
@@ -72,7 +72,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
 {
     uint32_t ret = 0;
 
-    ret |= (uint32_t)flags.colorDirty;
+    ret |= (uint32_t)flags.skipHistory;
     ret |= (uint32_t)flags.accumulate << 1;
     ret |= (uint32_t)flags.ibl << 2;
     ret |= (uint32_t)flags.depthOfField << 3;
@@ -102,7 +102,7 @@ RTRenderer::RTRenderer(
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RTRenderer shader compilation failed");
 
-    createDescriptorSets(staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 }
@@ -117,6 +117,9 @@ RTRenderer::~RTRenderer()
 
         _device->destroy(_shaderBindingTable);
         destroyShaders();
+
+        if (_resources->images.isValidHandle(_previousIllumination))
+            _resources->images.release(_previousIllumination);
     }
 }
 
@@ -176,26 +179,69 @@ RTRenderer::Output RTRenderer::record(
                 .width = renderArea.extent.width,
                 .height = renderArea.extent.height,
                 .usageFlags = vk::ImageUsageFlagBits::eStorage |
-                              vk::ImageUsageFlagBits::eTransferSrc,
+                              vk::ImageUsageFlagBits::eTransferSrc |
+                              vk::ImageUsageFlagBits::eSampled,
             },
             "rtIllumination");
 
-        updateDescriptorSet(nextFrame, illumination);
-        if (renderArea.extent.width != _accumulationExtent.width ||
-            renderArea.extent.height != _accumulationExtent.height)
-        {
-            _accumulationDirty = true;
-            _accumulationExtent = renderArea.extent;
-        }
+        vk::Extent3D previousExtent;
+        if (_resources->images.isValidHandle(_previousIllumination))
+            previousExtent =
+                _resources->images.resource(_previousIllumination).extent;
 
-        _resources->images.transition(
-            cb, illumination,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
-                              vk::AccessFlagBits2::eShaderStorageRead,
-                .layout = vk::ImageLayout::eGeneral,
+        if (colorDirty || renderArea.extent.width != previousExtent.width ||
+            renderArea.extent.height != previousExtent.height)
+        {
+            if (_resources->images.isValidHandle(_previousIllumination))
+                _resources->images.release(_previousIllumination);
+
+            // Create dummy texture that won't be read from to satisfy binds
+            _previousIllumination = _resources->images.create(
+                ImageDescription{
+                    .format = vk::Format::eR32G32B32A32Sfloat,
+                    .width = renderArea.extent.width,
+                    .height = renderArea.extent.height,
+                    .usageFlags = vk::ImageUsageFlagBits::eStorage |
+                                  vk::ImageUsageFlagBits::eTransferSrc |
+                                  vk::ImageUsageFlagBits::eSampled,
+                },
+                "previousRTIllumination");
+            _accumulationDirty = true;
+        }
+        else // We clear debug names each frame
+            _resources->images.appendDebugName(
+                _previousIllumination, "previousRTIllumination");
+
+        updateDescriptorSet(nextFrame, illumination);
+
+        {
+            const StaticArray barriers{{
+                _resources->images.transitionBarrier(
+                    illumination,
+                    ImageState{
+                        .stageMask =
+                            vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                        .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
+                                      vk::AccessFlagBits2::eShaderStorageRead,
+                        .layout = vk::ImageLayout::eGeneral,
+                    }),
+                _resources->images.transitionBarrier(
+                    _previousIllumination,
+                    ImageState{
+                        .stageMask =
+                            vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                        .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
+                                      vk::AccessFlagBits2::eShaderStorageRead,
+                        .layout = vk::ImageLayout::eGeneral,
+                    }),
+            }};
+
+            cb.pipelineBarrier2(vk::DependencyInfo{
+                .imageMemoryBarrierCount =
+                    asserted_cast<uint32_t>(barriers.size()),
+                .pImageMemoryBarriers = barriers.data(),
             });
+        }
 
         const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
@@ -226,7 +272,7 @@ RTRenderer::Output RTRenderer::record(
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
             .flags = pcFlags(PCBlock::Flags{
-                .colorDirty =
+                .skipHistory =
                     cam.changedThisFrame() || colorDirty || _accumulationDirty,
                 .accumulate = _accumulate,
                 .ibl = _ibl,
@@ -273,6 +319,9 @@ RTRenderer::Output RTRenderer::record(
         cb.traceRaysKHR(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
+
+        _resources->images.release(_previousIllumination);
+        _previousIllumination = illumination;
 
         // Further passes expect 16bit illumination
         // TODO:
@@ -333,8 +382,6 @@ RTRenderer::Output RTRenderer::record(
                 _resources->images.nativeHandle(ret.illumination),
                 vk::ImageLayout::eTransferDstOptimal, 1, &blit,
                 vk::Filter::eLinear);
-
-            _resources->images.release(illumination);
         }
     }
 
@@ -401,7 +448,7 @@ bool RTRenderer::compileShaders(
         anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
         ModelInstanceTrfnsBindingSet);
 
-    const Optional<Device::ShaderCompileResult> raygenResult =
+    Optional<Device::ShaderCompileResult> raygenResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rgen",
@@ -433,10 +480,8 @@ bool RTRenderer::compileShaders(
     {
         destroyShaders();
 
-#ifndef NDEBUG
-        const ShaderReflection &raygenReflection = raygenResult->reflection;
-        assert(sizeof(PCBlock) == raygenReflection.pushConstantsBytesize());
-#endif // !NDEBUG
+        _raygenReflection = WHEELS_MOV(raygenResult->reflection);
+        assert(sizeof(PCBlock) == _raygenReflection->pushConstantsBytesize());
 
 #ifndef NDEBUG
         const ShaderReflection &rayMissReflection = rayMissResult->reflection;
@@ -519,18 +564,16 @@ bool RTRenderer::compileShaders(
 }
 
 void RTRenderer::createDescriptorSets(
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    const vk::DescriptorSetLayoutBinding layoutBinding{
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
-    };
+    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+        _raygenReflection->generateLayoutBindings(
+            scopeAlloc, OutputBindingSet, vk::ShaderStageFlagBits::eRaygenKHR);
+
     _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
         vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = 1,
-            .pBindings = &layoutBinding,
+            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+            .pBindings = layoutBindings.data(),
         });
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
@@ -544,19 +587,30 @@ void RTRenderer::updateDescriptorSet(
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
+    assert(_raygenReflection.has_value());
 
-    const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->images.resource(illumination).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
+    const StaticArray bindingInfos = {
+        Pair{
+            0u, DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        _resources->images.resource(_previousIllumination).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }}},
+        Pair{
+            1u, DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = _resources->images.resource(illumination).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }}},
     };
-    const vk::WriteDescriptorSet descriptorWrite{
-        .dstSet = _descriptorSets[nextFrame],
-        .dstBinding = 0,
-        .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .pImageInfo = &colorInfo,
-    };
-    _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+
+    assert(_raygenReflection.has_value());
+    const StaticArray descriptorWrites =
+        _raygenReflection->generateDescriptorWrites(
+            OutputBindingSet, _descriptorSets[nextFrame], bindingInfos);
+
+    _device->logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
 }
 
 void RTRenderer::createPipeline(

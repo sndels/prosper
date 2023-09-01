@@ -16,7 +16,8 @@
 #include "ray.glsl"
 #include "rt_data.glsl"
 
-layout(set = OUTPUT_SET, binding = 0, rgba32f) uniform image2D colorInOut;
+layout(set = OUTPUT_SET, binding = 0, rgba32f) uniform image2D previousColor;
+layout(set = OUTPUT_SET, binding = 1, rgba32f) uniform image2D outColor;
 layout(set = SKYBOX_SET, binding = 0) uniform samplerCube skybox;
 
 #include "rtpc.glsl"
@@ -197,18 +198,18 @@ void main()
         bounce++;
     }
 
-    if (flagColorDirty() || !flagAccumulate())
+    if (flagSkipHistory() || !flagAccumulate())
     {
-        imageStore(colorInOut, ivec2(px), vec4(color, 1));
+        imageStore(outColor, ivec2(px), vec4(color, 1));
     }
     else
     {
-        vec4 history = imageLoad(colorInOut, ivec2(px));
+        vec4 history = imageLoad(previousColor, ivec2(px));
         vec3 historyColor = history.rgb;
         float historyCount = history.a;
 
         vec3 newColor = historyColor + (color - historyColor) / historyCount;
 
-        imageStore(colorInOut, ivec2(px), vec4(newColor, historyCount + 1));
+        imageStore(outColor, ivec2(px), vec4(newColor, historyCount + 1));
     }
 }

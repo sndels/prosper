@@ -55,7 +55,9 @@ class RTRenderer
         wheels::ScopedScratch scopeAlloc,
         const World::DSLayouts &worldDSLayouts);
 
-    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(uint32_t nextFrame, ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
@@ -68,6 +70,7 @@ class RTRenderer
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages{{}};
     wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>
         _shaderGroups{{}};
+    wheels::Optional<ShaderReflection> _raygenReflection;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
@@ -80,11 +83,12 @@ class RTRenderer
     Buffer _shaderBindingTable;
 
     DrawType _drawType{DrawType::Default};
-    vk::Extent2D _accumulationExtent{};
     bool _accumulationDirty{true};
     bool _accumulate{true};
     bool _ibl{false};
     uint32_t _frameIndex{0};
+
+    ImageHandle _previousIllumination;
 };
 
 #endif // PROSPER_RT_RENDERER_HPP
