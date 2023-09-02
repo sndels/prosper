@@ -163,7 +163,12 @@ void RenderResourceCollection<
     _resources.clear();
     _descriptions.clear();
     _aliasedDebugNames.clear();
-    _generations.clear();
+    // Bump all generations to invalidate any stored handles
+    for (uint64_t &generation : _generations)
+    {
+        uint64_t storedGeneration = generation & ~sNotInUseGenerationFlag;
+        generation = sNotInUseGenerationFlag | (storedGeneration + 1);
+    }
     _debugNames.clear();
     // _markedDebugName should be persistent and only cleared through an
     // explicit call to clearDebug()
@@ -236,19 +241,29 @@ Handle RenderResourceCollection<
         .desc = desc,
         .debugName = debugName,
     }));
+    const uint32_t index = asserted_cast<uint32_t>(_resources.size() - 1);
+
     _descriptions.push_back(desc);
     _aliasedDebugNames.emplace_back(_alloc, debugName);
-    // TODO:
-    // Allow implicit conversions on push_back since literal suffixes don't seem
-    // to be portable? Can conversions be supported for literals only?
-    _generations.push_back(static_cast<uint64_t>(0));
+    // We might have handle generations from previously destroyed resources
+    if (_generations.size() < _resources.size())
+        // TODO:
+        // Allow implicit conversions on push_back since literal suffixes don't
+        // seem to be portable? Can conversions be supported for literals only?
+        _generations.push_back(static_cast<uint64_t>(0));
+    else
+    {
+        assert(!resourceInUse(index));
+        uint64_t &generation = _generations[index];
+        generation = generation & ~sNotInUseGenerationFlag;
+    }
 
     assertUniqueDebugName(debugName);
     _debugNames.emplace_back(_alloc, debugName);
 
     const Handle handle{
-        .index = asserted_cast<uint32_t>(_resources.size() - 1),
-        .generation = 0,
+        .index = index,
+        .generation = _generations[index],
     };
 
     assertValidHandle(handle);
