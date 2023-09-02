@@ -422,11 +422,14 @@ template <
     typename Handle, typename Resource, typename Description,
     typename CreateInfo, typename ResourceState, typename Barrier,
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
-const wheels::Optional<Handle> &RenderResourceCollection<
+Handle RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::activeDebugHandle() const
 {
-    return _markedDebugHandle;
+    if (!_markedDebugHandle.has_value() || !isValidHandle(*_markedDebugHandle))
+        return Handle{};
+
+    return *_markedDebugHandle;
 }
 
 template <

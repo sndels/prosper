@@ -192,14 +192,13 @@ void TextureDebug::drawUi()
     assert(settings != nullptr);
 
     {
-        const Optional<ImageHandle> activeHandle =
-            _resources->images.activeDebugHandle();
+        const ImageHandle activeHandle = _resources->images.activeDebugHandle();
         int32_t maxLod = 0;
-        if (activeHandle.has_value())
-            maxLod = asserted_cast<int32_t>(
-                         _resources->images.resource(*activeHandle)
-                             .subresourceRange.levelCount) -
-                     1;
+        if (_resources->images.isValidHandle(activeHandle))
+            maxLod =
+                asserted_cast<int32_t>(_resources->images.resource(activeHandle)
+                                           .subresourceRange.levelCount) -
+                1;
         ImGui::DragInt("LoD##TextureDebug", &settings->lod, 0.02f, 0, maxLod);
         settings->lod = std::clamp(settings->lod, 0, maxLod);
     }
@@ -253,11 +252,10 @@ ImageHandle TextureDebug::record(
     ImageHandle ret;
     {
         ret = createOutput(outSize);
-        const Optional<ImageHandle> inColor =
-            _resources->images.activeDebugHandle();
+        const ImageHandle inColor = _resources->images.activeDebugHandle();
 
-        if (!inColor.has_value() ||
-            _resources->images.resource(*inColor).imageType !=
+        if (!_resources->images.isValidHandle(inColor) ||
+            _resources->images.resource(inColor).imageType !=
                 vk::ImageType::e2D)
         {
             _resources->images.transition(
@@ -277,7 +275,7 @@ ImageHandle TextureDebug::record(
         else
         {
             const BoundImages images{
-                .inColor = *inColor,
+                .inColor = inColor,
                 .outColor = ret,
             };
             updateDescriptorSet(nextFrame, images);
