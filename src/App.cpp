@@ -857,6 +857,9 @@ void App::render(
     }
     else
     {
+        // Need to clean up after toggling rt off to not "leak" the resources
+        _rtRenderer->releasePreserved();
+
         ImageHandle depth;
         // Opaque
         if (_renderDeferred)

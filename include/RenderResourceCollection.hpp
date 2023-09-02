@@ -66,13 +66,14 @@ class RenderResourceCollection
     [[nodiscard]] Barrier transitionBarrier(
         Handle handle, const ResourceState &state);
     void appendDebugName(Handle handle, wheels::StrSpan name);
+    void preserve(Handle handle);
     void release(Handle handle);
 
     // Shouldn't be used by anything other than debug views, will only be valid
     // if the last aliased use for a resource. Marked debug resource will be
     // always valid.
     [[nodiscard]] wheels::Span<const wheels::String> debugNames() const;
-    [[nodiscard]] const wheels::Optional<Handle> &activeDebugHandle() const;
+    [[nodiscard]] Handle activeDebugHandle() const;
     [[nodiscard]] wheels::Optional<wheels::StrSpan> activeDebugName() const;
     void markForDebug(wheels::StrSpan debugName);
     void clearDebug();
@@ -99,6 +100,10 @@ class RenderResourceCollection
     wheels::Array<wheels::String> _debugNames;
     wheels::Optional<wheels::String> _markedDebugName;
     wheels::Optional<Handle> _markedDebugHandle;
+
+#ifndef NDEBUG
+    wheels::Array<bool> _preserved;
+#endif // NDEBUG
 };
 
 template <
@@ -116,6 +121,9 @@ RenderResourceCollection<
 , _aliasedDebugNames{alloc}
 , _generations{alloc}
 , _debugNames{alloc}
+#ifndef NDEBUG
+, _preserved{alloc}
+#endif // NDEBUG
 {
     assert(device != nullptr);
 }
@@ -139,6 +147,22 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::startFrame()
 {
+#ifndef NDEBUG
+    const size_t resourceCount = _resources.size();
+    assert(resourceCount == _preserved.size());
+    assert(resourceCount == _aliasedDebugNames.size());
+    for (size_t i = 0; i < resourceCount; ++i)
+    {
+        // Get name for debug convenience
+        const wheels::String &aliasedDebugName = _aliasedDebugNames[i];
+        if (_preserved[i])
+            _preserved[i] = false;
+        else
+            assert(!resourceInUse(i) && "Resource leaked");
+        (void)aliasedDebugName;
+    }
+#endif // NDEBUG
+
     // These are mapped to persistent resource indices
     for (wheels::String &str : _aliasedDebugNames)
         str.clear();
@@ -173,6 +197,9 @@ void RenderResourceCollection<
     // _markedDebugName should be persistent and only cleared through an
     // explicit call to clearDebug()
     _markedDebugHandle.reset();
+#ifndef NDEBUG
+    _preserved.clear();
+#endif // NDEBUG
 }
 
 template <
@@ -185,13 +212,12 @@ Handle RenderResourceCollection<
     ObjectType>::create(const Description &desc, const char *debugName)
 {
     const uint32_t descCount = asserted_cast<uint32_t>(_descriptions.size());
-#ifndef NDEBUG
-    uint32_t matchingCount = 0;
-#endif // NDEBUG
     for (uint32_t i = 0; i < descCount; ++i)
     {
         if (!resourceInUse(i))
         {
+            assert(!_preserved[i]);
+
             const Description &existingDesc = _descriptions[i];
             if (existingDesc.matches(desc))
             {
@@ -222,20 +248,7 @@ Handle RenderResourceCollection<
                 return handle;
             }
         }
-#ifndef NDEBUG
-        else
-        {
-            if (_descriptions[i].matches(desc))
-                matchingCount++;
-        }
-#endif // NDEBUG
     }
-
-#ifndef NDEBUG
-    assert(
-        matchingCount < 64 &&
-        "Is this resource not being released after being created?");
-#endif // NDEBUG
 
     _resources.push_back(_device->create(CreateInfo{
         .desc = desc,
@@ -257,6 +270,10 @@ Handle RenderResourceCollection<
         uint64_t &generation = _generations[index];
         generation = generation & ~sNotInUseGenerationFlag;
     }
+
+#ifndef NDEBUG
+    _preserved.push_back(false);
+#endif // NDEBUG
 
     assertUniqueDebugName(debugName);
     _debugNames.emplace_back(_alloc, debugName);
@@ -402,9 +419,28 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::release(Handle handle)
 {
     assertValidHandle(handle);
+    assert(!_preserved[handle.index] && "Releasing a preserved resource");
 
     _generations[handle.index]++;
     _generations[handle.index] |= sNotInUseGenerationFlag;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::preserve(Handle handle)
+{
+#ifndef NDEBUG
+    assertValidHandle(handle);
+    assert(
+        !_preserved[handle.index] &&
+        "Resource is being preseved in two places, ownership gets muddy.");
+
+    _preserved[handle.index] = true;
+#endif // NDEBUG
 }
 
 template <

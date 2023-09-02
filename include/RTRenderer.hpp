@@ -46,6 +46,7 @@ class RTRenderer
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         bool depthOfField, const vk::Rect2D &renderArea, uint32_t nextFrame,
         bool colorDirty, Profiler *profiler);
+    void releasePreserved();
 
   private:
     void destroyShaders();

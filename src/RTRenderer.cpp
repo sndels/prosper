@@ -117,9 +117,6 @@ RTRenderer::~RTRenderer()
 
         _device->destroy(_shaderBindingTable);
         destroyShaders();
-
-        if (_resources->images.isValidHandle(_previousIllumination))
-            _resources->images.release(_previousIllumination);
     }
 }
 
@@ -322,6 +319,7 @@ RTRenderer::Output RTRenderer::record(
 
         _resources->images.release(_previousIllumination);
         _previousIllumination = illumination;
+        _resources->images.preserve(_previousIllumination);
 
         // Further passes expect 16bit illumination
         // TODO:
@@ -388,6 +386,12 @@ RTRenderer::Output RTRenderer::record(
     _accumulationDirty = false;
 
     return ret;
+}
+
+void RTRenderer::releasePreserved()
+{
+    if (_resources->images.isValidHandle(_previousIllumination))
+        _resources->images.release(_previousIllumination);
 }
 
 void RTRenderer::destroyShaders()
