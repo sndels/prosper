@@ -197,8 +197,8 @@ void ToneMap::updateDescriptorSet(uint32_t nextFrame, const BoundImages &images)
         _shaderReflection->generateDescriptorWrites<2>(
             0, _descriptorSets[nextFrame],
             {
-                Pair{0u, DescriptorInfo{colorInfo}},
-                Pair{1u, DescriptorInfo{mappedInfo}},
+                DescriptorInfo{colorInfo},
+                DescriptorInfo{mappedInfo},
             });
 
     _device->logical().updateDescriptorSets(

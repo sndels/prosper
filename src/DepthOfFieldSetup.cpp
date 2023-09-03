@@ -281,11 +281,11 @@ void DepthOfFieldSetup::updateDescriptorSet(
         _shaderReflection->generateDescriptorWrites<5>(
             StorageBindingSet, ds,
             {
-                Pair{0u, DescriptorInfo{illuminationInfo}},
-                Pair{1u, DescriptorInfo{depthInfo}},
-                Pair{2u, DescriptorInfo{halfResIlluminationInfo}},
-                Pair{3u, DescriptorInfo{halfResCircleOfConfusionInfo}},
-                Pair{4u, DescriptorInfo{depthSamplerInfo}},
+                DescriptorInfo{illuminationInfo},
+                DescriptorInfo{depthInfo},
+                DescriptorInfo{halfResIlluminationInfo},
+                DescriptorInfo{halfResCircleOfConfusionInfo},
+                DescriptorInfo{depthSamplerInfo},
             });
 
     _device->logical().updateDescriptorSets(

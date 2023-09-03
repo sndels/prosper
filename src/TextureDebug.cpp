@@ -398,9 +398,9 @@ void TextureDebug::updateDescriptorSet(
         _shaderReflection->generateDescriptorWrites<3>(
             0, _descriptorSets[nextFrame],
             {
-                Pair{0u, DescriptorInfo{colorInfo}},
-                Pair{1u, DescriptorInfo{mappedInfo}},
-                Pair{2u, DescriptorInfo{samplerInfo}},
+                DescriptorInfo{colorInfo},
+                DescriptorInfo{mappedInfo},
+                DescriptorInfo{samplerInfo},
             });
 
     _device->logical().updateDescriptorSets(

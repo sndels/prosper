@@ -273,33 +273,26 @@ void DepthOfFieldGather::updateDescriptorSet(
     // Have to compare against both extent and previous native handle?
 
     const StaticArray bindingInfos = {
-        Pair{
-            0u,
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    _resources->images.resource(input.halfResIllumination).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }}},
-        Pair{
-            1u,
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = _resources->images.resource(input.halfResCoC).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }}},
-        Pair{
-            2u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.dilatedTileMinMaxCoC)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
-        Pair{
-            3u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images
-                                     .resource(output.halfResBokehColorWeight)
-                                     .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(input.halfResIllumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView = _resources->images.resource(input.halfResCoC).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(input.dilatedTileMinMaxCoC).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(output.halfResBokehColorWeight)
+                    .view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
     };
 
     assert(_shaderReflections.size() > gatherType);

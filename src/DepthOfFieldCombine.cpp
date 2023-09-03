@@ -210,40 +210,33 @@ void DepthOfFieldCombine::updateDescriptorSet(
     // Have to compare against both extent and previous native handle?
 
     const StaticArray bindingInfos = {
-        Pair{
-            0u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.halfResFgBokehWeight)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
-        Pair{
-            1u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.halfResBgBokehWeight)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
-        Pair{
-            2u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images
-                                     .resource(input.halfResCircleOfConfusion)
-                                     .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
-        Pair{
-            3u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.illumination).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
-        Pair{
-            4u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images
-                                     .resource(output.combinedIlluminationDoF)
-                                     .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(input.halfResFgBokehWeight).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(input.halfResBgBokehWeight).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(input.halfResCircleOfConfusion)
+                    .view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView = _resources->images.resource(input.illumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(output.combinedIlluminationDoF)
+                    .view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
     };
 
     const vk::DescriptorSet ds = _descriptorSets[nextFrame];

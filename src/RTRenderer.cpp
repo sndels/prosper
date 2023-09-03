@@ -594,17 +594,15 @@ void RTRenderer::updateDescriptorSet(
     assert(_raygenReflection.has_value());
 
     const StaticArray bindingInfos = {
-        Pair{
-            0u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(_previousIllumination).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
-        Pair{
-            1u, DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images.resource(illumination).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }}},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                _resources->images.resource(_previousIllumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView = _resources->images.resource(illumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
     };
 
     assert(_raygenReflection.has_value());

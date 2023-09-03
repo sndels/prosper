@@ -213,8 +213,8 @@ void DepthOfFieldFlatten::updateDescriptorSet(
         _shaderReflection->generateDescriptorWrites<2>(
             0, ds,
             {
-                Pair{0u, DescriptorInfo{inputInfo}},
-                Pair{1u, DescriptorInfo{outputInfo}},
+                DescriptorInfo{inputInfo},
+                DescriptorInfo{outputInfo},
             });
 
     _device->logical().updateDescriptorSets(
