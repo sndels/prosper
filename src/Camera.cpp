@@ -85,8 +85,10 @@ void Camera::perspective()
 {
     const auto fov = _parameters.fov;
     const auto ar = _parameters.ar;
-    const auto zN = _parameters.zN;
-    const auto zF = _parameters.zF;
+    // Swap near and far for the magical properties of reverse-z
+    // https://developer.nvidia.com/content/depth-precision-visualized
+    const auto zN = _parameters.zF;
+    const auto zF = _parameters.zN;
 
     const float tf = 1.f / tanf(fov * 0.5f);
 

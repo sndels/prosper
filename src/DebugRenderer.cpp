@@ -323,7 +323,7 @@ void DebugRenderer::createGraphicsPipeline(
 
     _pipeline = ::createGraphicsPipeline(
         _device->logical(), vk::PrimitiveTopology::eLineList, _pipelineLayout,
-        vertInputInfo, vk::CullModeFlagBits::eBack, vk::CompareOp::eLess,
+        vertInputInfo, vk::CullModeFlagBits::eBack, vk::CompareOp::eGreater,
         Span{&blendAttachment, 1}, _shaderStages,
         vk::PipelineRenderingCreateInfo{
             .colorAttachmentCount = 1,

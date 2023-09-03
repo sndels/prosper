@@ -268,7 +268,7 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         _pipelines[0] = createGraphicsPipeline(
             _device->logical(), vk::PrimitiveTopology::eTriangleList,
             _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
-            vk::CompareOp::eLess, Span{&blendAttachment, 1}, _shaderStages,
+            vk::CompareOp::eGreater, Span{&blendAttachment, 1}, _shaderStages,
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats = &sIlluminationFormat,
@@ -284,7 +284,7 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         _pipelines[1] = createGraphicsPipeline(
             _device->logical(), vk::PrimitiveTopology::eTriangleList,
             _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
-            vk::CompareOp::eLess, Span{&blendAttachment, 1}, _shaderStages,
+            vk::CompareOp::eGreater, Span{&blendAttachment, 1}, _shaderStages,
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats = &sIlluminationFormat,
@@ -466,7 +466,7 @@ Renderer::Attachments Renderer::createAttachments(
             .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
-            .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
+            .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
         };
     }
 

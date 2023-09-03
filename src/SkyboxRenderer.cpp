@@ -246,7 +246,8 @@ void SkyboxRenderer::createGraphicsPipelines(
     _pipeline = createGraphicsPipeline(
         _device->logical(), vk::PrimitiveTopology::eTriangleList,
         _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eNone,
-        vk::CompareOp::eLessOrEqual, Span{&blendAttachment, 1}, _shaderStages,
+        vk::CompareOp::eGreaterOrEqual, Span{&blendAttachment, 1},
+        _shaderStages,
         vk::PipelineRenderingCreateInfo{
             .colorAttachmentCount = 1,
             .pColorAttachmentFormats = &sIlluminationFormat,

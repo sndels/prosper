@@ -297,7 +297,7 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
                 .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
                 .loadOp = vk::AttachmentLoadOp::eClear,
                 .storeOp = vk::AttachmentStoreOp::eStore,
-                .clearValue = vk::ClearValue{std::array{1.f, 0.f, 0.f, 0.f}},
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
             },
     };
 }
@@ -376,7 +376,7 @@ void GBufferRenderer::createGraphicsPipelines(
     _pipeline = createGraphicsPipeline(
         _device->logical(), vk::PrimitiveTopology::eTriangleList,
         _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
-        vk::CompareOp::eLess, colorBlendAttachments, _shaderStages,
+        vk::CompareOp::eGreater, colorBlendAttachments, _shaderStages,
         vk::PipelineRenderingCreateInfo{
             .colorAttachmentCount =
                 asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),

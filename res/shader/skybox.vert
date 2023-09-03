@@ -17,6 +17,6 @@ void main()
 {
     fragTexCoord = vertPosition;
     vec4 pos = camera.worldToClip * vec4(vertPosition, 1);
-    // Make sure the skybox is at at depth 1 in NDC
-    gl_Position = pos.xyww;
+    // Put the skybox at depth 0 in NDC since we use reverse-z
+    gl_Position = vec4(pos.xy, 0, pos.w);
 }
