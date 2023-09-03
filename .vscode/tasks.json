@@ -205,7 +205,7 @@
             "type": "shell",
             "command": "cmake",
             "args": [
-                "-DCMAKE_BUILD_TYPE=Release",
+                "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
                 // Ninja color output
                 "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
                 "-G",
