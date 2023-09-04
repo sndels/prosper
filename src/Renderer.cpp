@@ -384,41 +384,18 @@ void Renderer::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            inOutTargets.illumination,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
+            inOutTargets.illumination, ImageState::ColorAttachmentReadWrite),
         _resources->images.transitionBarrier(
-            inOutTargets.depth,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            inOutTargets.depth, ImageState::DepthAttachmentReadWrite),
         _resources->images.transitionBarrier(
-            lightClusters.pointers,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            lightClusters.pointers, ImageState::FragmentShaderRead),
     };
 
     const StaticArray bufferBarriers{
         _resources->texelBuffers.transitionBarrier(
-            lightClusters.indicesCount,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-            }),
+            lightClusters.indicesCount, BufferState::FragmentShaderRead),
         _resources->texelBuffers.transitionBarrier(
-            lightClusters.indices,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-            }),
+            lightClusters.indices, BufferState::FragmentShaderRead),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

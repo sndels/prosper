@@ -139,19 +139,9 @@ void DepthOfFieldDilate::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            tileMinMaxCoC,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            tileMinMaxCoC, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            output.dilatedTileMinMaxCoC,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            output.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

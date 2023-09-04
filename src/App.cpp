@@ -983,17 +983,9 @@ void App::blitColorToFinalComposite(
     {
         const StaticArray barriers{{
             _resources->images.transitionBarrier(
-                toneMapped,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                    .accessMask = vk::AccessFlagBits2::eTransferRead,
-                    .layout = vk::ImageLayout::eTransferSrcOptimal,
-                }),
-            _resources->finalComposite.transitionBarrier(ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                .layout = vk::ImageLayout::eTransferDstOptimal,
-            }),
+                toneMapped, ImageState::TransferSrc),
+            _resources->finalComposite.transitionBarrier(
+                ImageState::TransferDst),
         }};
 
         cb.pipelineBarrier2(vk::DependencyInfo{
@@ -1089,11 +1081,7 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
     const auto &swapImage = _swapchain->image(nextImage);
 
     const StaticArray barriers{{
-        _resources->finalComposite.transitionBarrier(ImageState{
-            .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .accessMask = vk::AccessFlagBits2::eTransferRead,
-            .layout = vk::ImageLayout::eTransferSrcOptimal,
-        }),
+        _resources->finalComposite.transitionBarrier(ImageState::TransferSrc),
         vk::ImageMemoryBarrier2{
             .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
             .srcAccessMask = vk::AccessFlags2{},

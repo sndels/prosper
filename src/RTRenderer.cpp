@@ -214,23 +214,9 @@ RTRenderer::Output RTRenderer::record(
         {
             const StaticArray barriers{{
                 _resources->images.transitionBarrier(
-                    illumination,
-                    ImageState{
-                        .stageMask =
-                            vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                        .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
-                                      vk::AccessFlagBits2::eShaderStorageRead,
-                        .layout = vk::ImageLayout::eGeneral,
-                    }),
+                    illumination, ImageState::RayTracingReadWrite),
                 _resources->images.transitionBarrier(
-                    _previousIllumination,
-                    ImageState{
-                        .stageMask =
-                            vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                        .accessMask = vk::AccessFlagBits2::eShaderStorageWrite |
-                                      vk::AccessFlagBits2::eShaderStorageRead,
-                        .layout = vk::ImageLayout::eGeneral,
-                    }),
+                    _previousIllumination, ImageState::RayTracingReadWrite),
             }};
 
             cb.pipelineBarrier2(vk::DependencyInfo{
@@ -332,19 +318,9 @@ RTRenderer::Output RTRenderer::record(
             {
                 const StaticArray barriers{{
                     _resources->images.transitionBarrier(
-                        illumination,
-                        ImageState{
-                            .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                            .accessMask = vk::AccessFlagBits2::eTransferRead,
-                            .layout = vk::ImageLayout::eTransferSrcOptimal,
-                        }),
+                        illumination, ImageState::TransferSrc),
                     _resources->images.transitionBarrier(
-                        ret.illumination,
-                        ImageState{
-                            .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                            .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                            .layout = vk::ImageLayout::eTransferDstOptimal,
-                        }),
+                        ret.illumination, ImageState::TransferDst),
                 }};
 
                 cb.pipelineBarrier2(vk::DependencyInfo{

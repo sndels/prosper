@@ -421,12 +421,7 @@ Texture2D::Texture2D(
         .debugName = "Texture2D",
     });
 
-    _image.transition(
-        cb, ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                .layout = vk::ImageLayout::eTransferDstOptimal,
-            });
+    _image.transition(cb, ImageState::TransferDst);
 
     std::vector<vk::BufferImageCopy> regions;
     regions.reserve(dds.mipLevelCount);
@@ -462,13 +457,7 @@ Texture2D::Texture2D(
 
     if (!skipPostTransition)
         _image.transition(
-            cb,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader |
-                             vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
-            });
+            cb, ImageState::FragmentShaderRead | ImageState::RayTracingRead);
 }
 
 vk::DescriptorImageInfo Texture2D::imageInfo() const

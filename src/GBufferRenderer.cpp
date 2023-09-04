@@ -307,26 +307,11 @@ void GBufferRenderer::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            output.albedoRoughness,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
+            output.albedoRoughness, ImageState::ColorAttachmentWrite),
         _resources->images.transitionBarrier(
-            output.normalMetalness,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
+            output.normalMetalness, ImageState::ColorAttachmentWrite),
         _resources->images.transitionBarrier(
-            output.depth,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            output.depth, ImageState::DepthAttachmentReadWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

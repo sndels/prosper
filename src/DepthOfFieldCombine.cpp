@@ -134,40 +134,15 @@ void DepthOfFieldCombine::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            input.halfResFgBokehWeight,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.halfResFgBokehWeight, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.halfResBgBokehWeight,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.halfResBgBokehWeight, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.halfResCircleOfConfusion,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderSampledRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.halfResCircleOfConfusion, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.illumination,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.illumination, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            output.combinedIlluminationDoF,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            output.combinedIlluminationDoF, ImageState::ComputeShaderWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

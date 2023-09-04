@@ -194,19 +194,9 @@ void DebugRenderer::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            inOutTargets.color,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
+            inOutTargets.color, ImageState::ColorAttachmentWrite),
         _resources->images.transitionBarrier(
-            inOutTargets.depth,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            inOutTargets.depth, ImageState::DepthAttachmentReadWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

@@ -101,12 +101,7 @@ LightClustering::Output LightClustering::record(
             cb.fillBuffer(indicesCount.handle, 0, indicesCount.size, 0);
 
             _resources->texelBuffers.transition(
-                cb, ret.indicesCount,
-                BufferState{
-                    .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                    .accessMask = vk::AccessFlagBits2::eShaderRead |
-                                  vk::AccessFlagBits2::eShaderWrite,
-                });
+                cb, ret.indicesCount, BufferState::ComputeShaderReadWrite);
         }
 
         { // Main dispatch
@@ -184,26 +179,13 @@ void LightClustering::recordBarriers(
 {
     const vk::ImageMemoryBarrier2 imageBarrier =
         _resources->images.transitionBarrier(
-            output.pointers,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            });
+            output.pointers, ImageState::ComputeShaderWrite);
 
     const StaticArray bufferBarriers{
         _resources->texelBuffers.transitionBarrier(
-            output.indices,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-            }),
+            output.indices, BufferState::ComputeShaderWrite),
         _resources->texelBuffers.transitionBarrier(
-            output.indicesCount,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eTransfer,
-                .accessMask = vk::AccessFlagBits2::eTransferWrite,
-            }),
+            output.indicesCount, BufferState::TransferDst),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

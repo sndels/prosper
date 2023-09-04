@@ -5,11 +5,107 @@
 #include <vulkan/vulkan.hpp>
 #include <wheels/containers/span.hpp>
 
-struct BufferState
+// TODO:
+// Tighter transfer, shader access flags
+enum class BufferState : uint32_t
 {
-    vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
-    vk::AccessFlags2 accessMask{vk::AccessFlagBits2::eNone};
+    Unknown = 0,
+
+    // Stages
+    StageFragmentShader = 0x1,
+    StageComputeShader = 0x2,
+    // Covers copy, blit, resolve and clear
+    StageTransfer = 0x4,
+
+    // Access
+    // Covers sampled and storage reads
+    AccessShaderRead = 0x8,
+    AccessShaderWrite = 0x10,
+    // Covers copy, blit, resolve and clear
+    AccessTransferRead = 0x20,
+    // Covers copy, blit, resolve and clear
+    AccessTransferWrite = 0x40,
+
+    // Combined Masks
+    FragmentShaderRead = StageFragmentShader | AccessShaderRead,
+    ComputeShaderRead = StageComputeShader | AccessShaderRead,
+    ComputeShaderWrite = StageComputeShader | AccessShaderWrite,
+    ComputeShaderReadWrite = ComputeShaderRead | ComputeShaderWrite,
+    TransferSrc = StageTransfer | AccessTransferRead,
+    TransferDst = StageTransfer | AccessTransferWrite,
 };
+
+// TODO:
+// Tighter transfer, shader access flags
+enum class ImageState : uint32_t
+{
+    Unknown = 0,
+
+    // Stages
+    StageFragmentShader = 0x1,
+    StageEarlyFragmentTests = 0x2,
+    StageLateFragmentTests = 0x4,
+    StageColorAttachmentOutput = 0x8,
+    StageComputeShader = 0x10,
+    StageRayTracingShader = 0x20,
+    // Covers copy, blit, resolve and clear
+    StageTransfer = 0x40,
+
+    // Access
+    // Covers sampled and storage reads
+    AccessShaderRead = 0x80,
+    AccessShaderWrite = 0x100,
+    AccessColorAttachmentRead = 0x200,
+    AccessColorAttachmentWrite = 0x400,
+    AccessDepthAttachmentRead = 0x800,
+    AccessDepthAttachmentWrite = 0x1000,
+    // Covers copy, blit, resolve and clear
+    AccessTransferRead = 0x2000,
+    // Covers copy, blit, resolve and clear
+    AccessTransferWrite = 0x4000,
+
+    // Combined Masks
+    ColorAttachmentWrite =
+        StageColorAttachmentOutput | AccessColorAttachmentWrite,
+    ColorAttachmentReadWrite = StageColorAttachmentOutput |
+                               AccessColorAttachmentRead |
+                               AccessColorAttachmentWrite,
+    DepthAttachmentRead = StageEarlyFragmentTests | AccessDepthAttachmentRead,
+    DepthAttachmentWrite = StageLateFragmentTests | AccessDepthAttachmentWrite,
+    DepthAttachmentReadWrite = DepthAttachmentRead | DepthAttachmentWrite,
+    FragmentShaderRead = StageFragmentShader | AccessShaderRead,
+    ComputeShaderRead = StageComputeShader | AccessShaderRead,
+    ComputeShaderWrite = StageComputeShader | AccessShaderWrite,
+    ComputeShaderReadWrite = ComputeShaderRead | ComputeShaderWrite,
+    RayTracingRead = StageRayTracingShader | AccessShaderRead,
+    RayTracingWrite = StageRayTracingShader | AccessShaderWrite,
+    RayTracingReadWrite = RayTracingRead | RayTracingWrite,
+    TransferSrc = StageTransfer | AccessTransferRead,
+    TransferDst = StageTransfer | AccessTransferWrite,
+};
+
+template <typename T>
+    requires(wheels::SameAs<T, BufferState> || wheels::SameAs<T, ImageState>)
+constexpr T operator&(T lhs, T rhs)
+{
+    return static_cast<T>(
+        static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
+}
+
+template <typename T>
+    requires(wheels::SameAs<T, BufferState> || wheels::SameAs<T, ImageState>)
+constexpr T operator|(T lhs, T rhs)
+{
+    return static_cast<T>(
+        static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
+}
+
+template <typename T>
+    requires(wheels::SameAs<T, BufferState> || wheels::SameAs<T, ImageState>)
+constexpr bool contains(T state, T subState)
+{
+    return (state & subState) == subState;
+}
 
 struct BufferDescription
 {
@@ -45,12 +141,12 @@ struct Buffer
     vk::Buffer handle;
     vk::DeviceSize byteSize{0};
     void *mapped{nullptr};
-    BufferState state;
+    BufferState state{BufferState::Unknown};
     VmaAllocation allocation{nullptr};
 
     [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
-        const BufferState &newState);
-    void transition(vk::CommandBuffer cb, const BufferState &newState);
+        BufferState newState);
+    void transition(vk::CommandBuffer cb, BufferState newState);
 };
 
 struct TexelBufferDescription
@@ -84,19 +180,12 @@ struct TexelBuffer
     vk::BufferView view;
     vk::Format format{vk::Format::eUndefined};
     vk::DeviceSize size{0};
-    BufferState state;
+    BufferState state{BufferState::Unknown};
     VmaAllocation allocation{nullptr};
 
     [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
-        const BufferState &newState);
-    void transition(vk::CommandBuffer cb, const BufferState &newState);
-};
-
-struct ImageState
-{
-    vk::PipelineStageFlags2 stageMask{vk::PipelineStageFlagBits2::eTopOfPipe};
-    vk::AccessFlags2 accessMask;
-    vk::ImageLayout layout{vk::ImageLayout::eUndefined};
+        BufferState newState);
+    void transition(vk::CommandBuffer cb, BufferState newState);
 };
 
 struct ImageDescription
@@ -156,13 +245,13 @@ struct Image
     // on every use
     vk::Extent3D extent;
     vk::ImageSubresourceRange subresourceRange;
-    ImageState state;
+    ImageState state{ImageState::Unknown};
     VmaAllocation allocation{nullptr};
     vk::DeviceSize rawByteSize{0};
 
     [[nodiscard]] vk::ImageMemoryBarrier2 transitionBarrier(
-        const ImageState &newState);
-    void transition(vk::CommandBuffer buffer, const ImageState &newState);
+        ImageState newState);
+    void transition(vk::CommandBuffer buffer, ImageState newState);
 };
 
 struct AccelerationStructure

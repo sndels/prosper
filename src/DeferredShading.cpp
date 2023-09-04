@@ -222,55 +222,22 @@ void DeferredShading::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            input.gbuffer.albedoRoughness,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.gbuffer.normalMetalness,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.gbuffer.normalMetalness, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.gbuffer.depth,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.gbuffer.depth, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            output.illumination,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            output.illumination, ImageState::ComputeShaderWrite),
         _resources->images.transitionBarrier(
-            input.lightClusters.pointers,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eFragmentShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.lightClusters.pointers, ImageState::ComputeShaderRead),
     };
 
     const StaticArray bufferBarriers{
         _resources->texelBuffers.transitionBarrier(
-            input.lightClusters.indicesCount,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-            }),
+            input.lightClusters.indicesCount, BufferState::ComputeShaderRead),
         _resources->texelBuffers.transitionBarrier(
-            input.lightClusters.indices,
-            BufferState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-            }),
+            input.lightClusters.indices, BufferState::ComputeShaderRead),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

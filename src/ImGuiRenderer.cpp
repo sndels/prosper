@@ -118,13 +118,7 @@ void ImGuiRenderer::endFrame(
 
     {
         _resources->finalComposite.transition(
-            cb,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentRead |
-                              vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            });
+            cb, ImageState::ColorAttachmentReadWrite);
 
         const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
 

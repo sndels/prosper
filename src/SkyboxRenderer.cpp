@@ -163,19 +163,9 @@ void SkyboxRenderer::recordBarriers(
 {
     const StaticArray barriers{
         _resources->images.transitionBarrier(
-            inOutTargets.illumination,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                .accessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
-                .layout = vk::ImageLayout::eColorAttachmentOptimal,
-            }),
+            inOutTargets.illumination, ImageState::ColorAttachmentWrite),
         _resources->images.transitionBarrier(
-            inOutTargets.depth,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests,
-                .accessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead,
-                .layout = vk::ImageLayout::eDepthAttachmentOptimal,
-            }),
+            inOutTargets.depth, ImageState::DepthAttachmentReadWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

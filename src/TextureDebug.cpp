@@ -258,13 +258,7 @@ ImageHandle TextureDebug::record(
             _resources->images.resource(inColor).imageType !=
                 vk::ImageType::e2D)
         {
-            _resources->images.transition(
-                cb, ret,
-                ImageState{
-                    .stageMask = vk::PipelineStageFlagBits2::eCopy,
-                    .accessMask = vk::AccessFlagBits2::eTransferWrite,
-                    .layout = vk::ImageLayout::eTransferDstOptimal,
-                });
+            _resources->images.transition(cb, ret, ImageState::TransferDst);
 
             const Image &image = _resources->images.resource(ret);
             const vk::ClearColorValue clearValue{0.f, 0.f, 0.f, 1.f};
@@ -459,19 +453,9 @@ void TextureDebug::recordBarriers(
 {
     const StaticArray barriers{
         _resources->images.transitionBarrier(
-            images.inColor,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderSampledRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            images.inColor, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            images.outColor,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            images.outColor, ImageState::ComputeShaderWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

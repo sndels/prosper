@@ -187,33 +187,13 @@ void DepthOfFieldGather::recordBarriers(
 {
     const StaticArray imageBarriers{
         _resources->images.transitionBarrier(
-            input.halfResIllumination,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.halfResIllumination, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.halfResCoC,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.halfResCoC, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            input.dilatedTileMinMaxCoC,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            output.halfResBokehColorWeight,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            output.halfResBokehColorWeight, ImageState::ComputeShaderWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

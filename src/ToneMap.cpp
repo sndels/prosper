@@ -260,19 +260,9 @@ void ToneMap::recordBarriers(
     // TODO: This to recordBarriers()
     const StaticArray barriers{
         _resources->images.transitionBarrier(
-            images.inColor,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderRead,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            images.inColor, ImageState::ComputeShaderRead),
         _resources->images.transitionBarrier(
-            images.toneMapped,
-            ImageState{
-                .stageMask = vk::PipelineStageFlagBits2::eComputeShader,
-                .accessMask = vk::AccessFlagBits2::eShaderWrite,
-                .layout = vk::ImageLayout::eGeneral,
-            }),
+            images.toneMapped, ImageState::ComputeShaderWrite),
     };
 
     cb.pipelineBarrier2(vk::DependencyInfo{

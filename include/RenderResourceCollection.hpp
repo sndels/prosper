@@ -61,10 +61,8 @@ class RenderResourceCollection
     [[nodiscard]] bool isValidHandle(Handle handle) const;
     [[nodiscard]] CppNativeType nativeHandle(Handle handle) const;
     [[nodiscard]] const Resource &resource(Handle handle) const;
-    void transition(
-        vk::CommandBuffer cb, Handle handle, const ResourceState &state);
-    [[nodiscard]] Barrier transitionBarrier(
-        Handle handle, const ResourceState &state);
+    void transition(vk::CommandBuffer cb, Handle handle, ResourceState state);
+    [[nodiscard]] Barrier transitionBarrier(Handle handle, ResourceState state);
     void appendDebugName(Handle handle, wheels::StrSpan name);
     void preserve(Handle handle);
     void release(Handle handle);
@@ -356,7 +354,7 @@ template <
 void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::
-    transition(vk::CommandBuffer cb, Handle handle, const ResourceState &state)
+    transition(vk::CommandBuffer cb, Handle handle, ResourceState state)
 {
     assertValidHandle(handle);
 
@@ -370,7 +368,7 @@ template <
 Barrier RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType,
-    ObjectType>::transitionBarrier(Handle handle, const ResourceState &state)
+    ObjectType>::transitionBarrier(Handle handle, ResourceState state)
 {
     assertValidHandle(handle);
 
