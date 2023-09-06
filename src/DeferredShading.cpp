@@ -220,34 +220,19 @@ DeferredShading::Output DeferredShading::record(
 void DeferredShading::recordBarriers(
     vk::CommandBuffer cb, const Input &input, const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.gbuffer.normalMetalness, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.gbuffer.depth, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            output.illumination, ImageState::ComputeShaderWrite),
-        _resources->images.transitionBarrier(
-            input.lightClusters.pointers, ImageState::ComputeShaderRead),
-    };
-
-    const StaticArray bufferBarriers{
-        _resources->texelBuffers.transitionBarrier(
-            input.lightClusters.indicesCount, BufferState::ComputeShaderRead),
-        _resources->texelBuffers.transitionBarrier(
-            input.lightClusters.indices, BufferState::ComputeShaderRead),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount =
-            asserted_cast<uint32_t>(bufferBarriers.size()),
-        .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<5, 2>(
+        *_resources, cb,
+        {
+            {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
+            {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
+            {input.gbuffer.depth, ImageState::ComputeShaderRead},
+            {output.illumination, ImageState::ComputeShaderWrite},
+            {input.lightClusters.pointers, ImageState::ComputeShaderRead},
+        },
+        {
+            {input.lightClusters.indicesCount, BufferState::ComputeShaderRead},
+            {input.lightClusters.indices, BufferState::ComputeShaderRead},
+        });
 }
 
 void DeferredShading::destroyPipelines()

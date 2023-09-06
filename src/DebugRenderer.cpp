@@ -192,18 +192,12 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
 void DebugRenderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            inOutTargets.color, ImageState::ColorAttachmentWrite),
-        _resources->images.transitionBarrier(
-            inOutTargets.depth, ImageState::DepthAttachmentReadWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<2>(
+        *_resources, cb,
+        {
+            {inOutTargets.color, ImageState::ColorAttachmentWrite},
+            {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+        });
 }
 
 DebugRenderer::Attachments DebugRenderer::createAttachments(

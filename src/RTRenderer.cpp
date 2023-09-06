@@ -211,20 +211,12 @@ RTRenderer::Output RTRenderer::record(
 
         updateDescriptorSet(nextFrame, illumination);
 
-        {
-            const StaticArray barriers{{
-                _resources->images.transitionBarrier(
-                    illumination, ImageState::RayTracingReadWrite),
-                _resources->images.transitionBarrier(
-                    _previousIllumination, ImageState::RayTracingReadWrite),
-            }};
-
-            cb.pipelineBarrier2(vk::DependencyInfo{
-                .imageMemoryBarrierCount =
-                    asserted_cast<uint32_t>(barriers.size()),
-                .pImageMemoryBarriers = barriers.data(),
+        transition<2>(
+            *_resources, cb,
+            {
+                {illumination, ImageState::RayTracingReadWrite},
+                {_previousIllumination, ImageState::RayTracingReadWrite},
             });
-        }
 
         const auto _s = profiler->createCpuGpuScope(cb, "RT");
 
@@ -315,20 +307,12 @@ RTRenderer::Output RTRenderer::record(
             ret.illumination = createIllumination(
                 *_resources, renderArea.extent, "illumination");
 
-            {
-                const StaticArray barriers{{
-                    _resources->images.transitionBarrier(
-                        illumination, ImageState::TransferSrc),
-                    _resources->images.transitionBarrier(
-                        ret.illumination, ImageState::TransferDst),
-                }};
-
-                cb.pipelineBarrier2(vk::DependencyInfo{
-                    .imageMemoryBarrierCount =
-                        asserted_cast<uint32_t>(barriers.size()),
-                    .pImageMemoryBarriers = barriers.data(),
+            transition<2>(
+                *_resources, cb,
+                {
+                    {illumination, ImageState::TransferSrc},
+                    {ret.illumination, ImageState::TransferDst},
                 });
-            }
 
             const vk::ImageSubresourceLayers layers{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,

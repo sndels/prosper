@@ -182,22 +182,14 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 void DepthOfFieldSetup::recordBarriers(
     vk::CommandBuffer cb, const Input &input, const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            input.illumination, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.depth, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            output.halfResIllumination, ImageState::ComputeShaderWrite),
-        _resources->images.transitionBarrier(
-            output.halfResCircleOfConfusion, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<4>(
+        *_resources, cb,
+        {
+            {input.illumination, ImageState::ComputeShaderRead},
+            {input.depth, ImageState::ComputeShaderRead},
+            {output.halfResIllumination, ImageState::ComputeShaderWrite},
+            {output.halfResCircleOfConfusion, ImageState::ComputeShaderWrite},
+        });
 }
 
 void DepthOfFieldSetup::destroyPipelines()

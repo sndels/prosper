@@ -451,15 +451,10 @@ ImageHandle TextureDebug::createOutput(vk::Extent2D size)
 void TextureDebug::recordBarriers(
     vk::CommandBuffer cb, const BoundImages &images) const
 {
-    const StaticArray barriers{
-        _resources->images.transitionBarrier(
-            images.inColor, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            images.outColor, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
+    transition<2>(
+        *_resources, cb,
+        {
+            {images.inColor, ImageState::ComputeShaderRead},
+            {images.outColor, ImageState::ComputeShaderWrite},
+        });
 }

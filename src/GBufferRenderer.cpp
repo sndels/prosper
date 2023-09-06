@@ -305,20 +305,13 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
 void GBufferRenderer::recordBarriers(
     vk::CommandBuffer cb, const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            output.albedoRoughness, ImageState::ColorAttachmentWrite),
-        _resources->images.transitionBarrier(
-            output.normalMetalness, ImageState::ColorAttachmentWrite),
-        _resources->images.transitionBarrier(
-            output.depth, ImageState::DepthAttachmentReadWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<3>(
+        *_resources, cb,
+        {
+            {output.albedoRoughness, ImageState::ColorAttachmentWrite},
+            {output.normalMetalness, ImageState::ColorAttachmentWrite},
+            {output.depth, ImageState::DepthAttachmentReadWrite},
+        });
 }
 
 void GBufferRenderer::createGraphicsPipelines(

@@ -132,24 +132,15 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
 void DepthOfFieldCombine::recordBarriers(
     vk::CommandBuffer cb, const Input &input, const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            input.halfResFgBokehWeight, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.halfResBgBokehWeight, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.halfResCircleOfConfusion, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.illumination, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            output.combinedIlluminationDoF, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<5>(
+        *_resources, cb,
+        {
+            {input.halfResFgBokehWeight, ImageState::ComputeShaderRead},
+            {input.halfResBgBokehWeight, ImageState::ComputeShaderRead},
+            {input.halfResCircleOfConfusion, ImageState::ComputeShaderRead},
+            {input.illumination, ImageState::ComputeShaderRead},
+            {output.combinedIlluminationDoF, ImageState::ComputeShaderWrite},
+        });
 }
 
 void DepthOfFieldCombine::destroyPipelines()

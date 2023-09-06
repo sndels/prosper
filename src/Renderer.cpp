@@ -382,30 +382,17 @@ void Renderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets,
     const LightClustering::Output &lightClusters) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            inOutTargets.illumination, ImageState::ColorAttachmentReadWrite),
-        _resources->images.transitionBarrier(
-            inOutTargets.depth, ImageState::DepthAttachmentReadWrite),
-        _resources->images.transitionBarrier(
-            lightClusters.pointers, ImageState::FragmentShaderRead),
-    };
-
-    const StaticArray bufferBarriers{
-        _resources->texelBuffers.transitionBarrier(
-            lightClusters.indicesCount, BufferState::FragmentShaderRead),
-        _resources->texelBuffers.transitionBarrier(
-            lightClusters.indices, BufferState::FragmentShaderRead),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount =
-            asserted_cast<uint32_t>(bufferBarriers.size()),
-        .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<3, 2>(
+        *_resources, cb,
+        {
+            {inOutTargets.illumination, ImageState::ColorAttachmentReadWrite},
+            {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+            {lightClusters.pointers, ImageState::FragmentShaderRead},
+        },
+        {
+            {lightClusters.indicesCount, BufferState::FragmentShaderRead},
+            {lightClusters.indices, BufferState::FragmentShaderRead},
+        });
 }
 
 Renderer::Attachments Renderer::createAttachments(

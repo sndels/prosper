@@ -161,17 +161,12 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 void SkyboxRenderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets) const
 {
-    const StaticArray barriers{
-        _resources->images.transitionBarrier(
-            inOutTargets.illumination, ImageState::ColorAttachmentWrite),
-        _resources->images.transitionBarrier(
-            inOutTargets.depth, ImageState::DepthAttachmentReadWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
+    transition<2>(
+        *_resources, cb,
+        {
+            {inOutTargets.illumination, ImageState::ColorAttachmentWrite},
+            {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+        });
 }
 
 SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(

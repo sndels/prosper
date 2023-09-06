@@ -138,18 +138,13 @@ void DepthOfFieldFlatten::recordBarriers(
     vk::CommandBuffer cb, ImageHandle halfResCircleOfConfusion,
     const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            halfResCircleOfConfusion, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            output.tileMinMaxCircleOfConfusion, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<2>(
+        *_resources, cb,
+        {
+            {halfResCircleOfConfusion, ImageState::ComputeShaderRead},
+            {output.tileMinMaxCircleOfConfusion,
+             ImageState::ComputeShaderWrite},
+        });
 }
 
 void DepthOfFieldFlatten::destroyPipelines()

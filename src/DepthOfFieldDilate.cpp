@@ -137,18 +137,12 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
 void DepthOfFieldDilate::recordBarriers(
     vk::CommandBuffer cb, ImageHandle tileMinMaxCoC, const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            tileMinMaxCoC, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            output.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<2>(
+        *_resources, cb,
+        {
+            {tileMinMaxCoC, ImageState::ComputeShaderRead},
+            {output.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite},
+        });
 }
 
 void DepthOfFieldDilate::destroyPipelines()

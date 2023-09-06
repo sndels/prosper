@@ -177,24 +177,15 @@ bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
 void LightClustering::recordBarriers(
     vk::CommandBuffer cb, const Output &output) const
 {
-    const vk::ImageMemoryBarrier2 imageBarrier =
-        _resources->images.transitionBarrier(
-            output.pointers, ImageState::ComputeShaderWrite);
-
-    const StaticArray bufferBarriers{
-        _resources->texelBuffers.transitionBarrier(
-            output.indices, BufferState::ComputeShaderWrite),
-        _resources->texelBuffers.transitionBarrier(
-            output.indicesCount, BufferState::TransferDst),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount =
-            asserted_cast<uint32_t>(bufferBarriers.size()),
-        .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &imageBarrier,
-    });
+    transition<1, 2>(
+        *_resources, cb,
+        {
+            {output.pointers, ImageState::ComputeShaderWrite},
+        },
+        {
+            {output.indices, BufferState::ComputeShaderWrite},
+            {output.indicesCount, BufferState::TransferDst},
+        });
 }
 
 LightClustering::Output LightClustering::createOutputs(

@@ -257,16 +257,10 @@ ToneMap::Output ToneMap::createOutputs(const vk::Extent2D &size)
 void ToneMap::recordBarriers(
     vk::CommandBuffer cb, const BoundImages &images) const
 {
-    // TODO: This to recordBarriers()
-    const StaticArray barriers{
-        _resources->images.transitionBarrier(
-            images.inColor, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            images.toneMapped, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
+    transition<2>(
+        *_resources, cb,
+        {
+            {images.inColor, ImageState::ComputeShaderRead},
+            {images.toneMapped, ImageState::ComputeShaderWrite},
+        });
 }

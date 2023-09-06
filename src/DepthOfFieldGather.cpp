@@ -185,22 +185,14 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
 void DepthOfFieldGather::recordBarriers(
     vk::CommandBuffer cb, const Input &input, const Output &output) const
 {
-    const StaticArray imageBarriers{
-        _resources->images.transitionBarrier(
-            input.halfResIllumination, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.halfResCoC, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead),
-        _resources->images.transitionBarrier(
-            output.halfResBokehColorWeight, ImageState::ComputeShaderWrite),
-    };
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    transition<4>(
+        *_resources, cb,
+        {
+            {input.halfResIllumination, ImageState::ComputeShaderRead},
+            {input.halfResCoC, ImageState::ComputeShaderRead},
+            {input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead},
+            {output.halfResBokehColorWeight, ImageState::ComputeShaderWrite},
+        });
 }
 
 void DepthOfFieldGather::destroyPipelines()
