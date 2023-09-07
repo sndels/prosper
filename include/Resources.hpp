@@ -3,6 +3,7 @@
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#include <wheels/containers/optional.hpp>
 #include <wheels/containers/span.hpp>
 
 // TODO:
@@ -144,8 +145,8 @@ struct Buffer
     BufferState state{BufferState::Unknown};
     VmaAllocation allocation{nullptr};
 
-    [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
-        BufferState newState);
+    [[nodiscard]] wheels::Optional<vk::BufferMemoryBarrier2> transitionBarrier(
+        BufferState newState, bool force_barrier = false);
     void transition(vk::CommandBuffer cb, BufferState newState);
 };
 
@@ -183,8 +184,8 @@ struct TexelBuffer
     BufferState state{BufferState::Unknown};
     VmaAllocation allocation{nullptr};
 
-    [[nodiscard]] vk::BufferMemoryBarrier2 transitionBarrier(
-        BufferState newState);
+    [[nodiscard]] wheels::Optional<vk::BufferMemoryBarrier2> transitionBarrier(
+        BufferState newState, bool force_barrier = false);
     void transition(vk::CommandBuffer cb, BufferState newState);
 };
 
@@ -249,8 +250,8 @@ struct Image
     VmaAllocation allocation{nullptr};
     vk::DeviceSize rawByteSize{0};
 
-    [[nodiscard]] vk::ImageMemoryBarrier2 transitionBarrier(
-        ImageState newState);
+    [[nodiscard]] wheels::Optional<vk::ImageMemoryBarrier2> transitionBarrier(
+        ImageState newState, bool force_barrier = false);
     void transition(vk::CommandBuffer buffer, ImageState newState);
 };
 

@@ -62,7 +62,8 @@ class RenderResourceCollection
     [[nodiscard]] CppNativeType nativeHandle(Handle handle) const;
     [[nodiscard]] const Resource &resource(Handle handle) const;
     void transition(vk::CommandBuffer cb, Handle handle, ResourceState state);
-    [[nodiscard]] Barrier transitionBarrier(Handle handle, ResourceState state);
+    [[nodiscard]] wheels::Optional<Barrier> transitionBarrier(
+        Handle handle, ResourceState state, bool force_barrier = false);
     void appendDebugName(Handle handle, wheels::StrSpan name);
     void preserve(Handle handle);
     void release(Handle handle);
@@ -365,14 +366,14 @@ template <
     typename Handle, typename Resource, typename Description,
     typename CreateInfo, typename ResourceState, typename Barrier,
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
-Barrier RenderResourceCollection<
+wheels::Optional<Barrier> RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
-    CppNativeType, NativeType,
-    ObjectType>::transitionBarrier(Handle handle, ResourceState state)
+    CppNativeType, NativeType, ObjectType>::
+    transitionBarrier(Handle handle, ResourceState state, bool force_barrier)
 {
     assertValidHandle(handle);
 
-    return _resources[handle.index].transitionBarrier(state);
+    return _resources[handle.index].transitionBarrier(state, force_barrier);
 }
 
 template <

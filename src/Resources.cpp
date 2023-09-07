@@ -80,6 +80,34 @@ vk::AccessFlags2 nativeAccesses(ImageState state)
     return flags;
 }
 
+template <typename State> bool hasWriteAccessesCommon(State state)
+{
+    if (contains(state, State::AccessShaderWrite))
+        return true;
+    if (contains(state, State::AccessTransferWrite))
+        return true;
+
+    return false;
+}
+
+bool hasWriteAccesses(BufferState state)
+{
+    return hasWriteAccessesCommon(state);
+}
+
+bool hasWriteAccesses(ImageState state)
+{
+    if (hasWriteAccessesCommon(state))
+        return true;
+
+    if (contains(state, ImageState::AccessColorAttachmentWrite))
+        return true;
+    if (contains(state, ImageState::AccessDepthAttachmentWrite))
+        return true;
+
+    return false;
+}
+
 vk::ImageLayout nativeLayout(ImageState state)
 {
     if (contains(state, ImageState::AccessShaderRead) ||
@@ -102,13 +130,31 @@ vk::ImageLayout nativeLayout(ImageState state)
     return vk::ImageLayout::eUndefined;
 }
 
-vk::BufferMemoryBarrier2 bufferTransitionBarrier(
+wheels::Optional<vk::BufferMemoryBarrier2> bufferTransitionBarrier(
     vk::Buffer &buffer, BufferState &currentState, vk::DeviceSize size,
-    BufferState newState)
+    BufferState newState, bool force_barrier = false)
 {
     // TODO:
-    // Skip barriers when states are the same
-    // Only include current write stages (and accesses) if Write->Read
+    // Use memory barriers instead of buffer barriers as queue transitions
+    // aren't needed
+
+    // Skip redundant barriers
+    // NOTE:
+    // We can't skip when stages differ because execution dependency might be
+    // missing for the new mask.
+    //
+    // Consider a write-read barrier with layout transition into fragment shader
+    // read access followed by a compute shader read access: even if both use
+    // the same layout, compute has to wait for the original write. If the
+    // layout transition doesn't include compute in dstStageMask (which we can't
+    // assume), we need an execution dependency between the frag and compute.
+    //
+    // This could be avoided if we had global (graph) information and could move
+    // the compute stage bit to the barrier before the frag pass. It would also
+    // allow the driver to overlap the two reading passes.
+    if (!force_barrier && currentState == newState &&
+        !hasWriteAccesses(currentState) && !hasWriteAccesses(newState))
+        return {};
 
     const vk::PipelineStageFlags2 srcStageMask = nativeStages(currentState);
     const vk::AccessFlags2 srcAccessMask = nativeAccesses(currentState);
@@ -138,20 +184,22 @@ void bufferTransition(
     vk::DeviceSize size, BufferState newState)
 
 {
-    const vk::BufferMemoryBarrier2 barrier =
+    const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
         bufferTransitionBarrier(buffer, currentState, size, newState);
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &barrier,
-    });
+    if (barrier.has_value())
+        cb.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &*barrier,
+        });
 }
 
 } // namespace
 
-vk::BufferMemoryBarrier2 Buffer::transitionBarrier(BufferState newState)
+wheels::Optional<vk::BufferMemoryBarrier2> Buffer::transitionBarrier(
+    BufferState newState, bool force_barrier)
 {
     return bufferTransitionBarrier(
-        this->handle, this->state, this->byteSize, newState);
+        this->handle, this->state, this->byteSize, newState, force_barrier);
 }
 
 void Buffer::transition(const vk::CommandBuffer cb, BufferState newState)
@@ -159,10 +207,11 @@ void Buffer::transition(const vk::CommandBuffer cb, BufferState newState)
     bufferTransition(cb, this->handle, this->state, this->byteSize, newState);
 }
 
-vk::BufferMemoryBarrier2 TexelBuffer::transitionBarrier(BufferState newState)
+wheels::Optional<vk::BufferMemoryBarrier2> TexelBuffer::transitionBarrier(
+    BufferState newState, bool force_barrier)
 {
     return bufferTransitionBarrier(
-        this->handle, this->state, this->size, newState);
+        this->handle, this->state, this->size, newState, force_barrier);
 }
 
 void TexelBuffer::transition(const vk::CommandBuffer cb, BufferState newState)
@@ -170,20 +219,38 @@ void TexelBuffer::transition(const vk::CommandBuffer cb, BufferState newState)
     bufferTransition(cb, this->handle, this->state, this->size, newState);
 }
 
-vk::ImageMemoryBarrier2 Image::transitionBarrier(ImageState newState)
+wheels::Optional<vk::ImageMemoryBarrier2> Image::transitionBarrier(
+    ImageState newState, bool force_barrier)
 {
     // TODO:
-    // Skip barriers when states are the same
-    // Only include current write stages (and accesses) if Write->Read
+    // Use memory barriers instead when layout change isn't required
+
+    // Skip read-read barriers with matching stages that don't change layouts.
+    // NOTE:
+    // We can't skip when stages differ because execution dependency might be
+    // missing for the new mask.
+    //
+    // Consider a write-read barrier with layout transition into fragment shader
+    // read access followed by a compute shader read access: even if both use
+    // the same layout, compute has to wait for the original write. If the
+    // layout transition doesn't include compute in dstStageMask (which we can't
+    // assume), we need an execution dependency between the frag and compute.
+    //
+    // This could be avoided if we had global (graph) information and could move
+    // the compute stage bit to the barrier before the frag pass. It would also
+    // allow the driver to overlap the two reading passes.
+    if (!force_barrier && this->state == newState &&
+        !hasWriteAccesses(this->state))
+        return {};
+
+    const vk::ImageLayout oldLayout = nativeLayout(this->state);
+    const vk::ImageLayout newLayout = nativeLayout(newState);
 
     const vk::PipelineStageFlags2 srcStageMask = nativeStages(this->state);
     const vk::AccessFlags2 srcAccessMask = nativeAccesses(this->state);
 
     const vk::PipelineStageFlags2 dstStageMask = nativeStages(newState);
     const vk::AccessFlags2 dstAccessMask = nativeAccesses(newState);
-
-    const vk::ImageLayout oldLayout = nativeLayout(this->state);
-    const vk::ImageLayout newLayout = nativeLayout(newState);
 
     // TODO:
     // If current access includes depth write, should use stage mask late frag
@@ -208,9 +275,11 @@ vk::ImageMemoryBarrier2 Image::transitionBarrier(ImageState newState)
 
 void Image::transition(const vk::CommandBuffer buffer, ImageState newState)
 {
-    const vk::ImageMemoryBarrier2 barrier = transitionBarrier(newState);
-    buffer.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &barrier,
-    });
+    const wheels::Optional<vk::ImageMemoryBarrier2> barrier =
+        transitionBarrier(newState);
+    if (barrier.has_value())
+        buffer.pipelineBarrier2(vk::DependencyInfo{
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &*barrier,
+        });
 }

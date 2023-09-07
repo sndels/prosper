@@ -81,18 +81,33 @@ void transition(
 
     wheels::StaticArray<vk::ImageMemoryBarrier2, ImageCount> imageBarriers;
     for (const auto &image_state : images)
-        imageBarriers.push_back(resources.images.transitionBarrier(
-            image_state.first, image_state.second));
+    {
+        const wheels::Optional<vk::ImageMemoryBarrier2> barrier =
+            resources.images.transitionBarrier(
+                image_state.first, image_state.second);
+        if (barrier.has_value())
+            imageBarriers.push_back(*barrier);
+    }
 
     wheels::StaticArray<
         vk::BufferMemoryBarrier2, BufferCount + TexelBufferCount>
         bufferBarriers;
     for (const auto &buffer_state : buffers)
-        bufferBarriers.push_back(resources.buffers.transitionBarrier(
-            buffer_state.first, buffer_state.second));
+    {
+        const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
+            resources.buffers.transitionBarrier(
+                buffer_state.first, buffer_state.second);
+        if (barrier.has_value())
+            bufferBarriers.push_back(*barrier);
+    }
     for (const auto &buffer_state : texelBuffers)
-        bufferBarriers.push_back(resources.texelBuffers.transitionBarrier(
-            buffer_state.first, buffer_state.second));
+    {
+        const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
+            resources.texelBuffers.transitionBarrier(
+                buffer_state.first, buffer_state.second);
+        if (barrier.has_value())
+            bufferBarriers.push_back(*barrier);
+    }
 
     cb.pipelineBarrier2(vk::DependencyInfo{
         .bufferMemoryBarrierCount =
