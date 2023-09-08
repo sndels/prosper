@@ -10,7 +10,6 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/Release/prosper.exe",
             "args": [
-                "--debugLayers"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -24,6 +23,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/RelWithDebInfo/prosper.exe",
             "args": [
+                // "--breakOnValidationError",
                 "--debugLayers"
             ],
             "stopAtEntry": false,
@@ -38,6 +38,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/Debug/prosper.exe",
             "args": [
+                // "--breakOnValidationError",
                 "--debugLayers"
             ],
             "stopAtEntry": false,
@@ -52,6 +53,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/prosper",
             "args": [
+                // "--breakOnValidationError",
                 "--debugLayers"
             ],
             "cwd": "${workspaceFolder}",
