@@ -134,10 +134,6 @@ wheels::Optional<vk::BufferMemoryBarrier2> bufferTransitionBarrier(
     vk::Buffer &buffer, BufferState &currentState, vk::DeviceSize size,
     BufferState newState, bool force_barrier = false)
 {
-    // TODO:
-    // Use memory barriers instead of buffer barriers as queue transitions
-    // aren't needed
-
     // Skip redundant barriers
     // NOTE:
     // We can't skip when stages differ because execution dependency might be
@@ -222,9 +218,6 @@ void TexelBuffer::transition(const vk::CommandBuffer cb, BufferState newState)
 wheels::Optional<vk::ImageMemoryBarrier2> Image::transitionBarrier(
     ImageState newState, bool force_barrier)
 {
-    // TODO:
-    // Use memory barriers instead when layout change isn't required
-
     // Skip read-read barriers with matching stages that don't change layouts.
     // NOTE:
     // We can't skip when stages differ because execution dependency might be
@@ -252,9 +245,6 @@ wheels::Optional<vk::ImageMemoryBarrier2> Image::transitionBarrier(
     const vk::PipelineStageFlags2 dstStageMask = nativeStages(newState);
     const vk::AccessFlags2 dstAccessMask = nativeAccesses(newState);
 
-    // TODO:
-    // If current access includes depth write, should use stage mask late frag
-    // tests as source ?
     const vk::ImageMemoryBarrier2 barrier{
         .srcStageMask = srcStageMask,
         .srcAccessMask = srcAccessMask,
