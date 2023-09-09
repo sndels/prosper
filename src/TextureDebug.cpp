@@ -22,7 +22,7 @@ template <> struct Hash<StrSpan>
 {
     [[nodiscard]] uint64_t operator()(StrSpan const &value) const noexcept
     {
-        return wyhash(value.data(), value.size(), 0, _wyp);
+        return wyhash(value.data(), value.size(), 0, (uint64_t const *)_wyp);
     }
 };
 
@@ -45,7 +45,7 @@ struct PCBlock
     uint32_t absBeforeRange{0};
 };
 
-char const *sOutputDebugName = "TextureDebugOutput";
+char const *const sOutputDebugName = "TextureDebugOutput";
 
 constexpr std::array<
     const char *, static_cast<size_t>(TextureDebug::ChannelType::Count)>

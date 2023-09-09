@@ -95,7 +95,7 @@ class Camera
     [[nodiscard]] float apertureDiameter() const;
     [[nodiscard]] float focalLength() const;
     [[nodiscard]] float focusDistance() const;
-    [[nodiscard]] float sensorWidth() const;
+    [[nodiscard]] static float sensorWidth() { return 0.035f; }
 
     void clearChangedThisFrame();
     [[nodiscard]] bool changedThisFrame() const;

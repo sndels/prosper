@@ -20,7 +20,7 @@ class DepthOfFieldSetup
     DepthOfFieldSetup(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout cameraDsLayout);
+        vk::DescriptorSetLayout camDsLayout);
 
     ~DepthOfFieldSetup();
 
@@ -30,8 +30,7 @@ class DepthOfFieldSetup
     DepthOfFieldSetup &operator=(DepthOfFieldSetup &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc,
-        vk::DescriptorSetLayout cameraDsLayout);
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout);
 
     struct Input
     {
@@ -60,7 +59,7 @@ class DepthOfFieldSetup
         DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(
         uint32_t nextFrame, const Input &input, const Output &output);
-    void createPipeline(vk::DescriptorSetLayout cameraDsLayout);
+    void createPipeline(vk::DescriptorSetLayout camDsLayout);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

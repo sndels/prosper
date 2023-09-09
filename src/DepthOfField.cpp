@@ -42,7 +42,7 @@ DepthOfField::Output DepthOfField::record(
 
         _resources->images.release(flattenOutput.tileMinMaxCircleOfConfusion);
 
-        DepthOfFieldGather::Input gatherInput{
+        const DepthOfFieldGather::Input gatherInput{
             .halfResIllumination = setupOutput.halfResIllumination,
             .halfResCoC = setupOutput.halfResCircleOfConfusion,
             .dilatedTileMinMaxCoC = dilateOutput.dilatedTileMinMaxCoC,

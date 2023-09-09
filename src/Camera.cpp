@@ -208,8 +208,6 @@ float Camera::focalLength() const { return _focalLength; }
 
 float Camera::focusDistance() const { return _focusDistance; }
 
-float Camera::sensorWidth() const { return 0.035f; }
-
 void Camera::clearChangedThisFrame() { _changedThisFrame = false; }
 
 bool Camera::changedThisFrame() const { return _changedThisFrame; }
