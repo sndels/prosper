@@ -1,0 +1,80 @@
+name: Build
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "include/**"
+
+jobs:
+  build-windows:
+    name: Build (Windows)
+
+    strategy:
+      fail-fast: true
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get Cmake
+        uses: lukka/get-cmake@latest
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: 1.3.261.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022"
+
+      - name: Build (Debug)
+        run: cmake --build build --parallel --config Debug --target prosper
+
+      - name: Build (Release)
+        run: cmake --build build --parallel --config Release --target prosper
+
+  build-ubuntu:
+    name: Build (Ubuntu)
+
+    strategy:
+      fail-fast: true
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get Cmake
+        uses: lukka/get-cmake@latest
+
+      - name: Get dependencies
+        run: sudo apt install xorg-dev
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: 1.3.261.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure (Debug)
+        run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build (Debug)
+        run: cmake --build build --target prosper
+
+      - name: Configure (Release)
+        run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Release)
+        run: cmake --build build --target prosper
