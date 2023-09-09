@@ -1,0 +1,74 @@
+name: clang-tidy
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "include/**"
+
+jobs:
+  clang-tidy-debug:
+    name: clang-tidy (Debug)
+
+    strategy:
+      fail-fast: true
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get Cmake
+        uses: lukka/get-cmake@latest
+
+      - name: Get dependencies
+        run: sudo apt install xorg-dev clang-tidy-15
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: 1.3.261.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure
+        run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPROSPER_USE_PCH=OFF
+
+      - name: Run clang-tidy
+        run: run-clang-tidy-15 -p="build" ".*/prosper/src/.*.cpp"
+
+  clang-tidy-release:
+    name: clang-tidy (Release)
+
+    strategy:
+      fail-fast: true
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get Cmake
+        uses: lukka/get-cmake@latest
+
+      - name: Get dependencies
+        run: sudo apt install xorg-dev clang-tidy-15
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: 1.3.261.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure
+        run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPROSPER_USE_PCH=OFF
+
+      - name: Run clang-tidy
+        run: run-clang-tidy-15 -p="build" ".*/prosper/src/.*.cpp"
