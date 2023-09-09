@@ -189,7 +189,7 @@ void RenderResourceCollection<
     // Bump all generations to invalidate any stored handles
     for (uint64_t &generation : _generations)
     {
-        uint64_t storedGeneration = generation & ~sNotInUseGenerationFlag;
+        const uint64_t storedGeneration = generation & ~sNotInUseGenerationFlag;
         generation = sNotInUseGenerationFlag | (storedGeneration + 1);
     }
     _debugNames.clear();

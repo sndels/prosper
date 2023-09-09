@@ -60,7 +60,7 @@ DepthOfFieldGather::~DepthOfFieldGather()
 
         _device->logical().destroy(_descriptorSetLayout);
 
-        for (vk::ShaderModule sm : _shaderModules)
+        for (const vk::ShaderModule sm : _shaderModules)
             _device->logical().destroy(sm);
     }
 }
@@ -197,7 +197,7 @@ void DepthOfFieldGather::recordBarriers(
 
 void DepthOfFieldGather::destroyPipelines()
 {
-    for (vk::Pipeline p : _pipelines)
+    for (const vk::Pipeline p : _pipelines)
         _device->logical().destroy(p);
     _pipelines.clear();
     _device->logical().destroy(_pipelineLayout);

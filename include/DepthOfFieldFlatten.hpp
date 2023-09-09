@@ -35,14 +35,14 @@ class DepthOfFieldFlatten
         ImageHandle tileMinMaxCircleOfConfusion;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, ImageHandle halfResIllumination,
+        vk::CommandBuffer cb, ImageHandle halfResCircleOfConfusion,
         uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
     void recordBarriers(
-        vk::CommandBuffer cb, ImageHandle halfResIllumination,
+        vk::CommandBuffer cb, ImageHandle halfResCircleOfConfusion,
         const Output &output) const;
 
     void destroyPipelines();
@@ -51,7 +51,7 @@ class DepthOfFieldFlatten
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(
-        uint32_t nextFrame, ImageHandle halfResIllumination,
+        uint32_t nextFrame, ImageHandle halfResCircleOfConfusion,
         const Output &output);
     void createPipeline();
 
