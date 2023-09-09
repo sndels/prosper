@@ -1,8 +1,7 @@
 # Pull submodules
 execute_process(COMMAND git submodule update --init --depth 1)
 
-find_package(Vulkan)
-message(STATUS "Vulkan FOUND = ${Vulkan_FOUND}")
+find_package(Vulkan REQUIRED)
 message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
 message(STATUS "Vulkan Lib = ${Vulkan_LIBRARY}")
 
