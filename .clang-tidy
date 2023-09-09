@@ -75,6 +75,6 @@ Checks: "*,
         -readability-static-accessed-through-instance,
         -readability-uppercase-literal-suffix
 "
-WarningsAsErrors: ''
+WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/prosper/include/.*'
 FormatStyle: file
