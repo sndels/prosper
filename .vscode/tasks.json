@@ -149,7 +149,7 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "clang-tidy",
+            "label": "clang-tidy (Windows)",
             "type": "shell",
             "dependsOn": [
                 "cmake clang-tidy"
@@ -159,6 +159,25 @@
                 "C:/Program Files/LLVM/bin/run-clang-tidy",
                 "-p='build-analysis'",
                 "'.*\\\\prosper\\\\src\\\\.*.cpp'"
+            ],
+            "group": "build",
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "never"
+            },
+            // Use the standard MS compiler pattern to detect errors, warnings and infos
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "clang-tidy (Linux)",
+            "type": "shell",
+            "dependsOn": [
+                "cmake clang-tidy"
+            ],
+            "command": "run-clang-tidy-15",
+            "args": [
+                "-p='build-analysis'",
+                "'.*/prosper/src/.*.cpp'"
             ],
             "group": "build",
             "presentation": {
