@@ -5,14 +5,14 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "brdf.glsl"
-#include "scene/camera.glsl"
+#include "common/random.glsl"
 #include "debug.glsl"
+#include "forward_pc.glsl"
+#include "scene/camera.glsl"
 #include "scene/light_clusters.glsl"
 #include "scene/lighting.glsl"
 #include "scene/lights.glsl"
 #include "scene/materials.glsl"
-#include "common/random.glsl"
-#include "forward_pc.glsl"
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in float fragZCam;
@@ -60,7 +60,8 @@ void main()
 
     color += evalDirectionalLight(surface);
 
-    LightClusterInfo lightInfo = unpackClusterPointer(uvec2(gl_FragCoord.xy), fragZCam);
+    LightClusterInfo lightInfo =
+        unpackClusterPointer(uvec2(gl_FragCoord.xy), fragZCam);
 
     color += evalPointLights(surface, lightInfo);
 
@@ -77,7 +78,8 @@ void main()
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
         di.texCoord0 = fragTexCoord0;
-        outColor = vec4(commonDebugDraw(forwardPC.DrawType, di, surface.material), 1);
+        outColor =
+            vec4(commonDebugDraw(forwardPC.DrawType, di, surface.material), 1);
         return;
     }
 

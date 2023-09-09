@@ -4,9 +4,9 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
+#include "forward_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/materials.glsl"
-#include "forward_pc.glsl"
 
 // TODO: Skip position and zcam as they aren't used
 layout(location = 0) in vec3 fragPosition;

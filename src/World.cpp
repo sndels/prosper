@@ -966,11 +966,11 @@ void World::loadScenes(
                 {
                     scene.camera = *params;
                     scene.camera.eye =
-                        vec3{modelToWorld *vec4{0.f, 0.f, 0.f, 1.f}};
+                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
                     scene.camera.target =
-                        vec3{modelToWorld *vec4{0.f, 0.f, -1.f, 1.f}};
+                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
                     scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
                 }
                 if (size_t const *light_i = lights.find(node);
@@ -1022,7 +1022,7 @@ void World::loadScenes(
 
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
-                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
@@ -1052,7 +1052,7 @@ void World::loadScenes(
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
                         sceneLight.positionAndAngleOffset =
-                            modelToWorld *vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
 
                         sceneLight.direction = vec4{
