@@ -719,6 +719,9 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
             .debugName = stagingDebugName.c_str(),
         });
 
+        assert(stagingBuffer.mapped != nullptr);
+        // Seems like a false positive
+        // NOLINTNEXTLINE(clang-analyzer-nullability.NullableDereferenced)
         memcpy(stagingBuffer.mapped, info.initialData, desc.byteSize);
 
         const auto commandBuffer = beginGraphicsCommands();

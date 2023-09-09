@@ -36,7 +36,6 @@ class App
         Device::Settings device;
     };
 
-  public:
     App(const Settings &settings);
     ~App();
 

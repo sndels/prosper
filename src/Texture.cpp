@@ -42,7 +42,7 @@ UncompressedPixelData pixelsFromFile(const std::filesystem::path &path)
     if (pixels == nullptr)
         throw std::runtime_error("Failed to load texture '" + pathString + "'");
 
-    assert(sizeof(uint8_t) == sizeof(stbi_uc));
+    static_assert(sizeof(uint8_t) == sizeof(stbi_uc));
     return UncompressedPixelData{
         .data = reinterpret_cast<uint8_t *>(pixels),
         .dataOwned = pixels,
@@ -88,7 +88,7 @@ bool cacheValid(const std::filesystem::path &cacheFile)
 
         std::ifstream tagFile{tagPath};
         uint32_t cacheVersion = 0xFFFFFFFFu;
-        assert(sizeof(cacheVersion) == sizeof(sShaderCacheVersion));
+        static_assert(sizeof(cacheVersion) == sizeof(sShaderCacheVersion));
         // NOTE:
         // Caches aren't supposed to be portable so this doesn't pay attention
         // to endianness.

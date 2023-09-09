@@ -439,6 +439,8 @@ void RenderResourceCollection<
         "Resource is being preseved in two places, ownership gets muddy.");
 
     _preserved[handle.index] = true;
+#else
+    (void)handle;
 #endif // NDEBUG
 }
 
@@ -527,11 +529,13 @@ void RenderResourceCollection<
     if (_markedDebugHandle.has_value() &&
         handle.index == _markedDebugHandle->index)
     {
+#ifndef NDEBUG
         const uint64_t storedGeneration =
             _generations[handle.index] & ~sNotInUseGenerationFlag;
         assert(
             handle.generation == storedGeneration ||
             (handle.generation + 1) == storedGeneration);
+#endif // NDEBUG
     }
     else
         // Handle generation matching means held generation isn't flagged unused
@@ -564,6 +568,8 @@ void RenderResourceCollection<
         assert(
             debugName != name &&
             "Debug names need to be unique within a frame");
+#else
+    (void)debugName;
 #endif // NDEBUG
 }
 
