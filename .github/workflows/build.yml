@@ -1,10 +1,7 @@
 name: Build
 
 on:
-  push:
-    paths:
-      - "src/**"
-      - "include/**"
+  pull_request:
 
 jobs:
   build-windows:

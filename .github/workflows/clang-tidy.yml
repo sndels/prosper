@@ -1,10 +1,7 @@
 name: clang-tidy
 
 on:
-  push:
-    paths:
-      - "src/**"
-      - "include/**"
+  pull_request:
 
 jobs:
   clang-tidy-debug:
