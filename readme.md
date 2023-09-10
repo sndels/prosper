@@ -1,5 +1,9 @@
 # prosper
 
+[![Build](https://github.com/sndels/prosper/actions/workflows/build.yml/badge.svg)](https://github.com/sndels/prosper/actions/workflows/build.yml)
+[![clang-format](https://github.com/sndels/prosper/actions/workflows/clang-format.yml/badge.svg)](https://github.com/sndels/prosper/actions/workflows/clang-format.yml)
+[![clang-tidy](https://github.com/sndels/prosper/actions/workflows/clang-tidy.yml/badge.svg)](https://github.com/sndels/prosper/actions/workflows/clang-tidy.yml)
+
 ![screenshot](screenshot.png)[^1]
 
 Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [Sascha Willems](https://github.com/SaschaWillems) and [Ray Tracing Gems II](https://developer.nvidia.com/ray-tracing-gems-ii) also used as reference.
