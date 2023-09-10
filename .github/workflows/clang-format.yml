@@ -1,10 +1,7 @@
 name: clang-format
 
 on:
-  push:
-    paths:
-      # - "src/**"
-      # - "include/**"
+  pull_request:
 
 jobs:
   clang-format:
