@@ -2,6 +2,7 @@ set(PROSPER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/App.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ComputePass.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Dds.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp
