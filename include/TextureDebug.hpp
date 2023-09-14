@@ -5,6 +5,7 @@
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/static_array.hpp>
 
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -34,7 +35,8 @@ class TextureDebug
         wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
         Device *device, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
-    ~TextureDebug();
+
+    ~TextureDebug() = default;
 
     TextureDebug(const TextureDebug &other) = delete;
     TextureDebug(TextureDebug &&other) = delete;
@@ -50,37 +52,11 @@ class TextureDebug
         Profiler *profiler);
 
   private:
-    bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void destroyPipelines();
-
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void createPipelines();
-
     ImageHandle createOutput(vk::Extent2D size);
 
-    struct BoundImages
-    {
-        ImageHandle inColor;
-        ImageHandle outColor;
-    };
-    void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
-
-    void recordBarriers(vk::CommandBuffer cb, const BoundImages &images) const;
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    vk::ShaderModule _compSM;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    ComputePass _computePass;
 
     struct TargetSettings
     {

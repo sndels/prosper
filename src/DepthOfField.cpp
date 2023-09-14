@@ -1,8 +1,10 @@
 #include "DepthOfField.hpp"
 
+using namespace wheels;
+
 DepthOfField::DepthOfField(
-    wheels::ScopedScratch scopeAlloc, Device *device,
-    RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout cameraDsLayout)
 : _resources{resources}
 , _setupPass{scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc, cameraDsLayout}

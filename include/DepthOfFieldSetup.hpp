@@ -6,6 +6,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "Camera.hpp"
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -22,7 +23,7 @@ class DepthOfFieldSetup
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDsLayout);
 
-    ~DepthOfFieldSetup();
+    ~DepthOfFieldSetup() = default;
 
     DepthOfFieldSetup(const DepthOfFieldSetup &other) = delete;
     DepthOfFieldSetup(DepthOfFieldSetup &&other) = delete;
@@ -46,32 +47,8 @@ class DepthOfFieldSetup
         vk::CommandBuffer cb, const Camera &cam, const Input &input,
         uint32_t nextFrame, Profiler *profiler);
 
-  private:
-    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void recordBarriers(
-        vk::CommandBuffer cb, const Input &input, const Output &output) const;
-
-    void destroyPipelines();
-
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void updateDescriptorSet(
-        uint32_t nextFrame, const Input &input, const Output &output);
-    void createPipeline(vk::DescriptorSetLayout camDsLayout);
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
-
-    vk::ShaderModule _compSM;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    ComputePass _computePass;
 };
 
 #endif // PROSPER_DEPTH_OF_FIELD_SETUP_HPP

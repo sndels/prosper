@@ -2,10 +2,10 @@
 #define PROSPER_LIGHT_CLUSTERING_HPP
 
 #include "Camera.hpp"
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
-#include "Swapchain.hpp"
 #include "World.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -26,7 +26,8 @@ class LightClustering
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    ~LightClustering();
+
+    ~LightClustering() = default;
 
     LightClustering(const LightClustering &other) = delete;
     LightClustering(LightClustering &&other) = delete;
@@ -52,33 +53,10 @@ class LightClustering
         Profiler *profiler);
 
   private:
-    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void recordBarriers(vk::CommandBuffer cb, const Output &output) const;
-
-    void destroyPipeline();
-
     [[nodiscard]] Output createOutputs(const vk::Extent2D &renderExtent);
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void updateDescriptorSet(uint32_t nextFrame, Output &outputs);
-    void createPipeline(
-        vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
 
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
-
-    vk::ShaderModule _compSM;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    ComputePass _computePass;
 };
 
 #endif // PROSPER_LIGHT_CLUSTERING_HPP

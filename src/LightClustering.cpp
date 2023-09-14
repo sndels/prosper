@@ -19,8 +19,8 @@ constexpr uint32_t maxSpotIndicesPerTile = 128;
 enum BindingSet : uint32_t
 {
     LightsBindingSet = 0,
-    LightClustersBindingSet = 1,
-    CameraBindingSet = 2,
+    CameraBindingSet = 1,
+    LightClustersBindingSet = 2,
     BindingSetCount = 3,
 };
 
@@ -29,6 +29,34 @@ struct ClusteringPCBlock
     uvec2 resolution;
 };
 
+ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
+{
+    String defines{alloc, 256};
+    appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
+    appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
+    PointLights::appendShaderDefines(defines);
+    SpotLights::appendShaderDefines(defines);
+    LightClustering::appendShaderDefines(defines);
+
+    return ComputePass::Shader{
+        .relPath = "shader/light_clustering.comp",
+        .debugName = String{alloc, "LightClusteringCS"},
+        .defines = WHEELS_MOV(defines),
+    };
+}
+
+StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
+    const vk::DescriptorSetLayout &camDSLayout,
+    const World::DSLayouts &worldDSLayout)
+{
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[LightsBindingSet] = worldDSLayout.lights;
+    setLayouts[CameraBindingSet] = camDSLayout;
+    return setLayouts;
+}
+
 } // namespace
 
 LightClustering::LightClustering(
@@ -36,48 +64,31 @@ LightClustering::LightClustering(
     DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
-: _device{device}
-, _resources{resources}
+: _resources{resources}
+, _computePass{
+      WHEELS_MOV(scopeAlloc),
+      device,
+      staticDescriptorsAlloc,
+      shaderDefinitionCallback,
+      LightClustersBindingSet,
+      externalDsLayouts(camDSLayout, worldDSLayouts),
+      vk::ShaderStageFlagBits::eCompute | vk::ShaderStageFlagBits::eFragment}
 {
-    assert(_device != nullptr);
     assert(_resources != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating LightClustering\n");
-
-    if (!compileShaders(scopeAlloc.child_scope()))
-        throw std::runtime_error("LightClustering shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createPipeline(camDSLayout, worldDSLayouts);
 }
 
-LightClustering::~LightClustering()
+vk::DescriptorSetLayout LightClustering::descriptorSetLayout() const
 {
-    if (_device != nullptr)
-    {
-        destroyPipeline();
-
-        _device->logical().destroy(_descriptorSetLayout);
-        _device->logical().destroy(_compSM);
-    }
-}
-
-[[nodiscard]] vk::DescriptorSetLayout LightClustering::descriptorSetLayout()
-    const
-{
-    return _descriptorSetLayout;
+    return _computePass.storageSetLayout();
 }
 
 void LightClustering::recompileShaders(
     ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
-    if (compileShaders(scopeAlloc.child_scope()))
-    {
-        destroyPipeline();
-        createPipeline(camDSLayout, worldDSLayouts);
-    }
+    _computePass.recompileShader(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        externalDsLayouts(camDSLayout, worldDSLayouts));
 }
 
 LightClustering::Output LightClustering::record(
@@ -87,12 +98,33 @@ LightClustering::Output LightClustering::record(
 {
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
-
         ret = createOutputs(renderExtent);
-        updateDescriptorSet(nextFrame, ret);
 
-        recordBarriers(cb, ret);
+        _computePass.updateDescriptorSet(
+            nextFrame,
+            StaticArray{
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = _resources->images.resource(ret.pointers).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{
+                    _resources->texelBuffers.resource(ret.indicesCount).view},
+                DescriptorInfo{
+                    _resources->texelBuffers.resource(ret.indices).view},
+            });
+        ret.descriptorSet = _computePass.storageSet(nextFrame);
+
+        transition<1, 2>(
+            *_resources, cb,
+            {
+                {ret.pointers, ImageState::ComputeShaderWrite},
+            },
+            {
+                {ret.indices, BufferState::ComputeShaderWrite},
+                {ret.indicesCount, BufferState::TransferDst},
+            });
+
+        const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
 
         { // Reset count
             const TexelBuffer &indicesCount =
@@ -105,87 +137,26 @@ LightClustering::Output LightClustering::record(
         }
 
         { // Main dispatch
-            cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+            const ClusteringPCBlock pcBlock{
+                .resolution = uvec2(renderExtent.width, renderExtent.height),
+            };
 
             StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
                 VK_NULL_HANDLE};
             descriptorSets[LightsBindingSet] =
                 scene.lights.descriptorSets[nextFrame];
-            descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
             descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
-
-            cb.bindDescriptorSets(
-                vk::PipelineBindPoint::eCompute, _pipelineLayout,
-                0, // firstSet
-                asserted_cast<uint32_t>(descriptorSets.size()),
-                descriptorSets.data(), 0, nullptr);
-
-            const ClusteringPCBlock pcBlock{
-                .resolution = uvec2(renderExtent.width, renderExtent.height),
-            };
-            cb.pushConstants(
-                _pipelineLayout, vk::ShaderStageFlagBits::eCompute,
-                0, // offset
-                sizeof(ClusteringPCBlock), &pcBlock);
+            descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
 
             const vk::Extent3D &extent =
                 _resources->images.resource(ret.pointers).extent;
-            cb.dispatch(extent.width, extent.height, extent.depth);
+            const uvec3 groups{extent.width, extent.height, extent.depth};
+
+            _computePass.record(cb, pcBlock, groups, descriptorSets);
         }
     }
 
     return ret;
-}
-
-bool LightClustering::compileShaders(ScopedScratch scopeAlloc)
-{
-    printf("Compiling LightClustering shaders\n");
-
-    String defines{scopeAlloc, 256};
-    appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
-    appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
-    appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
-    PointLights::appendShaderDefines(defines);
-    SpotLights::appendShaderDefines(defines);
-    appendShaderDefines(defines);
-
-    Optional<Device::ShaderCompileResult> compResult =
-        _device->compileShaderModule(
-            scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
-                .relPath = "shader/light_clustering.comp",
-                .debugName = "lightClusteringCS",
-                .defines = defines,
-            });
-
-    if (compResult.has_value())
-    {
-        _device->logical().destroy(_compSM);
-
-        ShaderReflection &reflection = compResult->reflection;
-        assert(sizeof(ClusteringPCBlock) == reflection.pushConstantsBytesize());
-
-        _compSM = compResult->module;
-        _shaderReflection = WHEELS_MOV(reflection);
-
-        return true;
-    }
-
-    return false;
-}
-
-void LightClustering::recordBarriers(
-    vk::CommandBuffer cb, const Output &output) const
-{
-    transition<1, 2>(
-        *_resources, cb,
-        {
-            {output.pointers, ImageState::ComputeShaderWrite},
-        },
-        {
-            {output.indices, BufferState::ComputeShaderWrite},
-            {output.indicesCount, BufferState::TransferDst},
-        });
 }
 
 LightClustering::Output LightClustering::createOutputs(
@@ -241,103 +212,4 @@ LightClustering::Output LightClustering::createOutputs(
         "lightClusterIndices");
 
     return ret;
-}
-
-void LightClustering::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
-{
-    assert(_shaderReflection.has_value());
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _shaderReflection->generateLayoutBindings(
-            scopeAlloc, LightClustersBindingSet,
-            vk::ShaderStageFlagBits::eFragment |
-                vk::ShaderStageFlagBits::eCompute);
-
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
-
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _descriptorSetLayout};
-    staticDescriptorsAlloc->allocate(
-        layouts, Span{_descriptorSets.data(), _descriptorSets.size()});
-}
-
-void LightClustering::updateDescriptorSet(uint32_t nextFrame, Output &output)
-{
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-
-    const vk::DescriptorImageInfo pointersInfo{
-        .imageView = _resources->images.resource(output.pointers).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-
-    const vk::DescriptorSet ds = _descriptorSets[nextFrame];
-
-    assert(_shaderReflection.has_value());
-    const StaticArray descriptorWrites =
-        _shaderReflection->generateDescriptorWrites<3>(
-            LightClustersBindingSet, ds,
-            {
-                DescriptorInfo{pointersInfo},
-
-                DescriptorInfo{
-                    _resources->texelBuffers.resource(output.indicesCount)
-                        .view},
-                DescriptorInfo{
-                    _resources->texelBuffers.resource(output.indices).view},
-            });
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
-
-    output.descriptorSet = ds;
-}
-
-void LightClustering::createPipeline(
-    const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
-{
-    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
-        VK_NULL_HANDLE};
-    setLayouts[LightsBindingSet] = worldDSLayouts.lights;
-    setLayouts[LightClustersBindingSet] = _descriptorSetLayout;
-    setLayouts[CameraBindingSet] = camDSLayout;
-
-    const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        .offset = 0,
-        .size = sizeof(ClusteringPCBlock),
-    };
-    _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
-            .pSetLayouts = setLayouts.data(),
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange,
-        });
-
-    const vk::ComputePipelineCreateInfo createInfo{
-        .stage =
-            {
-                .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = _compSM,
-                .pName = "main",
-            },
-        .layout = _pipelineLayout,
-    };
-
-    _pipeline = createComputePipeline(
-        _device->logical(), createInfo, "LightClustering");
-}
-
-void LightClustering::destroyPipeline()
-{
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
 }

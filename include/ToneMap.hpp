@@ -4,6 +4,7 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -17,7 +18,7 @@ class ToneMap
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
-    ~ToneMap();
+    ~ToneMap() = default;
 
     ToneMap(const ToneMap &other) = delete;
     ToneMap(ToneMap &&other) = delete;
@@ -37,39 +38,10 @@ class ToneMap
         Profiler *profiler);
 
   private:
-    bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void destroyPipelines();
-
-    void createOutputImage(const vk::Extent2D &renderExtent);
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void createPipelines();
-
     Output createOutputs(const vk::Extent2D &size);
 
-    struct BoundImages
-    {
-        ImageHandle inColor;
-        ImageHandle toneMapped;
-    };
-    void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
-
-    void recordBarriers(vk::CommandBuffer cb, const BoundImages &images) const;
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
-
-    vk::ShaderModule _compSM;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
-    vk::Extent2D _extent{};
+    ComputePass _computePass;
 
     float _exposure{1.f};
 };
