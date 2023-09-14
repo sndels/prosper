@@ -31,73 +31,31 @@ vk::Extent2D getRenderExtent(
     };
 }
 
+ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
+{
+    return ComputePass::Shader{
+        .relPath = "shader/tone_map.comp",
+        .debugName = String{alloc, "ToneMapCS"},
+    };
+}
+
 } // namespace
 
 ToneMap::ToneMap(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
-: _device{device}
-, _resources{resources}
+: _resources{resources}
+, _computePass{
+      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+      shaderDefinitionCallback}
 {
-    assert(_device != nullptr);
     assert(_resources != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating ToneMap\n");
-
-    if (!compileShaders(scopeAlloc.child_scope()))
-        throw std::runtime_error("ToneMap shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createPipelines();
-}
-
-ToneMap::~ToneMap()
-{
-    if (_device != nullptr)
-    {
-        destroyPipelines();
-
-        _device->logical().destroy(_descriptorSetLayout);
-
-        _device->logical().destroy(_compSM);
-    }
 }
 
 void ToneMap::recompileShaders(ScopedScratch scopeAlloc)
 {
-    if (compileShaders(scopeAlloc.child_scope()))
-    {
-        destroyPipelines();
-        createPipelines();
-    }
-}
-
-bool ToneMap::compileShaders(ScopedScratch scopeAlloc)
-{
-    printf("Compiling ToneMap shaders\n");
-
-    Optional<Device::ShaderCompileResult> compResult =
-        _device->compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                          .relPath = "shader/tone_map.comp",
-                                          .debugName = "tonemapCS",
-                                      });
-
-    if (compResult.has_value())
-    {
-        _device->logical().destroy(_compSM);
-
-        ShaderReflection &reflection = compResult->reflection;
-        assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
-
-        _compSM = compResult->module;
-        _shaderReflection = WHEELS_MOV(reflection);
-
-        return true;
-    }
-
-    return false;
+    _computePass.recompileShader(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
 }
 
 void ToneMap::drawUi()
@@ -117,123 +75,43 @@ ToneMap::Output ToneMap::record(
 
         ret = createOutputs(renderExtent);
 
-        updateDescriptorSet(
-            nextFrame, BoundImages{
-                           .inColor = inColor,
-                           .toneMapped = ret.toneMapped,
-                       });
+        _computePass.updateDescriptorSet<2>(
+            nextFrame,
+            StaticArray{
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = _resources->images.resource(inColor).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        _resources->images.resource(ret.toneMapped).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+            });
 
-        recordBarriers(
-            cb, BoundImages{
-                    .inColor = inColor,
-                    .toneMapped = ret.toneMapped,
-                });
+        transition<2>(
+            *_resources, cb,
+            {
+                {inColor, ImageState::ComputeShaderRead},
+                {ret.toneMapped, ImageState::ComputeShaderWrite},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 
-        cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+        const uvec3 groups = uvec3{
+            (uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u + 1u,
+            1u};
 
-        cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
-            &_descriptorSets[nextFrame], 0, nullptr);
-
-        const PCBlock pcBlock{
-            .exposure = _exposure,
-        };
-        cb.pushConstants(
-            _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
-            sizeof(PCBlock), &pcBlock);
-
-        const auto groups =
-            (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
-            1u;
-        cb.dispatch(groups.x, groups.y, 1);
+        const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
+        _computePass.record(
+            cb,
+            PCBlock{
+                .exposure = _exposure,
+            },
+            groups, Span{&storageSet, 1});
     }
 
     return ret;
-}
-
-void ToneMap::destroyPipelines()
-{
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
-}
-
-void ToneMap::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
-{
-    assert(_shaderReflection.has_value());
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _shaderReflection->generateLayoutBindings(
-            scopeAlloc, 0, vk::ShaderStageFlagBits::eCompute);
-
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
-
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _descriptorSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
-}
-
-void ToneMap::updateDescriptorSet(uint32_t nextFrame, const BoundImages &images)
-{
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-    const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->images.resource(images.inColor).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo mappedInfo{
-        .imageView = _resources->images.resource(images.toneMapped).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-
-    assert(_shaderReflection.has_value());
-    const StaticArray descriptorWrites =
-        _shaderReflection->generateDescriptorWrites<2>(
-            0, _descriptorSets[nextFrame],
-            {
-                DescriptorInfo{colorInfo},
-                DescriptorInfo{mappedInfo},
-            });
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
-}
-
-void ToneMap::createPipelines()
-{
-    const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        .offset = 0,
-        .size = sizeof(PCBlock),
-    };
-
-    _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = 1,
-            .pSetLayouts = &_descriptorSetLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange,
-        });
-
-    const vk::ComputePipelineCreateInfo createInfo{
-        .stage =
-            {
-                .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = _compSM,
-                .pName = "main",
-            },
-        .layout = _pipelineLayout,
-    };
-
-    _pipeline =
-        createComputePipeline(_device->logical(), createInfo, "ToneMap");
 }
 
 ToneMap::Output ToneMap::createOutputs(const vk::Extent2D &size)
@@ -248,19 +126,9 @@ ToneMap::Output ToneMap::createOutputs(const vk::Extent2D &size)
                     vk::ImageUsageFlagBits::eSampled |         // Debug
                     vk::ImageUsageFlagBits::eStorage |         // ToneMap
                     vk::ImageUsageFlagBits::eColorAttachment | // ImGui
-                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
+                    vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap
+                                                               // image
             },
             "toneMapped"),
     };
-}
-
-void ToneMap::recordBarriers(
-    vk::CommandBuffer cb, const BoundImages &images) const
-{
-    transition<2>(
-        *_resources, cb,
-        {
-            {images.inColor, ImageState::ComputeShaderRead},
-            {images.toneMapped, ImageState::ComputeShaderWrite},
-        });
 }

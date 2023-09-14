@@ -49,55 +49,10 @@ vk::Extent2D getRenderExtent(
     };
 }
 
-} // namespace
-
-DeferredShading::DeferredShading(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
-    const InputDSLayouts &dsLayouts)
-: _device{device}
-, _resources{resources}
+ComputePass::Shader shaderDefinitionCallback(
+    Allocator &alloc, const World::DSLayouts &worldDSLayouts)
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating DeferredShading\n");
-    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
-        throw std::runtime_error("DeferredShading shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createPipeline(dsLayouts);
-}
-
-DeferredShading::~DeferredShading()
-{
-    if (_device != nullptr)
-    {
-        destroyPipelines();
-
-        _device->logical().destroy(_descriptorSetLayout);
-
-        _device->logical().destroy(_compSM);
-    }
-}
-
-void DeferredShading::recompileShaders(
-    wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
-{
-    if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
-    {
-        destroyPipelines();
-        createPipeline(dsLayouts);
-    }
-}
-
-bool DeferredShading::compileShaders(
-    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
-{
-    printf("Compiling DeferredShading shaders\n");
-
-    String defines{scopeAlloc, 256};
+    String defines{alloc, 256};
     appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
@@ -114,29 +69,53 @@ bool DeferredShading::compileShaders(
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
 
-    Optional<Device::ShaderCompileResult> compResult =
-        _device->compileShaderModule(
-            scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
-                .relPath = "shader/deferred_shading.comp",
-                .debugName = "DeferredShadingCS",
-                .defines = defines,
-            });
+    return ComputePass::Shader{
+        .relPath = "shader/deferred_shading.comp",
+        .debugName = String{alloc, "DeferredShadingCS"},
+        .defines = WHEELS_MOV(defines),
+    };
+}
 
-    if (compResult.has_value())
-    {
-        _device->logical().destroy(_compSM);
+StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
+    const DeferredShading::InputDSLayouts &dsLayouts)
+{
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[LightsBindingSet] = dsLayouts.world.lights;
+    setLayouts[LightClustersBindingSet] = dsLayouts.lightClusters;
+    setLayouts[CameraBindingSet] = dsLayouts.camera;
+    setLayouts[MaterialDatasBindingSet] = dsLayouts.world.materialDatas;
+    setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
+    return setLayouts;
+}
 
-        ShaderReflection &reflection = compResult->reflection;
-        assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
+} // namespace
 
-        _compSM = compResult->module;
-        _shaderReflection = WHEELS_MOV(reflection);
+DeferredShading::DeferredShading(
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
+    const InputDSLayouts &dsLayouts)
+: _resources{resources}
+, _computePass{
+      WHEELS_MOV(scopeAlloc),
+      device,
+      staticDescriptorsAlloc,
+      [&dsLayouts](Allocator &alloc)
+      { return shaderDefinitionCallback(alloc, dsLayouts.world); },
+      StorageBindingSet,
+      externalDsLayouts(dsLayouts)}
+{
+    assert(_resources != nullptr);
+}
 
-        return true;
-    }
-
-    return false;
+void DeferredShading::recompileShaders(
+    wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
+{
+    _computePass.recompileShader(
+        WHEELS_MOV(scopeAlloc),
+        [&dsLayouts](Allocator &alloc)
+        { return shaderDefinitionCallback(alloc, dsLayouts.world); },
+        externalDsLayouts(dsLayouts));
 }
 
 void DeferredShading::drawUi()
@@ -168,22 +147,58 @@ DeferredShading::Output DeferredShading::record(
         ret.illumination =
             createIllumination(*_resources, renderExtent, "illumination");
 
-        updateDescriptorSet(
-            nextFrame, BoundImages{
-                           .albedoRoughness = input.gbuffer.albedoRoughness,
-                           .normalMetalness = input.gbuffer.normalMetalness,
-                           .depth = input.gbuffer.depth,
-                           .illumination = ret.illumination,
-                       });
+        _computePass.updateDescriptorSet(
+            nextFrame,
+            StaticArray{
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = _resources->images
+                                     .resource(input.gbuffer.albedoRoughness)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = _resources->images
+                                     .resource(input.gbuffer.normalMetalness)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        _resources->images.resource(input.gbuffer.depth).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        _resources->images.resource(ret.illumination).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .sampler = _resources->nearestSampler,
+                }},
+            });
 
-        recordBarriers(cb, input, ret);
+        transition<5, 2>(
+            *_resources, cb,
+            {
+                {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
+                {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
+                {input.gbuffer.depth, ImageState::ComputeShaderRead},
+                {ret.illumination, ImageState::ComputeShaderWrite},
+                {input.lightClusters.pointers, ImageState::ComputeShaderRead},
+            },
+            {
+                {input.lightClusters.indicesCount,
+                 BufferState::ComputeShaderRead},
+                {input.lightClusters.indices, BufferState::ComputeShaderRead},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
-        cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+        const PCBlock pcBlock{
+            .drawType = static_cast<uint32_t>(_drawType),
+        };
 
         const auto &scene = world._scenes[world._currentScene];
-
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[LightsBindingSet] =
@@ -194,153 +209,15 @@ DeferredShading::Output DeferredShading::record(
         descriptorSets[MaterialDatasBindingSet] =
             world._materialDatasDSs[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
-        descriptorSets[StorageBindingSet] = _descriptorSets[nextFrame];
+        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
-        cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, // firstSet
-            asserted_cast<uint32_t>(descriptorSets.capacity()),
-            descriptorSets.data(), 0, nullptr);
-
-        const PCBlock pcBlock{
-            .drawType = static_cast<uint32_t>(_drawType),
-        };
-        cb.pushConstants(
-            _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
-            sizeof(PCBlock), &pcBlock);
-
-        const auto groups =
+        const uvec3 groups = glm::uvec3{
             (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
-            1u;
-        cb.dispatch(groups.x, groups.y, 1);
+                1u,
+            1u};
+
+        _computePass.record(cb, pcBlock, groups, descriptorSets);
     }
 
     return ret;
-}
-
-void DeferredShading::recordBarriers(
-    vk::CommandBuffer cb, const Input &input, const Output &output) const
-{
-    transition<5, 2>(
-        *_resources, cb,
-        {
-            {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
-            {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
-            {input.gbuffer.depth, ImageState::ComputeShaderRead},
-            {output.illumination, ImageState::ComputeShaderWrite},
-            {input.lightClusters.pointers, ImageState::ComputeShaderRead},
-        },
-        {
-            {input.lightClusters.indicesCount, BufferState::ComputeShaderRead},
-            {input.lightClusters.indices, BufferState::ComputeShaderRead},
-        });
-}
-
-void DeferredShading::destroyPipelines()
-{
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
-}
-
-void DeferredShading::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
-{
-    assert(_shaderReflection.has_value());
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _shaderReflection->generateLayoutBindings(
-            scopeAlloc, StorageBindingSet, vk::ShaderStageFlagBits::eCompute);
-
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
-
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _descriptorSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
-}
-
-void DeferredShading::updateDescriptorSet(
-    uint32_t nextFrame, const BoundImages &images)
-{
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-
-    const vk::DescriptorImageInfo albedoRoughnessInfo{
-        .imageView = _resources->images.resource(images.albedoRoughness).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo normalMetalnessInfo{
-        .imageView = _resources->images.resource(images.normalMetalness).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo depthInfo{
-        .imageView = _resources->images.resource(images.depth).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo sceneColorInfo{
-        .imageView = _resources->images.resource(images.illumination).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo depthSamplerInfo{
-        .sampler = _resources->nearestSampler,
-    };
-
-    const vk::DescriptorSet ds = _descriptorSets[nextFrame];
-
-    assert(_shaderReflection.has_value());
-    const StaticArray descriptorWrites =
-        _shaderReflection->generateDescriptorWrites<5>(
-            StorageBindingSet, ds,
-            {
-                DescriptorInfo{albedoRoughnessInfo},
-                DescriptorInfo{normalMetalnessInfo},
-                DescriptorInfo{depthInfo},
-                DescriptorInfo{sceneColorInfo},
-                DescriptorInfo{depthSamplerInfo},
-            });
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
-}
-
-void DeferredShading::createPipeline(const InputDSLayouts &dsLayouts)
-{
-    const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        .offset = 0,
-        .size = sizeof(PCBlock),
-    };
-
-    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
-        VK_NULL_HANDLE};
-    setLayouts[LightsBindingSet] = dsLayouts.world.lights;
-    setLayouts[LightClustersBindingSet] = dsLayouts.lightClusters;
-    setLayouts[CameraBindingSet] = dsLayouts.camera;
-    setLayouts[MaterialDatasBindingSet] = dsLayouts.world.materialDatas;
-    setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
-    setLayouts[StorageBindingSet] = _descriptorSetLayout;
-
-    _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = asserted_cast<uint32_t>(setLayouts.capacity()),
-            .pSetLayouts = setLayouts.data(),
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange,
-        });
-
-    const vk::ComputePipelineCreateInfo createInfo{
-        .stage =
-            {
-                .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = _compSM,
-                .pName = "main",
-            },
-        .layout = _pipelineLayout,
-    };
-
-    _pipeline = createComputePipeline(
-        _device->logical(), createInfo, "DeferredShading");
 }

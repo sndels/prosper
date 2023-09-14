@@ -5,6 +5,7 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -21,7 +22,7 @@ class DepthOfFieldDilate
         RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
-    ~DepthOfFieldDilate();
+    ~DepthOfFieldDilate() = default;
 
     DepthOfFieldDilate(const DepthOfFieldDilate &other) = delete;
     DepthOfFieldDilate(DepthOfFieldDilate &&other) = delete;
@@ -38,33 +39,8 @@ class DepthOfFieldDilate
         vk::CommandBuffer cb, ImageHandle tileMinMaxCoC, uint32_t nextFrame,
         Profiler *profiler);
 
-  private:
-    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void recordBarriers(
-        vk::CommandBuffer cb, ImageHandle tileMinMaxCoC,
-        const Output &output) const;
-
-    void destroyPipelines();
-
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void updateDescriptorSet(
-        uint32_t nextFrame, ImageHandle tileMinMaxCoC, const Output &output);
-    void createPipeline();
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
-
-    vk::ShaderModule _compSM;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    ComputePass _computePass;
 };
 
 #endif // PROSPER_DEPTH_OF_FIELD_DILATE_HPP

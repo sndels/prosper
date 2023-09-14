@@ -6,6 +6,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "Camera.hpp"
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -22,7 +23,7 @@ class DepthOfFieldCombine
         RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
-    ~DepthOfFieldCombine();
+    ~DepthOfFieldCombine() = default;
 
     DepthOfFieldCombine(const DepthOfFieldCombine &other) = delete;
     DepthOfFieldCombine(DepthOfFieldCombine &&other) = delete;
@@ -49,29 +50,8 @@ class DepthOfFieldCombine
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void recordBarriers(
-        vk::CommandBuffer cb, const Input &input, const Output &output) const;
-
-    void destroyPipelines();
-
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void updateDescriptorSet(
-        uint32_t nextFrame, const Input &input, const Output &output);
-    void createPipeline();
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
-
-    vk::ShaderModule _shaderModule;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    ComputePass _computePass;
 };
 
 #endif // PROSPER_DEPTH_OF_FIELD_COMBINE_HPP

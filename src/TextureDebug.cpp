@@ -51,74 +51,30 @@ constexpr std::array<
     const char *, static_cast<size_t>(TextureDebug::ChannelType::Count)>
     sChannelTypeNames = {TEXTURE_DEBUG_CHANNEL_TYPES_STRS};
 
+ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
+{
+    return ComputePass::Shader{
+        .relPath = "shader/texture_debug.comp",
+        .debugName = String{alloc, "TextureDebugCS"},
+    };
+}
+
 } // namespace
 
 TextureDebug::TextureDebug(
     Allocator &alloc, ScopedScratch scopeAlloc, Device *device,
     RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc)
-: _device{device}
-, _resources{resources}
+: _resources{resources}
+, _computePass{WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc, shaderDefinitionCallback}
 , _targetSettings{alloc}
 {
-    assert(_device != nullptr);
     assert(_resources != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating TextureDebug\n");
-
-    if (!compileShaders(scopeAlloc.child_scope()))
-        throw std::runtime_error("TextureDebug shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createPipelines();
-}
-
-TextureDebug::~TextureDebug()
-{
-    if (_device != nullptr)
-    {
-        destroyPipelines();
-
-        _device->logical().destroy(_descriptorSetLayout);
-        _device->logical().destroy(_compSM);
-    }
 }
 
 void TextureDebug::recompileShaders(ScopedScratch scopeAlloc)
 {
-    if (compileShaders(scopeAlloc.child_scope()))
-    {
-        destroyPipelines();
-        createPipelines();
-    }
-}
-
-bool TextureDebug::compileShaders(ScopedScratch scopeAlloc)
-{
-    printf("Compiling TextureDebug shaders\n");
-
-    Optional<Device::ShaderCompileResult> compResult =
-        _device->compileShaderModule(
-            scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
-                .relPath = "shader/texture_debug.comp",
-                .debugName = "TextureDebugCS",
-            });
-
-    if (compResult.has_value())
-    {
-        _device->logical().destroy(_compSM);
-
-        ShaderReflection &reflection = compResult->reflection;
-        assert(sizeof(PCBlock) == reflection.pushConstantsBytesize());
-
-        _compSM = compResult->module;
-        _shaderReflection = WHEELS_MOV(reflection);
-
-        return true;
-    }
-
-    return false;
+    _computePass.recompileShader(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
 }
 
 void TextureDebug::drawUi()
@@ -268,27 +224,6 @@ ImageHandle TextureDebug::record(
         }
         else
         {
-            const BoundImages images{
-                .inColor = inColor,
-                .outColor = ret,
-            };
-            updateDescriptorSet(nextFrame, images);
-
-            recordBarriers(cb, images);
-
-            const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
-
-            cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
-
-            cb.bindDescriptorSets(
-                vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, 1,
-                &_descriptorSets[nextFrame], 0, nullptr);
-
-            const vk::Extent3D inExtent =
-                _resources->images.resource(images.inColor).extent;
-            const vk::Extent3D outExtent =
-                _resources->images.resource(images.outColor).extent;
-
             const Optional<StrSpan> activeName =
                 _resources->images.activeDebugName();
 
@@ -301,6 +236,38 @@ ImageHandle TextureDebug::record(
                 if (settings_ptr != nullptr)
                     settings = *settings_ptr;
             }
+
+            _computePass.updateDescriptorSet(
+                nextFrame,
+                StaticArray{
+                    DescriptorInfo{vk::DescriptorImageInfo{
+                        .imageView = _resources->images.resource(inColor).view,
+                        .imageLayout = vk::ImageLayout::eGeneral,
+                    }},
+                    DescriptorInfo{vk::DescriptorImageInfo{
+                        .imageView = _resources->images.resource(ret).view,
+                        .imageLayout = vk::ImageLayout::eGeneral,
+                    }},
+                    DescriptorInfo{vk::DescriptorImageInfo{
+                        .sampler = settings.useBilinearSampler
+                                       ? _resources->bilinearSampler
+                                       : _resources->nearestSampler,
+                    }},
+                });
+
+            transition<2>(
+                *_resources, cb,
+                {
+                    {inColor, ImageState::ComputeShaderRead},
+                    {ret, ImageState::ComputeShaderWrite},
+                });
+
+            const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
+
+            const vk::Extent3D inExtent =
+                _resources->images.resource(inColor).extent;
+            const vk::Extent3D outExtent =
+                _resources->images.resource(ret).extent;
 
             const PCBlock pcBlock{
                 .inRes =
@@ -319,117 +286,17 @@ ImageHandle TextureDebug::record(
                 .absBeforeRange =
                     static_cast<uint32_t>(settings.absBeforeRange),
             };
-            cb.pushConstants(
-                _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
-                sizeof(PCBlock), &pcBlock);
 
-            const auto groups =
-                (glm::uvec2{outSize.width, outSize.height} - 1u) / 16u + 1u;
-            cb.dispatch(groups.x, groups.y, 1);
+            const uvec3 groups = uvec3{
+                (glm::uvec2{outSize.width, outSize.height} - 1u) / 16u + 1u,
+                1u};
+            const vk::DescriptorSet storageSet =
+                _computePass.storageSet(nextFrame);
+            _computePass.record(cb, pcBlock, groups, Span{&storageSet, 1});
         }
     }
 
     return ret;
-}
-
-void TextureDebug::destroyPipelines()
-{
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
-}
-
-void TextureDebug::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
-{
-    assert(_shaderReflection.has_value());
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _shaderReflection->generateLayoutBindings(
-            scopeAlloc, 0, vk::ShaderStageFlagBits::eCompute);
-
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
-
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _descriptorSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
-}
-
-void TextureDebug::updateDescriptorSet(
-    uint32_t nextFrame, const BoundImages &images)
-{
-    const Optional<StrSpan> activeName = _resources->images.activeDebugName();
-
-    TargetSettings settings;
-    if (activeName.has_value())
-    {
-        const uint64_t nameHash = sStrSpanHash(*activeName);
-        const TargetSettings *settings_ptr = _targetSettings.find(nameHash);
-        if (settings_ptr != nullptr)
-            settings = *settings_ptr;
-    }
-
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-    const vk::DescriptorImageInfo colorInfo{
-        .imageView = _resources->images.resource(images.inColor).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo mappedInfo{
-        .imageView = _resources->images.resource(images.outColor).view,
-        .imageLayout = vk::ImageLayout::eGeneral,
-    };
-    const vk::DescriptorImageInfo samplerInfo{
-        .sampler = settings.useBilinearSampler ? _resources->bilinearSampler
-                                               : _resources->nearestSampler,
-    };
-
-    assert(_shaderReflection.has_value());
-    const StaticArray descriptorWrites =
-        _shaderReflection->generateDescriptorWrites<3>(
-            0, _descriptorSets[nextFrame],
-            {
-                DescriptorInfo{colorInfo},
-                DescriptorInfo{mappedInfo},
-                DescriptorInfo{samplerInfo},
-            });
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
-}
-
-void TextureDebug::createPipelines()
-{
-    const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-        .offset = 0,
-        .size = sizeof(PCBlock),
-    };
-
-    _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = 1,
-            .pSetLayouts = &_descriptorSetLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange,
-        });
-
-    const vk::ComputePipelineCreateInfo createInfo{
-        .stage =
-            {
-                .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = _compSM,
-                .pName = "main",
-            },
-        .layout = _pipelineLayout,
-    };
-
-    _pipeline =
-        createComputePipeline(_device->logical(), createInfo, "TextureDebug");
 }
 
 ImageHandle TextureDebug::createOutput(vk::Extent2D size)
@@ -442,19 +309,8 @@ ImageHandle TextureDebug::createOutput(vk::Extent2D size)
             .usageFlags =
                 vk::ImageUsageFlagBits::eStorage |         // TextureDebug
                 vk::ImageUsageFlagBits::eColorAttachment | // ImGui
-                vk::ImageUsageFlagBits::eTransferSrc | //  Blit to swap image
-                vk::ImageUsageFlagBits::eTransferDst,  //  Clear
+                vk::ImageUsageFlagBits::eTransferSrc |     // Blit to swap image
+                vk::ImageUsageFlagBits::eTransferDst,      // Clear
         },
         sOutputDebugName);
-}
-
-void TextureDebug::recordBarriers(
-    vk::CommandBuffer cb, const BoundImages &images) const
-{
-    transition<2>(
-        *_resources, cb,
-        {
-            {images.inColor, ImageState::ComputeShaderRead},
-            {images.outColor, ImageState::ComputeShaderWrite},
-        });
 }

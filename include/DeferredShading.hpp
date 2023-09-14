@@ -6,6 +6,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "Camera.hpp"
+#include "ComputePass.hpp"
 #include "DebugDrawTypes.hpp"
 #include "Device.hpp"
 #include "GBufferRenderer.hpp"
@@ -36,7 +37,7 @@ class DeferredShading
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         const InputDSLayouts &dsLayouts);
 
-    ~DeferredShading();
+    ~DeferredShading() = default;
 
     DeferredShading(const DeferredShading &other) = delete;
     DeferredShading(DeferredShading &&other) = delete;
@@ -61,40 +62,8 @@ class DeferredShading
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const Input &input, uint32_t nextFrame, Profiler *profiler);
 
-  private:
-    [[nodiscard]] bool compileShaders(
-        wheels::ScopedScratch scopeAlloc,
-        const World::DSLayouts &worldDSLayouts);
-
-    void recordBarriers(
-        vk::CommandBuffer cb, const Input &input, const Output &output) const;
-
-    void destroyPipelines();
-
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    struct BoundImages
-    {
-        ImageHandle albedoRoughness;
-        ImageHandle normalMetalness;
-        ImageHandle depth;
-        ImageHandle illumination;
-    };
-    void updateDescriptorSet(uint32_t nextFrame, const BoundImages &images);
-    void createPipeline(const InputDSLayouts &dsLayouts);
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
-
-    vk::ShaderModule _compSM;
-    wheels::Optional<ShaderReflection> _shaderReflection;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    ComputePass _computePass;
 
     DrawType _drawType{DrawType::Default};
 };

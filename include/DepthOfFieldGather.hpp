@@ -5,6 +5,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "Camera.hpp"
+#include "ComputePass.hpp"
 #include "Device.hpp"
 #include "Profiler.hpp"
 #include "RenderResources.hpp"
@@ -28,7 +29,7 @@ class DepthOfFieldGather
         RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
-    ~DepthOfFieldGather();
+    ~DepthOfFieldGather() = default;
 
     DepthOfFieldGather(const DepthOfFieldGather &other) = delete;
     DepthOfFieldGather(DepthOfFieldGather &&other) = delete;
@@ -51,35 +52,10 @@ class DepthOfFieldGather
         vk::CommandBuffer cb, const Input &input, GatherType gatherType,
         uint32_t nextFrame, Profiler *profiler);
 
-  private:
-    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void recordBarriers(
-        vk::CommandBuffer cb, const Input &input, const Output &output) const;
-
-    void destroyPipelines();
-
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
-    void updateDescriptorSet(
-        vk::DescriptorSet descriptorSet, GatherType gatherType,
-        const Input &input, const Output &output);
-    void createPipeline();
-
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    wheels::StaticArray<vk::ShaderModule, GatherType_Count> _shaderModules{{}};
-    wheels::StaticArray<ShaderReflection, GatherType_Count> _shaderReflections;
-
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    // Typedef so we can use capacity() as a template arg
-    using DescriptorSets = wheels::StaticArray<
-        vk::DescriptorSet, GatherType_Count * MAX_FRAMES_IN_FLIGHT>;
-    DescriptorSets _descriptorSets{{}};
-    vk::PipelineLayout _pipelineLayout;
-    wheels::StaticArray<vk::Pipeline, GatherType_Count> _pipelines;
+    ComputePass _backgroundPass;
+    ComputePass _foregroundPass;
 
     uint32_t _frameIndex{0};
 };
