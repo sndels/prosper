@@ -20,4 +20,13 @@ jobs:
         run: sudo apt install clang-format-15
 
       - name: Run clang-format
-        run: clang-format-15 -Werror --dry-run src/*.cpp include/*.hpp res/shader/*.* res/shader/*.* res/shader/**/*.*
+        run: >
+          clang-format-15
+          -Werror
+          --dry-run
+          src/*.cpp
+          src/**/*.cpp
+          src/*.hpp
+          src/**/*.hpp
+          res/shader/*.*
+          res/shader/**/*.*

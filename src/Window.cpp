@@ -5,8 +5,8 @@
 
 #include <iostream>
 
-#include "InputHandler.hpp"
-#include "Utils.hpp"
+#include "utils/InputHandler.hpp"
+#include "utils/Utils.hpp"
 
 using namespace wheels;
 

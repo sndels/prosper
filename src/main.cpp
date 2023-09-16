@@ -8,7 +8,7 @@
 #include <wheels/allocators/linear_allocator.hpp>
 
 #include "App.hpp"
-#include "Utils.hpp"
+#include "utils/Utils.hpp"
 
 using namespace wheels;
 
