@@ -7,7 +7,6 @@ endif() # MSVC
 
 # Set up sub-builds and sources
 add_subdirectory(ext)
-add_subdirectory(include)
 add_subdirectory(src)
 
 option(PROSPER_USE_PCH "Use pre-compiled headers" ON)

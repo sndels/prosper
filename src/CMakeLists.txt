@@ -1,45 +1,30 @@
+add_subdirectory(gfx)
+add_subdirectory(render)
+add_subdirectory(scene)
+add_subdirectory(utils)
+
+set(PROSPER_INCLUDE_DIR
+    ${CMAKE_CURRENT_LIST_DIR}
+    PARENT_SCOPE
+)
+
+set(PROSPER_INCLUDES
+    ${PROSPER_GFX_INCLUDES}
+    ${PROSPER_RENDER_INCLUDES}
+    ${PROSPER_SCENE_INCLUDES}
+    ${PROSPER_UTIL_INCLUDES}
+    ${CMAKE_CURRENT_LIST_DIR}/App.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Window.hpp
+    PARENT_SCOPE
+)
+
 set(PROSPER_SOURCES
+    ${PROSPER_GFX_SOURCES}
+    ${PROSPER_RENDER_SOURCES}
+    ${PROSPER_SCENE_SOURCES}
+    ${PROSPER_UTILS_SOURCES}
     ${CMAKE_CURRENT_LIST_DIR}/App.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ComputePass.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Dds.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfField.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldCombine.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/GBufferRenderer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/InputHandler.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Light.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/LightClustering.cpp
     ${CMAKE_CURRENT_LIST_DIR}/main.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Profiler.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/RenderResources.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Resources.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/RTRenderer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ShaderReflection.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Swapchain.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/Timer.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ToneMap.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/VkUtils.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/vmaImplementation.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/vulkan.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Window.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/World.cpp
     PARENT_SCOPE
 )

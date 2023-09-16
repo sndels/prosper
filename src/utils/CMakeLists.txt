@@ -1,0 +1,18 @@
+set(PROSPER_UTILS_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/Dds.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/ForEach.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/InputHandler.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Profiler.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Utils.hpp
+    PARENT_SCOPE
+)
+
+set(PROSPER_UTILS_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/Dds.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/InputHandler.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Profiler.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Timer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
+    PARENT_SCOPE
+)

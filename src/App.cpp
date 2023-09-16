@@ -13,9 +13,9 @@
 #include <wheels/allocators/utils.hpp>
 #include <wheels/containers/string.hpp>
 
-#include "InputHandler.hpp"
-#include "Utils.hpp"
-#include "VkUtils.hpp"
+#include "gfx/VkUtils.hpp"
+#include "utils/InputHandler.hpp"
+#include "utils/Utils.hpp"
 
 using namespace glm;
 using namespace wheels;

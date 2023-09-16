@@ -1,0 +1,23 @@
+set(PROSPER_SCENE_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/Camera.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/DebugDrawTypes.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Light.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Material.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Mesh.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Model.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Scene.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/World.hpp
+    PARENT_SCOPE
+)
+
+set(PROSPER_SCENE_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Light.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/World.cpp
+    PARENT_SCOPE
+)
