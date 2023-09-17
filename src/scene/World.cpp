@@ -297,6 +297,9 @@ World::World(
     const auto gltfModel = loadGLTFModel(resPath(scene));
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
+    // Deferred loading is used for textures only
+    deferredLoading = deferredLoading && !gltfModel.textures.empty();
+
     if (deferredLoading)
         _deferredLoadingContext.emplace(
             _generalAlloc, _device, &_sceneDir, gltfModel);
