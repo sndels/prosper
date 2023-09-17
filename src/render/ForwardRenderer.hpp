@@ -1,5 +1,5 @@
-#ifndef PROSPER_RENDER_RENDERER_HPP
-#define PROSPER_RENDER_RENDERER_HPP
+#ifndef PROSPER_RENDER_FORWARD_RENDERER_HPP
+#define PROSPER_RENDER_FORWARD_RENDERER_HPP
 
 #include "../gfx/Device.hpp"
 #include "../gfx/Swapchain.hpp"
@@ -13,7 +13,7 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
-class Renderer
+class ForwardRenderer
 {
   public:
     enum class DrawType : uint32_t
@@ -28,15 +28,15 @@ class Renderer
         vk::DescriptorSetLayout lightClusters;
         const World::DSLayouts &world;
     };
-    Renderer(
+    ForwardRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, const InputDSLayouts &dsLayouts);
-    ~Renderer();
+    ~ForwardRenderer();
 
-    Renderer(const Renderer &other) = delete;
-    Renderer(Renderer &&other) = delete;
-    Renderer &operator=(const Renderer &other) = delete;
-    Renderer &operator=(Renderer &&other) = delete;
+    ForwardRenderer(const ForwardRenderer &other) = delete;
+    ForwardRenderer(ForwardRenderer &&other) = delete;
+    ForwardRenderer &operator=(const ForwardRenderer &other) = delete;
+    ForwardRenderer &operator=(ForwardRenderer &&other) = delete;
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
@@ -101,4 +101,4 @@ class Renderer
     DrawType _drawType{DrawType::Default};
 };
 
-#endif // PROSPER_RENDER_RENDERER_HPP
+#endif // PROSPER_RENDER_FORWARD_RENDERER_HPP

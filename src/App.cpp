@@ -106,9 +106,9 @@ App::App(const Settings &settings)
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
-    _renderer = std::make_unique<Renderer>(
+    _forwardRenderer = std::make_unique<ForwardRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        Renderer::InputDSLayouts{
+        ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
@@ -312,9 +312,9 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _lightClustering->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
-    _renderer->recompileShaders(
+    _forwardRenderer->recompileShaders(
         scopeAlloc.child_scope(),
-        Renderer::InputDSLayouts{
+        ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
@@ -622,7 +622,7 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         else if (_renderDeferred)
             _deferredShading->drawUi();
         else
-            _renderer->drawUi();
+            _forwardRenderer->drawUi();
     }
 
     ImGui::End();
@@ -885,17 +885,18 @@ void App::render(
         }
         else
         {
-            const Renderer::OpaqueOutput output = _renderer->recordOpaque(
-                cb, *_world, *_cam, renderArea, lightClusters,
-                indices.nextFrame, _profiler.get());
+            const ForwardRenderer::OpaqueOutput output =
+                _forwardRenderer->recordOpaque(
+                    cb, *_world, *_cam, renderArea, lightClusters,
+                    indices.nextFrame, _profiler.get());
             illumination = output.illumination;
             depth = output.depth;
         }
 
         // Transparent
-        _renderer->recordTransparent(
+        _forwardRenderer->recordTransparent(
             cb, *_world, *_cam,
-            Renderer::RecordInOut{
+            ForwardRenderer::RecordInOut{
                 .illumination = illumination,
                 .depth = depth,
             },
