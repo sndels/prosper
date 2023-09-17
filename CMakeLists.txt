@@ -96,10 +96,8 @@ if(PROSPER_USE_PCH)
         [["chrono"]]
         [["filesystem"]]
         [["fstream"]]
-        [["map"]]
-        [["set"]]
-        [["unordered_map"]]
-        [["unordered_set"]]
+        [["variant"]]
+        [["functional"]]
         [["glm/glm.hpp"]] # Don't include glm/gtc/type_ptr as gli implements its own make_vec4 and having a header in pch makes it visible everywhere
         [["vulkan/vulkan.hpp"]]
         [["vulkan/vulkan_hash.hpp"]]
