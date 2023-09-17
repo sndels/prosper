@@ -6,12 +6,12 @@
 #include "gfx/Swapchain.hpp"
 #include "render/DebugRenderer.hpp"
 #include "render/DeferredShading.hpp"
+#include "render/ForwardRenderer.hpp"
 #include "render/GBufferRenderer.hpp"
 #include "render/ImGuiRenderer.hpp"
 #include "render/LightClustering.hpp"
 #include "render/RTRenderer.hpp"
 #include "render/RenderResources.hpp"
-#include "render/Renderer.hpp"
 #include "render/SkyboxRenderer.hpp"
 #include "render/TextureDebug.hpp"
 #include "render/ToneMap.hpp"
@@ -121,7 +121,7 @@ class App
     std::unique_ptr<World> _world;
 
     std::unique_ptr<LightClustering> _lightClustering;
-    std::unique_ptr<Renderer> _renderer;
+    std::unique_ptr<ForwardRenderer> _forwardRenderer;
     std::unique_ptr<GBufferRenderer> _gbufferRenderer;
     std::unique_ptr<DeferredShading> _deferredShading;
     std::unique_ptr<RTRenderer> _rtRenderer;

@@ -1,4 +1,4 @@
-#include "Renderer.hpp"
+#include "ForwardRenderer.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
@@ -35,11 +35,12 @@ struct PCBlock
 };
 
 constexpr std::array<
-    const char *, static_cast<size_t>(Renderer::DrawType::Count)>
+    const char *, static_cast<size_t>(ForwardRenderer::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 vk::Rect2D getRenderArea(
-    const RenderResources &resources, const Renderer::RecordInOut &inOutTargets)
+    const RenderResources &resources,
+    const ForwardRenderer::RecordInOut &inOutTargets)
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(inOutTargets.illumination).extent;
@@ -59,7 +60,7 @@ vk::Rect2D getRenderArea(
 
 } // namespace
 
-Renderer::Renderer(
+ForwardRenderer::ForwardRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const InputDSLayouts &dsLayouts)
 : _device{device}
@@ -68,15 +69,15 @@ Renderer::Renderer(
     assert(_device != nullptr);
     assert(_resources != nullptr);
 
-    printf("Creating Renderer\n");
+    printf("Creating ForwardRenderer\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
-        throw std::runtime_error("Renderer shader compilation failed");
+        throw std::runtime_error("ForwardRenderer shader compilation failed");
 
     createGraphicsPipelines(dsLayouts);
 }
 
-Renderer::~Renderer()
+ForwardRenderer::~ForwardRenderer()
 {
     if (_device != nullptr)
     {
@@ -87,7 +88,7 @@ Renderer::~Renderer()
     }
 }
 
-void Renderer::recompileShaders(
+void ForwardRenderer::recompileShaders(
     ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
     if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
@@ -97,7 +98,7 @@ void Renderer::recompileShaders(
     }
 }
 
-void Renderer::drawUi()
+void ForwardRenderer::drawUi()
 {
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
     if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
@@ -112,7 +113,7 @@ void Renderer::drawUi()
     }
 }
 
-Renderer::OpaqueOutput Renderer::recordOpaque(
+ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const LightClustering::Output &lightClusters,
     uint32_t nextFrame, Profiler *profiler)
@@ -133,7 +134,7 @@ Renderer::OpaqueOutput Renderer::recordOpaque(
     return ret;
 }
 
-void Renderer::recordTransparent(
+void ForwardRenderer::recordTransparent(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const RecordInOut &inOutTargets,
     const LightClustering::Output &lightClusters, uint32_t nextFrame,
@@ -144,10 +145,10 @@ void Renderer::recordTransparent(
         "TransparentGeometry");
 }
 
-bool Renderer::compileShaders(
+bool ForwardRenderer::compileShaders(
     ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
-    printf("Compiling Renderer shaders\n");
+    printf("Compiling ForwardRenderer shaders\n");
 
     String vertDefines{scopeAlloc, 128};
     appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
@@ -225,14 +226,14 @@ bool Renderer::compileShaders(
     return false;
 }
 
-void Renderer::destroyGraphicsPipelines()
+void ForwardRenderer::destroyGraphicsPipelines()
 {
     for (auto &p : _pipelines)
         _device->logical().destroy(p);
     _device->logical().destroy(_pipelineLayout);
 }
 
-void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
+void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 {
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};
@@ -274,7 +275,7 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
                 .pColorAttachmentFormats = &sIlluminationFormat,
                 .depthAttachmentFormat = sDepthFormat,
             },
-            "Renderer::Opaque");
+            "ForwardRenderer::Opaque");
     }
 
     {
@@ -290,11 +291,11 @@ void Renderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
                 .pColorAttachmentFormats = &sIlluminationFormat,
                 .depthAttachmentFormat = sDepthFormat,
             },
-            "Renderer::Transparent");
+            "ForwardRenderer::Transparent");
     }
 }
 
-void Renderer::record(
+void ForwardRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
     const LightClustering::Output &lightClusters, bool transparents,
@@ -378,7 +379,7 @@ void Renderer::record(
     cb.endRendering();
 }
 
-void Renderer::recordBarriers(
+void ForwardRenderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets,
     const LightClustering::Output &lightClusters) const
 {
@@ -395,7 +396,7 @@ void Renderer::recordBarriers(
         });
 }
 
-Renderer::Attachments Renderer::createAttachments(
+ForwardRenderer::Attachments ForwardRenderer::createAttachments(
     const RecordInOut &inOutTargets, bool transparents) const
 {
     Attachments ret;
