@@ -22,8 +22,6 @@ void InputHandler::clearSingleFrameGestures()
 
 const CursorState &InputHandler::cursor() const { return _cursor; }
 
-const ModifierState &InputHandler::modifiers() const { return _modifiers; }
-
 const wheels::Optional<MouseGesture> &InputHandler::mouseGesture() const
 {
     return _mouseGesture;

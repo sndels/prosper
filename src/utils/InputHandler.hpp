@@ -5,11 +5,6 @@
 
 #include <wheels/containers/optional.hpp>
 
-struct ModifierState
-{
-    bool shift{false};
-};
-
 struct CursorState
 {
     glm::vec2 position{0.f, 0.f};
@@ -44,7 +39,6 @@ class InputHandler
     void clearSingleFrameGestures();
 
     [[nodiscard]] const CursorState &cursor() const;
-    [[nodiscard]] const ModifierState &modifiers() const;
     [[nodiscard]] const wheels::Optional<MouseGesture> &mouseGesture() const;
 
     void handleCursorEntered(bool entered);
@@ -57,7 +51,6 @@ class InputHandler
     ~InputHandler() = default;
 
     CursorState _cursor;
-    ModifierState _modifiers;
     wheels::Optional<MouseGesture> _mouseGesture;
 };
 
