@@ -4,6 +4,23 @@
 #include <glm/glm.hpp>
 
 using namespace glm;
+using namespace wheels;
+
+namespace
+{
+
+Key convertKey(int glfwCode)
+{
+    switch (glfwCode)
+    {
+    case GLFW_KEY_I:
+        return KeyI;
+    default:
+        return KeyNotMapped;
+    }
+}
+
+} // namespace
 
 InputHandler &InputHandler::instance()
 {
@@ -21,6 +38,11 @@ void InputHandler::clearSingleFrameGestures()
 }
 
 const CursorState &InputHandler::cursor() const { return _cursor; }
+
+const StaticArray<KeyState, KeyCount> &InputHandler::keyboard() const
+{
+    return _keyboard;
+}
 
 const wheels::Optional<MouseGesture> &InputHandler::mouseGesture() const
 {
@@ -92,4 +114,40 @@ void InputHandler::handleMouseMove(double xpos, double ypos)
     {
         _mouseGesture->currentPos = _cursor.position;
     }
+}
+
+// NOLINTNEXTLINE mirrors the glfw interface
+void InputHandler::handleKey(
+    int glfwKey, int /*scancode*/, int action, int /*mods*/)
+{
+    const Key key = convertKey(glfwKey);
+    if (key == KeyNotMapped)
+        return;
+
+    if (action == GLFW_PRESS)
+    {
+        _keyboard[key] = KeyState::Pressed;
+        _keyboardUpdated[key] = true;
+    }
+    else if (action == GLFW_RELEASE)
+    {
+        _keyboard[key] = KeyState::Released;
+        _keyboardUpdated[key] = true;
+    }
+}
+
+void InputHandler::handleKeyStateUpdate()
+{
+    for (uint8_t key = 0; key < KeyCount; ++key)
+    {
+        if (!_keyboardUpdated[key])
+        {
+            KeyState &state = _keyboard[key];
+            if (state == KeyState::Pressed)
+                state = KeyState::Held;
+            else if (state == KeyState::Released)
+                state = KeyState::Neutral;
+        }
+    }
+    _keyboardUpdated = {false};
 }
