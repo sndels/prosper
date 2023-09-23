@@ -190,6 +190,7 @@ App::~App()
 void App::run()
 {
     LinearAllocator scopeBackingAlloc{megabytes(16)};
+    Timer updateDelta;
     while (_window->open())
     {
         _profiler->startCpuFrame();
@@ -203,7 +204,8 @@ void App::run()
         }
 
         handleMouseGestures();
-        handleKeyboardInput();
+        handleKeyboardInput(updateDelta.getSeconds());
+        updateDelta.reset();
 
         recompileShaders(scopeAlloc.child_scope());
 
@@ -454,7 +456,7 @@ void App::handleMouseGestures()
     }
 }
 
-void App::handleKeyboardInput()
+void App::handleKeyboardInput(float deltaS)
 {
     const StaticArray<KeyState, KeyCount> &keyStates = _inputHandler.keyboard();
 
@@ -462,6 +464,61 @@ void App::handleKeyboardInput()
     {
         _drawUi = !_drawUi;
         _forceViewportRecreate = true;
+    }
+
+    // TODO:
+    // Up/down to q/e
+    // Make this work with mouse look somehow
+
+    const float baseSpeed = 2.f;
+    vec3 speed{0.f};
+
+    if (keyStates[KeyW] == KeyState::Pressed ||
+        keyStates[KeyW] == KeyState::Held)
+        speed.z += baseSpeed;
+    if (keyStates[KeyS] == KeyState::Pressed ||
+        keyStates[KeyS] == KeyState::Held)
+        speed.z -= baseSpeed;
+    if (keyStates[KeyD] == KeyState::Pressed ||
+        keyStates[KeyD] == KeyState::Held)
+        speed.x += baseSpeed;
+    if (keyStates[KeyA] == KeyState::Pressed ||
+        keyStates[KeyA] == KeyState::Held)
+        speed.x -= baseSpeed;
+    if (keyStates[KeyE] == KeyState::Pressed ||
+        keyStates[KeyE] == KeyState::Held)
+        speed.y += baseSpeed;
+    if (keyStates[KeyQ] == KeyState::Pressed ||
+        keyStates[KeyQ] == KeyState::Held)
+        speed.y -= baseSpeed;
+
+    if (keyStates[KeyShift] == KeyState::Held)
+        speed *= 2.f;
+    if (keyStates[KeyCtrl] == KeyState::Held)
+        speed *= 0.5f;
+
+    speed *= deltaS;
+
+    if (length(speed) > 0.f)
+    {
+        const CameraParameters &params = _cam->parameters();
+        const Optional<CameraOffset> &offset = _cam->offset;
+
+        const vec3 eye =
+            offset.has_value() ? params.eye + offset->eye : params.eye;
+        const vec3 target =
+            offset.has_value() ? params.target + offset->target : params.target;
+
+        const vec3 fwd = normalize(target - eye);
+        const vec3 right = normalize(cross(fwd, params.up));
+        const vec3 up = normalize(cross(right, fwd));
+
+        const vec3 movement = right * speed.x + fwd * speed.z + up * speed.y;
+
+        _cam->applyOffset(CameraOffset{
+            .eye = movement,
+            .target = movement,
+        });
     }
 }
 

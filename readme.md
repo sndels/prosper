@@ -55,7 +55,10 @@ See the [build workflow](https://github.com/sndels/prosper/blob/master/.github/w
 
 - RMB/MMB drag - Trackball drag
 - Scroll up/down - Dolly forward/back
-- RMB/MMB drag + Shift - Plane drag
+- RMB/MMB drag + Alt - Plane drag
+- WASDQE - Movement
+  - Shift - Double speed
+  - Ctrl - Half speed
 
 ## wheels
 
