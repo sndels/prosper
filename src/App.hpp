@@ -52,6 +52,7 @@ class App
     void recreateViewportRelated();
 
     void handleMouseGestures();
+    void handleKeyboardInput();
 
     void drawFrame(
         wheels::ScopedScratch scopeAlloc, uint32_t scopeHighWatermark);
@@ -141,6 +142,8 @@ class App
     bool _renderDeferred{false};
     bool _renderDoF{false};
     bool _textureDebugActive{false};
+    bool _drawUi{true};
+    bool _forceViewportRecreate{false};
 
     uint32_t _ctorScratchHighWatermark{0};
 
