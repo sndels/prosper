@@ -15,6 +15,27 @@ Key convertKey(int glfwCode)
     {
     case GLFW_KEY_I:
         return KeyI;
+    case GLFW_KEY_W:
+        return KeyW;
+    case GLFW_KEY_A:
+        return KeyA;
+    case GLFW_KEY_S:
+        return KeyS;
+    case GLFW_KEY_D:
+        return KeyD;
+    case GLFW_KEY_Q:
+        return KeyQ;
+    case GLFW_KEY_E:
+        return KeyE;
+    case GLFW_KEY_LEFT_SHIFT:
+    case GLFW_KEY_RIGHT_SHIFT:
+        return KeyShift;
+    case GLFW_KEY_LEFT_CONTROL:
+    case GLFW_KEY_RIGHT_CONTROL:
+        return KeyCtrl;
+    case GLFW_KEY_LEFT_ALT:
+    case GLFW_KEY_RIGHT_ALT:
+        return KeyAlt;
     default:
         return KeyNotMapped;
     }
