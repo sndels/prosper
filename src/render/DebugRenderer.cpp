@@ -103,7 +103,7 @@ void DebugRenderer::record(
 
         const Attachments attachments = createAttachments(inOutTargets);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "Debug");
+        const auto _s = profiler->createCpuGpuScope(cb, "Debug", true);
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

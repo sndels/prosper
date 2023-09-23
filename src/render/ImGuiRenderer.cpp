@@ -120,7 +120,7 @@ void ImGuiRenderer::endFrame(
         _resources->finalComposite.transition(
             cb, ImageState::ColorAttachmentReadWrite);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "ImGui");
+        const auto _s = profiler->createCpuGpuScope(cb, "ImGui", true);
 
         cb.beginRenderPass(
             vk::RenderPassBeginInfo{

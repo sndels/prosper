@@ -85,7 +85,7 @@ void SkyboxRenderer::record(
 
         const Attachments attachments = createAttachments(inOutTargets);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "Skybox");
+        const auto _s = profiler->createCpuGpuScope(cb, "Skybox", true);
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

@@ -310,7 +310,7 @@ void ForwardRenderer::record(
     const Attachments attachments =
         createAttachments(inOutTargets, transparents);
 
-    const auto _s = profiler->createCpuGpuScope(cb, debugName);
+    const auto _s = profiler->createCpuGpuScope(cb, debugName, true);
 
     cb.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,

@@ -697,19 +697,19 @@ void App::drawProfiling(
             static int scopeIndex = 0;
             const char *comboTitle =
                 profilerDatas[scopeIndex].gpuMillis < 0.f
-                    ? "##EmptyGPUScopeTitle"
+                    ? "Pipeline stats##EmptyGPUScopeTitle"
                     : profilerDatas[scopeIndex].name.data();
             if (ImGui::BeginCombo("##GPUScopeData", comboTitle, 0))
             {
-                for (int n = 0; n < asserted_cast<int>(profilerDatas.size());
-                     n++)
+                const int scopeCount = asserted_cast<int>(profilerDatas.size());
+                for (int n = 0; n < scopeCount; n++)
                 {
-                    // Only have scopes that have gpu data
-                    if (profilerDatas[n].gpuMillis >= 0.f)
+                    const Profiler::ScopeData &scopeData = profilerDatas[n];
+                    // Only have scopes that have gpu stats
+                    if (scopeData.gpuStats.has_value())
                     {
                         const bool selected = scopeIndex == n;
-                        if (ImGui::Selectable(
-                                profilerDatas[n].name.data(), selected))
+                        if (ImGui::Selectable(scopeData.name.data(), selected))
                             scopeIndex = n;
 
                         if (selected)
@@ -718,9 +718,9 @@ void App::drawProfiling(
                 }
                 ImGui::EndCombo();
             }
-            if (profilerDatas[scopeIndex].gpuMillis >= 0.f)
+            if (profilerDatas[scopeIndex].gpuStats.has_value())
             {
-                const auto &stats = profilerDatas[scopeIndex].stats;
+                const auto &stats = *profilerDatas[scopeIndex].gpuStats;
                 const auto &swapExtent = _viewportExtent;
                 const uint32_t pixelCount =
                     swapExtent.width * swapExtent.height;
