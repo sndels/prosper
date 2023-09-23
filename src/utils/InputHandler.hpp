@@ -4,6 +4,22 @@
 #include <glm/glm.hpp>
 
 #include <wheels/containers/optional.hpp>
+#include <wheels/containers/static_array.hpp>
+
+enum class KeyState
+{
+    Neutral,  // Key is just hangin'
+    Pressed,  // Key was pressed between previous and current frame
+    Held,     // Key is being held down
+    Released, // Key was released between previous and current frame
+};
+
+enum Key : uint8_t
+{
+    KeyI = 0,
+    KeyCount,
+    KeyNotMapped,
+};
 
 struct CursorState
 {
@@ -39,18 +55,24 @@ class InputHandler
     void clearSingleFrameGestures();
 
     [[nodiscard]] const CursorState &cursor() const;
+    [[nodiscard]] const wheels::StaticArray<KeyState, KeyCount> &keyboard()
+        const;
     [[nodiscard]] const wheels::Optional<MouseGesture> &mouseGesture() const;
 
     void handleCursorEntered(bool entered);
     void handleMouseScroll(double xoffset, double yoffset);
     void handleMouseButton(int button, int action, int mods);
     void handleMouseMove(double xpos, double ypos);
+    void handleKey(int glfwKey, int scancode, int action, int mods);
+    void handleKeyStateUpdate();
 
   private:
     InputHandler() = default;
     ~InputHandler() = default;
 
     CursorState _cursor;
+    wheels::StaticArray<KeyState, KeyCount> _keyboard{{KeyState::Neutral}};
+    wheels::StaticArray<bool, KeyCount> _keyboardUpdated{{false}};
     wheels::Optional<MouseGesture> _mouseGesture;
 };
 

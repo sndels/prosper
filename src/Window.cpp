@@ -60,6 +60,7 @@ void Window::startFrame()
     _resized = false;
 
     glfwPollEvents();
+    InputHandler::instance().handleKeyStateUpdate();
 }
 
 void Window::errorCallback(int error, const char *description)
@@ -87,6 +88,7 @@ void Window::keyCallback(
                 break;
             }
         }
+        InputHandler::instance().handleKey(key, scancode, action, mods);
     }
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }
