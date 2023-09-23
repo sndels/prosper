@@ -17,6 +17,15 @@ enum class KeyState
 enum Key : uint8_t
 {
     KeyI = 0,
+    KeyW,
+    KeyA,
+    KeyS,
+    KeyD,
+    KeyQ,
+    KeyE,
+    KeyShift,
+    KeyCtrl,
+    KeyAlt,
     KeyCount,
     KeyNotMapped,
 };
