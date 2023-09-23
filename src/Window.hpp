@@ -1,6 +1,8 @@
 #ifndef PROSPER_WINDOW_HPP
 #define PROSPER_WINDOW_HPP
 
+#include "utils/InputHandler.hpp"
+
 #include <GLFW/glfw3.h>
 
 #include <wheels/containers/pair.hpp>
@@ -9,7 +11,8 @@ class Window
 {
   public:
     Window(
-        const wheels::Pair<uint32_t, uint32_t> &resolution, const char *title);
+        const wheels::Pair<uint32_t, uint32_t> &resolution, const char *title,
+        InputHandler *inputHandler);
     ~Window();
 
     Window(const Window &other) = delete;
@@ -40,6 +43,8 @@ class Window
         GLFWwindow *window, int width, int height);
 
   private:
+    InputHandler *_inputHandler{nullptr};
+
     GLFWwindow *_window{nullptr};
     uint32_t _width{0};
     uint32_t _height{0};

@@ -10,10 +10,15 @@
 
 using namespace wheels;
 
-Window::Window(const Pair<uint32_t, uint32_t> &resolution, const char *title)
-: _width{resolution.first}
+Window::Window(
+    const Pair<uint32_t, uint32_t> &resolution, const char *title,
+    InputHandler *inputHandler)
+: _inputHandler{inputHandler}
+, _width{resolution.first}
 , _height{resolution.second}
 {
+    assert(_inputHandler != nullptr);
+
     printf("Creating window\n");
 
     glfwSetErrorCallback(Window::errorCallback);
@@ -60,7 +65,7 @@ void Window::startFrame()
     _resized = false;
 
     glfwPollEvents();
-    InputHandler::instance().handleKeyStateUpdate();
+    _inputHandler->handleKeyStateUpdate();
 }
 
 void Window::errorCallback(int error, const char *description)
@@ -88,7 +93,8 @@ void Window::keyCallback(
                 break;
             }
         }
-        InputHandler::instance().handleKey(key, scancode, action, mods);
+        auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+        thisPtr->_inputHandler->handleKey(key, scancode, action, mods);
     }
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }
@@ -100,16 +106,14 @@ void Window::charCallback(GLFWwindow *window, unsigned int c)
 
 void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos)
 {
-    (void)window;
-
-    InputHandler::instance().handleMouseMove(xpos, ypos);
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    thisPtr->_inputHandler->handleMouseMove(xpos, ypos);
 }
 
 void Window::cursorEnterCallback(GLFWwindow *window, int entered)
 {
-    (void)window;
-
-    InputHandler::instance().handleCursorEntered(entered == GL_TRUE);
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    thisPtr->_inputHandler->handleCursorEntered(entered == GL_TRUE);
 }
 
 void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
@@ -118,13 +122,15 @@ void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
     if (io.WantCaptureMouse)
         ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
     else
-        InputHandler::instance().handleMouseScroll(xoffset, yoffset);
+    {
+        auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+        thisPtr->_inputHandler->handleMouseScroll(xoffset, yoffset);
+    }
 }
 
 void Window::mouseButtonCallback(
     GLFWwindow *window, int button, int action, int mods)
 {
-    (void)window;
     (void)mods;
 
     const ImGuiIO &io = ImGui::GetIO();
@@ -133,7 +139,10 @@ void Window::mouseButtonCallback(
     // Make sure we don't just drop camera drag end events when mouse moves over
     // a UI element
     if (!io.WantCaptureMouse || action == GLFW_RELEASE)
-        InputHandler::instance().handleMouseButton(button, action, mods);
+    {
+        auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+        thisPtr->_inputHandler->handleMouseButton(button, action, mods);
+    }
 }
 
 // NOLINTNEXTLINE mirrors the glfw interface

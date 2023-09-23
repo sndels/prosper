@@ -45,12 +45,13 @@ struct MouseGesture
 class InputHandler
 {
   public:
+    InputHandler() = default;
+    ~InputHandler() = default;
+
     InputHandler(const InputHandler &other) = delete;
     InputHandler(InputHandler &&other) = delete;
     InputHandler &operator=(const InputHandler &other) = delete;
     InputHandler &operator=(InputHandler &&other) = delete;
-
-    static InputHandler &instance();
 
     void clearSingleFrameGestures();
 
@@ -67,9 +68,6 @@ class InputHandler
     void handleKeyStateUpdate();
 
   private:
-    InputHandler() = default;
-    ~InputHandler() = default;
-
     CursorState _cursor;
     wheels::StaticArray<KeyState, KeyCount> _keyboard{{KeyState::Neutral}};
     wheels::StaticArray<bool, KeyCount> _keyboardUpdated{{false}};
