@@ -67,7 +67,8 @@ App::App(const Settings &settings)
        [&]
        {
            _window = std::make_unique<Window>(
-               Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper");
+               Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper",
+               &_inputHandler);
        });
     tl("Device creation",
        [&]
@@ -213,7 +214,7 @@ void App::run()
             asserted_cast<uint32_t>(
                 scopeBackingAlloc.allocated_byte_count_high_watermark()));
 
-        InputHandler::instance().clearSingleFrameGestures();
+        _inputHandler.clearSingleFrameGestures();
         _cam->clearChangedThisFrame();
 
         _profiler->endCpuFrame();
@@ -359,7 +360,7 @@ void App::handleMouseGestures()
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
-    const auto &gesture = InputHandler::instance().mouseGesture();
+    const auto &gesture = _inputHandler.mouseGesture();
     if (gesture.has_value())
     {
         if (gesture->type == MouseGestureType::TrackBall)
@@ -455,8 +456,7 @@ void App::handleMouseGestures()
 
 void App::handleKeyboardInput()
 {
-    const StaticArray<KeyState, KeyCount> &keyStates =
-        InputHandler::instance().keyboard();
+    const StaticArray<KeyState, KeyCount> &keyStates = _inputHandler.keyboard();
 
     if (keyStates[KeyI] == KeyState::Pressed)
     {

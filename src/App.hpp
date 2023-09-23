@@ -99,6 +99,7 @@ class App
 
     wheels::TlsfAllocator _generalAlloc;
 
+    InputHandler _inputHandler;
     std::unique_ptr<Window>
         _window; // Needs to be valid before and after everything else
     std::unique_ptr<Device>

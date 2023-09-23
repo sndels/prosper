@@ -22,12 +22,6 @@ Key convertKey(int glfwCode)
 
 } // namespace
 
-InputHandler &InputHandler::instance()
-{
-    static InputHandler ih;
-    return ih;
-}
-
 void InputHandler::clearSingleFrameGestures()
 {
     if (_mouseGesture.has_value() &&
