@@ -43,12 +43,13 @@ class GpuFrameProfiler
       protected:
         Scope(
             vk::CommandBuffer cb, QueryPools pools, const char *name,
-            uint32_t queryIndex);
+            uint32_t queryIndex, bool includeStatistics);
 
       private:
         vk::CommandBuffer _cb;
         QueryPools _pools;
         uint32_t _queryIndex{0};
+        bool _hasStatistics;
 
         friend class GpuFrameProfiler;
     };
@@ -57,7 +58,7 @@ class GpuFrameProfiler
     {
         uint32_t index{0xFFFFFFFF};
         float millis{0.f};
-        PipelineStatistics stats;
+        wheels::Optional<PipelineStatistics> stats;
     };
 
     GpuFrameProfiler(wheels::Allocator &alloc, Device *device);
@@ -73,7 +74,8 @@ class GpuFrameProfiler
     void endFrame(vk::CommandBuffer cb);
 
     [[nodiscard]] Scope createScope(
-        vk::CommandBuffer cb, const char *name, uint32_t index);
+        vk::CommandBuffer cb, const char *name, uint32_t index,
+        bool includeStatistics);
 
     // This will read garbage if the corresponding frame index has yet to have
     // any frame complete.
@@ -85,6 +87,7 @@ class GpuFrameProfiler
     Buffer _statisticsBuffer;
     QueryPools _pools;
     wheels::Array<uint32_t> _queryScopeIndices;
+    wheels::Array<bool> _scopeHasStats;
 
     friend class Profiler;
 };
@@ -180,7 +183,7 @@ class Profiler
         wheels::StrSpan name;
         float gpuMillis{-1.f};
         float cpuMillis{-1.f};
-        PipelineStatistics stats;
+        wheels::Optional<PipelineStatistics> gpuStats;
     };
 
     Profiler(wheels::Allocator &alloc, Device *device);
@@ -214,7 +217,7 @@ class Profiler
     // results when they block the current scope on work that belongs to the
     // previous one.
     [[nodiscard]] Scope createCpuGpuScope(
-        vk::CommandBuffer cb, const char *name);
+        vk::CommandBuffer cb, const char *name, bool includeStatistics = false);
 
     // Can be called after startGpuFrame to get the data from the last
     // iteration of the active frame index.
