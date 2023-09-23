@@ -1,4 +1,6 @@
 - Base on UE4 - A Life of a Bokeh by Abadie
+- Also heavily on Next Generation Post Processing in Call of Duty: Advanced Warfare by Jimenez
+  - Updated slides found at https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
 - Scatter as gather
 - Paraphrasing from McGuire (A Reconstruction Filter for Plausible Motion Blur)
     - A bounded offset 'scatter' algorithm can be converted to a 'gather' algorithm

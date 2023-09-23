@@ -57,29 +57,107 @@ vec2 octawebSample(
 
 #define MAX_COC_ERROR 0.05
 
+struct BackgroundBucket
+{
+    vec4 colorWeight;
+    float avgCoC;
+    float sampleCount;
+};
+
+BackgroundBucket blendBuckets(
+    BackgroundBucket previousBucket, BackgroundBucket currentBucket,
+    uint ringSampleCount)
+{
+    float currentOpacity =
+        saturate(float(currentBucket.sampleCount) / float(ringSampleCount));
+
+    float occludingCoC = saturate(
+        (previousBucket.avgCoC / previousBucket.sampleCount) -
+        (currentBucket.avgCoC / currentBucket.sampleCount));
+    float blendFactor = (previousBucket.colorWeight.a == 0.)
+                            ? 0.
+                            : (1. - currentOpacity * occludingCoC);
+
+    // TODO:
+    // Blending is broken? even ring count seems to have two rings and
+    // uneven count just the middle sample
+    BackgroundBucket ret;
+    ret.colorWeight =
+        previousBucket.colorWeight * blendFactor + currentBucket.colorWeight;
+    ret.avgCoC = previousBucket.avgCoC * blendFactor + currentBucket.avgCoC;
+    ret.sampleCount =
+        previousBucket.sampleCount * blendFactor + currentBucket.sampleCount;
+
+    return ret;
+}
+
+#define DOF_SINGLE_PIXEL_RADIUS 0.7071 // length(float2(0.5, 0.5))
+float sampleAlpha(float sampleCoC)
+{
+    // Real-Time Depth-of-Field Rendering Using Point Splatting on Per-Pixel
+    // Layers
+    // by Lee et al.
+    // and
+    // Next Generation Post Processing in Call of Duty
+    // Advanced Warfare by Jimenez
+    // Lee has 4./ but we use the same weighing function for all so changing the
+    // constant numerator should be ok like Jimenez had rcp
+    return min(
+        1. / (PI * sampleCoC * sampleCoC),
+        1. / (PI * DOF_SINGLE_PIXEL_RADIUS * DOF_SINGLE_PIXEL_RADIUS));
+}
+
+void addBucketSample(
+    ivec2 sampleCoord, float sampleCoC, inout BackgroundBucket bucket)
+{
+    // TODO:
+    // Pre-calc alongside the CoC
+    float sampleWeight = sampleAlpha(sampleCoC);
+    bucket.colorWeight += vec4(
+        imageLoad(inHalfResIllumination, sampleCoord).rgb * sampleWeight,
+        sampleWeight);
+    bucket.avgCoC += sampleCoC;
+    bucket.sampleCount++;
+}
+
 vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
 {
     // TODO:
     // Larger, smaller early out?
-    float minCoC = 1.;
+    float minCoC = 0.;
 
     if (tileMaxCoC < minCoC)
         return vec4(0);
 
+    // Collect rings moving from the edges toward the center to approximate
+    // occlusion. Smaller background CoCs are for surfaces that are in front of
+    // surfaces that have larger ones.
+    // From Abadie
+
     // The center sample counts as a ring, so ringCount should be at least 2
-    int ringCount = 4;
+    int ringCount = 5;
     float kernelRadius = tileMaxCoC;
+    float radiusJitterScale = .5;
+    radiusJitterScale = .0;
+    float radiusJitter = (rnd01() * 2. - 1.) * radiusJitterScale;
     // Jitter radius to get rid of tile artifacts
-    kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
+    kernelRadius += radiusJitter;
+
     float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
 
     ivec2 res = imageSize(inHalfResIllumination);
 
+    float spacingJitterScale = ringSpacing * .5;
+    spacingJitterScale = 0.;
     vec2 jitter = rnd2d01() * 2 - 1;
-    jitter *= ringSpacing;
+    jitter *= spacingJitterScale;
     coord += jitter;
-    coord = max(coord, vec2(0));
-    coord = min(coord, vec2(res - 1));
+    coord = clamp(coord, vec2(0), vec2(res - 1));
+
+    // TODO:
+    // This error value is from the slides but it had a mention of tweaks based
+    // on other factors. Probably need to account for jitter at least.
+    float cocRadiusError = (1. + radiusJitterScale + spacingJitterScale) * .5;
 
     // TODO: Fastpath?
     // - Criteria just abs(tileMaxCoC - tileMinCoC) > (1 - MAX_COC_ERROR) *
@@ -87,16 +165,13 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     //   - Just average over all kernel samples?
     //   - Use bilinear sampling?
 
-    // TODO:
-    // Collect rings moving from the edges toward the center to approximate
-    // occlusion. Smaller background CoCs are for surfaces that are in front of
-    // surfaces that have larger ones.
-    vec3 colorSum = vec3(0);
-    float cocSum = 0;
-    float totalWeight = 0;
-    int totalSamples = 0;
-    for (int ring = 0; ring < ringCount; ++ring)
+    BackgroundBucket previousBucket = BackgroundBucket(vec4(0), 0., 0.);
+    for (int ring = ringCount - 1; ring >= 0; --ring)
     {
+        float borderingRadius =
+            octawebRingRadius(float(ring) + .5, kernelRadius, ringCount);
+
+        BackgroundBucket currentBucket = BackgroundBucket(vec4(0), 0., 0.);
         int ringSampleCount = octawebRingSampleCount(ring);
         float ringRadius = octawebRingRadius(ring, kernelRadius, ringCount);
         float rimSpacing = octawebRimSpacing(ringSampleCount);
@@ -107,40 +182,29 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
 
             // TODO: Just use a nearest sampler that clamps?
             ivec2 sampleCoord = ivec2(coord + s);
-            sampleCoord = max(sampleCoord, ivec2(0));
-            sampleCoord = min(sampleCoord, res - 1);
+            sampleCoord = clamp(sampleCoord, ivec2(0), res - 1);
 
             float sampleCoC = imageLoad(inHalfResCoC, sampleCoord).x;
-            if (sampleCoC < minCoC)
-                continue;
-
-            float sampleDistance = length(s);
-            if (sampleCoC >= sampleDistance - ringSpacing)
+            if (sampleCoC >= ringRadius)
             {
-                // Scheumerman(?) via Sousa: weigh samples with max CoC
-                // TODO: Is this what was meant? What does it do?
-                float sampleWeight = sampleCoC;
-                colorSum += imageLoad(inHalfResIllumination, sampleCoord).rgb *
-                            sampleWeight;
-                cocSum += sampleCoC;
-                totalWeight += sampleWeight;
-                totalSamples++;
+                // Sort into previous and current to approximate occlusion
+                if (sampleCoC < borderingRadius)
+                    addBucketSample(sampleCoord, sampleCoC, currentBucket);
+                else
+                    addBucketSample(sampleCoord, sampleCoC, previousBucket);
             }
         }
+
+        previousBucket =
+            blendBuckets(previousBucket, currentBucket, ringSampleCount);
     }
 
-    vec3 color = colorSum / max(totalWeight, 1);
-    float weight = cocSum / max(totalSamples, 1);
+    vec3 color = previousBucket.colorWeight.rgb / previousBucket.colorWeight.a;
+    // TODO:
+    // CoC of the center sample instead for sharp silhouettes?
+    float weight = previousBucket.avgCoC / previousBucket.colorWeight.a;
 
     return vec4(color, weight);
-}
-
-float sampleAlpha(float sampleCoC)
-{
-    // From Next Generation Post Processing in Call of Duty Advanced
-    // Warfare
-    // by Jimenez
-    return min(1.0 / (PI * sampleCoC * sampleCoC), PI);
 }
 
 vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
@@ -173,7 +237,7 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     //   - Just average over all kernel samples?
     //   - Use bilinear sampling?
 
-    vec3 colorSum = vec3(0);
+    vec3 colorWeight = vec3(0);
     float alphaSum = 0;
     float totalWeight = 0;
     int sampleCount = 0;
@@ -207,21 +271,25 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 // Is this what was meant? Seems to add blending between
                 // 'layers' in foreground
                 float sampleWeight = kernelRadius / sampleCoC;
-                colorSum += imageLoad(inHalfResIllumination, sampleCoord).rgb *
-                            sampleWeight;
+                colorWeight +=
+                    imageLoad(inHalfResIllumination, sampleCoord).rgb *
+                    sampleWeight;
                 alphaSum += sampleAlpha(sampleCoC);
                 totalWeight += sampleWeight;
             }
         }
     }
 
-    vec3 color = colorSum / max(totalWeight, 0.001);
+    vec3 color = colorWeight / max(totalWeight, 0.001);
     // From Next Generation Post Processing in Call of Duty Advanced
     // Warfare
     // by Jimenez
     // Bake in sample count normalization
     // 2. moves blend start outward from objects, avoiding background
     // reconstruction
+    // TODO:
+    // FidelityFX DoF uses 'the number of nearby background samples' for near
+    // field opacity
     float weight = saturate(
         2. * (1. / sampleCount) * (1. / sampleAlpha(kernelRadius)) * alphaSum);
 
@@ -236,7 +304,7 @@ void main()
     if (any(greaterThanEqual(coord, res)))
         return;
 
-    pcg_state = uvec3(coord, PC.frameIndex);
+    pcg_state = uvec3(coord, 0);
 
     ivec2 tileCoord = coord / 8;
     vec2 tileMinMaxCoC = imageLoad(inDilatedTileMinMaxCoC, tileCoord).xy;
