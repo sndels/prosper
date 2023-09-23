@@ -202,6 +202,7 @@ void App::run()
         }
 
         handleMouseGestures();
+        handleKeyboardInput();
 
         recompileShaders(scopeAlloc.child_scope());
 
@@ -233,11 +234,16 @@ void App::recreateViewportRelated()
 
     _resources->destroyResources();
 
-    const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
-    _viewportExtent = vk::Extent2D{
-        asserted_cast<uint32_t>(viewportSize.x),
-        asserted_cast<uint32_t>(viewportSize.y),
-    };
+    if (_drawUi)
+    {
+        const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
+        _viewportExtent = vk::Extent2D{
+            asserted_cast<uint32_t>(viewportSize.x),
+            asserted_cast<uint32_t>(viewportSize.y),
+        };
+    }
+    else
+        _viewportExtent = _swapchain->config().extent;
 
     _cam->perspective(
         PerspectiveParameters{
@@ -447,6 +453,18 @@ void App::handleMouseGestures()
     }
 }
 
+void App::handleKeyboardInput()
+{
+    const StaticArray<KeyState, KeyCount> &keyStates =
+        InputHandler::instance().keyboard();
+
+    if (keyStates[KeyI] == KeyState::Pressed)
+    {
+        _drawUi = !_drawUi;
+        _forceViewportRecreate = true;
+    }
+}
+
 void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
@@ -461,10 +479,14 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     capFramerate();
 
-    _imguiRenderer->startFrame();
+    UiChanges uiChanges;
+    if (_drawUi)
+    {
+        _imguiRenderer->startFrame();
 
-    const UiChanges uiChanges =
-        drawUi(scopeAlloc.child_scope(), profilerDatas, scopeHighWatermark);
+        uiChanges =
+            drawUi(scopeAlloc.child_scope(), profilerDatas, scopeHighWatermark);
+    }
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -958,21 +980,22 @@ void App::render(
 
     _resources->images.release(toneMapped);
 
-    _world->drawDeferredLoadingUi();
-
-    if (_textureDebugActive)
+    if (_drawUi)
     {
-        // Draw this after so that the first frame debug is active for a new
-        // texture, we draw black instead of a potentially wrong output from the
-        // shared texture that wasn't protected yet
-        _textureDebug->drawUi();
-    }
+        _world->drawDeferredLoadingUi();
 
-    const vk::Rect2D backbufferArea{
-        .offset = {0, 0},
-        .extent = _swapchain->config().extent,
-    };
-    _imguiRenderer->endFrame(cb, backbufferArea, _profiler.get());
+        if (_textureDebugActive)
+            // Draw this after so that the first frame debug is active for a new
+            // texture, we draw black instead of a potentially wrong output from
+            // the shared texture that wasn't protected yet
+            _textureDebug->drawUi();
+
+        const vk::Rect2D backbufferArea{
+            .offset = {0, 0},
+            .extent = _swapchain->config().extent,
+        };
+        _imguiRenderer->endFrame(cb, backbufferArea, _profiler.get());
+    }
 
     blitFinalComposite(cb, indices.nextImage);
 }
@@ -1039,16 +1062,32 @@ void App::blitColorToFinalComposite(
         },
     };
 
-    const ImVec2 dstOffset = _imguiRenderer->centerAreaOffset();
-    const ImVec2 dstSize = _imguiRenderer->centerAreaSize();
     const vk::Extent2D backbufferExtent = _swapchain->config().extent;
+    ivec2 dstOffset;
+    ivec2 dstSize;
+    if (_drawUi)
+    {
+        const ImVec2 offset = _imguiRenderer->centerAreaOffset();
+        const ImVec2 size = _imguiRenderer->centerAreaSize();
+        dstOffset = ivec2{static_cast<int32_t>(offset.x), offset.y};
+        dstSize = ivec2{size.x, size.y};
+    }
+    else
+    {
+        dstOffset = ivec2{0, 0};
+        dstSize = ivec2{
+            asserted_cast<int32_t>(backbufferExtent.width),
+            asserted_cast<int32_t>(backbufferExtent.height),
+        };
+    }
+
     const std::array dstOffsets{
         vk::Offset3D{
             std::min(
-                asserted_cast<int32_t>(dstOffset.x),
+                dstOffset.x,
                 asserted_cast<int32_t>(backbufferExtent.width - 1)),
             std::min(
-                asserted_cast<int32_t>(dstOffset.y),
+                dstOffset.y,
                 asserted_cast<int32_t>(backbufferExtent.height - 1)),
             0,
         },
@@ -1195,9 +1234,10 @@ void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (shouldResizeSwapchain || _window->resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
-    else if (viewportResized)
+    else if (viewportResized || _forceViewportRecreate)
     { // Don't recreate viewport related on the same frame as swapchain is
       // resized since we don't know the new viewport area until the next frame
         recreateViewportRelated();
+        _forceViewportRecreate = false;
     }
 }
