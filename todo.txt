@@ -10,3 +10,8 @@
     - Still one transfer thread
     - Split cache generation out of texture ctor
     - Run cache gen wide on the remaining threads
+- In asserted_cast do 
+    else if (!std::is_same<T,V>) static_assert(!"No bounds check happen between these types");
+  instead of just asserting !floatingpoint
+- Make GPU pipeline stats optional in profiling scopes
+  - Makes nested scopes possible when only one set of stat counters is active at a time
