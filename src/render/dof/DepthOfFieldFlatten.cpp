@@ -98,7 +98,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
                  ImageState::ComputeShaderWrite},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "DepthOfFieldFlatten");
+        const auto _s = profiler->createCpuGpuScope(cb, "  Flatten");
 
         const uvec3 groups = uvec3{
             (glm::uvec2{inputExtent.width, inputExtent.height} - 1u) / 8u + 1u,
