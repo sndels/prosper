@@ -69,8 +69,8 @@ class InputHandler
 
   private:
     CursorState _cursor;
-    wheels::StaticArray<KeyState, KeyCount> _keyboard{{KeyState::Neutral}};
-    wheels::StaticArray<bool, KeyCount> _keyboardUpdated{{false}};
+    wheels::StaticArray<KeyState, KeyCount> _keyboard{KeyState::Neutral};
+    wheels::StaticArray<bool, KeyCount> _keyboardUpdated{false};
     wheels::Optional<MouseGesture> _mouseGesture;
 };
 
