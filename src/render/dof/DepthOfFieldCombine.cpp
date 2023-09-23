@@ -111,7 +111,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
                 {ret.combinedIlluminationDoF, ImageState::ComputeShaderWrite},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "DepthOfFieldCombine");
+        const auto _s = profiler->createCpuGpuScope(cb, "  Combine");
 
         const uvec3 groups = uvec3{
             (uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u + 1u,

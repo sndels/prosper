@@ -33,6 +33,8 @@ DepthOfField::Output DepthOfField::record(
 {
     Output ret;
     {
+        const auto _s = profiler->createCpuGpuScope(cb, "DepthOfField");
+
         const DepthOfFieldSetup::Output setupOutput =
             _setupPass.record(cb, cam, input, nextFrame, profiler);
 

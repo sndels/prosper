@@ -141,8 +141,8 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
             });
 
         const auto _s = profiler->createCpuGpuScope(
-            cb, gatherType == GatherType_Background ? "DepthOfFieldGatherBg"
-                                                    : "DepthOfFieldGatherFg");
+            cb, gatherType == GatherType_Background ? "  GatherBackground"
+                                                    : "  GatherForeground");
 
         const PCBlock pcBlock{
             .frameIndex = _frameIndex,

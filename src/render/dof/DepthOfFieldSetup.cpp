@@ -135,7 +135,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
                 {ret.halfResCircleOfConfusion, ImageState::ComputeShaderWrite},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "DepthOfFieldSetup");
+        const auto _s = profiler->createCpuGpuScope(cb, "  Setup");
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};

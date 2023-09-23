@@ -96,7 +96,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
                 {ret.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "DepthOfFieldDilate");
+        const auto _s = profiler->createCpuGpuScope(cb, "  Dilate");
 
         const uvec3 groups = uvec3{
             (uvec2{inputExtent.width, inputExtent.height} - 1u) / 16u + 1u, 1u};
