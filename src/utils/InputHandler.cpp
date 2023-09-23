@@ -86,7 +86,7 @@ void InputHandler::handleMouseScroll(double xoffset, double yoffset)
 }
 
 // NOLINTNEXTLINE mirrors the glfw interface
-void InputHandler::handleMouseButton(int button, int action, int mods)
+void InputHandler::handleMouseButton(int button, int action, int /*mods*/)
 {
     if (_cursor.inside)
     {
@@ -101,7 +101,7 @@ void InputHandler::handleMouseButton(int button, int action, int mods)
                  button == GLFW_MOUSE_BUTTON_RIGHT) &&
                 action == GLFW_PRESS)
             {
-                if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
+                if (_keyboard[KeyAlt] == KeyState::Held)
                 {
                     _mouseGesture = MouseGesture{
                         .startPos = _cursor.position,

@@ -52,7 +52,7 @@ class App
     void recreateViewportRelated();
 
     void handleMouseGestures();
-    void handleKeyboardInput();
+    void handleKeyboardInput(float deltaS);
 
     void drawFrame(
         wheels::ScopedScratch scopeAlloc, uint32_t scopeHighWatermark);
