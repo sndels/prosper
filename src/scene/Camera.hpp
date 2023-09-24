@@ -104,6 +104,8 @@ class Camera
     wheels::Optional<CameraOffset> offset;
     // Permanently applies 'offset' and empties it
     void applyOffset();
+    // Applies an offset without touching the held one
+    void applyOffset(const CameraOffset &offset);
 
   private:
     void createBindingsReflection(wheels::ScopedScratch scopeAlloc);
