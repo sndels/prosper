@@ -223,6 +223,13 @@ void Camera::applyOffset()
     updateWorldToCamera();
 }
 
+void Camera::applyOffset(const CameraOffset &offset)
+{
+    _parameters = _parameters.apply(offset);
+
+    updateWorldToCamera();
+}
+
 void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
 {
     String defines{scopeAlloc, 64};
