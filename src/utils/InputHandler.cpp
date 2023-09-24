@@ -86,14 +86,23 @@ void InputHandler::handleMouseScroll(double xoffset, double yoffset)
 }
 
 // NOLINTNEXTLINE mirrors the glfw interface
-void InputHandler::handleMouseButton(int button, int action, int /*mods*/)
+void InputHandler::handleMouseButton(
+    GLFWwindow *window, int button, int action, int /*mods*/)
 {
+    assert(window != nullptr);
+
     if (_cursor.inside)
     {
         if (_mouseGesture.has_value())
         {
             if (action == GLFW_RELEASE)
+            {
                 _mouseGesture.reset();
+                // Restore normal mouse input
+                if (glfwRawMouseMotionSupported() == GLFW_TRUE)
+                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
         }
         else
         {
@@ -117,6 +126,15 @@ void InputHandler::handleMouseButton(int button, int action, int /*mods*/)
                         .type = MouseGestureType::TrackBall,
                     };
                 }
+                // Constrain mouse so that drags aren't bounded by the window
+                // size
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                // Non-raw input virtual mouse position seems to jump aroud much
+                // more on Win10. First callback after disabling cursor could be
+                // 100s of px away from the click position if drag is initiated
+                // during a fast move.
+                if (glfwRawMouseMotionSupported() == GLFW_TRUE)
+                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
             }
         }
     }
