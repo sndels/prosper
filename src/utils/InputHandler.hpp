@@ -6,6 +6,8 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+struct GLFWwindow;
+
 enum class KeyState
 {
     Neutral,  // Key is just hangin'
@@ -71,7 +73,8 @@ class InputHandler
 
     void handleCursorEntered(bool entered);
     void handleMouseScroll(double xoffset, double yoffset);
-    void handleMouseButton(int button, int action, int mods);
+    void handleMouseButton(
+        GLFWwindow *window, int button, int action, int mods);
     void handleMouseMove(double xpos, double ypos);
     void handleKey(int glfwKey, int scancode, int action, int mods);
     void handleKeyStateUpdate();

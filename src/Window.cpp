@@ -141,7 +141,7 @@ void Window::mouseButtonCallback(
     if (!io.WantCaptureMouse || action == GLFW_RELEASE)
     {
         auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
-        thisPtr->_inputHandler->handleMouseButton(button, action, mods);
+        thisPtr->_inputHandler->handleMouseButton(window, button, action, mods);
     }
 }
 
