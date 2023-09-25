@@ -11,6 +11,10 @@ add_subdirectory(src)
 
 option(PROSPER_USE_PCH "Use pre-compiled headers" ON)
 
+if(LIVEPP_PATH)
+    set(LIVEPP_DEFINE "LIVEPP_PATH=L\"${LIVEPP_PATH}\"")
+endif()
+
 # Set up project targets
 add_executable(prosper ${PROSPER_SOURCES} ${PROSPER_INCLUDES})
 target_compile_features(prosper
@@ -46,6 +50,12 @@ if(MSVC)
         /w14928
         /wd4201 # GLM in PCH bleeds warnings into prosper sources
     )
+
+    if(LIVEPP_PATH)
+        target_link_options(prosper PRIVATE
+            /FUNCTIONPADMIN
+        )
+    endif()
 else()
     target_compile_options(prosper
         PRIVATE
@@ -60,6 +70,7 @@ endif() # NOT MSVC
 target_include_directories(prosper
     PRIVATE
     ${PROSPER_INCLUDE_DIR}
+    ${LIVEPP_PATH}
 )
 target_link_libraries(prosper
     PRIVATE
@@ -85,6 +96,7 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
     TINYGLTF_NO_EXTERNAL_IMAGE
+    ${LIVEPP_DEFINE}
 
     # Set up absolute path to resources and binaries
     RES_PATH="${CMAKE_CURRENT_SOURCE_DIR}/res/"
