@@ -213,7 +213,24 @@
             "args": [
                 "-B",
                 "build",
+                "-DLIVEPP_PATH=0"
             ],
+            "presentation": {
+                // Reveal the output only if unrecognized errors occur.
+                "reveal": "silent"
+            }
+        },
+        // Live++ can be included by running this first and then a 'fast' build that skips cmake
+        {
+            "label": "cmake livepp",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-B",
+                "build",
+                "-DLIVEPP_PATH=C:/LivePP"
+            ],
+            "group": "build",
             "presentation": {
                 // Reveal the output only if unrecognized errors occur.
                 "reveal": "silent"
