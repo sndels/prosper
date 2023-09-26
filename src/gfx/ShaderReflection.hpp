@@ -33,7 +33,8 @@ class ShaderReflection
     ShaderReflection(wheels::Allocator &alloc);
     ShaderReflection(
         wheels::ScopedScratch scopeAlloc, wheels::Allocator &alloc,
-        wheels::Span<const uint32_t> spvWords);
+        wheels::Span<const uint32_t> spvWords,
+        wheels::Span<const wheels::String> dynamicBuffers = {});
     ~ShaderReflection() = default;
 
     ShaderReflection(const ShaderReflection &) = delete;
