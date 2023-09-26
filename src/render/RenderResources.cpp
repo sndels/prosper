@@ -1,10 +1,15 @@
 #include "RenderResources.hpp"
 
+#include <wheels/allocators/utils.hpp>
+
+using namespace wheels;
+
 RenderResources::RenderResources(wheels::Allocator &alloc, Device *device)
 : device{device}
 , images{alloc, device}
 , texelBuffers{alloc, device}
 , buffers{alloc, device}
+, constantsRing{device, asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing"}
 {
     assert(device != nullptr);
 
@@ -48,6 +53,7 @@ void RenderResources::startFrame()
     images.startFrame();
     texelBuffers.startFrame();
     buffers.startFrame();
+    constantsRing.startFrame();
 }
 
 void RenderResources::destroyResources()
