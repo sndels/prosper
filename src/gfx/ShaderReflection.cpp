@@ -568,11 +568,26 @@ vk::DescriptorType intoArrayDescriptorType(const SpvResult &typeResult)
 void fillMetadata(
     String &&name, const Decorations &decorations, const SpvVariable &variable,
     const Array<SpvResult> &results,
-    HashMap<uint32_t, Array<DescriptorSetMetadata>> &metadatas)
+    HashMap<uint32_t, Array<DescriptorSetMetadata>> &metadatas,
+    Span<const String> dynamicBuffers)
 {
     // TODO: Generalize the common parts, pull out case noise into
     // helpers
     bool fill = false;
+
+    auto isDynamic = [&name, &dynamicBuffers]()
+    {
+        bool isDynamic = false;
+        for (const StrSpan n : dynamicBuffers)
+        {
+            if (n == name)
+            {
+                isDynamic = true;
+                break;
+            }
+        }
+        return isDynamic;
+    };
 
     vk::DescriptorType descriptorType = vk::DescriptorType::eSampler;
     uint32_t descriptorCount = 1;
@@ -581,7 +596,8 @@ void fillMetadata(
     case spv::StorageClassStorageBuffer:
     {
         fill = true;
-        descriptorType = vk::DescriptorType::eStorageBuffer;
+        descriptorType = isDynamic() ? vk::DescriptorType::eStorageBufferDynamic
+                                     : vk::DescriptorType::eStorageBuffer;
 
         const SpvResult &typeResult = getType(variable, results);
         if (std::holds_alternative<SpvRuntimeArray>(*typeResult.type))
@@ -593,7 +609,8 @@ void fillMetadata(
     case spv::StorageClassUniform:
     {
         fill = true;
-        descriptorType = vk::DescriptorType::eUniformBuffer;
+        descriptorType = isDynamic() ? vk::DescriptorType::eUniformBufferDynamic
+                                     : vk::DescriptorType::eUniformBuffer;
 
 #ifndef NDEBUG
         const SpvResult &typeResult = getType(variable, results);
@@ -660,7 +677,8 @@ void fillMetadata(
 }
 
 HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
-    ScopedScratch scopeAlloc, Allocator &alloc, const Array<SpvResult> &results)
+    ScopedScratch scopeAlloc, Allocator &alloc, const Array<SpvResult> &results,
+    Span<const String> dynamicBuffers)
 {
     // Get counts first so we can allocate return memory exactly
     HashMap<uint32_t, uint32_t> descriptorSetBindingCounts{scopeAlloc, 16};
@@ -705,7 +723,7 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
         {
             fillMetadata(
                 String{alloc, result.name}, result.decorations, *variable,
-                results, ret);
+                results, ret, dynamicBuffers);
         }
     }
 
@@ -720,7 +738,8 @@ ShaderReflection::ShaderReflection(Allocator &alloc)
 }
 
 ShaderReflection::ShaderReflection(
-    ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords)
+    ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords,
+    Span<const String> dynamicBuffers)
 : _descriptorSetMetadatas{alloc}
 {
     const uint32_t *words = spvWords.data();
@@ -751,8 +770,8 @@ ShaderReflection::ShaderReflection(
         _pushConstantsBytesize =
             getPushConstantsBytesize(results, pushConstantMetadataId);
 
-    _descriptorSetMetadatas =
-        fillDescriptorSetMetadatas(scopeAlloc.child_scope(), alloc, results);
+    _descriptorSetMetadatas = fillDescriptorSetMetadatas(
+        scopeAlloc.child_scope(), alloc, results, dynamicBuffers);
 }
 
 uint32_t ShaderReflection::pushConstantsBytesize() const
