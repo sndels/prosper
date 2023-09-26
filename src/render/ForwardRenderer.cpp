@@ -329,7 +329,7 @@ void ForwardRenderer::record(
         VK_NULL_HANDLE};
     descriptorSets[LightsBindingSet] = scene.lights.descriptorSets[nextFrame];
     descriptorSets[LightClustersBindingSet] = lightClusters.descriptorSet;
-    descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+    descriptorSets[CameraBindingSet] = cam.descriptorSet();
     descriptorSets[MaterialDatasBindingSet] =
         world._materialDatasDSs[nextFrame];
     descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
@@ -337,11 +337,13 @@ void ForwardRenderer::record(
     descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSets[nextFrame];
 
+    const uint32_t cameraOffset = cam.bufferOffset();
+
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
+        1, &cameraOffset);
 
     setViewportScissor(cb, renderArea);
 

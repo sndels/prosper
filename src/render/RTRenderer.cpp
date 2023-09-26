@@ -226,7 +226,7 @@ RTRenderer::Output RTRenderer::record(
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+        descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[RTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[OutputBindingSet] = _descriptorSets[nextFrame];
         descriptorSets[MaterialDatasBindingSet] =
@@ -239,10 +239,12 @@ RTRenderer::Output RTRenderer::record(
         descriptorSets[LightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
 
+        const uint32_t cameraOffset = cam.bufferOffset();
+
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
             asserted_cast<uint32_t>(descriptorSets.size()),
-            descriptorSets.data(), 0, nullptr);
+            descriptorSets.data(), 1, &cameraOffset);
 
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),

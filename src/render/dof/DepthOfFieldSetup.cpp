@@ -139,8 +139,10 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+        descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+
+        const uint32_t cameraOffset = cam.bufferOffset();
 
         const float maxBgCoCInUnits =
             (cam.apertureDiameter() * cam.focalLength()) /
@@ -157,7 +159,8 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
                 1u,
             1u};
-        _computePass.record(cb, pcBlock, groups, descriptorSets);
+        _computePass.record(
+            cb, pcBlock, groups, descriptorSets, Span{&cameraOffset, 1});
     }
 
     return ret;

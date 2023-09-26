@@ -97,7 +97,8 @@ App::App(const Settings &settings)
         std::make_unique<RenderResources>(_generalAlloc, _device.get());
 
     _cam = std::make_unique<Camera>(
-        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), _device.get(), &_resources->constantsRing,
+        _staticDescriptorsAlloc.get());
     _world = std::make_unique<World>(
         _generalAlloc, scopeAlloc.child_scope(), _device.get(), settings.scene,
         settings.deferredLoading);
@@ -556,7 +557,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
     _cam->updateBuffer(
-        nextFrame, uvec2{renderArea.extent.width, renderArea.extent.height});
+        uvec2{renderArea.extent.width, renderArea.extent.height});
 
     _world->updateUniformBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
 

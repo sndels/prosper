@@ -110,7 +110,7 @@ GBufferRenderer::Output GBufferRenderer::record(
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+        descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[MaterialDatasBindingSet] =
             world._materialDatasDSs[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
@@ -118,11 +118,13 @@ GBufferRenderer::Output GBufferRenderer::record(
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSets[nextFrame];
 
+        const uint32_t cameraOffset = cam.bufferOffset();
+
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
             asserted_cast<uint32_t>(descriptorSets.size()),
-            descriptorSets.data(), 0, nullptr);
+            descriptorSets.data(), 1, &cameraOffset);
 
         setViewportScissor(cb, renderArea);
 

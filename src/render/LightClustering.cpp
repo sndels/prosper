@@ -144,14 +144,17 @@ LightClustering::Output LightClustering::record(
                 VK_NULL_HANDLE};
             descriptorSets[LightsBindingSet] =
                 scene.lights.descriptorSets[nextFrame];
-            descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+            descriptorSets[CameraBindingSet] = cam.descriptorSet();
             descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
+
+            const uint32_t cameraOffset = cam.bufferOffset();
 
             const vk::Extent3D &extent =
                 _resources->images.resource(ret.pointers).extent;
             const uvec3 groups{extent.width, extent.height, extent.depth};
 
-            _computePass.record(cb, pcBlock, groups, descriptorSets);
+            _computePass.record(
+                cb, pcBlock, groups, descriptorSets, Span{&cameraOffset, 1});
         }
     }
 
