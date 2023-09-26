@@ -205,18 +205,21 @@ DeferredShading::Output DeferredShading::record(
             scene.lights.descriptorSets[nextFrame];
         descriptorSets[LightClustersBindingSet] =
             input.lightClusters.descriptorSet;
-        descriptorSets[CameraBindingSet] = cam.descriptorSet(nextFrame);
+        descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[MaterialDatasBindingSet] =
             world._materialDatasDSs[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+
+        const uint32_t cameraOffset = cam.bufferOffset();
 
         const uvec3 groups = glm::uvec3{
             (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
                 1u,
             1u};
 
-        _computePass.record(cb, pcBlock, groups, descriptorSets);
+        _computePass.record(
+            cb, pcBlock, groups, descriptorSets, Span{&cameraOffset, 1});
     }
 
     return ret;

@@ -20,30 +20,25 @@ const uint32_t sBindingSetIndex = 0;
 }
 
 Camera::Camera(
-    ScopedScratch scopeAlloc, Device *device,
+    ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
     DescriptorAllocator *staticDescriptorsAlloc)
 : _device{device}
+, _constantsRing{constantsRing}
 {
     assert(_device != nullptr);
+    assert(_constantsRing != nullptr);
     assert(staticDescriptorsAlloc != nullptr);
 
     printf("Creating Camera\n");
 
     createBindingsReflection(scopeAlloc.child_scope());
-    createUniformBuffers();
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
 }
 
 Camera::~Camera()
 {
     if (_device != nullptr)
-    {
         _device->logical().destroy(_descriptorSetLayout);
-        for (auto &buffer : _uniformBuffers)
-            _device->destroy(buffer);
-
-        _uniformBuffers.clear();
-    }
 }
 
 void Camera::init(CameraParameters const &params)
@@ -141,14 +136,14 @@ bool Camera::drawUI()
     return changed;
 }
 
-void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
+void Camera::updateBuffer(const uvec2 &resolution)
 {
     if (offset.has_value())
     {
         updateWorldToCamera();
     }
 
-    CameraUniforms uniforms{
+    const CameraUniforms uniforms{
         .worldToCamera = _worldToCamera,
         .cameraToWorld = _cameraToWorld,
         .cameraToClip = _cameraToClip,
@@ -162,39 +157,18 @@ void Camera::updateBuffer(const uint32_t index, const uvec2 &resolution)
         .near = _parameters.zN,
         .far = _parameters.zF,
     };
-
-    memcpy(_uniformBuffers[index].mapped, &uniforms, sizeof(CameraUniforms));
+    _parametersAlloc = _constantsRing->allocate(sizeof(uniforms));
+    _constantsRing->write(_parametersAlloc, uniforms);
 }
 
-StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT> Camera::
-    bufferInfos() const
-{
-    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT> infos;
-    for (const auto &buffer : _uniformBuffers)
-        infos.push_back(vk::DescriptorBufferInfo{
-            .buffer = buffer.handle,
-            .offset = 0,
-            .range = sizeof(CameraUniforms),
-        });
+uint32_t Camera::bufferOffset() const { return _parametersAlloc.byteOffset(); }
 
-    return infos;
-}
-
-const vk::DescriptorSetLayout &Camera::descriptorSetLayout() const
+vk::DescriptorSetLayout Camera::descriptorSetLayout() const
 {
-    if (!_descriptorSetLayout)
-        throw std::runtime_error(
-            "Camera: Called descriptorSetLayout before createDescriptorSets");
     return _descriptorSetLayout;
 }
 
-const vk::DescriptorSet &Camera::descriptorSet(const uint32_t index) const
-{
-    if (!_descriptorSetLayout)
-        throw std::runtime_error(
-            "Camera: Called descriptorSet before createDescriptorSets");
-    return _descriptorSets[index];
-}
+vk::DescriptorSet Camera::descriptorSet() const { return _descriptorSet; }
 
 const glm::mat4 &Camera::worldToCamera() const { return _worldToCamera; }
 
@@ -235,11 +209,13 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     String defines{scopeAlloc, 64};
     appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
 
+    const String dynamicBuffer{scopeAlloc, sCameraBindingName};
     Optional<ShaderReflection> compResult = _device->reflectShader(
         scopeAlloc.child_scope(),
         Device::CompileShaderModuleArgs{
             .relPath = "shader/scene/camera.glsl",
             .defines = defines,
+            .dynamicBuffers = Span{&dynamicBuffer, 1},
         },
         true);
     if (!compResult.has_value())
@@ -248,27 +224,7 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     _bindingsReflection = WHEELS_MOV(*compResult);
 }
 
-void Camera::createUniformBuffers()
-{
-    const vk::DeviceSize bufferSize = sizeof(CameraUniforms);
-
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-    {
-        _uniformBuffers.push_back(_device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = bufferSize,
-                    .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
-                },
-            .createMapped = true,
-            .debugName = "CameraUnfiroms",
-        }));
-    }
-}
-
-void Camera::createDescriptorSets(
+void Camera::createDescriptorSet(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     assert(_bindingsReflection.has_value());
@@ -286,26 +242,22 @@ void Camera::createDescriptorSets(
             .pBindings = layoutBindings.data(),
         });
 
-    StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts;
-    layouts.resize(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
-    _descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
+    staticDescriptorsAlloc->allocate(
+        Span{&_descriptorSetLayout, 1}, Span{&_descriptorSet, 1});
 
-    const StaticArray<vk::DescriptorBufferInfo, 2> infos = bufferInfos();
-    assert(infos.size() == _descriptorSets.size());
-    for (uint32_t i = 0; i < _descriptorSets.size(); ++i)
-    {
-        const StaticArray descriptorWrites =
-            _bindingsReflection->generateDescriptorWrites<1>(
-                sBindingSetIndex, _descriptorSets[i],
-                StaticArray{{
-                    DescriptorInfo{infos[i]},
-                }});
+    const StaticArray descriptorWrites =
+        _bindingsReflection->generateDescriptorWrites<1>(
+            sBindingSetIndex, _descriptorSet,
+            StaticArray{{
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = _constantsRing->buffer(),
+                    .range = sizeof(CameraUniforms),
+                }},
+            }});
 
-        _device->logical().updateDescriptorSets(
-            asserted_cast<uint32_t>(descriptorWrites.size()),
-            descriptorWrites.data(), 0, nullptr);
-    }
+    _device->logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
 }
 
 void Camera::updateWorldToCamera()

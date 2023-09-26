@@ -3,6 +3,7 @@
 
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
+#include "../gfx/RingBuffer.hpp"
 #include "../utils/Utils.hpp"
 
 #include <glm/glm.hpp>
@@ -60,9 +61,11 @@ struct CameraUniforms
 class Camera
 {
   public:
+    static constexpr const char *sCameraBindingName = "camera";
+
     Camera(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        DescriptorAllocator *staticDescriptorsAlloc);
+        RingBuffer *constantsRing, DescriptorAllocator *staticDescriptorsAlloc);
     ~Camera();
 
     Camera(const Camera &other) = delete;
@@ -81,13 +84,11 @@ class Camera
     // Returns true if settings changed
     bool drawUI();
 
-    void updateBuffer(uint32_t index, const glm::uvec2 &resolution);
+    void updateBuffer(const glm::uvec2 &resolution);
 
-    [[nodiscard]] wheels::StaticArray<
-        vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-    bufferInfos() const;
-    [[nodiscard]] const vk::DescriptorSetLayout &descriptorSetLayout() const;
-    [[nodiscard]] const vk::DescriptorSet &descriptorSet(uint32_t index) const;
+    [[nodiscard]] uint32_t bufferOffset() const;
+    [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
+    [[nodiscard]] vk::DescriptorSet descriptorSet() const;
     [[nodiscard]] const glm::mat4 &worldToCamera() const;
     [[nodiscard]] const glm::mat4 &cameraToClip() const;
     [[nodiscard]] const CameraParameters &parameters() const;
@@ -109,16 +110,17 @@ class Camera
 
   private:
     void createBindingsReflection(wheels::ScopedScratch scopeAlloc);
-    void createUniformBuffers();
-    // Create uniform buffers first
-    void createDescriptorSets(
+    void createDescriptorSet(
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void updateWorldToCamera();
 
     Device *_device{nullptr};
+    RingBuffer *_constantsRing{nullptr};
+
     CameraParameters _parameters;
+    RingBuffer::Allocation _parametersAlloc;
     float _apertureDiameter{0.00001f};
     float _focusDistance{1.f};
     float _focalLength{0.f};
@@ -129,9 +131,7 @@ class Camera
 
     wheels::Optional<ShaderReflection> _bindingsReflection;
     vk::DescriptorSetLayout _descriptorSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets;
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _uniformBuffers;
+    vk::DescriptorSet _descriptorSet;
     bool _changedThisFrame{true};
 };
 
