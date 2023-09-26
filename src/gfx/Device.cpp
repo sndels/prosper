@@ -554,7 +554,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
     ShaderReflection reflection{
-        scopeAlloc.child_scope(), _generalAlloc, spvWords};
+        scopeAlloc.child_scope(), _generalAlloc, spvWords, info.dynamicBuffers};
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spvWords.size() * sizeof(uint32_t),
@@ -632,7 +632,7 @@ void main()
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
     ShaderReflection reflection{
-        scopeAlloc.child_scope(), _generalAlloc, spvWords};
+        scopeAlloc.child_scope(), _generalAlloc, spvWords, info.dynamicBuffers};
 
     return WHEELS_MOV(reflection);
 }
