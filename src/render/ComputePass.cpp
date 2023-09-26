@@ -34,7 +34,8 @@ vk::DescriptorSetLayout ComputePass::storageSetLayout() const
 
 void ComputePass::record(
     vk::CommandBuffer cb, const uvec3 &groups,
-    Span<const vk::DescriptorSet> descriptorSets) const
+    Span<const vk::DescriptorSet> descriptorSets,
+    wheels::Span<const uint32_t> dynamicOffsets) const
 {
     assert(all(greaterThan(groups, glm::uvec3{0u})));
 
@@ -44,7 +45,7 @@ void ComputePass::record(
         vk::PipelineBindPoint::eCompute, _pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
     cb.dispatch(groups.x, groups.y, groups.z);
 }

@@ -53,12 +53,14 @@ class ComputePass
 
     void record(
         vk::CommandBuffer cb, const glm::uvec3 &groups,
-        wheels::Span<const vk::DescriptorSet> descriptorSets) const;
+        wheels::Span<const vk::DescriptorSet> descriptorSets,
+        wheels::Span<const uint32_t> dynamicOffsets = {}) const;
 
     template <typename PCBlock>
     void record(
         vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &groups,
-        wheels::Span<const vk::DescriptorSet> descriptorSets) const;
+        wheels::Span<const vk::DescriptorSet> descriptorSets,
+        wheels::Span<const uint32_t> dynamicOffsets = {}) const;
 
   private:
     template <typename Callback>
@@ -150,7 +152,8 @@ void ComputePass::updateDescriptorSet(
 template <typename PCBlock>
 void ComputePass::record(
     vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &groups,
-    wheels::Span<const vk::DescriptorSet> descriptorSets) const
+    wheels::Span<const vk::DescriptorSet> descriptorSets,
+    wheels::Span<const uint32_t> dynamicOffsets) const
 {
     assert(all(greaterThan(groups, glm::uvec3{0u})));
     assert(_shaderReflection.has_value());
@@ -161,7 +164,7 @@ void ComputePass::record(
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        0, nullptr);
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
     cb.pushConstants(
         _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PCBlock),
