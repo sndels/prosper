@@ -3,6 +3,7 @@
 
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
+#include "../gfx/RingBuffer.hpp"
 #include "../render/RenderImageCollection.hpp"
 #include "../render/RenderResourceCollection.hpp"
 #include "../scene/DebugGeometry.hpp"
@@ -52,6 +53,8 @@ class RenderResources
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;
     RenderBufferCollection buffers;
+
+    RingBuffer constantsRing;
 
     // Have this be static because ImGuiRenderer uses it in its framebuffer.
     // Don't want to reallocate FBs each frame if this ends up ping-ponging with
