@@ -13,3 +13,4 @@
 - In asserted_cast do 
     else if (!std::is_same<T,V>) static_assert(!"No bounds check happen between these types");
   instead of just asserting !floatingpoint
+- Span convenience ctor that takes in a single element
