@@ -89,6 +89,7 @@ RingBuffer::Allocation RingBuffer::allocate(uint32_t byteSize)
     Allocation alloc{_currentByteOffset, byteSize};
     _currentByteOffset += byteSize;
 
+    assert(!_frameStartOffsets.empty() && "Forgot to call startFrame()?");
     assert(
         (_frameStartOffsets.back() < _currentByteOffset ||
          _frameStartOffsets.front() > _currentByteOffset) &&
