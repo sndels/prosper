@@ -138,7 +138,7 @@ bool Camera::drawUI()
 
 void Camera::updateBuffer(const uvec2 &resolution)
 {
-    if (offset.has_value())
+    if (gestureOffset.has_value())
     {
         updateWorldToCamera();
     }
@@ -150,8 +150,9 @@ void Camera::updateBuffer(const uvec2 &resolution)
         .clipToWorld = _clipToWorld,
         .eye =
             vec4{
-                offset.has_value() ? _parameters.apply(*offset).eye
-                                   : _parameters.eye,
+                gestureOffset.has_value()
+                    ? _parameters.apply(*gestureOffset).eye
+                    : _parameters.eye,
                 1.f},
         .resolution = resolution,
         .near = _parameters.zN,
@@ -186,12 +187,12 @@ void Camera::clearChangedThisFrame() { _changedThisFrame = false; }
 
 bool Camera::changedThisFrame() const { return _changedThisFrame; }
 
-void Camera::applyOffset()
+void Camera::applyGestureOffset()
 {
-    if (offset.has_value())
+    if (gestureOffset.has_value())
     {
-        _parameters = _parameters.apply(*offset);
-        offset.reset();
+        _parameters = _parameters.apply(*gestureOffset);
+        gestureOffset.reset();
     }
 
     updateWorldToCamera();
@@ -260,8 +261,9 @@ void Camera::createDescriptorSet(
 
 void Camera::updateWorldToCamera()
 {
-    const auto parameters =
-        offset.has_value() ? _parameters.apply(*offset) : _parameters;
+    const auto parameters = gestureOffset.has_value()
+                                ? _parameters.apply(*gestureOffset)
+                                : _parameters;
     auto const &[eye, target, up, _fov, _ar, _zN, _zF] = parameters;
 
     const vec3 fwd = normalize(target - eye);
