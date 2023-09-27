@@ -102,9 +102,9 @@ class Camera
     [[nodiscard]] bool changedThisFrame() const;
 
     // This offset, if any, is added to internal transformation
-    wheels::Optional<CameraOffset> offset;
+    wheels::Optional<CameraOffset> gestureOffset;
     // Permanently applies 'offset' and empties it
-    void applyOffset();
+    void applyGestureOffset();
     // Applies an offset without touching the held one
     void applyOffset(const CameraOffset &offset);
 

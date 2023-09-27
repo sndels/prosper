@@ -387,7 +387,7 @@ void App::handleMouseGestures()
             const auto flipUp =
                 dot(right, cross(newFromTarget, params.up)) < 0.0;
 
-            _cam->offset = CameraOffset{
+            _cam->gestureOffset = CameraOffset{
                 .eye = newFromTarget - fromTarget,
                 .flipUp = flipUp,
             };
@@ -413,14 +413,14 @@ void App::handleMouseGestures()
 
             const auto offset = right * (drag.x) + cam_up * (drag.y);
 
-            _cam->offset = CameraOffset{
+            _cam->gestureOffset = CameraOffset{
                 .eye = offset,
                 .target = offset,
             };
         }
         else if (gesture->type == MouseGestureType::TrackZoom)
         {
-            if (!_cam->offset.has_value())
+            if (!_cam->gestureOffset.has_value())
             {
                 const auto &params = _cam->parameters();
 
@@ -441,7 +441,7 @@ void App::handleMouseGestures()
                         vec3(compMax(
                             0.01f * max(offsetParams.eye, params.target))))))
                 {
-                    _cam->offset = offset;
+                    _cam->gestureOffset = offset;
                 }
             }
         }
@@ -450,9 +450,9 @@ void App::handleMouseGestures()
     }
     else
     {
-        if (_cam->offset.has_value())
+        if (_cam->gestureOffset.has_value())
         {
-            _cam->applyOffset();
+            _cam->applyGestureOffset();
         }
     }
 }
@@ -503,7 +503,7 @@ void App::handleKeyboardInput(float deltaS)
     if (length(speed) > 0.f)
     {
         const CameraParameters &params = _cam->parameters();
-        const Optional<CameraOffset> &offset = _cam->offset;
+        const Optional<CameraOffset> &offset = _cam->gestureOffset;
 
         const vec3 eye =
             offset.has_value() ? params.eye + offset->eye : params.eye;
