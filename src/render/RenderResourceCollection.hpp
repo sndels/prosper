@@ -157,7 +157,9 @@ void RenderResourceCollection<
         if (_preserved[i])
             _preserved[i] = false;
         else
-            assert(!resourceInUse(i) && "Resource leaked");
+            assert(
+                !resourceInUse(asserted_cast<uint32_t>(i)) &&
+                "Resource leaked");
         (void)aliasedDebugName;
     }
 #endif // NDEBUG
