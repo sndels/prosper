@@ -241,8 +241,7 @@ void Camera::createDescriptorSet(
             .pBindings = layoutBindings.data(),
         });
 
-    staticDescriptorsAlloc->allocate(
-        Span{&_descriptorSetLayout, 1}, Span{&_descriptorSet, 1});
+    _descriptorSet = staticDescriptorsAlloc->allocate(_descriptorSetLayout);
 
     const StaticArray descriptorWrites =
         _bindingsReflection->generateDescriptorWrites<1>(
