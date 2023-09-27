@@ -117,7 +117,6 @@ class Device
         const std::filesystem::path &relPath;
         const char *debugName{nullptr};
         wheels::StrSpan defines{""};
-        wheels::Span<const wheels::String> dynamicBuffers{};
     };
     struct ShaderCompileResult
     {

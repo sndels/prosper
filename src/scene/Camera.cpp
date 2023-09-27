@@ -209,13 +209,11 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     String defines{scopeAlloc, 64};
     appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
 
-    const String dynamicBuffer{scopeAlloc, sCameraBindingName};
     Optional<ShaderReflection> compResult = _device->reflectShader(
         scopeAlloc.child_scope(),
         Device::CompileShaderModuleArgs{
             .relPath = "shader/scene/camera.glsl",
             .defines = defines,
-            .dynamicBuffers = Span{&dynamicBuffer, 1},
         },
         true);
     if (!compResult.has_value())

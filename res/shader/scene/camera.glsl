@@ -1,7 +1,7 @@
 #ifndef SCENE_CAMERA_GLSL
 #define SCENE_CAMERA_GLSL
 
-layout(std430, set = CAMERA_SET, binding = 0) buffer Camera
+layout(std430, set = CAMERA_SET, binding = 0) buffer CameraDSB
 {
     mat4 worldToCamera;
     mat4 cameraToWorld;
