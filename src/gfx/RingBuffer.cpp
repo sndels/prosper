@@ -4,11 +4,8 @@ using namespace wheels;
 namespace
 {
 
-// Let's be safe, this is the maximum value in the wild for
-// minUniformBufferOffsetAlignment
-constexpr uint32_t sMinAlignment = 256;
 #ifndef NDEBUG
-constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - sMinAlignment;
+constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
 #endif // NDEBUG
 
 } // namespace
@@ -30,7 +27,7 @@ RingBuffer::RingBuffer(Device *device, uint32_t byteSize, const char *debugName)
     assert(_device != nullptr);
 
     // Implementation assumes these in allocate()
-    assert(byteSize > sMinAlignment);
+    assert(byteSize > RingBuffer::sAlignment);
     assert(byteSize <= sMaxAllocation);
 
     _buffer = _device->createBuffer(BufferCreateInfo{
@@ -74,14 +71,15 @@ void RingBuffer::startFrame()
 
 RingBuffer::Allocation RingBuffer::allocate(uint32_t byteSize)
 {
-    assert(byteSize + sMinAlignment < sMaxAllocation);
+    assert(byteSize + RingBuffer::sAlignment < sMaxAllocation);
     assert(byteSize <= _buffer.byteSize);
 
     // Align offset
-    if ((_currentByteOffset & (sMinAlignment - 1)) != 0)
+    if ((_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
         // Won't overflow since _currentByteOffset is at most sMaxAllocation
         _currentByteOffset +=
-            sMinAlignment - (_currentByteOffset & (sMinAlignment - 1));
+            RingBuffer::sAlignment -
+            (_currentByteOffset & (RingBuffer::sAlignment - 1));
 
     // Wrap around if we're out of room
     if (_buffer.byteSize <= _currentByteOffset ||

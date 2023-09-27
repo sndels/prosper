@@ -11,6 +11,10 @@
 class RingBuffer
 {
   public:
+    // Let's be safe, this is the maximum value in the wild for
+    // minUniformBufferOffsetAlignment
+    static const uint32_t sAlignment = 256;
+
     class Allocation
     {
       public:
