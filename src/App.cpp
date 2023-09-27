@@ -211,6 +211,7 @@ void App::run()
         recompileShaders(scopeAlloc.child_scope());
 
         _resources->startFrame();
+        _world->startFrame();
 
         drawFrame(
             scopeAlloc.child_scope(),
@@ -559,7 +560,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _cam->updateBuffer(
         uvec2{renderArea.extent.width, renderArea.extent.height});
 
-    _world->updateUniformBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
+    _world->updateBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
 
     const auto &scene = _world->currentScene();
 

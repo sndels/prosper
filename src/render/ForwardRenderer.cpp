@@ -335,15 +335,18 @@ void ForwardRenderer::record(
     descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
     descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
     descriptorSets[ModelInstanceTrfnsBindingSet] =
-        scene.modelInstancesDescriptorSets[nextFrame];
+        scene.modelInstancesDescriptorSet;
 
-    const uint32_t cameraOffset = cam.bufferOffset();
+    const StaticArray dynamicOffsets{
+        cam.bufferOffset(),
+        world._modelInstanceTransformsByteOffset,
+    };
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        1, &cameraOffset);
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
     setViewportScissor(cb, renderArea);
 

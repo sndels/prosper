@@ -235,16 +235,21 @@ RTRenderer::Output RTRenderer::record(
         descriptorSets[GeometryBindingSet] = world._geometryDS;
         descriptorSets[SkyboxBindingSet] = world._skyboxOnlyDS;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
-            scene.modelInstancesDescriptorSets[nextFrame];
+            scene.modelInstancesDescriptorSet;
         descriptorSets[LightsBindingSet] =
             scene.lights.descriptorSets[nextFrame];
 
-        const uint32_t cameraOffset = cam.bufferOffset();
+        const StaticArray dynamicOffsets{
+            cam.bufferOffset(),
+            world._modelInstanceTransformsByteOffset,
+        };
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
             asserted_cast<uint32_t>(descriptorSets.size()),
-            descriptorSets.data(), 1, &cameraOffset);
+            descriptorSets.data(),
+            asserted_cast<uint32_t>(dynamicOffsets.size()),
+            dynamicOffsets.data());
 
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
