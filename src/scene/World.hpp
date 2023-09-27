@@ -1,6 +1,7 @@
 #ifndef PROSPER_SCENE_WORLD_HPP
 #define PROSPER_SCENE_WORLD_HPP
 
+#include "../gfx/RingBuffer.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Timer.hpp"
 #include "Material.hpp"
@@ -54,6 +55,8 @@ class World
     World &operator=(const World &other) = delete;
     World &operator=(World &&other) = delete;
 
+    void startFrame() const;
+
     void uploadMaterialDatas(uint32_t nextFrame);
     void handleDeferredLoading(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
@@ -62,9 +65,9 @@ class World
     void drawDeferredLoadingUi() const;
 
     [[nodiscard]] const Scene &currentScene() const;
-    void updateUniformBuffers(
+    void updateBuffers(
         const Camera &cam, uint32_t nextFrame,
-        wheels::ScopedScratch scopeAlloc) const;
+        wheels::ScopedScratch scopeAlloc);
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
     wheels::Allocator &_generalAlloc;
@@ -101,6 +104,9 @@ class World
 
     vk::DescriptorSet _geometryDS;
     DSLayouts _dsLayouts;
+
+    std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
+    uint32_t _modelInstanceTransformsByteOffset{0};
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _skyboxUniformBuffers;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _skyboxDSs;

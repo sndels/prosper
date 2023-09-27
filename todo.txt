@@ -14,3 +14,5 @@
     else if (!std::is_same<T,V>) static_assert(!"No bounds check happen between these types");
   instead of just asserting !floatingpoint
 - Span convenience ctor that takes in a single element
+- Rebuild TLAS every frame
+  - transforms are updated each frame for raster but not for RT

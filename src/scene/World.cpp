@@ -360,9 +360,6 @@ World::~World()
     }
     for (auto &scene : _scenes)
     {
-        for (auto &buffer : scene.modelInstanceTransformsBuffers)
-            _device->destroy(buffer);
-
         _device->destroy(scene.rtInstancesBuffer);
 
         for (auto &buffer : scene.lights.directionalLight.uniformBuffers)
@@ -382,6 +379,8 @@ World::~World()
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
 }
+
+void World::startFrame() const { _modelInstanceTransformsRing->startFrame(); }
 
 void World::uploadMaterialDatas(uint32_t nextFrame)
 {
@@ -466,8 +465,8 @@ void World::drawDeferredLoadingUi() const
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
-void World::updateUniformBuffers(
-    const Camera &cam, const uint32_t nextFrame, ScopedScratch scopeAlloc) const
+void World::updateBuffers(
+    const Camera &cam, const uint32_t nextFrame, ScopedScratch scopeAlloc)
 {
     {
         const mat4 worldToClip =
@@ -501,10 +500,8 @@ void World::updateUniformBuffers(
             }
         }
 
-        memcpy(
-            scene.modelInstanceTransformsBuffers[nextFrame].mapped,
-            transforms.data(),
-            sizeof(ModelInstance::Transforms) * transforms.size());
+        _modelInstanceTransformsByteOffset =
+            _modelInstanceTransformsRing->write_elements(transforms);
 
         memcpy(
             scene.rtInstancesBuffer.mapped, rtInstances.data(),
@@ -1391,29 +1388,11 @@ void World::createBuffers()
         }));
 
     {
+        size_t maxModelInstanceTransforms = 0;
         for (auto &scene : _scenes)
         {
-            {
-                const vk::DeviceSize bufferSize =
-                    sizeof(ModelInstance::Transforms) *
-                    scene.modelInstances.size();
-                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-                    scene.modelInstanceTransformsBuffers.push_back(
-                        _device->createBuffer(BufferCreateInfo{
-                            .desc =
-                                BufferDescription{
-                                    .byteSize = bufferSize,
-                                    .usage =
-                                        vk::BufferUsageFlagBits::eStorageBuffer,
-                                    .properties = vk::MemoryPropertyFlagBits::
-                                                      eHostVisible |
-                                                  vk::MemoryPropertyFlagBits::
-                                                      eHostCoherent,
-                                },
-                            .createMapped = true,
-                            .debugName = "InstanceTransforms",
-                        }));
-            }
+            maxModelInstanceTransforms = std::max(
+                maxModelInstanceTransforms, scene.modelInstances.size());
 
             scene.rtInstancesBuffer = _device->createBuffer(BufferCreateInfo{
                 .desc =
@@ -1487,6 +1466,13 @@ void World::createBuffers()
                         }));
             }
         }
+
+        const uint32_t bufferSize = asserted_cast<uint32_t>(
+            (maxModelInstanceTransforms * sizeof(ModelInstance::Transforms) +
+             static_cast<size_t>(RingBuffer::sAlignment)) *
+            MAX_FRAMES_IN_FLIGHT);
+        _modelInstanceTransformsRing = std::make_unique<RingBuffer>(
+            _device, bufferSize, "ModelInstanceTransformRing");
     }
 
     {
@@ -1785,7 +1771,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     {
         const vk::DescriptorSetLayoutBinding layoutBinding{
             .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eVertex |
                           vk::ShaderStageFlagBits::eRaygenKHR |
@@ -1847,50 +1833,37 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     // Scene descriptor sets
     // Define outside the helper scope to keep alive until
     // updateDescriptorSets
-    Array<vk::DescriptorBufferInfo> modelInstanceInfos{scopeAlloc};
+    Array<vk::DescriptorBufferInfo> modelInstanceInfos{
+        scopeAlloc, _scenes.size()};
     Array<vk::DescriptorBufferInfo> rtInstancesInfos{
         scopeAlloc, _scenes.size()};
-    Array<vk::DescriptorBufferInfo> lightInfos{scopeAlloc};
+    // Per light,per frame,per scene
+    Array<vk::DescriptorBufferInfo> lightInfos{
+        scopeAlloc, 3 * MAX_FRAMES_IN_FLIGHT * _scenes.size()};
     Array<vk::StructureChain<
         vk::WriteDescriptorSet, vk::WriteDescriptorSetAccelerationStructureKHR>>
-        asDSChains{scopeAlloc};
-    // TODO: Reserve required memory upfront
+        asDSChains{scopeAlloc, _scenes.size()};
     {
         for (auto &scene : _scenes)
         {
             {
-                Array<vk::DescriptorSetLayout> layouts{
-                    scopeAlloc, MAX_FRAMES_IN_FLIGHT};
-                layouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.modelInstances);
-                scene.modelInstancesDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-                _descriptorAllocator.allocate(
-                    layouts, Span{
-                                 scene.modelInstancesDescriptorSets.data(),
-                                 scene.modelInstancesDescriptorSets.size()});
+                scene.modelInstancesDescriptorSet =
+                    _descriptorAllocator.allocate(_dsLayouts.modelInstances);
 
-                modelInstanceInfos.reserve(
-                    modelInstanceInfos.size() +
-                    scene.modelInstanceTransformsBuffers.size());
-                const auto startIndex =
-                    asserted_cast<uint32_t>(modelInstanceInfos.size());
-                for (auto &buffer : scene.modelInstanceTransformsBuffers)
-                    modelInstanceInfos.push_back(vk::DescriptorBufferInfo{
-                        .buffer = buffer.handle,
-                        .range = VK_WHOLE_SIZE,
-                    });
+                modelInstanceInfos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = _modelInstanceTransformsRing->buffer(),
+                    .range = scene.modelInstances.size() *
+                             sizeof(ModelInstance::Transforms),
+                });
 
-                dss.reserve(
-                    dss.size() + modelInstanceInfos.size() - startIndex);
-                for (uint32_t i = startIndex; i < modelInstanceInfos.size();
-                     ++i)
-                    dss.push_back(vk::WriteDescriptorSet{
-                        .dstSet = scene.modelInstancesDescriptorSets[i],
-                        .dstBinding = 0,
-                        .dstArrayElement = 0,
-                        .descriptorCount = 1,
-                        .descriptorType = vk::DescriptorType::eStorageBuffer,
-                        .pBufferInfo = &modelInstanceInfos[i],
-                    });
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = scene.modelInstancesDescriptorSet,
+                    .dstBinding = 0,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
+                    .pBufferInfo = &modelInstanceInfos.back(),
+                });
             }
             {
                 Array<vk::DescriptorSetLayout> layouts{

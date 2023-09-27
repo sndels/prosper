@@ -7,7 +7,7 @@ struct Transforms
     mat4 normalToWorld;
 };
 layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
-    ModelInstanceTransforms
+    ModelInstanceTransformsDSB
 {
     Transforms instance[];
 }

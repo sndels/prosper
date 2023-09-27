@@ -57,8 +57,7 @@ struct Scene
     };
     uint32_t rtInstanceCount{0};
     Buffer rtInstancesBuffer;
-    wheels::Array<Buffer> modelInstanceTransformsBuffers;
-    wheels::Array<vk::DescriptorSet> modelInstancesDescriptorSets;
+    vk::DescriptorSet modelInstancesDescriptorSet;
     vk::DescriptorSet rtDescriptorSet;
 
     Lights lights;
@@ -66,8 +65,6 @@ struct Scene
     Scene(wheels::Allocator &alloc)
     : nodes{alloc}
     , modelInstances{alloc}
-    , modelInstanceTransformsBuffers{alloc}
-    , modelInstancesDescriptorSets{alloc}
     , lights{alloc}
     {
     }
