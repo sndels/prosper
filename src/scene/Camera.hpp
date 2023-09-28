@@ -120,7 +120,7 @@ class Camera
     RingBuffer *_constantsRing{nullptr};
 
     CameraParameters _parameters;
-    RingBuffer::Allocation _parametersAlloc;
+    uint32_t _parametersByteOffset{0xFFFFFFFF};
     float _apertureDiameter{0.00001f};
     float _focusDistance{1.f};
     float _focalLength{0.f};
