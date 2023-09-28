@@ -33,14 +33,6 @@ struct Scene
         DirectionalLight directionalLight;
         PointLights pointLights;
         SpotLights spotLights;
-        wheels::Array<vk::DescriptorSet> descriptorSets;
-        wheels::Array<vk::DescriptorSet> descriptorSetsClustered;
-
-        Lights(wheels::Allocator &alloc)
-        : descriptorSets{alloc}
-        , descriptorSetsClustered{alloc}
-        {
-        }
     };
 
     CameraParameters camera;
@@ -65,7 +57,6 @@ struct Scene
     Scene(wheels::Allocator &alloc)
     : nodes{alloc}
     , modelInstances{alloc}
-    , lights{alloc}
     {
     }
 };

@@ -359,18 +359,7 @@ World::~World()
         _device->destroy(tlas.buffer);
     }
     for (auto &scene : _scenes)
-    {
         _device->destroy(scene.rtInstancesBuffer);
-
-        for (auto &buffer : scene.lights.directionalLight.uniformBuffers)
-            _device->destroy(buffer);
-
-        for (auto &buffer : scene.lights.pointLights.storageBuffers)
-            _device->destroy(buffer);
-
-        for (auto &buffer : scene.lights.spotLights.storageBuffers)
-            _device->destroy(buffer);
-    }
     for (auto &buffer : _geometryBuffers)
         _device->destroy(buffer);
     _device->destroy(_meshBuffersBuffer);
@@ -380,7 +369,11 @@ World::~World()
         _device->logical().destroy(sampler);
 }
 
-void World::startFrame() const { _modelInstanceTransformsRing->startFrame(); }
+void World::startFrame() const
+{
+    _modelInstanceTransformsRing->startFrame();
+    _lightDataRing->startFrame();
+}
 
 void World::uploadMaterialDatas(uint32_t nextFrame)
 {
@@ -508,9 +501,10 @@ void World::updateBuffers(
             sizeof(Scene::RTInstance) * rtInstances.size());
     }
 
-    scene.lights.directionalLight.updateBuffer(nextFrame);
-    scene.lights.pointLights.updateBuffer(nextFrame);
-    scene.lights.spotLights.updateBuffer(nextFrame);
+    _directionalLightByteOffset =
+        scene.lights.directionalLight.write(*_lightDataRing);
+    _pointLightByteOffset = scene.lights.pointLights.write(*_lightDataRing);
+    _spotLightByteOffset = scene.lights.spotLights.write(*_lightDataRing);
 }
 
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
@@ -1406,65 +1400,6 @@ void World::createBuffers()
                 .createMapped = true,
                 .debugName = "RTInstances",
             });
-
-            {
-                const vk::DeviceSize bufferSize =
-                    sizeof(DirectionalLight::Parameters);
-                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-                    scene.lights.directionalLight.uniformBuffers.push_back(
-                        _device->createBuffer(BufferCreateInfo{
-                            .desc =
-                                BufferDescription{
-                                    .byteSize = bufferSize,
-                                    .usage =
-                                        vk::BufferUsageFlagBits::eUniformBuffer,
-                                    .properties = vk::MemoryPropertyFlagBits::
-                                                      eHostVisible |
-                                                  vk::MemoryPropertyFlagBits::
-                                                      eHostCoherent,
-                                },
-                            .createMapped = true,
-                            .debugName = "DirectionalLightUniforms",
-                        }));
-            }
-
-            {
-                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-                    scene.lights.pointLights.storageBuffers.push_back(
-                        _device->createBuffer(BufferCreateInfo{
-                            .desc =
-                                BufferDescription{
-                                    .byteSize = PointLights::sBufferByteSize,
-                                    .usage =
-                                        vk::BufferUsageFlagBits::eStorageBuffer,
-                                    .properties = vk::MemoryPropertyFlagBits::
-                                                      eHostVisible |
-                                                  vk::MemoryPropertyFlagBits::
-                                                      eHostCoherent,
-                                },
-                            .createMapped = true,
-                            .debugName = "PointLightsBuffer",
-                        }));
-            }
-
-            {
-                for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-                    scene.lights.spotLights.storageBuffers.push_back(
-                        _device->createBuffer(BufferCreateInfo{
-                            .desc =
-                                BufferDescription{
-                                    .byteSize = SpotLights::sBufferByteSize,
-                                    .usage =
-                                        vk::BufferUsageFlagBits::eStorageBuffer,
-                                    .properties = vk::MemoryPropertyFlagBits::
-                                                      eHostVisible |
-                                                  vk::MemoryPropertyFlagBits::
-                                                      eHostCoherent,
-                                },
-                            .createMapped = true,
-                            .debugName = "SpotLightsBuffer",
-                        }));
-            }
         }
 
         const uint32_t bufferSize = asserted_cast<uint32_t>(
@@ -1473,6 +1408,16 @@ void World::createBuffers()
             MAX_FRAMES_IN_FLIGHT);
         _modelInstanceTransformsRing = std::make_unique<RingBuffer>(
             _device, bufferSize, "ModelInstanceTransformRing");
+    }
+
+    {
+        const uint32_t bufferSize =
+            (DirectionalLight::sBufferByteSize + RingBuffer::sAlignment +
+             PointLights::sBufferByteSize + RingBuffer::sAlignment +
+             SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
+            MAX_FRAMES_IN_FLIGHT;
+        _lightDataRing =
+            std::make_unique<RingBuffer>(_device, bufferSize, "LightDataRing");
     }
 
     {
@@ -1800,7 +1745,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const StaticArray layoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
-                .descriptorType = vk::DescriptorType::eUniformBuffer,
+                .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
                               vk::ShaderStageFlagBits::eCompute |
@@ -1808,7 +1753,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1,
-                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
                               vk::ShaderStageFlagBits::eCompute |
@@ -1816,7 +1761,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 2,
-                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
                 .descriptorCount = 1,
                 .stageFlags = vk::ShaderStageFlagBits::eFragment |
                               vk::ShaderStageFlagBits::eCompute |
@@ -1837,9 +1782,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         scopeAlloc, _scenes.size()};
     Array<vk::DescriptorBufferInfo> rtInstancesInfos{
         scopeAlloc, _scenes.size()};
-    // Per light,per frame,per scene
-    Array<vk::DescriptorBufferInfo> lightInfos{
-        scopeAlloc, 3 * MAX_FRAMES_IN_FLIGHT * _scenes.size()};
+    // Per light
+    StaticArray<vk::DescriptorBufferInfo, 3> lightInfos;
     Array<vk::StructureChain<
         vk::WriteDescriptorSet, vk::WriteDescriptorSetAccelerationStructureKHR>>
         asDSChains{scopeAlloc, _scenes.size()};
@@ -1866,80 +1810,52 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 });
             }
             {
-                Array<vk::DescriptorSetLayout> layouts{
-                    scopeAlloc, MAX_FRAMES_IN_FLIGHT};
-                layouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.lights);
+                _lightsDescriptorSet =
+                    _descriptorAllocator.allocate(_dsLayouts.lights);
 
-                auto &lights = scene.lights;
-                lights.descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-                _descriptorAllocator.allocate(
-                    layouts, Span{
-                                 lights.descriptorSets.data(),
-                                 lights.descriptorSets.size()});
+                lightInfos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = _lightDataRing->buffer(),
+                    .offset = 0,
+                    .range = sizeof(DirectionalLight::Parameters),
+                });
+                lightInfos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = _lightDataRing->buffer(),
+                    .offset = 0,
+                    .range = PointLights::sBufferByteSize,
+                });
+                lightInfos.push_back(vk::DescriptorBufferInfo{
+                    .buffer = _lightDataRing->buffer(),
+                    .offset = 0,
+                    .range = SpotLights::sBufferByteSize,
+                });
 
-                StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-                    dirLightInfos;
-                dirLightInfos.resize(
-                    lights.directionalLight.uniformBuffers.size());
-                lights.directionalLight.bufferInfos(dirLightInfos);
-
-                StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-                    pointLightInfos;
-                pointLightInfos.resize(
-                    lights.pointLights.storageBuffers.size());
-                lights.pointLights.bufferInfos(pointLightInfos);
-
-                StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-                    spotLightInfos;
-                spotLightInfos.resize(lights.spotLights.storageBuffers.size());
-                lights.spotLights.bufferInfos(spotLightInfos);
-
-                const auto dirLightStart = lightInfos.size();
-                const auto pointLightStart =
-                    dirLightStart + dirLightInfos.size();
-                const auto spotLightStart =
-                    pointLightStart + pointLightInfos.size();
-
-                lightInfos.reserve(
-                    lightInfos.size() + dirLightInfos.size() +
-                    pointLightInfos.size() + spotLightInfos.size());
-                // WHEELSTODO: Array::extend(Array const&)
-                for (const auto &info : dirLightInfos)
-                    lightInfos.push_back(info);
-                for (const auto &info : pointLightInfos)
-                    lightInfos.push_back(info);
-                for (const auto &info : spotLightInfos)
-                    lightInfos.push_back(info);
-
-                const auto &descriptorSets = lights.descriptorSets;
-                dss.reserve(dss.size() + descriptorSets.size() * 3);
-                for (size_t i = 0; i < descriptorSets.size(); ++i)
-                {
-                    dss.push_back(vk::WriteDescriptorSet{
-                        .dstSet = descriptorSets[i],
-                        .dstBinding = 0,
-                        .dstArrayElement = 0,
-                        .descriptorCount = 1,
-                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-                        .pBufferInfo = &lightInfos[dirLightStart + i],
-                    });
-                    dss.push_back(vk::WriteDescriptorSet{
-                        .dstSet = descriptorSets[i],
-                        .dstBinding = 1,
-                        .dstArrayElement = 0,
-                        .descriptorCount = 1,
-                        .descriptorType = vk::DescriptorType::eStorageBuffer,
-                        .pBufferInfo = &lightInfos[pointLightStart + i],
-                    });
-                    dss.push_back(vk::WriteDescriptorSet{
-                        .dstSet = descriptorSets[i],
-                        .dstBinding = 2,
-                        .dstArrayElement = 0,
-                        .descriptorCount = 1,
-                        .descriptorType = vk::DescriptorType::eStorageBuffer,
-                        .pBufferInfo = &lightInfos[spotLightStart + i],
-                    });
-                }
+                dss.reserve(dss.size() + 3);
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = _lightsDescriptorSet,
+                    .dstBinding = 0,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
+                    // Match how others are used
+                    // NOLINTNEXTLINE(readability-container-data-pointer)
+                    .pBufferInfo = &lightInfos[0],
+                });
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = _lightsDescriptorSet,
+                    .dstBinding = 1,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
+                    .pBufferInfo = &lightInfos[1],
+                });
+                dss.push_back(vk::WriteDescriptorSet{
+                    .dstSet = _lightsDescriptorSet,
+                    .dstBinding = 2,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
+                    .pBufferInfo = &lightInfos[2],
+                });
             }
 
             {

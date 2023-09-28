@@ -198,11 +198,9 @@ DeferredShading::Output DeferredShading::record(
             .drawType = static_cast<uint32_t>(_drawType),
         };
 
-        const auto &scene = world._scenes[world._currentScene];
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[LightsBindingSet] =
-            scene.lights.descriptorSets[nextFrame];
+        descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
         descriptorSets[LightClustersBindingSet] =
             input.lightClusters.descriptorSet;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
@@ -211,7 +209,12 @@ DeferredShading::Output DeferredShading::record(
         descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
-        const uint32_t cameraOffset = cam.bufferOffset();
+        const StaticArray dynamicOffsets = {
+            world._directionalLightByteOffset,
+            world._pointLightByteOffset,
+            world._spotLightByteOffset,
+            cam.bufferOffset(),
+        };
 
         const uvec3 groups = glm::uvec3{
             (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
@@ -219,7 +222,7 @@ DeferredShading::Output DeferredShading::record(
             1u};
 
         _computePass.record(
-            cb, pcBlock, groups, descriptorSets, Span{&cameraOffset, 1});
+            cb, pcBlock, groups, descriptorSets, dynamicOffsets);
     }
 
     return ret;

@@ -48,7 +48,7 @@ class LightClustering
         vk::DescriptorSet descriptorSet;
     } lightClusters;
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
+        vk::CommandBuffer cb, const World &world, const Camera &cam,
         const vk::Extent2D &renderExtent, uint32_t nextFrame,
         Profiler *profiler);
 
