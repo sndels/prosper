@@ -562,9 +562,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     _world->updateBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
 
-    const auto &scene = _world->currentScene();
-
-    updateDebugLines(scene, nextFrame);
+    updateDebugLines(_world->currentScene(), nextFrame);
 
     const auto cb = _commandBuffers[nextFrame];
     cb.reset();
@@ -579,7 +577,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
             .nextFrame = nextFrame,
             .nextImage = nextImage,
         },
-        scene, uiChanges);
+        uiChanges);
 
     _world->handleDeferredLoading(
         scopeAlloc.child_scope(), cb, nextFrame, *_profiler);
@@ -920,11 +918,11 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 
 void App::render(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea,
-    const RenderIndices &indices, const Scene &scene,
-    const UiChanges &uiChanges)
+    const RenderIndices &indices, const UiChanges &uiChanges)
 {
     const LightClustering::Output lightClusters = _lightClustering->record(
-        cb, scene, *_cam, _viewportExtent, indices.nextFrame, _profiler.get());
+        cb, *_world, *_cam, _viewportExtent, indices.nextFrame,
+        _profiler.get());
 
     ImageHandle illumination;
     if (_renderRT)

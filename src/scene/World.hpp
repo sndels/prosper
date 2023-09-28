@@ -108,6 +108,12 @@ class World
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
     uint32_t _modelInstanceTransformsByteOffset{0};
 
+    vk::DescriptorSet _lightsDescriptorSet;
+    std::unique_ptr<RingBuffer> _lightDataRing;
+    uint32_t _directionalLightByteOffset{0};
+    uint32_t _pointLightByteOffset{0};
+    uint32_t _spotLightByteOffset{0};
+
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _skyboxUniformBuffers;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _skyboxDSs;
     vk::DescriptorSet _skyboxOnlyDS;

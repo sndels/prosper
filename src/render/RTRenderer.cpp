@@ -236,12 +236,14 @@ RTRenderer::Output RTRenderer::record(
         descriptorSets[SkyboxBindingSet] = world._skyboxOnlyDS;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
-        descriptorSets[LightsBindingSet] =
-            scene.lights.descriptorSets[nextFrame];
+        descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
 
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),
             world._modelInstanceTransformsByteOffset,
+            world._directionalLightByteOffset,
+            world._pointLightByteOffset,
+            world._spotLightByteOffset,
         };
 
         cb.bindDescriptorSets(

@@ -327,7 +327,7 @@ void ForwardRenderer::record(
 
     StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
-    descriptorSets[LightsBindingSet] = scene.lights.descriptorSets[nextFrame];
+    descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
     descriptorSets[LightClustersBindingSet] = lightClusters.descriptorSet;
     descriptorSets[CameraBindingSet] = cam.descriptorSet();
     descriptorSets[MaterialDatasBindingSet] =
@@ -338,6 +338,9 @@ void ForwardRenderer::record(
         scene.modelInstancesDescriptorSet;
 
     const StaticArray dynamicOffsets{
+        world._directionalLightByteOffset,
+        world._pointLightByteOffset,
+        world._spotLightByteOffset,
         cam.bufferOffset(),
         world._modelInstanceTransformsByteOffset,
     };

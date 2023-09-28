@@ -86,8 +86,7 @@ class App
     };
     void render(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea,
-        const RenderIndices &indices, const Scene &scene,
-        const UiChanges &uiChanges);
+        const RenderIndices &indices, const UiChanges &uiChanges);
     void blitColorToFinalComposite(
         vk::CommandBuffer cb, ImageHandle toneMapped);
     void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);

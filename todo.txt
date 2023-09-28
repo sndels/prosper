@@ -14,5 +14,8 @@
     else if (!std::is_same<T,V>) static_assert(!"No bounds check happen between these types");
   instead of just asserting !floatingpoint
 - Span convenience ctor that takes in a single element
+- Container.span() defaults to all elements
+  - inference doesn't always work, could maybe be fixed on span ctor side as
+    well if Span{container} is clearer than container.span()
 - Rebuild TLAS every frame
   - transforms are updated each frame for raster but not for RT

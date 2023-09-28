@@ -2,6 +2,7 @@
 #define PROSPER_SCENE_LIGHT_HPP
 
 #include "../gfx/Device.hpp"
+#include "../gfx/RingBuffer.hpp"
 #include "../utils/Utils.hpp"
 
 #include <glm/glm.hpp>
@@ -17,12 +18,15 @@ struct DirectionalLight
         glm::vec4 direction{-1.f, -1.f, -1.f, 1.f};
     } parameters;
 
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> uniformBuffers;
+    static const uint32_t sBufferByteSize = sizeof(Parameters);
 
-    // output should have a size matching storageBuffers
-    void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
+    [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
+};
 
-    void updateBuffer(uint32_t nextFrame) const;
+struct PointLight
+{
+    glm::vec4 radianceAndRadius{0.f};
+    glm::vec4 position{0.f};
 };
 
 struct PointLights
@@ -34,23 +38,20 @@ struct PointLights
         appendDefineStr(str, "MAX_POINT_LIGHT_COUNT", PointLights::sMaxCount);
     };
 
-    struct PointLight
-    {
-        glm::vec4 radianceAndRadius{0.f};
-        glm::vec4 position{0.f};
-    };
     wheels::StaticArray<PointLight, sMaxCount> data;
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
         sMaxCount * sizeof(PointLight) + sizeof(uint32_t);
 
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> storageBuffers;
+    [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
+};
 
-    // output should have a size matching storageBuffers
-    void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
-
-    void updateBuffer(uint32_t nextFrame) const;
+struct SpotLight
+{
+    glm::vec4 radianceAndAngleScale{0.f};
+    glm::vec4 positionAndAngleOffset{0.f};
+    glm::vec4 direction{0.f};
 };
 
 struct SpotLights
@@ -62,24 +63,13 @@ struct SpotLights
         appendDefineStr(str, "MAX_SPOT_LIGHT_COUNT", SpotLights::sMaxCount);
     }
 
-    struct SpotLight
-    {
-        glm::vec4 radianceAndAngleScale{0.f};
-        glm::vec4 positionAndAngleOffset{0.f};
-        glm::vec4 direction{0.f};
-    };
     wheels::StaticArray<SpotLight, sMaxCount> data;
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
         sMaxCount * sizeof(SpotLight) + sizeof(uint32_t);
 
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> storageBuffers;
-
-    // output should have a size matching storageBuffers
-    void bufferInfos(wheels::Span<vk::DescriptorBufferInfo> output) const;
-
-    void updateBuffer(uint32_t nextFrame) const;
+    [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
 };
 
 #endif // PROSPER_SCENE_LIGHT_HPP

@@ -91,7 +91,7 @@ void LightClustering::recompileShaders(
 }
 
 LightClustering::Output LightClustering::record(
-    vk::CommandBuffer cb, const Scene &scene, const Camera &cam,
+    vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Extent2D &renderExtent, const uint32_t nextFrame,
     Profiler *profiler)
 {
@@ -142,19 +142,23 @@ LightClustering::Output LightClustering::record(
 
             StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
                 VK_NULL_HANDLE};
-            descriptorSets[LightsBindingSet] =
-                scene.lights.descriptorSets[nextFrame];
+            descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
             descriptorSets[CameraBindingSet] = cam.descriptorSet();
             descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
 
-            const uint32_t cameraOffset = cam.bufferOffset();
+            const StaticArray dynamicOffsets = {
+                world._directionalLightByteOffset,
+                world._pointLightByteOffset,
+                world._spotLightByteOffset,
+                cam.bufferOffset(),
+            };
 
             const vk::Extent3D &extent =
                 _resources->images.resource(ret.pointers).extent;
             const uvec3 groups{extent.width, extent.height, extent.depth};
 
             _computePass.record(
-                cb, pcBlock, groups, descriptorSets, Span{&cameraOffset, 1});
+                cb, pcBlock, groups, descriptorSets, dynamicOffsets);
         }
     }
 

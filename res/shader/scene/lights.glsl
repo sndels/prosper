@@ -1,7 +1,7 @@
 #ifndef SCENE_LIGHTS_GLSL
 #define SCENE_LIGHTS_GLSL
 
-layout(set = LIGHTS_SET, binding = 0) uniform DirectionalLight
+layout(set = LIGHTS_SET, binding = 0) buffer DirectionalLightDSB
 {
     vec4 irradiance;
     vec4 direction;
@@ -14,7 +14,7 @@ struct PointLight
     vec4 position;
 };
 
-layout(set = LIGHTS_SET, binding = 1) buffer PointLights
+layout(set = LIGHTS_SET, binding = 1) buffer PointLightsDSB
 {
     PointLight lights[MAX_POINT_LIGHT_COUNT];
     uint count;
@@ -28,7 +28,7 @@ struct SpotLight
     vec4 direction;
 };
 
-layout(set = LIGHTS_SET, binding = 2) buffer SpotLights
+layout(set = LIGHTS_SET, binding = 2) buffer SpotLightsDSB
 {
     SpotLight lights[MAX_SPOT_LIGHT_COUNT];
     uint count;
