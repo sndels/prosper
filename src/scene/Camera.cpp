@@ -158,11 +158,10 @@ void Camera::updateBuffer(const uvec2 &resolution)
         .near = _parameters.zN,
         .far = _parameters.zF,
     };
-    _parametersAlloc = _constantsRing->allocate(sizeof(uniforms));
-    _constantsRing->write(_parametersAlloc, uniforms);
+    _parametersByteOffset = _constantsRing->write(uniforms);
 }
 
-uint32_t Camera::bufferOffset() const { return _parametersAlloc.byteOffset(); }
+uint32_t Camera::bufferOffset() const { return _parametersByteOffset; }
 
 vk::DescriptorSetLayout Camera::descriptorSetLayout() const
 {

@@ -10,17 +10,6 @@ constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
 
 } // namespace
 
-uint32_t RingBuffer::Allocation::byteOffset() const { return _byteOffset; }
-
-uint32_t RingBuffer::Allocation::byteSize() const { return _byteSize; }
-
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-RingBuffer::Allocation::Allocation(uint32_t byteOffset, uint32_t byteSize)
-: _byteOffset{byteOffset}
-, _byteSize{byteSize}
-{
-}
-
 RingBuffer::RingBuffer(Device *device, uint32_t byteSize, const char *debugName)
 : _device{device}
 {
@@ -69,10 +58,12 @@ void RingBuffer::startFrame()
 #endif
 }
 
-RingBuffer::Allocation RingBuffer::allocate(uint32_t byteSize)
+uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
 {
+    assert(data.size() <= _buffer.byteSize);
+
+    const uint32_t byteSize = asserted_cast<uint32_t>(data.size());
     assert(byteSize + RingBuffer::sAlignment < sMaxAllocation);
-    assert(byteSize <= _buffer.byteSize);
 
     // Align offset
     if ((_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
@@ -86,7 +77,12 @@ RingBuffer::Allocation RingBuffer::allocate(uint32_t byteSize)
         _buffer.byteSize - _currentByteOffset < byteSize)
         _currentByteOffset = 0;
 
-    Allocation alloc{_currentByteOffset, byteSize};
+    const uint32_t writeOffset = _currentByteOffset;
+
+    uint8_t *dst = static_cast<uint8_t *>(_buffer.mapped);
+    dst += writeOffset;
+    memcpy(dst, data.data(), data.size());
+
     _currentByteOffset += byteSize;
 
     assert(!_frameStartOffsets.empty() && "Forgot to call startFrame()?");
@@ -95,16 +91,5 @@ RingBuffer::Allocation RingBuffer::allocate(uint32_t byteSize)
          _frameStartOffsets.front() > _currentByteOffset) &&
         "Stomped over an in flight frame");
 
-    return alloc;
-}
-
-void RingBuffer::write(Allocation alloc, wheels::Span<const uint8_t> data) const
-{
-    assert(alloc.byteSize() == data.size());
-    assert(alloc.byteOffset() < _buffer.byteSize);
-    assert(_buffer.byteSize - alloc.byteOffset() >= alloc.byteSize());
-
-    uint8_t *dst = static_cast<uint8_t *>(_buffer.mapped);
-    dst += alloc.byteOffset();
-    memcpy(dst, data.data(), data.size());
+    return writeOffset;
 }

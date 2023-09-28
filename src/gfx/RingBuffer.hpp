@@ -15,31 +15,6 @@ class RingBuffer
     // minUniformBufferOffsetAlignment
     static const uint32_t sAlignment = 256;
 
-    class Allocation
-    {
-      public:
-        Allocation() = default;
-        ~Allocation() = default;
-
-        Allocation(const Allocation &) = default;
-        Allocation(Allocation &&) = default;
-        Allocation &operator=(const Allocation &) = default;
-        Allocation &operator=(Allocation &&) = default;
-
-        [[nodiscard]] uint32_t byteOffset() const;
-        [[nodiscard]] uint32_t byteSize() const;
-
-        friend class RingBuffer;
-
-      protected:
-        // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-        Allocation(uint32_t byteOffset, uint32_t byteSize);
-
-      private:
-        uint32_t _byteOffset{0};
-        uint32_t _byteSize{0};
-    };
-
     RingBuffer(Device *device, uint32_t byteSize, const char *debugName);
     ~RingBuffer();
 
@@ -52,9 +27,12 @@ class RingBuffer
 
     void startFrame();
 
-    [[nodiscard]] Allocation allocate(uint32_t byteSize);
-    template <typename T> void write(Allocation alloc, const T &data) const;
-    void write(Allocation alloc, wheels::Span<const uint8_t> data) const;
+    // Returns the byteoffset of the allocation in the buffer
+    template <typename T>
+        requires std::is_trivially_copyable_v<T>
+    [[nodiscard]] uint32_t write(const T &data);
+    // Returns the byteoffset of the allocation in the buffer
+    [[nodiscard]] uint32_t write(wheels::Span<const uint8_t> data);
 
   private:
     Device *_device{nullptr};
@@ -66,10 +44,10 @@ class RingBuffer
 };
 
 template <typename T>
-void RingBuffer::write(Allocation alloc, const T &data) const
+    requires std::is_trivially_copyable_v<T>
+uint32_t RingBuffer::write(const T &data)
 {
-    write(
-        alloc,
+    return write(
         wheels::Span{reinterpret_cast<const uint8_t *>(&data), sizeof(data)});
 }
 
