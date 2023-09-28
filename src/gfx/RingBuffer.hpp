@@ -27,12 +27,25 @@ class RingBuffer
 
     void startFrame();
 
-    // Returns the byteoffset of the allocation in the buffer
+    // The write implementations return the starting offset of the written bytes
+    // in the underlying buffer.
+
+    [[nodiscard]] uint32_t write(wheels::Span<const uint8_t> data);
+
     template <typename T>
         requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] uint32_t write(const T &data);
-    // Returns the byteoffset of the allocation in the buffer
-    [[nodiscard]] uint32_t write(wheels::Span<const uint8_t> data);
+    [[nodiscard]] uint32_t write_value(const T &data);
+
+    // Writes size() elements
+    template <typename T>
+        requires std::is_trivially_copyable_v<T>
+    [[nodiscard]] uint32_t write_elements(const wheels::Array<T> &data);
+
+    // Writes capacity() elements
+    template <typename T, size_t N>
+        requires std::is_trivially_copyable_v<T>
+    [[nodiscard]] uint32_t write_full_capacity(
+        const wheels::StaticArray<T, N> &data);
 
   private:
     Device *_device{nullptr};
@@ -45,10 +58,28 @@ class RingBuffer
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-uint32_t RingBuffer::write(const T &data)
+uint32_t RingBuffer::write_value(const T &data)
 {
     return write(
         wheels::Span{reinterpret_cast<const uint8_t *>(&data), sizeof(data)});
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+uint32_t RingBuffer::write_elements(const wheels::Array<T> &data)
+{
+    return write(wheels::Span{
+        reinterpret_cast<const uint8_t *>(data.data()),
+        data.size() * sizeof(T)});
+}
+
+template <typename T, size_t N>
+    requires std::is_trivially_copyable_v<T>
+uint32_t RingBuffer::write_full_capacity(const wheels::StaticArray<T, N> &data)
+{
+    return write(wheels::Span{
+        reinterpret_cast<const uint8_t *>(data.data()),
+        data.capacity() * sizeof(T)});
 }
 
 #endif // PROSPER_GFX_RING_BUFFER_HPP
