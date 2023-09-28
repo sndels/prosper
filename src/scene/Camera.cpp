@@ -158,7 +158,7 @@ void Camera::updateBuffer(const uvec2 &resolution)
         .near = _parameters.zN,
         .far = _parameters.zF,
     };
-    _parametersByteOffset = _constantsRing->write(uniforms);
+    _parametersByteOffset = _constantsRing->write_value(uniforms);
 }
 
 uint32_t Camera::bufferOffset() const { return _parametersByteOffset; }
