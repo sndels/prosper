@@ -19,3 +19,5 @@
     well if Span{container} is clearer than container.span()
 - Rebuild TLAS every frame
   - transforms are updated each frame for raster but not for RT
+- Reflect world ring layouts and descriptor writes from shader
+  - consistency, less maintenance, potentially less clutter
