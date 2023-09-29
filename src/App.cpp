@@ -153,18 +153,6 @@ App::App(const Settings &settings)
 
     _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
 
-    const auto &allocs = _device->memoryAllocations();
-    printf("Active GPU allocations:\n");
-    printf(
-        "  Buffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.buffers / 1000 / 1000));
-    printf(
-        "  TexelBuffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.texelBuffers / 1000 / 1000));
-    printf(
-        "  Images: %uMB\n",
-        asserted_cast<uint32_t>(allocs.images / 1000 / 1000));
-
     _cam->init(_world->_scenes[_world->_currentScene].camera);
     _cam->perspective(
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
