@@ -60,13 +60,24 @@ void RingBuffer::startFrame()
 
 uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
 {
+    return write_internal(data, true);
+}
+
+void RingBuffer::write_unaligned(wheels::Span<const uint8_t> data)
+{
+    write_internal(data, false);
+}
+
+uint32_t RingBuffer::write_internal(
+    wheels::Span<const uint8_t> data, bool align)
+{
     assert(data.size() <= _buffer.byteSize);
 
     const uint32_t byteSize = asserted_cast<uint32_t>(data.size());
     assert(byteSize + RingBuffer::sAlignment < sMaxAllocation);
 
     // Align offset
-    if ((_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
+    if (align && (_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
         // Won't overflow since _currentByteOffset is at most sMaxAllocation
         _currentByteOffset +=
             RingBuffer::sAlignment -
@@ -75,7 +86,10 @@ uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
     // Wrap around if we're out of room
     if (_buffer.byteSize <= _currentByteOffset ||
         _buffer.byteSize - _currentByteOffset < byteSize)
+    {
+        assert(align && "Unaligned write wrapped around");
         _currentByteOffset = 0;
+    }
 
     const uint32_t writeOffset = _currentByteOffset;
 
