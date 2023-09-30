@@ -468,7 +468,7 @@ uint32_t memberBytesize(
                 const SpvResult &lastMemberResult = results[lastMemberId];
 
                 const uint32_t lastMemberBytesize = memberBytesize(
-                    lastMemberResult.type, MemberDecorations{}, results);
+                    lastMemberResult.type, lastMemberDecorations, results);
 
                 assert(lastMemberDecorations.offset != sUninitialized);
                 const uint32_t bytesize =
