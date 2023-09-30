@@ -92,6 +92,8 @@ class World
     wheels::Array<Scene> _scenes{_generalAlloc};
     size_t _currentScene{0};
 
+    DSLayouts _dsLayouts;
+
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
         0};
@@ -101,7 +103,7 @@ class World
     wheels::Optional<ShaderReflection> _materialsReflection;
 
     vk::DescriptorSet _geometryDS;
-    DSLayouts _dsLayouts;
+    wheels::Optional<ShaderReflection> _geometryReflection;
 
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
     uint32_t _modelInstanceTransformsByteOffset{0};

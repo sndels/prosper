@@ -30,6 +30,7 @@ namespace
 {
 constexpr uint32_t sMaterialDatasReflectionSet = 0;
 constexpr uint32_t sMaterialTexturesReflectionSet = 1;
+constexpr uint32_t sGeometryReflectionSet = 0;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
@@ -1448,6 +1449,15 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
 
         _materialsReflection = reflect(defines, "shader/scene/materials.glsl");
     }
+
+    {
+        String defines{scopeAlloc, 92};
+        appendDefineStr(defines, "GEOMETRY_SET", sGeometryReflectionSet);
+        defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
+        assert(defines.size() < 92);
+
+        _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
+    }
 }
 
 void World::createDescriptorSets(ScopedScratch scopeAlloc)
@@ -1602,36 +1612,29 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     Array<vk::DescriptorBufferInfo> bufferInfos{
         scopeAlloc, _geometryBuffers.size()};
     {
-        for (const auto &b : _geometryBuffers)
-            bufferInfos.push_back(vk::DescriptorBufferInfo{
-                .buffer = b.handle,
-                .range = VK_WHOLE_SIZE,
-            });
-        const auto bufferCount = asserted_cast<uint32_t>(bufferInfos.size());
 
         bufferInfos.push_back(vk::DescriptorBufferInfo{
             .buffer = _meshBuffersBuffer.handle,
             .range = VK_WHOLE_SIZE,
         });
 
-        const StaticArray layoutBindings{
-            vk::DescriptorSetLayoutBinding{
-                .binding = 0,
-                .descriptorType = vk::DescriptorType::eStorageBuffer,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                              vk::ShaderStageFlagBits::eRaygenKHR |
-                              vk::ShaderStageFlagBits::eAnyHitKHR,
-            },
-            vk::DescriptorSetLayoutBinding{
-                .binding = 1,
-                .descriptorType = vk::DescriptorType::eStorageBuffer,
-                .descriptorCount = bufferCount,
-                .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                              vk::ShaderStageFlagBits::eRaygenKHR |
-                              vk::ShaderStageFlagBits::eAnyHitKHR,
-            },
-        };
+        for (const auto &b : _geometryBuffers)
+            bufferInfos.push_back(vk::DescriptorBufferInfo{
+                .buffer = b.handle,
+                .range = VK_WHOLE_SIZE,
+            });
+        const auto bufferCount =
+            asserted_cast<uint32_t>(bufferInfos.size() - 1);
+
+        assert(_geometryReflection.has_value());
+        const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+            _geometryReflection->generateLayoutBindings(
+                scopeAlloc, sGeometryReflectionSet,
+                vk::ShaderStageFlagBits::eVertex |
+                    vk::ShaderStageFlagBits::eRaygenKHR |
+                    vk::ShaderStageFlagBits::eAnyHitKHR,
+                Span{&bufferCount, 1});
+
         const StaticArray descriptorFlags = {
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
@@ -1657,22 +1660,15 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _geometryDS =
             _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
 
-        dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _geometryDS,
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = &bufferInfos.back(),
-        });
-        dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _geometryDS,
-            .dstBinding = 1,
-            .dstArrayElement = 0,
-            .descriptorCount = asserted_cast<uint32_t>(bufferInfos.size() - 1),
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = bufferInfos.data(),
-        });
+        const StaticArray bindingInfos = {
+            DescriptorInfo{bufferInfos[0]},
+            DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
+        };
+
+        const StaticArray descriptorWrites =
+            _geometryReflection->generateDescriptorWrites(
+                sGeometryReflectionSet, _geometryDS, bindingInfos);
+        dss.extend(descriptorWrites);
     }
 
     // RT layout
