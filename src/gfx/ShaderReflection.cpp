@@ -795,8 +795,8 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
 }
 
 Array<vk::DescriptorSetLayoutBinding> ShaderReflection::generateLayoutBindings(
-    Allocator &alloc, uint32_t descriptorSet,
-    vk::ShaderStageFlags stageFlags) const
+    Allocator &alloc, uint32_t descriptorSet, vk::ShaderStageFlags stageFlags,
+    wheels::Span<const uint32_t> dynamicCounts) const
 {
     const Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSet);
@@ -805,17 +805,24 @@ Array<vk::DescriptorSetLayoutBinding> ShaderReflection::generateLayoutBindings(
     Array<vk::DescriptorSetLayoutBinding> layoutBindings{
         alloc, metadatas->size()};
 
+    size_t currentDynamicCount = 0;
     for (const DescriptorSetMetadata &metadata : *metadatas)
     {
-        // Assuming not runtime arrays
-        assert(metadata.descriptorCount != 0);
+        const uint32_t descriptorCount =
+            (metadata.descriptorCount > 0)
+                ? metadata.descriptorCount
+                : dynamicCounts[currentDynamicCount++];
+
         layoutBindings.push_back(vk::DescriptorSetLayoutBinding{
             .binding = metadata.binding,
             .descriptorType = metadata.descriptorType,
-            .descriptorCount = metadata.descriptorCount,
+            .descriptorCount = descriptorCount,
             .stageFlags = stageFlags,
         });
     }
+    assert(
+        currentDynamicCount == dynamicCounts.size() &&
+        "Extra dynamic counts given");
 
     return layoutBindings;
 }

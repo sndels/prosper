@@ -49,7 +49,8 @@ class ShaderReflection
     [[nodiscard]] wheels::Array<vk::DescriptorSetLayoutBinding>
     generateLayoutBindings(
         wheels::Allocator &alloc, uint32_t descriptorSet,
-        vk::ShaderStageFlags stageFlags) const;
+        vk::ShaderStageFlags stageFlags,
+        wheels::Span<const uint32_t> dynamicCounts = {}) const;
 
     // TODO: This doesn't deduce N from infos defined as an initializer list
     template <size_t N>
