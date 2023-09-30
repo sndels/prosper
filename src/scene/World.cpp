@@ -1632,6 +1632,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
     // RT layout
     {
+        // TODO:
+        // Need to support differing flags for binds within set here? Does AMD
+        // support binding AS in stages other than raygen (recursion = 1)? Is
+        // perf affected if AS is bound but unused in anyhit?
         const StaticArray layoutBindings = {
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
@@ -1805,6 +1809,9 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 scene.rtDescriptorSet =
                     _descriptorAllocator.allocate(_dsLayouts.rayTracing);
 
+                // TODO:
+                // This seems potentially messy to support with the common
+                // reflection interface
                 asDSChains.emplace_back(
                     vk::WriteDescriptorSet{
                         .dstSet = scene.rtDescriptorSet,
