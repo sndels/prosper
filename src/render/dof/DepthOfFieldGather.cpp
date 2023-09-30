@@ -33,9 +33,10 @@ vk::Extent2D getRenderExtent(
 
 ComputePass::Shader backgroundDefinitionCallback(Allocator &alloc)
 {
-
-    String defines{alloc, 256};
+    String defines{alloc, 32};
     appendDefineStr(defines, "GATHER_BACKGROUND");
+    assert(defines.size() <= 32);
+
     return ComputePass::Shader{
         .relPath = "shader/dof/gather.comp",
         .debugName = String{alloc, "DepthOfFieldGatherBgCS"},

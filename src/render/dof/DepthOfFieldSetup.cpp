@@ -41,9 +41,10 @@ vk::Extent2D getRenderExtent(
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
-    String defines{alloc, 256};
+    String defines{alloc, 48};
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
+    assert(defines.size() <= 48);
 
     return ComputePass::Shader{
         .relPath = "shader/dof/setup.comp",

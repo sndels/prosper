@@ -37,6 +37,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
     LightClustering::appendShaderDefines(defines);
+    assert(defines.size() <= 256);
 
     return ComputePass::Shader{
         .relPath = "shader/light_clustering.comp",

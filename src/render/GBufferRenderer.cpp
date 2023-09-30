@@ -178,6 +178,8 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+    assert(vertDefines.size() <= 128);
+
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
@@ -194,6 +196,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
+    assert(fragDefines.size() <= 128);
 
     const Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(

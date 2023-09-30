@@ -144,9 +144,10 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling DebugRenderer shaders\n");
 
-    String vertDefines{scopeAlloc, 128};
+    String vertDefines{scopeAlloc, 48};
     appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
+    assert(vertDefines.size() <= 48);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(

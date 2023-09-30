@@ -380,7 +380,7 @@ bool RTRenderer::compileShaders(
 {
     printf("Compiling RTRenderer shaders\n");
 
-    String raygenDefines{scopeAlloc, 256};
+    String raygenDefines{scopeAlloc, 768};
     appendDefineStr(raygenDefines, "NON_UNIFORM_MATERIAL_INDICES");
     appendDefineStr(raygenDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(raygenDefines, "RAY_TRACING_SET", RTBindingSet);
@@ -403,8 +403,9 @@ bool RTRenderer::compileShaders(
     appendDefineStr(raygenDefines, "LIGHTS_SET", LightsBindingSet);
     PointLights::appendShaderDefines(raygenDefines);
     SpotLights::appendShaderDefines(raygenDefines);
+    assert(raygenDefines.size() <= 768);
 
-    String anyhitDefines{scopeAlloc, 256};
+    String anyhitDefines{scopeAlloc, 512};
     appendDefineStr(anyhitDefines, "RAY_TRACING_SET", RTBindingSet);
     appendEnumVariantsAsDefines(
         anyhitDefines, "DrawType",
@@ -420,6 +421,7 @@ bool RTRenderer::compileShaders(
     appendDefineStr(
         anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
         ModelInstanceTrfnsBindingSet);
+    assert(anyhitDefines.size() <= 512);
 
     Optional<Device::ShaderCompileResult> raygenResult =
         _device->compileShaderModule(
