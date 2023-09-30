@@ -28,6 +28,8 @@ using namespace wheels;
 
 namespace
 {
+constexpr uint32_t sMaterialDatasReflectionSet = 0;
+constexpr uint32_t sMaterialTexturesReflectionSet = 1;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
@@ -330,6 +332,7 @@ World::World(
     tl("TLAS creation", [&]() { createTlases(scopeAlloc.child_scope()); });
     tl("Buffer creation", [&]() { createBuffers(); });
 
+    reflectBindings(scopeAlloc.child_scope());
     createDescriptorSets(scopeAlloc.child_scope());
 }
 
@@ -1408,31 +1411,64 @@ void World::createBuffers()
     }
 }
 
+void World::reflectBindings(ScopedScratch scopeAlloc)
+{
+    const auto reflect =
+        [&](const String &defines, const std::filesystem::path &relPath)
+    {
+        Optional<ShaderReflection> compResult = _device->reflectShader(
+            scopeAlloc.child_scope(),
+            Device::CompileShaderModuleArgs{
+                .relPath = relPath,
+                .defines = defines,
+            },
+            true);
+        if (!compResult.has_value())
+            throw std::runtime_error(
+                std::string("Failed to create reflection for '") +
+                relPath.string() + '\'');
+
+        return WHEELS_MOV(*compResult);
+    };
+
+    {
+        assert(!_samplers.empty());
+        _dsLayouts.materialSamplerCount =
+            asserted_cast<uint32_t>(_samplers.size());
+
+        String defines{scopeAlloc, 192};
+        appendDefineStr(
+            defines, "MATERIAL_DATAS_SET", sMaterialDatasReflectionSet);
+        appendDefineStr(
+            defines, "MATERIAL_TEXTURES_SET", sMaterialTexturesReflectionSet);
+        appendDefineStr(
+            defines, "NUM_MATERIAL_SAMPLERS", _dsLayouts.materialSamplerCount);
+        defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
+        assert(defines.size() < 192);
+
+        _materialsReflection = reflect(defines, "shader/scene/materials.glsl");
+    }
+}
+
 void World::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     if (_device == nullptr)
         throw std::runtime_error(
             "Tried to create World descriptor sets before loading glTF");
 
-    //  We don't know the required capacity for this up front, let's not bleed
-    //  reallocations in the linear scope allocator
-    Array<vk::WriteDescriptorSet> dss{_generalAlloc};
-
-    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-        materialDatasInfos;
     {
-        const vk::DescriptorSetLayoutBinding materialDatasBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                          vk::ShaderStageFlagBits::eRaygenKHR |
-                          vk::ShaderStageFlagBits::eAnyHitKHR,
-        };
+        assert(_materialsReflection.has_value());
+        const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+            _materialsReflection->generateLayoutBindings(
+                scopeAlloc, sMaterialDatasReflectionSet,
+                vk::ShaderStageFlagBits::eFragment |
+                    vk::ShaderStageFlagBits::eRaygenKHR |
+                    vk::ShaderStageFlagBits::eAnyHitKHR);
+
         _dsLayouts.materialDatas = _device->logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = 1,
-                .pBindings = &materialDatasBinding,
+                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+                .pBindings = layoutBindings.data(),
             });
     }
 
@@ -1445,6 +1481,11 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorAllocator.allocate(materialDatasLayouts, _materialDatasDSs);
     }
 
+    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
+        materialDatasInfos;
+    //  We don't know the required capacity for this up front, let's not bleed
+    //  reallocations in the linear scope allocator
+    Array<vk::WriteDescriptorSet> dss{_generalAlloc};
     dss.reserve(MAX_FRAMES_IN_FLIGHT);
     assert(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
     assert(_materialDatasDSs.size() == MAX_FRAMES_IN_FLIGHT);
@@ -1500,31 +1541,22 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
 
-        const StaticArray layoutBindings{
-            vk::DescriptorSetLayoutBinding{
-                .binding = 0,
-                .descriptorType = vk::DescriptorType::eSampler,
-                .descriptorCount = samplerInfoCount,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR |
-                              vk::ShaderStageFlagBits::eAnyHitKHR,
-            },
-            vk::DescriptorSetLayoutBinding{
-                .binding = samplerInfoCount,
-                .descriptorType = vk::DescriptorType::eSampledImage,
-                .descriptorCount = imageInfoCount,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR |
-                              vk::ShaderStageFlagBits::eAnyHitKHR,
-            },
-        };
+        assert(_materialsReflection.has_value());
+        const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
+            _materialsReflection->generateLayoutBindings(
+                scopeAlloc, sMaterialTexturesReflectionSet,
+                vk::ShaderStageFlagBits::eFragment |
+                    vk::ShaderStageFlagBits::eRaygenKHR |
+                    vk::ShaderStageFlagBits::eAnyHitKHR,
+                Span{&imageInfoCount, 1});
+
         const StaticArray layoutFlags{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
-                // Texture bindings for deferred loads are updated before
-                // frame cb submission, for textures that aren't accessed any
-                // frame in flight
+                // Texture bindings for deferred loads are updated before frame
+                // cb submission, for textures that aren't accessed by any frame
+                // in flight
                 vk::DescriptorBindingFlagBits::ePartiallyBound |
                 vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending},
         };
@@ -1548,31 +1580,20 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _materialTexturesDS = _descriptorAllocator.allocate(
             _dsLayouts.materialTextures, imageInfoCount);
 
-        dss.reserve(dss.size() + 2);
-        dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _materialTexturesDS,
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount =
-                asserted_cast<uint32_t>(materialSamplerInfos.size()),
-            .descriptorType = vk::DescriptorType::eSampler,
-            .pImageInfo = materialSamplerInfos.data(),
-        });
+        const StaticArray bindingInfos = {
+            DescriptorInfo{materialSamplerInfos},
+            DescriptorInfo{materialImageInfos},
+        };
 
-        const uint32_t textureArrayBinding =
-            asserted_cast<uint32_t>(materialSamplerInfos.size());
+        const StaticArray descriptorWrites =
+            _materialsReflection->generateDescriptorWrites(
+                sMaterialTexturesReflectionSet, _materialTexturesDS,
+                bindingInfos);
+        dss.extend(descriptorWrites);
+
         if (_deferredLoadingContext.has_value())
-            _deferredLoadingContext->textureArrayBinding = textureArrayBinding;
-
-        dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _materialTexturesDS,
-            .dstBinding = textureArrayBinding,
-            .dstArrayElement = 0,
-            .descriptorCount =
-                asserted_cast<uint32_t>(materialImageInfos.size()),
-            .descriptorType = vk::DescriptorType::eSampledImage,
-            .pImageInfo = materialImageInfos.data(),
-        });
+            _deferredLoadingContext->textureArrayBinding =
+                asserted_cast<uint32_t>(materialSamplerInfos.size());
     }
 
     // Geometry layouts and descriptor set

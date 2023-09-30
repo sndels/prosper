@@ -98,6 +98,7 @@ class World
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
         _materialDatasDSs;
     vk::DescriptorSet _materialTexturesDS;
+    wheels::Optional<ShaderReflection> _materialsReflection;
 
     vk::DescriptorSet _geometryDS;
     DSLayouts _dsLayouts;
@@ -171,6 +172,7 @@ class World
     void createBlases();
     void createTlases(wheels::ScopedScratch scopeAlloc);
     void createBuffers();
+    void reflectBindings(wheels::ScopedScratch scopeAlloc);
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
 
     [[nodiscard]] bool pollTextureWorker(vk::CommandBuffer cb);
