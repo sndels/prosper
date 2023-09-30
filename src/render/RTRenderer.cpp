@@ -233,7 +233,7 @@ RTRenderer::Output RTRenderer::record(
             world._materialDatasDSs[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
         descriptorSets[GeometryBindingSet] = world._geometryDS;
-        descriptorSets[SkyboxBindingSet] = world._skyboxOnlyDS;
+        descriptorSets[SkyboxBindingSet] = world._skyboxDS;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
         descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
@@ -596,7 +596,7 @@ void RTRenderer::createPipeline(
     setLayouts[MaterialDatasBindingSet] = worldDSLayouts.materialDatas;
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBindingSet] = worldDSLayouts.geometry;
-    setLayouts[SkyboxBindingSet] = worldDSLayouts.skyboxOnly;
+    setLayouts[SkyboxBindingSet] = worldDSLayouts.skybox;
     setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
     setLayouts[LightsBindingSet] = worldDSLayouts.lights;
 

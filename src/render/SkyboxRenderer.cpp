@@ -32,6 +32,11 @@ vk::Rect2D getRenderArea(
     };
 }
 
+struct PCBlock
+{
+    mat4 worldToClip;
+};
+
 } // namespace
 
 SkyboxRenderer::SkyboxRenderer(
@@ -73,8 +78,8 @@ void SkyboxRenderer::recompileShaders(
 }
 
 void SkyboxRenderer::record(
-    vk::CommandBuffer cb, const World &world, const RecordInOut &inOutTargets,
-    const uint32_t nextFrame, Profiler *profiler) const
+    vk::CommandBuffer cb, const World &world, const Camera &cam,
+    const RecordInOut &inOutTargets, Profiler *profiler) const
 {
     assert(profiler != nullptr);
 
@@ -102,9 +107,17 @@ void SkyboxRenderer::record(
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
-            1, &world._skyboxDSs[nextFrame], 0, nullptr);
+            1, &world._skyboxDS, 0, nullptr);
 
         setViewportScissor(cb, renderArea);
+
+        const PCBlock pcBlock{
+            .worldToClip = cam.cameraToClip() * mat4(mat3(cam.worldToCamera())),
+        };
+        cb.pushConstants(
+            _pipelineLayout, vk::ShaderStageFlagBits::eVertex,
+            0, // offset
+            sizeof(PCBlock), &pcBlock);
 
         world.drawSkybox(cb);
 
@@ -133,6 +146,11 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
+
+#ifndef NDEBUG
+        const ShaderReflection &vertReflection = vertResult->reflection;
+        assert(sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
+#endif // !NDEBUG
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{
@@ -218,11 +236,18 @@ void SkyboxRenderer::createGraphicsPipelines(
         .vertexAttributeDescriptionCount = 1,
         .pVertexAttributeDescriptions = &vertexAttributeDescription,
     };
+    const vk::PushConstantRange pcRange{
+        .stageFlags = vk::ShaderStageFlagBits::eVertex,
+        .offset = 0,
+        .size = sizeof(PCBlock),
+    };
 
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = 1,
             .pSetLayouts = &worldDSLayouts.skybox,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &pcRange,
         });
 
     const vk::PipelineColorBlendAttachmentState blendAttachment =

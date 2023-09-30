@@ -548,7 +548,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _cam->updateBuffer(
         uvec2{renderArea.extent.width, renderArea.extent.height});
 
-    _world->updateBuffers(*_cam, nextFrame, scopeAlloc.child_scope());
+    _world->updateBuffers(scopeAlloc.child_scope());
 
     updateDebugLines(_world->currentScene(), nextFrame);
 
@@ -970,12 +970,12 @@ void App::render(
             lightClusters, indices.nextFrame, _profiler.get());
 
         _skyboxRenderer->record(
-            cb, *_world,
+            cb, *_world, *_cam,
             SkyboxRenderer::RecordInOut{
                 .illumination = illumination,
                 .depth = depth,
             },
-            indices.nextFrame, _profiler.get());
+            _profiler.get());
 
         _debugRenderer->record(
             cb, *_cam,

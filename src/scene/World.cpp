@@ -337,7 +337,6 @@ World::~World()
 {
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
-    _device->logical().destroy(_dsLayouts.skyboxOnly);
     _device->logical().destroy(_dsLayouts.rayTracing);
     _device->logical().destroy(_dsLayouts.modelInstances);
     _device->logical().destroy(_dsLayouts.geometry);
@@ -363,8 +362,6 @@ World::~World()
     for (auto &buffer : _geometryBuffers)
         _device->destroy(buffer);
     _device->destroy(_meshBuffersBuffer);
-    for (auto &buffer : _skyboxUniformBuffers)
-        _device->destroy(buffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
 }
@@ -458,18 +455,8 @@ void World::drawDeferredLoadingUi() const
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
-void World::updateBuffers(
-    const Camera &cam, const uint32_t nextFrame, ScopedScratch scopeAlloc)
+void World::updateBuffers(ScopedScratch scopeAlloc)
 {
-    {
-        const mat4 worldToClip =
-            cam.cameraToClip() * mat4(mat3(cam.worldToCamera()));
-
-        memcpy(
-            _skyboxUniformBuffers[nextFrame].mapped, &worldToClip,
-            sizeof(mat4));
-    }
-
     const auto &scene = currentScene();
 
     {
@@ -1419,26 +1406,6 @@ void World::createBuffers()
         _lightDataRing =
             std::make_unique<RingBuffer>(_device, bufferSize, "LightDataRing");
     }
-
-    {
-        const vk::DeviceSize bufferSize = sizeof(mat4);
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        {
-            _skyboxUniformBuffers.push_back(
-                _device->createBuffer(BufferCreateInfo{
-                    .desc =
-                        BufferDescription{
-                            .byteSize = bufferSize,
-                            .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-                            .properties =
-                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                vk::MemoryPropertyFlagBits::eHostCoherent,
-                        },
-                    .createMapped = true,
-                    .debugName = "SkyboxUniforms",
-                }));
-        }
-    }
 }
 
 void World::createDescriptorSets(ScopedScratch scopeAlloc)
@@ -1893,23 +1860,16 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         }
     }
 
-    // Skybox layout and descriptor sets
-    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-        skyboxBufferInfos;
+    // Skybox layout and descriptor set
     vk::DescriptorImageInfo skyboxImageInfo;
     {
         const StaticArray skyboxLayoutBindings{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
-                .descriptorType = vk::DescriptorType::eUniformBuffer,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eVertex,
-            },
-            vk::DescriptorSetLayoutBinding{
-                .binding = 1,
                 .descriptorType = vk::DescriptorType::eCombinedImageSampler,
                 .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment,
+                .stageFlags = vk::ShaderStageFlagBits::eFragment |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
         };
         _dsLayouts.skybox = _device->logical().createDescriptorSetLayout(
@@ -1919,56 +1879,12 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 .pBindings = skyboxLayoutBindings.data(),
             });
 
-        const vk::DescriptorSetLayoutBinding skyboxOnlyLayoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
-        };
-        _dsLayouts.skyboxOnly = _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = 1,
-                .pBindings = &skyboxOnlyLayoutBinding,
-            });
+        _skyboxDS = _descriptorAllocator.allocate(_dsLayouts.skybox);
 
-        StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
-            skyboxLayouts;
-        skyboxLayouts.resize(MAX_FRAMES_IN_FLIGHT, _dsLayouts.skybox);
-        _skyboxDSs.resize(MAX_FRAMES_IN_FLIGHT);
-        _descriptorAllocator.allocate(skyboxLayouts, _skyboxDSs);
-
-        _skyboxOnlyDS = _descriptorAllocator.allocate(_dsLayouts.skyboxOnly);
-
-        for (auto &buffer : _skyboxUniformBuffers)
-            skyboxBufferInfos.push_back(vk::DescriptorBufferInfo{
-                .buffer = buffer.handle,
-                .offset = 0,
-                .range = sizeof(mat4),
-            });
         skyboxImageInfo = _skyboxTexture.imageInfo();
 
-        dss.reserve(dss.size() + _skyboxDSs.size() * 2 + 1);
-        for (size_t i = 0; i < _skyboxDSs.size(); ++i)
-        {
-            dss.push_back(vk::WriteDescriptorSet{
-                .dstSet = _skyboxDSs[i],
-                .dstBinding = 0,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eUniformBuffer,
-                .pBufferInfo = &skyboxBufferInfos[i],
-            });
-            dss.push_back(vk::WriteDescriptorSet{
-                .dstSet = _skyboxDSs[i],
-                .dstBinding = 1,
-                .dstArrayElement = 0,
-                .descriptorCount = 1,
-                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                .pImageInfo = &skyboxImageInfo,
-            });
-        }
         dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _skyboxOnlyDS,
+            .dstSet = _skyboxDS,
             .dstBinding = 0,
             .dstArrayElement = 0,
             .descriptorCount = 1,

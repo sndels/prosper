@@ -34,9 +34,8 @@ class SkyboxRenderer
         ImageHandle depth;
     };
     void record(
-        vk::CommandBuffer cb, const World &world,
-        const RecordInOut &inOutTargets, uint32_t nextFrame,
-        Profiler *profiler) const;
+        vk::CommandBuffer cb, const World &world, const Camera &camera,
+        const RecordInOut &inOutTargets, Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);

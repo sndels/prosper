@@ -42,7 +42,6 @@ class World
         vk::DescriptorSetLayout rayTracing;
         vk::DescriptorSetLayout lights;
         vk::DescriptorSetLayout skybox;
-        vk::DescriptorSetLayout skyboxOnly;
     };
     World(
         wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
@@ -65,9 +64,7 @@ class World
     void drawDeferredLoadingUi() const;
 
     [[nodiscard]] const Scene &currentScene() const;
-    void updateBuffers(
-        const Camera &cam, uint32_t nextFrame,
-        wheels::ScopedScratch scopeAlloc);
+    void updateBuffers(wheels::ScopedScratch scopeAlloc);
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
     wheels::Allocator &_generalAlloc;
@@ -114,9 +111,7 @@ class World
     uint32_t _pointLightByteOffset{0};
     uint32_t _spotLightByteOffset{0};
 
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _skyboxUniformBuffers;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _skyboxDSs;
-    vk::DescriptorSet _skyboxOnlyDS;
+    vk::DescriptorSet _skyboxDS;
 
     struct DeferredLoadingContext
     {
