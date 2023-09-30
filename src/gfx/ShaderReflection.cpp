@@ -4,6 +4,7 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/optional.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <stdexcept>
 #include <variant>
@@ -735,6 +736,17 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
                 String{alloc, result.name}, result.decorations, *variable,
                 results, ret);
         }
+    }
+
+    for (const auto &index_metadatas : ret)
+    {
+        // Make sure metadatas are sorted by binding indices as we depend on it
+        // when generating writes
+        Array<DescriptorSetMetadata> &metadatas = *index_metadatas.second;
+        std::sort(
+            metadatas.begin(), metadatas.end(),
+            [](const DescriptorSetMetadata &a, const DescriptorSetMetadata &b)
+            { return a.binding < b.binding; });
     }
 
     return ret;

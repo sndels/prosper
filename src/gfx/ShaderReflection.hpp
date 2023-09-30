@@ -53,6 +53,7 @@ class ShaderReflection
         wheels::Span<const uint32_t> dynamicCounts = {}) const;
 
     // TODO: This doesn't deduce N from infos defined as an initializer list
+    // Takes bindings sorted by the glsl binding indices
     template <size_t N>
     [[nodiscard]] wheels::StaticArray<vk::WriteDescriptorSet, N>
     generateDescriptorWrites(
@@ -74,12 +75,14 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     const wheels::Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSetIndex);
     assert(metadatas != nullptr);
+    assert(metadatas->size() == N);
 
     wheels::StaticArray<vk::WriteDescriptorSet, N> descriptorWrites;
     assert(bindingInfos.size() == N);
-    for (uint32_t binding = 0; binding < N; ++binding)
+
+    for (uint32_t i = 0; i < N; ++i)
     {
-        const DescriptorInfo &descriptorInfo = bindingInfos[binding];
+        const DescriptorInfo &descriptorInfo = bindingInfos[i];
 
         const vk::DescriptorImageInfo *pImageInfo =
             std::get_if<vk::DescriptorImageInfo>(&descriptorInfo);
@@ -102,27 +105,16 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
             descriptorCount = asserted_cast<uint32_t>(pImageInfoSpan->size());
         }
 
-        bool found = false;
-        for (const DescriptorSetMetadata &metadata : *metadatas)
-        {
-            if (metadata.binding == binding)
-            {
-                found = true;
-                descriptorWrites.push_back(vk::WriteDescriptorSet{
-                    .dstSet = descriptorSetHandle,
-                    .dstBinding = binding,
-                    .descriptorCount = descriptorCount,
-                    .descriptorType = metadata.descriptorType,
-                    .pImageInfo = pImageInfo,
-                    .pBufferInfo = pBufferInfo,
-                    .pTexelBufferView = pTexelBufferView,
-                });
-            }
-        }
-        assert(found && "Binding index not found");
-        // Supress unused variable warning. Let's not mask found with NDEBUG
-        // macro spaghetti since the logic is not expensive.
-        (void)found;
+        const DescriptorSetMetadata &metadata = (*metadatas)[i];
+        descriptorWrites.push_back(vk::WriteDescriptorSet{
+            .dstSet = descriptorSetHandle,
+            .dstBinding = metadata.binding,
+            .descriptorCount = descriptorCount,
+            .descriptorType = metadata.descriptorType,
+            .pImageInfo = pImageInfo,
+            .pBufferInfo = pBufferInfo,
+            .pTexelBufferView = pTexelBufferView,
+        });
     }
 
     return descriptorWrites;
