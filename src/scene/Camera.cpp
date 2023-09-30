@@ -227,19 +227,11 @@ void Camera::createDescriptorSet(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     assert(_bindingsReflection.has_value());
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _bindingsReflection->generateLayoutBindings(
-            scopeAlloc, 0,
-            vk::ShaderStageFlagBits::eVertex |
-                vk::ShaderStageFlagBits::eFragment |
-                vk::ShaderStageFlagBits::eCompute |
-                vk::ShaderStageFlagBits::eRaygenKHR);
-
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
+    _descriptorSetLayout = _bindingsReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), *_device, 0,
+        vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment |
+            vk::ShaderStageFlagBits::eCompute |
+            vk::ShaderStageFlagBits::eRaygenKHR);
 
     _descriptorSet = staticDescriptorsAlloc->allocate(_descriptorSetLayout);
 

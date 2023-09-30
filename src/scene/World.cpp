@@ -1466,21 +1466,12 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         throw std::runtime_error(
             "Tried to create World descriptor sets before loading glTF");
 
-    {
-        assert(_materialsReflection.has_value());
-        const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-            _materialsReflection->generateLayoutBindings(
-                scopeAlloc, sMaterialDatasReflectionSet,
-                vk::ShaderStageFlagBits::eFragment |
-                    vk::ShaderStageFlagBits::eRaygenKHR |
-                    vk::ShaderStageFlagBits::eAnyHitKHR);
-
-        _dsLayouts.materialDatas = _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-                .pBindings = layoutBindings.data(),
-            });
-    }
+    assert(_materialsReflection.has_value());
+    _dsLayouts.materialDatas = _materialsReflection->createDescriptorSetLayout(
+        scopeAlloc.child_scope(), *_device, sMaterialDatasReflectionSet,
+        vk::ShaderStageFlagBits::eFragment |
+            vk::ShaderStageFlagBits::eRaygenKHR |
+            vk::ShaderStageFlagBits::eAnyHitKHR);
 
     {
         StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
@@ -1551,16 +1542,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
 
-        assert(_materialsReflection.has_value());
-        const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-            _materialsReflection->generateLayoutBindings(
-                scopeAlloc, sMaterialTexturesReflectionSet,
-                vk::ShaderStageFlagBits::eFragment |
-                    vk::ShaderStageFlagBits::eRaygenKHR |
-                    vk::ShaderStageFlagBits::eAnyHitKHR,
-                Span{&imageInfoCount, 1});
-
-        const StaticArray layoutFlags{
+        const StaticArray bindingFlags{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
@@ -1570,22 +1552,16 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::DescriptorBindingFlagBits::ePartiallyBound |
                 vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending},
         };
-        const vk::StructureChain<
-            vk::DescriptorSetLayoutCreateInfo,
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo>
-            layoutChain{
-                vk::DescriptorSetLayoutCreateInfo{
-                    .bindingCount =
-                        asserted_cast<uint32_t>(layoutBindings.size()),
-                    .pBindings = layoutBindings.data(),
-                },
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                    .bindingCount = asserted_cast<uint32_t>(layoutFlags.size()),
-                    .pBindingFlags = layoutFlags.data(),
-                }};
+
+        assert(_materialsReflection.has_value());
         _dsLayouts.materialTextures =
-            _device->logical().createDescriptorSetLayout(
-                layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
+            _materialsReflection->createDescriptorSetLayout(
+                scopeAlloc.child_scope(), *_device,
+                sMaterialTexturesReflectionSet,
+                vk::ShaderStageFlagBits::eFragment |
+                    vk::ShaderStageFlagBits::eRaygenKHR |
+                    vk::ShaderStageFlagBits::eAnyHitKHR,
+                Span{&imageInfoCount, 1}, bindingFlags);
 
         _materialTexturesDS = _descriptorAllocator.allocate(
             _dsLayouts.materialTextures, imageInfoCount);
@@ -1626,36 +1602,19 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const auto bufferCount =
             asserted_cast<uint32_t>(bufferInfos.size() - 1);
 
-        assert(_geometryReflection.has_value());
-        const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-            _geometryReflection->generateLayoutBindings(
-                scopeAlloc, sGeometryReflectionSet,
-                vk::ShaderStageFlagBits::eVertex |
-                    vk::ShaderStageFlagBits::eRaygenKHR |
-                    vk::ShaderStageFlagBits::eAnyHitKHR,
-                Span{&bufferCount, 1});
-
-        const StaticArray descriptorFlags = {
+        const StaticArray bindingFlags = {
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
         };
-        const vk::StructureChain<
-            vk::DescriptorSetLayoutCreateInfo,
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo>
-            layoutChain{
-                vk::DescriptorSetLayoutCreateInfo{
-                    .bindingCount =
-                        asserted_cast<uint32_t>(layoutBindings.size()),
-                    .pBindings = layoutBindings.data(),
-                },
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                    .bindingCount =
-                        asserted_cast<uint32_t>(descriptorFlags.size()),
-                    .pBindingFlags = descriptorFlags.data(),
-                }};
-        _dsLayouts.geometry = _device->logical().createDescriptorSetLayout(
-            layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
+
+        assert(_geometryReflection.has_value());
+        _dsLayouts.geometry = _geometryReflection->createDescriptorSetLayout(
+            scopeAlloc.child_scope(), *_device, sGeometryReflectionSet,
+            vk::ShaderStageFlagBits::eVertex |
+                vk::ShaderStageFlagBits::eRaygenKHR |
+                vk::ShaderStageFlagBits::eAnyHitKHR,
+            Span{&bufferCount, 1}, bindingFlags);
 
         _geometryDS =
             _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);

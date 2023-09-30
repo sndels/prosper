@@ -61,15 +61,8 @@ void ComputePass::createDescriptorSets(
     vk::ShaderStageFlags storageStageFlags)
 {
     assert(_shaderReflection.has_value());
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _shaderReflection->generateLayoutBindings(
-            scopeAlloc, _storageSetIndex, storageStageFlags);
-
-    _storageSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
+    _storageSetLayout = _shaderReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), *_device, _storageSetIndex, storageStageFlags);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _storageSetLayout};

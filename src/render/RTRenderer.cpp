@@ -541,15 +541,9 @@ bool RTRenderer::compileShaders(
 void RTRenderer::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    const Array<vk::DescriptorSetLayoutBinding> layoutBindings =
-        _raygenReflection->generateLayoutBindings(
-            scopeAlloc, OutputBindingSet, vk::ShaderStageFlagBits::eRaygenKHR);
-
-    _descriptorSetLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-            .pBindings = layoutBindings.data(),
-        });
+    _descriptorSetLayout = _raygenReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), *_device, OutputBindingSet,
+        vk::ShaderStageFlagBits::eRaygenKHR);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};

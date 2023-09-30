@@ -1,5 +1,7 @@
 #include "ShaderReflection.hpp"
 
+#include "Device.hpp"
+
 #include <spirv.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/optional.hpp>
@@ -806,16 +808,17 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
     return _descriptorSetMetadatas;
 }
 
-Array<vk::DescriptorSetLayoutBinding> ShaderReflection::generateLayoutBindings(
-    Allocator &alloc, uint32_t descriptorSet, vk::ShaderStageFlags stageFlags,
-    wheels::Span<const uint32_t> dynamicCounts) const
+vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
+    ScopedScratch scopeAlloc, Device &device, uint32_t descriptorSet,
+    vk::ShaderStageFlags stageFlags, wheels::Span<const uint32_t> dynamicCounts,
+    wheels::Span<const vk::DescriptorBindingFlags> bindingFlags) const
 {
     const Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSet);
     assert(metadatas != nullptr);
 
     Array<vk::DescriptorSetLayoutBinding> layoutBindings{
-        alloc, metadatas->size()};
+        scopeAlloc, metadatas->size()};
 
     size_t currentDynamicCount = 0;
     for (const DescriptorSetMetadata &metadata : *metadatas)
@@ -836,5 +839,28 @@ Array<vk::DescriptorSetLayoutBinding> ShaderReflection::generateLayoutBindings(
         currentDynamicCount == dynamicCounts.size() &&
         "Extra dynamic counts given");
 
-    return layoutBindings;
+    if (bindingFlags.empty())
+        return device.logical().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+                .pBindings = layoutBindings.data(),
+            });
+
+    assert(
+        bindingFlags.size() == layoutBindings.size() &&
+        "Binding flag count has to match binding count");
+    const vk::StructureChain<
+        vk::DescriptorSetLayoutCreateInfo,
+        vk::DescriptorSetLayoutBindingFlagsCreateInfo>
+        layoutChain{
+            vk::DescriptorSetLayoutCreateInfo{
+                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
+                .pBindings = layoutBindings.data(),
+            },
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+                .bindingCount = asserted_cast<uint32_t>(bindingFlags.size()),
+                .pBindingFlags = bindingFlags.data(),
+            }};
+    return device.logical().createDescriptorSetLayout(
+        layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 }

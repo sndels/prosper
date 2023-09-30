@@ -14,6 +14,8 @@
 
 #include "../utils/Utils.hpp"
 
+class Device;
+
 struct DescriptorSetMetadata
 {
     wheels::String name;
@@ -47,11 +49,11 @@ class ShaderReflection
         uint32_t, wheels::Array<DescriptorSetMetadata>> const &
     descriptorSetMetadatas() const;
 
-    [[nodiscard]] wheels::Array<vk::DescriptorSetLayoutBinding>
-    generateLayoutBindings(
-        wheels::Allocator &alloc, uint32_t descriptorSet,
-        vk::ShaderStageFlags stageFlags,
-        wheels::Span<const uint32_t> dynamicCounts = {}) const;
+    [[nodiscard]] vk::DescriptorSetLayout createDescriptorSetLayout(
+        wheels::ScopedScratch scopeAlloc, Device &device,
+        uint32_t descriptorSet, vk::ShaderStageFlags stageFlags,
+        wheels::Span<const uint32_t> dynamicCounts = {},
+        wheels::Span<const vk::DescriptorBindingFlags> bindingFlags = {}) const;
 
     // TODO: This doesn't deduce N from infos defined as an initializer list
     // Takes bindings sorted by the glsl binding indices
