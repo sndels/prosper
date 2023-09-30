@@ -57,7 +57,7 @@ class ShaderReflection
     [[nodiscard]] wheels::StaticArray<vk::WriteDescriptorSet, N>
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        wheels::StaticArray<DescriptorInfo, N> bindingInfos) const;
+        const wheels::StaticArray<DescriptorInfo, N> &bindingInfos) const;
 
   private:
     uint32_t _pushConstantsBytesize{0};
@@ -69,7 +69,7 @@ template <size_t N>
 wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        wheels::StaticArray<DescriptorInfo, N> bindingInfos) const
+        const wheels::StaticArray<DescriptorInfo, N> &bindingInfos) const
 {
     const wheels::Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSetIndex);
