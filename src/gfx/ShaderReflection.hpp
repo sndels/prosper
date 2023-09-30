@@ -25,7 +25,8 @@ struct DescriptorSetMetadata
 
 using DescriptorInfo = std::variant<
     vk::DescriptorImageInfo, vk::DescriptorBufferInfo, vk::BufferView,
-    wheels::Span<const vk::DescriptorImageInfo>>;
+    wheels::Span<const vk::DescriptorImageInfo>,
+    wheels::Span<const vk::DescriptorBufferInfo>>;
 
 class ShaderReflection
 {
@@ -96,6 +97,9 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
         const wheels::Span<const vk::DescriptorImageInfo> *pImageInfoSpan =
             std::get_if<wheels::Span<const vk::DescriptorImageInfo>>(
                 &descriptorInfo);
+        const wheels::Span<const vk::DescriptorBufferInfo> *pBufferInfoSpan =
+            std::get_if<wheels::Span<const vk::DescriptorBufferInfo>>(
+                &descriptorInfo);
 
         uint32_t descriptorCount = 1;
 
@@ -103,6 +107,11 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
         {
             pImageInfo = pImageInfoSpan->data();
             descriptorCount = asserted_cast<uint32_t>(pImageInfoSpan->size());
+        }
+        else if (pBufferInfoSpan != nullptr)
+        {
+            pBufferInfo = pBufferInfoSpan->data();
+            descriptorCount = asserted_cast<uint32_t>(pBufferInfoSpan->size());
         }
 
         const DescriptorSetMetadata &metadata = (*metadatas)[i];
