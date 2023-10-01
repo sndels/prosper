@@ -75,19 +75,17 @@ ToneMap::Output ToneMap::record(
 
         ret = createOutputs(renderExtent);
 
-        _computePass.updateDescriptorSet<2>(
-            nextFrame,
-            StaticArray{
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images.resource(inColor).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(ret.toneMapped).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-            });
+        const StaticArray descriptorInfos{
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = _resources->images.resource(inColor).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = _resources->images.resource(ret.toneMapped).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+        };
+        _computePass.updateDescriptorSet(nextFrame, descriptorInfos);
 
         transition<2>(
             *_resources, cb,

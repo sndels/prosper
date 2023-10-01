@@ -236,15 +236,15 @@ void Camera::createDescriptorSet(
 
     _descriptorSet = staticDescriptorsAlloc->allocate(_descriptorSetLayout);
 
+    const StaticArray descriptorInfos{
+        DescriptorInfo{vk::DescriptorBufferInfo{
+            .buffer = _constantsRing->buffer(),
+            .range = sizeof(CameraUniforms),
+        }},
+    };
     const StaticArray descriptorWrites =
-        _bindingsReflection->generateDescriptorWrites<1>(
-            sBindingSetIndex, _descriptorSet,
-            StaticArray{{
-                DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _constantsRing->buffer(),
-                    .range = sizeof(CameraUniforms),
-                }},
-            }});
+        _bindingsReflection->generateDescriptorWrites(
+            sBindingSetIndex, _descriptorSet, descriptorInfos);
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),

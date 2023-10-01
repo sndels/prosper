@@ -67,39 +67,38 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
         ret.combinedIlluminationDoF = createIllumination(
             *_resources, renderExtent, "CombinedIllumnationDoF");
 
-        _computePass.updateDescriptorSet<5>(
-            nextFrame,
-            StaticArray{
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.halfResFgBokehWeight)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.halfResBgBokehWeight)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images
-                                     .resource(input.halfResCircleOfConfusion)
-                                     .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.illumination).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(ret.combinedIlluminationDoF)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-            });
+        const StaticArray descriptorInfos{
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    _resources->images.resource(input.halfResFgBokehWeight)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    _resources->images.resource(input.halfResBgBokehWeight)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    _resources->images.resource(input.halfResCircleOfConfusion)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    _resources->images.resource(input.illumination).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    _resources->images.resource(ret.combinedIlluminationDoF)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+        };
+        _computePass.updateDescriptorSet(nextFrame, descriptorInfos);
 
         transition<5>(
             *_resources, cb,
