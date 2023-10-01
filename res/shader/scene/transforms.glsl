@@ -1,6 +1,8 @@
 #ifndef SCENE_TRANSFORMS_GLSL
 #define SCENE_TRANSFORMS_GLSL
 
+#include "vertex.glsl"
+
 struct Transforms
 {
     mat4 modelToWorld;

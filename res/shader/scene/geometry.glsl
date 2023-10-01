@@ -1,6 +1,8 @@
 #ifndef SCENE_GEOMETRY_GLSL
 #define SCENE_GEOMETRY_GLSL
 
+#include "vertex.glsl"
+
 struct MeshBuffer
 {
     uint index;
@@ -70,14 +72,6 @@ vec4 loadVec4(MeshBuffer b, uint index)
                      loadFloat(b, 4 * index + 2), loadFloat(b, 4 * index + 3))
                : vec4(0);
 }
-
-struct Vertex
-{
-    vec3 Position;
-    vec3 Normal;
-    vec4 Tangent;
-    vec2 TexCoord0;
-};
 
 Vertex loadVertex(uint meshID, uint index)
 {
