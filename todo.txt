@@ -19,5 +19,6 @@
     well if Span{container} is clearer than container.span()
 - Rebuild TLAS every frame
   - transforms are updated each frame for raster but not for RT
-- Reflect world ring layouts and descriptor writes from shader
-  - consistency, less maintenance, potentially less clutter
+- Reflect RT/AS layout and writes from shader
+  - Requires some thought for how the pNext chain and non-uniform stage flags
+    within a set are handled in a generic way
