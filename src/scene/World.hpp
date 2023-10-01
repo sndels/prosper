@@ -109,6 +109,7 @@ class World
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
     uint32_t _modelInstanceTransformsByteOffset{0};
 
+    wheels::Optional<ShaderReflection> _lightsReflection;
     vk::DescriptorSet _lightsDescriptorSet;
     std::unique_ptr<RingBuffer> _lightDataRing;
     uint32_t _directionalLightByteOffset{0};

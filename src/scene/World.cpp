@@ -32,6 +32,7 @@ constexpr uint32_t sMaterialDatasReflectionSet = 0;
 constexpr uint32_t sMaterialTexturesReflectionSet = 1;
 constexpr uint32_t sGeometryReflectionSet = 0;
 constexpr uint32_t sInstanceTrfnsReflectionSet = 0;
+constexpr uint32_t sLightsReflectionSet = 0;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
@@ -1472,6 +1473,17 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         _modelInstancesReflection =
             reflect(defines, "shader/scene/transforms.glsl");
     }
+
+    {
+        const size_t len = 92;
+        String defines{scopeAlloc, len};
+        appendDefineStr(defines, "LIGHTS_SET", sLightsReflectionSet);
+        PointLights::appendShaderDefines(defines);
+        SpotLights::appendShaderDefines(defines);
+        assert(defines.size() <= len);
+
+        _lightsReflection = reflect(defines, "shader/scene/lights.glsl");
+    }
 }
 
 void World::createDescriptorSets(ScopedScratch scopeAlloc)
@@ -1681,39 +1693,37 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::ShaderStageFlagBits::eRaygenKHR |
                 vk::ShaderStageFlagBits::eAnyHitKHR);
 
-    // Lights layout
+    assert(_lightsReflection.has_value());
+    _dsLayouts.lights = _lightsReflection->createDescriptorSetLayout(
+        scopeAlloc.child_scope(), *_device, sLightsReflectionSet,
+        vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute |
+            vk::ShaderStageFlagBits::eRaygenKHR);
+
+    // Per light type
+    StaticArray<DescriptorInfo, 3> lightInfos;
     {
-        const StaticArray layoutBindings{
-            vk::DescriptorSetLayoutBinding{
-                .binding = 0,
-                .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eCompute |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
-            },
-            vk::DescriptorSetLayoutBinding{
-                .binding = 1,
-                .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eCompute |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
-            },
-            vk::DescriptorSetLayoutBinding{
-                .binding = 2,
-                .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eCompute |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
-            },
-        };
-        _dsLayouts.lights = _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
-                .pBindings = layoutBindings.data(),
-            });
+        _lightsDescriptorSet = _descriptorAllocator.allocate(_dsLayouts.lights);
+
+        lightInfos.emplace_back(vk::DescriptorBufferInfo{
+            .buffer = _lightDataRing->buffer(),
+            .offset = 0,
+            .range = sizeof(DirectionalLight::Parameters),
+        });
+        lightInfos.emplace_back(vk::DescriptorBufferInfo{
+            .buffer = _lightDataRing->buffer(),
+            .offset = 0,
+            .range = PointLights::sBufferByteSize,
+        });
+        lightInfos.emplace_back(vk::DescriptorBufferInfo{
+            .buffer = _lightDataRing->buffer(),
+            .offset = 0,
+            .range = SpotLights::sBufferByteSize,
+        });
+
+        const StaticArray descriptorWrites =
+            _lightsReflection->generateDescriptorWrites(
+                sLightsReflectionSet, _lightsDescriptorSet, lightInfos);
+        dss.extend(descriptorWrites);
     }
 
     // Scene descriptor sets
@@ -1723,8 +1733,6 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         scopeAlloc, _scenes.size()};
     Array<vk::DescriptorBufferInfo> rtInstancesInfos{
         scopeAlloc, _scenes.size()};
-    // Per light
-    StaticArray<vk::DescriptorBufferInfo, 3> lightInfos;
     Array<vk::StructureChain<
         vk::WriteDescriptorSet, vk::WriteDescriptorSetAccelerationStructureKHR>>
         asDSChains{scopeAlloc, _scenes.size()};
@@ -1750,55 +1758,6 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                         scene.modelInstancesDescriptorSet, bindingInfos);
                 dss.extend(descriptorWrites);
             }
-            {
-                _lightsDescriptorSet =
-                    _descriptorAllocator.allocate(_dsLayouts.lights);
-
-                lightInfos.push_back(vk::DescriptorBufferInfo{
-                    .buffer = _lightDataRing->buffer(),
-                    .offset = 0,
-                    .range = sizeof(DirectionalLight::Parameters),
-                });
-                lightInfos.push_back(vk::DescriptorBufferInfo{
-                    .buffer = _lightDataRing->buffer(),
-                    .offset = 0,
-                    .range = PointLights::sBufferByteSize,
-                });
-                lightInfos.push_back(vk::DescriptorBufferInfo{
-                    .buffer = _lightDataRing->buffer(),
-                    .offset = 0,
-                    .range = SpotLights::sBufferByteSize,
-                });
-
-                dss.reserve(dss.size() + 3);
-                dss.push_back(vk::WriteDescriptorSet{
-                    .dstSet = _lightsDescriptorSet,
-                    .dstBinding = 0,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                    // Match how others are used
-                    // NOLINTNEXTLINE(readability-container-data-pointer)
-                    .pBufferInfo = &lightInfos[0],
-                });
-                dss.push_back(vk::WriteDescriptorSet{
-                    .dstSet = _lightsDescriptorSet,
-                    .dstBinding = 1,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                    .pBufferInfo = &lightInfos[1],
-                });
-                dss.push_back(vk::WriteDescriptorSet{
-                    .dstSet = _lightsDescriptorSet,
-                    .dstBinding = 2,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                    .pBufferInfo = &lightInfos[2],
-                });
-            }
-
             {
                 scene.rtDescriptorSet =
                     _descriptorAllocator.allocate(_dsLayouts.rayTracing);
