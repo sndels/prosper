@@ -560,7 +560,7 @@ void RTRenderer::updateDescriptorSet(
     // Have to compare against both extent and previous native handle?
     assert(_raygenReflection.has_value());
 
-    const StaticArray bindingInfos = {
+    const StaticArray descriptorInfos{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
                 _resources->images.resource(_previousIllumination).view,
@@ -575,7 +575,7 @@ void RTRenderer::updateDescriptorSet(
     assert(_raygenReflection.has_value());
     const StaticArray descriptorWrites =
         _raygenReflection->generateDescriptorWrites(
-            OutputBindingSet, _descriptorSets[nextFrame], bindingInfos);
+            OutputBindingSet, _descriptorSets[nextFrame], descriptorInfos);
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),

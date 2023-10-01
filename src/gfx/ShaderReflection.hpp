@@ -61,7 +61,7 @@ class ShaderReflection
     [[nodiscard]] wheels::StaticArray<vk::WriteDescriptorSet, N>
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        const wheels::StaticArray<DescriptorInfo, N> &bindingInfos) const;
+        const wheels::StaticArray<DescriptorInfo, N> &descriptorInfos) const;
 
   private:
     uint32_t _pushConstantsBytesize{0};
@@ -73,7 +73,7 @@ template <size_t N>
 wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     generateDescriptorWrites(
         uint32_t descriptorSetIndex, vk::DescriptorSet descriptorSetHandle,
-        const wheels::StaticArray<DescriptorInfo, N> &bindingInfos) const
+        const wheels::StaticArray<DescriptorInfo, N> &descriptorInfos) const
 {
     const wheels::Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSetIndex);
@@ -81,11 +81,11 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
     assert(metadatas->size() == N);
 
     wheels::StaticArray<vk::WriteDescriptorSet, N> descriptorWrites;
-    assert(bindingInfos.size() == N);
+    assert(descriptorInfos.size() == N);
 
     for (uint32_t i = 0; i < N; ++i)
     {
-        const DescriptorInfo &descriptorInfo = bindingInfos[i];
+        const DescriptorInfo &descriptorInfo = descriptorInfos[i];
 
         const vk::DescriptorImageInfo *pImageInfo =
             std::get_if<vk::DescriptorImageInfo>(&descriptorInfo);

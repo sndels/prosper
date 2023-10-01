@@ -1594,7 +1594,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _materialTexturesDS = _descriptorAllocator.allocate(
             _dsLayouts.materialTextures, imageInfoCount);
 
-        const StaticArray bindingInfos = {
+        const StaticArray descriptorInfos{
             DescriptorInfo{materialSamplerInfos},
             DescriptorInfo{materialImageInfos},
         };
@@ -1602,7 +1602,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const StaticArray descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
                 sMaterialTexturesReflectionSet, _materialTexturesDS,
-                bindingInfos);
+                descriptorInfos);
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
@@ -1647,14 +1647,14 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _geometryDS =
             _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
 
-        const StaticArray bindingInfos = {
+        const StaticArray descriptorInfos{
             DescriptorInfo{bufferInfos[0]},
             DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
         };
 
         const StaticArray descriptorWrites =
             _geometryReflection->generateDescriptorWrites(
-                sGeometryReflectionSet, _geometryDS, bindingInfos);
+                sGeometryReflectionSet, _geometryDS, descriptorInfos);
 
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -1742,7 +1742,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             scene.modelInstancesDescriptorSet =
                 _descriptorAllocator.allocate(_dsLayouts.modelInstances);
 
-            const StaticArray bindingInfos = {
+            const StaticArray descriptorInfos{
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = _modelInstanceTransformsRing->buffer(),
                     .range = scene.modelInstances.size() *
@@ -1752,7 +1752,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             const StaticArray descriptorWrites =
                 _modelInstancesReflection->generateDescriptorWrites(
                     sInstanceTrfnsReflectionSet,
-                    scene.modelInstancesDescriptorSet, bindingInfos);
+                    scene.modelInstancesDescriptorSet, descriptorInfos);
 
             _device->logical().updateDescriptorSets(
                 asserted_cast<uint32_t>(descriptorWrites.size()),

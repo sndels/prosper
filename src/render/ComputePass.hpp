@@ -46,7 +46,7 @@ class ComputePass
     template <size_t N>
     void updateDescriptorSet(
         uint32_t nextFrame,
-        wheels::StaticArray<DescriptorInfo, N> const &bindingInfos);
+        wheels::StaticArray<DescriptorInfo, N> const &descriptorInfos);
 
     [[nodiscard]] vk::DescriptorSet storageSet(uint32_t nextFrame) const;
     [[nodiscard]] vk::DescriptorSetLayout storageSetLayout() const;
@@ -132,7 +132,7 @@ void ComputePass::recompileShader(
 template <size_t N>
 void ComputePass::updateDescriptorSet(
     uint32_t nextFrame,
-    wheels::StaticArray<DescriptorInfo, N> const &bindingInfos)
+    wheels::StaticArray<DescriptorInfo, N> const &descriptorInfos)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
@@ -142,7 +142,7 @@ void ComputePass::updateDescriptorSet(
     assert(_shaderReflection.has_value());
     const wheels::StaticArray descriptorWrites =
         _shaderReflection->generateDescriptorWrites(
-            _storageSetIndex, ds, bindingInfos);
+            _storageSetIndex, ds, descriptorInfos);
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
