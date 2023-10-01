@@ -93,7 +93,7 @@ GBufferRenderer::Output GBufferRenderer::record(
 
         const Attachments attachments = createAttachments(ret);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "GBuffer");
+        const auto _s = profiler->createCpuGpuScope(cb, "GBuffer", true);
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
