@@ -31,6 +31,7 @@ namespace
 constexpr uint32_t sMaterialDatasReflectionSet = 0;
 constexpr uint32_t sMaterialTexturesReflectionSet = 1;
 constexpr uint32_t sGeometryReflectionSet = 0;
+constexpr uint32_t sInstanceTrfnsReflectionSet = 0;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
@@ -1458,6 +1459,16 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
 
         _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
     }
+
+    {
+        String defines{scopeAlloc, 64};
+        appendDefineStr(
+            defines, "MODEL_INSTANCE_TRFNS_SET", sInstanceTrfnsReflectionSet);
+        assert(defines.size() < 64);
+
+        _modelInstancesReflection =
+            reflect(defines, "shader/scene/transforms.glsl");
+    }
 }
 
 void World::createDescriptorSets(ScopedScratch scopeAlloc)
@@ -1659,33 +1670,13 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             _device->logical().createDescriptorSetLayout(createInfo);
     }
 
-    // Model instances layout
-    {
-        const vk::DescriptorSetLayoutBinding layoutBinding{
-            .binding = 0,
-            .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eVertex |
-                          vk::ShaderStageFlagBits::eRaygenKHR |
-                          vk::ShaderStageFlagBits::eAnyHitKHR,
-        };
-        const vk::DescriptorBindingFlags layoutFlags{};
-        const vk::StructureChain<
-            vk::DescriptorSetLayoutCreateInfo,
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo>
-            layoutChain{
-                vk::DescriptorSetLayoutCreateInfo{
-                    .bindingCount = 1,
-                    .pBindings = &layoutBinding,
-                },
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo{
-                    .bindingCount = 1,
-                    .pBindingFlags = &layoutFlags,
-                }};
-        _dsLayouts.modelInstances =
-            _device->logical().createDescriptorSetLayout(
-                layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
-    }
+    assert(_modelInstancesReflection.has_value());
+    _dsLayouts.modelInstances =
+        _modelInstancesReflection->createDescriptorSetLayout(
+            scopeAlloc.child_scope(), *_device, sInstanceTrfnsReflectionSet,
+            vk::ShaderStageFlagBits::eVertex |
+                vk::ShaderStageFlagBits::eRaygenKHR |
+                vk::ShaderStageFlagBits::eAnyHitKHR);
 
     // Lights layout
     {
@@ -1747,14 +1738,14 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                              sizeof(ModelInstance::Transforms),
                 });
 
-                dss.push_back(vk::WriteDescriptorSet{
-                    .dstSet = scene.modelInstancesDescriptorSet,
-                    .dstBinding = 0,
-                    .dstArrayElement = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = vk::DescriptorType::eStorageBufferDynamic,
-                    .pBufferInfo = &modelInstanceInfos.back(),
-                });
+                const StaticArray bindingInfos = {
+                    DescriptorInfo{modelInstanceInfos.back()},
+                };
+                const StaticArray descriptorWrites =
+                    _modelInstancesReflection->generateDescriptorWrites(
+                        sInstanceTrfnsReflectionSet,
+                        scene.modelInstancesDescriptorSet, bindingInfos);
+                dss.extend(descriptorWrites);
             }
             {
                 _lightsDescriptorSet =

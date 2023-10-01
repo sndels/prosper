@@ -105,6 +105,7 @@ class World
     vk::DescriptorSet _geometryDS;
     wheels::Optional<ShaderReflection> _geometryReflection;
 
+    wheels::Optional<ShaderReflection> _modelInstancesReflection;
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
     uint32_t _modelInstanceTransformsByteOffset{0};
 
