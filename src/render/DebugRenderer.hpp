@@ -2,6 +2,7 @@
 #define PROSPER_RENDER_DEBUG_RENDERER_HPP
 
 #include "../gfx/Device.hpp"
+#include "../gfx/ShaderReflection.hpp"
 #include "../gfx/Swapchain.hpp"
 #include "../scene/Camera.hpp"
 #include "../scene/DebugDrawTypes.hpp"
@@ -61,13 +62,16 @@ class DebugRenderer
     void destroyGraphicsPipeline();
 
     void createBuffers();
-    void createDescriptorSets(DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc);
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
+    wheels::Optional<ShaderReflection> _vertReflection;
 
     vk::DescriptorSetLayout _linesDSLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>

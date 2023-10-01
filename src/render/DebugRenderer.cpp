@@ -60,7 +60,7 @@ DebugRenderer::DebugRenderer(
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
     createBuffers();
-    createDescriptorSets(staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipeline(camDSLayout);
 }
 
@@ -150,7 +150,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     assert(vertDefines.size() <= len);
 
-    const Optional<Device::ShaderCompileResult> vertResult =
+    Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/debug_lines.vert",
@@ -181,6 +181,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
                 .module = fragResult->module,
                 .pName = "main",
             }};
+        _vertReflection = WHEELS_MOV(vertResult->reflection);
 
         return true;
     }
@@ -251,19 +252,12 @@ void DebugRenderer::createBuffers()
 }
 
 void DebugRenderer::createDescriptorSets(
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    const vk::DescriptorSetLayoutBinding layoutBinding{
-        .binding = 0, // binding
-        .descriptorType = vk::DescriptorType::eStorageBuffer,
-        .descriptorCount = 1, // descriptorCount
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-    };
-    _linesDSLayout = _device->logical().createDescriptorSetLayout(
-        vk::DescriptorSetLayoutCreateInfo{
-            .bindingCount = 1,
-            .pBindings = &layoutBinding,
-        });
+    assert(_vertReflection.has_value());
+    _linesDSLayout = _vertReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), *_device, GeometryBuffersBindingSet,
+        vk::ShaderStageFlagBits::eVertex);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _linesDSLayout};
@@ -273,19 +267,21 @@ void DebugRenderer::createDescriptorSets(
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {
-        const vk::DescriptorBufferInfo info{
-            .buffer = _resources->debugLines[i].buffer.handle,
-            .range = VK_WHOLE_SIZE,
+        const StaticArray descriptorInfos{
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _resources->debugLines[i].buffer.handle,
+                .range = VK_WHOLE_SIZE,
+            }},
         };
 
-        const vk::WriteDescriptorSet descriptorWrite{
-            .dstSet = _linesDescriptorSets[i],
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = &info,
-        };
+        const StaticArray descriptorWrites =
+            _vertReflection->generateDescriptorWrites(
+                GeometryBuffersBindingSet, _linesDescriptorSets[i],
+                descriptorInfos);
+
         _device->logical().updateDescriptorSets(
-            1, &descriptorWrite, 0, nullptr);
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 }
 
