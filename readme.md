@@ -40,6 +40,8 @@ Current features include:
   - Rough push constants validation
   - Descriptor set layout generation
   - Descriptor write generation
+  - Used for almost all descriptor sets
+    - Shared sets are reflected from "header" only
 - Scoped profiling
   - GPU with timestamps
   - CPU with `std::chrono`
