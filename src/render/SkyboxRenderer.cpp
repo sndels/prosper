@@ -12,6 +12,8 @@ using namespace wheels;
 namespace
 {
 
+constexpr uint32_t sSkyboxBindingSet = 0;
+
 vk::Rect2D getRenderArea(
     const RenderResources &resources,
     const SkyboxRenderer::RecordInOut &inOutTargets)
@@ -129,6 +131,11 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling SkyboxRenderer shaders\n");
 
+    const size_t len = 32;
+    String defines{scopeAlloc, len};
+    appendDefineStr(defines, "SKYBOX_SET", sSkyboxBindingSet);
+    assert(defines.size() <= len);
+
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
@@ -140,6 +147,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.frag",
                                           .debugName = "skyboxPS",
+                                          .defines = defines,
                                       });
 
     if (vertResult.has_value() && fragResult.has_value())

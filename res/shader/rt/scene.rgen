@@ -12,13 +12,13 @@
 #include "../scene/geometry.glsl"
 #include "../scene/lights.glsl"
 #include "../scene/materials.glsl"
+#include "../scene/skybox.glsl"
 #include "../scene/transforms.glsl"
 #include "ray.glsl"
 #include "rt_data.glsl"
 
 layout(set = OUTPUT_SET, binding = 0, rgba32f) uniform image2D previousColor;
 layout(set = OUTPUT_SET, binding = 1, rgba32f) uniform image2D outColor;
-layout(set = SKYBOX_SET, binding = 0) uniform samplerCube skybox;
 
 #include "rtpc.glsl"
 
@@ -171,11 +171,12 @@ void main()
         if (surface.material.alpha != 0)
         {
             { // Sun
-                vec3 l = -normalize(directionalLight.direction.xyz);
+                vec3 l = normalize(vec3(
+                    -1, 2, -1)); //-normalize(directionalLight.direction.xyz);
 
                 addBounce(
                     color,
-                    directionalLight.irradiance.xyz * throughput *
+                    200 * vec3(255, 236, 224) / 255. * throughput *
                         evalBRDF(l, surface) *
                         shadow(surface.positionWS, l, 0.1, 100),
                     bounce);

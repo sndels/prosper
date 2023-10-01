@@ -116,6 +116,7 @@ class World
     uint32_t _pointLightByteOffset{0};
     uint32_t _spotLightByteOffset{0};
 
+    wheels::Optional<ShaderReflection> _skyboxReflection;
     vk::DescriptorSet _skyboxDS;
 
     struct DeferredLoadingContext

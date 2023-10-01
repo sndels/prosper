@@ -33,6 +33,7 @@ constexpr uint32_t sMaterialTexturesReflectionSet = 1;
 constexpr uint32_t sGeometryReflectionSet = 0;
 constexpr uint32_t sInstanceTrfnsReflectionSet = 0;
 constexpr uint32_t sLightsReflectionSet = 0;
+constexpr uint32_t sSkyboxReflectionSet = 0;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
@@ -1484,6 +1485,15 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
 
         _lightsReflection = reflect(defines, "shader/scene/lights.glsl");
     }
+
+    {
+        const size_t len = 32;
+        String defines{scopeAlloc, len};
+        appendDefineStr(defines, "SKYBOX_SET", sSkyboxReflectionSet);
+        assert(defines.size() <= len);
+
+        _skyboxReflection = reflect(defines, "shader/scene/skybox.glsl");
+    }
 }
 
 void World::createDescriptorSets(ScopedScratch scopeAlloc)
@@ -1792,37 +1802,24 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
     // Skybox layout and descriptor set
     {
-        const StaticArray skyboxLayoutBindings{
-            vk::DescriptorSetLayoutBinding{
-                .binding = 0,
-                .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eFragment |
-                              vk::ShaderStageFlagBits::eRaygenKHR,
-            },
-        };
-        _dsLayouts.skybox = _device->logical().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo{
-                .bindingCount =
-                    asserted_cast<uint32_t>(skyboxLayoutBindings.size()),
-                .pBindings = skyboxLayoutBindings.data(),
-            });
+        assert(_skyboxReflection.has_value());
+        _dsLayouts.skybox = _skyboxReflection->createDescriptorSetLayout(
+            scopeAlloc.child_scope(), *_device, sSkyboxReflectionSet,
+            vk::ShaderStageFlagBits::eFragment |
+                vk::ShaderStageFlagBits::eRaygenKHR);
 
         _skyboxDS = _descriptorAllocator.allocate(_dsLayouts.skybox);
 
-        const vk::DescriptorImageInfo skyboxImageInfo =
-            _skyboxTexture.imageInfo();
-
-        const vk::WriteDescriptorSet descriptorWrite{
-            .dstSet = _skyboxDS,
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-            .pImageInfo = &skyboxImageInfo,
+        const StaticArray descriptorInfos{
+            DescriptorInfo{_skyboxTexture.imageInfo()},
         };
+        const StaticArray descriptorWrites =
+            _skyboxReflection->generateDescriptorWrites(
+                sSkyboxReflectionSet, _skyboxDS, descriptorInfos);
+
         _device->logical().updateDescriptorSets(
-            1, &descriptorWrite, 0, nullptr);
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 }
 
