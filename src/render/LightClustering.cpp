@@ -30,14 +30,15 @@ struct ClusteringPCBlock
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
-    String defines{alloc, 256};
+    const size_t len = 256;
+    String defines{alloc, len};
     appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
     LightClustering::appendShaderDefines(defines);
-    assert(defines.size() <= 256);
+    assert(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/light_clustering.comp",

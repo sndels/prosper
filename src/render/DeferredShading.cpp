@@ -52,7 +52,8 @@ vk::Extent2D getRenderExtent(
 ComputePass::Shader shaderDefinitionCallback(
     Allocator &alloc, const World::DSLayouts &worldDSLayouts)
 {
-    String defines{alloc, 768};
+    const size_t len = 768;
+    String defines{alloc, len};
     appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
@@ -68,7 +69,7 @@ ComputePass::Shader shaderDefinitionCallback(
     LightClustering::appendShaderDefines(defines);
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
-    assert(defines.size() <= 768);
+    assert(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/deferred_shading.comp",

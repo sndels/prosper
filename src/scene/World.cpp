@@ -1438,7 +1438,8 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         _dsLayouts.materialSamplerCount =
             asserted_cast<uint32_t>(_samplers.size());
 
-        String defines{scopeAlloc, 192};
+        const size_t len = 192;
+        String defines{scopeAlloc, len};
         appendDefineStr(
             defines, "MATERIAL_DATAS_SET", sMaterialDatasReflectionSet);
         appendDefineStr(
@@ -1446,25 +1447,27 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         appendDefineStr(
             defines, "NUM_MATERIAL_SAMPLERS", _dsLayouts.materialSamplerCount);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
-        assert(defines.size() < 192);
+        assert(defines.size() <= len);
 
         _materialsReflection = reflect(defines, "shader/scene/materials.glsl");
     }
 
     {
-        String defines{scopeAlloc, 92};
+        const size_t len = 92;
+        String defines{scopeAlloc, len};
         appendDefineStr(defines, "GEOMETRY_SET", sGeometryReflectionSet);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
-        assert(defines.size() < 92);
+        assert(defines.size() <= len);
 
         _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
     }
 
     {
-        String defines{scopeAlloc, 64};
+        const size_t len = 64;
+        String defines{scopeAlloc, len};
         appendDefineStr(
             defines, "MODEL_INSTANCE_TRFNS_SET", sInstanceTrfnsReflectionSet);
-        assert(defines.size() < 64);
+        assert(defines.size() <= len);
 
         _modelInstancesReflection =
             reflect(defines, "shader/scene/transforms.glsl");

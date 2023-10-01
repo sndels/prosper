@@ -173,12 +173,13 @@ bool GBufferRenderer::compileShaders(
 {
     printf("Compiling GBufferRenderer shaders\n");
 
-    String vertDefines{scopeAlloc, 128};
+    const size_t vertDefsLen = 128;
+    String vertDefines{scopeAlloc, vertDefsLen};
     appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
-    assert(vertDefines.size() <= 128);
+    assert(vertDefines.size() <= vertDefsLen);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -188,7 +189,8 @@ bool GBufferRenderer::compileShaders(
                                           .defines = vertDefines,
                                       });
 
-    String fragDefines{scopeAlloc, 128};
+    const size_t fragDefsLen = 128;
+    String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
     appendDefineStr(
@@ -196,7 +198,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
-    assert(fragDefines.size() <= 128);
+    assert(fragDefines.size() <= fragDefsLen);
 
     const Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(

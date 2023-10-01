@@ -150,12 +150,13 @@ bool ForwardRenderer::compileShaders(
 {
     printf("Compiling ForwardRenderer shaders\n");
 
-    String vertDefines{scopeAlloc, 92};
+    const size_t vertDefsLen = 92;
+    String vertDefines{scopeAlloc, vertDefsLen};
     appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
-    assert(vertDefines.size() <= 92);
+    assert(vertDefines.size() <= vertDefsLen);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -165,7 +166,8 @@ bool ForwardRenderer::compileShaders(
                                           .defines = vertDefines,
                                       });
 
-    String fragDefines{scopeAlloc, 600};
+    const size_t fragDefsLen = 600;
+    String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
@@ -181,7 +183,7 @@ bool ForwardRenderer::compileShaders(
     LightClustering::appendShaderDefines(fragDefines);
     PointLights::appendShaderDefines(fragDefines);
     SpotLights::appendShaderDefines(fragDefines);
-    assert(fragDefines.size() <= 600);
+    assert(fragDefines.size() <= fragDefsLen);
 
     const Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(

@@ -33,9 +33,10 @@ vk::Extent2D getRenderExtent(
 
 ComputePass::Shader backgroundDefinitionCallback(Allocator &alloc)
 {
-    String defines{alloc, 32};
+    const size_t len = 32;
+    String defines{alloc, len};
     appendDefineStr(defines, "GATHER_BACKGROUND");
-    assert(defines.size() <= 32);
+    assert(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/dof/gather.comp",

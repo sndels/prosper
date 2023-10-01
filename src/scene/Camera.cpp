@@ -206,9 +206,10 @@ void Camera::applyOffset(const CameraOffset &offset)
 
 void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
 {
-    String defines{scopeAlloc, 32};
+    const size_t len = 32;
+    String defines{scopeAlloc, len};
     appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
-    assert(defines.size() <= 32);
+    assert(defines.size() <= len);
 
     Optional<ShaderReflection> compResult = _device->reflectShader(
         scopeAlloc.child_scope(),
