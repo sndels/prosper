@@ -1508,40 +1508,28 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorAllocator.allocate(materialDatasLayouts, _materialDatasDSs);
     }
 
-    StaticArray<vk::DescriptorBufferInfo, MAX_FRAMES_IN_FLIGHT>
-        materialDatasInfos;
-    //  We don't know the required capacity for this up front, let's not bleed
-    //  reallocations in the linear scope allocator
-    Array<vk::WriteDescriptorSet> dss{_generalAlloc};
-    dss.reserve(MAX_FRAMES_IN_FLIGHT);
     assert(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
     assert(_materialDatasDSs.size() == MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        materialDatasInfos.push_back(vk::DescriptorBufferInfo{
-            .buffer = _materialsBuffers[i].handle,
-            .range = VK_WHOLE_SIZE,
-        });
-
-        dss.push_back(vk::WriteDescriptorSet{
-            .dstSet = _materialDatasDSs[i],
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = &materialDatasInfos.back(),
-        });
+        const StaticArray descriptorInfos = {
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _materialsBuffers[i].handle,
+                .range = VK_WHOLE_SIZE,
+            }},
+        };
+        const StaticArray descriptorWrites =
+            _materialsReflection->generateDescriptorWrites(
+                sMaterialDatasReflectionSet, _materialDatasDSs[i],
+                descriptorInfos);
+        _device->logical().updateDescriptorSets(
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 
-    // Materials layout and descriptors set
-    // Define outside the helper scope to keep alive until
-    // updateDescriptorSets
-    Array<vk::DescriptorImageInfo> materialSamplerInfos{
-        scopeAlloc, _samplers.size()};
-    // Use capacity instead of size so that this allocates descriptors for
-    // textures that are loaded later
-    Array<vk::DescriptorImageInfo> materialImageInfos{
-        scopeAlloc, _texture2Ds.capacity()};
     {
+        Array<vk::DescriptorImageInfo> materialSamplerInfos{
+            scopeAlloc, _samplers.size()};
         for (const auto &s : _samplers)
             materialSamplerInfos.push_back(
                 vk::DescriptorImageInfo{.sampler = s});
@@ -1549,6 +1537,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             asserted_cast<uint32_t>(materialSamplerInfos.size());
         _dsLayouts.materialSamplerCount = samplerInfoCount;
 
+        // Use capacity instead of size so that this allocates descriptors for
+        // textures that are loaded later
+        Array<vk::DescriptorImageInfo> materialImageInfos{
+            scopeAlloc, _texture2Ds.capacity()};
         if (_deferredLoadingContext.has_value())
         {
             // Fill missing textures with the default info so potential reads
@@ -1601,19 +1593,19 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             _materialsReflection->generateDescriptorWrites(
                 sMaterialTexturesReflectionSet, _materialTexturesDS,
                 bindingInfos);
-        dss.extend(descriptorWrites);
+        _device->logical().updateDescriptorSets(
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
 
         if (_deferredLoadingContext.has_value())
             _deferredLoadingContext->textureArrayBinding =
                 asserted_cast<uint32_t>(materialSamplerInfos.size());
     }
 
-    // Geometry layouts and descriptor set
-    // Define outside the helper scope to keep alive until
-    // updateDescriptorSets
-    Array<vk::DescriptorBufferInfo> bufferInfos{
-        scopeAlloc, _geometryBuffers.size()};
     {
+        // Geometry layouts and descriptor set
+        Array<vk::DescriptorBufferInfo> bufferInfos{
+            scopeAlloc, 1 + _geometryBuffers.size()};
 
         bufferInfos.push_back(vk::DescriptorBufferInfo{
             .buffer = _meshBuffersBuffer.handle,
@@ -1653,7 +1645,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const StaticArray descriptorWrites =
             _geometryReflection->generateDescriptorWrites(
                 sGeometryReflectionSet, _geometryDS, bindingInfos);
-        dss.extend(descriptorWrites);
+
+        _device->logical().updateDescriptorSets(
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 
     // RT layout
@@ -1700,104 +1695,102 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             vk::ShaderStageFlagBits::eRaygenKHR);
 
     // Per light type
-    StaticArray<DescriptorInfo, 3> lightInfos;
     {
         _lightsDescriptorSet = _descriptorAllocator.allocate(_dsLayouts.lights);
 
-        lightInfos.emplace_back(vk::DescriptorBufferInfo{
-            .buffer = _lightDataRing->buffer(),
-            .offset = 0,
-            .range = sizeof(DirectionalLight::Parameters),
-        });
-        lightInfos.emplace_back(vk::DescriptorBufferInfo{
-            .buffer = _lightDataRing->buffer(),
-            .offset = 0,
-            .range = PointLights::sBufferByteSize,
-        });
-        lightInfos.emplace_back(vk::DescriptorBufferInfo{
-            .buffer = _lightDataRing->buffer(),
-            .offset = 0,
-            .range = SpotLights::sBufferByteSize,
-        });
+        const StaticArray lightInfos{
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _lightDataRing->buffer(),
+                .offset = 0,
+                .range = sizeof(DirectionalLight::Parameters),
+            }},
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _lightDataRing->buffer(),
+                .offset = 0,
+                .range = PointLights::sBufferByteSize,
+            }},
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _lightDataRing->buffer(),
+                .offset = 0,
+                .range = SpotLights::sBufferByteSize,
+            }},
+        };
 
         const StaticArray descriptorWrites =
             _lightsReflection->generateDescriptorWrites(
                 sLightsReflectionSet, _lightsDescriptorSet, lightInfos);
-        dss.extend(descriptorWrites);
+
+        _device->logical().updateDescriptorSets(
+            asserted_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 
     // Scene descriptor sets
-    // Define outside the helper scope to keep alive until
-    // updateDescriptorSets
-    Array<vk::DescriptorBufferInfo> modelInstanceInfos{
-        scopeAlloc, _scenes.size()};
-    Array<vk::DescriptorBufferInfo> rtInstancesInfos{
-        scopeAlloc, _scenes.size()};
-    Array<vk::StructureChain<
-        vk::WriteDescriptorSet, vk::WriteDescriptorSetAccelerationStructureKHR>>
-        asDSChains{scopeAlloc, _scenes.size()};
+    for (auto &scene : _scenes)
     {
-        for (auto &scene : _scenes)
         {
-            {
-                scene.modelInstancesDescriptorSet =
-                    _descriptorAllocator.allocate(_dsLayouts.modelInstances);
+            scene.modelInstancesDescriptorSet =
+                _descriptorAllocator.allocate(_dsLayouts.modelInstances);
 
-                modelInstanceInfos.push_back(vk::DescriptorBufferInfo{
+            const StaticArray bindingInfos = {
+                DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = _modelInstanceTransformsRing->buffer(),
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
-                });
+                }},
+            };
+            const StaticArray descriptorWrites =
+                _modelInstancesReflection->generateDescriptorWrites(
+                    sInstanceTrfnsReflectionSet,
+                    scene.modelInstancesDescriptorSet, bindingInfos);
 
-                const StaticArray bindingInfos = {
-                    DescriptorInfo{modelInstanceInfos.back()},
-                };
-                const StaticArray descriptorWrites =
-                    _modelInstancesReflection->generateDescriptorWrites(
-                        sInstanceTrfnsReflectionSet,
-                        scene.modelInstancesDescriptorSet, bindingInfos);
-                dss.extend(descriptorWrites);
-            }
-            {
-                scene.rtDescriptorSet =
-                    _descriptorAllocator.allocate(_dsLayouts.rayTracing);
+            _device->logical().updateDescriptorSets(
+                asserted_cast<uint32_t>(descriptorWrites.size()),
+                descriptorWrites.data(), 0, nullptr);
+        }
+        {
+            scene.rtDescriptorSet =
+                _descriptorAllocator.allocate(_dsLayouts.rayTracing);
 
-                // TODO:
-                // This seems potentially messy to support with the common
-                // reflection interface
-                asDSChains.emplace_back(
-                    vk::WriteDescriptorSet{
-                        .dstSet = scene.rtDescriptorSet,
-                        .dstBinding = 0,
-                        .dstArrayElement = 0,
-                        .descriptorCount = 1,
-                        .descriptorType =
-                            vk::DescriptorType::eAccelerationStructureKHR,
-                    },
-                    vk::WriteDescriptorSetAccelerationStructureKHR{
-                        .accelerationStructureCount = 1,
-                        .pAccelerationStructures = &_tlases[0].handle,
-                    });
+            const vk::DescriptorBufferInfo instanceInfo{
+                .buffer = scene.rtInstancesBuffer.handle,
+                .range = VK_WHOLE_SIZE};
 
-                dss.push_back(asDSChains.back().get<vk::WriteDescriptorSet>());
-
-                rtInstancesInfos.push_back(vk::DescriptorBufferInfo{
-                    .buffer = scene.rtInstancesBuffer.handle,
-                    .range = VK_WHOLE_SIZE});
-                dss.push_back(vk::WriteDescriptorSet{
+            StaticArray descriptorWrites{
+                vk::WriteDescriptorSet{
+                    .dstSet = scene.rtDescriptorSet,
+                    .dstBinding = 0,
+                    .dstArrayElement = 0,
+                    .descriptorCount = 1,
+                    .descriptorType =
+                        vk::DescriptorType::eAccelerationStructureKHR,
+                },
+                vk::WriteDescriptorSet{
                     .dstSet = scene.rtDescriptorSet,
                     .dstBinding = 1,
                     .dstArrayElement = 0,
                     .descriptorCount = 1,
                     .descriptorType = vk::DescriptorType::eStorageBuffer,
-                    .pBufferInfo = &rtInstancesInfos.back(),
-                });
-            }
+                    .pBufferInfo = &instanceInfo,
+                },
+            };
+
+            // TODO:
+            // This seems potentially messy to support with the
+            // common reflection interface
+            const vk::WriteDescriptorSetAccelerationStructureKHR asWrite{
+                .accelerationStructureCount = 1,
+                .pAccelerationStructures = &_tlases[0].handle,
+            };
+            descriptorWrites[0].pNext = &asWrite;
+
+            _device->logical().updateDescriptorSets(
+                asserted_cast<uint32_t>(descriptorWrites.size()),
+                descriptorWrites.data(), 0, nullptr);
         }
     }
 
     // Skybox layout and descriptor set
-    vk::DescriptorImageInfo skyboxImageInfo;
     {
         const StaticArray skyboxLayoutBindings{
             vk::DescriptorSetLayoutBinding{
@@ -1817,20 +1810,20 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
         _skyboxDS = _descriptorAllocator.allocate(_dsLayouts.skybox);
 
-        skyboxImageInfo = _skyboxTexture.imageInfo();
+        const vk::DescriptorImageInfo skyboxImageInfo =
+            _skyboxTexture.imageInfo();
 
-        dss.push_back(vk::WriteDescriptorSet{
+        const vk::WriteDescriptorSet descriptorWrite{
             .dstSet = _skyboxDS,
             .dstBinding = 0,
             .dstArrayElement = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
             .pImageInfo = &skyboxImageInfo,
-        });
+        };
+        _device->logical().updateDescriptorSets(
+            1, &descriptorWrite, 0, nullptr);
     }
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(dss.size()), dss.data(), 0, nullptr);
 }
 
 bool World::pollTextureWorker(vk::CommandBuffer cb)
@@ -1902,9 +1895,9 @@ void World::loadTextureSingleThreaded(
     assert(ctx.gltfModel.images.size() > ctx.loadedImageCount);
     const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
     if (image.uri.empty())
-        throw std::runtime_error(
-            "Embedded glTF textures aren't supported. Scene should be glTF + "
-            "bin + textures.");
+        throw std::runtime_error("Embedded glTF textures aren't "
+                                 "supported. Scene should be glTF + "
+                                 "bin + textures.");
 
     assert(ctx.stagingBuffers.size() > nextFrame);
     _texture2Ds.emplace_back(
@@ -1922,8 +1915,8 @@ void World::updateDescriptorsWithNewTexture()
     const vk::WriteDescriptorSet descriptorWrite{
         .dstSet = _materialTexturesDS,
         .dstBinding = ctx.textureArrayBinding,
-        // loadedImageCount is gltf images so bump by one to take our default
-        // texture into account
+        // loadedImageCount is gltf images so bump by one to take our
+        // default texture into account
         .dstArrayElement = ctx.loadedImageCount + 1,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::eSampledImage,
@@ -1933,7 +1926,8 @@ void World::updateDescriptorsWithNewTexture()
 
     ctx.loadedImageCount++;
 
-    // Update next material(s) in line if the required textures are loaded
+    // Update next material(s) in line if the required textures are
+    // loaded
     bool materialsUpdated = false;
     for (size_t i = ctx.loadedMaterialCount; i < ctx.materials.size(); ++i)
     {
@@ -1947,8 +1941,8 @@ void World::updateDescriptorsWithNewTexture()
             normalIndex <= ctx.loadedImageCount &&
             metallicRoughnessIndex <= ctx.loadedImageCount)
         {
-            // These are gltf material indices so we have to take our default
-            // material into account
+            // These are gltf material indices so we have to take our
+            // default material into account
             _materials[i + 1] = material;
             ctx.loadedMaterialCount++;
             materialsUpdated = true;
@@ -1971,8 +1965,8 @@ World::DeferredLoadingContext::DeferredLoadingContext(
     assert(sceneDir != nullptr);
     assert(device != nullptr);
 
-    // One of these is used by the worker implementation, all by the single
-    // threaded one
+    // One of these is used by the worker implementation, all by the
+    // single threaded one
     for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
         stagingBuffers.push_back(createTextureStaging(device));
 
