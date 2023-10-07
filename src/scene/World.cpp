@@ -362,6 +362,8 @@ World::~World()
         _device->logical().destroy(sampler);
 
     _device->destroy(_scratchBuffer);
+    _device->destroy(_tlasInstancesBuffer);
+    _device->destroy(_tlasInstancesUploadBuffer);
 }
 
 void World::startFrame() const
@@ -1244,22 +1246,13 @@ void World::createTlases(ScopedScratch scopeAlloc)
         }
         assert(instances.size() == scene.rtInstanceCount);
 
-        auto instancesBuffer = _device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = sizeof(instances[0]) * instances.size(),
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::
-                                 eAccelerationStructureBuildInputReadOnlyKHR,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .initialData = instances.data(),
-            .debugName = "InstancesBuffer",
-        });
+        reserveTlasInstances(instances);
 
-        // Need a barrier here if a shared command buffer is used so that
-        // the copy happens before the build
+        const vk::DeviceSize instancesByteSize =
+            sizeof(instances[0]) * instances.size();
+        memcpy(
+            _tlasInstancesUploadBuffer.mapped, instances.data(),
+            instancesByteSize);
 
         const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
             .primitiveCount = asserted_cast<uint32_t>(instances.size()),
@@ -1269,7 +1262,7 @@ void World::createTlases(ScopedScratch scopeAlloc)
         const vk::AccelerationStructureGeometryInstancesDataKHR instancesData{
             .data =
                 _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                    .buffer = instancesBuffer.handle,
+                    .buffer = _tlasInstancesBuffer.handle,
                 }),
         };
         const vk::AccelerationStructureGeometryKHR geometry{
@@ -1321,6 +1314,29 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         const auto cb = _device->beginGraphicsCommands();
 
+        {
+            const StaticArray barriers{
+                *_tlasInstancesUploadBuffer.transitionBarrier(
+                    BufferState::TransferSrc, true),
+                *_tlasInstancesBuffer.transitionBarrier(
+                    BufferState::TransferDst, true),
+            };
+            cb.pipelineBarrier2(vk::DependencyInfo{
+                .bufferMemoryBarrierCount =
+                    asserted_cast<uint32_t>(barriers.size()),
+                .pBufferMemoryBarriers = barriers.data(),
+            });
+        }
+
+        const vk::BufferCopy copyRegion{
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = _tlasInstancesBuffer.byteSize,
+        };
+        cb.copyBuffer(
+            _tlasInstancesUploadBuffer.handle, _tlasInstancesBuffer.handle, 1,
+            &copyRegion);
+
         const auto *pRangeInfo = &rangeInfo;
         // TODO: Use a single cb for instance buffer copies and builds for
         // all
@@ -1328,10 +1344,9 @@ void World::createTlases(ScopedScratch scopeAlloc)
         cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
 
         _device->endGraphicsCommands(cb);
-
-        _device->destroy(instancesBuffer);
     }
 }
+
 void World::reserveScratch(vk::DeviceSize byteSize)
 {
     if (_scratchBuffer.byteSize < byteSize)
@@ -1346,6 +1361,42 @@ void World::reserveScratch(vk::DeviceSize byteSize)
                     .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                 },
             .debugName = "ScratchBuffer",
+        });
+    }
+}
+
+void World::reserveTlasInstances(
+    wheels::Span<const vk::AccelerationStructureInstanceKHR> instances)
+{
+    const vk::DeviceSize byteSize = sizeof(instances[0]) * instances.size();
+    if (_tlasInstancesBuffer.byteSize < byteSize)
+    {
+        _device->destroy(_tlasInstancesBuffer);
+        _device->destroy(_tlasInstancesUploadBuffer);
+
+        _tlasInstancesBuffer = _device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = byteSize,
+                    .usage = vk::BufferUsageFlagBits::eTransferDst |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::
+                                 eAccelerationStructureBuildInputReadOnlyKHR,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .debugName = "InstancesBuffer",
+        });
+
+        _tlasInstancesUploadBuffer = _device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = byteSize,
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .createMapped = true,
+            .debugName = "InstancesUploadBuffer",
         });
     }
 }
