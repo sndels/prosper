@@ -108,19 +108,6 @@ Buffer createSkyboxVertexBuffer(Device *device)
     });
 }
 
-// TODO:
-// memcpy directly into the vk::AccelerationStructureInstanceKHR for speed?
-vk::TransformMatrixKHR convertTransform(const glm::mat3x4 &trfn)
-{
-    vk::TransformMatrixKHR ret;
-    static_assert(sizeof(ret) == sizeof(trfn));
-
-    VkTransformMatrixKHR &khrMat = ret;
-    memcpy(&khrMat.matrix[0][0], &trfn[0][0], sizeof(khrMat.matrix));
-
-    return ret;
-}
-
 constexpr vk::Filter getVkFilterMode(int glEnum)
 {
     switch (glEnum)
@@ -1221,28 +1208,30 @@ void World::createTlases(ScopedScratch scopeAlloc)
         auto &tlas = _tlases[i];
         // Basics from RT Gems II chapter 16
 
+        // TODO:
+        // Is it faster to poke instances directly into a mapped buffer instead
+        // of collecting first and then passing them in one blob as initial
+        // data?
         Array<vk::AccelerationStructureInstanceKHR> instances{
             scopeAlloc, scene.rtInstanceCount};
-        Array<Pair<const Model &, vk::TransformMatrixKHR>> modelInstances{
-            scopeAlloc, scene.modelInstances.size()};
-
+        uint32_t rti = 0;
         for (const auto &mi : scene.modelInstances)
         {
             const auto &model = _models[mi.modelID];
-            modelInstances.emplace_back(
-                model, convertTransform(mi.transforms.modelToWorld));
-        }
 
-        uint32_t rti = 0;
-        for (const auto &[model, trfn] : modelInstances)
-        {
+            // This has to be mat3x4 because we assume the transform already has
+            // the same memory layout as vk::TransformationMatrixKHR
+            const mat3x4 *trfn = &mi.transforms.modelToWorld;
+            const vk::TransformMatrixKHR *trfn_cast =
+                reinterpret_cast<const vk::TransformMatrixKHR *>(trfn);
+
             for (const auto &sm : model.subModels)
             {
                 const auto &blas = _blases[sm.meshID];
                 assert(blas.handle != vk::AccelerationStructureKHR{});
 
                 instances.push_back(vk::AccelerationStructureInstanceKHR{
-                    .transform = trfn,
+                    .transform = *trfn_cast,
                     .instanceCustomIndex = rti++,
                     .mask = 0xFF,
                     .accelerationStructureReference =
@@ -1253,6 +1242,7 @@ void World::createTlases(ScopedScratch scopeAlloc)
                 });
             }
         }
+        assert(instances.size() == scene.rtInstanceCount);
 
         auto instancesBuffer = _device->createBuffer(BufferCreateInfo{
             .desc =
