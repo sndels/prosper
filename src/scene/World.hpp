@@ -181,6 +181,12 @@ class World
         wheels::Span<const vk::AccelerationStructureInstanceKHR> instances);
     void updateTlasInstances(
         wheels::ScopedScratch scopeAlloc, const Scene &scene);
+    void createTlasBuildInfos(
+        const Scene &scene,
+        vk::AccelerationStructureBuildRangeInfoKHR &rangeInfoOut,
+        vk::AccelerationStructureGeometryKHR &geometryOut,
+        vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
+        vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
     void createBuffers();
     void reflectBindings(wheels::ScopedScratch scopeAlloc);
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);

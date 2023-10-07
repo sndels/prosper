@@ -1212,33 +1212,11 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         updateTlasInstances(scopeAlloc.child_scope(), scene);
 
-        const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
-            .primitiveCount = scene.rtInstanceCount,
-            .primitiveOffset = 0,
-        };
-
-        const vk::AccelerationStructureGeometryInstancesDataKHR instancesData{
-            .data =
-                _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                    .buffer = _tlasInstancesBuffer.handle,
-                }),
-        };
-        const vk::AccelerationStructureGeometryKHR geometry{
-            .geometryType = vk::GeometryTypeKHR::eInstances,
-            .geometry = instancesData,
-        };
-        vk::AccelerationStructureBuildGeometryInfoKHR buildInfo{
-            .type = vk::AccelerationStructureTypeKHR::eTopLevel,
-            .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
-            .geometryCount = 1,
-            .pGeometries = &geometry,
-        };
-
-        // TODO: This stuff is ~the same for TLAS and BLAS
-        const auto sizeInfo =
-            _device->logical().getAccelerationStructureBuildSizesKHR(
-                vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
-                {rangeInfo.primitiveCount});
+        vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
+        vk::AccelerationStructureGeometryKHR geometry;
+        vk::AccelerationStructureBuildGeometryInfoKHR buildInfo;
+        vk::AccelerationStructureBuildSizesInfoKHR sizeInfo;
+        createTlasBuildInfos(scene, rangeInfo, geometry, buildInfo, sizeInfo);
 
         tlas.buffer = _device->createBuffer(BufferCreateInfo{
             .desc =
@@ -1404,6 +1382,41 @@ void World::updateTlasInstances(
         sizeof(instances[0]) * instances.size();
     memcpy(
         _tlasInstancesUploadBuffer.mapped, instances.data(), instancesByteSize);
+}
+
+void World::createTlasBuildInfos(
+    const Scene &scene,
+    vk::AccelerationStructureBuildRangeInfoKHR &rangeInfoOut,
+    vk::AccelerationStructureGeometryKHR &geometryOut,
+    vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
+    vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut)
+{
+    rangeInfoOut = vk::AccelerationStructureBuildRangeInfoKHR{
+        .primitiveCount = scene.rtInstanceCount,
+        .primitiveOffset = 0,
+    };
+
+    geometryOut = vk::AccelerationStructureGeometryKHR{
+        .geometryType = vk::GeometryTypeKHR::eInstances,
+        .geometry =
+            vk::AccelerationStructureGeometryInstancesDataKHR{
+                .data = _device->logical().getBufferAddress(
+                    vk::BufferDeviceAddressInfo{
+                        .buffer = _tlasInstancesBuffer.handle,
+                    }),
+            },
+    };
+
+    buildInfoOut = vk::AccelerationStructureBuildGeometryInfoKHR{
+        .type = vk::AccelerationStructureTypeKHR::eTopLevel,
+        .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
+        .geometryCount = 1,
+        .pGeometries = &geometryOut,
+    };
+
+    sizeInfoOut = _device->logical().getAccelerationStructureBuildSizesKHR(
+        vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfoOut,
+        {rangeInfoOut.primitiveCount});
 }
 
 void World::createBuffers()
