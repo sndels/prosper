@@ -28,6 +28,8 @@ class RingBuffer
     [[nodiscard]] vk::Buffer buffer() const;
 
     void startFrame();
+    // Zeroes the write offset and debug tracking
+    void reset();
 
     // The write implementations return the starting offset of the written bytes
     // in the underlying buffer. Unaligned writes are intended to be used to

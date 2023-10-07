@@ -60,6 +60,14 @@ void RingBuffer::startFrame()
 #endif
 }
 
+void RingBuffer::reset()
+{
+    _currentByteOffset = 0;
+#ifndef NDEBUG
+    _frameStartOffsets.clear();
+#endif
+}
+
 uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
 {
     return write_internal(data, true);
