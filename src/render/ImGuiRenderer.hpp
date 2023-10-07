@@ -24,7 +24,7 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
-    void startFrame();
+    void startFrame(Profiler *profiler);
     void endFrame(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler);
 

@@ -95,8 +95,11 @@ ImGuiRenderer::~ImGuiRenderer()
 }
 
 // NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
-void ImGuiRenderer::startFrame()
+void ImGuiRenderer::startFrame(Profiler *profiler)
 {
+    assert(profiler != nullptr);
+    const auto _s = profiler->createCpuScope("ImGui::startFrame");
+
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -113,14 +116,17 @@ void ImGuiRenderer::endFrame(
 {
     assert(profiler != nullptr);
 
-    ImGui::Render();
+    {
+        const auto _s = profiler->createCpuScope("ImGui::render");
+        ImGui::Render();
+    }
     ImDrawData *drawData = ImGui::GetDrawData();
 
     {
         _resources->finalComposite.transition(
             cb, ImageState::ColorAttachmentReadWrite);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "ImGui", true);
+        const auto _s = profiler->createCpuGpuScope(cb, "ImGui::draw", true);
 
         cb.beginRenderPass(
             vk::RenderPassBeginInfo{

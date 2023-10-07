@@ -529,7 +529,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     UiChanges uiChanges;
     if (_drawUi)
     {
-        _imguiRenderer->startFrame();
+        _imguiRenderer->startFrame(_profiler.get());
 
         uiChanges =
             drawUi(scopeAlloc.child_scope(), profilerDatas, scopeHighWatermark);
@@ -548,7 +548,10 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _cam->updateBuffer(
         uvec2{renderArea.extent.width, renderArea.extent.height});
 
-    _world->updateBuffers(scopeAlloc.child_scope());
+    {
+        auto _s = _profiler->createCpuScope("World::updateBuffers");
+        _world->updateBuffers(scopeAlloc.child_scope());
+    }
 
     updateDebugLines(_world->currentScene(), nextFrame);
 
@@ -628,6 +631,8 @@ App::UiChanges App::drawUi(
     ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas,
     uint32_t scopeHighWatermark)
 {
+    const auto _s = _profiler->createCpuScope("App::drawUi");
+
     UiChanges ret;
 
     ret.rtDirty |= _cam->drawUI();
