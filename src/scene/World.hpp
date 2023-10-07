@@ -179,6 +179,8 @@ class World
     void reserveScratch(vk::DeviceSize byteSize);
     void reserveTlasInstances(
         wheels::Span<const vk::AccelerationStructureInstanceKHR> instances);
+    void updateTlasInstances(
+        wheels::ScopedScratch scopeAlloc, const Scene &scene);
     void createBuffers();
     void reflectBindings(wheels::ScopedScratch scopeAlloc);
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
