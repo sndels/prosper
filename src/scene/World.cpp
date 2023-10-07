@@ -363,13 +363,13 @@ World::~World()
 
     _device->destroy(_scratchBuffer);
     _device->destroy(_tlasInstancesBuffer);
-    _device->destroy(_tlasInstancesUploadBuffer);
 }
 
 void World::startFrame() const
 {
     _modelInstanceTransformsRing->startFrame();
     _lightDataRing->startFrame();
+    _tlasInstancesUploadRing->startFrame();
 }
 
 void World::uploadMaterialDatas(uint32_t nextFrame)
@@ -1210,6 +1210,9 @@ void World::createTlases(ScopedScratch scopeAlloc)
         auto &tlas = _tlases[i];
         // Basics from RT Gems II chapter 16
 
+        if (_tlasInstancesUploadRing != nullptr)
+            // Not really a start of a frame but ring usage is validated
+            _tlasInstancesUploadRing->startFrame();
         updateTlasInstances(scopeAlloc.child_scope(), scene);
 
         vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
@@ -1250,27 +1253,15 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         const auto cb = _device->beginGraphicsCommands();
 
-        {
-            const StaticArray barriers{
-                *_tlasInstancesUploadBuffer.transitionBarrier(
-                    BufferState::TransferSrc, true),
-                *_tlasInstancesBuffer.transitionBarrier(
-                    BufferState::TransferDst, true),
-            };
-            cb.pipelineBarrier2(vk::DependencyInfo{
-                .bufferMemoryBarrierCount =
-                    asserted_cast<uint32_t>(barriers.size()),
-                .pBufferMemoryBarriers = barriers.data(),
-            });
-        }
+        _tlasInstancesBuffer.transition(cb, BufferState::TransferDst);
 
         const vk::BufferCopy copyRegion{
-            .srcOffset = 0,
+            .srcOffset = _tlasInstancesUploadOffset,
             .dstOffset = 0,
             .size = _tlasInstancesBuffer.byteSize,
         };
         cb.copyBuffer(
-            _tlasInstancesUploadBuffer.handle, _tlasInstancesBuffer.handle, 1,
+            _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
             &copyRegion);
 
         const auto *pRangeInfo = &rangeInfo;
@@ -1281,6 +1272,9 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         _device->endGraphicsCommands(cb);
     }
+
+    // Reset ring to avoid confusion when comparing to other rings after loading
+    _tlasInstancesUploadRing->reset();
 }
 
 void World::reserveScratch(vk::DeviceSize byteSize)
@@ -1304,11 +1298,13 @@ void World::reserveScratch(vk::DeviceSize byteSize)
 void World::reserveTlasInstances(
     wheels::Span<const vk::AccelerationStructureInstanceKHR> instances)
 {
-    const vk::DeviceSize byteSize = sizeof(instances[0]) * instances.size();
+    const vk::DeviceSize byteSize =
+        (sizeof(instances[0]) * instances.size() + RingBuffer::sAlignment) *
+        MAX_FRAMES_IN_FLIGHT;
     if (_tlasInstancesBuffer.byteSize < byteSize)
     {
         _device->destroy(_tlasInstancesBuffer);
-        _device->destroy(_tlasInstancesUploadBuffer);
+        _tlasInstancesUploadRing.reset();
 
         _tlasInstancesBuffer = _device->createBuffer(BufferCreateInfo{
             .desc =
@@ -1323,17 +1319,10 @@ void World::reserveTlasInstances(
             .debugName = "InstancesBuffer",
         });
 
-        _tlasInstancesUploadBuffer = _device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = byteSize,
-                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
-                },
-            .createMapped = true,
-            .debugName = "InstancesUploadBuffer",
-        });
+        _tlasInstancesUploadRing = std::make_unique<RingBuffer>(
+            _device, vk::BufferUsageFlagBits::eTransferSrc,
+            asserted_cast<uint32_t>(byteSize), "InstancesUploadBuffer");
+        _tlasInstancesUploadRing->startFrame();
     }
 }
 
@@ -1378,10 +1367,8 @@ void World::updateTlasInstances(
 
     reserveTlasInstances(instances);
 
-    const vk::DeviceSize instancesByteSize =
-        sizeof(instances[0]) * instances.size();
-    memcpy(
-        _tlasInstancesUploadBuffer.mapped, instances.data(), instancesByteSize);
+    _tlasInstancesUploadOffset =
+        _tlasInstancesUploadRing->write_elements(instances);
 }
 
 void World::createTlasBuildInfos(

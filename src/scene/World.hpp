@@ -204,7 +204,8 @@ class World
 
     Buffer _scratchBuffer;
     Buffer _tlasInstancesBuffer;
-    Buffer _tlasInstancesUploadBuffer;
+    std::unique_ptr<RingBuffer> _tlasInstancesUploadRing;
+    uint32_t _tlasInstancesUploadOffset{0};
 };
 
 #endif // PROSPER_SCENE_WORLD_HPP
