@@ -17,7 +17,6 @@ struct Scene
     {
         wheels::Array<Node *> children;
         uint32_t modelID{0xFFFFFFFF};
-        CameraParameters camera;
         glm::vec3 translation{0.f};
         glm::quat rotation{1.f, 0.f, 0.f, 0.f};
         glm::vec3 scale{1.f};
