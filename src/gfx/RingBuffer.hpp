@@ -15,7 +15,9 @@ class RingBuffer
     // minUniformBufferOffsetAlignment
     static const uint32_t sAlignment = 256;
 
-    RingBuffer(Device *device, uint32_t byteSize, const char *debugName);
+    RingBuffer(
+        Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
+        const char *debugName);
     ~RingBuffer();
 
     RingBuffer(const RingBuffer &) = delete;

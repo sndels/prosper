@@ -9,7 +9,9 @@ RenderResources::RenderResources(wheels::Allocator &alloc, Device *device)
 , images{alloc, device}
 , texelBuffers{alloc, device}
 , buffers{alloc, device}
-, constantsRing{device, asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing"}
+, constantsRing{
+      device, vk::BufferUsageFlagBits::eStorageBuffer,
+      asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing"}
 {
     assert(device != nullptr);
 

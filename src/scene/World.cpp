@@ -1462,7 +1462,8 @@ void World::createBuffers()
              static_cast<size_t>(RingBuffer::sAlignment)) *
             MAX_FRAMES_IN_FLIGHT);
         _modelInstanceTransformsRing = std::make_unique<RingBuffer>(
-            _device, bufferSize, "ModelInstanceTransformRing");
+            _device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
+            "ModelInstanceTransformRing");
     }
 
     {
@@ -1471,8 +1472,9 @@ void World::createBuffers()
              PointLights::sBufferByteSize + RingBuffer::sAlignment +
              SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
             MAX_FRAMES_IN_FLIGHT;
-        _lightDataRing =
-            std::make_unique<RingBuffer>(_device, bufferSize, "LightDataRing");
+        _lightDataRing = std::make_unique<RingBuffer>(
+            _device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
+            "LightDataRing");
     }
 }
 

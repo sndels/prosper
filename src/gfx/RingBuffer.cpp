@@ -10,7 +10,9 @@ constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
 
 } // namespace
 
-RingBuffer::RingBuffer(Device *device, uint32_t byteSize, const char *debugName)
+RingBuffer::RingBuffer(
+    Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
+    const char *debugName)
 : _device{device}
 {
     assert(_device != nullptr);
@@ -23,7 +25,7 @@ RingBuffer::RingBuffer(Device *device, uint32_t byteSize, const char *debugName)
         .desc =
             BufferDescription{
                 .byteSize = byteSize,
-                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                .usage = usage,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
