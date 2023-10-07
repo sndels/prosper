@@ -488,10 +488,47 @@ void World::updateBuffers(ScopedScratch scopeAlloc)
             sizeof(Scene::RTInstance) * rtInstances.size());
     }
 
+    updateTlasInstances(scopeAlloc.child_scope(), scene);
+
     _directionalLightByteOffset =
         scene.lights.directionalLight.write(*_lightDataRing);
     _pointLightByteOffset = scene.lights.pointLights.write(*_lightDataRing);
     _spotLightByteOffset = scene.lights.spotLights.write(*_lightDataRing);
+}
+
+void World::buildCurrentTlas(vk::CommandBuffer cb)
+{
+    const auto &scene = _scenes[_currentScene];
+    auto &tlas = _tlases[_currentScene];
+
+    vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
+    vk::AccelerationStructureGeometryKHR geometry;
+    vk::AccelerationStructureBuildGeometryInfoKHR buildInfo;
+    vk::AccelerationStructureBuildSizesInfoKHR sizeInfo;
+    createTlasBuildInfos(scene, rangeInfo, geometry, buildInfo, sizeInfo);
+
+    buildInfo.dstAccelerationStructure = tlas.handle;
+
+    reserveScratch(sizeInfo.buildScratchSize);
+
+    buildInfo.scratchData =
+        _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
+            .buffer = _scratchBuffer.handle,
+        });
+
+    const vk::BufferCopy copyRegion{
+        .srcOffset = _tlasInstancesUploadOffset,
+        .dstOffset = 0,
+        .size = _tlasInstancesBuffer.byteSize,
+    };
+    cb.copyBuffer(
+        _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
+        &copyRegion);
+
+    const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo = &rangeInfo;
+    cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
+
+    // First use needs to have a memory barrier from AS build into the usage
 }
 
 void World::drawSkybox(const vk::CommandBuffer &buffer) const
@@ -1241,36 +1278,6 @@ void World::createTlases(ScopedScratch scopeAlloc)
         };
         tlas.handle =
             _device->logical().createAccelerationStructureKHR(createInfo);
-
-        buildInfo.dstAccelerationStructure = tlas.handle;
-
-        reserveScratch(sizeInfo.buildScratchSize);
-
-        buildInfo.scratchData =
-            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = _scratchBuffer.handle,
-            });
-
-        const auto cb = _device->beginGraphicsCommands();
-
-        _tlasInstancesBuffer.transition(cb, BufferState::TransferDst);
-
-        const vk::BufferCopy copyRegion{
-            .srcOffset = _tlasInstancesUploadOffset,
-            .dstOffset = 0,
-            .size = _tlasInstancesBuffer.byteSize,
-        };
-        cb.copyBuffer(
-            _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
-            &copyRegion);
-
-        const auto *pRangeInfo = &rangeInfo;
-        // TODO: Use a single cb for instance buffer copies and builds for
-        // all
-        //       tlases need a barrier after buffer copy and build!
-        cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
-
-        _device->endGraphicsCommands(cb);
     }
 
     // Reset ring to avoid confusion when comparing to other rings after loading
@@ -1298,9 +1305,7 @@ void World::reserveScratch(vk::DeviceSize byteSize)
 void World::reserveTlasInstances(
     wheels::Span<const vk::AccelerationStructureInstanceKHR> instances)
 {
-    const vk::DeviceSize byteSize =
-        (sizeof(instances[0]) * instances.size() + RingBuffer::sAlignment) *
-        MAX_FRAMES_IN_FLIGHT;
+    const vk::DeviceSize byteSize = sizeof(instances[0]) * instances.size();
     if (_tlasInstancesBuffer.byteSize < byteSize)
     {
         _device->destroy(_tlasInstancesBuffer);
@@ -1319,9 +1324,11 @@ void World::reserveTlasInstances(
             .debugName = "InstancesBuffer",
         });
 
+        const uint32_t ringByteSize = asserted_cast<uint32_t>(
+            (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
         _tlasInstancesUploadRing = std::make_unique<RingBuffer>(
-            _device, vk::BufferUsageFlagBits::eTransferSrc,
-            asserted_cast<uint32_t>(byteSize), "InstancesUploadBuffer");
+            _device, vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
+            "InstancesUploadBuffer");
         _tlasInstancesUploadRing->startFrame();
     }
 }

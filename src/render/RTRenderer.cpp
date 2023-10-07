@@ -211,6 +211,23 @@ RTRenderer::Output RTRenderer::record(
 
         updateDescriptorSet(nextFrame, illumination);
 
+        {
+            const vk::MemoryBarrier2 barrier{
+                .srcStageMask =
+                    vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
+                .srcAccessMask =
+                    vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
+                .dstStageMask =
+                    vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                .dstAccessMask =
+                    vk::AccessFlagBits2::eAccelerationStructureReadKHR,
+            };
+            cb.pipelineBarrier2(vk::DependencyInfo{
+                .memoryBarrierCount = 1,
+                .pMemoryBarriers = &barrier,
+            });
+        }
+
         transition<2>(
             *_resources, cb,
             {

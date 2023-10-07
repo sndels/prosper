@@ -65,6 +65,8 @@ class World
 
     [[nodiscard]] const Scene &currentScene() const;
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
+    // Has to be called after updateBuffers()
+    void buildCurrentTlas(vk::CommandBuffer cb);
     void drawSkybox(const vk::CommandBuffer &buffer) const;
 
     wheels::Allocator &_generalAlloc;

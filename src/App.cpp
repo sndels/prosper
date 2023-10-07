@@ -908,6 +908,12 @@ void App::render(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea,
     const RenderIndices &indices, const UiChanges &uiChanges)
 {
+    if (_renderRT)
+    {
+        auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
+        _world->buildCurrentTlas(cb);
+    }
+
     const LightClustering::Output lightClusters = _lightClustering->record(
         cb, *_world, *_cam, _viewportExtent, indices.nextFrame,
         _profiler.get());
