@@ -268,6 +268,22 @@ void loadingWorker(
     }
 }
 
+struct Node
+{
+    Array<uint32_t> children;
+    glm::vec3 translation{0.f};
+    glm::quat rotation{1.f, 0.f, 0.f, 0.f};
+    glm::vec3 scale{1.f};
+    Optional<uint32_t> modelID;
+    Optional<uint32_t> camera;
+    Optional<uint32_t> light;
+
+    Node(wheels::Allocator &alloc)
+    : children{alloc}
+    {
+    }
+};
+
 } // namespace
 
 World::World(
@@ -453,7 +469,112 @@ void World::drawDeferredLoadingUi() const
     }
 }
 
+Scene &World::currentScene() { return _scenes[_currentScene]; }
+
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
+
+void World::updateScene(ScopedScratch scopeAlloc, Profiler *profiler)
+{
+    assert(profiler != nullptr);
+
+    auto _s = profiler->createCpuScope("World::updateScene");
+
+    Scene &scene = currentScene();
+
+    Array<uint32_t> nodeStack{scopeAlloc, scene.nodes.size()};
+    Array<mat4> parentTransforms{scopeAlloc, scene.nodes.size()};
+    wheels::HashSet<uint32_t> visited{scopeAlloc, scene.nodes.size()};
+    for (uint32_t rootIndex : scene.rootNodes)
+    {
+        nodeStack.clear();
+        parentTransforms.clear();
+        visited.clear();
+
+        nodeStack.push_back(rootIndex);
+        parentTransforms.push_back(mat4{1.f});
+        while (!nodeStack.empty())
+        {
+            const uint32_t nodeIndex = nodeStack.back();
+            if (visited.find(nodeIndex) != visited.end())
+            {
+                nodeStack.pop_back();
+                parentTransforms.pop_back();
+            }
+            else
+            {
+                visited.insert(nodeIndex);
+                Scene::Node &node = scene.nodes[nodeIndex];
+
+                const uint32_t first_child = node.firstChild;
+                const uint32_t last_child = node.lastChild;
+                for (uint32_t child = first_child; child <= last_child; ++child)
+                    nodeStack.push_back(child);
+
+                // TODO:
+                // Skip identity SRT components?
+                const mat4 modelToWorld4x4 =
+                    parentTransforms.back() *
+                    translate(mat4{1.f}, node.translation) *
+                    mat4_cast(node.rotation) * scale(mat4{1.f}, node.scale);
+
+                const mat3x4 modelToWorld = transpose(modelToWorld4x4);
+                // No transpose as mat4->mat3x4 effectively does it
+                const mat3x4 normalToWorld = inverse(modelToWorld4x4);
+
+                if (node.modelInstance.has_value())
+                    scene.modelInstances[*node.modelInstance].transforms =
+                        ModelInstance::Transforms{
+                            .modelToWorld = modelToWorld,
+                            .normalToWorld = normalToWorld,
+                        };
+
+                if (node.camera.has_value() && *node.camera == _currentCamera)
+                {
+                    scene.camera.eye =
+                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
+                    // TODO: Halfway from camera to scene bb end if inside
+                    // bb / halfway of bb if outside of bb?
+                    scene.camera.target =
+                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, -1.f, 1.f}};
+                    scene.camera.up =
+                        mat3{modelToWorld4x4} * vec3{0.f, 1.f, 0.f};
+                }
+
+                if (node.directionalLight)
+                {
+                    auto &parameters = scene.lights.directionalLight.parameters;
+                    parameters.direction =
+                        vec4{mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
+                }
+
+                if (node.pointLight.has_value())
+                {
+                    PointLight &sceneLight =
+                        scene.lights.pointLights.data[*node.pointLight];
+
+                    sceneLight.position =
+                        modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f};
+                }
+
+                if (node.spotLight.has_value())
+                {
+                    SpotLight &sceneLight =
+                        scene.lights.spotLights.data[*node.spotLight];
+
+                    const vec3 position =
+                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
+                    sceneLight.positionAndAngleOffset.x = position.x;
+                    sceneLight.positionAndAngleOffset.y = position.y;
+                    sceneLight.positionAndAngleOffset.z = position.z;
+
+                    sceneLight.direction =
+                        vec4{mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
+                }
+                parentTransforms.emplace_back(modelToWorld4x4);
+            }
+        }
+    }
+}
 
 void World::updateBuffers(ScopedScratch scopeAlloc)
 {
@@ -857,32 +978,37 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 void World::loadScenes(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
 {
-    HashMap<Scene::Node *, size_t> lights{
-        scopeAlloc, gltfModel.lights.size() * 2};
-    // TODO: More complex nodes
-    _nodes.reserve(gltfModel.nodes.size());
-
+    // Parse raw nodes first so conversion to internal format happens only once
+    // for potential instances
+    Array<Node> nodes{scopeAlloc, gltfModel.nodes.size()};
     for (const tinygltf::Node &gltfNode : gltfModel.nodes)
     {
-        _nodes.emplace_back(_linearAlloc);
-        Scene::Node &node = _nodes.back();
+        nodes.emplace_back(_linearAlloc);
+        Node &node = nodes.back();
 
         node.children.reserve(gltfNode.children.size());
         for (const int child : gltfNode.children)
-            node.children.push_back(&_nodes[child]);
+            node.children.push_back(asserted_cast<uint32_t>(child));
 
         if (gltfNode.mesh > -1)
             node.modelID = gltfNode.mesh;
         if (gltfNode.camera > -1)
         {
-            const auto &cam = gltfModel.cameras[gltfNode.camera];
+            const uint32_t cameraIndex = gltfNode.camera;
+            const auto &cam = gltfModel.cameras[cameraIndex];
             if (cam.type == "perspective")
-                _cameras.insert_or_assign(
-                    &node, CameraParameters{
-                               .fov = static_cast<float>(cam.perspective.yfov),
-                               .zN = static_cast<float>(cam.perspective.znear),
-                               .zF = static_cast<float>(cam.perspective.zfar),
-                           });
+            {
+                if (_cameras.size() <= cameraIndex)
+                    _cameras.resize(cameraIndex + 1);
+
+                _cameras[cameraIndex] = CameraParameters{
+                    .fov = static_cast<float>(cam.perspective.yfov),
+                    .zN = static_cast<float>(cam.perspective.znear),
+                    .zF = static_cast<float>(cam.perspective.zfar),
+                };
+
+                node.camera = cameraIndex;
+            }
             else
                 fprintf(
                     stderr, "Camera type '%s' is not supported\n",
@@ -897,8 +1023,7 @@ void World::loadScenes(
             const auto &light = obj.find("light")->second;
             assert(light.IsInt());
 
-            lights.insert_or_assign(
-                &node, asserted_cast<size_t>(light.GetNumberAsInt()));
+            node.light = asserted_cast<uint32_t>(light.GetNumberAsInt());
         }
         if (gltfNode.matrix.size() == 16)
         {
@@ -918,87 +1043,91 @@ void World::loadScenes(
             node.scale = vec3{make_vec3(gltfNode.scale.data())};
     }
 
+    _currentScene = max(gltfModel.defaultScene, 0);
+
+    struct NodePair
+    {
+        uint32_t tmpNode{0xFFFFFFFF};
+        uint32_t sceneNode{0xFFFFFFFF};
+    };
+    Array<NodePair> nodeStack{scopeAlloc, nodes.size()};
+    // Traverse scene trees and generate actual scene datas
+    // Traverse scenes and generate model instances for snappier rendering
+    // Pre-alloc worst case memory for the stacks since it shouldn't be too much
     _scenes.reserve(gltfModel.scenes.size());
     for (const tinygltf::Scene &gltfScene : gltfModel.scenes)
     {
         _scenes.emplace_back(_linearAlloc);
         Scene &scene = _scenes.back();
 
-        scene.nodes.reserve(gltfScene.nodes.size());
-        for (const int node : gltfScene.nodes)
-            scene.nodes.push_back(&_nodes[node]);
-    }
-    _currentScene = max(gltfModel.defaultScene, 0);
-
-    // Traverse scenes and generate model instances for snappier rendering
-    // Pre-alloc worst case memory for the stacks since it shouldn't be too much
-    Array<Scene::Node *> nodeStack{scopeAlloc, _nodes.size()};
-    Array<mat4> parentTransforms{scopeAlloc, _nodes.size()};
-    wheels::HashSet<Scene::Node *> visited{_linearAlloc, _nodes.size() * 2};
-    parentTransforms.push_back(mat4{1.f});
-    for (auto &scene : _scenes)
-    {
         bool directionalLightFound = false;
 
-        visited.clear();
-        nodeStack.clear();
-        for (Scene::Node *node : scene.nodes)
-            nodeStack.push_back(node);
-
-        while (!nodeStack.empty())
+        for (const int nodeIndex : gltfScene.nodes)
         {
-            auto *node = nodeStack.back();
-            if (visited.find(node) != visited.end())
+            // Our node indices don't match gltf's anymore, push index of the
+            // new node into roots
+            scene.rootNodes.push_back(
+                asserted_cast<uint32_t>(scene.nodes.size()));
+            scene.nodes.emplace_back();
+
+            // Start adding nodes from the new root
+            nodeStack.clear();
+            nodeStack.emplace_back(
+                asserted_cast<uint32_t>(nodeIndex),
+                asserted_cast<uint32_t>(scene.nodes.size() - 1));
+            while (!nodeStack.empty())
             {
-                nodeStack.pop_back();
-                parentTransforms.pop_back();
-            }
-            else
-            {
-                visited.insert(node);
+                const NodePair indices = nodeStack.pop_back();
+                Node &tmpNode = nodes[indices.tmpNode];
 
-                for (Scene::Node *child : node->children)
-                    nodeStack.push_back(child);
+                // Push children to the back of nodes before getting the current
+                // node's reference to avoid it invalidating
+                const uint32_t childCount =
+                    asserted_cast<uint32_t>(tmpNode.children.size());
+                const uint32_t firstChild =
+                    asserted_cast<uint32_t>(scene.nodes.size());
+                // If no children, firstChild <= lastChild false as intended.
+                const uint32_t lastChild = firstChild + childCount - 1;
+                scene.nodes.resize(
+                    scene.nodes.size() + asserted_cast<size_t>(childCount));
 
-                const mat4 modelToWorld4x4 =
-                    parentTransforms.back() *
-                    translate(mat4{1.f}, node->translation) *
-                    mat4_cast(node->rotation) * scale(mat4{1.f}, node->scale);
+                Scene::Node &sceneNode = scene.nodes[indices.sceneNode];
+                sceneNode.firstChild = firstChild;
+                sceneNode.lastChild = lastChild;
 
-                const mat3x4 modelToWorld = transpose(modelToWorld4x4);
-                // No transpose as mat4->mat3x4 effectively does it
-                const mat3x4 normalToWorld = inverse(modelToWorld4x4);
-
-                if (node->modelID != 0xFFFFFFFF)
+                for (uint32_t i = 0; i < childCount; ++i)
                 {
+                    const uint32_t childIndex = sceneNode.firstChild + i;
+                    scene.nodes[childIndex].parent = indices.sceneNode;
+                    nodeStack.emplace_back(
+                        asserted_cast<uint32_t>(tmpNode.children[i]),
+                        asserted_cast<uint32_t>(childIndex));
+                }
+
+                sceneNode.translation = tmpNode.translation;
+                sceneNode.rotation = tmpNode.rotation;
+                sceneNode.scale = tmpNode.scale;
+                sceneNode.modelID = tmpNode.modelID;
+                sceneNode.camera = tmpNode.camera;
+
+                if (sceneNode.modelID.has_value())
+                {
+                    sceneNode.modelInstance =
+                        asserted_cast<uint32_t>(scene.modelInstances.size());
+                    // TODO:
+                    // Why is id needed here? It's just the index in the array
                     scene.modelInstances.push_back(ModelInstance{
-                        .id = asserted_cast<uint32_t>(
-                            scene.modelInstances.size()),
-                        .modelID = node->modelID,
-                        .transforms = {
-                            .modelToWorld = modelToWorld,
-                            .normalToWorld = normalToWorld,
-                        }});
+                        .id = *sceneNode.modelInstance,
+                        .modelID = *sceneNode.modelID,
+                    });
                     scene.rtInstanceCount += asserted_cast<uint32_t>(
-                        _models[node->modelID].subModels.size());
+                        _models[*sceneNode.modelID].subModels.size());
                 }
-                if (CameraParameters *params = _cameras.find(node);
-                    params != nullptr)
+
+                if (tmpNode.light.has_value())
                 {
-                    scene.camera = *params;
-                    scene.camera.eye =
-                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
-                    // TODO: Halfway from camera to scene bb end if inside
-                    // bb / halfway of bb if outside of bb?
-                    scene.camera.target =
-                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, -1.f, 1.f}};
-                    scene.camera.up =
-                        mat3{modelToWorld4x4} * vec3{0.f, 1.f, 0.f};
-                }
-                if (size_t const *light_i = lights.find(node);
-                    light_i != nullptr)
-                {
-                    const auto &light = gltfModel.lights[*light_i];
+                    const tinygltf::Light &light =
+                        gltfModel.lights[*tmpNode.light];
                     if (light.type == "directional")
                     {
                         if (directionalLightFound)
@@ -1018,8 +1147,8 @@ void World::loadScenes(
                                 static_cast<float>(light.color[1]),
                                 static_cast<float>(light.color[2]), 0.f} *
                             static_cast<float>(light.intensity);
-                        parameters.direction = vec4{
-                            mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
+
+                        sceneNode.directionalLight = true;
                         directionalLightFound = true;
                     }
                     else if (light.type == "point")
@@ -1039,15 +1168,17 @@ void World::loadScenes(
                             light.range > 0.f ? light.range
                                               : sqrt(luminance / minLuminance);
 
+                        sceneNode.pointLight = asserted_cast<uint32_t>(
+                            scene.lights.pointLights.data.size());
                         scene.lights.pointLights.data.emplace_back();
                         auto &sceneLight = scene.lights.pointLights.data.back();
 
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
-                        sceneLight.position =
-                            modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
+                        sceneNode.spotLight = asserted_cast<uint32_t>(
+                            scene.lights.spotLights.data.size());
                         scene.lights.spotLights.data.emplace_back();
                         auto &sceneLight = scene.lights.spotLights.data.back();
 
@@ -1073,12 +1204,7 @@ void World::loadScenes(
                             4.f * glm::pi<float>();
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
-                        sceneLight.positionAndAngleOffset =
-                            modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
-
-                        sceneLight.direction = vec4{
-                            mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
                     }
                     else
                     {
@@ -1087,7 +1213,6 @@ void World::loadScenes(
                             light.type.c_str());
                     }
                 }
-                parentTransforms.emplace_back(modelToWorld4x4);
             }
         }
 

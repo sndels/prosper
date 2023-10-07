@@ -24,6 +24,8 @@ struct PerspectiveParameters
     float zF{100.f};
 };
 
+// TODO:
+// Split transform from other parameters as it comes from the scene graph
 struct CameraParameters
 {
     glm::vec3 eye{1.f, 0.5f, 1.f};
@@ -75,6 +77,9 @@ class Camera
 
     void init(CameraParameters const &params);
 
+    void setFreeLook(bool value);
+    bool isFreeLook() const;
+
     void lookAt(
         const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
     void perspective(const PerspectiveParameters &params, float ar);
@@ -120,6 +125,7 @@ class Camera
     RingBuffer *_constantsRing{nullptr};
 
     CameraParameters _parameters;
+    bool _isFreeLook{false};
     uint32_t _parametersByteOffset{0xFFFFFFFF};
     float _apertureDiameter{0.00001f};
     float _focusDistance{1.f};

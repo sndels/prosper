@@ -63,7 +63,9 @@ class World
 
     void drawDeferredLoadingUi() const;
 
+    [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
+    void updateScene(wheels::ScopedScratch scopeAlloc, Profiler *profiler);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers()
     void buildCurrentTlas(vk::CommandBuffer cb);
@@ -78,7 +80,7 @@ class World
     TextureCubemap _skyboxTexture;
     Buffer _skyboxVertexBuffer;
 
-    wheels::HashMap<Scene::Node *, CameraParameters> _cameras{_generalAlloc};
+    wheels::Array<CameraParameters> _cameras{_generalAlloc};
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
@@ -90,9 +92,9 @@ class World
     wheels::Array<AccelerationStructure> _blases{_generalAlloc};
     wheels::Array<AccelerationStructure> _tlases{_generalAlloc};
     wheels::Array<Model> _models{_generalAlloc};
-    wheels::Array<Scene::Node> _nodes{_generalAlloc};
     wheels::Array<Scene> _scenes{_generalAlloc};
     size_t _currentScene{0};
+    uint32_t _currentCamera{0};
 
     DSLayouts _dsLayouts;
 

@@ -48,6 +48,10 @@ void Camera::init(CameraParameters const &params)
     updateWorldToCamera();
 }
 
+void Camera::setFreeLook(bool value) { _isFreeLook = value; }
+
+bool Camera::isFreeLook() const { return _isFreeLook; }
+
 void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
 {
     _parameters = CameraParameters{

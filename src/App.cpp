@@ -540,7 +540,18 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         .extent = _viewportExtent,
     };
 
+    _world->updateScene(scopeAlloc.child_scope(), _profiler.get());
+
     _world->uploadMaterialDatas(nextFrame);
+
+    if (!_cam->isFreeLook())
+    {
+        const CameraParameters &params = _world->currentScene().camera;
+        _cam->lookAt(params.eye, params.target, params.up);
+    }
+    // Set free look after first update to get the initial pose set after it's
+    // sampled in updateScene()
+    _cam->setFreeLook(true);
 
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
