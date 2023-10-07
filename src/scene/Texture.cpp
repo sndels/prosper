@@ -187,10 +187,18 @@ void compress(
     const uint32_t mipLevelCount =
         asserted_cast<uint32_t>(std::max(fullMipLevelCount - 2, 1));
 
-    const DxgiFormat format =
-        (pixels.extent.width >= 4 && pixels.extent.height >= 4)
-            ? DxgiFormat::BC7Unorm
-            : DxgiFormat::R8G8B8A8Unorm;
+    DxgiFormat format = DxgiFormat::BC7Unorm;
+    // All BC7 levels have to divide evenly by 4 in both directions
+    for (uint32_t i = 0; i < mipLevelCount; ++i)
+    {
+        if (std::max(pixels.extent.width >> i, 1u) % 4 != 0 ||
+            std::max(pixels.extent.height >> i, 1u) % 4 != 0)
+        {
+            format = DxgiFormat::R8G8B8A8Unorm;
+            break;
+        }
+    }
+
     Dds dds{
         scopeAlloc, pixels.extent.width, pixels.extent.height, format,
         mipLevelCount};
@@ -243,9 +251,21 @@ void compress(
     }
     else
     {
-        assert(format == DxgiFormat::R8G8B8A8Unorm);
-        assert(mipLevelCount == 1);
-        memcpy(dds.data.data(), pixels.data, dds.data.size());
+        Array<uint8_t> rawLevels{scopeAlloc};
+        const size_t inputSize = asserted_cast<size_t>(pixels.extent.width) *
+                                 asserted_cast<size_t>(pixels.extent.height) *
+                                 4;
+        rawLevels.resize(inputSize * 2);
+
+        memcpy(rawLevels.data(), pixels.data, inputSize);
+
+        Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
+        rawLevelByteOffsets.resize(mipLevelCount);
+        if (mipLevelCount > 1)
+            generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
+
+        assert(dds.data.size() <= rawLevels.size());
+        memcpy(dds.data.data(), rawLevels.data(), dds.data.size());
     }
 
     writeDds(dds, targetPath);
