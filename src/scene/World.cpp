@@ -108,15 +108,17 @@ Buffer createSkyboxVertexBuffer(Device *device)
     });
 }
 
-constexpr vk::TransformMatrixKHR convertTransform(const glm::mat4 &trfn)
+// TODO:
+// memcpy directly into the vk::AccelerationStructureInstanceKHR for speed?
+vk::TransformMatrixKHR convertTransform(const glm::mat3x4 &trfn)
 {
-    return vk::TransformMatrixKHR{
-        .matrix = {{
-            std::array{trfn[0][0], trfn[1][0], trfn[2][0], trfn[3][0]},
-            std::array{trfn[0][1], trfn[1][1], trfn[2][1], trfn[3][1]},
-            std::array{trfn[0][2], trfn[1][2], trfn[2][2], trfn[3][2]},
-        }},
-    };
+    vk::TransformMatrixKHR ret;
+    static_assert(sizeof(ret) == sizeof(trfn));
+
+    VkTransformMatrixKHR &khrMat = ret;
+    memcpy(&khrMat.matrix[0][0], &trfn[0][0], sizeof(khrMat.matrix));
+
+    return ret;
 }
 
 constexpr vk::Filter getVkFilterMode(int glEnum)
@@ -930,12 +932,15 @@ void World::loadScenes(
                 for (Scene::Node *child : node->children)
                     nodeStack.push_back(child);
 
-                const mat4 modelToWorld =
+                const mat4 modelToWorld4x4 =
                     parentTransforms.back() *
                     translate(mat4{1.f}, node->translation) *
                     mat4_cast(node->rotation) * scale(mat4{1.f}, node->scale);
 
-                const auto normalToWorld = transpose(inverse(modelToWorld));
+                const mat3x4 modelToWorld = transpose(modelToWorld4x4);
+                // No transpose as mat4->mat3x4 effectively does it
+                const mat3x4 normalToWorld = inverse(modelToWorld4x4);
+
                 if (node->modelID != 0xFFFFFFFF)
                 {
                     scene.modelInstances.push_back(ModelInstance{
@@ -954,12 +959,13 @@ void World::loadScenes(
                 {
                     scene.camera = *params;
                     scene.camera.eye =
-                        vec3{modelToWorld * vec4{0.f, 0.f, 0.f, 1.f}};
+                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
                     scene.camera.target =
-                        vec3{modelToWorld * vec4{0.f, 0.f, -1.f, 1.f}};
-                    scene.camera.up = mat3{modelToWorld} * vec3{0.f, 1.f, 0.f};
+                        vec3{modelToWorld4x4 * vec4{0.f, 0.f, -1.f, 1.f}};
+                    scene.camera.up =
+                        mat3{modelToWorld4x4} * vec3{0.f, 1.f, 0.f};
                 }
                 if (size_t const *light_i = lights.find(node);
                     light_i != nullptr)
@@ -985,7 +991,7 @@ void World::loadScenes(
                                 static_cast<float>(light.color[2]), 0.f} *
                             static_cast<float>(light.intensity);
                         parameters.direction = vec4{
-                            mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
+                            mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
                         directionalLightFound = true;
                     }
                     else if (light.type == "point")
@@ -1010,7 +1016,7 @@ void World::loadScenes(
 
                         sceneLight.radianceAndRadius = vec4{radiance, radius};
                         sceneLight.position =
-                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f};
                     }
                     else if (light.type == "spot")
                     {
@@ -1040,11 +1046,11 @@ void World::loadScenes(
                         sceneLight.radianceAndAngleScale.w = angleScale;
 
                         sceneLight.positionAndAngleOffset =
-                            modelToWorld * vec4{0.f, 0.f, 0.f, 1.f};
+                            modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f};
                         sceneLight.positionAndAngleOffset.w = angleOffset;
 
                         sceneLight.direction = vec4{
-                            mat3{modelToWorld} * vec3{0.f, 0.f, -1.f}, 0.f};
+                            mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
                     }
                     else
                     {
@@ -1053,7 +1059,7 @@ void World::loadScenes(
                             light.type.c_str());
                     }
                 }
-                parentTransforms.emplace_back(modelToWorld);
+                parentTransforms.emplace_back(modelToWorld4x4);
             }
         }
 

@@ -5,8 +5,8 @@
 
 struct Transforms
 {
-    mat4 modelToWorld;
-    mat4 normalToWorld;
+    mat3x4 modelToWorld;
+    mat3x4 normalToWorld;
 };
 layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
     ModelInstanceTransformsDSB
@@ -18,13 +18,14 @@ modelInstanceTransforms;
 Vertex transform(Vertex v, Transforms t)
 {
     Vertex ret;
-    ret.Position = (t.modelToWorld * vec4(v.Position, 1.0)).xyz;
-    ret.Normal = normalize(mat3(t.normalToWorld) * v.Normal);
+    // 3x4 SRT multiplies from the right
+    ret.Position = (vec4(v.Position, 1.0) * t.modelToWorld).xyz;
+    ret.Normal = normalize(v.Normal * mat3(t.normalToWorld));
 
     // No point in generating normal basis here if no tangent is supplied
     if (v.Tangent.w != 0)
         ret.Tangent =
-            vec4(normalize(mat3(t.modelToWorld) * v.Tangent.xyz), v.Tangent.w);
+            vec4(normalize(v.Tangent.xyz * mat3(t.modelToWorld)), v.Tangent.w);
     else
         ret.Tangent = v.Tangent;
 
