@@ -373,6 +373,8 @@ World::~World()
     _device->destroy(_meshBuffersBuffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
+
+    _device->destroy(_scratchBuffer);
 }
 
 void World::startFrame() const
@@ -1193,21 +1195,11 @@ void World::createBlases()
 
         buildInfo.dstAccelerationStructure = blas.handle;
 
-        // TODO: Reuse and grow scratch
-        const auto scratchBuffer = _device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = sizeInfo.buildScratchSize,
-                    .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .debugName = "ScratchBuffer",
-        });
+        reserveScratch(sizeInfo.buildScratchSize);
 
         buildInfo.scratchData =
             _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = scratchBuffer.handle,
+                .buffer = _scratchBuffer.handle,
             });
 
         const auto cb = _device->beginGraphicsCommands();
@@ -1217,8 +1209,6 @@ void World::createBlases()
         cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
 
         _device->endGraphicsCommands(cb);
-
-        _device->destroy(scratchBuffer);
     }
 }
 
@@ -1332,21 +1322,11 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         buildInfo.dstAccelerationStructure = tlas.handle;
 
-        // TODO: Reuse and grow scratch
-        const auto scratchBuffer = _device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = sizeInfo.buildScratchSize,
-                    .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .debugName = "ScratchBuffer",
-        });
+        reserveScratch(sizeInfo.buildScratchSize);
 
         buildInfo.scratchData =
             _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = scratchBuffer.handle,
+                .buffer = _scratchBuffer.handle,
             });
 
         const auto cb = _device->beginGraphicsCommands();
@@ -1359,8 +1339,24 @@ void World::createTlases(ScopedScratch scopeAlloc)
 
         _device->endGraphicsCommands(cb);
 
-        _device->destroy(scratchBuffer);
         _device->destroy(instancesBuffer);
+    }
+}
+void World::reserveScratch(vk::DeviceSize byteSize)
+{
+    if (_scratchBuffer.byteSize < byteSize)
+    {
+        _device->destroy(_scratchBuffer);
+        _scratchBuffer = _device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = byteSize,
+                    .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .debugName = "ScratchBuffer",
+        });
     }
 }
 

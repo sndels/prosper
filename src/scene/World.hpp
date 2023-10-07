@@ -176,6 +176,7 @@ class World
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
     void createBlases();
     void createTlases(wheels::ScopedScratch scopeAlloc);
+    void reserveScratch(vk::DeviceSize byteSize);
     void createBuffers();
     void reflectBindings(wheels::ScopedScratch scopeAlloc);
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
@@ -190,6 +191,8 @@ class World
 
     Device *_device{nullptr};
     DescriptorAllocator _descriptorAllocator;
+
+    Buffer _scratchBuffer;
 };
 
 #endif // PROSPER_SCENE_WORLD_HPP
