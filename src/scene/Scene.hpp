@@ -16,15 +16,16 @@ struct Scene
     static const uint32_t sDirectionalLight = 0xFFFFFFFF;
 
     // TODO:
-    // More cache friendly storage?
+    // More cache/memory friendly storage?
+    // Shared bitfield for populated members instead of optionals?
     struct Node
     {
-        wheels::Optional<uint32_t> parent;
         uint32_t firstChild{0};
         uint32_t lastChild{0};
-        glm::vec3 translation{0.f};
-        glm::quat rotation{1.f, 0.f, 0.f, 0.f};
-        glm::vec3 scale{1.f};
+        wheels::Optional<uint32_t> parent;
+        wheels::Optional<glm::vec3> translation;
+        wheels::Optional<glm::quat> rotation;
+        wheels::Optional<glm::vec3> scale;
         wheels::Optional<uint32_t> modelID;
         wheels::Optional<uint32_t> modelInstance;
         wheels::Optional<uint32_t> camera;

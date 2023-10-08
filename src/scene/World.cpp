@@ -271,9 +271,9 @@ void loadingWorker(
 struct Node
 {
     Array<uint32_t> children;
-    glm::vec3 translation{0.f};
-    glm::quat rotation{1.f, 0.f, 0.f, 0.f};
-    glm::vec3 scale{1.f};
+    Optional<vec3> translation;
+    Optional<quat> rotation;
+    Optional<vec3> scale;
     Optional<uint32_t> modelID;
     Optional<uint32_t> camera;
     Optional<uint32_t> light;
@@ -510,12 +510,14 @@ void World::updateScene(ScopedScratch scopeAlloc, Profiler *profiler)
                 for (uint32_t child = first_child; child <= last_child; ++child)
                     nodeStack.push_back(child);
 
-                // TODO:
-                // Skip identity SRT components?
-                const mat4 modelToWorld4x4 =
-                    parentTransforms.back() *
-                    translate(mat4{1.f}, node.translation) *
-                    mat4_cast(node.rotation) * scale(mat4{1.f}, node.scale);
+                mat4 modelToWorld4x4 = parentTransforms.back();
+                if (node.translation.has_value())
+                    modelToWorld4x4 =
+                        translate(modelToWorld4x4, *node.translation);
+                if (node.rotation.has_value())
+                    modelToWorld4x4 *= mat4_cast(*node.rotation);
+                if (node.scale.has_value())
+                    modelToWorld4x4 = scale(modelToWorld4x4, *node.scale);
 
                 const mat3x4 modelToWorld = transpose(modelToWorld4x4);
                 // No transpose as mat4->mat3x4 effectively does it
@@ -1025,22 +1027,40 @@ void World::loadScenes(
 
             node.light = asserted_cast<uint32_t>(light.GetNumberAsInt());
         }
+
+        vec3 translation{0.f};
+        vec3 scale{1.f};
+        quat rotation{1.f, 0.f, 0.f, 0.f};
         if (gltfNode.matrix.size() == 16)
         {
             // Spec defines the matrix to be decomposeable to T * R * S
             const auto matrix = mat4{make_mat4(gltfNode.matrix.data())};
             vec3 skew;
             vec4 perspective;
-            decompose(
-                matrix, node.scale, node.rotation, node.translation, skew,
-                perspective);
+            decompose(matrix, scale, rotation, translation, skew, perspective);
         }
         if (gltfNode.translation.size() == 3)
-            node.translation = vec3{make_vec3(gltfNode.translation.data())};
+            translation = vec3{make_vec3(gltfNode.translation.data())};
         if (gltfNode.rotation.size() == 4)
-            node.rotation = make_quat(gltfNode.rotation.data());
+            rotation = make_quat(gltfNode.rotation.data());
         if (gltfNode.scale.size() == 3)
-            node.scale = vec3{make_vec3(gltfNode.scale.data())};
+            scale = vec3{make_vec3(gltfNode.scale.data())};
+
+        // Skip transform components that are close to identity
+        const float srtThreshold = 0.001f;
+
+        if (any(lessThan(translation, vec3{-srtThreshold})) ||
+            any(greaterThan(translation, vec3{srtThreshold})))
+            node.translation = translation;
+
+        const vec3 eulers = eulerAngles(rotation);
+        if (any(lessThan(eulers, vec3{-srtThreshold})) ||
+            any(greaterThan(eulers, vec3{srtThreshold})))
+            node.rotation = rotation;
+
+        if (any(lessThan(scale, vec3{1.f - srtThreshold})) ||
+            any(greaterThan(scale, vec3{1.f + srtThreshold})))
+            node.scale = scale;
     }
 
     _currentScene = max(gltfModel.defaultScene, 0);
