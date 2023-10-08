@@ -96,6 +96,7 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
     TINYGLTF_NO_EXTERNAL_IMAGE
+    GLM_FORCE_XYZW_ONLY
     ${LIVEPP_DEFINE}
 
     # Set up absolute path to resources and binaries
@@ -105,12 +106,13 @@ target_compile_definitions(prosper
 if(PROSPER_USE_PCH)
     target_precompile_headers(prosper
         PRIVATE
+
+        # Don't include glm because we have force xyzw only and gli uses rgba
         [["chrono"]]
         [["filesystem"]]
         [["fstream"]]
         [["variant"]]
         [["functional"]]
-        [["glm/glm.hpp"]] # Don't include glm/gtc/type_ptr as gli implements its own make_vec4 and having a header in pch makes it visible everywhere
         [["vulkan/vulkan.hpp"]]
         [["vulkan/vulkan_hash.hpp"]]
     )

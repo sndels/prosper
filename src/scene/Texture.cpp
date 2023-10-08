@@ -5,7 +5,11 @@
 #include <iostream>
 #include <variant>
 
+// GLI uses rgba accesses
+#undef GLM_FORCE_XYZW_ONLY
 #include <gli/gli.hpp>
+#define GLM_FORCE_XYZW_ONLY
+
 #include <ispc_texcomp.h>
 #include <stb_image.h>
 #include <tiny_gltf.h>
