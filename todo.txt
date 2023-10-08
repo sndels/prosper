@@ -28,3 +28,9 @@
   - scratch buffer
   - TLAS instances
   - shader binding table
+- Allocator debug in wheels
+  - Cstdlib allocator is fine as is, should use asan/valgrind to catch issues
+  - Track freed pointers?
+    - Linear allocator doesn't know sizes, needs extra debug tracking
+  - Fill freed memory with a known value?
+    - Should run into asserts immediately if resulting values are large enough
