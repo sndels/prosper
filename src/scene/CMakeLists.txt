@@ -1,4 +1,5 @@
 set(PROSPER_SCENE_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/Animations.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Accessors.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugDrawTypes.hpp
