@@ -1,4 +1,5 @@
 set(PROSPER_SCENE_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/Accessors.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugDrawTypes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.hpp
@@ -13,6 +14,7 @@ set(PROSPER_SCENE_INCLUDES
 )
 
 set(PROSPER_SCENE_SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/Accessors.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.cpp
