@@ -131,7 +131,7 @@ void generateMipLevels(
         const uint32_t parentRowStride = parentWidth * pixelStride;
 
         rawLevelByteOffsets[level] =
-            rawLevelByteOffsets[level - 1] + parentWidth * parentRowStride;
+            rawLevelByteOffsets[level - 1] + parentHeight * parentRowStride;
 
         const uint8_t *parentData = reinterpret_cast<uint8_t *>(
             rawLevels.data() + rawLevelByteOffsets[level - 1]);
