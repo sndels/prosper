@@ -4,6 +4,7 @@
 #include "../gfx/RingBuffer.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Timer.hpp"
+#include "Animations.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "Model.hpp"
@@ -92,6 +93,8 @@ class World
     wheels::Array<AccelerationStructure> _blases{_generalAlloc};
     wheels::Array<AccelerationStructure> _tlases{_generalAlloc};
     wheels::Array<Model> _models{_generalAlloc};
+    wheels::Array<uint8_t> _rawAnimationData{_generalAlloc};
+    Animations _animations{_generalAlloc};
     wheels::Array<Scene> _scenes{_generalAlloc};
     size_t _currentScene{0};
     uint32_t _currentCamera{0};
@@ -176,6 +179,17 @@ class World
         const wheels::Array<Texture2DSampler> &texture2DSamplers,
         bool deferredLoading);
     void loadModels(const tinygltf::Model &gltfModel);
+
+    struct NodeAnimations
+    {
+        wheels::Optional<Animation<glm::vec3> *> translation;
+        wheels::Optional<Animation<glm::quat> *> rotation;
+        wheels::Optional<Animation<glm::vec3> *> scale;
+    };
+    wheels::HashMap<uint32_t, NodeAnimations> loadAnimations(
+        wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
+        const tinygltf::Model &gltfModel);
+
     void loadScenes(
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
     void createBlases();

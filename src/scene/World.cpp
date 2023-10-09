@@ -268,6 +268,27 @@ void loadingWorker(
     }
 }
 
+// Appends data used by accessor to rawData and returns the pointer to it
+const uint8_t *appendAccessorData(
+    Array<uint8_t> &rawData, const tinygltf::Accessor &accessor,
+    const tinygltf::Model &model)
+{
+
+    const tinygltf::BufferView &view = model.bufferViews[accessor.bufferView];
+    const uint32_t offset =
+        asserted_cast<uint32_t>(accessor.byteOffset + view.byteOffset);
+
+    assert(view.buffer >= 0);
+    const tinygltf::Buffer buffer = model.buffers[view.buffer];
+
+    const uint8_t *ret = rawData.data() + rawData.size();
+
+    const uint8_t *source = &buffer.data[offset];
+    rawData.extend(Span<const uint8_t>{source, view.byteLength});
+
+    return ret;
+}
+
 struct Node
 {
     Array<uint32_t> children;
@@ -334,8 +355,14 @@ World::World(
     tl("Material loading",
        [&]() { loadMaterials(gltfModel, texture2DSamplers, deferredLoading); });
     tl("Model loading ", [&]() { loadModels(gltfModel); });
-    tl("Scene loading ",
-       [&]() { loadScenes(scopeAlloc.child_scope(), gltfModel); });
+    tl("Animation and scene loading ",
+       [&]()
+       {
+           const HashMap<uint32_t, NodeAnimations> nodeAnimations =
+               loadAnimations(
+                   _generalAlloc, scopeAlloc.child_scope(), gltfModel);
+           loadScenes(scopeAlloc.child_scope(), gltfModel);
+       });
 
     tl("BLAS creation", [&]() { createBlases(); });
     tl("TLAS creation", [&]() { createTlases(scopeAlloc.child_scope()); });
@@ -975,6 +1002,166 @@ void World::loadModels(const tinygltf::Model &gltfModel)
         .initialData = _meshBuffers.data(),
         .debugName = "MeshBuffersBuffer",
     });
+}
+
+HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
+    Allocator &alloc, ScopedScratch scopeAlloc,
+    const tinygltf::Model &gltfModel)
+{
+    // First find out the amount of memory we need to copy over all the
+    // animation data. We need to do that before parsing animations because
+    // we'll store pointers to the raw data and it can't be resized during/after
+    // the gather.
+    // Also gather sizes for the animation arrays because we'll store pointers
+    // to them in the map.
+    uint32_t totalAnimationBytes = 0;
+    uint32_t totalVec3Animations = 0;
+    uint32_t totalQuatAnimations = 0;
+    for (const tinygltf::Animation &animation : gltfModel.animations)
+    {
+        for (const tinygltf::AnimationSampler &sampler : animation.samplers)
+        {
+            {
+                const tinygltf::Accessor &accessor =
+                    gltfModel.accessors[sampler.input];
+                const tinygltf::BufferView &view =
+                    gltfModel.bufferViews[accessor.bufferView];
+                totalAnimationBytes += asserted_cast<uint32_t>(view.byteLength);
+            }
+            {
+                const tinygltf::Accessor &accessor =
+                    gltfModel.accessors[sampler.output];
+                const tinygltf::BufferView &view =
+                    gltfModel.bufferViews[accessor.bufferView];
+                totalAnimationBytes += asserted_cast<uint32_t>(view.byteLength);
+                if (accessor.type == TINYGLTF_TYPE_VEC3)
+                    totalVec3Animations++;
+                else if (accessor.type == TINYGLTF_TYPE_VEC4)
+                    // Only quaternion animations are currently sampled from
+                    // vec4 outputs
+                    totalQuatAnimations++;
+            }
+        }
+    }
+
+    // Init empty animations for all nodes and avoid resizes by safe upper bound
+    const uint32_t gltfNodeCount =
+        asserted_cast<uint32_t>(gltfModel.nodes.size());
+    HashMap<uint32_t, NodeAnimations> ret{
+        alloc, asserted_cast<size_t>(gltfNodeCount) * 2};
+    for (uint32_t i = 0; i < gltfNodeCount; ++i)
+        ret.insert_or_assign(i, NodeAnimations{});
+
+    // Now reserve the data so that our pointers are stable when we push the
+    // data
+    _rawAnimationData.reserve(totalAnimationBytes);
+    _animations._vec3.reserve(totalVec3Animations);
+    _animations._quat.reserve(totalQuatAnimations);
+    for (const tinygltf::Animation &animation : gltfModel.animations)
+    {
+        // Map loaded animations to indices in gltf samplers
+        // We know the types of these based on the target property so let's do
+        // the dirty casts to void and back to store them
+        Array<void *> concreteAnimations{scopeAlloc, animation.channels.size()};
+        const size_t samplerCount = animation.samplers.size();
+        for (size_t si = 0; si < samplerCount; ++si)
+        {
+            const tinygltf::AnimationSampler &sampler = animation.samplers[si];
+
+            InterpolationType interpolation{InterpolationType::Step};
+            if (sampler.interpolation == "STEP")
+                interpolation = InterpolationType::Step;
+            else if (sampler.interpolation == "LINEAR")
+                interpolation = InterpolationType::Linear;
+            else if (sampler.interpolation == "CUBICSPLINE")
+                interpolation = InterpolationType::CubicSpline;
+            else
+                assert(!"Unsupported interpolation type");
+
+            const tinygltf::Accessor &inputAccessor =
+                gltfModel.accessors[sampler.input];
+            assert(!inputAccessor.sparse.isSparse);
+            assert(
+                inputAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+            assert(inputAccessor.type == TINYGLTF_TYPE_SCALAR);
+
+            // TODO:
+            // Share data for accessors that use the same bytes?
+            const float *timesPtr =
+                reinterpret_cast<const float *>(appendAccessorData(
+                    _rawAnimationData, inputAccessor, gltfModel));
+
+            assert(inputAccessor.minValues.size() == 1);
+            assert(inputAccessor.maxValues.size() == 1);
+            TimeAccessor timeFrames{
+                timesPtr, asserted_cast<uint32_t>(inputAccessor.count),
+                TimeAccessor::Interval{
+                    .startTimeS =
+                        static_cast<float>(inputAccessor.minValues[0]),
+                    .endTimeS = static_cast<float>(inputAccessor.maxValues[0]),
+                }};
+
+            const tinygltf::Accessor &outputAccessor =
+                gltfModel.accessors[sampler.output];
+            assert(!outputAccessor.sparse.isSparse);
+            assert(
+                outputAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+
+            // TODO:
+            // Share data for accessors that use the same bytes?
+            const uint8_t *valuesPtr = appendAccessorData(
+                _rawAnimationData, outputAccessor, gltfModel);
+
+            if (outputAccessor.type == TINYGLTF_TYPE_VEC3)
+            {
+                ValueAccessor<vec3> valueFrames{
+                    valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
+
+                _animations._vec3.emplace_back(
+                    _generalAlloc, interpolation, WHEELS_MOV(timeFrames),
+                    WHEELS_MOV(valueFrames));
+
+                concreteAnimations.push_back(
+                    static_cast<void *>(&_animations._vec3.back()));
+            }
+            else if (outputAccessor.type == TINYGLTF_TYPE_VEC4)
+            {
+                ValueAccessor<quat> valueFrames{
+                    valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
+
+                _animations._quat.emplace_back(
+                    _generalAlloc, interpolation, WHEELS_MOV(timeFrames),
+                    WHEELS_MOV(valueFrames));
+
+                concreteAnimations.push_back(
+                    static_cast<void *>(&_animations._quat.back()));
+            }
+            else
+                assert(!"Unsupported animation output type");
+        }
+
+        for (const tinygltf::AnimationChannel &channel : animation.channels)
+        {
+            NodeAnimations *targetAnimations = ret.find(channel.target_node);
+            // These should have been initialized earlier
+            assert(targetAnimations != nullptr);
+            if (channel.target_path == "translation")
+                targetAnimations->translation = static_cast<Animation<vec3> *>(
+                    concreteAnimations[channel.sampler]);
+            else if (channel.target_path == "rotation")
+                targetAnimations->rotation = static_cast<Animation<quat> *>(
+                    concreteAnimations[channel.sampler]);
+            else if (channel.target_path == "scale")
+                targetAnimations->scale = static_cast<Animation<vec3> *>(
+                    concreteAnimations[channel.sampler]);
+            else
+                fprintf(
+                    stderr, "Unknown channel path'%s'\n",
+                    channel.target_path.c_str());
+        }
+    }
+
+    return ret;
 }
 
 void World::loadScenes(

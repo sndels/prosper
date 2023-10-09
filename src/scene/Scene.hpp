@@ -45,6 +45,7 @@ struct Scene
 
     wheels::Array<Node> nodes;
     wheels::Array<uint32_t> rootNodes;
+    float endTimeS{0.f};
 
     wheels::Array<ModelInstance> modelInstances;
 
