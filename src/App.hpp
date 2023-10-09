@@ -60,6 +60,8 @@ class App
     uint32_t nextSwapchainImage(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
 
+    float currentTimelineTimeS() const;
+
     void capFramerate();
 
     struct UiChanges
@@ -76,6 +78,8 @@ class App
         wheels::ScopedScratch scopeAlloc,
         const wheels::Array<Profiler::ScopeData> &profilerDatas);
     void drawMemory(uint32_t scopeHighWatermark);
+    // Returns true if time was tweaked
+    bool drawTimeline();
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 
@@ -144,6 +148,10 @@ class App
     bool _textureDebugActive{false};
     bool _drawUi{true};
     bool _forceViewportRecreate{false};
+
+    std::chrono::high_resolution_clock::time_point _lastTimeChange;
+    float _timeOffsetS{0.f};
+    bool _isPlaying{false};
 
     uint32_t _ctorScratchHighWatermark{0};
 

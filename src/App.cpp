@@ -180,6 +180,7 @@ void App::run()
 {
     LinearAllocator scopeBackingAlloc{megabytes(16)};
     Timer updateDelta;
+    _lastTimeChange = std::chrono::high_resolution_clock::now();
     while (_window->open())
     {
         _profiler->startCpuFrame();
@@ -540,6 +541,9 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         .extent = _viewportExtent,
     };
 
+    const float timeS = currentTimelineTimeS();
+    _world->updateAnimations(timeS, _profiler.get());
+
     _world->updateScene(scopeAlloc.child_scope(), _profiler.get());
 
     _world->uploadMaterialDatas(nextFrame);
@@ -624,6 +628,20 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
     return *nextImage;
 }
 
+float App::currentTimelineTimeS() const
+{
+    if (!_isPlaying)
+        return _timeOffsetS;
+
+    const auto now = std::chrono::high_resolution_clock::now();
+
+    const std::chrono::duration<float> dt = now - _lastTimeChange;
+    const float deltaS = dt.count();
+
+    const float timeS = deltaS + _timeOffsetS;
+    return timeS;
+}
+
 void App::capFramerate()
 {
     // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
@@ -655,6 +673,9 @@ App::UiChanges App::drawUi(
     drawProfiling(scopeAlloc.child_scope(), profilerDatas);
 
     drawMemory(scopeHighWatermark);
+
+    ret.rtDirty |= _isPlaying;
+    ret.rtDirty |= drawTimeline();
 
     return ret;
 }
@@ -883,6 +904,80 @@ void App::drawMemory(uint32_t scopeHighWatermark)
         asserted_cast<uint32_t>(allocStats.free_byte_count / 1000));
 
     ImGui::End();
+}
+
+bool App::drawTimeline()
+{
+    bool timeTweaked = false;
+    const Scene &scene = _world->currentScene();
+    if (scene.endTimeS > 0.f)
+    {
+        ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2{400, 50}, ImGuiCond_Appearing);
+        ImGui::Begin(
+            "Animation timeline", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        // Fit slider to the window
+        const ImVec2 region = ImGui::GetContentRegionAvail();
+        ImGui::PushItemWidth(region.x);
+
+        float timeS = currentTimelineTimeS();
+        if (ImGui::SliderFloat(
+                "##TimelineTime", &timeS, 0.f, scene.endTimeS, "%.3fs"))
+        {
+            _lastTimeChange = std::chrono::high_resolution_clock::now();
+            _timeOffsetS = timeS;
+            _timeOffsetS = std::clamp(timeS, 0.f, scene.endTimeS);
+            timeTweaked = true;
+        }
+
+        ImGui::PopItemWidth();
+
+        if (currentTimelineTimeS() > scene.endTimeS)
+        {
+            _lastTimeChange = std::chrono::high_resolution_clock::now();
+            _timeOffsetS = 0.f;
+            timeTweaked = true;
+        }
+
+        const float buttonWidth = 30.f;
+        if (ImGui::Button("|<", ImVec2(buttonWidth, 0)))
+        {
+            _lastTimeChange = std::chrono::high_resolution_clock::now();
+            _timeOffsetS = 0;
+            timeTweaked = true;
+        }
+
+        ImGui::SameLine();
+        if (_isPlaying)
+        {
+            if (ImGui::Button("||", ImVec2(buttonWidth, 0)))
+            {
+                _isPlaying = false;
+                _lastTimeChange = std::chrono::high_resolution_clock::now();
+                _timeOffsetS = timeS;
+                timeTweaked = true;
+            }
+        }
+        else if (ImGui::Button(">", ImVec2(buttonWidth, 0)))
+        {
+            _isPlaying = true;
+            _lastTimeChange = std::chrono::high_resolution_clock::now();
+            timeTweaked = true;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button(">|", ImVec2(buttonWidth, 0)))
+        {
+            _lastTimeChange = std::chrono::high_resolution_clock::now();
+            _timeOffsetS = scene.endTimeS;
+            timeTweaked = true;
+        }
+
+        ImGui::End();
+    }
+
+    return timeTweaked;
 }
 
 void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
