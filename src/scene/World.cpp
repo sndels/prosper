@@ -500,6 +500,18 @@ Scene &World::currentScene() { return _scenes[_currentScene]; }
 
 const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
+void World::updateAnimations(float timeS, Profiler *profiler)
+{
+    assert(profiler != nullptr);
+
+    auto _s = profiler->createCpuScope("World::updateAnimations");
+
+    for (Animation<vec3> &animation : _animations._vec3)
+        animation.update(timeS);
+    for (Animation<quat> &animation : _animations._quat)
+        animation.update(timeS);
+}
+
 void World::updateScene(ScopedScratch scopeAlloc, Profiler *profiler)
 {
     assert(profiler != nullptr);

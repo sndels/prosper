@@ -66,6 +66,8 @@ class World
 
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
+    void updateAnimations(float timeS, Profiler *profiler);
+    // Has to be called after updateAnimations()
     void updateScene(wheels::ScopedScratch scopeAlloc, Profiler *profiler);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers()
