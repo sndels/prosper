@@ -361,7 +361,7 @@ World::World(
            const HashMap<uint32_t, NodeAnimations> nodeAnimations =
                loadAnimations(
                    _generalAlloc, scopeAlloc.child_scope(), gltfModel);
-           loadScenes(scopeAlloc.child_scope(), gltfModel);
+           loadScenes(scopeAlloc.child_scope(), gltfModel, nodeAnimations);
        });
 
     tl("BLAS creation", [&]() { createBlases(); });
@@ -1165,7 +1165,8 @@ HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
 }
 
 void World::loadScenes(
-    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
+    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+    const wheels::HashMap<uint32_t, NodeAnimations> &nodeAnimations)
 {
     // Parse raw nodes first so conversion to internal format happens only once
     // for potential instances
@@ -1299,6 +1300,7 @@ void World::loadScenes(
                     scene.nodes.size() + asserted_cast<size_t>(childCount));
 
                 Scene::Node &sceneNode = scene.nodes[indices.sceneNode];
+                sceneNode.gltfSourceNode = indices.tmpNode;
                 sceneNode.firstChild = firstChild;
                 sceneNode.lastChild = lastChild;
 
@@ -1421,6 +1423,50 @@ void World::loadScenes(
                     }
                 }
             }
+        }
+
+        // Nodes won't move in memory anymore so we can register the
+        // animation targets
+        for (Scene::Node &node : scene.nodes)
+        {
+            const NodeAnimations *animations =
+                nodeAnimations.find(node.gltfSourceNode);
+            if (animations != nullptr)
+            {
+                if (animations->translation.has_value())
+                {
+                    Animation<vec3> *animation = *animations->translation;
+                    scene.endTimeS =
+                        std::max(scene.endTimeS, animation->endTimeS());
+
+                    if (!node.translation.has_value())
+                        node.translation = vec3{0.f};
+                    animation->registerTarget(*node.translation);
+                }
+                if (animations->rotation.has_value())
+                {
+                    Animation<quat> *animation = *animations->rotation;
+                    scene.endTimeS =
+                        std::max(scene.endTimeS, animation->endTimeS());
+
+                    if (!node.rotation.has_value())
+                        node.rotation = quat{1.f, 0.f, 0.f, 0.f};
+                    animation->registerTarget(*node.rotation);
+                }
+                if (animations->scale.has_value())
+                {
+                    Animation<vec3> *animation = *animations->scale;
+                    scene.endTimeS =
+                        std::max(scene.endTimeS, animation->endTimeS());
+
+                    if (!node.scale.has_value())
+                        node.scale = vec3{1.f};
+                    animation->registerTarget(*node.scale);
+                }
+            }
+            else
+                // Non-animated nodes should be mapped too
+                assert(!"Node not found in animation data");
         }
 
         // Scatter random lights in the scene

@@ -20,6 +20,7 @@ struct Scene
     // Shared bitfield for populated members instead of optionals?
     struct Node
     {
+        uint32_t gltfSourceNode{0};
         uint32_t firstChild{0};
         uint32_t lastChild{0};
         wheels::Optional<uint32_t> parent;

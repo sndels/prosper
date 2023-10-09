@@ -191,7 +191,8 @@ class World
         const tinygltf::Model &gltfModel);
 
     void loadScenes(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
+        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        const wheels::HashMap<uint32_t, NodeAnimations> &nodeAnimations);
     void createBlases();
     void createTlases(wheels::ScopedScratch scopeAlloc);
     void reserveScratch(vk::DeviceSize byteSize);
