@@ -171,12 +171,11 @@ void main()
         if (surface.material.alpha != 0)
         {
             { // Sun
-                vec3 l = normalize(vec3(
-                    -1, 2, -1)); //-normalize(directionalLight.direction.xyz);
+                vec3 l = -normalize(directionalLight.direction.xyz);
 
                 addBounce(
                     color,
-                    200 * vec3(255, 236, 224) / 255. * throughput *
+                    directionalLight.irradiance.xyz * throughput *
                         evalBRDFTimesNoL(l, surface) *
                         shadow(surface.positionWS, l, 0.1, 100),
                     bounce);
