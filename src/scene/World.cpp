@@ -291,6 +291,7 @@ const uint8_t *appendAccessorData(
 
 struct Node
 {
+    const std::string &gltfName;
     Array<uint32_t> children;
     Optional<vec3> translation;
     Optional<quat> rotation;
@@ -299,8 +300,9 @@ struct Node
     Optional<uint32_t> camera;
     Optional<uint32_t> light;
 
-    Node(wheels::Allocator &alloc)
+    Node(wheels::Allocator &alloc, const std::string &gltfName)
     : children{alloc}
+    , gltfName{gltfName}
     {
     }
 };
@@ -1185,7 +1187,7 @@ void World::loadScenes(
     Array<Node> nodes{scopeAlloc, gltfModel.nodes.size()};
     for (const tinygltf::Node &gltfNode : gltfModel.nodes)
     {
-        nodes.emplace_back(_linearAlloc);
+        nodes.emplace_back(_linearAlloc, gltfNode.name);
         Node &node = nodes.back();
 
         node.children.reserve(gltfNode.children.size());
