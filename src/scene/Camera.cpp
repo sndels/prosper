@@ -41,8 +41,10 @@ Camera::~Camera()
         _device->logical().destroy(_descriptorSetLayout);
 }
 
-void Camera::init(CameraParameters const &params)
+void Camera::init(
+    const CameraTransform &transform, const CameraParameters &params)
 {
+    _transform = transform;
     _parameters = params;
 
     updateWorldToCamera();
@@ -52,13 +54,9 @@ void Camera::setFreeLook(bool value) { _isFreeLook = value; }
 
 bool Camera::isFreeLook() const { return _isFreeLook; }
 
-void Camera::lookAt(const vec3 &eye, const vec3 &target, const vec3 &up)
+void Camera::lookAt(const CameraTransform &transform)
 {
-    _parameters = CameraParameters{
-        .eye = eye,
-        .target = target,
-        .up = up,
-    };
+    _transform = transform;
 
     updateWorldToCamera();
 }
@@ -154,9 +152,8 @@ void Camera::updateBuffer(const uvec2 &resolution)
         .clipToWorld = _clipToWorld,
         .eye =
             vec4{
-                gestureOffset.has_value()
-                    ? _parameters.apply(*gestureOffset).eye
-                    : _parameters.eye,
+                gestureOffset.has_value() ? _transform.apply(*gestureOffset).eye
+                                          : _transform.eye,
                 1.f},
         .resolution = resolution,
         .near = _parameters.zN,
@@ -178,6 +175,8 @@ const glm::mat4 &Camera::worldToCamera() const { return _worldToCamera; }
 
 const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
 
+const CameraTransform &Camera::transform() const { return _transform; }
+
 const CameraParameters &Camera::parameters() const { return _parameters; }
 
 float Camera::apertureDiameter() const { return _apertureDiameter; }
@@ -194,7 +193,7 @@ void Camera::applyGestureOffset()
 {
     if (gestureOffset.has_value())
     {
-        _parameters = _parameters.apply(*gestureOffset);
+        _transform = _transform.apply(*gestureOffset);
         gestureOffset.reset();
     }
 
@@ -203,7 +202,7 @@ void Camera::applyGestureOffset()
 
 void Camera::applyOffset(const CameraOffset &offset)
 {
-    _parameters = _parameters.apply(offset);
+    _transform = _transform.apply(offset);
 
     updateWorldToCamera();
 }
@@ -257,10 +256,10 @@ void Camera::createDescriptorSet(
 
 void Camera::updateWorldToCamera()
 {
-    const auto parameters = gestureOffset.has_value()
-                                ? _parameters.apply(*gestureOffset)
-                                : _parameters;
-    auto const &[eye, target, up, _fov, _ar, _zN, _zF] = parameters;
+    const auto transform = gestureOffset.has_value()
+                               ? _transform.apply(*gestureOffset)
+                               : _transform;
+    auto const &[eye, target, up] = transform;
 
     const vec3 fwd = normalize(target - eye);
     const vec3 z = -fwd;

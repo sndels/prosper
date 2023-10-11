@@ -153,7 +153,8 @@ App::App(const Settings &settings)
 
     _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
 
-    _cam->init(_world->_scenes[_world->_currentScene].camera);
+    const Scene &scene = _world->currentScene();
+    _cam->init(scene.cameraTransform, scene.cameraParameters);
     _cam->perspective(
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
 
@@ -363,19 +364,19 @@ void App::handleMouseGestures()
             const auto drag =
                 (gesture->currentPos - gesture->startPos) * dragScale;
 
-            const auto params = _cam->parameters();
-            const auto fromTarget = params.eye - params.target;
+            const auto transform = _cam->transform();
+            const auto fromTarget = transform.eye - transform.target;
 
             const auto horizontalRotatedFromTarget =
-                mat3(rotate(-drag.x, params.up)) * fromTarget;
+                mat3(rotate(-drag.x, transform.up)) * fromTarget;
 
             const auto right =
-                normalize(cross(horizontalRotatedFromTarget, params.up));
+                normalize(cross(horizontalRotatedFromTarget, transform.up));
 
             const auto newFromTarget =
                 mat3(rotate(drag.y, right)) * horizontalRotatedFromTarget;
             const auto flipUp =
-                dot(right, cross(newFromTarget, params.up)) < 0.0;
+                dot(right, cross(newFromTarget, transform.up)) < 0.0;
 
             _cam->gestureOffset = CameraOffset{
                 .eye = newFromTarget - fromTarget,
@@ -384,13 +385,14 @@ void App::handleMouseGestures()
         }
         else if (gesture->type == MouseGestureType::TrackPlane)
         {
-            const auto params = _cam->parameters();
-            const auto from_target = params.eye - params.target;
+            const auto transform = _cam->transform();
+            const auto from_target = transform.eye - transform.target;
             const auto dist_target = length(from_target);
 
             // TODO: Adjust for aspect ratio difference between film and window
             const auto drag_scale = [&]
             {
+                const auto params = _cam->parameters();
                 auto tanHalfFov = tan(params.fov * 0.5f);
                 return dist_target * tanHalfFov /
                        (static_cast<float>(_viewportExtent.height) * 0.5f);
@@ -398,7 +400,7 @@ void App::handleMouseGestures()
             const auto drag =
                 (gesture->currentPos - gesture->startPos) * drag_scale;
 
-            const auto right = normalize(cross(from_target, params.up));
+            const auto right = normalize(cross(from_target, transform.up));
             const auto cam_up = normalize(cross(right, from_target));
 
             const auto offset = right * (drag.x) + cam_up * (drag.y);
@@ -412,9 +414,9 @@ void App::handleMouseGestures()
         {
             if (!_cam->gestureOffset.has_value())
             {
-                const auto &params = _cam->parameters();
+                const auto &transform = _cam->transform();
 
-                const auto to_target = params.target - params.eye;
+                const auto to_target = transform.target - transform.eye;
                 const auto dist_target = length(to_target);
                 const auto fwd = to_target / dist_target;
 
@@ -425,11 +427,12 @@ void App::handleMouseGestures()
                 };
 
                 // Make sure we don't get too close to get stuck
-                const auto offsetParams = params.apply(offset);
+                const auto offsettransform = transform.apply(offset);
                 if (all(greaterThan(
-                        abs(offsetParams.eye - params.target),
+                        abs(offsettransform.eye - transform.target),
                         vec3(compMax(
-                            0.01f * max(offsetParams.eye, params.target))))))
+                            0.01f *
+                            max(offsettransform.eye, transform.target))))))
                 {
                     _cam->gestureOffset = offset;
                 }
@@ -492,16 +495,17 @@ void App::handleKeyboardInput(float deltaS)
 
     if (length(speed) > 0.f)
     {
-        const CameraParameters &params = _cam->parameters();
+        const CameraTransform &transform = _cam->transform();
         const Optional<CameraOffset> &offset = _cam->gestureOffset;
 
         const vec3 eye =
-            offset.has_value() ? params.eye + offset->eye : params.eye;
-        const vec3 target =
-            offset.has_value() ? params.target + offset->target : params.target;
+            offset.has_value() ? transform.eye + offset->eye : transform.eye;
+        const vec3 target = offset.has_value()
+                                ? transform.target + offset->target
+                                : transform.target;
 
         const vec3 fwd = normalize(target - eye);
-        const vec3 right = normalize(cross(fwd, params.up));
+        const vec3 right = normalize(cross(fwd, transform.up));
         const vec3 up = normalize(cross(right, fwd));
 
         const vec3 movement = right * speed.x + fwd * speed.z + up * speed.y;
@@ -550,8 +554,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     if (!_cam->isFreeLook())
     {
-        const CameraParameters &params = _world->currentScene().camera;
-        _cam->lookAt(params.eye, params.target, params.up);
+        const Scene &scene = _world->currentScene();
+        _cam->lookAt(scene.cameraTransform);
     }
     // Set free look after first update to get the initial pose set after it's
     // sampled in updateScene()

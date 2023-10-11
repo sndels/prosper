@@ -573,13 +573,13 @@ void World::updateScene(ScopedScratch scopeAlloc, Profiler *profiler)
 
                 if (node.camera.has_value() && *node.camera == _currentCamera)
                 {
-                    scene.camera.eye =
+                    scene.cameraTransform.eye =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
-                    scene.camera.target =
+                    scene.cameraTransform.target =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, -1.f, 1.f}};
-                    scene.camera.up =
+                    scene.cameraTransform.up =
                         mat3{modelToWorld4x4} * vec3{0.f, 1.f, 0.f};
                 }
 

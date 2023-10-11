@@ -17,6 +17,22 @@ struct CameraOffset
     bool flipUp{false};
 };
 
+struct CameraTransform
+{
+    glm::vec3 eye{1.f, 0.5f, 1.f};
+    glm::vec3 target{0.f, 0.f, 0.f};
+    glm::vec3 up{0.f, 1.f, 0.f};
+
+    [[nodiscard]] CameraTransform apply(CameraOffset const &offset) const
+    {
+        return CameraTransform{
+            .eye = eye + offset.eye,
+            .target = target + offset.target,
+            .up = offset.flipUp ? -up : up,
+        };
+    }
+};
+
 struct PerspectiveParameters
 {
     float fov{glm::radians(59.f)};
@@ -28,23 +44,10 @@ struct PerspectiveParameters
 // Split transform from other parameters as it comes from the scene graph
 struct CameraParameters
 {
-    glm::vec3 eye{1.f, 0.5f, 1.f};
-    glm::vec3 target{0.f, 0.f, 0.f};
-    glm::vec3 up{0.f, 1.f, 0.f};
     float fov{glm::radians(59.f)};
     float ar{16.f / 9.f};
     float zN{0.1f};
     float zF{100.f};
-
-    [[nodiscard]] CameraParameters apply(CameraOffset const &offset) const
-    {
-        return CameraParameters{
-            .eye = eye + offset.eye,
-            .target = target + offset.target,
-            .up = offset.flipUp ? -up : up,
-            .fov = fov,
-        };
-    }
 };
 
 // Vector types in uniforms need to be aligned to 16 bytes
@@ -75,13 +78,12 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void init(CameraParameters const &params);
+    void init(const CameraTransform &transform, const CameraParameters &params);
 
     void setFreeLook(bool value);
     bool isFreeLook() const;
 
-    void lookAt(
-        const glm::vec3 &eye, const glm::vec3 &target, const glm::vec3 &up);
+    void lookAt(const CameraTransform &transform);
     void perspective(const PerspectiveParameters &params, float ar);
     void perspective(float ar);
     void perspective();
@@ -96,6 +98,7 @@ class Camera
     [[nodiscard]] vk::DescriptorSet descriptorSet() const;
     [[nodiscard]] const glm::mat4 &worldToCamera() const;
     [[nodiscard]] const glm::mat4 &cameraToClip() const;
+    [[nodiscard]] const CameraTransform &transform() const;
     [[nodiscard]] const CameraParameters &parameters() const;
 
     [[nodiscard]] float apertureDiameter() const;
@@ -124,6 +127,7 @@ class Camera
     Device *_device{nullptr};
     RingBuffer *_constantsRing{nullptr};
 
+    CameraTransform _transform;
     CameraParameters _parameters;
     bool _isFreeLook{false};
     uint32_t _parametersByteOffset{0xFFFFFFFF};

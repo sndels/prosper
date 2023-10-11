@@ -42,7 +42,8 @@ struct Scene
         SpotLights spotLights;
     };
 
-    CameraParameters camera;
+    CameraTransform cameraTransform;
+    CameraParameters cameraParameters;
 
     wheels::Array<Node> nodes;
     wheels::Array<uint32_t> rootNodes;
