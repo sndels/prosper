@@ -80,9 +80,6 @@ class Camera
 
     void init(const CameraTransform &transform, const CameraParameters &params);
 
-    void setFreeLook(bool value);
-    bool isFreeLook() const;
-
     void lookAt(const CameraTransform &transform);
     void perspective(const PerspectiveParameters &params, float ar);
     void perspective(float ar);
@@ -129,7 +126,6 @@ class Camera
 
     CameraTransform _transform;
     CameraParameters _parameters;
-    bool _isFreeLook{false};
     uint32_t _parametersByteOffset{0xFFFFFFFF};
     float _apertureDiameter{0.00001f};
     float _focusDistance{1.f};

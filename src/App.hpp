@@ -148,6 +148,7 @@ class App
     bool _textureDebugActive{false};
     bool _drawUi{true};
     bool _forceViewportRecreate{false};
+    bool _camFreeLook{false};
 
     std::chrono::high_resolution_clock::time_point _lastTimeChange;
     float _timeOffsetS{0.f};

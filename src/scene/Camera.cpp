@@ -50,10 +50,6 @@ void Camera::init(
     updateWorldToCamera();
 }
 
-void Camera::setFreeLook(bool value) { _isFreeLook = value; }
-
-bool Camera::isFreeLook() const { return _isFreeLook; }
-
 void Camera::lookAt(const CameraTransform &transform)
 {
     _transform = transform;

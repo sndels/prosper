@@ -552,14 +552,14 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     _world->uploadMaterialDatas(nextFrame);
 
-    if (!_cam->isFreeLook())
+    if (!_camFreeLook)
     {
         const Scene &scene = _world->currentScene();
         _cam->lookAt(scene.cameraTransform);
     }
     // Set free look after first update to get the initial pose set after it's
     // sampled in updateScene()
-    _cam->setFreeLook(true);
+    _camFreeLook = true;
 
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
