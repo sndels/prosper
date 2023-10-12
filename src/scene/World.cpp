@@ -1185,7 +1185,10 @@ void World::loadScenes(
             if (cam.type == "perspective")
             {
                 if (_cameras.size() <= cameraIndex)
+                {
                     _cameras.resize(cameraIndex + 1);
+                    _cameraDynamic.resize(cameraIndex + 1);
+                }
 
                 _cameras[cameraIndex] = CameraParameters{
                     .fov = static_cast<float>(cam.perspective.yfov),
@@ -1344,6 +1347,9 @@ void World::loadScenes(
 
                         const bool parentDynamic = parentDynamics.back();
                         node.dynamicTransform |= parentDynamic;
+
+                        if (node.dynamicTransform && node.camera.has_value())
+                            _cameraDynamic[*node.camera] = true;
 
                         parentDynamics.emplace_back(node.dynamicTransform);
                     }

@@ -84,6 +84,8 @@ class World
     Buffer _skyboxVertexBuffer;
 
     wheels::Array<CameraParameters> _cameras{_generalAlloc};
+    // True if any instance of the camera is dynamic
+    wheels::Array<bool> _cameraDynamic{_generalAlloc};
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
