@@ -1269,6 +1269,8 @@ void World::loadScenes(
             {
                 if (animations->translation.has_value())
                 {
+                    node.dynamicTransform = true;
+
                     Animation<vec3> *animation = *animations->translation;
                     scene.endTimeS =
                         std::max(scene.endTimeS, animation->endTimeS());
@@ -1279,6 +1281,8 @@ void World::loadScenes(
                 }
                 if (animations->rotation.has_value())
                 {
+                    node.dynamicTransform = true;
+
                     Animation<quat> *animation = *animations->rotation;
                     scene.endTimeS =
                         std::max(scene.endTimeS, animation->endTimeS());
@@ -1289,6 +1293,8 @@ void World::loadScenes(
                 }
                 if (animations->scale.has_value())
                 {
+                    node.dynamicTransform = true;
+
                     Animation<vec3> *animation = *animations->scale;
                     scene.endTimeS =
                         std::max(scene.endTimeS, animation->endTimeS());
@@ -1301,6 +1307,48 @@ void World::loadScenes(
             else
                 // Non-animated nodes should be mapped too
                 assert(!"Node not found in animation data");
+        }
+
+        // Propagate dynamic flags
+        {
+            ScopedScratch scratch = scopeAlloc.child_scope();
+            Array<uint32_t> nodeStack{scratch, scene.nodes.size()};
+            Array<bool> parentDynamics{scratch, scene.nodes.size()};
+            wheels::HashSet<uint32_t> visited{scratch, scene.nodes.size()};
+            for (uint32_t rootIndex : scene.rootNodes)
+            {
+                nodeStack.clear();
+                parentDynamics.clear();
+                visited.clear();
+
+                nodeStack.push_back(rootIndex);
+                parentDynamics.push_back(false);
+                while (!nodeStack.empty())
+                {
+                    const uint32_t nodeIndex = nodeStack.back();
+                    if (visited.find(nodeIndex) != visited.end())
+                    {
+                        nodeStack.pop_back();
+                        parentDynamics.pop_back();
+                    }
+                    else
+                    {
+                        visited.insert(nodeIndex);
+                        Scene::Node &node = scene.nodes[nodeIndex];
+
+                        const uint32_t first_child = node.firstChild;
+                        const uint32_t last_child = node.lastChild;
+                        for (uint32_t child = first_child; child <= last_child;
+                             ++child)
+                            nodeStack.push_back(child);
+
+                        const bool parentDynamic = parentDynamics.back();
+                        node.dynamicTransform |= parentDynamic;
+
+                        parentDynamics.emplace_back(node.dynamicTransform);
+                    }
+                }
+            }
         }
 
         // Scatter random lights in the scene

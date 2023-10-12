@@ -32,7 +32,10 @@ struct Scene
         wheels::Optional<uint32_t> camera;
         wheels::Optional<uint32_t> pointLight;
         wheels::Optional<uint32_t> spotLight;
-        bool directionalLight;
+        bool directionalLight{false};
+        // True if either this node's or one of its parents' transform is
+        // animated
+        bool dynamicTransform{false};
     };
 
     struct Lights
