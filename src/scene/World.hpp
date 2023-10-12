@@ -195,6 +195,28 @@ class World
     void loadScenes(
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
         const wheels::HashMap<uint32_t, NodeAnimations> &nodeAnimations);
+
+    struct TmpNode
+    {
+        const std::string &gltfName;
+        wheels::Array<uint32_t> children;
+        wheels::Optional<glm::vec3> translation;
+        wheels::Optional<glm::quat> rotation;
+        wheels::Optional<glm::vec3> scale;
+        wheels::Optional<uint32_t> modelID;
+        wheels::Optional<uint32_t> camera;
+        wheels::Optional<uint32_t> light;
+
+        TmpNode(wheels::Allocator &alloc, const std::string &gltfName)
+        : children{alloc}
+        , gltfName{gltfName}
+        {
+        }
+    };
+    void gatherScene(
+        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        const tinygltf::Scene &gltfScene, const wheels::Array<TmpNode> &nodes);
+
     void createBlases();
     void createTlases(wheels::ScopedScratch scopeAlloc);
     void reserveScratch(vk::DeviceSize byteSize);

@@ -289,24 +289,6 @@ const uint8_t *appendAccessorData(
     return ret;
 }
 
-struct Node
-{
-    const std::string &gltfName;
-    Array<uint32_t> children;
-    Optional<vec3> translation;
-    Optional<quat> rotation;
-    Optional<vec3> scale;
-    Optional<uint32_t> modelID;
-    Optional<uint32_t> camera;
-    Optional<uint32_t> light;
-
-    Node(wheels::Allocator &alloc, const std::string &gltfName)
-    : children{alloc}
-    , gltfName{gltfName}
-    {
-    }
-};
-
 } // namespace
 
 World::World(
@@ -1184,11 +1166,11 @@ void World::loadScenes(
 {
     // Parse raw nodes first so conversion to internal format happens only once
     // for potential instances
-    Array<Node> nodes{scopeAlloc, gltfModel.nodes.size()};
+    Array<TmpNode> nodes{scopeAlloc, gltfModel.nodes.size()};
     for (const tinygltf::Node &gltfNode : gltfModel.nodes)
     {
         nodes.emplace_back(_linearAlloc, gltfNode.name);
-        Node &node = nodes.back();
+        TmpNode &node = nodes.back();
 
         node.children.reserve(gltfNode.children.size());
         for (const int child : gltfNode.children)
@@ -1267,177 +1249,15 @@ void World::loadScenes(
 
     _currentScene = max(gltfModel.defaultScene, 0);
 
-    struct NodePair
-    {
-        uint32_t tmpNode{0xFFFFFFFF};
-        uint32_t sceneNode{0xFFFFFFFF};
-    };
-    Array<NodePair> nodeStack{scopeAlloc, nodes.size()};
     // Traverse scene trees and generate actual scene datas
-    // Traverse scenes and generate model instances for snappier rendering
-    // Pre-alloc worst case memory for the stacks since it shouldn't be too much
     _scenes.reserve(gltfModel.scenes.size());
     for (const tinygltf::Scene &gltfScene : gltfModel.scenes)
     {
         _scenes.emplace_back(_linearAlloc);
+
+        gatherScene(scopeAlloc.child_scope(), gltfModel, gltfScene, nodes);
+
         Scene &scene = _scenes.back();
-
-        bool directionalLightFound = false;
-
-        for (const int nodeIndex : gltfScene.nodes)
-        {
-            // Our node indices don't match gltf's anymore, push index of the
-            // new node into roots
-            scene.rootNodes.push_back(
-                asserted_cast<uint32_t>(scene.nodes.size()));
-            scene.nodes.emplace_back();
-
-            // Start adding nodes from the new root
-            nodeStack.clear();
-            nodeStack.emplace_back(
-                asserted_cast<uint32_t>(nodeIndex),
-                asserted_cast<uint32_t>(scene.nodes.size() - 1));
-            while (!nodeStack.empty())
-            {
-                const NodePair indices = nodeStack.pop_back();
-                Node &tmpNode = nodes[indices.tmpNode];
-
-                // Push children to the back of nodes before getting the current
-                // node's reference to avoid it invalidating
-                const uint32_t childCount =
-                    asserted_cast<uint32_t>(tmpNode.children.size());
-                const uint32_t firstChild =
-                    asserted_cast<uint32_t>(scene.nodes.size());
-                // If no children, firstChild <= lastChild false as intended.
-                const uint32_t lastChild = firstChild + childCount - 1;
-                scene.nodes.resize(
-                    scene.nodes.size() + asserted_cast<size_t>(childCount));
-
-                Scene::Node &sceneNode = scene.nodes[indices.sceneNode];
-                sceneNode.gltfSourceNode = indices.tmpNode;
-                sceneNode.firstChild = firstChild;
-                sceneNode.lastChild = lastChild;
-
-                for (uint32_t i = 0; i < childCount; ++i)
-                {
-                    const uint32_t childIndex = sceneNode.firstChild + i;
-                    scene.nodes[childIndex].parent = indices.sceneNode;
-                    nodeStack.emplace_back(
-                        asserted_cast<uint32_t>(tmpNode.children[i]),
-                        asserted_cast<uint32_t>(childIndex));
-                }
-
-                sceneNode.translation = tmpNode.translation;
-                sceneNode.rotation = tmpNode.rotation;
-                sceneNode.scale = tmpNode.scale;
-                sceneNode.modelID = tmpNode.modelID;
-                sceneNode.camera = tmpNode.camera;
-
-                if (sceneNode.modelID.has_value())
-                {
-                    sceneNode.modelInstance =
-                        asserted_cast<uint32_t>(scene.modelInstances.size());
-                    // TODO:
-                    // Why is id needed here? It's just the index in the array
-                    scene.modelInstances.push_back(ModelInstance{
-                        .id = *sceneNode.modelInstance,
-                        .modelID = *sceneNode.modelID,
-                    });
-                    scene.rtInstanceCount += asserted_cast<uint32_t>(
-                        _models[*sceneNode.modelID].subModels.size());
-                }
-
-                if (tmpNode.light.has_value())
-                {
-                    const tinygltf::Light &light =
-                        gltfModel.lights[*tmpNode.light];
-                    if (light.type == "directional")
-                    {
-                        if (directionalLightFound)
-                        {
-                            fprintf(
-                                stderr,
-                                "Found second directional light for a "
-                                "scene."
-                                " Ignoring since only one is supported\n");
-                        }
-                        auto &parameters =
-                            scene.lights.directionalLight.parameters;
-                        // gltf blender exporter puts W/m^2 into intensity
-                        parameters.irradiance =
-                            vec4{
-                                static_cast<float>(light.color[0]),
-                                static_cast<float>(light.color[1]),
-                                static_cast<float>(light.color[2]), 0.f} *
-                            static_cast<float>(light.intensity);
-
-                        sceneNode.directionalLight = true;
-                        directionalLightFound = true;
-                    }
-                    else if (light.type == "point")
-                    {
-                        auto radiance =
-                            vec3{
-                                static_cast<float>(light.color[0]),
-                                static_cast<float>(light.color[1]),
-                                static_cast<float>(light.color[2])} *
-                            static_cast<float>(light.intensity)
-                            // gltf blender exporter puts W into intensity
-                            / (4.f * glm::pi<float>());
-                        const auto luminance =
-                            dot(radiance, vec3{0.2126, 0.7152, 0.0722});
-                        const auto minLuminance = 0.01f;
-                        const auto radius =
-                            light.range > 0.f ? light.range
-                                              : sqrt(luminance / minLuminance);
-
-                        sceneNode.pointLight = asserted_cast<uint32_t>(
-                            scene.lights.pointLights.data.size());
-                        scene.lights.pointLights.data.emplace_back();
-                        auto &sceneLight = scene.lights.pointLights.data.back();
-
-                        sceneLight.radianceAndRadius = vec4{radiance, radius};
-                    }
-                    else if (light.type == "spot")
-                    {
-                        sceneNode.spotLight = asserted_cast<uint32_t>(
-                            scene.lights.spotLights.data.size());
-                        scene.lights.spotLights.data.emplace_back();
-                        auto &sceneLight = scene.lights.spotLights.data.back();
-
-                        // Angular attenuation rom gltf spec
-                        const auto angleScale =
-                            1.f /
-                            max(0.001f, static_cast<float>(
-                                            cos(light.spot.innerConeAngle) -
-                                            cos(light.spot.outerConeAngle)));
-                        const auto angleOffset =
-                            static_cast<float>(
-                                -cos(light.spot.outerConeAngle)) *
-                            angleScale;
-
-                        sceneLight.radianceAndAngleScale =
-                            vec4{
-                                static_cast<float>(light.color[0]),
-                                static_cast<float>(light.color[1]),
-                                static_cast<float>(light.color[2]), 0.f} *
-                            static_cast<float>(light.intensity);
-                        // gltf blender exporter puts W into intensity
-                        sceneLight.radianceAndAngleScale /=
-                            4.f * glm::pi<float>();
-                        sceneLight.radianceAndAngleScale.w = angleScale;
-
-                        sceneLight.positionAndAngleOffset.w = angleOffset;
-                    }
-                    else
-                    {
-                        fprintf(
-                            stderr, "Unknown light type '%s'\n",
-                            light.type.c_str());
-                    }
-                }
-            }
-        }
 
         // Nodes won't move in memory anymore so we can register the
         // animation targets
@@ -1513,13 +1333,177 @@ void World::loadScenes(
         //             rando(minBounds.z, maxBounds.z), 1.f};
         //     }
         // }
+    }
+}
 
-        // Honor scene lighting
-        if (!directionalLightFound && (!scene.lights.pointLights.data.empty() ||
-                                       !scene.lights.spotLights.data.empty()))
+void World::gatherScene(
+    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+    const tinygltf::Scene &gltfScene, const wheels::Array<TmpNode> &nodes)
+{
+    struct NodePair
+    {
+        uint32_t tmpNode{0xFFFFFFFF};
+        uint32_t sceneNode{0xFFFFFFFF};
+    };
+    Array<NodePair> nodeStack{scopeAlloc, nodes.size()};
+
+    Scene &scene = _scenes.back();
+
+    bool directionalLightFound = false;
+
+    for (const int nodeIndex : gltfScene.nodes)
+    {
+        // Our node indices don't match gltf's anymore, push index of the
+        // new node into roots
+        scene.rootNodes.push_back(asserted_cast<uint32_t>(scene.nodes.size()));
+        scene.nodes.emplace_back();
+
+        // Start adding nodes from the new root
+        nodeStack.clear();
+        nodeStack.emplace_back(
+            asserted_cast<uint32_t>(nodeIndex),
+            asserted_cast<uint32_t>(scene.nodes.size() - 1));
+        while (!nodeStack.empty())
         {
-            scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
+            const NodePair indices = nodeStack.pop_back();
+            const TmpNode &tmpNode = nodes[indices.tmpNode];
+
+            // Push children to the back of nodes before getting the current
+            // node's reference to avoid it invalidating
+            const uint32_t childCount =
+                asserted_cast<uint32_t>(tmpNode.children.size());
+            const uint32_t firstChild =
+                asserted_cast<uint32_t>(scene.nodes.size());
+            // If no children, firstChild <= lastChild false as intended.
+            const uint32_t lastChild = firstChild + childCount - 1;
+            scene.nodes.resize(
+                scene.nodes.size() + asserted_cast<size_t>(childCount));
+
+            Scene::Node &sceneNode = scene.nodes[indices.sceneNode];
+            sceneNode.gltfSourceNode = indices.tmpNode;
+            sceneNode.firstChild = firstChild;
+            sceneNode.lastChild = lastChild;
+
+            for (uint32_t i = 0; i < childCount; ++i)
+            {
+                const uint32_t childIndex = sceneNode.firstChild + i;
+                scene.nodes[childIndex].parent = indices.sceneNode;
+                nodeStack.emplace_back(
+                    asserted_cast<uint32_t>(tmpNode.children[i]),
+                    asserted_cast<uint32_t>(childIndex));
+            }
+
+            sceneNode.translation = tmpNode.translation;
+            sceneNode.rotation = tmpNode.rotation;
+            sceneNode.scale = tmpNode.scale;
+            sceneNode.modelID = tmpNode.modelID;
+            sceneNode.camera = tmpNode.camera;
+
+            if (sceneNode.modelID.has_value())
+            {
+                sceneNode.modelInstance =
+                    asserted_cast<uint32_t>(scene.modelInstances.size());
+                // TODO:
+                // Why is id needed here? It's just the index in the array
+                scene.modelInstances.push_back(ModelInstance{
+                    .id = *sceneNode.modelInstance,
+                    .modelID = *sceneNode.modelID,
+                });
+                scene.rtInstanceCount += asserted_cast<uint32_t>(
+                    _models[*sceneNode.modelID].subModels.size());
+            }
+
+            if (tmpNode.light.has_value())
+            {
+                const tinygltf::Light &light = gltfModel.lights[*tmpNode.light];
+                if (light.type == "directional")
+                {
+                    if (directionalLightFound)
+                    {
+                        fprintf(
+                            stderr, "Found second directional light for a "
+                                    "scene."
+                                    " Ignoring since only one is supported\n");
+                    }
+                    auto &parameters = scene.lights.directionalLight.parameters;
+                    // gltf blender exporter puts W/m^2 into intensity
+                    parameters.irradiance =
+                        vec4{
+                            static_cast<float>(light.color[0]),
+                            static_cast<float>(light.color[1]),
+                            static_cast<float>(light.color[2]), 0.f} *
+                        static_cast<float>(light.intensity);
+
+                    sceneNode.directionalLight = true;
+                    directionalLightFound = true;
+                }
+                else if (light.type == "point")
+                {
+                    auto radiance =
+                        vec3{
+                            static_cast<float>(light.color[0]),
+                            static_cast<float>(light.color[1]),
+                            static_cast<float>(light.color[2])} *
+                        static_cast<float>(light.intensity)
+                        // gltf blender exporter puts W into intensity
+                        / (4.f * glm::pi<float>());
+                    const auto luminance =
+                        dot(radiance, vec3{0.2126, 0.7152, 0.0722});
+                    const auto minLuminance = 0.01f;
+                    const auto radius = light.range > 0.f
+                                            ? light.range
+                                            : sqrt(luminance / minLuminance);
+
+                    sceneNode.pointLight = asserted_cast<uint32_t>(
+                        scene.lights.pointLights.data.size());
+                    scene.lights.pointLights.data.emplace_back();
+                    auto &sceneLight = scene.lights.pointLights.data.back();
+
+                    sceneLight.radianceAndRadius = vec4{radiance, radius};
+                }
+                else if (light.type == "spot")
+                {
+                    sceneNode.spotLight = asserted_cast<uint32_t>(
+                        scene.lights.spotLights.data.size());
+                    scene.lights.spotLights.data.emplace_back();
+                    auto &sceneLight = scene.lights.spotLights.data.back();
+
+                    // Angular attenuation rom gltf spec
+                    const auto angleScale =
+                        1.f / max(0.001f, static_cast<float>(
+                                              cos(light.spot.innerConeAngle) -
+                                              cos(light.spot.outerConeAngle)));
+                    const auto angleOffset =
+                        static_cast<float>(-cos(light.spot.outerConeAngle)) *
+                        angleScale;
+
+                    sceneLight.radianceAndAngleScale =
+                        vec4{
+                            static_cast<float>(light.color[0]),
+                            static_cast<float>(light.color[1]),
+                            static_cast<float>(light.color[2]), 0.f} *
+                        static_cast<float>(light.intensity);
+                    // gltf blender exporter puts W into intensity
+                    sceneLight.radianceAndAngleScale /= 4.f * glm::pi<float>();
+                    sceneLight.radianceAndAngleScale.w = angleScale;
+
+                    sceneLight.positionAndAngleOffset.w = angleOffset;
+                }
+                else
+                {
+                    fprintf(
+                        stderr, "Unknown light type '%s'\n",
+                        light.type.c_str());
+                }
+            }
         }
+    }
+
+    // Honor scene lighting
+    if (!directionalLightFound && (!scene.lights.pointLights.data.empty() ||
+                                   !scene.lights.spotLights.data.empty()))
+    {
+        scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
     }
 }
 
