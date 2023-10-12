@@ -177,7 +177,7 @@ void main()
                 addBounce(
                     color,
                     200 * vec3(255, 236, 224) / 255. * throughput *
-                        evalBRDF(l, surface) *
+                        evalBRDFTimesNoL(l, surface) *
                         shadow(surface.positionWS, l, 0.1, 100),
                     bounce);
             }
@@ -190,7 +190,7 @@ void main()
         float pdf;
         cosineSampleHemisphere(surface.normalWS, rnd2d01(), rd, pdf);
 
-        throughput *= evalBRDF(rd, surface) / pdf;
+        throughput *= evalBRDFTimesNoL(rd, surface) / pdf;
 
         ray.o = offsetRay(surface);
         ray.d = rd;

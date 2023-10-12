@@ -8,7 +8,7 @@
 vec3 evalDirectionalLight(VisibleSurface surface)
 {
     vec3 l = -normalize(directionalLight.direction.xyz);
-    return directionalLight.irradiance.xyz * evalBRDF(l, surface);
+    return directionalLight.irradiance.xyz * evalBRDFTimesNoL(l, surface);
 }
 
 vec3 evalPointLights(VisibleSurface surface, LightClusterInfo lightInfo)
@@ -33,7 +33,7 @@ vec3 evalPointLights(VisibleSurface surface, LightClusterInfo lightInfo)
         float dPerR4 = dPerR2 * dPerR2;
         float attenuation = max(min(1.0 - dPerR4, 1), 0) / d2;
 
-        color += radiance * attenuation * evalBRDF(l, surface);
+        color += radiance * attenuation * evalBRDFTimesNoL(l, surface);
     }
     return color;
 }
@@ -60,7 +60,7 @@ vec3 evalSpotLights(VisibleSurface surface, LightClusterInfo lightInfo)
         angularAttenuation *= angularAttenuation;
 
         color += angularAttenuation * light.radianceAndAngleScale.xyz *
-                 evalBRDF(l, surface) / d2;
+                 evalBRDFTimesNoL(l, surface) / d2;
     }
     return color;
 }

@@ -50,7 +50,7 @@ vec3 cookTorranceBRDF(
 }
 
 // Evaluate combined diffuse and specular BRDF
-vec3 evalBRDF(vec3 l, VisibleSurface surface)
+vec3 evalBRDFTimesNoL(vec3 l, VisibleSurface surface)
 {
     // Common dot products
     vec3 h = normalize(surface.invViewRayWS + l);
