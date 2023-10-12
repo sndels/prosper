@@ -80,6 +80,8 @@ class App
     void drawMemory(uint32_t scopeHighWatermark);
     // Returns true if time was tweaked
     bool drawTimeline();
+    // Returns true if settings changed
+    bool drawCameraUi();
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 

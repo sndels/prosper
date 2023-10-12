@@ -84,12 +84,10 @@ class Camera
     void init(const CameraTransform &transform, const CameraParameters &params);
 
     void lookAt(const CameraTransform &transform);
+    void setParameters(const CameraParameters &parameters);
     void perspective(const PerspectiveParameters &params, float ar);
     void perspective(float ar);
     void perspective();
-
-    // Returns true if settings changed
-    bool drawUI();
 
     void updateBuffer(const glm::uvec2 &resolution);
 

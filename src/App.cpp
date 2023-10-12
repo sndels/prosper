@@ -668,7 +668,7 @@ App::UiChanges App::drawUi(
 
     UiChanges ret;
 
-    ret.rtDirty |= _cam->drawUI();
+    ret.rtDirty |= drawCameraUi();
 
     drawOptions();
 
@@ -982,6 +982,41 @@ bool App::drawTimeline()
     }
 
     return timeTweaked;
+}
+
+bool App::drawCameraUi()
+{
+    bool changed = false;
+
+    ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
+    ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    CameraParameters params = _cam->parameters();
+
+    // TODO: Tweak this in millimeters?
+    changed |= ImGui::DragFloat(
+        "Aperture Diameter", &params.apertureDiameter, 0.00001f, 0.0000001f,
+        0.1f, "%.6f");
+    changed |= ImGui::DragFloat(
+        "FocusDistance", &params.focusDistance, 0.01f, 0.001f, 100.f);
+
+    float fovDegrees = degrees(params.fov);
+    if (ImGui::DragFloat("Field of View", &fovDegrees, 0.1f, 0.1f, 179.f))
+    {
+        params.fov = radians(fovDegrees);
+        changed = true;
+    }
+
+    // Set before drawing focal length as this updates it after fov changes
+    // TODO: Just use focal length instead of fov as the only parameter?
+    if (changed)
+        _cam->setParameters(params);
+
+    ImGui::Text("Focal length: %.3fmm", params.focalLength * 1e3);
+
+    ImGui::End();
+
+    return changed;
 }
 
 void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)

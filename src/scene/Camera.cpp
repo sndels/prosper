@@ -57,6 +57,13 @@ void Camera::lookAt(const CameraTransform &transform)
     updateWorldToCamera();
 }
 
+void Camera::setParameters(const CameraParameters &parameters)
+{
+    _parameters = parameters;
+
+    perspective();
+}
+
 void Camera::perspective(const PerspectiveParameters &params, const float ar)
 {
     _parameters.fov = params.fov;
@@ -103,35 +110,6 @@ void Camera::perspective()
     const float sensorHeight = sensorWidth() / ar;
 
     _parameters.focalLength = sensorHeight * tf * 0.5f;
-}
-
-bool Camera::drawUI()
-{
-    bool changed = false;
-
-    ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
-    ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-    // TODO: Tweak this in millimeters?
-    changed |= ImGui::DragFloat(
-        "Aperture Diameter", &_parameters.apertureDiameter, 0.00001f,
-        0.0000001f, 0.1f, "%.6f");
-    changed |= ImGui::DragFloat(
-        "FocusDistance", &_parameters.focusDistance, 0.01f, 0.001f, 100.f);
-
-    float fovDegrees = degrees(_parameters.fov);
-    if (ImGui::DragFloat("Field of View", &fovDegrees, 0.1f, 0.1f, 179.f))
-    {
-        _parameters.fov = radians(fovDegrees);
-        perspective();
-        changed = true;
-    }
-
-    ImGui::Text("Focal length: %.3fmm", _parameters.focalLength * 1e3);
-
-    ImGui::End();
-
-    return changed;
 }
 
 void Camera::updateBuffer(const uvec2 &resolution)
