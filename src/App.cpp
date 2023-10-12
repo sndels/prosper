@@ -48,6 +48,11 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
     return ret;
 }
 
+bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
+{
+    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
+}
+
 } // namespace
 
 App::App(const Settings &settings)
@@ -997,7 +1002,19 @@ bool App::drawCameraUi()
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    ImGui::Checkbox("Free look", &_camFreeLook);
+    assert(!_world->_cameras.empty());
+    const uint32_t cameraCount =
+        asserted_cast<uint32_t>(_world->_cameras.size());
+    if (cameraCount > 1)
+    {
+        if (SliderU32(
+                "Active camera", &_world->_currentCamera, 0, cameraCount - 1))
+            // Make sure the new camera's parameters are copied over from scene
+            _camFreeLook = false;
+    }
+
+    if (_world->_cameraDynamic[_world->_currentCamera])
+        ImGui::Checkbox("Free look", &_camFreeLook);
 
     CameraParameters params = _cam->parameters();
 
