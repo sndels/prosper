@@ -45,9 +45,6 @@ struct Scene
         SpotLights spotLights;
     };
 
-    CameraTransform cameraTransform;
-    CameraParameters cameraParameters;
-
     wheels::Array<Node> nodes;
     wheels::Array<uint32_t> rootNodes;
     float endTimeS{0.f};

@@ -153,8 +153,7 @@ App::App(const Settings &settings)
 
     _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
 
-    const Scene &scene = _world->currentScene();
-    _cam->init(scene.cameraTransform, scene.cameraParameters);
+    _cam->init(_sceneCameraTransform, _cameraParameters);
     _cam->perspective(
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
 
@@ -548,14 +547,18 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     const float timeS = currentTimelineTimeS();
     _world->updateAnimations(timeS, _profiler.get());
 
-    _world->updateScene(scopeAlloc.child_scope(), _profiler.get());
+    _world->updateScene(
+        scopeAlloc.child_scope(), &_sceneCameraTransform, _profiler.get());
 
     _world->uploadMaterialDatas(nextFrame);
 
     if (!_camFreeLook)
     {
-        const Scene &scene = _world->currentScene();
-        _cam->lookAt(scene.cameraTransform);
+        _cam->lookAt(_sceneCameraTransform);
+
+        const CameraParameters &params =
+            _world->_cameras[_world->_currentCamera];
+        _cam->setParameters(params);
     }
 
     // Force free look on non-animated cameras. This should happen after the

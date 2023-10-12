@@ -496,9 +496,12 @@ void World::updateAnimations(float timeS, Profiler *profiler)
         animation.update(timeS);
 }
 
-void World::updateScene(ScopedScratch scopeAlloc, Profiler *profiler)
+void World::updateScene(
+    ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
+    Profiler *profiler)
 {
     assert(profiler != nullptr);
+    assert(cameraTransform != nullptr);
 
     auto _s = profiler->createCpuScope("World::updateScene");
 
@@ -555,13 +558,13 @@ void World::updateScene(ScopedScratch scopeAlloc, Profiler *profiler)
 
                 if (node.camera.has_value() && *node.camera == _currentCamera)
                 {
-                    scene.cameraTransform.eye =
+                    cameraTransform->eye =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
-                    scene.cameraTransform.target =
+                    cameraTransform->target =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, -1.f, 1.f}};
-                    scene.cameraTransform.up =
+                    cameraTransform->up =
                         mat3{modelToWorld4x4} * vec3{0.f, 1.f, 0.f};
                 }
 
@@ -1387,6 +1390,13 @@ void World::loadScenes(
         //             rando(minBounds.z, maxBounds.z), 1.f};
         //     }
         // }
+    }
+
+    // Make sure we always have a camera
+    if (_cameras.empty())
+    {
+        _cameras.emplace_back();
+        _cameraDynamic.push_back(false);
     }
 }
 
