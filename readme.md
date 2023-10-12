@@ -55,6 +55,8 @@ See the [build workflow](https://github.com/sndels/prosper/blob/master/.github/w
 
 ## Camera controls
 
+Only when free look is toggled
+
 - RMB/MMB drag - Trackball drag
 - Scroll up/down - Dolly forward/back
 - RMB/MMB drag + Alt - Plane drag

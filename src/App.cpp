@@ -355,7 +355,7 @@ void App::handleMouseGestures()
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
     const auto &gesture = _inputHandler.mouseGesture();
-    if (gesture.has_value())
+    if (gesture.has_value() && _camFreeLook)
     {
         if (gesture->type == MouseGestureType::TrackBall)
         {
@@ -460,60 +460,60 @@ void App::handleKeyboardInput(float deltaS)
         _forceViewportRecreate = true;
     }
 
-    // TODO:
-    // Up/down to q/e
-    // Make this work with mouse look somehow
-
-    const float baseSpeed = 2.f;
-    vec3 speed{0.f};
-
-    if (keyStates[KeyW] == KeyState::Pressed ||
-        keyStates[KeyW] == KeyState::Held)
-        speed.z += baseSpeed;
-    if (keyStates[KeyS] == KeyState::Pressed ||
-        keyStates[KeyS] == KeyState::Held)
-        speed.z -= baseSpeed;
-    if (keyStates[KeyD] == KeyState::Pressed ||
-        keyStates[KeyD] == KeyState::Held)
-        speed.x += baseSpeed;
-    if (keyStates[KeyA] == KeyState::Pressed ||
-        keyStates[KeyA] == KeyState::Held)
-        speed.x -= baseSpeed;
-    if (keyStates[KeyE] == KeyState::Pressed ||
-        keyStates[KeyE] == KeyState::Held)
-        speed.y += baseSpeed;
-    if (keyStates[KeyQ] == KeyState::Pressed ||
-        keyStates[KeyQ] == KeyState::Held)
-        speed.y -= baseSpeed;
-
-    if (keyStates[KeyShift] == KeyState::Held)
-        speed *= 2.f;
-    if (keyStates[KeyCtrl] == KeyState::Held)
-        speed *= 0.5f;
-
-    speed *= deltaS;
-
-    if (length(speed) > 0.f)
+    if (_camFreeLook)
     {
-        const CameraTransform &transform = _cam->transform();
-        const Optional<CameraOffset> &offset = _cam->gestureOffset;
+        const float baseSpeed = 2.f;
+        vec3 speed{0.f};
 
-        const vec3 eye =
-            offset.has_value() ? transform.eye + offset->eye : transform.eye;
-        const vec3 target = offset.has_value()
-                                ? transform.target + offset->target
-                                : transform.target;
+        if (keyStates[KeyW] == KeyState::Pressed ||
+            keyStates[KeyW] == KeyState::Held)
+            speed.z += baseSpeed;
+        if (keyStates[KeyS] == KeyState::Pressed ||
+            keyStates[KeyS] == KeyState::Held)
+            speed.z -= baseSpeed;
+        if (keyStates[KeyD] == KeyState::Pressed ||
+            keyStates[KeyD] == KeyState::Held)
+            speed.x += baseSpeed;
+        if (keyStates[KeyA] == KeyState::Pressed ||
+            keyStates[KeyA] == KeyState::Held)
+            speed.x -= baseSpeed;
+        if (keyStates[KeyE] == KeyState::Pressed ||
+            keyStates[KeyE] == KeyState::Held)
+            speed.y += baseSpeed;
+        if (keyStates[KeyQ] == KeyState::Pressed ||
+            keyStates[KeyQ] == KeyState::Held)
+            speed.y -= baseSpeed;
 
-        const vec3 fwd = normalize(target - eye);
-        const vec3 right = normalize(cross(fwd, transform.up));
-        const vec3 up = normalize(cross(right, fwd));
+        if (keyStates[KeyShift] == KeyState::Held)
+            speed *= 2.f;
+        if (keyStates[KeyCtrl] == KeyState::Held)
+            speed *= 0.5f;
 
-        const vec3 movement = right * speed.x + fwd * speed.z + up * speed.y;
+        speed *= deltaS;
 
-        _cam->applyOffset(CameraOffset{
-            .eye = movement,
-            .target = movement,
-        });
+        if (length(speed) > 0.f)
+        {
+            const CameraTransform &transform = _cam->transform();
+            const Optional<CameraOffset> &offset = _cam->gestureOffset;
+
+            const vec3 eye = offset.has_value() ? transform.eye + offset->eye
+                                                : transform.eye;
+            const vec3 target = offset.has_value()
+                                    ? transform.target + offset->target
+                                    : transform.target;
+
+            const vec3 fwd = normalize(target - eye);
+            const vec3 right = normalize(cross(fwd, transform.up));
+            const vec3 up = normalize(cross(right, fwd));
+
+            const vec3 movement =
+                right * speed.x + fwd * speed.z + up * speed.y;
+
+            _cam->applyOffset(CameraOffset{
+                .eye = movement,
+                .target = movement,
+            });
+        }
     }
 }
 
@@ -557,9 +557,12 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         const Scene &scene = _world->currentScene();
         _cam->lookAt(scene.cameraTransform);
     }
-    // Set free look after first update to get the initial pose set after it's
-    // sampled in updateScene()
-    _camFreeLook = true;
+
+    // Force free look on non-animated cameras. This should happen after the
+    // lookat check so that the initial camera gets the correct transformation
+    // applied. Same for a camera after changing the active one from the ui.
+    if (!_world->_cameraDynamic[_world->_currentCamera])
+        _camFreeLook = true;
 
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
@@ -991,26 +994,39 @@ bool App::drawCameraUi()
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
+    ImGui::Checkbox("Free look", &_camFreeLook);
+
     CameraParameters params = _cam->parameters();
 
-    // TODO: Tweak this in millimeters?
-    changed |= ImGui::DragFloat(
-        "Aperture Diameter", &params.apertureDiameter, 0.00001f, 0.0000001f,
-        0.1f, "%.6f");
-    changed |= ImGui::DragFloat(
-        "FocusDistance", &params.focusDistance, 0.01f, 0.001f, 100.f);
-
-    float fovDegrees = degrees(params.fov);
-    if (ImGui::DragFloat("Field of View", &fovDegrees, 0.1f, 0.1f, 179.f))
+    if (_camFreeLook)
     {
-        params.fov = radians(fovDegrees);
-        changed = true;
-    }
+        // TODO: Tweak this in millimeters?
+        changed |= ImGui::DragFloat(
+            "Aperture Diameter", &params.apertureDiameter, 0.00001f, 0.0000001f,
+            0.1f, "%.6f");
+        changed |= ImGui::DragFloat(
+            "FocusDistance", &params.focusDistance, 0.01f, 0.001f, 100.f);
 
-    // Set before drawing focal length as this updates it after fov changes
-    // TODO: Just use focal length instead of fov as the only parameter?
-    if (changed)
-        _cam->setParameters(params);
+        float fovDegrees = degrees(params.fov);
+        if (ImGui::DragFloat("Field of View", &fovDegrees, 0.1f, 0.1f, 179.f))
+        {
+            params.fov = radians(fovDegrees);
+            changed = true;
+        }
+
+        // Set before drawing focal length as this updates it after fov changes
+        // TODO: Just use focal length instead of fov as the only parameter?
+        if (changed)
+            _cam->setParameters(params);
+    }
+    else
+    {
+        ImGui::Text("Aperture Diameter: %.6f", params.apertureDiameter);
+        ImGui::Text("FocusDistance: %.3f", params.focusDistance);
+
+        const float fovDegrees = degrees(params.fov);
+        ImGui::Text("Field of View: %.3f", fovDegrees);
+    }
 
     ImGui::Text("Focal length: %.3fmm", params.focalLength * 1e3);
 
