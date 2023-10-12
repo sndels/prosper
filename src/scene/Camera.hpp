@@ -48,6 +48,9 @@ struct CameraParameters
     float ar{16.f / 9.f};
     float zN{0.1f};
     float zF{100.f};
+    float apertureDiameter{0.00001f};
+    float focusDistance{1.f};
+    float focalLength{0.f};
 };
 
 // Vector types in uniforms need to be aligned to 16 bytes
@@ -98,9 +101,6 @@ class Camera
     [[nodiscard]] const CameraTransform &transform() const;
     [[nodiscard]] const CameraParameters &parameters() const;
 
-    [[nodiscard]] float apertureDiameter() const;
-    [[nodiscard]] float focalLength() const;
-    [[nodiscard]] float focusDistance() const;
     [[nodiscard]] static float sensorWidth() { return 0.035f; }
 
     void clearChangedThisFrame();
@@ -127,9 +127,6 @@ class Camera
     CameraTransform _transform;
     CameraParameters _parameters;
     uint32_t _parametersByteOffset{0xFFFFFFFF};
-    float _apertureDiameter{0.00001f};
-    float _focusDistance{1.f};
-    float _focalLength{0.f};
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToWorld{1.f};
     glm::mat4 _cameraToClip{1.f};

@@ -270,6 +270,8 @@ RTRenderer::Output RTRenderer::record(
             asserted_cast<uint32_t>(dynamicOffsets.size()),
             dynamicOffsets.data());
 
+        const CameraParameters &camParams = cam.parameters();
+
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
             .flags = pcFlags(PCBlock::Flags{
@@ -280,9 +282,9 @@ RTRenderer::Output RTRenderer::record(
                 .depthOfField = depthOfField,
             }),
             .frameIndex = _frameIndex,
-            .apertureDiameter = cam.apertureDiameter(),
-            .focusDistance = cam.focusDistance(),
-            .focalLength = cam.focalLength(),
+            .apertureDiameter = camParams.apertureDiameter,
+            .focusDistance = camParams.focusDistance,
+            .focalLength = camParams.focalLength,
         };
         cb.pushConstants(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),

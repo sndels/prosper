@@ -102,7 +102,7 @@ void Camera::perspective()
 
     const float sensorHeight = sensorWidth() / ar;
 
-    _focalLength = sensorHeight * tf * 0.5f;
+    _parameters.focalLength = sensorHeight * tf * 0.5f;
 }
 
 bool Camera::drawUI()
@@ -114,10 +114,10 @@ bool Camera::drawUI()
 
     // TODO: Tweak this in millimeters?
     changed |= ImGui::DragFloat(
-        "Aperture Diameter", &_apertureDiameter, 0.00001f, 0.0000001f, 0.1f,
-        "%.6f");
+        "Aperture Diameter", &_parameters.apertureDiameter, 0.00001f,
+        0.0000001f, 0.1f, "%.6f");
     changed |= ImGui::DragFloat(
-        "FocusDistance", &_focusDistance, 0.01f, 0.001f, 100.f);
+        "FocusDistance", &_parameters.focusDistance, 0.01f, 0.001f, 100.f);
 
     float fovDegrees = degrees(_parameters.fov);
     if (ImGui::DragFloat("Field of View", &fovDegrees, 0.1f, 0.1f, 179.f))
@@ -127,7 +127,7 @@ bool Camera::drawUI()
         changed = true;
     }
 
-    ImGui::Text("Focal length: %.3fmm", _focalLength * 1e3);
+    ImGui::Text("Focal length: %.3fmm", _parameters.focalLength * 1e3);
 
     ImGui::End();
 
@@ -174,12 +174,6 @@ const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
 const CameraTransform &Camera::transform() const { return _transform; }
 
 const CameraParameters &Camera::parameters() const { return _parameters; }
-
-float Camera::apertureDiameter() const { return _apertureDiameter; }
-
-float Camera::focalLength() const { return _focalLength; }
-
-float Camera::focusDistance() const { return _focusDistance; }
 
 void Camera::clearChangedThisFrame() { _changedThisFrame = false; }
 

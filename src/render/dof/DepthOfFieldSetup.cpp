@@ -146,15 +146,16 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
         const uint32_t cameraOffset = cam.bufferOffset();
 
+        const CameraParameters &camParams = cam.parameters();
         const float maxBgCoCInUnits =
-            (cam.apertureDiameter() * cam.focalLength()) /
-            (cam.focusDistance() - cam.focalLength());
+            (camParams.apertureDiameter * camParams.focalLength) /
+            (camParams.focusDistance - camParams.focalLength);
 
         const float maxBgCoCInHalfResPixels =
             (maxBgCoCInUnits / cam.sensorWidth()) * renderExtent.width;
 
         const PCBlock pcBlock{
-            .focusDistance = cam.focusDistance(),
+            .focusDistance = camParams.focusDistance,
             .maxBackgroundCoC = maxBgCoCInHalfResPixels,
         };
         const uvec3 groups = uvec3{
