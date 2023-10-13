@@ -191,6 +191,9 @@ class World
         wheels::Optional<Animation<glm::vec3> *> translation;
         wheels::Optional<Animation<glm::quat> *> rotation;
         wheels::Optional<Animation<glm::vec3> *> scale;
+        // TODO:
+        // Dynamic light parameters. glTF doesn't have an official extension
+        // that supports this so requires a custom exporter plugin fork.
     };
     wheels::HashMap<uint32_t, NodeAnimations> loadAnimations(
         wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
