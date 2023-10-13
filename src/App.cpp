@@ -159,7 +159,7 @@ App::App(const Settings &settings)
     _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
 
     _cam->init(_sceneCameraTransform, _cameraParameters);
-    _cam->perspective(
+    _cam->updateAspectRatio(
         _viewportExtent.width / static_cast<float>(_viewportExtent.height));
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)

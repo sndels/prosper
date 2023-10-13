@@ -67,16 +67,9 @@ void Camera::setParameters(const CameraParameters &parameters)
 void Camera::perspective(const PerspectiveParameters &params, const float ar)
 {
     _parameters.fov = params.fov;
-    _parameters.ar = ar;
     _parameters.zN = params.zN;
     _parameters.zF = params.zF;
-
-    perspective();
-}
-
-void Camera::perspective(const float ar)
-{
-    _parameters.ar = ar;
+    _aspectRatio = ar;
 
     perspective();
 }
@@ -84,7 +77,7 @@ void Camera::perspective(const float ar)
 void Camera::perspective()
 {
     const auto fov = _parameters.fov;
-    const auto ar = _parameters.ar;
+    const auto ar = _aspectRatio;
     // Swap near and far for the magical properties of reverse-z
     // https://developer.nvidia.com/content/depth-precision-visualized
     const auto zN = _parameters.zF;
@@ -110,6 +103,13 @@ void Camera::perspective()
     const float sensorHeight = sensorWidth() / ar;
 
     _parameters.focalLength = sensorHeight * tf * 0.5f;
+}
+
+void Camera::updateAspectRatio(float ar)
+{
+    _aspectRatio = ar;
+
+    perspective();
 }
 
 void Camera::updateBuffer(const uvec2 &resolution)

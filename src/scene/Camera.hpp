@@ -45,7 +45,6 @@ struct PerspectiveParameters
 struct CameraParameters
 {
     float fov{glm::radians(59.f)};
-    float ar{16.f / 9.f};
     float zN{0.1f};
     float zF{100.f};
     float apertureDiameter{0.00001f};
@@ -86,8 +85,8 @@ class Camera
     void lookAt(const CameraTransform &transform);
     void setParameters(const CameraParameters &parameters);
     void perspective(const PerspectiveParameters &params, float ar);
-    void perspective(float ar);
     void perspective();
+    void updateAspectRatio(float ar);
 
     void updateBuffer(const glm::uvec2 &resolution);
 
@@ -124,6 +123,7 @@ class Camera
 
     CameraTransform _transform;
     CameraParameters _parameters;
+    float _aspectRatio{16.f / 9.f};
     uint32_t _parametersByteOffset{0xFFFFFFFF};
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToWorld{1.f};
