@@ -26,10 +26,6 @@ namespace
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
 
-constexpr float CAMERA_FOV = 59.f;
-constexpr float CAMERA_NEAR = 0.001f;
-constexpr float CAMERA_FAR = 512.f;
-
 StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
     Device *device)
 {
@@ -244,13 +240,9 @@ void App::recreateViewportRelated()
     else
         _viewportExtent = _swapchain->config().extent;
 
-    _cam->perspective(
-        PerspectiveParameters{
-            .fov = radians(CAMERA_FOV),
-            .zN = CAMERA_NEAR,
-            .zF = CAMERA_FAR,
-        },
-        _viewportExtent.width / static_cast<float>(_viewportExtent.height));
+    const float aspectRatio =
+        _viewportExtent.width / static_cast<float>(_viewportExtent.height);
+    _cam->updateAspectRatio(aspectRatio);
 }
 
 void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
