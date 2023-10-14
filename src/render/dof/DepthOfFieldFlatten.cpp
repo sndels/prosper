@@ -17,7 +17,7 @@ vk::Extent2D getInputExtent(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(illumination).extent;
-    assert(targetExtent.depth == 1);
+    WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
         .width = targetExtent.width,
@@ -43,7 +43,7 @@ DepthOfFieldFlatten::DepthOfFieldFlatten(
       WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
       shaderDefinitionCallback}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void DepthOfFieldFlatten::recompileShaders(wheels::ScopedScratch scopeAlloc)
@@ -56,7 +56,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
     vk::CommandBuffer cb, ImageHandle halfResCircleOfConfusion,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {

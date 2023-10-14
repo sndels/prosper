@@ -44,8 +44,8 @@ vk::Rect2D getRenderArea(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(inOutTargets.illumination).extent;
-    assert(targetExtent.depth == 1);
-    assert(
+    WHEELS_ASSERT(targetExtent.depth == 1);
+    WHEELS_ASSERT(
         targetExtent == resources.images.resource(inOutTargets.depth).extent);
 
     return vk::Rect2D{
@@ -66,8 +66,8 @@ ForwardRenderer::ForwardRenderer(
 : _device{device}
 , _resources{resources}
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 
     printf("Creating ForwardRenderer\n");
 
@@ -156,7 +156,7 @@ bool ForwardRenderer::compileShaders(
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
-    assert(vertDefines.size() <= vertDefsLen);
+    WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -183,7 +183,7 @@ bool ForwardRenderer::compileShaders(
     LightClustering::appendShaderDefines(fragDefines);
     PointLights::appendShaderDefines(fragDefines);
     SpotLights::appendShaderDefines(fragDefines);
-    assert(fragDefines.size() <= fragDefsLen);
+    WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
     const Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
@@ -198,15 +198,13 @@ bool ForwardRenderer::compileShaders(
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-#ifndef NDEBUG
         const ShaderReflection &vertReflection = vertResult->reflection;
-        assert(sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
-#endif // !NDEBUG
+        WHEELS_ASSERT(
+            sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
 
-#ifndef NDEBUG
         const ShaderReflection &fragReflection = fragResult->reflection;
-        assert(sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
-#endif // !NDEBUG
+        WHEELS_ASSERT(
+            sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

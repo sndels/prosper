@@ -102,8 +102,8 @@ ComputePass::ComputePass(
 : _device{device}
 , _storageSetIndex{storageSetIndex}
 {
-    assert(staticDescriptorsAlloc != nullptr);
-    assert(
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+    WHEELS_ASSERT(
         (_storageSetIndex == externalDsLayouts.size()) &&
         "Implementation assumes that the pass storage set is the last set and "
         "is placed right after the last external one");
@@ -139,7 +139,7 @@ void ComputePass::updateDescriptorSet(
     // Have to compare against both extent and previous native handle?
     const vk::DescriptorSet ds = _storageSets[nextFrame];
 
-    assert(_shaderReflection.has_value());
+    WHEELS_ASSERT(_shaderReflection.has_value());
     const wheels::StaticArray descriptorWrites =
         _shaderReflection->generateDescriptorWrites(
             _storageSetIndex, ds, descriptorInfos);
@@ -155,9 +155,10 @@ void ComputePass::record(
     wheels::Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets) const
 {
-    assert(all(greaterThan(groups, glm::uvec3{0u})));
-    assert(_shaderReflection.has_value());
-    assert(sizeof(PCBlock) == _shaderReflection->pushConstantsBytesize());
+    WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
+    WHEELS_ASSERT(_shaderReflection.has_value());
+    WHEELS_ASSERT(
+        sizeof(PCBlock) == _shaderReflection->pushConstantsBytesize());
 
     cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 

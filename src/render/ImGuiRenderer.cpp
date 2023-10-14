@@ -31,9 +31,9 @@ ImGuiRenderer::ImGuiRenderer(
 : _device{device}
 , _resources{resources}
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
-    assert(window != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(window != nullptr);
 
     printf("Creating ImGuiRenderer\n");
 
@@ -97,7 +97,7 @@ ImGuiRenderer::~ImGuiRenderer()
 // NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
 void ImGuiRenderer::startFrame(Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
     const auto _s = profiler->createCpuScope("ImGui::startFrame");
 
     ImGui_ImplVulkan_NewFrame();
@@ -114,7 +114,7 @@ void ImGuiRenderer::startFrame(Profiler *profiler)
 void ImGuiRenderer::endFrame(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     {
         const auto _s = profiler->createCpuScope("ImGui::render");
@@ -145,7 +145,7 @@ void ImGuiRenderer::endFrame(
 ImVec2 ImGuiRenderer::centerAreaOffset() const
 {
     const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
-    assert(node != nullptr);
+    WHEELS_ASSERT(node != nullptr);
 
     return node->Pos;
 }
@@ -153,7 +153,7 @@ ImVec2 ImGuiRenderer::centerAreaOffset() const
 ImVec2 ImGuiRenderer::centerAreaSize() const
 {
     const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
-    assert(node != nullptr);
+    WHEELS_ASSERT(node != nullptr);
 
     return node->Size;
 }

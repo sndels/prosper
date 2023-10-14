@@ -18,7 +18,7 @@ vk::Extent2D getRenderExtent(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(illumination).extent;
-    assert(targetExtent.depth == 1);
+    WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
         .width = targetExtent.width,
@@ -44,7 +44,7 @@ DepthOfFieldCombine::DepthOfFieldCombine(
       WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
       shaderDefinitionCallback}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void DepthOfFieldCombine::recompileShaders(wheels::ScopedScratch scopeAlloc)
@@ -57,7 +57,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     vk::CommandBuffer cb, const Input &input, const uint32_t nextFrame,
     Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {

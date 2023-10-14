@@ -89,7 +89,7 @@ void InputHandler::handleMouseScroll(double xoffset, double yoffset)
 void InputHandler::handleMouseButton(
     GLFWwindow *window, int button, int action, int /*mods*/)
 {
-    assert(window != nullptr);
+    WHEELS_ASSERT(window != nullptr);
 
     if (_cursor.inside)
     {

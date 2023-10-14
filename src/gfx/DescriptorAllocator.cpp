@@ -72,7 +72,7 @@ DescriptorAllocator::DescriptorAllocator(
 , _pools{alloc}
 , _flags{flags}
 {
-    assert(_device != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
 
     nextPool();
 }
@@ -138,7 +138,7 @@ void DescriptorAllocator::allocate(
     Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output,
     const void *allocatePNext)
 {
-    assert(layouts.size() == output.size());
+    WHEELS_ASSERT(layouts.size() == output.size());
 
     auto tryAllocate = [&]() -> vk::Result
     {

@@ -37,7 +37,7 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets) const
 {
-    assert(all(greaterThan(groups, glm::uvec3{0u})));
+    WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
 
     cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
@@ -60,7 +60,7 @@ void ComputePass::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::ShaderStageFlags storageStageFlags)
 {
-    assert(_shaderReflection.has_value());
+    WHEELS_ASSERT(_shaderReflection.has_value());
     _storageSetLayout = _shaderReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), *_device, _storageSetIndex, storageStageFlags);
 
@@ -73,7 +73,7 @@ void ComputePass::createPipeline(
     wheels::ScopedScratch scopeAlloc,
     Span<const vk::DescriptorSetLayout> externalDsLayouts)
 {
-    assert(_shaderReflection.has_value());
+    WHEELS_ASSERT(_shaderReflection.has_value());
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eCompute,
@@ -81,7 +81,7 @@ void ComputePass::createPipeline(
         .size = _shaderReflection->pushConstantsBytesize(),
     };
 
-    assert(_storageSetIndex == externalDsLayouts.size());
+    WHEELS_ASSERT(_storageSetIndex == externalDsLayouts.size());
     Array<vk::DescriptorSetLayout> dsLayouts{scopeAlloc};
     dsLayouts.resize(externalDsLayouts.size() + 1);
     if (!externalDsLayouts.empty())

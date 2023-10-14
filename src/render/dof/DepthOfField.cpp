@@ -14,7 +14,7 @@ DepthOfField::DepthOfField(
 , _combinePass{
       scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void DepthOfField::recompileShaders(

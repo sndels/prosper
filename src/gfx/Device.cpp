@@ -101,8 +101,8 @@ QueueFamilies findQueueFamilies(
             // Set index to matching families
             if (supportsGraphics(queueFlags))
             {
-                assert(supportsCompute(queueFlags));
-                assert(supportsTransfer(queueFlags));
+                WHEELS_ASSERT(supportsCompute(queueFlags));
+                WHEELS_ASSERT(supportsTransfer(queueFlags));
 
                 families.graphicsFamily = i;
                 families.graphicsFamilyQueueCount = allFamilies[i].queueCount;
@@ -115,7 +115,7 @@ QueueFamilies findQueueFamilies(
             }
             else if (supportsCompute(queueFlags))
             {
-                assert(supportsTransfer(queueFlags));
+                WHEELS_ASSERT(supportsTransfer(queueFlags));
 
                 families.computeFamily = i;
                 families.computeFamilyQueueCount = allFamilies[i].queueCount;
@@ -142,7 +142,7 @@ QueueFamilies findQueueFamilies(
         families.transferFamilyQueueCount = families.computeFamilyQueueCount;
     }
 
-    assert(
+    WHEELS_ASSERT(
         (!families.graphicsFamily.has_value() ||
          (allFamilies[*families.graphicsFamily].timestampValidBits == 64)) &&
         "All bits assumed to be valid for simplicity in profiler");
@@ -342,14 +342,14 @@ shaderc_include_result *FileIncluder::GetInclude(
             requested_source + "'. Cycle?");
     }
 
-    assert(type == shaderc_include_type_relative);
+    WHEELS_ASSERT(type == shaderc_include_type_relative);
     (void)type;
 
     const auto requestingDir =
         std::filesystem::path{requesting_source}.parent_path();
     const auto requestedSource =
         (requestingDir / requested_source).lexically_normal();
-    assert(std::filesystem::exists(requestedSource));
+    WHEELS_ASSERT(std::filesystem::exists(requestedSource));
 
     IncludeContent content;
     content.path = std::make_unique<String>(
@@ -453,7 +453,7 @@ Device::Device(
         printf("%s\n", _properties.device.deviceName.data());
     }
 
-    assert(_transferQueue.has_value() == _transferPool.has_value());
+    WHEELS_ASSERT(_transferQueue.has_value() == _transferPool.has_value());
 }
 
 Device::~Device()
@@ -493,7 +493,7 @@ const DeviceProperties &Device::properties() const { return _properties; }
 wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info)
 {
-    assert(info.relPath.string().starts_with("shader/"));
+    WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
     // Prepend version, defines and reset line offset before the actual source
@@ -578,7 +578,7 @@ wheels::Optional<ShaderReflection> Device::reflectShader(
     ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info,
     bool add_dummy_compute_boilerplate)
 {
-    assert(info.relPath.string().starts_with("shader/"));
+    WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
     // Prepend version, defines and reset line offset before the actual source
@@ -687,7 +687,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
 
     if (info.createMapped)
     {
-        assert(allocInfo.pMappedData);
+        WHEELS_ASSERT(allocInfo.pMappedData);
         buffer.mapped = allocInfo.pMappedData;
     }
 
@@ -718,7 +718,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
             .debugName = stagingDebugName.c_str(),
         });
 
-        assert(stagingBuffer.mapped != nullptr);
+        WHEELS_ASSERT(stagingBuffer.mapped != nullptr);
         // Seems like a false positive
         // NOLINTNEXTLINE(clang-analyzer-nullability.NullableDereferenced)
         memcpy(stagingBuffer.mapped, info.initialData, desc.byteSize);
@@ -902,13 +902,14 @@ Image Device::createImage(const ImageCreateInfo &info)
                      vk::ImageCreateFlagBits::eCubeCompatible) ==
                     vk::ImageCreateFlagBits::eCubeCompatible)
                 {
-                    assert(desc.layerCount == 6 && "Cube arrays not supported");
+                    WHEELS_ASSERT(
+                        desc.layerCount == 6 && "Cube arrays not supported");
                     return vk::ImageViewType::eCube;
                 }
                 return vk::ImageViewType::e2DArray;
             }
         case vk::ImageType::e3D:
-            assert(desc.layerCount == 1 && "Can't have 3D image arrays");
+            WHEELS_ASSERT(desc.layerCount == 1 && "Can't have 3D image arrays");
             return vk::ImageViewType::e3D;
         default:
             throw std::runtime_error(
@@ -957,14 +958,14 @@ void Device::destroy(const Image &image)
 void Device::createSubresourcesViews(
     const Image &image, Span<vk::ImageView> outViews) const
 {
-    assert(
+    WHEELS_ASSERT(
         image.subresourceRange.layerCount == 1 &&
         "Texture arrays not supported");
-    assert(
+    WHEELS_ASSERT(
         image.subresourceRange.levelCount > 1 &&
         "You can just use the global view when no mips are present");
-    assert(image.subresourceRange.baseMipLevel == 0);
-    assert(image.subresourceRange.levelCount == outViews.size());
+    WHEELS_ASSERT(image.subresourceRange.baseMipLevel == 0);
+    WHEELS_ASSERT(image.subresourceRange.levelCount == outViews.size());
 
     const vk::ImageAspectFlags aspect = aspectMask(image.format);
     const vk::ImageViewType viewType = [&image]()
@@ -1162,7 +1163,7 @@ void Device::createDebugMessenger()
 
 void Device::createSurface(GLFWwindow *window)
 {
-    assert(window != nullptr);
+    WHEELS_ASSERT(window != nullptr);
 
     auto *vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&_surface);
     auto *vkInstance = static_cast<VkInstance>(_instance);
@@ -1192,8 +1193,8 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
 
 void Device::createLogicalDevice()
 {
-    assert(_queueFamilies.graphicsFamily.has_value());
-    assert(_queueFamilies.transferFamily.has_value());
+    WHEELS_ASSERT(_queueFamilies.graphicsFamily.has_value());
+    WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
 
     const uint32_t graphicsFamily = *_queueFamilies.graphicsFamily;
     const uint32_t graphicsFamilyQueueCount =
@@ -1207,7 +1208,7 @@ void Device::createLogicalDevice()
         StaticArray<vk::DeviceQueueCreateInfo, 2> cis;
         if (graphicsFamily == transferFamily)
         {
-            assert(queuePriorities.size() >= 2);
+            WHEELS_ASSERT(queuePriorities.size() >= 2);
             cis.push_back(vk::DeviceQueueCreateInfo{
                 .queueFamilyIndex = graphicsFamily,
                 .queueCount = std::min(2u, graphicsFamilyQueueCount),
@@ -1285,7 +1286,7 @@ void Device::createAllocator()
 void Device::createCommandPools()
 {
     {
-        assert(_queueFamilies.graphicsFamily.has_value());
+        WHEELS_ASSERT(_queueFamilies.graphicsFamily.has_value());
 
         const vk::CommandPoolCreateInfo poolInfo{
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -1296,7 +1297,7 @@ void Device::createCommandPools()
     {
         if (_transferQueue.has_value())
         {
-            assert(_queueFamilies.transferFamily.has_value());
+            WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
 
             const vk::CommandPoolCreateInfo poolInfo{
                 .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,

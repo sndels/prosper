@@ -25,9 +25,9 @@ Camera::Camera(
 : _device{device}
 , _constantsRing{constantsRing}
 {
-    assert(_device != nullptr);
-    assert(_constantsRing != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_constantsRing != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating Camera\n");
 
@@ -180,7 +180,7 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     const size_t len = 32;
     String defines{scopeAlloc, len};
     appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
-    assert(defines.size() <= len);
+    WHEELS_ASSERT(defines.size() <= len);
 
     Optional<ShaderReflection> compResult = _device->reflectShader(
         scopeAlloc.child_scope(),
@@ -198,7 +198,7 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
 void Camera::createDescriptorSet(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    assert(_bindingsReflection.has_value());
+    WHEELS_ASSERT(_bindingsReflection.has_value());
     _descriptorSetLayout = _bindingsReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), *_device, 0,
         vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment |

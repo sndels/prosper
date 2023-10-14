@@ -183,7 +183,7 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
     const auto *stats = reinterpret_cast<uint32_t *>(_statisticsBuffer.mapped);
 
     const size_t scopeCount = _queryScopeIndices.size();
-    assert(scopeCount == _scopeHasStats.size());
+    WHEELS_ASSERT(scopeCount == _scopeHasStats.size());
     Array<ScopeData> ret{alloc, scopeCount};
     for (auto i = 0u; i < scopeCount; ++i)
     {
@@ -245,7 +245,7 @@ void CpuFrameProfiler::startFrame() { _nanos.clear(); }
 [[nodiscard]] CpuFrameProfiler::Scope CpuFrameProfiler::createScope(
     uint32_t index)
 {
-    assert(
+    WHEELS_ASSERT(
         index == _nanos.size() &&
         "CpuFrameProfiler expects that all indices have a scope attached");
     (void)index;
@@ -289,7 +289,7 @@ Profiler::Profiler(Allocator &alloc, Device *device)
 
 void Profiler::startCpuFrame()
 {
-    assert(_debugState == DebugState::NewFrame);
+    WHEELS_ASSERT(_debugState == DebugState::NewFrame);
 
     // Only clear transients for this profiling frame. We'll figure out which
     // frame's data we'll overwrite in endCpuFrame, when we know the gpu frame
@@ -298,15 +298,13 @@ void Profiler::startCpuFrame()
 
     _cpuFrameProfiler.startFrame();
 
-#ifndef NDEBUG
     _debugState = DebugState::StartCpuCalled;
-#endif // NDEBUG
 }
 
 void Profiler::startGpuFrame(uint32_t frameIndex)
 {
-    assert(_debugState == DebugState::StartCpuCalled);
-    assert(frameIndex < _gpuFrameProfilers.size());
+    WHEELS_ASSERT(_debugState == DebugState::StartCpuCalled);
+    WHEELS_ASSERT(frameIndex < _gpuFrameProfilers.size());
 
     _currentFrame = frameIndex;
 
@@ -316,27 +314,23 @@ void Profiler::startGpuFrame(uint32_t frameIndex)
 
     _gpuFrameProfilers[_currentFrame].startFrame();
 
-#ifndef NDEBUG
     _debugState = DebugState::StartGpuCalled;
-#endif // NDEBUG
 }
 
 void Profiler::endGpuFrame(vk::CommandBuffer cb)
 {
-    assert(_debugState == DebugState::StartGpuCalled);
+    WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
 
     _gpuFrameProfilers[_currentFrame].endFrame(cb);
 
-#ifndef NDEBUG
     _debugState = DebugState::EndGpuCalled;
-#endif // NDEBUG
 }
 
 void Profiler::endCpuFrame()
 {
-    assert(_debugState == DebugState::EndGpuCalled);
-    assert(_currentFrame < _previousScopeNames.size());
-    assert(_currentFrame < _previousCpuScopeTimes.size());
+    WHEELS_ASSERT(_debugState == DebugState::EndGpuCalled);
+    WHEELS_ASSERT(_currentFrame < _previousScopeNames.size());
+    WHEELS_ASSERT(_currentFrame < _previousCpuScopeTimes.size());
 
     // We now know which frame's data we gave out in getTimes() so let's
     // overwrite them
@@ -345,18 +339,16 @@ void Profiler::endCpuFrame()
         _previousScopeNames[_currentFrame].emplace_back(_alloc, name);
     _previousCpuScopeTimes[_currentFrame] = _cpuFrameProfiler.getTimes(_alloc);
 
-#ifndef NDEBUG
     _debugState = DebugState::NewFrame;
-#endif // NDEBUG
 }
 
 Profiler::Scope Profiler::createCpuGpuScope(
     vk::CommandBuffer cb, const char *name, bool includeStatistics)
 {
-    assert(_debugState == DebugState::StartGpuCalled);
+    WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
 
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
-    assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
+    WHEELS_ASSERT(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
     _currentFrameScopeNames.emplace_back(_alloc, name);
 
@@ -368,12 +360,12 @@ Profiler::Scope Profiler::createCpuGpuScope(
 
 Profiler::Scope Profiler::createCpuScope(const char *name)
 {
-    assert(
+    WHEELS_ASSERT(
         _debugState == DebugState::StartCpuCalled ||
         _debugState == DebugState::StartGpuCalled);
 
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
-    assert(index < sMaxScopeCount && "Ran out of per-frame scopes");
+    WHEELS_ASSERT(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
     _currentFrameScopeNames.emplace_back(_alloc, name);
 
@@ -382,7 +374,7 @@ Profiler::Scope Profiler::createCpuScope(const char *name)
 
 Array<Profiler::ScopeData> Profiler::getPreviousData(Allocator &alloc)
 {
-    assert(_debugState == DebugState::StartGpuCalled);
+    WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
 
     const auto &scopeNames = _previousScopeNames[_currentFrame];
     // This also handles the first calls before any scopes are recorded for the
@@ -399,14 +391,14 @@ Array<Profiler::ScopeData> Profiler::getPreviousData(Allocator &alloc)
 
     for (const auto &data : _previousGpuScopeData)
     {
-        assert(data.index < ret.size());
+        WHEELS_ASSERT(data.index < ret.size());
         ret[data.index].gpuMillis = data.millis;
         ret[data.index].gpuStats = data.stats;
     }
 
     for (const auto &t : _previousCpuScopeTimes[_currentFrame])
     {
-        assert(t.index < ret.size());
+        WHEELS_ASSERT(t.index < ret.size());
         ret[t.index].cpuMillis = t.millis;
     }
 

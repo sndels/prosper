@@ -66,7 +66,7 @@ tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 
 Buffer createSkyboxVertexBuffer(Device *device)
 {
-    assert(device != nullptr);
+    WHEELS_ASSERT(device != nullptr);
 
     // Avoid large global allocation
     const StaticArray<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{
@@ -163,11 +163,12 @@ Buffer createTextureStaging(Device *device)
 void loadingWorker(
     const std::filesystem::path *sceneDir, World::DeferredLoadingContext *ctx)
 {
-    assert(sceneDir != nullptr);
-    assert(ctx != nullptr);
-    assert(ctx->device != nullptr);
-    assert(ctx->device->transferQueue().has_value());
-    assert(ctx->device->graphicsQueue() != *ctx->device->transferQueue());
+    WHEELS_ASSERT(sceneDir != nullptr);
+    WHEELS_ASSERT(ctx != nullptr);
+    WHEELS_ASSERT(ctx->device != nullptr);
+    WHEELS_ASSERT(ctx->device->transferQueue().has_value());
+    WHEELS_ASSERT(
+        ctx->device->graphicsQueue() != *ctx->device->transferQueue());
 
     // Enough for 4K textures, it seems
     LinearAllocator scratchBacking{megabytes(256)};
@@ -178,7 +179,8 @@ void loadingWorker(
         if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
             break;
 
-        assert(ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
+        WHEELS_ASSERT(
+            ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
         const tinygltf::Image &image =
             ctx->gltfModel.images[ctx->workerLoadedImageCount];
         if (image.uri.empty())
@@ -201,8 +203,8 @@ void loadingWorker(
             true};
 
         const QueueFamilies &families = ctx->device->queueFamilies();
-        assert(families.graphicsFamily.has_value());
-        assert(families.transferFamily.has_value());
+        WHEELS_ASSERT(families.graphicsFamily.has_value());
+        WHEELS_ASSERT(families.transferFamily.has_value());
 
         if (*families.graphicsFamily != *families.transferFamily)
         {
@@ -259,7 +261,7 @@ void loadingWorker(
 
             if (ctx->loadedTexture.has_value())
                 ctx->loadedTextureTaken.wait(lock);
-            assert(!ctx->loadedTexture.has_value());
+            WHEELS_ASSERT(!ctx->loadedTexture.has_value());
 
             ctx->loadedTexture.emplace(WHEELS_MOV(tex));
 
@@ -278,7 +280,7 @@ const uint8_t *appendAccessorData(
     const uint32_t offset =
         asserted_cast<uint32_t>(accessor.byteOffset + view.byteOffset);
 
-    assert(view.buffer >= 0);
+    WHEELS_ASSERT(view.buffer >= 0);
     const tinygltf::Buffer buffer = model.buffers[view.buffer];
 
     const uint8_t *ret = rawData.data() + rawData.size();
@@ -305,7 +307,7 @@ World::World(
 , _descriptorAllocator{_generalAlloc, device}
 
 {
-    assert(_device != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
 
     printf("Loading world\n");
 
@@ -486,7 +488,7 @@ const Scene &World::currentScene() const { return _scenes[_currentScene]; }
 
 void World::updateAnimations(float timeS, Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     auto _s = profiler->createCpuScope("World::updateAnimations");
 
@@ -500,8 +502,8 @@ void World::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
     Profiler *profiler)
 {
-    assert(profiler != nullptr);
-    assert(cameraTransform != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
+    WHEELS_ASSERT(cameraTransform != nullptr);
 
     auto _s = profiler->createCpuScope("World::updateScene");
 
@@ -706,7 +708,7 @@ void World::loadTextures(
         };
         _samplers.push_back(_device->logical().createSampler(info));
     }
-    assert(
+    WHEELS_ASSERT(
         gltfModel.samplers.size() < 0xFE &&
         "Too many samplers to pack in u32 texture index");
     for (const auto &sampler : gltfModel.samplers)
@@ -739,7 +741,7 @@ void World::loadTextures(
         texture2DSamplers.emplace_back();
     }
 
-    assert(
+    WHEELS_ASSERT(
         gltfModel.images.size() < 0xFFFFFE &&
         "Too many textures to pack in u32 texture index");
     if (!deferredLoading)
@@ -837,7 +839,7 @@ void World::loadMaterials(
 
         if (deferredLoading)
         {
-            assert(_deferredLoadingContext.has_value());
+            WHEELS_ASSERT(_deferredLoadingContext.has_value());
             // Copy the alpha mode of the real material because that's used to
             // set opaque flag in rt
             _materials.push_back(Material{
@@ -901,7 +903,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                 const auto &view = gltfModel.bufferViews[accessor.bufferView];
                 const auto offset = asserted_cast<uint32_t>(
                     accessor.byteOffset + view.byteOffset);
-                assert(
+                WHEELS_ASSERT(
                     offset % sizeof(uint32_t) == 0 &&
                     "Shader binds buffers as uint");
 
@@ -922,9 +924,11 @@ void World::loadModels(const tinygltf::Model &gltfModel)
             const auto [tangents, tangentsCount] = assertedGetAttr("TANGENT");
             const auto [texCoord0s, texCoord0sCount] =
                 assertedGetAttr("TEXCOORD_0");
-            assert(positionsCount == normalsCount);
-            assert(tangentsCount == 0 || tangentsCount == positionsCount);
-            assert(texCoord0sCount == 0 || texCoord0sCount == positionsCount);
+            WHEELS_ASSERT(positionsCount == normalsCount);
+            WHEELS_ASSERT(
+                tangentsCount == 0 || tangentsCount == positionsCount);
+            WHEELS_ASSERT(
+                texCoord0sCount == 0 || texCoord0sCount == positionsCount);
 
             if (tangentsCount == 0)
                 fprintf(
@@ -935,16 +939,16 @@ void World::loadModels(const tinygltf::Model &gltfModel)
 
             const auto [indices, indexCount, usesShortIndices] = [&]
             {
-                assert(primitive.indices > -1);
+                WHEELS_ASSERT(primitive.indices > -1);
                 const auto &accessor = gltfModel.accessors[primitive.indices];
                 const auto &view = gltfModel.bufferViews[accessor.bufferView];
                 const auto offset = asserted_cast<uint32_t>(
                     accessor.byteOffset + view.byteOffset);
-                assert(
+                WHEELS_ASSERT(
                     offset % sizeof(uint32_t) == 0 &&
                     "Shader binds buffers as uint");
 
-                assert(
+                WHEELS_ASSERT(
                     accessor.componentType ==
                         TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT ||
                     accessor.componentType ==
@@ -963,7 +967,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
             }();
 
             // -1 is mapped to the default material
-            assert(primitive.material > -2);
+            WHEELS_ASSERT(primitive.material > -2);
             const uint32_t material = primitive.material + 1;
 
             _meshBuffers.push_back(MeshBuffers{
@@ -1075,14 +1079,14 @@ HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
             else if (sampler.interpolation == "CUBICSPLINE")
                 interpolation = InterpolationType::CubicSpline;
             else
-                assert(!"Unsupported interpolation type");
+                WHEELS_ASSERT(!"Unsupported interpolation type");
 
             const tinygltf::Accessor &inputAccessor =
                 gltfModel.accessors[sampler.input];
-            assert(!inputAccessor.sparse.isSparse);
-            assert(
+            WHEELS_ASSERT(!inputAccessor.sparse.isSparse);
+            WHEELS_ASSERT(
                 inputAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
-            assert(inputAccessor.type == TINYGLTF_TYPE_SCALAR);
+            WHEELS_ASSERT(inputAccessor.type == TINYGLTF_TYPE_SCALAR);
 
             // TODO:
             // Share data for accessors that use the same bytes?
@@ -1090,8 +1094,8 @@ HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
                 reinterpret_cast<const float *>(appendAccessorData(
                     _rawAnimationData, inputAccessor, gltfModel));
 
-            assert(inputAccessor.minValues.size() == 1);
-            assert(inputAccessor.maxValues.size() == 1);
+            WHEELS_ASSERT(inputAccessor.minValues.size() == 1);
+            WHEELS_ASSERT(inputAccessor.maxValues.size() == 1);
             TimeAccessor timeFrames{
                 timesPtr, asserted_cast<uint32_t>(inputAccessor.count),
                 TimeAccessor::Interval{
@@ -1102,8 +1106,8 @@ HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
 
             const tinygltf::Accessor &outputAccessor =
                 gltfModel.accessors[sampler.output];
-            assert(!outputAccessor.sparse.isSparse);
-            assert(
+            WHEELS_ASSERT(!outputAccessor.sparse.isSparse);
+            WHEELS_ASSERT(
                 outputAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
 
             // TODO:
@@ -1136,14 +1140,14 @@ HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
                     static_cast<void *>(&_animations._quat.back()));
             }
             else
-                assert(!"Unsupported animation output type");
+                WHEELS_ASSERT(!"Unsupported animation output type");
         }
 
         for (const tinygltf::AnimationChannel &channel : animation.channels)
         {
             NodeAnimations *targetAnimations = ret.find(channel.target_node);
             // These should have been initialized earlier
-            assert(targetAnimations != nullptr);
+            WHEELS_ASSERT(targetAnimations != nullptr);
             if (channel.target_path == "translation")
                 targetAnimations->translation = static_cast<Animation<vec3> *>(
                     concreteAnimations[channel.sampler]);
@@ -1213,7 +1217,7 @@ void World::loadScenes(
             const auto &obj = ext.Get<tinygltf::Value::Object>();
 
             const auto &light = obj.find("light")->second;
-            assert(light.IsInt());
+            WHEELS_ASSERT(light.IsInt());
 
             node.light = asserted_cast<uint32_t>(light.GetNumberAsInt());
         }
@@ -1312,7 +1316,7 @@ void World::loadScenes(
             }
             else
                 // Non-animated nodes should be mapped too
-                assert(!"Node not found in animation data");
+                WHEELS_ASSERT(!"Node not found in animation data");
         }
 
         // Propagate dynamic flags
@@ -1573,7 +1577,7 @@ void World::gatherScene(
 
 void World::createBlases()
 {
-    assert(_meshBuffers.size() == _meshInfos.size());
+    WHEELS_ASSERT(_meshBuffers.size() == _meshInfos.size());
     _blases.resize(_meshBuffers.size());
     for (size_t i = 0; i < _blases.size(); ++i)
     {
@@ -1796,7 +1800,7 @@ void World::updateTlasInstances(
         for (const auto &sm : model.subModels)
         {
             const auto &blas = _blases[sm.meshID];
-            assert(blas.handle != vk::AccelerationStructureKHR{});
+            WHEELS_ASSERT(blas.handle != vk::AccelerationStructureKHR{});
 
             instances.push_back(vk::AccelerationStructureInstanceKHR{
                 .transform = *trfn_cast,
@@ -1810,7 +1814,7 @@ void World::updateTlasInstances(
             });
         }
     }
-    assert(instances.size() == scene.rtInstanceCount);
+    WHEELS_ASSERT(instances.size() == scene.rtInstanceCount);
 
     reserveTlasInstances(instances);
 
@@ -1933,7 +1937,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
     };
 
     {
-        assert(!_samplers.empty());
+        WHEELS_ASSERT(!_samplers.empty());
         _dsLayouts.materialSamplerCount =
             asserted_cast<uint32_t>(_samplers.size());
 
@@ -1946,7 +1950,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         appendDefineStr(
             defines, "NUM_MATERIAL_SAMPLERS", _dsLayouts.materialSamplerCount);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
-        assert(defines.size() <= len);
+        WHEELS_ASSERT(defines.size() <= len);
 
         _materialsReflection = reflect(defines, "shader/scene/materials.glsl");
     }
@@ -1956,7 +1960,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         String defines{scopeAlloc, len};
         appendDefineStr(defines, "GEOMETRY_SET", sGeometryReflectionSet);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
-        assert(defines.size() <= len);
+        WHEELS_ASSERT(defines.size() <= len);
 
         _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
     }
@@ -1966,7 +1970,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         String defines{scopeAlloc, len};
         appendDefineStr(
             defines, "MODEL_INSTANCE_TRFNS_SET", sInstanceTrfnsReflectionSet);
-        assert(defines.size() <= len);
+        WHEELS_ASSERT(defines.size() <= len);
 
         _modelInstancesReflection =
             reflect(defines, "shader/scene/transforms.glsl");
@@ -1978,7 +1982,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         appendDefineStr(defines, "LIGHTS_SET", sLightsReflectionSet);
         PointLights::appendShaderDefines(defines);
         SpotLights::appendShaderDefines(defines);
-        assert(defines.size() <= len);
+        WHEELS_ASSERT(defines.size() <= len);
 
         _lightsReflection = reflect(defines, "shader/scene/lights.glsl");
     }
@@ -1987,7 +1991,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
         const size_t len = 32;
         String defines{scopeAlloc, len};
         appendDefineStr(defines, "SKYBOX_SET", sSkyboxReflectionSet);
-        assert(defines.size() <= len);
+        WHEELS_ASSERT(defines.size() <= len);
 
         _skyboxReflection = reflect(defines, "shader/scene/skybox.glsl");
     }
@@ -1999,7 +2003,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         throw std::runtime_error(
             "Tried to create World descriptor sets before loading glTF");
 
-    assert(_materialsReflection.has_value());
+    WHEELS_ASSERT(_materialsReflection.has_value());
     _dsLayouts.materialDatas = _materialsReflection->createDescriptorSetLayout(
         scopeAlloc.child_scope(), *_device, sMaterialDatasReflectionSet,
         vk::ShaderStageFlagBits::eFragment |
@@ -2015,8 +2019,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorAllocator.allocate(materialDatasLayouts, _materialDatasDSs);
     }
 
-    assert(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
-    assert(_materialDatasDSs.size() == MAX_FRAMES_IN_FLIGHT);
+    WHEELS_ASSERT(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
+    WHEELS_ASSERT(_materialDatasDSs.size() == MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         const StaticArray descriptorInfos = {
@@ -2052,7 +2056,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         {
             // Fill missing textures with the default info so potential reads
             // are still to valid descriptors
-            assert(_texture2Ds.size() == 1);
+            WHEELS_ASSERT(_texture2Ds.size() == 1);
             const vk::DescriptorImageInfo defaultInfo =
                 _texture2Ds[0].imageInfo();
             for (size_t i = 0; i < materialImageInfos.capacity(); ++i)
@@ -2078,7 +2082,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending},
         };
 
-        assert(_materialsReflection.has_value());
+        WHEELS_ASSERT(_materialsReflection.has_value());
         _dsLayouts.materialTextures =
             _materialsReflection->createDescriptorSetLayout(
                 scopeAlloc.child_scope(), *_device,
@@ -2133,7 +2137,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
         };
 
-        assert(_geometryReflection.has_value());
+        WHEELS_ASSERT(_geometryReflection.has_value());
         _dsLayouts.geometry = _geometryReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sGeometryReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
@@ -2187,7 +2191,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             _device->logical().createDescriptorSetLayout(createInfo);
     }
 
-    assert(_modelInstancesReflection.has_value());
+    WHEELS_ASSERT(_modelInstancesReflection.has_value());
     _dsLayouts.modelInstances =
         _modelInstancesReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sInstanceTrfnsReflectionSet,
@@ -2195,7 +2199,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::ShaderStageFlagBits::eRaygenKHR |
                 vk::ShaderStageFlagBits::eAnyHitKHR);
 
-    assert(_lightsReflection.has_value());
+    WHEELS_ASSERT(_lightsReflection.has_value());
     _dsLayouts.lights = _lightsReflection->createDescriptorSetLayout(
         scopeAlloc.child_scope(), *_device, sLightsReflectionSet,
         vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute |
@@ -2299,7 +2303,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
     // Skybox layout and descriptor set
     {
-        assert(_skyboxReflection.has_value());
+        WHEELS_ASSERT(_skyboxReflection.has_value());
         _dsLayouts.skybox = _skyboxReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sSkyboxReflectionSet,
             vk::ShaderStageFlagBits::eFragment |
@@ -2322,10 +2326,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
 bool World::pollTextureWorker(vk::CommandBuffer cb)
 {
-    assert(_deferredLoadingContext.has_value());
+    WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+    WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfModel.images.size());
 
     bool newTextureLoaded = false;
     {
@@ -2342,8 +2346,8 @@ bool World::pollTextureWorker(vk::CommandBuffer cb)
         ctx.loadedTextureTaken.notify_all();
 
         const QueueFamilies &families = _device->queueFamilies();
-        assert(families.graphicsFamily.has_value());
-        assert(families.transferFamily.has_value());
+        WHEELS_ASSERT(families.graphicsFamily.has_value());
+        WHEELS_ASSERT(families.transferFamily.has_value());
 
         if (*families.graphicsFamily != *families.transferFamily)
         {
@@ -2381,19 +2385,19 @@ bool World::pollTextureWorker(vk::CommandBuffer cb)
 void World::loadTextureSingleThreaded(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame)
 {
-    assert(_deferredLoadingContext.has_value());
+    WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    assert(ctx.loadedImageCount < ctx.gltfModel.images.size());
+    WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfModel.images.size());
 
-    assert(ctx.gltfModel.images.size() > ctx.loadedImageCount);
+    WHEELS_ASSERT(ctx.gltfModel.images.size() > ctx.loadedImageCount);
     const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
     if (image.uri.empty())
         throw std::runtime_error("Embedded glTF textures aren't "
                                  "supported. Scene should be glTF + "
                                  "bin + textures.");
 
-    assert(ctx.stagingBuffers.size() > nextFrame);
+    WHEELS_ASSERT(ctx.stagingBuffers.size() > nextFrame);
     _texture2Ds.emplace_back(
         scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
         ctx.stagingBuffers[nextFrame], true);
@@ -2401,7 +2405,7 @@ void World::loadTextureSingleThreaded(
 
 void World::updateDescriptorsWithNewTexture()
 {
-    assert(_deferredLoadingContext.has_value());
+    WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
 
@@ -2456,8 +2460,8 @@ World::DeferredLoadingContext::DeferredLoadingContext(
 , gltfModel{gltfModel}
 , materials{alloc, gltfModel.materials.size()}
 {
-    assert(sceneDir != nullptr);
-    assert(device != nullptr);
+    WHEELS_ASSERT(sceneDir != nullptr);
+    WHEELS_ASSERT(device != nullptr);
 
     // One of these is used by the worker implementation, all by the
     // single threaded one
@@ -2467,7 +2471,7 @@ World::DeferredLoadingContext::DeferredLoadingContext(
     const Optional<vk::CommandPool> transferPool = device->transferPool();
     if (transferPool.has_value())
     {
-        assert(device->transferQueue().has_value());
+        WHEELS_ASSERT(device->transferQueue().has_value());
 
         cb = device->logical().allocateCommandBuffers(
             vk::CommandBufferAllocateInfo{

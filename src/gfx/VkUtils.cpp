@@ -70,7 +70,7 @@ vk::Pipeline createGraphicsPipeline(
         rasterizerState.frontFace = vk::FrontFace::eCounterClockwise;
     }
     else
-        assert(
+        WHEELS_ASSERT(
             topology == vk::PrimitiveTopology::eLineList &&
             "Expected triangle list or line list");
 

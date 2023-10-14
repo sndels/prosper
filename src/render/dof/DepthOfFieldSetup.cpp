@@ -31,7 +31,7 @@ vk::Extent2D getRenderExtent(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(illumination).extent;
-    assert(targetExtent.depth == 1);
+    WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
         .width = targetExtent.width / 2,
@@ -45,7 +45,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     String defines{alloc, len};
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
-    assert(defines.size() <= len);
+    WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/dof/setup.comp",
@@ -65,7 +65,7 @@ DepthOfFieldSetup::DepthOfFieldSetup(
                staticDescriptorsAlloc, shaderDefinitionCallback,
                StorageBindingSet,      Span{&camDsLayout, 1}}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void DepthOfFieldSetup::recompileShaders(
@@ -80,7 +80,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
     vk::CommandBuffer cb, const Camera &cam, const Input &input,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {

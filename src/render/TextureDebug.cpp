@@ -68,7 +68,7 @@ TextureDebug::TextureDebug(
 , _computePass{WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc, shaderDefinitionCallback}
 , _targetSettings{alloc}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void TextureDebug::recompileShaders(ScopedScratch scopeAlloc)
@@ -143,9 +143,9 @@ void TextureDebug::drawUi()
         if (!_targetSettings.contains(nameHash))
             _targetSettings.insert_or_assign(nameHash, TargetSettings{});
         settings = _targetSettings.find(nameHash);
-        assert(settings != nullptr);
+        WHEELS_ASSERT(settings != nullptr);
     }
-    assert(settings != nullptr);
+    WHEELS_ASSERT(settings != nullptr);
 
     {
         const ImageHandle activeHandle = _resources->images.activeDebugHandle();
@@ -203,7 +203,7 @@ ImageHandle TextureDebug::record(
     vk::CommandBuffer cb, vk::Extent2D outSize, uint32_t nextFrame,
     Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     ImageHandle ret;
     {

@@ -125,7 +125,7 @@ vk::ImageLayout nativeLayout(ImageState state)
     if (contains(state, ImageState::AccessTransferWrite))
         return vk::ImageLayout::eTransferDstOptimal;
 
-    assert(state == ImageState::Unknown);
+    WHEELS_ASSERT(state == ImageState::Unknown);
 
     return vk::ImageLayout::eUndefined;
 }

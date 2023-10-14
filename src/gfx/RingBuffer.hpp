@@ -68,9 +68,7 @@ class RingBuffer
     Device *_device{nullptr};
     Buffer _buffer;
     uint32_t _currentByteOffset{0};
-#ifndef NDEBUG
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT - 1> _frameStartOffsets;
-#endif // NDEBUG
 };
 
 template <typename T>

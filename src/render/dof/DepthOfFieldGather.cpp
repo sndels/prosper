@@ -23,7 +23,7 @@ vk::Extent2D getRenderExtent(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(halfResIllumination).extent;
-    assert(targetExtent.depth == 1);
+    WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
         .width = targetExtent.width,
@@ -36,7 +36,7 @@ ComputePass::Shader backgroundDefinitionCallback(Allocator &alloc)
     const size_t len = 32;
     String defines{alloc, len};
     appendDefineStr(defines, "GATHER_BACKGROUND");
-    assert(defines.size() <= len);
+    WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/dof/gather.comp",
@@ -64,7 +64,7 @@ DepthOfFieldGather::DepthOfFieldGather(
       scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
       foregroundDefinitionCallback}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void DepthOfFieldGather::recompileShaders(wheels::ScopedScratch scopeAlloc)
@@ -79,8 +79,8 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     vk::CommandBuffer cb, const Input &input, GatherType gatherType,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    assert(profiler != nullptr);
-    assert(gatherType < GatherType_Count);
+    WHEELS_ASSERT(profiler != nullptr);
+    WHEELS_ASSERT(gatherType < GatherType_Count);
 
     ComputePass *computePass = gatherType == GatherType_Foreground
                                    ? &_foregroundPass
