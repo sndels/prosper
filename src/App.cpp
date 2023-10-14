@@ -565,6 +565,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
             _world->_cameras[_world->_currentCamera];
         _cam->setParameters(params);
         _forceCamUpdate = false;
+        // Disable free look for animated cameras
+        _camFreeLook = !_world->_cameraDynamic[_world->_currentCamera];
     }
 
     WHEELS_ASSERT(
@@ -1007,8 +1009,6 @@ bool App::drawCameraUi()
         {
             // Make sure the new camera's parameters are copied over from scene
             _forceCamUpdate = true;
-            // Disable free look for animated cameras
-            _camFreeLook = !_world->_cameraDynamic[_world->_currentCamera];
         }
     }
     // Force free look on non-animated cameras
