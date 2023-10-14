@@ -557,20 +557,15 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     _world->uploadMaterialDatas(nextFrame);
 
-    if (!_camFreeLook)
+    if (_isPlaying || _forceCamUpdate)
     {
         _cam->lookAt(_sceneCameraTransform);
 
         const CameraParameters &params =
             _world->_cameras[_world->_currentCamera];
         _cam->setParameters(params);
+        _forceCamUpdate = false;
     }
-
-    // Force free look on non-animated cameras. This should happen after the
-    // lookat check so that the initial camera gets the correct transformation
-    // applied. Same for a camera after changing the active one from the ui.
-    if (!_world->_cameraDynamic[_world->_currentCamera])
-        _camFreeLook = true;
 
     assert(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
@@ -1009,9 +1004,14 @@ bool App::drawCameraUi()
     {
         if (SliderU32(
                 "Active camera", &_world->_currentCamera, 0, cameraCount - 1))
+        {
             // Make sure the new camera's parameters are copied over from scene
-            _camFreeLook = false;
+            _forceCamUpdate = true;
+            // Disable free look for animated cameras
+            _camFreeLook = !_world->_cameraDynamic[_world->_currentCamera];
+        }
     }
+    // Force free look on non-animated cameras
 
     if (_world->_cameraDynamic[_world->_currentCamera])
         ImGui::Checkbox("Free look", &_camFreeLook);

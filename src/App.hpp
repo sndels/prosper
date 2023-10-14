@@ -150,6 +150,7 @@ class App
     bool _textureDebugActive{false};
     bool _drawUi{true};
     bool _forceViewportRecreate{false};
+    bool _forceCamUpdate{true};
 
     bool _camFreeLook{false};
     CameraTransform _sceneCameraTransform;
