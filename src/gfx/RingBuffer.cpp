@@ -4,9 +4,7 @@ using namespace wheels;
 namespace
 {
 
-#ifndef NDEBUG
 constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
-#endif // NDEBUG
 
 } // namespace
 
@@ -15,11 +13,11 @@ RingBuffer::RingBuffer(
     const char *debugName)
 : _device{device}
 {
-    assert(_device != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
 
     // Implementation assumes these in allocate()
-    assert(byteSize > RingBuffer::sAlignment);
-    assert(byteSize <= sMaxAllocation);
+    WHEELS_ASSERT(byteSize > RingBuffer::sAlignment);
+    WHEELS_ASSERT(byteSize <= sMaxAllocation);
 
     _buffer = _device->createBuffer(BufferCreateInfo{
         .desc =
@@ -32,7 +30,7 @@ RingBuffer::RingBuffer(
         .createMapped = true,
         .debugName = debugName,
     });
-    assert(_buffer.mapped != nullptr);
+    WHEELS_ASSERT(_buffer.mapped != nullptr);
 }
 
 RingBuffer::~RingBuffer()
@@ -45,7 +43,6 @@ vk::Buffer RingBuffer::buffer() const { return _buffer.handle; }
 
 void RingBuffer::startFrame()
 {
-#ifndef NDEBUG
     if (_frameStartOffsets.size() < _frameStartOffsets.capacity())
         _frameStartOffsets.push_back(_currentByteOffset);
     else
@@ -57,15 +54,12 @@ void RingBuffer::startFrame()
             _frameStartOffsets[i] = _frameStartOffsets[i + 1];
         _frameStartOffsets.back() = _currentByteOffset;
     }
-#endif
 }
 
 void RingBuffer::reset()
 {
     _currentByteOffset = 0;
-#ifndef NDEBUG
     _frameStartOffsets.clear();
-#endif
 }
 
 uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
@@ -81,10 +75,10 @@ void RingBuffer::write_unaligned(wheels::Span<const uint8_t> data)
 uint32_t RingBuffer::write_internal(
     wheels::Span<const uint8_t> data, bool align)
 {
-    assert(data.size() <= _buffer.byteSize);
+    WHEELS_ASSERT(data.size() <= _buffer.byteSize);
 
     const uint32_t byteSize = asserted_cast<uint32_t>(data.size());
-    assert(byteSize + RingBuffer::sAlignment < sMaxAllocation);
+    WHEELS_ASSERT(byteSize + RingBuffer::sAlignment < sMaxAllocation);
 
     // Align offset
     if (align && (_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
@@ -97,7 +91,7 @@ uint32_t RingBuffer::write_internal(
     if (_buffer.byteSize <= _currentByteOffset ||
         _buffer.byteSize - _currentByteOffset < byteSize)
     {
-        assert(align && "Unaligned write wrapped around");
+        WHEELS_ASSERT(align && "Unaligned write wrapped around");
         _currentByteOffset = 0;
     }
 
@@ -109,8 +103,9 @@ uint32_t RingBuffer::write_internal(
 
     _currentByteOffset += byteSize;
 
-    assert(!_frameStartOffsets.empty() && "Forgot to call startFrame()?");
-    assert(
+    WHEELS_ASSERT(
+        !_frameStartOffsets.empty() && "Forgot to call startFrame()?");
+    WHEELS_ASSERT(
         (_frameStartOffsets.back() < _currentByteOffset ||
          _frameStartOffsets.front() > _currentByteOffset) &&
         "Stomped over an in flight frame");

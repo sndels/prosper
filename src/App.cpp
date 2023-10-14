@@ -567,7 +567,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         _forceCamUpdate = false;
     }
 
-    assert(
+    WHEELS_ASSERT(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
     _cam->updateBuffer(
@@ -764,7 +764,7 @@ void App::drawProfiling(
         [&tmp, longestNameLength](StrSpan str, size_t extraWidth = 0)
     {
         // No realloc, please
-        assert(longestNameLength + extraWidth <= tmp.size());
+        WHEELS_ASSERT(longestNameLength + extraWidth <= tmp.size());
 
         tmp.clear();
         tmp.extend(str);
@@ -997,7 +997,7 @@ bool App::drawCameraUi()
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    assert(!_world->_cameras.empty());
+    WHEELS_ASSERT(!_world->_cameras.empty());
     const uint32_t cameraCount =
         asserted_cast<uint32_t>(_world->_cameras.size());
     if (cameraCount > 1)
@@ -1388,9 +1388,9 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        assert(
+        WHEELS_ASSERT(
             _resources->finalComposite.extent.width == swapImage.extent.width);
-        assert(
+        WHEELS_ASSERT(
             _resources->finalComposite.extent.height ==
             swapImage.extent.height);
         const std::array offsets{

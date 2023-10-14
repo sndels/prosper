@@ -20,8 +20,8 @@ vk::Rect2D getRenderArea(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(inOutTargets.illumination).extent;
-    assert(targetExtent.depth == 1);
-    assert(
+    WHEELS_ASSERT(targetExtent.depth == 1);
+    WHEELS_ASSERT(
         targetExtent == resources.images.resource(inOutTargets.depth).extent);
 
     return vk::Rect2D{
@@ -47,8 +47,8 @@ SkyboxRenderer::SkyboxRenderer(
 : _device{device}
 , _resources{resources}
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 
     printf("Creating SkyboxRenderer\n");
 
@@ -83,7 +83,7 @@ void SkyboxRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const RecordInOut &inOutTargets, Profiler *profiler) const
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     {
         const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
@@ -134,7 +134,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     const size_t len = 32;
     String defines{scopeAlloc, len};
     appendDefineStr(defines, "SKYBOX_SET", sSkyboxBindingSet);
-    assert(defines.size() <= len);
+    WHEELS_ASSERT(defines.size() <= len);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -155,10 +155,9 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-#ifndef NDEBUG
         const ShaderReflection &vertReflection = vertResult->reflection;
-        assert(sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
-#endif // !NDEBUG
+        WHEELS_ASSERT(
+            sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

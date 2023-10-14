@@ -11,8 +11,8 @@ TimeAccessor::TimeAccessor(
 , _count{count}
 , _interval{interval}
 {
-    assert(_data != nullptr);
-    assert(_count > 0);
+    WHEELS_ASSERT(_data != nullptr);
+    WHEELS_ASSERT(_count > 0);
 }
 
 float TimeAccessor::endTimeS() const { return _interval.endTimeS; }
@@ -55,16 +55,16 @@ KeyFrameInterpolation TimeAccessor::interpolation(float timeS) const
     {
         const float firstTime = _data[ret.firstFrame];
         const float secondTime = _data[ret.firstFrame + 1];
-        assert(firstTime <= timeS);
-        assert(timeS <= secondTime);
+        WHEELS_ASSERT(firstTime <= timeS);
+        WHEELS_ASSERT(timeS <= secondTime);
 
         const float duration = secondTime - firstTime;
         ret.stepDuration = timeS - firstTime;
         ret.t = ret.stepDuration / duration;
     }
     // else, firstFrame == lastFrame and t == 0.f signals we should clamp
-    assert(ret.t >= 0.f);
-    assert(ret.t <= 1.f);
+    WHEELS_ASSERT(ret.t >= 0.f);
+    WHEELS_ASSERT(ret.t <= 1.f);
 
     return ret;
 }
@@ -74,13 +74,13 @@ ValueAccessor<vec3>::ValueAccessor(const uint8_t *data, uint32_t count)
 : _data{data}
 , _count{count}
 {
-    assert(_data != nullptr);
-    assert(_count > 0);
+    WHEELS_ASSERT(_data != nullptr);
+    WHEELS_ASSERT(_count > 0);
 }
 
 template <> vec3 ValueAccessor<vec3>::read(uint32_t index) const
 {
-    assert(index < _count);
+    WHEELS_ASSERT(index < _count);
     return *reinterpret_cast<const vec3 *>(
         _data + asserted_cast<size_t>(index) * 3 * sizeof(float));
 }
@@ -90,13 +90,13 @@ ValueAccessor<quat>::ValueAccessor(const uint8_t *data, uint32_t count)
 : _data{data}
 , _count{count}
 {
-    assert(_data != nullptr);
-    assert(_count > 0);
+    WHEELS_ASSERT(_data != nullptr);
+    WHEELS_ASSERT(_count > 0);
 }
 
 template <> quat ValueAccessor<quat>::read(uint32_t index) const
 {
-    assert(index < _count);
+    WHEELS_ASSERT(index < _count);
     return *reinterpret_cast<const quat *>(
         _data + asserted_cast<size_t>(index) * 4 * sizeof(float));
 }

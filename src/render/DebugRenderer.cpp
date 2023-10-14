@@ -27,8 +27,8 @@ vk::Rect2D getRenderArea(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(inOutTargets.color).extent;
-    assert(targetExtent.depth == 1);
-    assert(
+    WHEELS_ASSERT(targetExtent.depth == 1);
+    WHEELS_ASSERT(
         targetExtent == resources.images.resource(inOutTargets.depth).extent);
 
     return vk::Rect2D{
@@ -50,9 +50,9 @@ DebugRenderer::DebugRenderer(
 : _device{device}
 , _resources{resources}
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating DebugRenderer\n");
 
@@ -94,7 +94,7 @@ void DebugRenderer::record(
     vk::CommandBuffer cb, const Camera &cam, const RecordInOut &inOutTargets,
     const uint32_t nextFrame, Profiler *profiler) const
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     {
         const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
@@ -148,7 +148,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     String vertDefines{scopeAlloc, len};
     appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
-    assert(vertDefines.size() <= len);
+    WHEELS_ASSERT(vertDefines.size() <= len);
 
     Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -254,7 +254,7 @@ void DebugRenderer::createBuffers()
 void DebugRenderer::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    assert(_vertReflection.has_value());
+    WHEELS_ASSERT(_vertReflection.has_value());
     _linesDSLayout = _vertReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), *_device, GeometryBuffersBindingSet,
         vk::ShaderStageFlagBits::eVertex);

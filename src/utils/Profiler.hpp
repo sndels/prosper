@@ -225,7 +225,6 @@ class Profiler
         wheels::Allocator &alloc);
 
   private:
-#ifndef NDEBUG
     // Do validation of the calls as it's easy to do things in the wrong order
     enum class DebugState
     {
@@ -236,7 +235,6 @@ class Profiler
     };
 
     DebugState _debugState{DebugState::NewFrame};
-#endif // NDEBUG
 
     wheels::Allocator &_alloc;
 

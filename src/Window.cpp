@@ -17,7 +17,7 @@ Window::Window(
 , _width{resolution.first}
 , _height{resolution.second}
 {
-    assert(_inputHandler != nullptr);
+    WHEELS_ASSERT(_inputHandler != nullptr);
 
     printf("Creating window\n");
 

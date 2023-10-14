@@ -171,7 +171,7 @@ void firstPass(
             const uint32_t result = args[0];
             const uint32_t width = args[1];
             const uint32_t signedness = args[2];
-            assert(signedness == 0 || signedness == 1);
+            WHEELS_ASSERT(signedness == 0 || signedness == 1);
 
             results[result].type.emplace(SpvInt{
                 .width = width,
@@ -271,11 +271,11 @@ void firstPass(
             const uint32_t lengthId = args[2];
 
             const SpvResult &lengthResult = results[lengthId];
-            assert(lengthResult.type.has_value());
+            WHEELS_ASSERT(lengthResult.type.has_value());
             const SpvConstantU32 *length =
                 std::get_if<SpvConstantU32>(&*lengthResult.type);
-            assert(length != nullptr);
-            assert(length->value != sUninitialized);
+            WHEELS_ASSERT(length != nullptr);
+            WHEELS_ASSERT(length->value != sUninitialized);
 
             results[result].type.emplace(SpvArray{
                 .elementTypeId = elementType,
@@ -310,7 +310,7 @@ void firstPass(
                 {
                     // This probably fires if we have structs within the push
                     // constants struct, if that's even possible
-                    assert(
+                    WHEELS_ASSERT(
                         pushConstantMetadataId == sUninitialized &&
                         "Unexpected second push constant struct pointer");
                     pushConstantMetadataId = typeId;
@@ -329,7 +329,7 @@ void firstPass(
             const uint32_t result = args[1];
 
             const SpvResult &type = results[typeId];
-            assert(type.type.has_value());
+            WHEELS_ASSERT(type.type.has_value());
 
             if (const SpvInt *spvInt = std::get_if<SpvInt>(&*type.type);
                 spvInt != nullptr)
@@ -412,7 +412,7 @@ void secondPass(
             if (result.type.has_value())
             {
                 SpvStruct *spvStruct = std::get_if<SpvStruct>(&*result.type);
-                assert(spvStruct != nullptr);
+                WHEELS_ASSERT(spvStruct != nullptr);
 
                 switch (decoration)
                 {
@@ -442,7 +442,7 @@ uint32_t memberBytesize(
     const Optional<SpvType> &type, const MemberDecorations &memberDecorations,
     const Array<SpvResult> &results)
 {
-    assert(
+    WHEELS_ASSERT(
         type.has_value() && "Unimplemented member type, probably OpTypeArray");
 
     return std::visit(
@@ -459,7 +459,7 @@ uint32_t memberBytesize(
             },
             [&memberDecorations](const SpvMatrix &v) -> uint32_t
             {
-                assert(memberDecorations.matrixStride != sUninitialized);
+                WHEELS_ASSERT(memberDecorations.matrixStride != sUninitialized);
                 return memberDecorations.matrixStride * v.columnCount;
             },
             [&results](const SpvStruct &v) -> uint32_t
@@ -473,7 +473,7 @@ uint32_t memberBytesize(
                 const uint32_t lastMemberBytesize = memberBytesize(
                     lastMemberResult.type, lastMemberDecorations, results);
 
-                assert(lastMemberDecorations.offset != sUninitialized);
+                WHEELS_ASSERT(lastMemberDecorations.offset != sUninitialized);
                 const uint32_t bytesize =
                     lastMemberDecorations.offset + lastMemberBytesize;
 
@@ -481,7 +481,7 @@ uint32_t memberBytesize(
             },
             [](const auto &) -> uint32_t
             {
-                assert(!"Unimplemented");
+                WHEELS_ASSERT(!"Unimplemented");
                 return 0;
             }},
         *type);
@@ -507,7 +507,7 @@ vk::DescriptorType imageDescriptorType(const SpvImage &image)
             return vk::DescriptorType::eSampledImage;
         else
         {
-            assert(
+            WHEELS_ASSERT(
                 image.sampled == 2 &&
                 "Sampled yes/no has to be known at shader "
                 "compile time");
@@ -518,7 +518,7 @@ vk::DescriptorType imageDescriptorType(const SpvImage &image)
         return vk::DescriptorType::eStorageTexelBuffer;
         break;
     default:
-        assert(!"Unimplemented image dimensionality");
+        WHEELS_ASSERT(!"Unimplemented image dimensionality");
         return vk::DescriptorType::eSampler;
     }
 }
@@ -527,11 +527,11 @@ Array<DescriptorSetMetadata> &getSetMetadatas(
     const Decorations &decorations,
     HashMap<uint32_t, Array<DescriptorSetMetadata>> &metadatas)
 {
-    assert(decorations.descriptorSet != sUninitialized);
+    WHEELS_ASSERT(decorations.descriptorSet != sUninitialized);
 
     Array<DescriptorSetMetadata> *setMetadatas =
         metadatas.find(decorations.descriptorSet);
-    assert(setMetadatas != nullptr);
+    WHEELS_ASSERT(setMetadatas != nullptr);
 
     return *setMetadatas;
 }
@@ -540,19 +540,19 @@ const SpvResult &getType(
     const SpvVariable &variable, const Array<SpvResult> &results)
 {
     const SpvResult &typePtrResult = results[variable.typeId];
-    assert(typePtrResult.type.has_value());
-    assert(std::holds_alternative<SpvPointer>(*typePtrResult.type));
+    WHEELS_ASSERT(typePtrResult.type.has_value());
+    WHEELS_ASSERT(std::holds_alternative<SpvPointer>(*typePtrResult.type));
     const SpvPointer &typePtr = std::get<SpvPointer>(*typePtrResult.type);
 
     const SpvResult &typeResult = results[typePtr.typeId];
-    assert(typeResult.type.has_value());
+    WHEELS_ASSERT(typeResult.type.has_value());
 
     return typeResult;
 }
 
 vk::DescriptorType intoArrayDescriptorType(const SpvResult &typeResult)
 {
-    assert(typeResult.type.has_value());
+    WHEELS_ASSERT(typeResult.type.has_value());
 
     if (std::holds_alternative<SpvSampler>(*typeResult.type))
         return vk::DescriptorType::eSampler;
@@ -564,7 +564,7 @@ vk::DescriptorType intoArrayDescriptorType(const SpvResult &typeResult)
         iimage != nullptr)
         return imageDescriptorType(*iimage);
 
-    assert(!"Unimplemented variant");
+    WHEELS_ASSERT(!"Unimplemented variant");
     return vk::DescriptorType::eSampler;
 }
 
@@ -618,7 +618,7 @@ void fillMetadata(
         if (std::holds_alternative<SpvRuntimeArray>(*typeResult.type))
             descriptorCount = 0;
         else // Struct is the default count 1
-            assert(std::holds_alternative<SpvStruct>(*typeResult.type));
+            WHEELS_ASSERT(std::holds_alternative<SpvStruct>(*typeResult.type));
     }
     break;
     case spv::StorageClassUniform:
@@ -626,10 +626,8 @@ void fillMetadata(
         fill = true;
         descriptorType = vk::DescriptorType::eUniformBuffer;
 
-#ifndef NDEBUG
         const SpvResult &typeResult = getType(variable, results);
-        assert(std::holds_alternative<SpvStruct>(*typeResult.type));
-#endif // !NDEBUG
+        WHEELS_ASSERT(std::holds_alternative<SpvStruct>(*typeResult.type));
     }
     break;
     case spv::StorageClassUniformConstant:
@@ -667,7 +665,7 @@ void fillMetadata(
             descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
         }
         else
-            assert(!"Unimplemented variant");
+            WHEELS_ASSERT(!"Unimplemented variant");
     }
     break;
     default:
@@ -676,7 +674,7 @@ void fillMetadata(
 
     if (fill)
     {
-        assert(decorations.binding != sUninitialized);
+        WHEELS_ASSERT(decorations.binding != sUninitialized);
 
         Array<DescriptorSetMetadata> &setMetadatas =
             getSetMetadatas(decorations, metadatas);
@@ -815,7 +813,7 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
 {
     const Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSet);
-    assert(metadatas != nullptr);
+    WHEELS_ASSERT(metadatas != nullptr);
 
     Array<vk::DescriptorSetLayoutBinding> layoutBindings{
         scopeAlloc, metadatas->size()};
@@ -835,7 +833,7 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
             .stageFlags = stageFlags,
         });
     }
-    assert(
+    WHEELS_ASSERT(
         currentDynamicCount == dynamicCounts.size() &&
         "Extra dynamic counts given");
 
@@ -846,7 +844,7 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
                 .pBindings = layoutBindings.data(),
             });
 
-    assert(
+    WHEELS_ASSERT(
         bindingFlags.size() == layoutBindings.size() &&
         "Binding flag count has to match binding count");
     const vk::StructureChain<

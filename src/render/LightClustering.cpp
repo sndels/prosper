@@ -38,7 +38,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
     LightClustering::appendShaderDefines(defines);
-    assert(defines.size() <= len);
+    WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/light_clustering.comp",
@@ -75,7 +75,7 @@ LightClustering::LightClustering(
       externalDsLayouts(camDSLayout, worldDSLayouts),
       vk::ShaderStageFlagBits::eCompute | vk::ShaderStageFlagBits::eFragment}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 vk::DescriptorSetLayout LightClustering::descriptorSetLayout() const

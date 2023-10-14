@@ -124,7 +124,7 @@ RenderResourceCollection<
 , _preserved{alloc}
 #endif // NDEBUG
 {
-    assert(device != nullptr);
+    WHEELS_ASSERT(device != nullptr);
 }
 
 template <
@@ -148,8 +148,8 @@ void RenderResourceCollection<
 {
 #ifndef NDEBUG
     const size_t resourceCount = _resources.size();
-    assert(resourceCount == _preserved.size());
-    assert(resourceCount == _aliasedDebugNames.size());
+    WHEELS_ASSERT(resourceCount == _preserved.size());
+    WHEELS_ASSERT(resourceCount == _aliasedDebugNames.size());
     for (size_t i = 0; i < resourceCount; ++i)
     {
         // Get name for debug convenience
@@ -157,7 +157,7 @@ void RenderResourceCollection<
         if (_preserved[i])
             _preserved[i] = false;
         else
-            assert(
+            WHEELS_ASSERT(
                 !resourceInUse(asserted_cast<uint32_t>(i)) &&
                 "Resource leaked");
         (void)aliasedDebugName;
@@ -217,7 +217,9 @@ Handle RenderResourceCollection<
     {
         if (!resourceInUse(i))
         {
-            assert(!_preserved[i]);
+#ifndef NDEBUG
+            WHEELS_ASSERT(!_preserved[i]);
+#endif // NDEBUG
 
             const Description &existingDesc = _descriptions[i];
             if (existingDesc.matches(desc))
@@ -267,7 +269,7 @@ Handle RenderResourceCollection<
         _generations.push_back(static_cast<uint64_t>(0));
     else
     {
-        assert(!resourceInUse(index));
+        WHEELS_ASSERT(!resourceInUse(index));
         uint64_t &generation = _generations[index];
         generation = generation & ~sNotInUseGenerationFlag;
     }
@@ -420,7 +422,10 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::release(Handle handle)
 {
     assertValidHandle(handle);
-    assert(!_preserved[handle.index] && "Releasing a preserved resource");
+#ifndef NDEBUG
+    WHEELS_ASSERT(
+        !_preserved[handle.index] && "Releasing a preserved resource");
+#endif // NDEBUG
 
     _generations[handle.index]++;
     _generations[handle.index] |= sNotInUseGenerationFlag;
@@ -436,7 +441,7 @@ void RenderResourceCollection<
 {
 #ifndef NDEBUG
     assertValidHandle(handle);
-    assert(
+    WHEELS_ASSERT(
         !_preserved[handle.index] &&
         "Resource is being preseved in two places, ownership gets muddy.");
 
@@ -525,23 +530,23 @@ void RenderResourceCollection<
     // Any changes need to be mirrored in isValidHandle()!
     // Mirrored implementations so that this asserting version provides granular
     // info in a debugger
-    assert(handle.isValid());
-    assert(handle.index < _resources.size());
-    assert(handle.index < _generations.size());
+    WHEELS_ASSERT(handle.isValid());
+    WHEELS_ASSERT(handle.index < _resources.size());
+    WHEELS_ASSERT(handle.index < _generations.size());
     if (_markedDebugHandle.has_value() &&
         handle.index == _markedDebugHandle->index)
     {
 #ifndef NDEBUG
         const uint64_t storedGeneration =
             _generations[handle.index] & ~sNotInUseGenerationFlag;
-        assert(
+        WHEELS_ASSERT(
             handle.generation == storedGeneration ||
             (handle.generation + 1) == storedGeneration);
 #endif // NDEBUG
     }
     else
         // Handle generation matching means held generation isn't flagged unused
-        assert(handle.generation == _generations[handle.index]);
+        WHEELS_ASSERT(handle.generation == _generations[handle.index]);
 }
 
 template <
@@ -552,7 +557,7 @@ bool RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::resourceInUse(uint32_t i) const
 {
-    assert(i < _generations.size());
+    WHEELS_ASSERT(i < _generations.size());
     return (_generations[i] & sNotInUseGenerationFlag) == 0;
 }
 
@@ -567,7 +572,7 @@ void RenderResourceCollection<
 {
 #ifndef NDEBUG
     for (const wheels::String &name : _debugNames)
-        assert(
+        WHEELS_ASSERT(
             debugName != name &&
             "Debug names need to be unique within a frame");
 #else

@@ -34,7 +34,7 @@ template <typename T, typename V> constexpr T asserted_cast(V a)
                                 !std::is_signed<V>::value)))
                 {
                     if (a > static_cast<V>(std::numeric_limits<T>::max()))
-                        assert(!"overflow");
+                        WHEELS_ASSERT(!"overflow");
                 }
             }
             else
@@ -42,19 +42,19 @@ template <typename T, typename V> constexpr T asserted_cast(V a)
                 // NOTE: Some edge cases with large target types will be weird
                 // here because of precision and truncation
                 if (a > static_cast<V>(std::numeric_limits<T>::max()))
-                    assert(!"overflow");
+                    WHEELS_ASSERT(!"overflow");
                 if (a < static_cast<V>(std::numeric_limits<T>::min()))
-                    assert(!"underflow");
+                    WHEELS_ASSERT(!"underflow");
             }
         }
         else if constexpr (!std::numeric_limits<T>::is_signed)
-            assert(!"Trying to cast negative into unsigned");
+            WHEELS_ASSERT(!"Trying to cast negative into unsigned");
         else
         {
             if constexpr (sizeof(T) < sizeof(V))
             {
                 if (a < static_cast<V>(std::numeric_limits<T>::min()))
-                    assert(!"underflow");
+                    WHEELS_ASSERT(!"underflow");
             }
         }
     }

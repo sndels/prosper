@@ -236,10 +236,10 @@ void compress(
 
             const uint32_t width = std::max(dds.width >> i, 1u);
             const uint32_t height = std::max(dds.height >> i, 1u);
-            assert(
+            WHEELS_ASSERT(
                 width % 4 == 0 && height % 4 == 0 &&
                 "BC7 mips should be divide evenly by 4x4");
-            assert(
+            WHEELS_ASSERT(
                 width >= 4 && height >= 4 &&
                 "BC7 mip dimensions should be at least 4x4");
 
@@ -268,7 +268,7 @@ void compress(
         if (mipLevelCount > 1)
             generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
 
-        assert(dds.data.size() <= rawLevels.size());
+        WHEELS_ASSERT(dds.data.size() <= rawLevels.size());
         memcpy(dds.data.data(), rawLevels.data(), dds.data.size());
     }
 
@@ -413,15 +413,15 @@ Texture2D::Texture2D(
     // If cache was invalid, the newly cached one directly from memory
     Dds dds = readDds(scopeAlloc, cached);
 
-    assert(!dds.data.empty());
+    WHEELS_ASSERT(!dds.data.empty());
 
     const vk::Extent2D extent{
         asserted_cast<uint32_t>(dds.width),
         asserted_cast<uint32_t>(dds.height),
     };
 
-    assert(stagingBuffer.mapped != nullptr);
-    assert(dds.data.size() <= stagingBuffer.byteSize);
+    WHEELS_ASSERT(stagingBuffer.mapped != nullptr);
+    WHEELS_ASSERT(dds.data.size() <= stagingBuffer.byteSize);
 
     memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
 
@@ -449,7 +449,7 @@ Texture2D::Texture2D(
 
     std::vector<vk::BufferImageCopy> regions;
     regions.reserve(dds.mipLevelCount);
-    assert(dds.levelByteOffsets.size() == dds.mipLevelCount);
+    WHEELS_ASSERT(dds.levelByteOffsets.size() == dds.mipLevelCount);
     for (uint32_t i = 0; i < dds.mipLevelCount; ++i)
     {
         regions.push_back(vk::BufferImageCopy{
@@ -496,11 +496,11 @@ TextureCubemap::TextureCubemap(
     ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path)
 : Texture(device)
 {
-    assert(device != nullptr);
+    WHEELS_ASSERT(device != nullptr);
 
     const gli::texture_cube cube(gli::load(path.string()));
-    assert(!cube.empty());
-    assert(cube.faces() == 6);
+    WHEELS_ASSERT(!cube.empty());
+    WHEELS_ASSERT(cube.faces() == 6);
 
     const auto mipLevels = asserted_cast<uint32_t>(cube.levels());
 

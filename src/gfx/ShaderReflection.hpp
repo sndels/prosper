@@ -77,11 +77,13 @@ wheels::StaticArray<vk::WriteDescriptorSet, N> ShaderReflection::
 {
     const wheels::Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSetIndex);
-    assert(metadatas != nullptr);
-    assert(metadatas->size() == N);
+    WHEELS_ASSERT(metadatas != nullptr);
+    // false positive, custom assert above
+    // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
+    WHEELS_ASSERT(metadatas->size() == N);
 
     wheels::StaticArray<vk::WriteDescriptorSet, N> descriptorWrites;
-    assert(descriptorInfos.size() == N);
+    WHEELS_ASSERT(descriptorInfos.size() == N);
 
     for (uint32_t i = 0; i < N; ++i)
     {

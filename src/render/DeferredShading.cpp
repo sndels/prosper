@@ -41,7 +41,7 @@ vk::Extent2D getRenderExtent(
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(gbuffer.albedoRoughness).extent;
-    assert(targetExtent.depth == 1);
+    WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
         .width = targetExtent.width,
@@ -69,7 +69,7 @@ ComputePass::Shader shaderDefinitionCallback(
     LightClustering::appendShaderDefines(defines);
     PointLights::appendShaderDefines(defines);
     SpotLights::appendShaderDefines(defines);
-    assert(defines.size() <= len);
+    WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/deferred_shading.comp",
@@ -107,7 +107,7 @@ DeferredShading::DeferredShading(
       StorageBindingSet,
       externalDsLayouts(dsLayouts)}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void DeferredShading::recompileShaders(
@@ -139,7 +139,7 @@ DeferredShading::Output DeferredShading::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {

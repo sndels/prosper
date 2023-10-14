@@ -93,9 +93,9 @@ RTRenderer::RTRenderer(
 : _device{device}
 , _resources{resources}
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
-    assert(staticDescriptorsAlloc != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating RTRenderer\n");
 
@@ -318,7 +318,7 @@ RTRenderer::Output RTRenderer::record(
 
         const vk::StridedDeviceAddressRegionKHR callableRegion;
 
-        assert(renderArea.offset.x == 0 && renderArea.offset.y == 0);
+        WHEELS_ASSERT(renderArea.offset.x == 0 && renderArea.offset.y == 0);
         cb.traceRaysKHR(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
@@ -423,7 +423,7 @@ bool RTRenderer::compileShaders(
     appendDefineStr(raygenDefines, "LIGHTS_SET", LightsBindingSet);
     PointLights::appendShaderDefines(raygenDefines);
     SpotLights::appendShaderDefines(raygenDefines);
-    assert(raygenDefines.size() <= raygenDefsLen);
+    WHEELS_ASSERT(raygenDefines.size() <= raygenDefsLen);
 
     const size_t anyhitDefsLen = 512;
     String anyhitDefines{scopeAlloc, anyhitDefsLen};
@@ -442,7 +442,7 @@ bool RTRenderer::compileShaders(
     appendDefineStr(
         anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
         ModelInstanceTrfnsBindingSet);
-    assert(anyhitDefines.size() <= anyhitDefsLen);
+    WHEELS_ASSERT(anyhitDefines.size() <= anyhitDefsLen);
 
     Optional<Device::ShaderCompileResult> raygenResult =
         _device->compileShaderModule(
@@ -477,29 +477,24 @@ bool RTRenderer::compileShaders(
         destroyShaders();
 
         _raygenReflection = WHEELS_MOV(raygenResult->reflection);
-        assert(sizeof(PCBlock) == _raygenReflection->pushConstantsBytesize());
+        WHEELS_ASSERT(
+            sizeof(PCBlock) == _raygenReflection->pushConstantsBytesize());
 
-#ifndef NDEBUG
         const ShaderReflection &rayMissReflection = rayMissResult->reflection;
-        assert(
+        WHEELS_ASSERT(
             rayMissReflection.pushConstantsBytesize() == 0 ||
             sizeof(PCBlock) == rayMissReflection.pushConstantsBytesize());
-#endif // !NDEBUG
 
-#ifndef NDEBUG
         const ShaderReflection &closestHitReflection =
             closestHitResult->reflection;
-        assert(
+        WHEELS_ASSERT(
             closestHitReflection.pushConstantsBytesize() == 0 ||
             sizeof(PCBlock) == closestHitReflection.pushConstantsBytesize());
-#endif // !NDEBUG
 
-#ifndef NDEBUG
         const ShaderReflection &anyHitReflection = anyHitResult->reflection;
-        assert(
+        WHEELS_ASSERT(
             anyHitReflection.pushConstantsBytesize() == 0 ||
             sizeof(PCBlock) == anyHitReflection.pushConstantsBytesize());
-#endif // !NDEBUG
 
         _shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,
@@ -577,7 +572,7 @@ void RTRenderer::updateDescriptorSet(
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    assert(_raygenReflection.has_value());
+    WHEELS_ASSERT(_raygenReflection.has_value());
 
     const StaticArray descriptorInfos{
         DescriptorInfo{vk::DescriptorImageInfo{
@@ -591,7 +586,7 @@ void RTRenderer::updateDescriptorSet(
         }},
     };
 
-    assert(_raygenReflection.has_value());
+    WHEELS_ASSERT(_raygenReflection.has_value());
     const StaticArray descriptorWrites =
         _raygenReflection->generateDescriptorWrites(
             OutputBindingSet, _descriptorSets[nextFrame], descriptorInfos);

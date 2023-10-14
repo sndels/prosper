@@ -23,7 +23,7 @@ vk::Extent2D getRenderExtent(
     const RenderResources &resources, ImageHandle inColor)
 {
     const vk::Extent3D extent = resources.images.resource(inColor).extent;
-    assert(extent.depth == 1);
+    WHEELS_ASSERT(extent.depth == 1);
 
     return vk::Extent2D{
         .width = extent.width,
@@ -49,7 +49,7 @@ ToneMap::ToneMap(
       WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
       shaderDefinitionCallback}
 {
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 }
 
 void ToneMap::recompileShaders(ScopedScratch scopeAlloc)
@@ -67,7 +67,7 @@ ToneMap::Output ToneMap::record(
     vk::CommandBuffer cb, ImageHandle inColor, const uint32_t nextFrame,
     Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {

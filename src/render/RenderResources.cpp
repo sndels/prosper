@@ -13,7 +13,7 @@ RenderResources::RenderResources(wheels::Allocator &alloc, Device *device)
       device, vk::BufferUsageFlagBits::eStorageBuffer,
       asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing"}
 {
-    assert(device != nullptr);
+    WHEELS_ASSERT(device != nullptr);
 
     nearestSampler = device->logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eNearest,

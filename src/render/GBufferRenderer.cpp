@@ -46,8 +46,8 @@ GBufferRenderer::GBufferRenderer(
 : _device{device}
 , _resources{resources}
 {
-    assert(_device != nullptr);
-    assert(_resources != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_resources != nullptr);
 
     printf("Creating GBufferRenderer\n");
 
@@ -83,7 +83,7 @@ GBufferRenderer::Output GBufferRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const uint32_t nextFrame, Profiler *profiler)
 {
-    assert(profiler != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {
@@ -179,7 +179,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
-    assert(vertDefines.size() <= vertDefsLen);
+    WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
 
     const Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
@@ -198,7 +198,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
-    assert(fragDefines.size() <= fragDefsLen);
+    WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
     const Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
@@ -213,15 +213,13 @@ bool GBufferRenderer::compileShaders(
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-#ifndef NDEBUG
         const ShaderReflection &vertReflection = vertResult->reflection;
-        assert(sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
-#endif // !NDEBUG
+        WHEELS_ASSERT(
+            sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
 
-#ifndef NDEBUG
         const ShaderReflection &fragReflection = fragResult->reflection;
-        assert(sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
-#endif // !NDEBUG
+        WHEELS_ASSERT(
+            sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

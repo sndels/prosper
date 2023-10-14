@@ -34,7 +34,3 @@
     - Linear allocator doesn't know sizes, needs extra debug tracking
   - Fill freed memory with a known value?
     - Should run into asserts immediately if resulting values are large enough
-- Enable asserts in release builds
-  - Most of the input validation happens as asserts
-    - Should be light enough if a custom assert is implemented with the 'unlikely' branch tag
-  - Don't define NDEBUG, that might get heavy

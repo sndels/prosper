@@ -38,13 +38,11 @@ wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
         views.resize(image.subresourceRange.levelCount);
         _device->createSubresourcesViews(image, views);
     }
-#ifndef NDEBUG
     else
     {
         const Image &image = resource(handle);
-        assert(views.size() == image.subresourceRange.levelCount);
+        WHEELS_ASSERT(views.size() == image.subresourceRange.levelCount);
     }
-#endif // !NDEBUG
 
     return views;
 }

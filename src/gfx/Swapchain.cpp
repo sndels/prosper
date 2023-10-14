@@ -114,7 +114,7 @@ SwapchainConfig::SwapchainConfig(
     ScopedScratch scopeAlloc, Device *device,
     const vk::Extent2D &preferredExtent)
 {
-    assert(device != nullptr);
+    WHEELS_ASSERT(device != nullptr);
 
     const SwapchainSupport support(
         scopeAlloc, device->physical(), device->surface());
@@ -142,7 +142,7 @@ Swapchain::Swapchain(Device *device, const SwapchainConfig &config)
 : _device{device}
 , _config{config}
 {
-    assert(_device != nullptr);
+    WHEELS_ASSERT(_device != nullptr);
 
     printf("Creating Swapchain\n");
 
@@ -186,7 +186,7 @@ wheels::Optional<uint32_t> Swapchain::acquireNextImage(
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const auto result = _device->logical().acquireNextImageKHR(
         _swapchain, noTimeout, signalSemaphore, vk::Fence{}, &_nextImage);
-    assert(_nextImage < _config.imageCount);
+    WHEELS_ASSERT(_nextImage < _config.imageCount);
 
     // Swapchain should be recreated if out of date or suboptimal
     if (result == vk::Result::eErrorOutOfDateKHR ||
