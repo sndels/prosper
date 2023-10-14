@@ -557,7 +557,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     _world->uploadMaterialDatas(nextFrame);
 
-    if (_isPlaying || _forceCamUpdate)
+    if (_isPlaying || _forceCamUpdate || uiChanges.timeTweaked)
     {
         _cam->lookAt(_sceneCameraTransform);
 
@@ -687,7 +687,8 @@ App::UiChanges App::drawUi(
     drawMemory(scopeHighWatermark);
 
     ret.rtDirty |= _isPlaying;
-    ret.rtDirty |= drawTimeline();
+    ret.timeTweaked |= drawTimeline();
+    ret.rtDirty |= ret.timeTweaked;
 
     return ret;
 }

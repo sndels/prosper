@@ -67,6 +67,7 @@ class App
     struct UiChanges
     {
         bool rtDirty{false};
+        bool timeTweaked{false};
     };
     UiChanges drawUi(
         wheels::ScopedScratch scopeAlloc,
