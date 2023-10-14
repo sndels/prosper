@@ -215,8 +215,8 @@ class World
         wheels::Optional<uint32_t> light;
 
         TmpNode(wheels::Allocator &alloc, const std::string &gltfName)
-        : children{alloc}
-        , gltfName{gltfName}
+        : gltfName{gltfName}
+        , children{alloc}
         {
         }
     };
