@@ -6,36 +6,55 @@
 
 ![screenshot](screenshot.png)[^1]
 
-Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [Sascha Willems](https://github.com/SaschaWillems) and [Ray Tracing Gems II](https://developer.nvidia.com/ray-tracing-gems-ii) also used as reference.
+Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [Sascha Willems](https://github.com/SaschaWillems) and [Ray Tracing Gems II](https://developer.nvidia.com/ray-tracing-gems-ii) also used as reference. A limited subset of glTF 2.0 is supported.
 
-Current features include:
+### High-level features
 
-- glTF 2.0 assets
-  - Only a very limited subset is currently supported
 - Physically based shading
 - Tangent space normal mapping
 - Mipmapping
 - Transparency (no sorting)
 - Skybox
 - 1D ACES-tonemap[^2]
-- Clustered lighting
-  - Points, spots
-  - Sphere bounds
-  - View space clusters with depth slices
+- Deferred and forward rendering paths
+- Pipeline ray tracing
+  - Naive path tracing for directional light and skybox "IBL"
+- Depth of Field
+  - Work in progress based on [A Life of a Bokeh](https://www.advances.realtimerendering.com/s2018/index.htm) among other sources
+- Animation support for transformations
+- Polling shader recompilation
+- Render texture debug view
+
+### Under the hood
+
 - Bindless materials
   - Streaming texture loads
     - Separate thread for loading when a distinct queue is available for transfers
   - Texture cache with BC7 compression
     - Generated during texture load when a scene is loaded the first time
 - Bindless geometry
+- Ring buffers (SSBO, transfer source)
+  - Camera constants
+  - Transformations
+  - TLAS instances
+  - Lights
+  - Written each frame to support animation
+- Animation updates
+  - Raw data copied over from glTF buffers at load time
+  - Per parameter animations in flat lists per type
+  - Targets register a pointer to the value to be updated
+  - Animations are updated in bulk with inline writes to targets
+  - Scene transformation update is missing caching for non-dynamic objects' transforms
+    - Could also split dynamic and non-dynamic objects in GPU buffers to reduce per-frame upload sizes
+- Clustered lighting
+  - Points, spots
+  - Sphere bounds
+  - View space clusters with depth slices
 - Managed render resources
   - Opaque handles
   - Manual create/release
   - Released resources are reused
-- Deferred and forward rendering paths
-- Pipeline ray tracing
-  - Naive path tracing
-- Polling shader recompilation
+  - Handles debug view resource mapping automagically
 - Artisanal SPIR-V parsing into shader reflection
   - Rough push constants validation
   - Descriptor set layout generation
@@ -55,7 +74,7 @@ See the [build workflow](https://github.com/sndels/prosper/blob/master/.github/w
 
 ## Camera controls
 
-Only when free look is toggled
+Only when free look is toggled if camera is animated
 
 - RMB/MMB drag - Trackball drag
 - Scroll up/down - Dolly forward/back
