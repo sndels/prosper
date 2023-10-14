@@ -65,6 +65,9 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - GPU with timestamps
   - CPU with `std::chrono`
   - Should be 1:1 mapping between the GPU frame and the CPU frame that recorded it
+- Error handling through custom asserts in all build targets
+  - This is my own toy and experiment base so no need to complicate things with
+    more graceful handling for wrong inputs etc.
 
 Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and, on Linux, `xorg-dev`. Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
 
