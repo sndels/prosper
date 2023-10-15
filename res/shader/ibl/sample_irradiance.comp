@@ -1,0 +1,98 @@
+#pragma shader_stage(compute)
+
+layout(binding = 0) uniform samplerCube inEnvironment;
+layout(binding = 1, r11f_g11f_b10f) uniform writeonly imageCube outIrradiance;
+
+#include "../common/math.glsl"
+
+// Adapted from https://learnopengl.com/PBR/IBL/Diffuse-irradiance
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main()
+{
+    uvec2 coordu = gl_GlobalInvocationID.xy;
+    ivec2 outResolution = imageSize(outIrradiance);
+    if (any(greaterThanEqual(coordu, uvec2(OUT_RESOLUTION))))
+        return;
+    uint level = gl_GlobalInvocationID.z;
+
+    vec2 coord = vec2(coordu) + 0.5;
+
+    // TODO: This feels very verbose
+    float res = OUT_RESOLUTION;
+    float halfRes = res * .5;
+    float x, y, z;
+    if (level == 0)
+    {
+        x = halfRes;
+        y = (res - coord.y) - halfRes;
+        z = (res - coord.x) - halfRes;
+    }
+    else if (level == 1)
+    {
+        x = -halfRes;
+        y = (res - coord.y) - halfRes;
+        z = coord.x - halfRes;
+    }
+    else if (level == 2)
+    {
+        x = coord.x - halfRes;
+        y = halfRes;
+        z = coord.y - halfRes;
+    }
+    else if (level == 3)
+    {
+        x = coord.x - halfRes;
+        y = -halfRes;
+        z = (res - coord.y) - halfRes;
+    }
+    else if (level == 4)
+    {
+        x = coord.x - halfRes;
+        y = (res - coord.y) - halfRes;
+        z = halfRes;
+    }
+    else if (level == 5)
+    {
+        x = (res - coord.x) - halfRes;
+        y = (res - coord.y) - halfRes;
+        z = -halfRes;
+    }
+
+    vec3 normal = normalize(vec3(x, y, z));
+    vec3 up;
+    // Let's avoid causing the singularity
+    if (abs(normal.y) < 0.99)
+        up = vec3(0, 1, 0);
+    else
+        up = vec3(1, 0, 0);
+    vec3 right = normalize(cross(up, normal));
+    up = normalize(cross(normal, right));
+
+    vec3 irradiance = vec3(0);
+    uint phiSteps = 128;
+    uint thetaSteps = 64;
+    for (uint j = 0; j < thetaSteps; ++j)
+    {
+        float theta = .5 * PI * float(j) / float(thetaSteps);
+        for (uint i = 0; i < phiSteps; ++i)
+        {
+            float phi = 2. * PI * float(i) / float(phiSteps);
+            vec3 tangentSample =
+                vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+            vec3 sampleVec = tangentSample.x * right + tangentSample.y * up +
+                             tangentSample.z * normal;
+
+            // Reduce ringing by limiting the peak brightness.
+            // Also gets rid of "double sun" when dirlight is added by default
+            // TODO:
+            // Just sample more? Pick a mip level that makes Nyquist happy with
+            // the step counts?
+            vec3 s = min(texture(inEnvironment, sampleVec).rgb, vec3(10));
+            irradiance += s * cos(theta) * sin(theta);
+        }
+    }
+    irradiance = PI * irradiance / float(phiSteps * thetaSteps);
+
+    imageStore(outIrradiance, ivec3(coord, level), vec4(irradiance, 0));
+}
