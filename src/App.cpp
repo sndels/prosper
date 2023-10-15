@@ -555,6 +555,9 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
         const CameraParameters &params =
             _world->_cameras[_world->_currentCamera];
+        // This makes sure we copy the new params over when a camera is changed,
+        // or for the first camera
+        _cameraParameters = params;
         _cam->setParameters(params);
         _forceCamUpdate = false;
         // Disable free look for animated cameras
