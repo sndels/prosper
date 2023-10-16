@@ -9,6 +9,7 @@
 #include "render/ForwardRenderer.hpp"
 #include "render/GBufferRenderer.hpp"
 #include "render/ImGuiRenderer.hpp"
+#include "render/ImageBasedLighting.hpp"
 #include "render/LightClustering.hpp"
 #include "render/RTRenderer.hpp"
 #include "render/RenderResources.hpp"
@@ -139,6 +140,7 @@ class App
     std::unique_ptr<ImGuiRenderer> _imguiRenderer;
     std::unique_ptr<TextureDebug> _textureDebug;
     std::unique_ptr<DepthOfField> _depthOfField;
+    std::unique_ptr<ImageBasedLighting> _imageBasedLighting;
 
     std::unique_ptr<Profiler> _profiler;
 

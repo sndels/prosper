@@ -149,6 +149,8 @@ App::App(const Settings &settings)
     _depthOfField = std::make_unique<DepthOfField>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
+    _imageBasedLighting = std::make_unique<ImageBasedLighting>(
+        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -337,6 +339,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _textureDebug->recompileShaders(scopeAlloc.child_scope());
     _depthOfField->recompileShaders(
         scopeAlloc.child_scope(), _cam->descriptorSetLayout());
+    _imageBasedLighting->recompileShaders(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -583,6 +586,10 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     cb.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
+
+    if (!_imageBasedLighting->isGenerated())
+        _imageBasedLighting->recordGeneration(
+            cb, *_world, nextFrame, _profiler.get());
 
     render(
         cb, renderArea,
