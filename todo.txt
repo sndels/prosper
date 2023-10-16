@@ -34,3 +34,5 @@
     - Linear allocator doesn't know sizes, needs extra debug tracking
   - Fill freed memory with a known value?
     - Should run into asserts immediately if resulting values are large enough
+- CS group sizes as defines, make sure same value is used in shader and
+  dispatch size calc
