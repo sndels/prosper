@@ -503,13 +503,20 @@ TextureCubemap::TextureCubemap(
     WHEELS_ASSERT(cube.faces() == 6);
 
     const auto mipLevels = asserted_cast<uint32_t>(cube.levels());
+    const gli::texture_cube::extent_type extent = cube.extent();
+    WHEELS_ASSERT(
+        extent.x == 512 && extent.y == 512 &&
+        "Diffuse irradiance gather expects input as 512x512 to sample from the "
+        "correct mip");
+    WHEELS_ASSERT(
+        mipLevels > 4 && "Diffuse irradiance gather happens from mip 3");
 
     _image = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
-                .width = asserted_cast<uint32_t>(cube.extent().x),
-                .height = asserted_cast<uint32_t>(cube.extent().y),
+                .width = asserted_cast<uint32_t>(extent.x),
+                .height = asserted_cast<uint32_t>(extent.y),
                 .mipCount = mipLevels,
                 .layerCount = 6,
                 .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
