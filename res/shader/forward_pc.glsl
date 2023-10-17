@@ -8,6 +8,7 @@ layout(push_constant) uniform ForwardPC
     uint MeshID;
     uint MaterialID;
     uint DrawType;
+    uint ibl;
 }
 PC;
 

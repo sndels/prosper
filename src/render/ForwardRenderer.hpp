@@ -52,7 +52,7 @@ class ForwardRenderer
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea,
         const LightClustering::Output &lightClusters, uint32_t nextFrame,
-        Profiler *profiler);
+        bool applyIbl, Profiler *profiler);
 
     struct RecordInOut
     {
@@ -73,10 +73,15 @@ class ForwardRenderer
     void destroyGraphicsPipelines();
     void createGraphicsPipelines(const InputDSLayouts &dsLayouts);
 
+    struct Options
+    {
+        bool transparents{false};
+        bool ibl{false};
+    };
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         uint32_t nextFrame, const RecordInOut &inOutTargets,
-        const LightClustering::Output &lightClusters, bool transparents,
+        const LightClustering::Output &lightClusters, const Options &options,
         Profiler *profiler, const char *debugName);
     void recordBarriers(
         vk::CommandBuffer cb, const RecordInOut &inOutTargets,

@@ -13,6 +13,7 @@
 #include "scene/lighting.glsl"
 #include "scene/lights.glsl"
 #include "scene/materials.glsl"
+#include "scene/skybox.glsl"
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in float fragZCam;
@@ -66,6 +67,9 @@ void main()
     color += evalPointLights(surface, lightInfo);
 
     color += evalSpotLights(surface, lightInfo);
+
+    if (PC.ibl == 1)
+        color += evalIBL(surface);
 
     float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 

@@ -587,7 +587,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    if (!_imageBasedLighting->isGenerated())
+    if (_applyIbl && !_imageBasedLighting->isGenerated())
         _imageBasedLighting->recordGeneration(
             cb, *_world, nextFrame, _profiler.get());
 
@@ -1155,7 +1155,7 @@ void App::render(
             const ForwardRenderer::OpaqueOutput output =
                 _forwardRenderer->recordOpaque(
                     cb, *_world, *_cam, renderArea, lightClusters,
-                    indices.nextFrame, _profiler.get());
+                    indices.nextFrame, _applyIbl, _profiler.get());
             illumination = output.illumination;
             depth = output.depth;
         }

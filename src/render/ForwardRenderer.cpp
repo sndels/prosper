@@ -23,7 +23,8 @@ enum BindingSet : uint32_t
     MaterialTexturesBindingSet = 4,
     GeometryBuffersBindingSet = 5,
     ModelInstanceTrfnsBindingSet = 6,
-    BindingSetCount = 7,
+    SkyboxBindingSet = 7,
+    BindingSetCount,
 };
 
 struct PCBlock
@@ -32,6 +33,7 @@ struct PCBlock
     uint32_t meshID{0xFFFFFFFF};
     uint32_t materialID{0xFFFFFFFF};
     uint32_t drawType{0};
+    uint32_t ibl{0};
 };
 
 constexpr std::array<
@@ -116,7 +118,7 @@ void ForwardRenderer::drawUi()
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const LightClustering::Output &lightClusters,
-    uint32_t nextFrame, Profiler *profiler)
+    uint32_t nextFrame, bool applyIbl, Profiler *profiler)
 {
     OpaqueOutput ret;
     ret.illumination =
@@ -129,7 +131,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .illumination = ret.illumination,
             .depth = ret.depth,
         },
-        lightClusters, false, profiler, "OpaqueGeometry");
+        lightClusters, Options{.ibl = applyIbl}, profiler, "OpaqueGeometry");
 
     return ret;
 }
@@ -141,8 +143,8 @@ void ForwardRenderer::recordTransparent(
     Profiler *profiler)
 {
     record(
-        cb, world, cam, nextFrame, inOutTargets, lightClusters, true, profiler,
-        "TransparentGeometry");
+        cb, world, cam, nextFrame, inOutTargets, lightClusters,
+        Options{.transparents = true}, profiler, "TransparentGeometry");
 }
 
 bool ForwardRenderer::compileShaders(
@@ -166,7 +168,7 @@ bool ForwardRenderer::compileShaders(
                                           .defines = vertDefines,
                                       });
 
-    const size_t fragDefsLen = 600;
+    const size_t fragDefsLen = 615;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
@@ -177,6 +179,7 @@ bool ForwardRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
+    appendDefineStr(fragDefines, "SKYBOX_SET", SkyboxBindingSet);
     appendEnumVariantsAsDefines(
         fragDefines, "DrawType",
         Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
@@ -247,6 +250,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = dsLayouts.world.geometry;
     setLayouts[ModelInstanceTrfnsBindingSet] = dsLayouts.world.modelInstances;
+    setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eVertex |
@@ -301,17 +305,17 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 void ForwardRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClustering::Output &lightClusters, bool transparents,
+    const LightClustering::Output &lightClusters, const Options &options,
     Profiler *profiler, const char *debugName)
 {
     const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
-    const size_t pipelineIndex = transparents ? 1 : 0;
+    const size_t pipelineIndex = options.transparents ? 1 : 0;
 
     recordBarriers(cb, inOutTargets, lightClusters);
 
     const Attachments attachments =
-        createAttachments(inOutTargets, transparents);
+        createAttachments(inOutTargets, options.transparents);
 
     const auto _s = profiler->createCpuGpuScope(cb, debugName, true);
 
@@ -339,6 +343,7 @@ void ForwardRenderer::record(
     descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
     descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSet;
+    descriptorSets[SkyboxBindingSet] = world._skyboxDS;
 
     const StaticArray dynamicOffsets{
         world._directionalLightByteOffset,
@@ -365,8 +370,8 @@ void ForwardRenderer::record(
             const auto &info = world._meshInfos[subModel.meshID];
             const auto isTransparent =
                 material.alphaMode == Material::AlphaMode::Blend;
-            if ((transparents && isTransparent) ||
-                (!transparents && !isTransparent))
+            if ((options.transparents && isTransparent) ||
+                (!options.transparents && !isTransparent))
             {
                 // TODO: Push buffers and offsets
                 const PCBlock pcBlock{
@@ -374,6 +379,7 @@ void ForwardRenderer::record(
                     .meshID = subModel.meshID,
                     .materialID = subModel.materialID,
                     .drawType = static_cast<uint32_t>(_drawType),
+                    .ibl = static_cast<uint32_t>(options.ibl),
                 };
                 cb.pushConstants(
                     _pipelineLayout,
