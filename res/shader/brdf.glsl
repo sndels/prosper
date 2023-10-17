@@ -18,10 +18,16 @@ float ggx(float NoH, float alpha)
     return a2 / (PI * denom * denom);
 }
 
-// Schlick fresnel function
 vec3 schlickFresnel(float VoH, vec3 f0)
 {
     return f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);
+}
+
+// From https://seblagarde.wordpress.com/2011/08/17/
+// via https://learnopengl.com/PBR/IBL/Diffuse-irradiance
+vec3 schlickFresnelWithRoughness(float VoH, vec3 f0, float roughness)
+{
+    return f0 + (max(vec3(1.0 - roughness), f0) - f0) * pow(1.0 - VoH, 5.0);
 }
 
 // Schlick-GGX geometry function
