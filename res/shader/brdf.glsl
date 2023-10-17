@@ -49,6 +49,12 @@ vec3 cookTorranceBRDF(
     return D * F * G / denom;
 }
 
+vec3 fresnelZero(VisibleSurface surface)
+{
+    return mix(
+        vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
+}
+
 // Evaluate combined diffuse and specular BRDF
 vec3 evalBRDFTimesNoL(vec3 l, VisibleSurface surface)
 {
@@ -59,8 +65,7 @@ vec3 evalBRDFTimesNoL(vec3 l, VisibleSurface surface)
     float VoH = saturate(dot(surface.invViewRayWS, h));
 
     // Use standard approximation of default fresnel
-    vec3 f0 =
-        mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
+    vec3 f0 = fresnelZero(surface);
 
     // Match glTF spec
     vec3 c_diff =
