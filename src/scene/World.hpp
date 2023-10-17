@@ -33,6 +33,8 @@ struct DeferredLoadingContext;
 class World
 {
   public:
+    static const uint32_t sSkyboxIrradianceResolution = 64;
+
     struct DSLayouts
     {
         uint32_t materialSamplerCount{0};
@@ -83,7 +85,9 @@ class World
 
     // TODO: Private?
     TextureCubemap _skyboxTexture;
+    Image _skyboxIrradiance;
     Buffer _skyboxVertexBuffer;
+    vk::Sampler _skyboxIrradianceSampler;
 
     wheels::Array<CameraParameters> _cameras{_generalAlloc};
     // True if any instance of the camera is dynamic

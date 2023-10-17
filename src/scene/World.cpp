@@ -309,6 +309,38 @@ World::World(
 {
     WHEELS_ASSERT(_device != nullptr);
 
+    _skyboxIrradiance = _device->createImage(ImageCreateInfo{
+        .desc =
+            ImageDescription{
+                .format = vk::Format::eR16G16B16A16Sfloat,
+                .width = sSkyboxIrradianceResolution,
+                .height = sSkyboxIrradianceResolution,
+                .layerCount = 6,
+                .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+            },
+        .debugName = "SkyboxIrradiance",
+    });
+    {
+        const vk::CommandBuffer cb = _device->beginGraphicsCommands();
+        _skyboxIrradiance.transition(
+            cb, ImageState::FragmentShaderSampledRead |
+                    ImageState::ComputeShaderSampledRead |
+                    ImageState::RayTracingSampledRead);
+        _device->endGraphicsCommands(cb);
+    }
+
+    _skyboxIrradianceSampler =
+        _device->logical().createSampler(vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eLinear,
+            .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        });
+
     printf("Loading world\n");
 
     Timer t;
@@ -369,6 +401,8 @@ World::~World()
     _device->logical().destroy(_dsLayouts.materialDatas);
 
     _device->destroy(_skyboxVertexBuffer);
+    _device->destroy(_skyboxIrradiance);
+    _device->logical().destroy(_skyboxIrradianceSampler);
     for (auto &buffer : _materialsBuffers)
         _device->destroy(buffer);
 
@@ -2313,6 +2347,11 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
         const StaticArray descriptorInfos{
             DescriptorInfo{_skyboxTexture.imageInfo()},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = _skyboxIrradianceSampler,
+                .imageView = _skyboxIrradiance.view,
+                .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            }},
         };
         const StaticArray descriptorWrites =
             _skyboxReflection->generateDescriptorWrites(
