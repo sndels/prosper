@@ -38,14 +38,20 @@ class RTRenderer
 
     void drawUi();
 
+    struct Options
+    {
+        bool depthOfField{false};
+        bool ibl{false};
+        bool colorDirty{false};
+    };
     struct Output
     {
         ImageHandle illumination;
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        bool depthOfField, const vk::Rect2D &renderArea, uint32_t nextFrame,
-        bool colorDirty, Profiler *profiler);
+        const vk::Rect2D &renderArea, const Options &options,
+        uint32_t nextFrame, Profiler *profiler);
     void releasePreserved();
 
   private:
@@ -86,7 +92,6 @@ class RTRenderer
     DrawType _drawType{DrawType::Default};
     bool _accumulationDirty{true};
     bool _accumulate{true};
-    bool _ibl{false};
     uint32_t _frameIndex{0};
 
     ImageHandle _previousIllumination;

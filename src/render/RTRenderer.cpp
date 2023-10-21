@@ -151,16 +151,13 @@ void RTRenderer::drawUi()
     }
 
     if (_drawType == DrawType::Default)
-    {
         ImGui::Checkbox("Accumulate", &_accumulate);
-        _accumulationDirty |= ImGui::Checkbox("Ibl", &_ibl);
-    }
 }
 
 RTRenderer::Output RTRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    bool depthOfField, const vk::Rect2D &renderArea, uint32_t nextFrame,
-    bool colorDirty, Profiler *profiler)
+    const vk::Rect2D &renderArea, const Options &options, uint32_t nextFrame,
+    Profiler *profiler)
 {
     _frameIndex = ++_frameIndex % sFramePeriod;
 
@@ -186,7 +183,8 @@ RTRenderer::Output RTRenderer::record(
             previousExtent =
                 _resources->images.resource(_previousIllumination).extent;
 
-        if (colorDirty || renderArea.extent.width != previousExtent.width ||
+        if (options.colorDirty ||
+            renderArea.extent.width != previousExtent.width ||
             renderArea.extent.height != previousExtent.height)
         {
             if (_resources->images.isValidHandle(_previousIllumination))
@@ -275,11 +273,11 @@ RTRenderer::Output RTRenderer::record(
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
             .flags = pcFlags(PCBlock::Flags{
-                .skipHistory =
-                    cam.changedThisFrame() || colorDirty || _accumulationDirty,
+                .skipHistory = cam.changedThisFrame() || options.colorDirty ||
+                               _accumulationDirty,
                 .accumulate = _accumulate,
-                .ibl = _ibl,
-                .depthOfField = depthOfField,
+                .ibl = options.ibl,
+                .depthOfField = options.depthOfField,
             }),
             .frameIndex = _frameIndex,
             .apertureDiameter = camParams.apertureDiameter,

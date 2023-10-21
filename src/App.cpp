@@ -742,6 +742,7 @@ void App::drawRendererSettings(UiChanges &uiChanges)
             _deferredShading->drawUi();
         else
             _forwardRenderer->drawUi();
+        uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
     }
 
     ImGui::End();
@@ -1110,12 +1111,16 @@ void App::render(
     ImageHandle illumination;
     if (_renderRT)
     {
-        illumination =
-            _rtRenderer
-                ->record(
-                    cb, *_world, *_cam, _renderDoF, renderArea,
-                    indices.nextFrame, uiChanges.rtDirty, _profiler.get())
-                .illumination;
+        illumination = _rtRenderer
+                           ->record(
+                               cb, *_world, *_cam, renderArea,
+                               RTRenderer::Options{
+                                   .depthOfField = _renderDoF,
+                                   .ibl = _applyIbl,
+                                   .colorDirty = uiChanges.rtDirty,
+                               },
+                               indices.nextFrame, _profiler.get())
+                           .illumination;
     }
     else
     {
