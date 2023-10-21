@@ -35,6 +35,7 @@ class ImageBasedLighting
 
     Device *_device{nullptr};
     ComputePass _sampleIrradiance;
+    ComputePass _integrateSpecularBrdf;
 
     bool _generated{false};
 };

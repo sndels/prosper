@@ -6,7 +6,7 @@ using namespace glm;
 namespace
 {
 
-ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
+ComputePass::Shader sampleIrradianceShaderDefinitionCallback(Allocator &alloc)
 {
     const size_t len = 32;
     String defines{alloc, len};
@@ -21,6 +21,22 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     };
 }
 
+ComputePass::Shader integrateSpecularBrdfShaderDefinitionCallback(
+    Allocator &alloc)
+{
+    const size_t len = 32;
+    String defines{alloc, len};
+    appendDefineStr(
+        defines, "OUT_RESOLUTION", World::sSpecularBrdfLutResolution);
+    WHEELS_ASSERT(defines.size() <= len);
+
+    return ComputePass::Shader{
+        .relPath = "shader/ibl/integrate_specular_brdf.comp",
+        .debugName = String{alloc, "IntegrateSpecularBrdfCS"},
+        .defines = WHEELS_MOV(defines),
+    };
+}
+
 } // namespace
 
 ImageBasedLighting::ImageBasedLighting(
@@ -28,9 +44,10 @@ ImageBasedLighting::ImageBasedLighting(
     DescriptorAllocator *staticDescriptorsAlloc)
 
 : _device{device}
-, _sampleIrradiance{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback}
+, _sampleIrradiance{scopeAlloc.child_scope(), device, staticDescriptorsAlloc, sampleIrradianceShaderDefinitionCallback}
+, _integrateSpecularBrdf{
+      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+      integrateSpecularBrdfShaderDefinitionCallback}
 {
     WHEELS_ASSERT(_device != nullptr);
 }
@@ -40,7 +57,10 @@ bool ImageBasedLighting::isGenerated() const { return _generated; }
 void ImageBasedLighting::recompileShaders(wheels::ScopedScratch scopeAlloc)
 {
     _sampleIrradiance.recompileShader(
-        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+        scopeAlloc.child_scope(), sampleIrradianceShaderDefinitionCallback);
+    _integrateSpecularBrdf.recompileShader(
+        scopeAlloc.child_scope(),
+        integrateSpecularBrdfShaderDefinitionCallback);
 }
 
 void ImageBasedLighting::recordGeneration(
@@ -72,6 +92,35 @@ void ImageBasedLighting::recordGeneration(
         // Transition so that the texture can be bound without transition for
         // all users
         world._skyboxIrradiance.transition(
+            cb, ImageState::ComputeShaderSampledRead |
+                    ImageState::FragmentShaderSampledRead |
+                    ImageState::RayTracingSampledRead);
+    }
+
+    {
+        const StaticArray descriptorInfos{
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = world._specularBrdfLut.view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+        };
+        _integrateSpecularBrdf.updateDescriptorSet(nextFrame, descriptorInfos);
+
+        world._specularBrdfLut.transition(cb, ImageState::ComputeShaderWrite);
+
+        const auto _s =
+            profiler->createCpuGpuScope(cb, "IntegrateSpecularBrdf");
+
+        const uvec3 groups = uvec3{
+            (uvec2{World::sSpecularBrdfLutResolution} - 1u) / 16u + 1u, 1u};
+
+        const vk::DescriptorSet storageSet =
+            _integrateSpecularBrdf.storageSet(nextFrame);
+        _integrateSpecularBrdf.record(cb, groups, Span{&storageSet, 1});
+
+        // Transition so that the texture can be bound without transition for
+        // all users
+        world._specularBrdfLut.transition(
             cb, ImageState::ComputeShaderSampledRead |
                     ImageState::FragmentShaderSampledRead |
                     ImageState::RayTracingSampledRead);

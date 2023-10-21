@@ -1,0 +1,83 @@
+#pragma shader_stage(compute)
+
+layout(binding = 0, rg16f) uniform writeonly image2D outLut;
+
+#include "../brdf.glsl"
+#include "../common/math.glsl"
+#include "../common/random.glsl"
+
+float GeometrySchlickGGX(float NdotV, float k)
+{
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(float NoL, float NoV, float k)
+{
+    float ggx1 = GeometrySchlickGGX(NoV, k);
+    float ggx2 = GeometrySchlickGGX(NoL, k);
+
+    return ggx1 * ggx2;
+}
+
+// From Real Shading in Unreal Engine 4
+// by Brian Karis
+vec2 integrateBRDF(float roughness, float NoV)
+{
+    float alpha = roughness * roughness;
+
+    vec3 V;
+    V.x = sqrt(1.0f - NoV * NoV); // sin
+    V.y = 0;
+    V.z = NoV; // cos
+
+    float A = 0;
+    float B = 0;
+
+    vec3 N = vec3(0, 0, 1);
+
+    const uint NumSamples = 1024;
+    for (uint i = 0; i < NumSamples; i++)
+    {
+        vec2 Xi = hammersley(i, NumSamples);
+        vec3 H = importanceSampleTrowbridgeReitz(Xi, alpha, N);
+        vec3 L = 2 * dot(V, H) * H - V;
+
+        float NoL = saturate(L.z);
+        float NoH = saturate(H.z);
+        float VoH = saturate(dot(V, H));
+
+        if (NoL > 0)
+        {
+            // TODO: This has a clear step near roughness zero, why? Broken
+            // importance sampling? Also happens in RT so could be the function
+            // itself
+            float G = schlickTrowbridgeReitz(NoL, NoV, alpha);
+
+            float G_Vis = G * VoH / (NoH * NoV);
+            float Fc = pow(1 - VoH, 5);
+
+            A += (1 - Fc) * G_Vis;
+            B += Fc * G_Vis;
+        }
+    }
+
+    return vec2(A, B) / NumSamples;
+}
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main()
+{
+    uvec2 coord = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(coord, uvec2(OUT_RESOLUTION))))
+        return;
+
+    // 0,0 should be bottom right corner of the texture
+    float roughness = 1 - float(coord.y) / OUT_RESOLUTION;
+    float NoV = float(coord.x) / OUT_RESOLUTION;
+    vec2 scaleBias = saturate(integrateBRDF(roughness, NoV));
+
+    imageStore(outLut, ivec2(coord), vec4(scaleBias, 0, 0));
+}
