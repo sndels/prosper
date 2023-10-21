@@ -68,6 +68,8 @@ vk::AccessFlags2 nativeAccesses(ImageState state)
 
     vk::AccessFlags2 flags = nativeAccessesCommon(state);
 
+    if (contains(state, ImageState::AccessShaderSampledRead))
+        flags |= vk::AccessFlagBits2::eShaderSampledRead;
     if (contains(state, ImageState::AccessColorAttachmentRead))
         flags |= vk::AccessFlagBits2::eColorAttachmentRead;
     if (contains(state, ImageState::AccessColorAttachmentWrite))
@@ -110,6 +112,8 @@ bool hasWriteAccesses(ImageState state)
 
 vk::ImageLayout nativeLayout(ImageState state)
 {
+    if (contains(state, ImageState::AccessShaderSampledRead))
+        return vk::ImageLayout::eShaderReadOnlyOptimal;
     if (contains(state, ImageState::AccessShaderRead) ||
         contains(state, ImageState::AccessShaderWrite))
         return vk::ImageLayout::eGeneral;

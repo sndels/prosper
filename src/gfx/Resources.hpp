@@ -54,16 +54,17 @@ enum class ImageState : uint32_t
 
     // Access
     // Covers sampled and storage reads
-    AccessShaderRead = 0x80,
-    AccessShaderWrite = 0x100,
-    AccessColorAttachmentRead = 0x200,
-    AccessColorAttachmentWrite = 0x400,
-    AccessDepthAttachmentRead = 0x800,
-    AccessDepthAttachmentWrite = 0x1000,
+    AccessShaderSampledRead = 0x80,
+    AccessShaderRead = 0x100,
+    AccessShaderWrite = 0x200,
+    AccessColorAttachmentRead = 0x400,
+    AccessColorAttachmentWrite = 0x800,
+    AccessDepthAttachmentRead = 0x1000,
+    AccessDepthAttachmentWrite = 0x2000,
     // Covers copy, blit, resolve and clear
-    AccessTransferRead = 0x2000,
+    AccessTransferRead = 0x4000,
     // Covers copy, blit, resolve and clear
-    AccessTransferWrite = 0x4000,
+    AccessTransferWrite = 0x8000,
 
     // Combined Masks
     ColorAttachmentWrite =
@@ -74,10 +75,13 @@ enum class ImageState : uint32_t
     DepthAttachmentRead = StageEarlyFragmentTests | AccessDepthAttachmentRead,
     DepthAttachmentWrite = StageLateFragmentTests | AccessDepthAttachmentWrite,
     DepthAttachmentReadWrite = DepthAttachmentRead | DepthAttachmentWrite,
+    FragmentShaderSampledRead = StageFragmentShader | AccessShaderSampledRead,
     FragmentShaderRead = StageFragmentShader | AccessShaderRead,
+    ComputeShaderSampledRead = StageComputeShader | AccessShaderSampledRead,
     ComputeShaderRead = StageComputeShader | AccessShaderRead,
     ComputeShaderWrite = StageComputeShader | AccessShaderWrite,
     ComputeShaderReadWrite = ComputeShaderRead | ComputeShaderWrite,
+    RayTracingSampledRead = StageRayTracingShader | AccessShaderSampledRead,
     RayTracingRead = StageRayTracingShader | AccessShaderRead,
     RayTracingWrite = StageRayTracingShader | AccessShaderWrite,
     RayTracingReadWrite = RayTracingRead | RayTracingWrite,
