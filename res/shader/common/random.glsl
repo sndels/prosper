@@ -67,4 +67,16 @@ vec3 rnd3d01()
     return rngTo01(pcg_state.xyz);
 }
 
+// From Physically Based Rendering 3rd edition
+// https://www.pbr-book.org/3ed-2018/Sampling_and_Reconstruction/The_Halton_Sampler
+float radicalInverse2(uint i)
+{
+    return bitfieldReverse(i) * 2.32830643653896e-10;
+}
+
+vec2 hammersley(uint i, uint sequenceLength)
+{
+    return vec2(float(i) / float(sequenceLength), radicalInverse2(i));
+}
+
 #endif // COMMON_RANDOM_GLSL
