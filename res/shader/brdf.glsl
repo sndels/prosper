@@ -50,11 +50,13 @@ vec3 schlickFresnelWithRoughness(float VoH, vec3 f0, float roughness)
     return f0 + (max(vec3(1.0 - roughness), f0) - f0) * pow(1.0 - VoH, 5.0);
 }
 
-// Schlick-Trowbridge-Reitz(GGX) geometry function
+// Schlick approximation of Smith's method for Trowbridge-Reitz(GGX)
+// geometry function
 float schlickTrowbridgeReitz(float NoL, float NoV, float alpha)
 {
-    float k = alpha + 1.0;
-    k *= k * 0.125;
+    float k = alpha * 0.5;
+    // Avoid division by zero
+    k = max(k, 0.0001);
     float gl = NoL / (NoL * (1.0 - k) + k);
     float gv = NoV / (NoV * (1.0 - k) + k);
     return gl * gv;
