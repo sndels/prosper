@@ -331,15 +331,34 @@ World::World(
         _device->endGraphicsCommands(cb);
     }
 
-    _skyboxIrradianceSampler =
-        _device->logical().createSampler(vk::SamplerCreateInfo{
-            .magFilter = vk::Filter::eLinear,
-            .minFilter = vk::Filter::eLinear,
-            .mipmapMode = vk::SamplerMipmapMode::eLinear,
-            .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-            .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        });
+    _specularBrdfLut = _device->createImage(ImageCreateInfo{
+        .desc =
+            ImageDescription{
+                .format = vk::Format::eR16G16Unorm,
+                .width = sSpecularBrdfLutResolution,
+                .height = sSpecularBrdfLutResolution,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+            },
+        .debugName = "SpecularBrdfLut",
+    });
+    {
+        const vk::CommandBuffer cb = _device->beginGraphicsCommands();
+        _specularBrdfLut.transition(
+            cb, ImageState::FragmentShaderSampledRead |
+                    ImageState::ComputeShaderSampledRead |
+                    ImageState::RayTracingSampledRead);
+        _device->endGraphicsCommands(cb);
+    }
+
+    _skyboxSampler = _device->logical().createSampler(vk::SamplerCreateInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
+        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+    });
 
     printf("Loading world\n");
 
@@ -401,8 +420,9 @@ World::~World()
     _device->logical().destroy(_dsLayouts.materialDatas);
 
     _device->destroy(_skyboxVertexBuffer);
+    _device->destroy(_specularBrdfLut);
     _device->destroy(_skyboxIrradiance);
-    _device->logical().destroy(_skyboxIrradianceSampler);
+    _device->logical().destroy(_skyboxSampler);
     for (auto &buffer : _materialsBuffers)
         _device->destroy(buffer);
 
@@ -2349,8 +2369,13 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         const StaticArray descriptorInfos{
             DescriptorInfo{_skyboxTexture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxIrradianceSampler,
+                .sampler = _skyboxSampler,
                 .imageView = _skyboxIrradiance.view,
+                .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = _skyboxSampler,
+                .imageView = _specularBrdfLut.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
         };

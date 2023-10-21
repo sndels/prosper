@@ -34,6 +34,7 @@ class World
 {
   public:
     static const uint32_t sSkyboxIrradianceResolution = 64;
+    static const uint32_t sSpecularBrdfLutResolution = 512;
 
     struct DSLayouts
     {
@@ -86,8 +87,9 @@ class World
     // TODO: Private?
     TextureCubemap _skyboxTexture;
     Image _skyboxIrradiance;
+    Image _specularBrdfLut;
     Buffer _skyboxVertexBuffer;
-    vk::Sampler _skyboxIrradianceSampler;
+    vk::Sampler _skyboxSampler;
 
     wheels::Array<CameraParameters> _cameras{_generalAlloc};
     // True if any instance of the camera is dynamic
