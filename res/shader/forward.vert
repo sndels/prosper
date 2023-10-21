@@ -4,7 +4,12 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
+#ifdef USE_GBUFFER_PC
+#include "gbuffer_pc.glsl"
+#else // !USE_GBUFFER_PC
 #include "forward_pc.glsl"
+#endif // USE_GBUFFER_PC
+
 #include "scene/camera.glsl"
 #include "scene/geometry.glsl"
 #include "scene/transforms.glsl"
@@ -17,8 +22,8 @@ layout(location = 3) out mat3 fragTBN;
 void main()
 {
     Vertex vertex = transform(
-        loadVertex(forwardPC.MeshID, gl_VertexIndex),
-        modelInstanceTransforms.instance[forwardPC.ModelInstanceID]);
+        loadVertex(PC.MeshID, gl_VertexIndex),
+        modelInstanceTransforms.instance[PC.ModelInstanceID]);
 
     if (vertex.Tangent.w != 0)
         fragTBN = generateTBN(vertex.Normal, vertex.Tangent);

@@ -32,9 +32,6 @@ struct PCBlock
     uint32_t modelInstanceID{0xFFFFFFFF};
     uint32_t meshID{0xFFFFFFFF};
     uint32_t materialID{0xFFFFFFFF};
-    // Not actually used but let's have it to share vert shader with forward
-    // renderer
-    uint32_t drawType{0};
 };
 
 } // namespace
@@ -148,7 +145,6 @@ GBufferRenderer::Output GBufferRenderer::record(
                         .modelInstanceID = instance.id,
                         .meshID = subModel.meshID,
                         .materialID = subModel.materialID,
-                        .drawType = 0,
                     };
                     cb.pushConstants(
                         _pipelineLayout,
@@ -179,6 +175,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+    appendDefineStr(vertDefines, "USE_GBUFFER_PC");
     WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
 
     const Optional<Device::ShaderCompileResult> vertResult =

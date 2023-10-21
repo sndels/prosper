@@ -4,7 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "forward_pc.glsl"
+#include "gbuffer_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/materials.glsl"
 
@@ -33,7 +33,7 @@ mat3 generateTBN()
 
 void main()
 {
-    Material material = sampleMaterial(forwardPC.MaterialID, fragTexCoord0);
+    Material material = sampleMaterial(PC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)

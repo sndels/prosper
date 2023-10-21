@@ -3,11 +3,12 @@
 
 layout(push_constant) uniform ForwardPC
 {
+    // Some of these are mirrored between this and GBufferPC
     uint ModelInstanceID;
     uint MeshID;
     uint MaterialID;
     uint DrawType;
 }
-forwardPC;
+PC;
 
 #endif // FORWARD_PC_GLSL

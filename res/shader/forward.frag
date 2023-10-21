@@ -40,7 +40,7 @@ void main()
     VisibleSurface surface;
     surface.positionWS = fragPosition;
     surface.invViewRayWS = normalize(camera.eye.xyz - fragPosition);
-    surface.material = sampleMaterial(forwardPC.MaterialID, fragTexCoord0);
+    surface.material = sampleMaterial(PC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (surface.material.alpha == 0)
@@ -69,17 +69,16 @@ void main()
 
     float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 
-    if (forwardPC.DrawType >= DrawType_PrimitiveID)
+    if (PC.DrawType >= DrawType_PrimitiveID)
     {
         DebugInputs di;
-        di.meshID = forwardPC.MeshID;
+        di.meshID = PC.MeshID;
         di.primitiveID = gl_PrimitiveID;
-        di.materialID = forwardPC.MaterialID;
+        di.materialID = PC.MaterialID;
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
         di.texCoord0 = fragTexCoord0;
-        outColor =
-            vec4(commonDebugDraw(forwardPC.DrawType, di, surface.material), 1);
+        outColor = vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1);
         return;
     }
 
