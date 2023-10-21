@@ -2341,6 +2341,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         _dsLayouts.skybox = _skyboxReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sSkyboxReflectionSet,
             vk::ShaderStageFlagBits::eFragment |
+                vk::ShaderStageFlagBits::eCompute |
                 vk::ShaderStageFlagBits::eRaygenKHR);
 
         _skyboxDS = _descriptorAllocator.allocate(_dsLayouts.skybox);

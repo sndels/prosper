@@ -60,7 +60,8 @@ class DeferredShading
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const Input &input, uint32_t nextFrame, Profiler *profiler);
+        const Input &input, uint32_t nextFrame, bool applyIbl,
+        Profiler *profiler);
 
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

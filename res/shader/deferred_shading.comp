@@ -8,6 +8,7 @@
 #include "scene/light_clusters.glsl"
 #include "scene/lighting.glsl"
 #include "scene/lights.glsl"
+#include "scene/skybox.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
@@ -18,7 +19,11 @@ layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
 layout(set = STORAGE_SET, binding = 3, rgba16f) uniform image2D outColor;
 layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
 
-layout(push_constant) uniform DeferredShadingPC { uint DrawType; }
+layout(push_constant) uniform DeferredShadingPC
+{
+    uint DrawType;
+    uint ibl;
+}
 PC;
 
 void main()
@@ -54,6 +59,9 @@ void main()
     color += evalPointLights(surface, lightInfo);
 
     color += evalSpotLights(surface, lightInfo);
+
+    if (PC.ibl == 1)
+        color += evalIBL(surface);
 
     if (PC.DrawType >= DrawType_PrimitiveID)
     {

@@ -19,17 +19,19 @@ namespace
 enum BindingSet : uint32_t
 {
     LightsBindingSet = 0,
-    LightClustersBindingSet = 1,
-    CameraBindingSet = 2,
-    MaterialDatasBindingSet = 3,
-    MaterialTexturesBindingSet = 4,
-    StorageBindingSet = 5,
-    BindingSetCount = 6,
+    LightClustersBindingSet,
+    CameraBindingSet,
+    MaterialDatasBindingSet,
+    MaterialTexturesBindingSet,
+    SkyboxBindingSet,
+    StorageBindingSet,
+    BindingSetCount,
 };
 
 struct PCBlock
 {
     uint drawType{0};
+    uint ibl{0};
 };
 
 constexpr std::array<
@@ -63,6 +65,7 @@ ComputePass::Shader shaderDefinitionCallback(
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
     appendDefineStr(
         defines, "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
+    appendDefineStr(defines, "SKYBOX_SET", SkyboxBindingSet);
     appendEnumVariantsAsDefines(
         defines, "DrawType",
         Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
@@ -88,6 +91,7 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
     setLayouts[CameraBindingSet] = dsLayouts.camera;
     setLayouts[MaterialDatasBindingSet] = dsLayouts.world.materialDatas;
     setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
+    setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
     return setLayouts;
 }
 
@@ -137,7 +141,8 @@ void DeferredShading::drawUi()
 
 DeferredShading::Output DeferredShading::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const Input &input, const uint32_t nextFrame, Profiler *profiler)
+    const Input &input, const uint32_t nextFrame, bool applyIbl,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -198,6 +203,7 @@ DeferredShading::Output DeferredShading::record(
 
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
+            .ibl = static_cast<uint32_t>(applyIbl),
         };
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
@@ -209,6 +215,7 @@ DeferredShading::Output DeferredShading::record(
         descriptorSets[MaterialDatasBindingSet] =
             world._materialDatasDSs[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
+        descriptorSets[SkyboxBindingSet] = world._skyboxDS;
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets = {

@@ -1135,15 +1135,16 @@ void App::render(
                 cb, *_world, *_cam, renderArea, indices.nextFrame,
                 _profiler.get());
 
-            illumination = _deferredShading
-                               ->record(
-                                   cb, *_world, *_cam,
-                                   DeferredShading::Input{
-                                       .gbuffer = gbuffer,
-                                       .lightClusters = lightClusters,
-                                   },
-                                   indices.nextFrame, _profiler.get())
-                               .illumination;
+            illumination =
+                _deferredShading
+                    ->record(
+                        cb, *_world, *_cam,
+                        DeferredShading::Input{
+                            .gbuffer = gbuffer,
+                            .lightClusters = lightClusters,
+                        },
+                        indices.nextFrame, _applyIbl, _profiler.get())
+                    .illumination;
 
             _resources->images.release(gbuffer.albedoRoughness);
             _resources->images.release(gbuffer.normalMetalness);
