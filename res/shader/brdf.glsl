@@ -8,8 +8,8 @@
 // Lambert diffuse term
 vec3 lambertBRFD(vec3 c_diff) { return c_diff / PI; }
 
-// GGX distribution function
-float ggx(float NoH, float alpha)
+// Trowbridge-Reitz(GGX) distribution function
+float trowbridgeReitz(float NoH, float alpha)
 {
     // Match gltf spec
     float a2 = alpha * alpha;
@@ -30,8 +30,8 @@ vec3 schlickFresnelWithRoughness(float VoH, vec3 f0, float roughness)
     return f0 + (max(vec3(1.0 - roughness), f0) - f0) * pow(1.0 - VoH, 5.0);
 }
 
-// Schlick-GGX geometry function
-float schlick_ggx(float NoL, float NoV, float alpha)
+// Schlick-Trowbridge-Reitz(GGX) geometry function
+float schlickTrowbridgeReitz(float NoL, float NoV, float alpha)
 {
     float k = alpha + 1.0;
     k *= k * 0.125;
@@ -47,9 +47,9 @@ vec3 cookTorranceBRDF(
     // Match gltf spec
     float alpha = roughness * roughness;
 
-    float D = ggx(NoH, alpha);
+    float D = trowbridgeReitz(NoH, alpha);
     vec3 F = schlickFresnel(VoH, f0);
-    float G = schlick_ggx(NoL, NoV, alpha);
+    float G = schlickTrowbridgeReitz(NoL, NoV, alpha);
 
     float denom = 4.0 * NoL * NoV + 0.0001;
     return D * F * G / denom;
