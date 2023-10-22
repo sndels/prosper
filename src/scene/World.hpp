@@ -35,6 +35,7 @@ class World
   public:
     static const uint32_t sSkyboxIrradianceResolution = 64;
     static const uint32_t sSpecularBrdfLutResolution = 512;
+    static const uint32_t sSkyboxRadianceResolution = 512;
 
     struct DSLayouts
     {
@@ -88,6 +89,8 @@ class World
     TextureCubemap _skyboxTexture;
     Image _skyboxIrradiance;
     Image _specularBrdfLut;
+    Image _skyboxRadiance;
+    wheels::Array<vk::ImageView> _skyboxRadianceViews{_generalAlloc};
     Buffer _skyboxVertexBuffer;
     vk::Sampler _skyboxSampler;
 

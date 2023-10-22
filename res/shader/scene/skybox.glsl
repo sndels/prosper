@@ -4,6 +4,7 @@
 layout(set = SKYBOX_SET, binding = 0) uniform samplerCube skybox;
 layout(set = SKYBOX_SET, binding = 1) uniform samplerCube skyboxIrradiance;
 layout(set = SKYBOX_SET, binding = 2) uniform sampler2D specularBrdfLut;
+layout(set = SKYBOX_SET, binding = 3) uniform samplerCube skyboxRadiance;
 
 #include "../brdf.glsl"
 

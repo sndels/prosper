@@ -351,6 +351,48 @@ World::World(
         _device->endGraphicsCommands(cb);
     }
 
+    const uint32_t radianceMips =
+        asserted_cast<uint32_t>(
+            floor(std::log2((static_cast<float>(sSkyboxRadianceResolution))))) +
+        1;
+    _skyboxRadiance = _device->createImage(ImageCreateInfo{
+        .desc =
+            ImageDescription{
+                .format = vk::Format::eR16G16B16A16Sfloat,
+                .width = sSkyboxRadianceResolution,
+                .height = sSkyboxRadianceResolution,
+                .mipCount = radianceMips,
+                .layerCount = 6,
+                .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+            },
+        .debugName = "SkyboxRadiance",
+    });
+    for (uint32_t i = 0; i < radianceMips; ++i)
+        _skyboxRadianceViews.push_back(
+            _device->logical().createImageView(vk::ImageViewCreateInfo{
+                .image = _skyboxRadiance.handle,
+                .viewType = vk::ImageViewType::eCube,
+                .format = _skyboxRadiance.format,
+                .subresourceRange =
+                    vk::ImageSubresourceRange{
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .baseMipLevel = i,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 6,
+                    },
+            }));
+    {
+        const vk::CommandBuffer cb = _device->beginGraphicsCommands();
+        _skyboxRadiance.transition(
+            cb, ImageState::FragmentShaderSampledRead |
+                    ImageState::ComputeShaderSampledRead |
+                    ImageState::RayTracingSampledRead);
+        _device->endGraphicsCommands(cb);
+    }
+
     _skyboxSampler = _device->logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
@@ -358,6 +400,8 @@ World::World(
         .addressModeU = vk::SamplerAddressMode::eClampToEdge,
         .addressModeV = vk::SamplerAddressMode::eClampToEdge,
         .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        .minLod = 0,
+        .maxLod = VK_LOD_CLAMP_NONE,
     });
 
     printf("Loading world\n");
@@ -420,6 +464,9 @@ World::~World()
     _device->logical().destroy(_dsLayouts.materialDatas);
 
     _device->destroy(_skyboxVertexBuffer);
+    for (const vk::ImageView view : _skyboxRadianceViews)
+        _device->logical().destroy(view);
+    _device->destroy(_skyboxRadiance);
     _device->destroy(_specularBrdfLut);
     _device->destroy(_skyboxIrradiance);
     _device->logical().destroy(_skyboxSampler);
@@ -2376,6 +2423,11 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = _skyboxSampler,
                 .imageView = _specularBrdfLut.view,
+                .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = _skyboxSampler,
+                .imageView = _skyboxRadiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
         };
