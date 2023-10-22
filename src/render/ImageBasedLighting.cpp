@@ -37,6 +37,26 @@ ComputePass::Shader integrateSpecularBrdfShaderDefinitionCallback(
     };
 }
 
+struct PrefilterRadiancePC
+{
+    uint mipCount{0};
+};
+
+ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
+{
+    const size_t len = 32;
+    String defines{alloc, len};
+    appendDefineStr(
+        defines, "OUT_RESOLUTION", World::sSkyboxRadianceResolution);
+    WHEELS_ASSERT(defines.size() <= len);
+
+    return ComputePass::Shader{
+        .relPath = "shader/ibl/prefilter_radiance.comp",
+        .debugName = String{alloc, "PrefilterRadianceCS"},
+        .defines = WHEELS_MOV(defines),
+    };
+}
+
 } // namespace
 
 ImageBasedLighting::ImageBasedLighting(
@@ -45,9 +65,13 @@ ImageBasedLighting::ImageBasedLighting(
 
 : _device{device}
 , _sampleIrradiance{scopeAlloc.child_scope(), device, staticDescriptorsAlloc, sampleIrradianceShaderDefinitionCallback}
-, _integrateSpecularBrdf{
-      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
-      integrateSpecularBrdfShaderDefinitionCallback}
+, _integrateSpecularBrdf{scopeAlloc.child_scope(), device, staticDescriptorsAlloc, integrateSpecularBrdfShaderDefinitionCallback}
+, _prefilterRadiance{
+      scopeAlloc.child_scope(),
+      device,
+      staticDescriptorsAlloc,
+      prefilterRadianceShaderDefinitionCallback,
+  }
 {
     WHEELS_ASSERT(_device != nullptr);
 }
@@ -61,6 +85,8 @@ void ImageBasedLighting::recompileShaders(wheels::ScopedScratch scopeAlloc)
     _integrateSpecularBrdf.recompileShader(
         scopeAlloc.child_scope(),
         integrateSpecularBrdfShaderDefinitionCallback);
+    _prefilterRadiance.recompileShader(
+        scopeAlloc.child_scope(), prefilterRadianceShaderDefinitionCallback);
 }
 
 void ImageBasedLighting::recordGeneration(
@@ -121,6 +147,58 @@ void ImageBasedLighting::recordGeneration(
         // Transition so that the texture can be bound without transition for
         // all users
         world._specularBrdfLut.transition(
+            cb, ImageState::ComputeShaderSampledRead |
+                    ImageState::FragmentShaderSampledRead |
+                    ImageState::RayTracingSampledRead);
+    }
+
+    {
+        const uint32_t mipCount = world._skyboxRadiance.mipCount;
+        assert(mipCount == world._skyboxRadianceViews.size());
+
+        StaticArray<vk::DescriptorImageInfo, 15> imageInfos{
+            vk::DescriptorImageInfo{
+                .imageView = world._skyboxRadianceViews[0],
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }};
+        for (uint32_t i = 1; i < mipCount; ++i)
+            imageInfos[i] = vk::DescriptorImageInfo{
+                .imageView = world._skyboxRadianceViews[i],
+                .imageLayout = vk::ImageLayout::eGeneral,
+            };
+
+        const StaticArray descriptorInfos{
+            DescriptorInfo{world._skyboxTexture.imageInfo()},
+            DescriptorInfo{imageInfos},
+        };
+
+        _prefilterRadiance.updateDescriptorSet(nextFrame, descriptorInfos);
+        const vk::DescriptorSet storageSet =
+            _prefilterRadiance.storageSet(nextFrame);
+
+        world._skyboxRadiance.transition(cb, ImageState::ComputeShaderWrite);
+
+        const auto _s = profiler->createCpuGpuScope(cb, "PrefilterRadiance");
+
+        // TODO:
+        // The number of groups is overkill here as each mip is a quarter of the
+        // previous one. Most groups will early out.
+        // Multiple tighter dispatches or a more complex group assignment in
+        // shader?
+        const uvec3 groups = uvec3{
+            (uvec2{World::sSkyboxRadianceResolution} - 1u) / 16u + 1u,
+            6 * world._skyboxRadiance.mipCount};
+
+        _prefilterRadiance.record(
+            cb,
+            PrefilterRadiancePC{
+                .mipCount = mipCount,
+            },
+            groups, Span{&storageSet, 1});
+
+        // Transition so that the texture can be bound without transition
+        // for all users
+        world._skyboxRadiance.transition(
             cb, ImageState::ComputeShaderSampledRead |
                     ImageState::FragmentShaderSampledRead |
                     ImageState::RayTracingSampledRead);

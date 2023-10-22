@@ -1,0 +1,112 @@
+#pragma shader_stage(compute)
+
+layout(push_constant) uniform PrefilterRadiancePC { uint mipCount; }
+PC;
+
+layout(binding = 0) uniform samplerCube inEnvironment;
+// 15 levels == 16k texture
+layout(binding = 1, r11f_g11f_b10f) uniform writeonly imageCube outRadiance[15];
+
+#include "../brdf.glsl"
+#include "../common/math.glsl"
+#include "../common/random.glsl"
+
+// From Real Shading in Unreal Engine 4
+// by Brian Karis
+
+vec3 prefilterEnvMap(float Roughness, vec3 R)
+{
+    vec3 N = R;
+    vec3 V = R;
+
+    vec3 PrefilteredColor = vec3(0);
+    const uint NumSamples = 1024;
+
+    float alpha = Roughness * Roughness;
+
+    float TotalWeight = 0;
+    for (uint i = 0; i < NumSamples; i++)
+    {
+        vec2 Xi = hammersley(i, NumSamples);
+        vec3 H = importanceSampleTrowbridgeReitz(Xi, alpha, N);
+        vec3 L = 2 * dot(V, H) * H - V;
+
+        float NoL = saturate(dot(N, L));
+        if (NoL > 0)
+        {
+            // Reduce ringing by limiting the peak brightness.
+            // Also gets rid of "double sun" when dirlight is added by default
+            // TODO:
+            // Just sample more? Pick a mip level that makes Nyquist happy with
+            // the step counts?
+            vec3 s = min(textureLod(inEnvironment, L, 0).rgb, vec3(10));
+            PrefilteredColor += s * NoL;
+            TotalWeight += NoL;
+        }
+    }
+    return PrefilteredColor / TotalWeight;
+}
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+void main()
+{
+    uvec2 coordu = gl_GlobalInvocationID.xy;
+    uint level = gl_GlobalInvocationID.z % 6;
+    uint mip = gl_GlobalInvocationID.z / 6;
+
+    uint outResolution = OUT_RESOLUTION >> mip;
+    if (any(greaterThanEqual(coordu, uvec2(OUT_RESOLUTION))))
+        return;
+
+    vec2 coord = vec2(coordu) + 0.5;
+
+    // TODO: This feels very verbose
+    float res = outResolution;
+    float halfRes = res * .5;
+    float x, y, z;
+    if (level == 0)
+    {
+        x = halfRes;
+        y = (res - coord.y) - halfRes;
+        z = (res - coord.x) - halfRes;
+    }
+    else if (level == 1)
+    {
+        x = -halfRes;
+        y = (res - coord.y) - halfRes;
+        z = coord.x - halfRes;
+    }
+    else if (level == 2)
+    {
+        x = coord.x - halfRes;
+        y = halfRes;
+        z = coord.y - halfRes;
+    }
+    else if (level == 3)
+    {
+        x = coord.x - halfRes;
+        y = -halfRes;
+        z = (res - coord.y) - halfRes;
+    }
+    else if (level == 4)
+    {
+        x = coord.x - halfRes;
+        y = (res - coord.y) - halfRes;
+        z = halfRes;
+    }
+    else if (level == 5)
+    {
+        x = (res - coord.x) - halfRes;
+        y = (res - coord.y) - halfRes;
+        z = -halfRes;
+    }
+
+    vec3 normal = normalize(vec3(x, y, z));
+    // TODO:
+    // Non-linear mapping for the prefiltered mip roughnesses?
+    float roughness = mip / float(PC.mipCount);
+
+    vec3 radiance = prefilterEnvMap(roughness, normal);
+
+    imageStore(outRadiance[mip], ivec3(coord, level), vec4(radiance, 0));
+}
