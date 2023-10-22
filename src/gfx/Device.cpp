@@ -925,6 +925,7 @@ Image Device::createImage(const ImageCreateInfo &info)
     });
 
     image.extent = extent;
+    image.mipCount = desc.mipCount;
     image.subresourceRange = range;
     image.imageType = desc.imageType;
     image.format = desc.format;

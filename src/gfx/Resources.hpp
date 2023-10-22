@@ -249,6 +249,7 @@ struct Image
     // Keep extent and subresource range in full to avoid having to refill them
     // on every use
     vk::Extent3D extent;
+    uint32_t mipCount{0};
     vk::ImageSubresourceRange subresourceRange;
     ImageState state{ImageState::Unknown};
     VmaAllocation allocation{nullptr};
