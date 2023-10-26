@@ -7,6 +7,38 @@ layout(set = SKYBOX_SET, binding = 2) uniform sampler2D specularBrdfLut;
 layout(set = SKYBOX_SET, binding = 3) uniform samplerCube skyboxRadiance;
 
 #include "../brdf.glsl"
+#include "../common/random.glsl"
+
+// From Real Shading in Unreal Engine 4
+// by Brian Karis
+vec3 specularIBLReference(vec3 SpecularColor, float Roughness, vec3 N, vec3 V)
+{
+    float alpha = Roughness * Roughness;
+    vec3 SpecularLighting = vec3(0);
+    const uint NumSamples = 1024;
+    for (uint i = 0; i < NumSamples; i++)
+    {
+        vec2 Xi = hammersley(i, NumSamples);
+        vec3 H = importanceSampleTrowbridgeReitz(Xi, alpha, N);
+        vec3 L = 2 * dot(V, H) * H - V;
+        float NoV = saturate(dot(N, V));
+        float NoL = saturate(dot(N, L));
+        float NoH = saturate(dot(N, H));
+        float VoH = saturate(dot(V, H));
+        if (NoL > 0)
+        {
+            vec3 SampleColor = min(textureLod(skybox, L, 0).rgb, 10);
+            float G = schlickTrowbridgeReitz(NoL, NoV, alpha);
+            float Fc = pow(1 - VoH, 5);
+            vec3 F = (1 - Fc) * SpecularColor + Fc;
+            // Incident light = SampleColor * NoL
+            // Microfacet specular = D*G*F / (4*NoL*NoV)
+            // pdf = D * NoH / (4 * VoH)
+            SpecularLighting += SampleColor * F * G * VoH / (NoH * NoV);
+        }
+    }
+    return SpecularLighting / NumSamples;
+}
 
 // Adapted from
 // https://learnopengl.com/PBR/IBL/Diffuse-irradiance
@@ -37,6 +69,10 @@ vec3 evalIBL(VisibleSurface surface)
             .rgb;
     vec2 envBrdf =
         texture(specularBrdfLut, vec2(NoV, 1 - surface.material.roughness)).rg;
+
+    // vec3 specular = specularIBLReference(
+    //     f0, surface.material.roughness, surface.normalWS,
+    //     surface.invViewRayWS);
     vec3 specular = prefilteredRadiance * (F * envBrdf.x + envBrdf.y);
 
     // TODO: Apply AO to this
