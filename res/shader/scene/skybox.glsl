@@ -19,7 +19,7 @@ vec3 specularIBLReference(vec3 SpecularColor, float Roughness, vec3 N, vec3 V)
     for (uint i = 0; i < NumSamples; i++)
     {
         vec2 Xi = hammersley(i, NumSamples);
-        vec3 H = importanceSampleTrowbridgeReitz(Xi, alpha, N);
+        vec3 H = importanceSampleIBLTrowbridgeReitz(Xi, alpha, N);
         vec3 L = 2 * dot(V, H) * H - V;
         float NoV = saturate(dot(N, V));
         float NoL = saturate(dot(N, L));

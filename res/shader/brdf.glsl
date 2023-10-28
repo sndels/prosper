@@ -20,7 +20,7 @@ float trowbridgeReitz(float NoH, float alpha)
 
 // From Real Shading in Unreal Engine 4
 // by Brian Karis
-vec3 importanceSampleTrowbridgeReitz(vec2 Xi, float alpha, vec3 N)
+vec3 importanceSampleIBLTrowbridgeReitz(vec2 Xi, float alpha, vec3 N)
 {
     float Phi = 2 * PI * Xi.x;
     float CosTheta = sqrt((1 - Xi.y) / (1 + (alpha * alpha - 1) * Xi.y));

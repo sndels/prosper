@@ -28,7 +28,7 @@ vec3 prefilterEnvMap(float Roughness, vec3 R)
     for (uint i = 0; i < NumSamples; i++)
     {
         vec2 Xi = hammersley(i, NumSamples);
-        vec3 H = importanceSampleTrowbridgeReitz(Xi, alpha, N);
+        vec3 H = importanceSampleIBLTrowbridgeReitz(Xi, alpha, N);
         vec3 L = 2 * dot(V, H) * H - V;
 
         float NoL = saturate(dot(N, L));
