@@ -37,4 +37,50 @@ mat3 orthonormalBasis(vec3 n)
     return transpose(mat3(b1, b2, n));
 }
 
+// Adapted from Sampling the GGX Distribution of Visible Normals
+// By Eric Heitz
+// Removed anisotropy (single channel alpha, isotropic smith geometry term)
+// Calculate light direction and its pdf
+vec3 sampleVisibleTrowbridgeReitz(vec3 Ve, float alpha, vec2 Us)
+{
+    // Section 3.2: transforming the view direction to the hemisphere
+    // configuration
+    float alphaVx = alpha * Ve.x;
+    float alphaVy = alpha * Ve.y;
+    vec3 Vh = normalize(vec3(alphaVx, alphaVy, Ve.z));
+    // Section 4.1: orthonormal basis (with special case if cross product is
+    // zero)
+    float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
+    vec3 T1 =
+        lensq > 0 ? vec3(-Vh.y, Vh.x, 0) * inversesqrt(lensq) : vec3(1, 0, 0);
+    vec3 T2 = cross(Vh, T1);
+    // Section 4.2: parameterization of the projected area
+    float r = sqrt(Us[0]);
+    float phi = 2.0 * PI * Us[1];
+    float t1 = r * cos(phi);
+    float t2 = r * sin(phi);
+    float s = 0.5 * (1.0 + Vh.z);
+    t2 = (1.0 - s) * sqrt(1.0 - t1 * t1) + s * t2;
+    // Section 4.3: reprojection onto hemisphere
+    vec3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0, 1.0 - t1 * t1 - t2 * t2)) * Vh;
+    // Section 3.4: transforming the normal back to the ellipsoid configuration
+    vec3 Ne = normalize(vec3(alpha * Nh.x, alpha * Nh.y, max(0.0, Nh.z)));
+
+    return reflect(-Ve, Ne);
+}
+
+float visibleTrowbridgeReitzPdf(vec3 Ve, vec3 Le, float alpha)
+{
+    vec3 N = vec3(0, 0, 1);
+    vec3 Ne = normalize(Ve + Le);
+    float NoV = saturate(dot(N, Ve));
+    float NoL = saturate(dot(N, Le));
+    float NoH = saturate(dot(N, Ne));
+
+    float VNDF = schlickTrowbridgeReitz(NoL, NoV, alpha) * NoV *
+                 trowbridgeReitz(NoH, alpha) / Ve.z;
+
+    return VNDF / (4 * NoV);
+}
+
 #endif // COMMON_SAMPLING_GLSL
