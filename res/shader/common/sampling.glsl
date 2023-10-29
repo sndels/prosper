@@ -25,4 +25,16 @@ void cosineSampleHemisphere(vec3 n, vec2 u, out vec3 d, out float pdf)
     pdf = dot(d, n) / PI;
 }
 
+mat3 orthonormalBasis(vec3 n)
+{
+    // From Building an Orthonormal Basis, Revisited
+    // By Duff et al.
+    float s = sign(n.z);
+    float a = -1. / (s + n.z);
+    float b = n.x * n.y * a;
+    vec3 b1 = vec3(1. + s * n.x * n.x * a, s * b, -s * n.x);
+    vec3 b2 = vec3(b, s + n.y * n.y * a, -n.y);
+    return transpose(mat3(b1, b2, n));
+}
+
 #endif // COMMON_SAMPLING_GLSL
