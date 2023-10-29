@@ -107,6 +107,8 @@ Material sampleMaterial(uint index, vec2 uv)
         ret.roughness = data.roughnessFactor;
         ret.metallic = data.metallicFactor;
     }
+    // Avoid losing specular at zero roughness
+    ret.roughness = max(ret.roughness, 0.05);
 
     uint normalTextureTex = data.normalTexture & 0xFFFFFF;
     uint normalTextureSampler = data.normalTexture >> 24;
