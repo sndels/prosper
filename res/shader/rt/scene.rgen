@@ -185,11 +185,58 @@ void main()
         // TODO: Early out if throughput is small
         // TODO: Russian roulette
 
-        vec3 rd = cosineSampleHemisphere(surface.normalWS, rnd2d01());
-        float NoL = saturate(dot(surface.normalWS, rd));
-        float pdf = cosineHemispherePdf(NoL);
+        // Multiple importance sample diffuse and specular only picking one
+        // TODO: Better heuristic for specular weight
+        bool specularOnly = surface.material.metallic > 0.999;
+        float specularWeight = specularOnly ? 1. : 0.5;
+        float diffuseWeight = 1. - specularWeight;
 
-        throughput *= evalBRDFTimesNoL(rd, surface) / pdf;
+        mat3 normalBasis = orthonormalBasis(surface.normalWS);
+        vec3 vInBasis = normalBasis * surface.invViewRayWS;
+        float alpha = surface.material.roughness * surface.material.roughness;
+
+        bool pickDiffuse = rnd01() < diffuseWeight;
+        vec3 rd;
+        vec3 brdf;
+        float NoL;
+        float pdf;
+        if (pickDiffuse)
+        {
+            rd = cosineSampleHemisphere(surface.normalWS, rnd2d01());
+            NoL = saturate(dot(surface.normalWS, rd));
+
+            brdf = lambertBRFD(surface.material.albedo);
+
+            pdf = cosineHemispherePdf(NoL);
+            // TODO:
+            // This is from RTGII reference path tracer and seems correct but is
+            // not energy conserving
+            pdf *= diffuseWeight;
+        }
+        else
+        {
+            rd = sampleVisibleTrowbridgeReitz(vInBasis, alpha, rnd2d01());
+            rd = transpose(normalBasis) * rd;
+            NoL = saturate(dot(surface.normalWS, rd));
+
+            // Common dot products
+            vec3 h = normalize(surface.invViewRayWS + rd);
+            float NoH = saturate(dot(surface.normalWS, h));
+            float VoH = saturate(dot(surface.invViewRayWS, h));
+
+            // Use standard approximation of default fresnel
+            vec3 f0 = fresnelZero(surface);
+
+            brdf = cookTorranceBRDF(
+                NoL, surface.NoV, NoH, VoH, f0, surface.material.roughness);
+
+            pdf = visibleTrowbridgeReitzPdf(vInBasis, normalBasis * rd, alpha);
+            // TODO:
+            // This is from RTGII reference path tracer and seems correct but is
+            // not energy conserving
+            pdf *= specularWeight;
+        }
+        throughput *= brdf * NoL / pdf;
 
         ray.o = offsetRay(surface);
         ray.d = rd;
