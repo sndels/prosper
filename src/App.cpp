@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <thread>
 
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/transform.hpp>
@@ -303,6 +304,11 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
     _device->graphicsQueue().waitIdle();
+
+    // We might get here before the changed shaders are retouched completely,
+    // e.g. if clang-format takes a bit. Let's try to be safe with an extra
+    // wait to avoid reading them mid-write.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     printf("Recompiling shaders\n");
 
