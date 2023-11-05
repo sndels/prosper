@@ -185,9 +185,9 @@ void main()
         // TODO: Early out if throughput is small
         // TODO: Russian roulette
 
-        vec3 rd;
-        float pdf;
-        cosineSampleHemisphere(surface.normalWS, rnd2d01(), rd, pdf);
+        vec3 rd = cosineSampleHemisphere(surface.normalWS, rnd2d01());
+        float NoL = saturate(dot(surface.normalWS, rd));
+        float pdf = cosineHemispherePdf(NoL);
 
         throughput *= evalBRDFTimesNoL(rd, surface) / pdf;
 

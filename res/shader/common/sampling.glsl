@@ -6,7 +6,7 @@
 // From 'Sampling Transformations Zoo'
 // by Peter Shirley et al.
 // Published in Ray Tracing Gems
-void cosineSampleHemisphere(vec3 n, vec2 u, out vec3 d, out float pdf)
+vec3 cosineSampleHemisphere(vec3 n, vec2 u)
 {
     float a = 1.0 - 2.0 * u[0];
     a *= 0.99999; // Try to fix precision issues at grazing angles
@@ -20,10 +20,10 @@ void cosineSampleHemisphere(vec3 n, vec2 u, out vec3 d, out float pdf)
     float y = b * sin(phi);
     float z = a;
 
-    d = normalize(n + vec3(x, y, z));
-    // TODO: RTG has this as a / PI but the result looks very wrong
-    pdf = dot(d, n) / PI;
+    return normalize(n + vec3(x, y, z));
 }
+
+float cosineHemispherePdf(float NoL) { return NoL / PI; }
 
 mat3 orthonormalBasis(vec3 n)
 {
