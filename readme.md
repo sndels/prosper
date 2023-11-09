@@ -15,6 +15,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - Mipmapping
 - Transparency (no sorting)
 - Skybox
+- IBL
+  - From the environment map with split sum approximation
 - 1D ACES-tonemap[^2]
 - Deferred and forward rendering paths
 - Pipeline ray tracing
