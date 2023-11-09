@@ -31,7 +31,7 @@ void main()
 
     float inAspectRatio = float(PC.inRes.x) / float(PC.inRes.y);
     float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
-    vec2 inUv = vec2(outCoord) / vec2(PC.outRes);
+    vec2 inUv = (vec2(outCoord) + .5) / vec2(PC.outRes);
     if (!any(equal(PC.inRes, PC.outRes)))
     {
         if (inAspectRatio > outAspectRatio)
