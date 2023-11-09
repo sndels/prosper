@@ -164,10 +164,12 @@ void loadingWorker(
     const std::filesystem::path *sceneDir, World::DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(sceneDir != nullptr);
-    WHEELS_ASSERT(ctx != nullptr);
-    WHEELS_ASSERT(ctx->device != nullptr);
-    WHEELS_ASSERT(ctx->device->transferQueue().has_value());
+    // TODO:
+    // Make clang-tidy treat WHEELS_ASSERT as assert so that it considers them
+    // valid null checks
     WHEELS_ASSERT(
+        ctx != nullptr && ctx->device != nullptr &&
+        ctx->device->transferQueue().has_value() &&
         ctx->device->graphicsQueue() != *ctx->device->transferQueue());
 
     // Enough for 4K textures, it seems
