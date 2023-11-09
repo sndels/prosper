@@ -119,7 +119,7 @@ void main()
         {
             if (flagIBL())
             {
-                vec3 skyColor = sRGBtoLinear(textureLod(skybox, ray.d, 0).rgb);
+                vec3 skyColor = textureLod(skybox, ray.d, 0).rgb;
                 addBounce(color, throughput * skyColor, bounce);
             }
             break;
