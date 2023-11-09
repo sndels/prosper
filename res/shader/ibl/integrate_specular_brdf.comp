@@ -74,8 +74,7 @@ void main()
     if (any(greaterThanEqual(coord, uvec2(OUT_RESOLUTION))))
         return;
 
-    // 0,0 should be bottom right corner of the texture
-    float roughness = 1 - float(coord.y) / OUT_RESOLUTION;
+    float roughness = float(coord.y) / OUT_RESOLUTION;
     float NoV = float(coord.x) / OUT_RESOLUTION;
     vec2 scaleBias = saturate(integrateBRDF(roughness, NoV));
 

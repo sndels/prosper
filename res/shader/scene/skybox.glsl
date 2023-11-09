@@ -68,7 +68,7 @@ vec3 evalIBL(VisibleSurface surface)
             skyboxRadiance, R, surface.material.roughness * MAX_REFLECTION_LOD)
             .rgb;
     vec2 envBrdf =
-        texture(specularBrdfLut, vec2(NoV, 1 - surface.material.roughness)).rg;
+        texture(specularBrdfLut, vec2(NoV, surface.material.roughness)).rg;
 
     // vec3 specular = specularIBLReference(
     //     f0, surface.material.roughness, surface.normalWS,
