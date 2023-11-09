@@ -8,6 +8,7 @@ layout(set = SKYBOX_SET, binding = 3) uniform samplerCube skyboxRadiance;
 
 #include "../brdf.glsl"
 #include "../common/random.glsl"
+#include "../common/sampling.glsl"
 
 // From Real Shading in Unreal Engine 4
 // by Brian Karis

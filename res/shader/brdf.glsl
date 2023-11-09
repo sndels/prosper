@@ -18,26 +18,6 @@ float trowbridgeReitz(float NoH, float alpha)
     return a2 / (PI * denom * denom);
 }
 
-// From Real Shading in Unreal Engine 4
-// by Brian Karis
-vec3 importanceSampleIBLTrowbridgeReitz(vec2 Xi, float alpha, vec3 N)
-{
-    float Phi = 2 * PI * Xi.x;
-    float CosTheta = sqrt((1 - Xi.y) / (1 + (alpha * alpha - 1) * Xi.y));
-    float SinTheta = sqrt(1 - CosTheta * CosTheta);
-
-    vec3 H;
-    H.x = SinTheta * cos(Phi);
-    H.y = SinTheta * sin(Phi);
-    H.z = CosTheta;
-
-    vec3 UpVector = abs(N.z) < 0.999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-    vec3 TangentX = normalize(cross(UpVector, N));
-    vec3 TangentY = normalize(cross(N, TangentX));
-    // Tangent to world space
-    return normalize(TangentX * H.x + TangentY * H.y + N * H.z);
-}
-
 vec3 schlickFresnel(float VoH, vec3 f0)
 {
     return f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);

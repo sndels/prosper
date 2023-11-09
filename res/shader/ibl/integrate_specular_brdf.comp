@@ -5,6 +5,7 @@ layout(binding = 0, rg16f) uniform writeonly image2D outLut;
 #include "../brdf.glsl"
 #include "../common/math.glsl"
 #include "../common/random.glsl"
+#include "../common/sampling.glsl"
 
 float GeometrySchlickGGX(float NdotV, float k)
 {

@@ -10,6 +10,7 @@ layout(binding = 1, r11f_g11f_b10f) uniform writeonly imageCube outRadiance[15];
 #include "../brdf.glsl"
 #include "../common/math.glsl"
 #include "../common/random.glsl"
+#include "../common/sampling.glsl"
 
 // From Real Shading in Unreal Engine 4
 // by Brian Karis
