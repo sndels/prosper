@@ -185,6 +185,20 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
     return surface;
 }
 
+vec3 debugColor(RayPayload hit, VisibleSurface surface)
+{
+    RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
+
+    DebugInputs di;
+    di.meshID = instance.meshID;
+    di.primitiveID = hit.primitiveID;
+    di.materialID = instance.materialID;
+    di.position = surface.positionWS;
+    di.shadingNormal = surface.normalWS;
+    di.texCoord0 = surface.uv;
+    return commonDebugDraw(rtPC.drawType, di, surface.material);
+}
+
 void main()
 {
     uvec2 px = gl_LaunchIDEXT.xy;
@@ -218,17 +232,7 @@ void main()
 
         if (rtPC.drawType >= DrawType_PrimitiveID)
         {
-            RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
-
-            DebugInputs di;
-            di.meshID = instance.meshID;
-            di.primitiveID = hit.primitiveID;
-            di.materialID = instance.materialID;
-            di.position = surface.positionWS;
-            di.shadingNormal = surface.normalWS;
-            di.texCoord0 = surface.uv;
-            color = commonDebugDraw(rtPC.drawType, di, surface.material);
-
+            color = debugColor(hit, surface);
             break;
         }
 
