@@ -817,6 +817,21 @@ const HashSet<std::filesystem::path> &ShaderReflection::sourceFiles() const
     return _sourceFiles;
 }
 
+bool ShaderReflection::affected(
+    const HashSet<std::filesystem::path> &changedFiles) const
+{
+    bool found = false;
+    for (const std::filesystem::path &file : changedFiles)
+    {
+        if (_sourceFiles.contains(file))
+        {
+            found = true;
+            break;
+        }
+    }
+    return found;
+}
+
 vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
     ScopedScratch scopeAlloc, Device &device, uint32_t descriptorSet,
     vk::ShaderStageFlags stageFlags, wheels::Span<const uint32_t> dynamicCounts,

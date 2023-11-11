@@ -54,6 +54,8 @@ class ShaderReflection
     descriptorSetMetadatas() const;
     [[nodiscard]] const wheels::HashSet<std::filesystem::path> &sourceFiles()
         const;
+    [[nodiscard]] bool affected(
+        const wheels::HashSet<std::filesystem::path> &changedFiles) const;
 
     [[nodiscard]] vk::DescriptorSetLayout createDescriptorSetLayout(
         wheels::ScopedScratch scopeAlloc, Device &device,
