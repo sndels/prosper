@@ -41,6 +41,7 @@ void main()
     VisibleSurface surface;
     surface.positionWS = fragPosition;
     surface.invViewRayWS = normalize(camera.eye.xyz - fragPosition);
+    surface.uv = fragTexCoord0;
     surface.material = sampleMaterial(PC.MaterialID, fragTexCoord0);
 
     // Early out if alpha test failed / zero alpha

@@ -195,6 +195,7 @@ void main()
         VisibleSurface surface;
         surface.positionWS = v.Position;
         surface.invViewRayWS = -ray.d;
+        surface.uv = v.TexCoord0;
         surface.material = sampleMaterial(instance.materialID, v.TexCoord0);
 
         // -2 signals no material normal, w=0 no vertex tangent
@@ -216,7 +217,7 @@ void main()
             di.materialID = instance.materialID;
             di.position = surface.positionWS;
             di.shadingNormal = surface.normalWS;
-            di.texCoord0 = v.TexCoord0;
+            di.texCoord0 = surface.uv;
             color = commonDebugDraw(rtPC.drawType, di, surface.material);
 
             break;

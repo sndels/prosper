@@ -8,6 +8,7 @@ struct VisibleSurface
     vec3 positionWS;
     vec3 normalWS;
     vec3 invViewRayWS;
+    vec2 uv;
     float NoV;
     Material material;
 };

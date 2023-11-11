@@ -48,6 +48,7 @@ void main()
     surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
     surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
     surface.normalWS = surface.material.normal;
+    surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
 
     vec3 color = vec3(0);
