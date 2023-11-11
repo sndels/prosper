@@ -199,6 +199,29 @@ vec3 debugColor(RayPayload hit, VisibleSurface surface)
     return commonDebugDraw(rtPC.drawType, di, surface.material);
 }
 
+vec3 evaluateDirectLighting(
+    VisibleSurface surface, vec3 throughput, uint bounce)
+{
+    vec3 color = vec3(0);
+
+    // Alpha=0 hits don't have a valid surface
+    if (surface.material.alpha != 0)
+    {
+        { // Sun
+            vec3 l = -normalize(directionalLight.direction.xyz);
+
+            addBounce(
+                color,
+                directionalLight.irradiance.xyz * throughput *
+                    evalBRDFTimesNoL(l, surface) *
+                    shadow(surface.positionWS, l, 0.1, 100),
+                bounce);
+        }
+    }
+
+    return color;
+}
+
 void main()
 {
     uvec2 px = gl_LaunchIDEXT.xy;
@@ -236,20 +259,7 @@ void main()
             break;
         }
 
-        // Alpha hits don't have a valid surface
-        if (surface.material.alpha != 0)
-        {
-            { // Sun
-                vec3 l = -normalize(directionalLight.direction.xyz);
-
-                addBounce(
-                    color,
-                    directionalLight.irradiance.xyz * throughput *
-                        evalBRDFTimesNoL(l, surface) *
-                        shadow(surface.positionWS, l, 0.1, 100),
-                    bounce);
-            }
-        }
+        color += evaluateDirectLighting(surface, throughput, bounce);
 
         // TODO: Early out if throughput is small
         // TODO: Russian roulette
