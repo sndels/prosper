@@ -84,11 +84,13 @@ vk::DescriptorSetLayout LightClustering::descriptorSetLayout() const
 }
 
 void LightClustering::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
     _computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         externalDsLayouts(camDSLayout, worldDSLayouts));
 }
 

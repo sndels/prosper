@@ -43,7 +43,9 @@ class TextureDebug
     TextureDebug &operator=(const TextureDebug &other) = delete;
     TextureDebug &operator=(TextureDebug &&other) = delete;
 
-    void recompileShaders(wheels::ScopedScratch scopeAlloc);
+    void recompileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     void drawUi();
 

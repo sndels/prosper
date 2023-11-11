@@ -27,7 +27,9 @@ class GBufferRenderer
     GBufferRenderer &operator=(GBufferRenderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -68,6 +70,8 @@ class GBufferRenderer
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{{}};
+    wheels::Optional<ShaderReflection> _vertReflection;
+    wheels::Optional<ShaderReflection> _fragReflection;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

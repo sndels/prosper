@@ -12,6 +12,7 @@
 #include <imgui.h>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>
+#include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/string.hpp>
 
 #include "gfx/VkUtils.hpp"
@@ -281,23 +282,23 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         return;
 
     const Timer checkTime;
-    bool shadersChanged = false;
     auto shadersIterator =
         std::filesystem::recursive_directory_iterator(resPath("shader"));
+    const uint32_t shaderFileBound = 128;
+    HashSet<std::filesystem::path> changedFiles{scopeAlloc, shaderFileBound};
     for (const auto &entry : shadersIterator)
     {
         if (entry.last_write_time() > _recompileTime)
-        {
-            shadersChanged = true;
-            break;
-        }
+            changedFiles.insert(entry.path().lexically_normal());
     }
+    WHEELS_ASSERT(changedFiles.capacity() == shaderFileBound);
+
     if (checkTime.getSeconds() > 0.001f)
         fprintf(
             stderr, "Shader timestamp check is laggy: %.1fms\n",
             checkTime.getSeconds() * 1000.f);
 
-    if (!shadersChanged)
+    if (changedFiles.empty())
         return;
 
     // Wait for resources to be out of use
@@ -315,37 +316,38 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     const Timer t;
 
     _lightClustering->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _forwardRenderer->recompileShaders(
-        scopeAlloc.child_scope(),
+        scopeAlloc.child_scope(), changedFiles,
         ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
         });
     _gbufferRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _deferredShading->recompileShaders(
-        scopeAlloc.child_scope(),
+        scopeAlloc.child_scope(), changedFiles,
         DeferredShading::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
         });
     _rtRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _skyboxRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _world->_dsLayouts);
+        scopeAlloc.child_scope(), changedFiles, _world->_dsLayouts);
     _debugRenderer->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout());
-    _toneMap->recompileShaders(scopeAlloc.child_scope());
-    _textureDebug->recompileShaders(scopeAlloc.child_scope());
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
+    _toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    _textureDebug->recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _depthOfField->recompileShaders(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout());
-    _imageBasedLighting->recompileShaders(scopeAlloc.child_scope());
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
+    _imageBasedLighting->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles);
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 

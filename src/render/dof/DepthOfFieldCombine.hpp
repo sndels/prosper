@@ -30,7 +30,9 @@ class DepthOfFieldCombine
     DepthOfFieldCombine &operator=(const DepthOfFieldCombine &other) = delete;
     DepthOfFieldCombine &operator=(DepthOfFieldCombine &&other) = delete;
 
-    void recompileShaders(wheels::ScopedScratch scopeAlloc);
+    void recompileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     struct Input
     {

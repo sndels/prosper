@@ -45,7 +45,9 @@ class DeferredShading
     DeferredShading &operator=(DeferredShading &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        const InputDSLayouts &dsLayouts);
 
     void drawUi();
 

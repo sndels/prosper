@@ -69,10 +69,12 @@ DepthOfFieldSetup::DepthOfFieldSetup(
 }
 
 void DepthOfFieldSetup::recompileShaders(
-    wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout)
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    vk::DescriptorSetLayout camDsLayout)
 {
     _computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         Span{&camDsLayout, 1});
 }
 

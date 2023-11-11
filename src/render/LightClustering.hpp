@@ -37,7 +37,9 @@ class LightClustering
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     struct Output

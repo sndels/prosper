@@ -40,7 +40,9 @@ class ComputePass
 
     template <typename Callback>
     void recompileShader(
-        wheels::ScopedScratch scopeAlloc, Callback &&shaderDefinitionCallback,
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        Callback &&shaderDefinitionCallback,
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {});
 
     template <size_t N>
@@ -119,9 +121,15 @@ ComputePass::ComputePass(
 
 template <typename Callback>
 void ComputePass::recompileShader(
-    wheels::ScopedScratch scopeAlloc, Callback &&shaderDefinitionCallback,
+    wheels::ScopedScratch scopeAlloc,
+    const wheels::HashSet<std::filesystem::path> &changedFiles,
+    Callback &&shaderDefinitionCallback,
     wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts)
 {
+    WHEELS_ASSERT(_shaderReflection.has_value());
+    if (!_shaderReflection->affected(changedFiles))
+        return;
+
     if (compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
     {
         destroyPipelines();

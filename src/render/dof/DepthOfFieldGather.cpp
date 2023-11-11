@@ -67,12 +67,14 @@ DepthOfFieldGather::DepthOfFieldGather(
     WHEELS_ASSERT(_resources != nullptr);
 }
 
-void DepthOfFieldGather::recompileShaders(wheels::ScopedScratch scopeAlloc)
+void DepthOfFieldGather::recompileShaders(
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles)
 {
     _backgroundPass.recompileShader(
-        scopeAlloc.child_scope(), backgroundDefinitionCallback);
+        scopeAlloc.child_scope(), changedFiles, backgroundDefinitionCallback);
     _foregroundPass.recompileShader(
-        scopeAlloc.child_scope(), foregroundDefinitionCallback);
+        scopeAlloc.child_scope(), changedFiles, foregroundDefinitionCallback);
 }
 
 DepthOfFieldGather::Output DepthOfFieldGather::record(

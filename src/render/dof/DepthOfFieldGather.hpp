@@ -36,7 +36,9 @@ class DepthOfFieldGather
     DepthOfFieldGather &operator=(const DepthOfFieldGather &other) = delete;
     DepthOfFieldGather &operator=(DepthOfFieldGather &&other) = delete;
 
-    void recompileShaders(wheels::ScopedScratch scopeAlloc);
+    void recompileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     struct Input
     {

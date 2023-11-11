@@ -115,10 +115,12 @@ DeferredShading::DeferredShading(
 }
 
 void DeferredShading::recompileShaders(
-    wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    const InputDSLayouts &dsLayouts)
 {
     _computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc),
+        WHEELS_MOV(scopeAlloc), changedFiles,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
         externalDsLayouts(dsLayouts));

@@ -18,13 +18,16 @@ DepthOfField::DepthOfField(
 }
 
 void DepthOfField::recompileShaders(
-    wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout cameraDsLayout)
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    vk::DescriptorSetLayout cameraDsLayout)
 {
-    _setupPass.recompileShaders(scopeAlloc.child_scope(), cameraDsLayout);
-    _flattenPass.recompileShaders(scopeAlloc.child_scope());
-    _dilatePass.recompileShaders(scopeAlloc.child_scope());
-    _gatherPass.recompileShaders(scopeAlloc.child_scope());
-    _combinePass.recompileShaders(scopeAlloc.child_scope());
+    _setupPass.recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
+    _flattenPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    _dilatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    _gatherPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    _combinePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
 }
 
 DepthOfField::Output DepthOfField::record(

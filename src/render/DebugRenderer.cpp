@@ -81,8 +81,16 @@ DebugRenderer::~DebugRenderer()
 }
 
 void DebugRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout)
+    ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    const vk::DescriptorSetLayout camDSLayout)
 {
+    WHEELS_ASSERT(_vertReflection.has_value());
+    WHEELS_ASSERT(_fragReflection.has_value());
+    if (!_vertReflection->affected(changedFiles) &&
+        !_fragReflection->affected(changedFiles))
+        return;
+
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipeline();
@@ -158,7 +166,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
                                           .defines = vertDefines,
                                       });
 
-    const Optional<Device::ShaderCompileResult> fragResult =
+    Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/debug_color.frag",
@@ -182,6 +190,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
                 .pName = "main",
             }};
         _vertReflection = WHEELS_MOV(vertResult->reflection);
+        _fragReflection = WHEELS_MOV(fragResult->reflection);
 
         return true;
     }

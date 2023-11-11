@@ -130,9 +130,20 @@ RTRenderer::~RTRenderer()
 }
 
 void RTRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_raygenReflection.has_value());
+    WHEELS_ASSERT(_rayMissReflection.has_value());
+    WHEELS_ASSERT(_closestHitReflection.has_value());
+    WHEELS_ASSERT(_anyHitReflection.has_value());
+    if (!_raygenReflection->affected(changedFiles) &&
+        !_rayMissReflection->affected(changedFiles) &&
+        !_closestHitReflection->affected(changedFiles) &&
+        !_anyHitReflection->affected(changedFiles))
+        return;
+
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyPipeline();
@@ -465,19 +476,19 @@ bool RTRenderer::compileShaders(
                                           .debugName = "sceneRGEN",
                                           .defines = raygenDefines,
                                       });
-    const Optional<Device::ShaderCompileResult> rayMissResult =
+    Optional<Device::ShaderCompileResult> rayMissResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rmiss",
                                           .debugName = "sceneRMISS",
                                       });
-    const Optional<Device::ShaderCompileResult> closestHitResult =
+    Optional<Device::ShaderCompileResult> closestHitResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rchit",
                                           .debugName = "sceneRCHIT",
                                       });
-    const Optional<Device::ShaderCompileResult> anyHitResult =
+    Optional<Device::ShaderCompileResult> anyHitResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rahit",
@@ -494,21 +505,20 @@ bool RTRenderer::compileShaders(
         WHEELS_ASSERT(
             sizeof(PCBlock) == _raygenReflection->pushConstantsBytesize());
 
-        const ShaderReflection &rayMissReflection = rayMissResult->reflection;
+        _rayMissReflection = WHEELS_MOV(rayMissResult->reflection);
         WHEELS_ASSERT(
-            rayMissReflection.pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == rayMissReflection.pushConstantsBytesize());
+            _rayMissReflection->pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == _rayMissReflection->pushConstantsBytesize());
 
-        const ShaderReflection &closestHitReflection =
-            closestHitResult->reflection;
+        _closestHitReflection = WHEELS_MOV(closestHitResult->reflection);
         WHEELS_ASSERT(
-            closestHitReflection.pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == closestHitReflection.pushConstantsBytesize());
+            _closestHitReflection->pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == _closestHitReflection->pushConstantsBytesize());
 
-        const ShaderReflection &anyHitReflection = anyHitResult->reflection;
+        _anyHitReflection = WHEELS_MOV(anyHitResult->reflection);
         WHEELS_ASSERT(
-            anyHitReflection.pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == anyHitReflection.pushConstantsBytesize());
+            _anyHitReflection->pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == _anyHitReflection->pushConstantsBytesize());
 
         _shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,

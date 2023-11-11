@@ -46,10 +46,12 @@ DepthOfFieldDilate::DepthOfFieldDilate(
     WHEELS_ASSERT(_resources != nullptr);
 }
 
-void DepthOfFieldDilate::recompileShaders(wheels::ScopedScratch scopeAlloc)
+void DepthOfFieldDilate::recompileShaders(
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles)
 {
     _computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+        WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 DepthOfFieldDilate::Output DepthOfFieldDilate::record(

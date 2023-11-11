@@ -24,7 +24,9 @@ class ImageBasedLighting
 
     [[nodiscard]] bool isGenerated() const;
 
-    void recompileShaders(wheels::ScopedScratch scopeAlloc);
+    void recompileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     void recordGeneration(
         vk::CommandBuffer cb, World &world, uint32_t nextFrame,

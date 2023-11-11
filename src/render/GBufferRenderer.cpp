@@ -66,9 +66,17 @@ GBufferRenderer::~GBufferRenderer()
 }
 
 void GBufferRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    const vk::DescriptorSetLayout camDSLayout,
     const World::DSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_vertReflection.has_value());
+    WHEELS_ASSERT(_fragReflection.has_value());
+    if (!_vertReflection->affected(changedFiles) &&
+        !_fragReflection->affected(changedFiles))
+        return;
+
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyGraphicsPipeline();
@@ -178,7 +186,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(vertDefines, "USE_GBUFFER_PC");
     WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
 
-    const Optional<Device::ShaderCompileResult> vertResult =
+    Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.vert",
@@ -197,7 +205,7 @@ bool GBufferRenderer::compileShaders(
         worldDSLayouts.materialSamplerCount);
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
-    const Optional<Device::ShaderCompileResult> fragResult =
+    Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/gbuffer.frag",
@@ -210,13 +218,13 @@ bool GBufferRenderer::compileShaders(
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-        const ShaderReflection &vertReflection = vertResult->reflection;
+        _vertReflection = WHEELS_MOV(vertResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
+            sizeof(PCBlock) == _vertReflection->pushConstantsBytesize());
 
-        const ShaderReflection &fragReflection = fragResult->reflection;
+        _fragReflection = WHEELS_MOV(fragResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
+            sizeof(PCBlock) == _fragReflection->pushConstantsBytesize());
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

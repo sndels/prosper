@@ -52,10 +52,12 @@ ToneMap::ToneMap(
     WHEELS_ASSERT(_resources != nullptr);
 }
 
-void ToneMap::recompileShaders(ScopedScratch scopeAlloc)
+void ToneMap::recompileShaders(
+    ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles)
 {
     _computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+        WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 void ToneMap::drawUi()

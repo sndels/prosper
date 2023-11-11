@@ -47,10 +47,12 @@ DepthOfFieldCombine::DepthOfFieldCombine(
     WHEELS_ASSERT(_resources != nullptr);
 }
 
-void DepthOfFieldCombine::recompileShaders(wheels::ScopedScratch scopeAlloc)
+void DepthOfFieldCombine::recompileShaders(
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles)
 {
     _computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+        WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 DepthOfFieldCombine::Output DepthOfFieldCombine::record(

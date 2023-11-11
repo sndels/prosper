@@ -33,7 +33,9 @@ class RTRenderer
     RTRenderer &operator=(RTRenderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
 
     void drawUi();
@@ -78,6 +80,9 @@ class RTRenderer
     wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>
         _shaderGroups{{}};
     wheels::Optional<ShaderReflection> _raygenReflection;
+    wheels::Optional<ShaderReflection> _rayMissReflection;
+    wheels::Optional<ShaderReflection> _closestHitReflection;
+    wheels::Optional<ShaderReflection> _anyHitReflection;
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>

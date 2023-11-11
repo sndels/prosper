@@ -34,7 +34,9 @@ class DebugRenderer
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout);
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        vk::DescriptorSetLayout camDSLayout);
 
     struct RecordInOut
     {
@@ -72,6 +74,7 @@ class DebugRenderer
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
     wheels::Optional<ShaderReflection> _vertReflection;
+    wheels::Optional<ShaderReflection> _fragReflection;
 
     vk::DescriptorSetLayout _linesDSLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>

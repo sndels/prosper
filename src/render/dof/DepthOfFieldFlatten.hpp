@@ -29,7 +29,9 @@ class DepthOfFieldFlatten
     DepthOfFieldFlatten &operator=(const DepthOfFieldFlatten &other) = delete;
     DepthOfFieldFlatten &operator=(DepthOfFieldFlatten &&other) = delete;
 
-    void recompileShaders(wheels::ScopedScratch scopeAlloc);
+    void recompileShaders(
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     struct Output
     {

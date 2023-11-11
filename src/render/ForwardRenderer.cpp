@@ -91,8 +91,16 @@ ForwardRenderer::~ForwardRenderer()
 }
 
 void ForwardRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
+    ScopedScratch scopeAlloc,
+    const wheels::HashSet<std::filesystem::path> &changedFiles,
+    const InputDSLayouts &dsLayouts)
 {
+    WHEELS_ASSERT(_vertReflection.has_value());
+    WHEELS_ASSERT(_fragReflection.has_value());
+    if (!_vertReflection->affected(changedFiles) &&
+        !_fragReflection->affected(changedFiles))
+        return;
+
     if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
     {
         destroyGraphicsPipelines();
@@ -160,7 +168,7 @@ bool ForwardRenderer::compileShaders(
         vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
     WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
 
-    const Optional<Device::ShaderCompileResult> vertResult =
+    Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.vert",
@@ -188,7 +196,7 @@ bool ForwardRenderer::compileShaders(
     SpotLights::appendShaderDefines(fragDefines);
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
-    const Optional<Device::ShaderCompileResult> fragResult =
+    Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.frag",
@@ -201,13 +209,13 @@ bool ForwardRenderer::compileShaders(
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-        const ShaderReflection &vertReflection = vertResult->reflection;
+        _vertReflection = WHEELS_MOV(vertResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
+            sizeof(PCBlock) == _vertReflection->pushConstantsBytesize());
 
-        const ShaderReflection &fragReflection = fragResult->reflection;
+        _fragReflection = WHEELS_MOV(fragResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == fragReflection.pushConstantsBytesize());
+            sizeof(PCBlock) == _fragReflection->pushConstantsBytesize());
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

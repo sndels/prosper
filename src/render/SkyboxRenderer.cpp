@@ -70,8 +70,16 @@ SkyboxRenderer::~SkyboxRenderer()
 }
 
 void SkyboxRenderer::recompileShaders(
-    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles,
+    const World::DSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_vertReflection.has_value());
+    WHEELS_ASSERT(_fragReflection.has_value());
+    if (!_vertReflection->affected(changedFiles) &&
+        !_fragReflection->affected(changedFiles))
+        return;
+
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipelines();
@@ -136,13 +144,13 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     appendDefineStr(defines, "SKYBOX_SET", sSkyboxBindingSet);
     WHEELS_ASSERT(defines.size() <= len);
 
-    const Optional<Device::ShaderCompileResult> vertResult =
+    Optional<Device::ShaderCompileResult> vertResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.vert",
                                           .debugName = "skyboxVS",
                                       });
-    const Optional<Device::ShaderCompileResult> fragResult =
+    Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.frag",
@@ -155,9 +163,11 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-        const ShaderReflection &vertReflection = vertResult->reflection;
+        _vertReflection = WHEELS_MOV(vertResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == vertReflection.pushConstantsBytesize());
+            sizeof(PCBlock) == _vertReflection->pushConstantsBytesize());
+
+        _fragReflection = WHEELS_MOV(fragResult->reflection);
 
         _shaderStages = {
             vk::PipelineShaderStageCreateInfo{

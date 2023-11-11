@@ -31,7 +31,9 @@ class DepthOfFieldSetup
     DepthOfFieldSetup &operator=(DepthOfFieldSetup &&other) = delete;
 
     void recompileShaders(
-        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout);
+        wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
+        vk::DescriptorSetLayout camDsLayout);
 
     struct Input
     {

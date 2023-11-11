@@ -36,6 +36,7 @@ class DepthOfField
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout cameraDsLayout);
 
     void drawUi();

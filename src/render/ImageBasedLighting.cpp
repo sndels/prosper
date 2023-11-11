@@ -78,15 +78,19 @@ ImageBasedLighting::ImageBasedLighting(
 
 bool ImageBasedLighting::isGenerated() const { return _generated; }
 
-void ImageBasedLighting::recompileShaders(wheels::ScopedScratch scopeAlloc)
+void ImageBasedLighting::recompileShaders(
+    wheels::ScopedScratch scopeAlloc,
+    const HashSet<std::filesystem::path> &changedFiles)
 {
     _sampleIrradiance.recompileShader(
-        scopeAlloc.child_scope(), sampleIrradianceShaderDefinitionCallback);
+        scopeAlloc.child_scope(), changedFiles,
+        sampleIrradianceShaderDefinitionCallback);
     _integrateSpecularBrdf.recompileShader(
-        scopeAlloc.child_scope(),
+        scopeAlloc.child_scope(), changedFiles,
         integrateSpecularBrdfShaderDefinitionCallback);
     _prefilterRadiance.recompileShader(
-        scopeAlloc.child_scope(), prefilterRadianceShaderDefinitionCallback);
+        scopeAlloc.child_scope(), changedFiles,
+        prefilterRadianceShaderDefinitionCallback);
 }
 
 void ImageBasedLighting::recordGeneration(

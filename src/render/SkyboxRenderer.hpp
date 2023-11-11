@@ -26,6 +26,7 @@ class SkyboxRenderer
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
+        const wheels::HashSet<std::filesystem::path> &changedFiles,
         const World::DSLayouts &worldDSLayouts);
 
     struct RecordInOut
@@ -59,6 +60,8 @@ class SkyboxRenderer
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
+    wheels::Optional<ShaderReflection> _vertReflection;
+    wheels::Optional<ShaderReflection> _fragReflection;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
