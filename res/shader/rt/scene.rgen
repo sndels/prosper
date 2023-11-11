@@ -146,7 +146,7 @@ void importanceSampleBounce(
         // not energy conserving
         pdf *= specularWeight;
     }
-    throughput *= brdf * NoL / pdf;
+    throughput *= max(brdf * NoL / pdf, vec3(0));
 }
 
 VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
