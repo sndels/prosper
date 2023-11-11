@@ -4,6 +4,8 @@
 #include <wheels/containers/hash.hpp>
 #include <wheels/containers/span.hpp>
 
+#include <filesystem>
+
 namespace wheels
 {
 
@@ -15,6 +17,15 @@ template <> struct Hash<StrSpan>
     [[nodiscard]] uint64_t operator()(StrSpan const &value) const noexcept
     {
         return wyhash(value.data(), value.size(), 0, (uint64_t const *)_wyp);
+    }
+};
+
+template <> struct Hash<std::filesystem::path>
+{
+    [[nodiscard]] uint64_t operator()(
+        const std::filesystem::path &value) const noexcept
+    {
+        return wyhash(value.string().c_str(), value.string().size(), 0, _wyp);
     }
 };
 
