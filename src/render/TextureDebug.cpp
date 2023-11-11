@@ -7,26 +7,11 @@
 #include <fstream>
 
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Hashes.hpp"
 #include "../utils/Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
-
-namespace wheels
-{
-
-// TODO:
-// Implement in wheels? Should ensure that this matches between a string and its
-// full span.
-template <> struct Hash<StrSpan>
-{
-    [[nodiscard]] uint64_t operator()(StrSpan const &value) const noexcept
-    {
-        return wyhash(value.data(), value.size(), 0, (uint64_t const *)_wyp);
-    }
-};
-
-}; // namespace wheels
 
 namespace
 {
