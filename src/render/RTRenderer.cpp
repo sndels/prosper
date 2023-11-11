@@ -14,6 +14,7 @@ namespace
 {
 
 constexpr uint32_t sFramePeriod = 4096;
+constexpr uint32_t sMaxBounces = 6;
 
 enum BindingSet : uint32_t
 {
@@ -58,6 +59,7 @@ struct PCBlock
     float apertureDiameter{0.00001f};
     float focusDistance{1.f};
     float focalLength{0.f};
+    uint32_t rouletteStartBounce{3};
 
     struct Flags
     {
@@ -83,6 +85,11 @@ uint32_t pcFlags(PCBlock::Flags flags)
 constexpr std::array<
     const char *, static_cast<size_t>(RTRenderer::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
+
+bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
+{
+    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
+}
 
 } // namespace
 
@@ -151,7 +158,10 @@ void RTRenderer::drawUi()
     }
 
     if (_drawType == DrawType::Default)
+    {
         ImGui::Checkbox("Accumulate", &_accumulate);
+        SliderU32("Roulette Start", &_rouletteStartBounce, 0u, sMaxBounces);
+    }
 }
 
 RTRenderer::Output RTRenderer::record(
@@ -283,6 +293,7 @@ RTRenderer::Output RTRenderer::record(
             .apertureDiameter = camParams.apertureDiameter,
             .focusDistance = camParams.focusDistance,
             .focalLength = camParams.focalLength,
+            .rouletteStartBounce = _rouletteStartBounce,
         };
         cb.pushConstants(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
@@ -400,6 +411,7 @@ bool RTRenderer::compileShaders(
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
     appendDefineStr(raygenDefines, "NON_UNIFORM_MATERIAL_INDICES");
+    appendDefineStr(raygenDefines, "MAX_BOUNCES", sMaxBounces);
     appendDefineStr(raygenDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(raygenDefines, "RAY_TRACING_SET", RTBindingSet);
     appendDefineStr(raygenDefines, "OUTPUT_SET", OutputBindingSet);

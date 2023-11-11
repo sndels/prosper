@@ -93,6 +93,7 @@ class RTRenderer
     bool _accumulationDirty{true};
     bool _accumulate{true};
     uint32_t _frameIndex{0};
+    uint32_t _rouletteStartBounce{3};
 
     ImageHandle _previousIllumination;
 };

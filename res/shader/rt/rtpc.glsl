@@ -9,6 +9,7 @@ layout(push_constant) uniform RtPC
     float apertureDiameter;
     float focusDistance;
     float focalLength;
+    uint rouletteStartBounce;
 }
 rtPC;
 
