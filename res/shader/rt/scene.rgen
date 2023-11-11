@@ -208,12 +208,13 @@ vec3 evaluateDirectLighting(
         { // Sun
             vec3 l = -normalize(directionalLight.direction.xyz);
 
-            addBounce(
-                color,
-                directionalLight.irradiance.xyz * throughput *
-                    evalBRDFTimesNoL(l, surface) *
-                    shadow(surface.positionWS, l, 0.1, 100),
-                bounce);
+            if (dot(l, surface.normalWS) > 0)
+                addBounce(
+                    color,
+                    directionalLight.irradiance.xyz * throughput *
+                        evalBRDFTimesNoL(l, surface) *
+                        shadow(surface.positionWS, l, 0.1, 100),
+                    bounce);
         }
     }
 
