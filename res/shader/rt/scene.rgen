@@ -37,7 +37,7 @@ float shadow(vec3 p, vec3 l, float tMin, float lDist)
 
     traceRayEXT(as, flags, mask, 0, 0, 0, p, tMin, l, lDist, 0);
 
-    return float(payload.instanceCustomIndex == MISS_INDEX);
+    return payload.instanceCustomIndex == MISS_INDEX ? 1. : 0.;
 }
 
 RayPayload traceClosest(Ray ray)
