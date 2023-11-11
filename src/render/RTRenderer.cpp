@@ -67,6 +67,7 @@ struct PCBlock
         bool accumulate{false};
         bool ibl{false};
         bool depthOfField{false};
+        bool clampIndirect{false};
     };
 };
 
@@ -78,6 +79,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
     ret |= (uint32_t)flags.accumulate << 1;
     ret |= (uint32_t)flags.ibl << 2;
     ret |= (uint32_t)flags.depthOfField << 3;
+    ret |= (uint32_t)flags.clampIndirect << 4;
 
     return ret;
 }
@@ -160,6 +162,7 @@ void RTRenderer::drawUi()
     if (_drawType == DrawType::Default)
     {
         ImGui::Checkbox("Accumulate", &_accumulate);
+        ImGui::Checkbox("Clamp indirect", &_clampIndirect);
         SliderU32("Roulette Start", &_rouletteStartBounce, 0u, sMaxBounces);
     }
 }
@@ -288,6 +291,7 @@ RTRenderer::Output RTRenderer::record(
                 .accumulate = _accumulate,
                 .ibl = options.ibl,
                 .depthOfField = options.depthOfField,
+                .clampIndirect = _clampIndirect,
             }),
             .frameIndex = _frameIndex,
             .apertureDiameter = camParams.apertureDiameter,

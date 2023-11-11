@@ -92,6 +92,7 @@ class RTRenderer
     DrawType _drawType{DrawType::Default};
     bool _accumulationDirty{true};
     bool _accumulate{true};
+    bool _clampIndirect{true};
     uint32_t _frameIndex{0};
     uint32_t _rouletteStartBounce{3};
 
