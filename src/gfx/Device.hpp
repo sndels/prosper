@@ -1,6 +1,7 @@
 #ifndef PROSPER_GFX_DEVICE_HPP
 #define PROSPER_GFX_DEVICE_HPP
 
+#include "../utils/Hashes.hpp"
 #include "Resources.hpp"
 #include "ShaderReflection.hpp"
 
@@ -9,6 +10,7 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_map.hpp>
+#include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/string.hpp>
 
@@ -43,7 +45,9 @@ struct DeviceProperties
 class FileIncluder : public shaderc::CompileOptions::IncluderInterface
 {
   public:
-    FileIncluder(wheels::Allocator &alloc);
+    FileIncluder(
+        wheels::Allocator &alloc,
+        wheels::HashSet<std::filesystem::path> &uniqueIncludes);
 
     shaderc_include_result *GetInclude(
         const char *requested_source, shaderc_include_type type,
@@ -64,6 +68,7 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
         std::unique_ptr<wheels::String> path{nullptr};
     };
     wheels::HashMap<uint64_t, IncludeContent> _includeContent;
+    wheels::HashSet<std::filesystem::path> &_uniqueIncludes;
 };
 
 struct MemoryAllocationBytes
@@ -202,6 +207,7 @@ class Device
     std::mutex _allocatorMutex;
     VmaAllocator _allocator{nullptr};
 
+    wheels::HashSet<std::filesystem::path> _uniqueIncludes{_generalAlloc};
     shaderc::CompileOptions _compilerOptions;
     shaderc::Compiler _compiler;
 

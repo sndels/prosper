@@ -756,13 +756,19 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
 
 ShaderReflection::ShaderReflection(Allocator &alloc)
 : _descriptorSetMetadatas{alloc}
+, _sourceFiles{alloc}
 {
 }
 
 ShaderReflection::ShaderReflection(
-    ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords)
+    ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords,
+    const wheels::HashSet<std::filesystem::path> &sourceFiles)
 : _descriptorSetMetadatas{alloc}
+, _sourceFiles{alloc}
 {
+    for (const std::filesystem::path &include : sourceFiles)
+        _sourceFiles.insert(include);
+
     const uint32_t *words = spvWords.data();
     const size_t wordCount = spvWords.size();
 
@@ -804,6 +810,11 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
     descriptorSetMetadatas() const
 {
     return _descriptorSetMetadatas;
+}
+
+const HashSet<std::filesystem::path> &ShaderReflection::sourceFiles() const
+{
+    return _sourceFiles;
 }
 
 vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(

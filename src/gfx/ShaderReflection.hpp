@@ -4,14 +4,17 @@
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_map.hpp>
+#include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
 #include <vulkan/vulkan.hpp>
 
+#include <filesystem>
 #include <variant>
 
+#include "../utils/Hashes.hpp"
 #include "../utils/Utils.hpp"
 
 class Device;
@@ -36,7 +39,8 @@ class ShaderReflection
     ShaderReflection(wheels::Allocator &alloc);
     ShaderReflection(
         wheels::ScopedScratch scopeAlloc, wheels::Allocator &alloc,
-        wheels::Span<const uint32_t> spvWords);
+        wheels::Span<const uint32_t> spvWords,
+        const wheels::HashSet<std::filesystem::path> &sourcefiles);
     ~ShaderReflection() = default;
 
     ShaderReflection(const ShaderReflection &) = delete;
@@ -48,6 +52,8 @@ class ShaderReflection
     [[nodiscard]] wheels::HashMap<
         uint32_t, wheels::Array<DescriptorSetMetadata>> const &
     descriptorSetMetadatas() const;
+    [[nodiscard]] const wheels::HashSet<std::filesystem::path> &sourceFiles()
+        const;
 
     [[nodiscard]] vk::DescriptorSetLayout createDescriptorSetLayout(
         wheels::ScopedScratch scopeAlloc, Device &device,
@@ -67,6 +73,7 @@ class ShaderReflection
     uint32_t _pushConstantsBytesize{0};
     wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>>
         _descriptorSetMetadatas;
+    wheels::HashSet<std::filesystem::path> _sourceFiles;
 };
 
 template <size_t N>

@@ -323,10 +323,12 @@ const char *statusString(shaderc_compilation_status status)
 
 } // namespace
 
-FileIncluder::FileIncluder(Allocator &alloc)
+FileIncluder::FileIncluder(
+    Allocator &alloc, HashSet<std::filesystem::path> &uniqueIncludes)
 : _alloc{alloc}
 , _includePath{resPath("shader")}
 , _includeContent{alloc}
+, _uniqueIncludes{uniqueIncludes}
 {
 }
 
@@ -350,6 +352,8 @@ shaderc_include_result *FileIncluder::GetInclude(
     const auto requestedSource =
         (requestingDir / requested_source).lexically_normal();
     WHEELS_ASSERT(std::filesystem::exists(requestedSource));
+
+    _uniqueIncludes.insert(requestedSource);
 
     IncludeContent content;
     content.path = std::make_unique<String>(
@@ -389,7 +393,8 @@ Device::Device(
     printf("Creating Vulkan device\n");
 
     // Use general allocator since the include set is unbounded
-    _compilerOptions.SetIncluder(std::make_unique<FileIncluder>(_generalAlloc));
+    _compilerOptions.SetIncluder(
+        std::make_unique<FileIncluder>(_generalAlloc, _uniqueIncludes));
     _compilerOptions.SetGenerateDebugInfo();
     _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
     _compilerOptions.SetTargetEnvironment(
@@ -510,6 +515,11 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     fullSource.extend(line1Tag.data());
     fullSource.extend(source);
 
+    // Includer will fill includes here
+    _uniqueIncludes.clear();
+    // Also push root file as reflection expects all sources to be included here
+    _uniqueIncludes.insert(shaderPath.lexically_normal());
+
     const auto result = _compiler.CompileGlslToSpv(
         fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
         shaderPath.string().c_str(), _compilerOptions);
@@ -554,7 +564,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
     ShaderReflection reflection{
-        scopeAlloc.child_scope(), _generalAlloc, spvWords};
+        scopeAlloc.child_scope(), _generalAlloc, spvWords, _uniqueIncludes};
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spvWords.size() * sizeof(uint32_t),
@@ -612,6 +622,9 @@ void main()
     if (add_dummy_compute_boilerplate)
         fullSource.extend(computeBoilerplate2.data());
 
+    // Includer will fill this
+    _uniqueIncludes.clear();
+
     const auto result = _compiler.CompileGlslToSpv(
         fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
         shaderPath.string().c_str(), _compilerOptions);
@@ -632,7 +645,7 @@ void main()
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
     ShaderReflection reflection{
-        scopeAlloc.child_scope(), _generalAlloc, spvWords};
+        scopeAlloc.child_scope(), _generalAlloc, spvWords, _uniqueIncludes};
 
     return WHEELS_MOV(reflection);
 }
