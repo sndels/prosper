@@ -158,7 +158,7 @@ void ImageBasedLighting::recordGeneration(
 
     {
         const uint32_t mipCount = world._skyboxRadiance.mipCount;
-        assert(mipCount == world._skyboxRadianceViews.size());
+        WHEELS_ASSERT(mipCount == world._skyboxRadianceViews.size());
 
         StaticArray<vk::DescriptorImageInfo, 15> imageInfos{
             vk::DescriptorImageInfo{
