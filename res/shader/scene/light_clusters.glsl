@@ -1,6 +1,8 @@
 #ifndef SCENE_LIGHT_CLUSTERS_GLSL
 #define SCENE_LIGHT_CLUSTERS_GLSL
 
+#include "lighting.glsl"
+
 #ifdef WRITE_CULLING_BINDS
 #define UNIFORM_TYPE writeonly
 #define COUNT_UNIFORM_TYPE
@@ -67,6 +69,43 @@ LightClusterInfo unpackClusterPointer(uvec2 px, float zCam)
     ret.spotCount = packed.y & 0xFFFF;
 
     return ret;
+}
+
+vec3 evalPointLights(VisibleSurface surface, LightClusterInfo lightInfo)
+{
+    vec3 color = vec3(0);
+    for (uint i = 0; i < lightInfo.pointCount; ++i)
+    {
+        uint index = imageLoad(lightIndices, int(lightInfo.indexOffset + i)).x;
+
+        vec3 l;
+        float d;
+        vec3 irradiance;
+        evaluateUnshadowedPointLight(surface, index, l, d, irradiance);
+
+        color += irradiance * evalBRDFTimesNoL(l, surface);
+    }
+    return color;
+}
+
+vec3 evalSpotLights(VisibleSurface surface, LightClusterInfo lightInfo)
+{
+    vec3 color = vec3(0);
+    for (uint i = 0; i < lightInfo.spotCount; ++i)
+    {
+        uint index = imageLoad(
+                         lightIndices,
+                         int(lightInfo.indexOffset + lightInfo.pointCount + i))
+                         .x;
+
+        vec3 l;
+        float d;
+        vec3 irradiance;
+        evaluateUnshadowedSpotLight(surface, index, l, d, irradiance);
+
+        color += irradiance * evalBRDFTimesNoL(l, surface);
+    }
+    return color;
 }
 
 #endif // WRITE_CULLING_BINDS
