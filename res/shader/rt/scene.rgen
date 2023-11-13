@@ -254,8 +254,7 @@ vec3 evaluateDirectLighting(VisibleSurface surface, vec3 throughput)
 
     irradiance *= shadow(surface.positionWS, l, 0.1, d);
 
-    // Account for sampling the lights uniformly by multiplying with the
-    // count
+    // Account for sampling the lights uniformly
     irradiance *= lightCount;
 
     return throughput * irradiance * evalBRDFTimesNoL(l, surface);
