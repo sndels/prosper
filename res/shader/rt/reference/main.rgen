@@ -324,10 +324,10 @@ void main()
     {
         vec4 history = imageLoad(previousColor, ivec2(px));
         vec3 historyColor = history.rgb;
-        float historyCount = history.a;
+        float historyCount = history.a + 1;
 
         vec3 newColor = historyColor + (color - historyColor) / historyCount;
 
-        imageStore(outColor, ivec2(px), vec4(newColor, historyCount + 1));
+        imageStore(outColor, ivec2(px), vec4(newColor, historyCount));
     }
 }
