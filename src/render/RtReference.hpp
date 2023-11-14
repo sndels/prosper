@@ -1,5 +1,5 @@
-#ifndef PROSPER_RENDER_RT_RENDERER_HPP
-#define PROSPER_RENDER_RT_RENDERER_HPP
+#ifndef PROSPER_RENDER_RT_REFERENCE_HPP
+#define PROSPER_RENDER_RT_REFERENCE_HPP
 
 #include "../gfx/Device.hpp"
 #include "../scene/Camera.hpp"
@@ -11,7 +11,7 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
-class RTRenderer
+class RtReference
 {
   public:
     enum class DrawType : uint32_t
@@ -20,17 +20,17 @@ class RTRenderer
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    RTRenderer(
+    RtReference(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    ~RTRenderer();
+    ~RtReference();
 
-    RTRenderer(const RTRenderer &other) = delete;
-    RTRenderer(RTRenderer &&other) = delete;
-    RTRenderer &operator=(const RTRenderer &other) = delete;
-    RTRenderer &operator=(RTRenderer &&other) = delete;
+    RtReference(const RtReference &other) = delete;
+    RtReference(RtReference &&other) = delete;
+    RtReference &operator=(const RtReference &other) = delete;
+    RtReference &operator=(RtReference &&other) = delete;
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -104,4 +104,4 @@ class RTRenderer
     ImageHandle _previousIllumination;
 };
 
-#endif // PROSPER_RENDER_RT_RENDERER_HPP
+#endif // PROSPER_RENDER_RT_REFERENCE_HPP

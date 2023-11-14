@@ -1,4 +1,4 @@
-#include "RTRenderer.hpp"
+#include "RtReference.hpp"
 
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Utils.hpp"
@@ -85,7 +85,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
 }
 
 constexpr std::array<
-    const char *, static_cast<size_t>(RTRenderer::DrawType::Count)>
+    const char *, static_cast<size_t>(RtReference::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
@@ -95,7 +95,7 @@ bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
 
 } // namespace
 
-RTRenderer::RTRenderer(
+RtReference::RtReference(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
@@ -106,17 +106,17 @@ RTRenderer::RTRenderer(
     WHEELS_ASSERT(_resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating RTRenderer\n");
+    printf("Creating RtReference\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
-        throw std::runtime_error("RTRenderer shader compilation failed");
+        throw std::runtime_error("RtReference shader compilation failed");
 
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 }
 
-RTRenderer::~RTRenderer()
+RtReference::~RtReference()
 {
     if (_device != nullptr)
     {
@@ -129,7 +129,7 @@ RTRenderer::~RTRenderer()
     }
 }
 
-void RTRenderer::recompileShaders(
+void RtReference::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
@@ -152,13 +152,13 @@ void RTRenderer::recompileShaders(
     }
 }
 
-void RTRenderer::drawUi()
+void RtReference::drawUi()
 {
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
     if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
         for (auto i = 0u;
-             i < static_cast<uint32_t>(RTRenderer::DrawType::Count); ++i)
+             i < static_cast<uint32_t>(RtReference::DrawType::Count); ++i)
         {
             bool selected = *currentType == i;
             if (ImGui::Selectable(sDrawTypeNames[i], &selected))
@@ -178,7 +178,7 @@ void RTRenderer::drawUi()
     }
 }
 
-RTRenderer::Output RTRenderer::record(
+RtReference::Output RtReference::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const Options &options, uint32_t nextFrame,
     Profiler *profiler)
@@ -257,7 +257,7 @@ RTRenderer::Output RTRenderer::record(
                 {_previousIllumination, ImageState::RayTracingReadWrite},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "RT");
+        const auto _s = profiler->createCpuGpuScope(cb, "RtReference");
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
 
@@ -400,28 +400,28 @@ RTRenderer::Output RTRenderer::record(
     return ret;
 }
 
-void RTRenderer::releasePreserved()
+void RtReference::releasePreserved()
 {
     if (_resources->images.isValidHandle(_previousIllumination))
         _resources->images.release(_previousIllumination);
 }
 
-void RTRenderer::destroyShaders()
+void RtReference::destroyShaders()
 {
     for (auto const &stage : _shaderStages)
         _device->logical().destroyShaderModule(stage.module);
 }
 
-void RTRenderer::destroyPipeline()
+void RtReference::destroyPipeline()
 {
     _device->logical().destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
 }
 
-bool RTRenderer::compileShaders(
+bool RtReference::compileShaders(
     ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
-    printf("Compiling RTRenderer shaders\n");
+    printf("Compiling RtReference shaders\n");
 
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
@@ -471,11 +471,12 @@ bool RTRenderer::compileShaders(
 
     Optional<Device::ShaderCompileResult> raygenResult =
         _device->compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                          .relPath = "shader/rt/scene.rgen",
-                                          .debugName = "sceneRGEN",
-                                          .defines = raygenDefines,
-                                      });
+            scopeAlloc.child_scope(),
+            Device::CompileShaderModuleArgs{
+                .relPath = "shader/rt/reference/main.rgen",
+                .debugName = "referenceRGEN",
+                .defines = raygenDefines,
+            });
     Optional<Device::ShaderCompileResult> rayMissResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
@@ -578,7 +579,7 @@ bool RTRenderer::compileShaders(
     return false;
 }
 
-void RTRenderer::createDescriptorSets(
+void RtReference::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     _descriptorSetLayout = _raygenReflection->createDescriptorSetLayout(
@@ -590,7 +591,7 @@ void RTRenderer::createDescriptorSets(
     staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 }
 
-void RTRenderer::updateDescriptorSet(
+void RtReference::updateDescriptorSet(
     uint32_t nextFrame, ImageHandle illumination)
 {
     // TODO:
@@ -620,7 +621,7 @@ void RTRenderer::updateDescriptorSet(
         descriptorWrites.data(), 0, nullptr);
 }
 
-void RTRenderer::createPipeline(
+void RtReference::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
@@ -671,12 +672,12 @@ void RTRenderer::createPipeline(
                 .objectType = vk::ObjectType::ePipeline,
                 .objectHandle = reinterpret_cast<uint64_t>(
                     static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "RTRenderer",
+                .pObjectName = "RtReference",
             });
     }
 }
 
-void RTRenderer::createShaderBindingTable(ScopedScratch scopeAlloc)
+void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
 {
 
     const auto groupCount = asserted_cast<uint32_t>(_shaderGroups.size());
@@ -707,7 +708,7 @@ void RTRenderer::createShaderBindingTable(ScopedScratch scopeAlloc)
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
         .createMapped = true,
-        .debugName = "ShaderBindingTable",
+        .debugName = "RtReferenceSBT",
     });
 
     auto *pData = reinterpret_cast<uint8_t *>(_shaderBindingTable.mapped);

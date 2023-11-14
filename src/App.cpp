@@ -129,7 +129,7 @@ App::App(const Settings &settings)
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
         });
-    _rtRenderer = std::make_unique<RTRenderer>(
+    _rtReference = std::make_unique<RtReference>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->_dsLayouts);
@@ -335,7 +335,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
         });
-    _rtRenderer->recompileShaders(
+    _rtReference->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
         _world->_dsLayouts);
     _skyboxRenderer->recompileShaders(
@@ -734,9 +734,10 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         "Renderer settings ", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     // TODO: Droplist for main renderer type
-    uiChanges.rtDirty |= ImGui::Checkbox("Render RT", &_renderRT) && _renderRT;
+    uiChanges.rtDirty |=
+        ImGui::Checkbox("Reference RT", &_referenceRt) && _referenceRt;
     uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &_renderDoF);
-    if (!_renderRT)
+    if (!_referenceRt)
         ImGui::Checkbox("Use deferred shading", &_renderDeferred);
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
@@ -744,8 +745,8 @@ void App::drawRendererSettings(UiChanges &uiChanges)
 
     if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (_renderRT)
-            _rtRenderer->drawUi();
+        if (_referenceRt)
+            _rtReference->drawUi();
         else if (_renderDeferred)
             _deferredShading->drawUi();
         else
@@ -1106,7 +1107,7 @@ void App::render(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea,
     const RenderIndices &indices, const UiChanges &uiChanges)
 {
-    if (_renderRT)
+    if (_referenceRt)
     {
         auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
         _world->buildCurrentTlas(cb);
@@ -1117,12 +1118,12 @@ void App::render(
         _profiler.get());
 
     ImageHandle illumination;
-    if (_renderRT)
+    if (_referenceRt)
     {
-        illumination = _rtRenderer
+        illumination = _rtReference
                            ->record(
                                cb, *_world, *_cam, renderArea,
-                               RTRenderer::Options{
+                               RtReference::Options{
                                    .depthOfField = _renderDoF,
                                    .ibl = _applyIbl,
                                    .colorDirty = uiChanges.rtDirty,
@@ -1133,7 +1134,7 @@ void App::render(
     else
     {
         // Need to clean up after toggling rt off to not "leak" the resources
-        _rtRenderer->releasePreserved();
+        _rtReference->releasePreserved();
 
         ImageHandle depth;
         // Opaque

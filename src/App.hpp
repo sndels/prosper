@@ -11,8 +11,8 @@
 #include "render/ImGuiRenderer.hpp"
 #include "render/ImageBasedLighting.hpp"
 #include "render/LightClustering.hpp"
-#include "render/RTRenderer.hpp"
 #include "render/RenderResources.hpp"
+#include "render/RtReference.hpp"
 #include "render/SkyboxRenderer.hpp"
 #include "render/TextureDebug.hpp"
 #include "render/ToneMap.hpp"
@@ -133,7 +133,7 @@ class App
     std::unique_ptr<ForwardRenderer> _forwardRenderer;
     std::unique_ptr<GBufferRenderer> _gbufferRenderer;
     std::unique_ptr<DeferredShading> _deferredShading;
-    std::unique_ptr<RTRenderer> _rtRenderer;
+    std::unique_ptr<RtReference> _rtReference;
     std::unique_ptr<SkyboxRenderer> _skyboxRenderer;
     std::unique_ptr<DebugRenderer> _debugRenderer;
     std::unique_ptr<ToneMap> _toneMap;
@@ -147,7 +147,7 @@ class App
     bool _useFpsLimit{true};
     int32_t _fpsLimit{140};
     bool _recompileShaders{false};
-    bool _renderRT{false};
+    bool _referenceRt{false};
     bool _renderDeferred{false};
     bool _renderDoF{false};
     bool _textureDebugActive{false};

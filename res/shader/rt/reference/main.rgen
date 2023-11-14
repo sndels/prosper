@@ -4,25 +4,25 @@
 
 #pragma shader_stage(raygen)
 
-#include "../brdf.glsl"
-#include "../common/random.glsl"
-#include "../common/sampling.glsl"
-#include "../debug.glsl"
-#include "../scene/camera.glsl"
-#include "../scene/geometry.glsl"
-#include "../scene/lighting.glsl"
-#include "../scene/materials.glsl"
-#include "../scene/skybox.glsl"
-#include "../scene/transforms.glsl"
-#include "ray.glsl"
-#include "rt_data.glsl"
+#include "../../brdf.glsl"
+#include "../../common/random.glsl"
+#include "../../common/sampling.glsl"
+#include "../../debug.glsl"
+#include "../../scene/camera.glsl"
+#include "../../scene/geometry.glsl"
+#include "../../scene/lighting.glsl"
+#include "../../scene/materials.glsl"
+#include "../../scene/skybox.glsl"
+#include "../../scene/transforms.glsl"
+#include "../ray.glsl"
+#include "../rt_data.glsl"
+
+#include "../payload.glsl"
+#include "rtpc.glsl"
 
 layout(set = OUTPUT_SET, binding = 0, rgba32f) uniform image2D previousColor;
 layout(set = OUTPUT_SET, binding = 1, rgba32f) uniform image2D outColor;
 
-#include "rtpc.glsl"
-
-#include "payload.glsl"
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
 #define MISS_INDEX 0xFFFFFFFF
@@ -194,7 +194,7 @@ vec3 debugColor(RayPayload hit, VisibleSurface surface)
     di.position = surface.positionWS;
     di.shadingNormal = surface.normalWS;
     di.texCoord0 = surface.uv;
-    return commonDebugDraw(rtPC.drawType, di, surface.material);
+    return commonDebugDraw(PC.drawType, di, surface.material);
 }
 
 void sampleLight(
@@ -264,7 +264,7 @@ void main()
 {
     uvec2 px = gl_LaunchIDEXT.xy;
 
-    pcg_state = uvec3(px, rtPC.frameIndex);
+    pcg_state = uvec3(px, PC.frameIndex);
 
     vec2 jitteredUV = (px + rnd2d01()) / gl_LaunchSizeEXT.xy;
 
@@ -273,8 +273,8 @@ void main()
     uint bounce = 0;
     Ray ray = flagDepthOfField()
                   ? thinLensCameraRay(
-                        jitteredUV, rnd2d01(), rtPC.apertureDiameter,
-                        rtPC.focusDistance, rtPC.focalLength)
+                        jitteredUV, rnd2d01(), PC.apertureDiameter,
+                        PC.focusDistance, PC.focalLength)
                   : pinholeCameraRay(jitteredUV);
     while (bounce <= MAX_BOUNCES)
     {
@@ -291,7 +291,7 @@ void main()
 
         VisibleSurface surface = evaluateSurface(ray, hit);
 
-        if (rtPC.drawType >= DrawType_PrimitiveID)
+        if (PC.drawType >= DrawType_PrimitiveID)
         {
             color = debugColor(hit, surface);
             break;
@@ -302,7 +302,7 @@ void main()
         vec3 rd;
         importanceSampleBounce(surface, throughput, rd);
 
-        if (bounce > rtPC.rouletteStartBounce)
+        if (bounce > PC.rouletteStartBounce)
         {
             // Russian roulette based on throughput from PBR 3rd edition
             if (rnd01() < max(.05, 1. - max3(throughput)))
