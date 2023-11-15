@@ -1,0 +1,152 @@
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
+
+#pragma shader_stage(raygen)
+
+#include "../../brdf.glsl"
+#include "../../common/random.glsl"
+#include "../../common/sampling.glsl"
+#include "../../debug.glsl"
+#include "../../scene/camera.glsl"
+#include "../../scene/geometry.glsl"
+#include "../../scene/lighting.glsl"
+#include "../../scene/materials.glsl"
+#include "../../scene/skybox.glsl"
+#include "../../scene/transforms.glsl"
+#include "../ray.glsl"
+#include "../rt_data.glsl"
+
+#include "../payload.glsl"
+#include "pc.glsl"
+
+layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
+    inAlbedoRoughness;
+layout(set = STORAGE_SET, binding = 1, rgba16) uniform readonly image2D
+    inNormalMetallic;
+layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 3, rgba16f) uniform image2D outColor;
+layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+
+layout(location = 0) rayPayloadEXT RayPayload payload;
+
+#define MISS_INDEX 0xFFFFFFFF
+
+float shadow(vec3 p, vec3 l, float tMin, float lDist)
+{
+    const uint mask = 0xFF;
+    const uint flags = gl_RayFlagsTerminateOnFirstHitEXT;
+
+    payload.instanceCustomIndex = MISS_INDEX;
+    payload.randomSeed = pcg(pcg_state.x ^ pcg_state.y);
+
+    traceRayEXT(as, flags, mask, 0, 0, 0, p, tMin, l, lDist, 0);
+
+    return payload.instanceCustomIndex == MISS_INDEX ? 1. : 0.;
+}
+
+void sampleLight(
+    VisibleSurface surface, uint lightIndex, out vec3 l, out float d,
+    inout vec3 irradiance)
+{
+    // Sun
+    if (lightIndex == 0)
+    {
+        l = -normalize(directionalLight.direction.xyz);
+        d = 100.;
+        irradiance = directionalLight.irradiance.xyz;
+        return;
+    }
+    lightIndex -= 1;
+
+    if (lightIndex < pointLights.count)
+    {
+        evaluateUnshadowedPointLight(surface, lightIndex, l, d, irradiance);
+        return;
+    }
+    lightIndex -= pointLights.count;
+
+    if (lightIndex < spotLights.count)
+    {
+        evaluateUnshadowedSpotLight(surface, lightIndex, l, d, irradiance);
+        return;
+    }
+    lightIndex -= spotLights.count;
+
+    l = vec3(0, 1, 0);
+    d = 1.;
+    irradiance = vec3(0);
+}
+
+vec3 evaluateDirectLighting(VisibleSurface surface)
+{
+    // Alpha=0 hits don't have a valid surface
+    if (surface.material.alpha == 0)
+        return vec3(0);
+
+    // Uniform sampling adapted from Physically Based Rendering 3rd ed.
+    // https://pbr-book.org/3ed-2018/Light_Transport_I_Surface_Reflection/Direct_Lighting
+
+    // Sun and others
+    uint lightCount = 1 + pointLights.count + spotLights.count;
+    uint lightIndex = min(uint(rnd01() * lightCount), lightCount - 1);
+
+    vec3 l;
+    float d;
+    vec3 irradiance;
+    sampleLight(surface, lightIndex, l, d, irradiance);
+
+    // Don't bother evaluating backface lighting
+    if (dot(l, surface.normalWS) <= 0)
+        return vec3(0);
+
+    irradiance *= shadow(surface.positionWS, l, 0.1, d);
+
+    // Account for sampling the lights uniformly
+    irradiance *= lightCount;
+
+    return irradiance * evalBRDFTimesNoL(l, surface);
+}
+
+void main()
+{
+    ivec2 px = ivec2(gl_LaunchIDEXT.xy);
+
+    pcg_state = uvec3(px, PC.frameIndex);
+
+    vec2 uv = vec2(px) / gl_LaunchSizeEXT.xy;
+
+    vec4 albedoRoughness = imageLoad(inAlbedoRoughness, px);
+    vec4 normalMetallic = imageLoad(inNormalMetallic, px);
+
+    float nonLinearDepth =
+        texelFetch(sampler2D(inNonLinearDepth, depthSampler), px, 0).x;
+    float viewDepth = linearizeDepth(nonLinearDepth);
+
+    VisibleSurface surface;
+    surface.positionWS = worldPos(uv, nonLinearDepth);
+    surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
+    surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
+    surface.normalWS = surface.material.normal;
+    surface.uv = vec2(0);
+    surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
+
+    if (PC.drawType >= DrawType_PrimitiveID)
+    {
+        DebugInputs di;
+        di.meshID = 0;      // TODO
+        di.primitiveID = 0; // TODO
+        di.materialID = 0;  // TODO
+        di.position = surface.positionWS;
+        di.shadingNormal = surface.normalWS;
+        di.texCoord0 = vec2(0); // TODO
+        imageStore(
+            outColor, px,
+            vec4(commonDebugDraw(PC.drawType, di, surface.material), 1));
+        return;
+    }
+
+    vec3 color = evaluateDirectLighting(surface);
+
+    imageStore(outColor, px, vec4(color, 1));
+}

@@ -14,6 +14,7 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/RenderResourceCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/RtDirectIllumination.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.hpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.hpp
@@ -34,6 +35,7 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/RtDirectIllumination.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.cpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.cpp
