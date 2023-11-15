@@ -77,4 +77,29 @@ Ray thinLensCameraRay(
     return ray;
 }
 
+// From 'A Fast and Robust Method for Avoiding Self-Intersection'
+// by Wächter and Binder
+// Published in Ray Tracing Gems
+vec3 offsetRay(VisibleSurface surface)
+{
+    const float origin = 1.0 / 32.0;
+    const float float_scale = 1.0 / 65536.0;
+    const float int_scale = 256.0;
+
+    vec3 p = surface.positionWS;
+    vec3 n = surface.normalWS;
+
+    ivec3 ofI = ivec3(int_scale * n.x, int_scale * n.y, int_scale * n.z);
+
+    vec3 pI = vec3(
+        intBitsToFloat(floatBitsToInt(p.x) + ((p.x < 0) ? -ofI.x : ofI.x)),
+        intBitsToFloat(floatBitsToInt(p.y) + ((p.y < 0) ? -ofI.y : ofI.y)),
+        intBitsToFloat(floatBitsToInt(p.z) + ((p.z < 0) ? -ofI.z : ofI.z)));
+
+    return vec3(
+        abs(p.x) < origin ? p.x + float_scale * n.x : pI.x,
+        abs(p.y) < origin ? p.y + float_scale * n.y : pI.y,
+        abs(p.z) < origin ? p.z + float_scale * n.z : pI.z);
+}
+
 #endif // RT_RAY_GLSL
