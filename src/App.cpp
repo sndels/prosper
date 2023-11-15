@@ -129,6 +129,10 @@ App::App(const Settings &settings)
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
         });
+    _rtDirectIllumination = std::make_unique<RtDirectIllumination>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
     _rtReference = std::make_unique<RtReference>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
@@ -335,6 +339,9 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->_dsLayouts,
         });
+    _rtDirectIllumination->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
+        _world->_dsLayouts);
     _rtReference->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
         _world->_dsLayouts);
@@ -738,7 +745,12 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         ImGui::Checkbox("Reference RT", &_referenceRt) && _referenceRt;
     uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &_renderDoF);
     if (!_referenceRt)
-        ImGui::Checkbox("Use deferred shading", &_renderDeferred);
+    {
+        ImGui::Checkbox("Deferred shading", &_renderDeferred);
+
+        if (_renderDeferred)
+            ImGui::Checkbox("RT direct illumination", &_deferredRt);
+    }
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
         _toneMap->drawUi();
@@ -748,7 +760,12 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         if (_referenceRt)
             _rtReference->drawUi();
         else if (_renderDeferred)
-            _deferredShading->drawUi();
+        {
+            if (_deferredRt)
+                _rtDirectIllumination->drawUi();
+            else
+                _deferredShading->drawUi();
+        }
         else
             _forwardRenderer->drawUi();
         uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
@@ -1107,7 +1124,7 @@ void App::render(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea,
     const RenderIndices &indices, const UiChanges &uiChanges)
 {
-    if (_referenceRt)
+    if (_referenceRt || _rtDirectIllumination)
     {
         auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
         _world->buildCurrentTlas(cb);
@@ -1144,16 +1161,23 @@ void App::render(
                 cb, *_world, *_cam, renderArea, indices.nextFrame,
                 _profiler.get());
 
-            illumination =
-                _deferredShading
-                    ->record(
-                        cb, *_world, *_cam,
-                        DeferredShading::Input{
-                            .gbuffer = gbuffer,
-                            .lightClusters = lightClusters,
-                        },
-                        indices.nextFrame, _applyIbl, _profiler.get())
-                    .illumination;
+            if (_deferredRt)
+                illumination = _rtDirectIllumination
+                                   ->record(
+                                       cb, *_world, *_cam, gbuffer,
+                                       indices.nextFrame, _profiler.get())
+                                   .illumination;
+            else
+                illumination =
+                    _deferredShading
+                        ->record(
+                            cb, *_world, *_cam,
+                            DeferredShading::Input{
+                                .gbuffer = gbuffer,
+                                .lightClusters = lightClusters,
+                            },
+                            indices.nextFrame, _applyIbl, _profiler.get())
+                        .illumination;
 
             _resources->images.release(gbuffer.albedoRoughness);
             _resources->images.release(gbuffer.normalMetalness);

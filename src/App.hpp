@@ -12,6 +12,7 @@
 #include "render/ImageBasedLighting.hpp"
 #include "render/LightClustering.hpp"
 #include "render/RenderResources.hpp"
+#include "render/RtDirectIllumination.hpp"
 #include "render/RtReference.hpp"
 #include "render/SkyboxRenderer.hpp"
 #include "render/TextureDebug.hpp"
@@ -133,6 +134,7 @@ class App
     std::unique_ptr<ForwardRenderer> _forwardRenderer;
     std::unique_ptr<GBufferRenderer> _gbufferRenderer;
     std::unique_ptr<DeferredShading> _deferredShading;
+    std::unique_ptr<RtDirectIllumination> _rtDirectIllumination;
     std::unique_ptr<RtReference> _rtReference;
     std::unique_ptr<SkyboxRenderer> _skyboxRenderer;
     std::unique_ptr<DebugRenderer> _debugRenderer;
@@ -148,7 +150,8 @@ class App
     int32_t _fpsLimit{140};
     bool _recompileShaders{false};
     bool _referenceRt{false};
-    bool _renderDeferred{false};
+    bool _renderDeferred{true};
+    bool _deferredRt{false};
     bool _renderDoF{false};
     bool _textureDebugActive{false};
     bool _drawUi{true};
