@@ -19,8 +19,10 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - From the environment map with split sum approximation
 - 1D ACES-tonemap[^2]
 - Deferred and forward rendering paths
-- Pipeline ray tracing
-  - Naive path tracing for directional light and skybox "IBL"
+- Path tracing reference
+  - Uniformly sampled lights
+  - Importance sampled diffuse and specular BRDF
+  - Stochastic transparency
 - Depth of Field
   - Work in progress based on [A Life of a Bokeh](https://www.advances.realtimerendering.com/s2018/index.htm) among other sources
 - Animation support for transformations
@@ -52,6 +54,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Points, spots
   - Sphere bounds
   - View space clusters with depth slices
+- Pipeline ray tracing
+  - TLAS built each frame
 - Managed render resources
   - Opaque handles
   - Manual create/release
