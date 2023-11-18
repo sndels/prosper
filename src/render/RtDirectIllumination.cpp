@@ -14,7 +14,6 @@ namespace
 {
 
 constexpr uint32_t sFramePeriod = 4096;
-constexpr uint32_t sMaxBounces = 6;
 
 enum BindingSet : uint32_t
 {
@@ -408,7 +407,6 @@ bool RtDirectIllumination::compileShaders(
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
     appendDefineStr(raygenDefines, "NON_UNIFORM_MATERIAL_INDICES");
-    appendDefineStr(raygenDefines, "MAX_BOUNCES", sMaxBounces);
     appendDefineStr(raygenDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(raygenDefines, "RAY_TRACING_SET", RTBindingSet);
     appendDefineStr(raygenDefines, "STORAGE_SET", StorageBindingSet);
