@@ -12,4 +12,6 @@
 #define min3(v) min(min(v.x, v.y), v.z)
 #define min4(v) min(min(v.x, v.y), min(v.z, v.w))
 
+float luminance(vec3 c) { return dot(vec3(0.299, 0.587, 0.114), c); }
+
 #endif // COMMON_MATH_GLSL
