@@ -1476,25 +1476,25 @@ void World::loadScenes(
         //                    (max - min) +
         //                min;
         //     };
-        //     for (auto i = 0; i < 64; ++i)
+        //     for (auto i = 0; i < 128; ++i)
         //     {
         //         // rando W -> radiance
         //         auto radiance =
-        //             vec3{rando(1.f, 5.f), rando(1.f, 5.f),
-        //             rando(1.f, 5.f)} / (4.f * glm::pi<float>());
+        //             vec3{rando(1.f, 5.f), rando(1.f, 5.f), rando(1.f, 5.f)} /
+        //             (4.f * glm::pi<float>());
         //         const auto luminance =
         //             dot(radiance, vec3{0.2126, 0.7152, 0.0722});
         //         const auto minLuminance = 0.01f;
         //         const auto radius = sqrt(luminance / minLuminance);
 
-        //         auto &data = scene.lights.pointLights.data;
-        //         const auto li = data.count++;
-        //         auto &sceneLight = data.lights[li];
-        //         sceneLight.radianceAndRadius = vec4{radiance, radius};
-        //         sceneLight.position = vec4{
-        //             rando(minBounds.x, maxBounds.x),
-        //             rando(minBounds.y, maxBounds.y),
-        //             rando(minBounds.z, maxBounds.z), 1.f};
+        //         scene.lights.pointLights.data.push_back(PointLight{
+        //             .radianceAndRadius = vec4{radiance, radius},
+        //             .position =
+        //                 vec4{
+        //                     rando(minBounds.x, maxBounds.x),
+        //                     rando(minBounds.y, maxBounds.y),
+        //                     rando(minBounds.z, maxBounds.z), 1.f},
+        //         });
         //     }
         // }
     }
