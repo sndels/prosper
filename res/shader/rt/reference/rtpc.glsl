@@ -10,6 +10,7 @@ layout(push_constant) uniform ReferenceRtPC
     float focusDistance;
     float focalLength;
     uint rouletteStartBounce;
+    uint maxBounces;
 }
 PC;
 

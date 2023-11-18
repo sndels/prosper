@@ -20,6 +20,8 @@ class RtReference
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
+    static constexpr uint32_t sMaxBounces = 6;
+
     RtReference(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
@@ -100,6 +102,7 @@ class RtReference
     bool _clampIndirect{true};
     uint32_t _frameIndex{0};
     uint32_t _rouletteStartBounce{3};
+    uint32_t _maxBounces{sMaxBounces};
 
     ImageHandle _previousIllumination;
 };

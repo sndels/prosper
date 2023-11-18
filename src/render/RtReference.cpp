@@ -14,7 +14,6 @@ namespace
 {
 
 constexpr uint32_t sFramePeriod = 4096;
-constexpr uint32_t sMaxBounces = 6;
 
 enum BindingSet : uint32_t
 {
@@ -60,6 +59,7 @@ struct PCBlock
     float focusDistance{1.f};
     float focalLength{0.f};
     uint32_t rouletteStartBounce{3};
+    uint32_t maxBounces{RtReference::sMaxBounces};
 
     struct Flags
     {
@@ -173,8 +173,16 @@ void RtReference::drawUi()
     if (_drawType == DrawType::Default)
     {
         ImGui::Checkbox("Accumulate", &_accumulate);
-        ImGui::Checkbox("Clamp indirect", &_clampIndirect);
-        SliderU32("Roulette Start", &_rouletteStartBounce, 0u, sMaxBounces);
+
+        _accumulationDirty |=
+            ImGui::Checkbox("Clamp indirect", &_clampIndirect);
+        _accumulationDirty |=
+            SliderU32("Roulette Start", &_rouletteStartBounce, 0u, _maxBounces);
+        _accumulationDirty |=
+            SliderU32("Max bounces", &_maxBounces, 1u, sMaxBounces);
+
+        _maxBounces = std::min(_maxBounces, sMaxBounces);
+        _rouletteStartBounce = std::min(_rouletteStartBounce, _maxBounces);
     }
 }
 
@@ -309,6 +317,7 @@ RtReference::Output RtReference::record(
             .focusDistance = camParams.focusDistance,
             .focalLength = camParams.focalLength,
             .rouletteStartBounce = _rouletteStartBounce,
+            .maxBounces = _maxBounces,
         };
         cb.pushConstants(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),

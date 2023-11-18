@@ -251,8 +251,11 @@ void main()
                         jitteredUV, rnd2d01(), PC.apertureDiameter,
                         PC.focusDistance, PC.focalLength)
                   : pinholeCameraRay(jitteredUV);
-    while (bounce <= MAX_BOUNCES)
+    while (bounce < MAX_BOUNCES)
     {
+        if (bounce >= PC.maxBounces)
+            break;
+
         RayPayload hit = traceClosest(ray);
         if (hit.instanceCustomIndex == MISS_INDEX)
         {
