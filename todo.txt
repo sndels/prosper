@@ -37,3 +37,5 @@
 - IBL
   - Apply the reflection adjustment from the Frostbite siggraph14 course notes
   - A Multiple-Scattering Microfacet Model for Real-Time Image-based Lighting
+- RayTracingPass
+  - RtReference and RtDirectIllumination are 90% the same code
