@@ -47,8 +47,9 @@ class RtDirectIllumination
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const GBufferRenderer::Output &gbuffer, uint32_t nextFrame,
-        Profiler *profiler);
+        const GBufferRenderer::Output &gbuffer, bool resetAccumulation,
+        uint32_t nextFrame, Profiler *profiler);
+    void releasePreserved();
 
   private:
     void destroyShaders();
@@ -63,7 +64,7 @@ class RtDirectIllumination
         DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(
         uint32_t nextFrame, const GBufferRenderer::Output &gbuffer,
-        Output output);
+        ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -91,7 +92,11 @@ class RtDirectIllumination
     Buffer _shaderBindingTable;
 
     DrawType _drawType{DrawType::Default};
+    bool _accumulationDirty{true};
+    bool _accumulate{false};
     uint32_t _frameIndex{0};
+
+    ImageHandle _previousIllumination;
 };
 
 #endif // PROSPER_RENDER_RT_DIRECT_ILLUMINATION_HPP

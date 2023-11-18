@@ -749,7 +749,8 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         ImGui::Checkbox("Deferred shading", &_renderDeferred);
 
         if (_renderDeferred)
-            ImGui::Checkbox("RT direct illumination", &_deferredRt);
+            uiChanges.rtDirty =
+                ImGui::Checkbox("RT direct illumination", &_deferredRt);
     }
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1137,6 +1138,8 @@ void App::render(
     ImageHandle illumination;
     if (_referenceRt)
     {
+        _rtDirectIllumination->releasePreserved();
+
         illumination = _rtReference
                            ->record(
                                cb, *_world, *_cam, renderArea,
@@ -1162,12 +1165,16 @@ void App::render(
                 _profiler.get());
 
             if (_deferredRt)
-                illumination = _rtDirectIllumination
-                                   ->record(
-                                       cb, *_world, *_cam, gbuffer,
-                                       indices.nextFrame, _profiler.get())
-                                   .illumination;
+                illumination =
+                    _rtDirectIllumination
+                        ->record(
+                            cb, *_world, *_cam, gbuffer, uiChanges.rtDirty,
+                            indices.nextFrame, _profiler.get())
+                        .illumination;
             else
+            {
+                _rtDirectIllumination->releasePreserved();
+
                 illumination =
                     _deferredShading
                         ->record(
@@ -1178,6 +1185,7 @@ void App::render(
                             },
                             indices.nextFrame, _applyIbl, _profiler.get())
                         .illumination;
+            }
 
             _resources->images.release(gbuffer.albedoRoughness);
             _resources->images.release(gbuffer.normalMetalness);
@@ -1186,6 +1194,8 @@ void App::render(
         }
         else
         {
+            _rtDirectIllumination->releasePreserved();
+
             const ForwardRenderer::OpaqueOutput output =
                 _forwardRenderer->recordOpaque(
                     cb, *_world, *_cam, renderArea, lightClusters,

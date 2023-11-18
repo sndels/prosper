@@ -25,8 +25,10 @@ layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
 layout(set = STORAGE_SET, binding = 1, rgba16) uniform readonly image2D
     inNormalMetallic;
 layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
-layout(set = STORAGE_SET, binding = 3, rgba16f) uniform image2D outColor;
-layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+layout(set = STORAGE_SET, binding = 3, rgba32f) uniform readonly image2D
+    previousColor;
+layout(set = STORAGE_SET, binding = 4, rgba32f) uniform image2D outColor;
+layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
@@ -148,5 +150,18 @@ void main()
 
     vec3 color = evaluateDirectLighting(surface);
 
-    imageStore(outColor, px, vec4(color, 1));
+    if (flagSkipHistory() || !flagAccumulate())
+    {
+        imageStore(outColor, ivec2(px), vec4(color, 1));
+    }
+    else
+    {
+        vec4 history = imageLoad(previousColor, ivec2(px));
+        vec3 historyColor = history.rgb;
+        float historyCount = history.a + 1;
+
+        vec3 newColor = historyColor + (color - historyColor) / historyCount;
+
+        imageStore(outColor, ivec2(px), vec4(newColor, historyCount));
+    }
 }

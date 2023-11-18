@@ -55,7 +55,24 @@ struct PCBlock
 {
     uint32_t drawType{0};
     uint32_t frameIndex{0};
+    uint32_t flags{0};
+
+    struct Flags
+    {
+        bool skipHistory{false};
+        bool accumulate{false};
+    };
 };
+
+uint32_t pcFlags(PCBlock::Flags flags)
+{
+    uint32_t ret = 0;
+
+    ret |= (uint32_t)flags.skipHistory;
+    ret |= (uint32_t)flags.accumulate << 1;
+
+    return ret;
+}
 
 constexpr std::array<
     const char *, static_cast<size_t>(RtDirectIllumination::DrawType::Count)>
@@ -130,6 +147,7 @@ void RtDirectIllumination::recompileShaders(
     {
         destroyPipeline();
         createPipeline(camDSLayout, worldDSLayouts);
+        _accumulationDirty = true;
     }
 }
 
@@ -144,16 +162,22 @@ void RtDirectIllumination::drawUi()
         {
             bool selected = *currentType == i;
             if (ImGui::Selectable(sDrawTypeNames[i], &selected))
+            {
                 _drawType = static_cast<DrawType>(i);
+                _accumulationDirty = true;
+            }
         }
         ImGui::EndCombo();
     }
+
+    if (_drawType == DrawType::Default)
+        ImGui::Checkbox("Accumulate", &_accumulate);
 }
 
 RtDirectIllumination::Output RtDirectIllumination::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRenderer::Output &gbuffer, uint32_t nextFrame,
-    Profiler *profiler)
+    const GBufferRenderer::Output &gbuffer, bool resetAccumulation,
+    uint32_t nextFrame, Profiler *profiler)
 {
     _frameIndex = ++_frameIndex % sFramePeriod;
 
@@ -161,10 +185,42 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     {
         const vk::Extent2D renderExtent = getRenderExtent(*_resources, gbuffer);
 
-        ret.illumination = createIllumination(
-            *_resources, renderExtent, "rtDirectIllumination");
+        const ImageDescription accumulateImageDescription = ImageDescription{
+            .format = vk::Format::eR32G32B32A32Sfloat,
+            .width = renderExtent.width,
+            .height = renderExtent.height,
+            .usageFlags = vk::ImageUsageFlagBits::eStorage |
+                          vk::ImageUsageFlagBits::eTransferSrc |
+                          vk::ImageUsageFlagBits::eSampled,
+        };
+        // TODO:
+        // This could be a 'normal' lower bitdepth illumination target when
+        // accumulation is skipped. However, glsl needs explicit format for the
+        // uniform.
+        ImageHandle illumination = _resources->images.create(
+            accumulateImageDescription, "rtDirectIllumination32bit");
 
-        updateDescriptorSet(nextFrame, gbuffer, ret);
+        vk::Extent3D previousExtent;
+        if (_resources->images.isValidHandle(_previousIllumination))
+            previousExtent =
+                _resources->images.resource(_previousIllumination).extent;
+
+        if (resetAccumulation || renderExtent.width != previousExtent.width ||
+            renderExtent.height != previousExtent.height)
+        {
+            if (_resources->images.isValidHandle(_previousIllumination))
+                _resources->images.release(_previousIllumination);
+
+            // Create dummy texture that won't be read from to satisfy binds
+            _previousIllumination = _resources->images.create(
+                accumulateImageDescription, "previousRtDirectIllumination");
+            _accumulationDirty = true;
+        }
+        else // We clear debug names each frame
+            _resources->images.appendDebugName(
+                _previousIllumination, "previousRtDirectIllumination");
+
+        updateDescriptorSet(nextFrame, gbuffer, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -183,13 +239,14 @@ RtDirectIllumination::Output RtDirectIllumination::record(
             });
         }
 
-        transition<4>(
+        transition<5>(
             *_resources, cb,
             {
                 {gbuffer.albedoRoughness, ImageState::RayTracingRead},
                 {gbuffer.normalMetalness, ImageState::RayTracingRead},
                 {gbuffer.depth, ImageState::RayTracingRead},
-                {ret.illumination, ImageState::RayTracingReadWrite},
+                {_previousIllumination, ImageState::RayTracingRead},
+                {illumination, ImageState::RayTracingReadWrite},
             });
 
         const auto _s = profiler->createCpuGpuScope(cb, "RtDirectIllumination");
@@ -230,6 +287,11 @@ RtDirectIllumination::Output RtDirectIllumination::record(
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(_drawType),
             .frameIndex = _frameIndex,
+            .flags = pcFlags(PCBlock::Flags{
+                .skipHistory = cam.changedThisFrame() || resetAccumulation ||
+                               _accumulationDirty,
+                .accumulate = _accumulate,
+            }),
         };
         cb.pushConstants(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
@@ -266,9 +328,64 @@ RtDirectIllumination::Output RtDirectIllumination::record(
         cb.traceRaysKHR(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderExtent.width, renderExtent.height, 1);
+
+        _resources->images.release(_previousIllumination);
+        _previousIllumination = illumination;
+        _resources->images.preserve(_previousIllumination);
+
+        // Further passes expect 16bit illumination
+        // TODO:
+        // Remove this and return the 32bit illumination when shaders are in
+        // HLSL and 16bit/32bit texture read layout doesn't matter
+        {
+            ret.illumination = createIllumination(
+                *_resources, renderExtent, "rtDirectIllumination");
+
+            transition<2>(
+                *_resources, cb,
+                {
+                    {illumination, ImageState::TransferSrc},
+                    {ret.illumination, ImageState::TransferDst},
+                });
+
+            const vk::ImageSubresourceLayers layers{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1};
+
+            const std::array offsets{
+                vk::Offset3D{0, 0, 0},
+                vk::Offset3D{
+                    asserted_cast<int32_t>(renderExtent.width),
+                    asserted_cast<int32_t>(renderExtent.height),
+                    1,
+                },
+            };
+            const auto blit = vk::ImageBlit{
+                .srcSubresource = layers,
+                .srcOffsets = offsets,
+                .dstSubresource = layers,
+                .dstOffsets = offsets,
+            };
+            cb.blitImage(
+                _resources->images.nativeHandle(illumination),
+                vk::ImageLayout::eTransferSrcOptimal,
+                _resources->images.nativeHandle(ret.illumination),
+                vk::ImageLayout::eTransferDstOptimal, 1, &blit,
+                vk::Filter::eLinear);
+        }
     }
 
+    _accumulationDirty = false;
+
     return ret;
+}
+
+void RtDirectIllumination::releasePreserved()
+{
+    if (_resources->images.isValidHandle(_previousIllumination))
+        _resources->images.release(_previousIllumination);
 }
 
 void RtDirectIllumination::destroyShaders()
@@ -457,7 +574,8 @@ void RtDirectIllumination::createDescriptorSets(
 }
 
 void RtDirectIllumination::updateDescriptorSet(
-    uint32_t nextFrame, const GBufferRenderer::Output &gbuffer, Output output)
+    uint32_t nextFrame, const GBufferRenderer::Output &gbuffer,
+    ImageHandle illumination)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
@@ -480,7 +598,12 @@ void RtDirectIllumination::updateDescriptorSet(
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = _resources->images.resource(output.illumination).view,
+            .imageView =
+                _resources->images.resource(_previousIllumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView = _resources->images.resource(illumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
