@@ -3,6 +3,14 @@
 
 #include "math.glsl"
 
+// https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#SamplingaUnitDisk
+vec2 uniformSampleDisk(vec2 u)
+{
+    float r = sqrt(u[0]);
+    float theta = 2. * PI * u[1];
+    return vec2(r * cos(theta), r * sin(theta));
+}
+
 // From 'Sampling Transformations Zoo'
 // by Peter Shirley et al.
 // Published in Ray Tracing Gems
