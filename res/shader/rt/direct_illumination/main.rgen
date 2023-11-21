@@ -47,39 +47,6 @@ float shadow(vec3 p, vec3 l, float tMin, float lDist)
     return payload.instanceCustomIndex == MISS_INDEX ? 1. : 0.;
 }
 
-void sampleLight(
-    VisibleSurface surface, uint lightIndex, out vec3 l, out float d,
-    inout vec3 irradiance)
-{
-    // Sun
-    if (lightIndex == 0)
-    {
-        l = -normalize(directionalLight.direction.xyz);
-        d = 100.;
-        irradiance = directionalLight.irradiance.xyz;
-        return;
-    }
-    lightIndex -= 1;
-
-    if (lightIndex < pointLights.count)
-    {
-        evaluateUnshadowedPointLight(surface, lightIndex, l, d, irradiance);
-        return;
-    }
-    lightIndex -= pointLights.count;
-
-    if (lightIndex < spotLights.count)
-    {
-        evaluateUnshadowedSpotLight(surface, lightIndex, l, d, irradiance);
-        return;
-    }
-    lightIndex -= spotLights.count;
-
-    l = vec3(0, 1, 0);
-    d = 1.;
-    irradiance = vec3(0);
-}
-
 vec3 evaluateDirectLighting(VisibleSurface surface)
 {
     // Alpha=0 hits don't have a valid surface

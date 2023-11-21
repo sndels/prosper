@@ -55,4 +55,37 @@ void evaluateUnshadowedSpotLight(
     irradiance = angularAttenuation * light.radianceAndAngleScale.xyz / d2;
 }
 
+void sampleLight(
+    VisibleSurface surface, uint lightIndex, out vec3 l, out float d,
+    inout vec3 irradiance)
+{
+    // Sun
+    if (lightIndex == 0)
+    {
+        l = -normalize(directionalLight.direction.xyz);
+        d = 100.;
+        irradiance = directionalLight.irradiance.xyz;
+        return;
+    }
+    lightIndex -= 1;
+
+    if (lightIndex < pointLights.count)
+    {
+        evaluateUnshadowedPointLight(surface, lightIndex, l, d, irradiance);
+        return;
+    }
+    lightIndex -= pointLights.count;
+
+    if (lightIndex < spotLights.count)
+    {
+        evaluateUnshadowedSpotLight(surface, lightIndex, l, d, irradiance);
+        return;
+    }
+    lightIndex -= spotLights.count;
+
+    l = vec3(0, 1, 0);
+    d = 1.;
+    irradiance = vec3(0);
+}
+
 #endif // SCENE_LIGHTING_GLSL
