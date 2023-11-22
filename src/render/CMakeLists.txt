@@ -1,7 +1,9 @@
 add_subdirectory(dof)
+add_subdirectory(rtdi)
 
 set(PROSPER_RENDER_INCLUDES
     ${PROSPER_DOF_INCLUDES}
+    ${PROSPER_RTDI_INCLUDES}
     ${CMAKE_CURRENT_LIST_DIR}/ComputePass.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.hpp
@@ -14,7 +16,6 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/RenderResourceCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/RtDirectIllumination.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.hpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.hpp
@@ -24,6 +25,7 @@ set(PROSPER_RENDER_INCLUDES
 
 set(PROSPER_RENDER_SOURCES
     ${PROSPER_DOF_SOURCES}
+    ${PROSPER_RTDI_SOURCES}
     ${CMAKE_CURRENT_LIST_DIR}/ComputePass.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.cpp
@@ -35,7 +37,6 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/RtDirectIllumination.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.cpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.cpp

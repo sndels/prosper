@@ -1,8 +1,8 @@
-#include "RtDirectIllumination.hpp"
+#include "RtDiTrace.hpp"
 
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderTargets.hpp"
+#include "../../gfx/VkUtils.hpp"
+#include "../../utils/Utils.hpp"
+#include "../RenderTargets.hpp"
 
 #include <imgui.h>
 
@@ -74,7 +74,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
 }
 
 constexpr std::array<
-    const char *, static_cast<size_t>(RtDirectIllumination::DrawType::Count)>
+    const char *, static_cast<size_t>(RtDiTrace::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 vk::Extent2D getRenderExtent(
@@ -92,7 +92,7 @@ vk::Extent2D getRenderExtent(
 
 } // namespace
 
-RtDirectIllumination::RtDirectIllumination(
+RtDiTrace::RtDiTrace(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
@@ -103,18 +103,17 @@ RtDirectIllumination::RtDirectIllumination(
     WHEELS_ASSERT(_resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating RtDirectIllumination\n");
+    printf("Creating RtDiTrace\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
-        throw std::runtime_error(
-            "RtDirectIllumination shader compilation failed");
+        throw std::runtime_error("RtDiTrace shader compilation failed");
 
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 }
 
-RtDirectIllumination::~RtDirectIllumination()
+RtDiTrace::~RtDiTrace()
 {
     if (_device != nullptr)
     {
@@ -127,7 +126,7 @@ RtDirectIllumination::~RtDirectIllumination()
     }
 }
 
-void RtDirectIllumination::recompileShaders(
+void RtDiTrace::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
@@ -150,13 +149,12 @@ void RtDirectIllumination::recompileShaders(
     }
 }
 
-void RtDirectIllumination::drawUi()
+void RtDiTrace::drawUi()
 {
     auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
     if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
     {
-        for (auto i = 0u;
-             i < static_cast<uint32_t>(RtDirectIllumination::DrawType::Count);
+        for (auto i = 0u; i < static_cast<uint32_t>(RtDiTrace::DrawType::Count);
              ++i)
         {
             bool selected = *currentType == i;
@@ -173,16 +171,19 @@ void RtDirectIllumination::drawUi()
         ImGui::Checkbox("Accumulate", &_accumulate);
 }
 
-RtDirectIllumination::Output RtDirectIllumination::record(
+RtDiTrace::Output RtDiTrace::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRenderer::Output &gbuffer, bool resetAccumulation,
-    uint32_t nextFrame, Profiler *profiler)
+    const Input &input, bool resetAccumulation, uint32_t nextFrame,
+    Profiler *profiler)
 {
+    WHEELS_ASSERT(profiler != nullptr);
+
     _frameIndex = ++_frameIndex % sFramePeriod;
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(*_resources, gbuffer);
+        const vk::Extent2D renderExtent =
+            getRenderExtent(*_resources, input.gbuffer);
 
         const ImageDescription accumulateImageDescription = ImageDescription{
             .format = vk::Format::eR32G32B32A32Sfloat,
@@ -197,7 +198,7 @@ RtDirectIllumination::Output RtDirectIllumination::record(
         // accumulation is skipped. However, glsl needs explicit format for the
         // uniform.
         ImageHandle illumination = _resources->images.create(
-            accumulateImageDescription, "rtDirectIllumination32bit");
+            accumulateImageDescription, "RtDiTrace32bit");
 
         vk::Extent3D previousExtent;
         if (_resources->images.isValidHandle(_previousIllumination))
@@ -212,14 +213,14 @@ RtDirectIllumination::Output RtDirectIllumination::record(
 
             // Create dummy texture that won't be read from to satisfy binds
             _previousIllumination = _resources->images.create(
-                accumulateImageDescription, "previousRtDirectIllumination");
+                accumulateImageDescription, "previousRtDiTrace");
             _accumulationDirty = true;
         }
         else // We clear debug names each frame
             _resources->images.appendDebugName(
-                _previousIllumination, "previousRtDirectIllumination");
+                _previousIllumination, "previousRtDiTrace");
 
-        updateDescriptorSet(nextFrame, gbuffer, illumination);
+        updateDescriptorSet(nextFrame, input, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -238,17 +239,18 @@ RtDirectIllumination::Output RtDirectIllumination::record(
             });
         }
 
-        transition<5>(
+        transition<6>(
             *_resources, cb,
             {
-                {gbuffer.albedoRoughness, ImageState::RayTracingRead},
-                {gbuffer.normalMetalness, ImageState::RayTracingRead},
-                {gbuffer.depth, ImageState::RayTracingRead},
+                {input.gbuffer.albedoRoughness, ImageState::RayTracingRead},
+                {input.gbuffer.normalMetalness, ImageState::RayTracingRead},
+                {input.gbuffer.depth, ImageState::RayTracingRead},
+                {input.reservoirs, ImageState::RayTracingRead},
                 {_previousIllumination, ImageState::RayTracingRead},
                 {illumination, ImageState::RayTracingReadWrite},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "RtDirectIllumination");
+        const auto _s = profiler->createCpuGpuScope(cb, "  Trace");
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
 
@@ -337,8 +339,8 @@ RtDirectIllumination::Output RtDirectIllumination::record(
         // Remove this and return the 32bit illumination when shaders are in
         // HLSL and 16bit/32bit texture read layout doesn't matter
         {
-            ret.illumination = createIllumination(
-                *_resources, renderExtent, "rtDirectIllumination");
+            ret.illumination =
+                createIllumination(*_resources, renderExtent, "RtDiTrace");
 
             transition<2>(
                 *_resources, cb,
@@ -381,28 +383,28 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     return ret;
 }
 
-void RtDirectIllumination::releasePreserved()
+void RtDiTrace::releasePreserved()
 {
     if (_resources->images.isValidHandle(_previousIllumination))
         _resources->images.release(_previousIllumination);
 }
 
-void RtDirectIllumination::destroyShaders()
+void RtDiTrace::destroyShaders()
 {
     for (auto const &stage : _shaderStages)
         _device->logical().destroyShaderModule(stage.module);
 }
 
-void RtDirectIllumination::destroyPipeline()
+void RtDiTrace::destroyPipeline()
 {
     _device->logical().destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
 }
 
-bool RtDirectIllumination::compileShaders(
+bool RtDiTrace::compileShaders(
     ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
 {
-    printf("Compiling RtDirectIllumination shaders\n");
+    printf("Compiling RtDiTrace shaders\n");
 
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
@@ -454,7 +456,7 @@ bool RtDirectIllumination::compileShaders(
             scopeAlloc.child_scope(),
             Device::CompileShaderModuleArgs{
                 .relPath = "shader/rt/direct_illumination/main.rgen",
-                .debugName = "sceneRGEN",
+                .debugName = "restirDiTraceRGEN",
                 .defines = raygenDefines,
             });
     Optional<Device::ShaderCompileResult> rayMissResult =
@@ -559,7 +561,7 @@ bool RtDirectIllumination::compileShaders(
     return false;
 }
 
-void RtDirectIllumination::createDescriptorSets(
+void RtDiTrace::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     _descriptorSetLayout = _raygenReflection->createDescriptorSetLayout(
@@ -571,9 +573,8 @@ void RtDirectIllumination::createDescriptorSets(
     staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
 }
 
-void RtDirectIllumination::updateDescriptorSet(
-    uint32_t nextFrame, const GBufferRenderer::Output &gbuffer,
-    ImageHandle illumination)
+void RtDiTrace::updateDescriptorSet(
+    uint32_t nextFrame, const Input &input, ImageHandle illumination)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
@@ -583,16 +584,20 @@ void RtDirectIllumination::updateDescriptorSet(
     const StaticArray descriptorInfos{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                _resources->images.resource(gbuffer.albedoRoughness).view,
+                _resources->images.resource(input.gbuffer.albedoRoughness).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                _resources->images.resource(gbuffer.normalMetalness).view,
+                _resources->images.resource(input.gbuffer.normalMetalness).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = _resources->images.resource(gbuffer.depth).view,
+            .imageView = _resources->images.resource(input.gbuffer.depth).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView = _resources->images.resource(input.reservoirs).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
@@ -619,7 +624,7 @@ void RtDirectIllumination::updateDescriptorSet(
         descriptorWrites.data(), 0, nullptr);
 }
 
-void RtDirectIllumination::createPipeline(
+void RtDiTrace::createPipeline(
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
 
@@ -670,12 +675,12 @@ void RtDirectIllumination::createPipeline(
                 .objectType = vk::ObjectType::ePipeline,
                 .objectHandle = reinterpret_cast<uint64_t>(
                     static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "RtDirectIllumination",
+                .pObjectName = "RtDiTrace",
             });
     }
 }
 
-void RtDirectIllumination::createShaderBindingTable(ScopedScratch scopeAlloc)
+void RtDiTrace::createShaderBindingTable(ScopedScratch scopeAlloc)
 {
 
     const auto groupCount = asserted_cast<uint32_t>(_shaderGroups.size());

@@ -1,18 +1,18 @@
-#ifndef PROSPER_RENDER_RT_DIRECT_ILLUMINATION_HPP
-#define PROSPER_RENDER_RT_DIRECT_ILLUMINATION_HPP
+#ifndef PROSPER_RENDER_RTDI_TRACE_HPP
+#define PROSPER_RENDER_RTDI_TRACE_HPP
 
-#include "../gfx/Device.hpp"
-#include "../scene/Camera.hpp"
-#include "../scene/DebugDrawTypes.hpp"
-#include "../scene/World.hpp"
-#include "../utils/Profiler.hpp"
-#include "GBufferRenderer.hpp"
-#include "RenderResources.hpp"
+#include "../../gfx/Device.hpp"
+#include "../../scene/Camera.hpp"
+#include "../../scene/DebugDrawTypes.hpp"
+#include "../../scene/World.hpp"
+#include "../../utils/Profiler.hpp"
+#include "../GBufferRenderer.hpp"
+#include "../RenderResources.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
-class RtDirectIllumination
+class RtDiTrace
 {
   public:
     enum class DrawType : uint32_t
@@ -21,17 +21,17 @@ class RtDirectIllumination
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    RtDirectIllumination(
+    RtDiTrace(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
-    ~RtDirectIllumination();
+    ~RtDiTrace();
 
-    RtDirectIllumination(const RtDirectIllumination &other) = delete;
-    RtDirectIllumination(RtDirectIllumination &&other) = delete;
-    RtDirectIllumination &operator=(const RtDirectIllumination &other) = delete;
-    RtDirectIllumination &operator=(RtDirectIllumination &&other) = delete;
+    RtDiTrace(const RtDiTrace &other) = delete;
+    RtDiTrace(RtDiTrace &&other) = delete;
+    RtDiTrace &operator=(const RtDiTrace &other) = delete;
+    RtDiTrace &operator=(RtDiTrace &&other) = delete;
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -41,14 +41,19 @@ class RtDirectIllumination
 
     void drawUi();
 
+    struct Input
+    {
+        const GBufferRenderer::Output &gbuffer;
+        ImageHandle reservoirs;
+    };
     struct Output
     {
         ImageHandle illumination;
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const GBufferRenderer::Output &gbuffer, bool resetAccumulation,
-        uint32_t nextFrame, Profiler *profiler);
+        const Input &input, bool resetAccumulation, uint32_t nextFrame,
+        Profiler *profiler);
     void releasePreserved();
 
   private:
@@ -63,8 +68,7 @@ class RtDirectIllumination
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(
-        uint32_t nextFrame, const GBufferRenderer::Output &gbuffer,
-        ImageHandle illumination);
+        uint32_t nextFrame, Input const &inputs, ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const World::DSLayouts &worldDSLayouts);
@@ -99,4 +103,4 @@ class RtDirectIllumination
     ImageHandle _previousIllumination;
 };
 
-#endif // PROSPER_RENDER_RT_DIRECT_ILLUMINATION_HPP
+#endif // PROSPER_RENDER_RTDI_TRACE_HPP

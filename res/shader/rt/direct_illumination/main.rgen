@@ -8,6 +8,7 @@
 #include "../../common/random.glsl"
 #include "../../common/sampling.glsl"
 #include "../../debug.glsl"
+#include "../../restir_di/reservoir.glsl"
 #include "../../scene/camera.glsl"
 #include "../../scene/geometry.glsl"
 #include "../../scene/lighting.glsl"
@@ -25,10 +26,12 @@ layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
 layout(set = STORAGE_SET, binding = 1, rgba16) uniform readonly image2D
     inNormalMetallic;
 layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
-layout(set = STORAGE_SET, binding = 3, rgba32f) uniform readonly image2D
+layout(set = STORAGE_SET, binding = 3, rg32f) uniform readonly image2D
+    inReservoirs;
+layout(set = STORAGE_SET, binding = 4, rgba32f) uniform readonly image2D
     previousColor;
-layout(set = STORAGE_SET, binding = 4, rgba32f) uniform image2D outColor;
-layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
+layout(set = STORAGE_SET, binding = 5, rgba32f) uniform image2D outColor;
+layout(set = STORAGE_SET, binding = 6) uniform sampler depthSampler;
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
@@ -77,70 +80,17 @@ vec3 evaluateDirectLighting(VisibleSurface surface)
     return irradiance * evalBRDFTimesNoL(l, surface);
 }
 
-// ReSTIR based on
-// A Gentle Introduciton to ReSTIR
-// By Wyman et al.
-// https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
-
-float pHatLight(VisibleSurface surface, uint lightIndex)
-{
-    vec3 l;
-    float d;
-    vec3 irradiance;
-    sampleLight(surface, lightIndex, l, d, irradiance);
-
-    // TODO:
-    // Skip visibility?
-    // More variance and  "requires guaranteeing additional conditions"
-    float visibility = shadow(surface.positionWS, l, 0.1, d);
-    // TODO: No NoL here? Multiply by G? Isn't G part of the bsdf?
-    vec3 brdf = evalBRDFTimesNoL(l, surface);
-
-    return luminance(irradiance * brdf * visibility);
-}
-
-void initialLightCandidate(
-    VisibleSurface surface, inout uint lightIndex,
-    out float unbiasedContributionWeight)
-{
-    uint lightCount = 1 + pointLights.count + spotLights.count;
-    lightIndex = min(uint(rnd01() * lightCount), lightCount - 1);
-
-    // This is one of M lights so W = 1 / (p(X)) = 1 / (1 / lightCount) =
-    // lightCount?
-    unbiasedContributionWeight = lightCount;
-}
-
-vec3 evaluateDirectLightingReSTIR(VisibleSurface surface)
+vec3 evaluateDirectLightingReSTIR(
+    VisibleSurface surface, LightReservoir reservoir)
 {
     // Alpha=0 hits don't have a valid surface
-    if (surface.material.alpha == 0)
+    if (surface.material.alpha == 0 || reservoir.lightIndex < 0)
         return vec3(0);
-
-    uint lightIndex;
-    float unbiasedContributionWeight;
-    initialLightCandidate(surface, lightIndex, unbiasedContributionWeight);
-
-    float initialCandidatePHat = pHatLight(surface, lightIndex);
-    float initialCandidateResamplingWeight =
-        initialCandidatePHat * unbiasedContributionWeight;
-
-    // TODO:
-    // Spatial reuse
-
-    // TODO:
-    // Temporal reuse
-
-    float pHatSelected = initialCandidatePHat;
-    float sumResamplingWeights = initialCandidateResamplingWeight;
-
-    float selectedUnbiasedContributionWeight =
-        sumResamplingWeights / pHatSelected;
 
     vec3 l;
     float d;
     vec3 irradiance;
-    sampleLight(surface, lightIndex, l, d, irradiance);
+    sampleLight(surface, reservoir.lightIndex, l, d, irradiance);
 
     // Don't bother evaluating backface lighting
     if (dot(l, surface.normalWS) <= 0)
@@ -149,7 +99,7 @@ vec3 evaluateDirectLightingReSTIR(VisibleSurface surface)
     irradiance *= shadow(surface.positionWS, l, 0.1, d);
 
     return irradiance * evalBRDFTimesNoL(l, surface) *
-           selectedUnbiasedContributionWeight;
+           reservoir.unbiasedContributionWeight;
 }
 
 void main()
@@ -191,7 +141,8 @@ void main()
     }
 
     // vec3 color = evaluateDirectLighting(surface);
-    vec3 color = evaluateDirectLightingReSTIR(surface);
+    LightReservoir reservoir = unpackReservoir(imageLoad(inReservoirs, px).xy);
+    vec3 color = evaluateDirectLightingReSTIR(surface, reservoir);
 
     if (flagSkipHistory() || !flagAccumulate())
     {

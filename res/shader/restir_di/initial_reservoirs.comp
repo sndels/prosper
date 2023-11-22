@@ -1,0 +1,110 @@
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
+
+#pragma shader_stage(compute)
+
+#include "../brdf.glsl"
+#include "../common/random.glsl"
+#include "../common/sampling.glsl"
+#include "../scene/camera.glsl"
+#include "../scene/lighting.glsl"
+#include "../scene/material.glsl"
+#include "reservoir.glsl"
+
+layout(push_constant) uniform RtDiInitialReservoirsPC { uint frameIndex; }
+PC;
+
+layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
+    inAlbedoRoughness;
+layout(set = STORAGE_SET, binding = 1, rgba16) uniform readonly image2D
+    inNormalMetallic;
+layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 3, rgba32f) uniform image2D outReservoirs;
+layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+
+// ReSTIR based on
+// A Gentle Introduciton to ReSTIR
+// By Wyman et al.
+// https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
+
+float pHatLight(VisibleSurface surface, uint lightIndex)
+{
+    vec3 l;
+    float d;
+    vec3 irradiance;
+    sampleLight(surface, lightIndex, l, d, irradiance);
+
+    vec3 brdf = evalBRDFTimesNoL(l, surface);
+    // TODO:
+    // Is it ok to skip visiblity here? Sounds reasonable if spatial and
+    // temporal reuse don't trace either. Final shading will check visibility on
+    // the lucky sample in the reservoir. More noise but no bias compared to
+    // tracing visibility for all samples?
+
+    return luminance(irradiance * brdf);
+}
+
+LightReservoir initialLightCandidate(VisibleSurface surface)
+{
+    int lightCount = 1 + int(pointLights.count + spotLights.count);
+
+    LightReservoir reservoir = initReservoir();
+    float sumResamplingWeights = 0;
+    const uint sampleCount = 5;
+    // Reservoir resampling through the samples
+    for (uint i = 0; i < sampleCount; ++i)
+    {
+        int lightIndex = min(int(rnd01() * lightCount), lightCount - 1);
+
+        float misWeight = 1. / sampleCount;
+        // This is one of M lights sampled uniformly so W_Xi = 1 / (p(X)) = 1 /
+        // (1 / M) = M
+        float unbiasedContributionWeight = lightCount;
+        float resamplingWeight = misWeight * pHatLight(surface, lightIndex) *
+                                 unbiasedContributionWeight;
+
+        sumResamplingWeights += resamplingWeight;
+        if (rnd01() < resamplingWeight / sumResamplingWeights)
+            reservoir.lightIndex = lightIndex;
+    }
+    if (reservoir.lightIndex >= 0)
+        reservoir.unbiasedContributionWeight =
+            sumResamplingWeights / pHatLight(surface, reservoir.lightIndex);
+
+    return reservoir;
+}
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 res = imageSize(outReservoirs);
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(px, res)))
+    {
+        return;
+    }
+    vec2 uv = vec2(px) / res;
+
+    pcg_state = uvec3(px, PC.frameIndex);
+
+    // TODO: Move shared gbuffer VisibleSurface setup code to a header
+
+    vec4 albedoRoughness = imageLoad(inAlbedoRoughness, px);
+    vec4 normalMetallic = imageLoad(inNormalMetallic, px);
+
+    float nonLinearDepth =
+        texelFetch(sampler2D(inNonLinearDepth, depthSampler), px, 0).x;
+    float viewDepth = linearizeDepth(nonLinearDepth);
+
+    VisibleSurface surface;
+    surface.positionWS = worldPos(uv, nonLinearDepth);
+    surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
+    surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
+    surface.normalWS = surface.material.normal;
+    surface.uv = vec2(0);
+    surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
+
+    LightReservoir reservoir = initialLightCandidate(surface);
+
+    imageStore(outReservoirs, ivec2(px), vec4(packReservoir(reservoir), 0, 0));
+}
