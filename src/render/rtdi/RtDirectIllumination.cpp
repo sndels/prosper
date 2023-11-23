@@ -1,5 +1,7 @@
 #include "RtDirectIllumination.hpp"
 
+#include <imgui.h>
+
 using namespace wheels;
 
 RtDirectIllumination::RtDirectIllumination(
@@ -10,6 +12,12 @@ RtDirectIllumination::RtDirectIllumination(
 , _initialReservoirs{
       scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
       RtDiInitialReservoirs::InputDSLayouts{
+          .camera = camDSLayout,
+          .world = worldDSLayouts,
+      }}
+, _spatialReuse{
+      scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+      RtDiSpatialReuse::InputDSLayouts{
           .camera = camDSLayout,
           .world = worldDSLayouts,
       }}
@@ -33,11 +41,21 @@ void RtDirectIllumination::recompileShaders(
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
+    _spatialReuse.recompileShaders(
+        scopeAlloc.child_scope(), changedFiles,
+        RtDiSpatialReuse::InputDSLayouts{
+            .camera = camDSLayout,
+            .world = worldDSLayouts,
+        });
     _trace.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDSLayout, worldDSLayouts);
 }
 
-void RtDirectIllumination::drawUi() { _trace.drawUi(); }
+void RtDirectIllumination::drawUi()
+{
+    ImGui::Checkbox("Spatial reuse", &_doSpatialReuse);
+    _trace.drawUi();
+}
 
 RtDirectIllumination::Output RtDirectIllumination::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
@@ -52,15 +70,31 @@ RtDirectIllumination::Output RtDirectIllumination::record(
             _initialReservoirs.record(
                 cb, world, cam, gbuffer, nextFrame, profiler);
 
+        ImageHandle reservoirs = initialReservoirsOutput.reservoirs;
+        if (_doSpatialReuse)
+        {
+            const RtDiSpatialReuse::Output spatialReuseOutput =
+                _spatialReuse.record(
+                    cb, world, cam,
+                    RtDiSpatialReuse::Input{
+                        .gbuffer = gbuffer,
+                        .reservoirs = initialReservoirsOutput.reservoirs,
+                    },
+                    nextFrame, profiler);
+
+            _resources->images.release(initialReservoirsOutput.reservoirs);
+            reservoirs = spatialReuseOutput.reservoirs;
+        }
+
         ret = _trace.record(
             cb, world, cam,
             RtDiTrace::Input{
                 .gbuffer = gbuffer,
-                .reservoirs = initialReservoirsOutput.reservoirs,
+                .reservoirs = reservoirs,
             },
             resetAccumulation, nextFrame, profiler);
 
-        _resources->images.release(initialReservoirsOutput.reservoirs);
+        _resources->images.release(reservoirs);
     }
     return ret;
 }

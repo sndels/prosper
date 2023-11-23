@@ -1,0 +1,156 @@
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
+
+#pragma shader_stage(compute)
+
+#include "../brdf.glsl"
+#include "../common/random.glsl"
+#include "../common/sampling.glsl"
+#include "../scene/camera.glsl"
+#include "../scene/lighting.glsl"
+#include "../scene/material.glsl"
+#include "resampling_phat.glsl"
+#include "reservoir.glsl"
+
+layout(push_constant) uniform RtDiInitialReservoirsPC { uint frameIndex; }
+PC;
+
+layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
+    inAlbedoRoughness;
+layout(set = STORAGE_SET, binding = 1, rgba16) uniform readonly image2D
+    inNormalMetallic;
+layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 3, rgba32f) uniform readonly image2D
+    inReservoirs;
+layout(set = STORAGE_SET, binding = 4, rgba32f) uniform image2D outReservoirs;
+layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
+
+// ReSTIR based on
+// A Gentle Introduciton to ReSTIR
+// By Wyman et al.
+// https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
+
+LightReservoir resampleReservoirSpatially(
+    VisibleSurface surface, ivec2 px, ivec2 resolution)
+{
+    const uint sampleCount = 5;
+    uint validSampleCount = 0;
+    LightReservoir samples[sampleCount];
+    float pHats[sampleCount];
+    for (uint i = 0; i < sampleCount; ++i)
+    {
+        const float spatialRadius = 30.;
+        ivec2 sample_p = ivec2(-1);
+        uint kill = 0;
+        while (kill++ < 5)
+        {
+            ivec2 r = ivec2(
+                uniformSampleDisk(rnd2d01()) * spatialRadius * 2. -
+                spatialRadius);
+            ivec2 p = px + r;
+
+            if (any(lessThanEqual(p, ivec2(0))) ||
+                any(greaterThanEqual(p, resolution)))
+            {
+                samples[i].lightIndex = -1;
+                continue;
+            }
+
+            float nonLinearDepth =
+                texelFetch(sampler2D(inNonLinearDepth, depthSampler), p, 0).x;
+
+            float linearDepth = linearizeDepth(nonLinearDepth);
+
+            // 10% depth difference heuristic from the original ReSTIR paper's
+            // biased algo
+            if (abs(1 - linearDepth / surface.linearDepth) > 0.1)
+            {
+                samples[i].lightIndex = -1;
+                continue;
+            }
+
+            // TODO: Discard based on normal
+            // TODO: Discard based on metallic?
+
+            sample_p = p;
+            break;
+        }
+        if (sample_p.x < 0)
+            continue;
+
+        // TODO:
+        // Also discard if depth differs? There's a dark halo around near field
+        // geometry
+        // Also discard if material is very different? E.g. metallic isn't close
+
+        samples[i] = unpackReservoir(imageLoad(inReservoirs, sample_p).xy);
+        validSampleCount++;
+    }
+
+    LightReservoir reservoir = initReservoir();
+    float sumResamplingWeights = 0;
+    // Reservoir resampling through the samples
+    for (uint i = 0; i < sampleCount; ++i)
+    {
+        LightReservoir Xi = samples[i];
+        if (Xi.lightIndex < 0)
+            continue;
+
+        // TODO:
+        // Point lights, spot lights lose some intensity when converging.
+        // Especially noticeable on spotlight fade area that shrinks a bit.
+        // Also, fireflies
+
+        // Using valid sample count instead of the full count seems like the
+        // 'correct' way to handle samples that were discarded because they fell
+        // outside the image. This doesn't fix the bias from samples discarded
+        // based on surface differences.
+        float misWeight = 1. / validSampleCount;
+        float resamplingWeight = misWeight * pHatLight(surface, Xi.lightIndex) *
+                                 Xi.unbiasedContributionWeight;
+
+        sumResamplingWeights += resamplingWeight;
+        if (rnd01() < resamplingWeight / sumResamplingWeights)
+            reservoir.lightIndex = Xi.lightIndex;
+    }
+    if (reservoir.lightIndex >= 0)
+        reservoir.unbiasedContributionWeight =
+            sumResamplingWeights / pHatLight(surface, reservoir.lightIndex);
+
+    return reservoir;
+}
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 res = imageSize(outReservoirs);
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(px, res)))
+    {
+        return;
+    }
+    vec2 uv = vec2(px) / res;
+
+    pcg_state = uvec3(px, PC.frameIndex);
+
+    // TODO: Move shared gbuffer VisibleSurface setup code to a header
+
+    vec4 albedoRoughness = imageLoad(inAlbedoRoughness, px);
+    vec4 normalMetallic = imageLoad(inNormalMetallic, px);
+
+    float nonLinearDepth =
+        texelFetch(sampler2D(inNonLinearDepth, depthSampler), px, 0).x;
+
+    VisibleSurface surface;
+    surface.positionWS = worldPos(uv, nonLinearDepth);
+    surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
+    surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
+    surface.normalWS = surface.material.normal;
+    surface.uv = vec2(0);
+    surface.linearDepth = linearizeDepth(nonLinearDepth);
+    surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
+
+    LightReservoir reservoir = resampleReservoirSpatially(surface, px, res);
+
+    imageStore(outReservoirs, ivec2(px), vec4(packReservoir(reservoir), 0, 0));
+}

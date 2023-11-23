@@ -8,6 +8,7 @@
 #include "../GBufferRenderer.hpp"
 #include "../RenderResources.hpp"
 #include "RtDiInitialReservoirs.hpp"
+#include "RtDiSpatialReuse.hpp"
 #include "RtDiTrace.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -52,7 +53,10 @@ class RtDirectIllumination
   private:
     RenderResources *_resources{nullptr};
 
+    bool _doSpatialReuse{true};
+
     RtDiInitialReservoirs _initialReservoirs;
+    RtDiSpatialReuse _spatialReuse;
     RtDiTrace _trace;
 };
 
