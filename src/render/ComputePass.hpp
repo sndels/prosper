@@ -38,8 +38,9 @@ class ComputePass
     ComputePass &operator=(const ComputePass &other) = delete;
     ComputePass &operator=(ComputePass &&other) = delete;
 
+    // Returns true if recompile happened
     template <typename Callback>
-    void recompileShader(
+    bool recompileShader(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         Callback &&shaderDefinitionCallback,
@@ -120,7 +121,7 @@ ComputePass::ComputePass(
 }
 
 template <typename Callback>
-void ComputePass::recompileShader(
+bool ComputePass::recompileShader(
     wheels::ScopedScratch scopeAlloc,
     const wheels::HashSet<std::filesystem::path> &changedFiles,
     Callback &&shaderDefinitionCallback,
@@ -128,13 +129,15 @@ void ComputePass::recompileShader(
 {
     WHEELS_ASSERT(_shaderReflection.has_value());
     if (!_shaderReflection->affected(changedFiles))
-        return;
+        return false;
 
     if (compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
     {
         destroyPipelines();
         createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
+        return true;
     }
+    return false;
 }
 
 template <size_t N>
