@@ -88,12 +88,12 @@ RtDiSpatialReuse::RtDiSpatialReuse(
     WHEELS_ASSERT(_resources != nullptr);
 }
 
-void RtDiSpatialReuse::recompileShaders(
+bool RtDiSpatialReuse::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    _computePass.recompileShader(
+    return _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },

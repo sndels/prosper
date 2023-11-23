@@ -35,18 +35,19 @@ void RtDirectIllumination::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
 {
-    _initialReservoirs.recompileShaders(
+    _resetAccumulation |= _initialReservoirs.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         RtDiInitialReservoirs::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
-    _spatialReuse.recompileShaders(
+    _resetAccumulation |= _spatialReuse.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         RtDiSpatialReuse::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
+    // Trace handles accumulation so we don't check recompile here
     _trace.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDSLayout, worldDSLayouts);
 }
@@ -92,10 +93,13 @@ RtDirectIllumination::Output RtDirectIllumination::record(
                 .gbuffer = gbuffer,
                 .reservoirs = reservoirs,
             },
-            resetAccumulation, nextFrame, profiler);
+            resetAccumulation || _resetAccumulation, nextFrame, profiler);
 
         _resources->images.release(reservoirs);
     }
+
+    _resetAccumulation = false;
+
     return ret;
 }
 

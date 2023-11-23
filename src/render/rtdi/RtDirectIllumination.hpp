@@ -54,6 +54,7 @@ class RtDirectIllumination
     RenderResources *_resources{nullptr};
 
     bool _doSpatialReuse{true};
+    bool _resetAccumulation{true};
 
     RtDiInitialReservoirs _initialReservoirs;
     RtDiSpatialReuse _spatialReuse;

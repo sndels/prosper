@@ -34,7 +34,8 @@ class RtDiInitialReservoirs
         delete;
     RtDiInitialReservoirs &operator=(RtDiInitialReservoirs &&other) = delete;
 
-    void recompileShaders(
+    // Returns true if recompile happened
+    bool recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         const InputDSLayouts &dsLayouts);
