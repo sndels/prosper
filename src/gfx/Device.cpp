@@ -37,7 +37,8 @@ using namespace wheels;
         vk::PhysicalDeviceVulkan13Features,                                    \
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,                       \
-        vk::PhysicalDeviceMeshShaderFeaturesEXT
+        vk::PhysicalDeviceMeshShaderFeaturesEXT\
+        vk::PhysicalDeviceRayQueryFeaturesKHR
 
 #define REQUIRED_FEATURES                                                      \
     vk::PhysicalDeviceFeatures2, features.geometryShader,                      \
@@ -70,7 +71,8 @@ using namespace wheels;
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         accelerationStructure,                                                 \
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,   \
-        vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader
+        vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader\
+        vk::PhysicalDeviceRayQueryFeaturesKHR, rayQuery
 
 namespace
 {
@@ -92,6 +94,7 @@ constexpr StaticArray deviceExtensions{{
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_RAY_QUERY_EXTENSION_NAME,
     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
     VK_EXT_MESH_SHADER_EXTENSION_NAME,
 }};
