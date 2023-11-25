@@ -10,6 +10,7 @@ struct VisibleSurface
     vec3 invViewRayWS;
     vec2 uv;
     float NoV;
+    float linearDepth;
     Material material;
 };
 

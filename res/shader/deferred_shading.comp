@@ -41,7 +41,6 @@ void main()
 
     float nonLinearDepth =
         texelFetch(sampler2D(inNonLinearDepth, depthSampler), coord, 0).x;
-    float viewDepth = linearizeDepth(nonLinearDepth);
 
     VisibleSurface surface;
     surface.positionWS = worldPos(uv, nonLinearDepth);
@@ -50,12 +49,14 @@ void main()
     surface.normalWS = surface.material.normal;
     surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
+    surface.linearDepth = linearizeDepth(nonLinearDepth);
 
     vec3 color = vec3(0);
 
     color += evalDirectionalLight(surface);
 
-    LightClusterInfo lightInfo = unpackClusterPointer(uvec2(coord), viewDepth);
+    LightClusterInfo lightInfo =
+        unpackClusterPointer(uvec2(coord), surface.linearDepth);
 
     color += evalPointLights(surface, lightInfo);
 

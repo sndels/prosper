@@ -154,6 +154,7 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
         surface.normalWS = v.Normal;
 
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
+    surface.linearDepth = length(surface.positionWS - ray.o);
 
     return surface;
 }

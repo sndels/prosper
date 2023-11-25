@@ -78,7 +78,6 @@ void main()
 
     float nonLinearDepth =
         texelFetch(sampler2D(inNonLinearDepth, depthSampler), px, 0).x;
-    float viewDepth = linearizeDepth(nonLinearDepth);
 
     VisibleSurface surface;
     surface.positionWS = worldPos(uv, nonLinearDepth);
@@ -87,6 +86,7 @@ void main()
     surface.normalWS = surface.material.normal;
     surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
+    surface.linearDepth = linearizeDepth(nonLinearDepth);
 
     LightReservoir reservoir = initialLightCandidate(surface);
 
