@@ -1833,7 +1833,8 @@ void WorldData::createDescriptorSets(
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
                 .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR,
+                .stageFlags = vk::ShaderStageFlagBits::eCompute |
+                              vk::ShaderStageFlagBits::eRaygenKHR,
             },
             vk::DescriptorSetLayoutBinding{
                 .binding = 1,
