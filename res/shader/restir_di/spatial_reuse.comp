@@ -69,19 +69,24 @@ LightReservoir resampleReservoirSpatially(
                 continue;
             }
 
-            // TODO: Discard based on normal
-            // TODO: Discard based on metallic?
+            // TODO:
+            // Should use the geometry normal here instead of surface normal.
+            // Store in GBuffer in low bitdepth since we won't need high quality
+            // for a discard heuristic?
+            vec4 normalMetallic = imageLoad(inNormalMetallic, p);
+            vec3 pNormal = normalize(normalMetallic.xyz);
+            // Allow a difference 25 degrees like in the original ReSTIR paper
+            if (dot(pNormal, surface.normalWS) < 0.9)
+            {
+                samples[i].lightIndex = -1;
+                continue;
+            }
 
             sample_p = p;
             break;
         }
         if (sample_p.x < 0)
             continue;
-
-        // TODO:
-        // Also discard if depth differs? There's a dark halo around near field
-        // geometry
-        // Also discard if material is very different? E.g. metallic isn't close
 
         samples[i] = unpackReservoir(imageLoad(inReservoirs, sample_p).xy);
         validSampleCount++;
@@ -97,25 +102,33 @@ LightReservoir resampleReservoirSpatially(
             continue;
 
         // TODO:
-        // Point lights, spot lights lose some intensity when converging.
-        // Especially noticeable on spotlight fade area that shrinks a bit.
-        // Also, fireflies
+        // Spot lights' fade region shrinks in when converging. That sounds
+        // unavoidable in this biased reuse as the area we're sampling from will
+        // span the entire fade area and that drasit a uniform fade sounds like
+        // a special case in shading. But maybe I'm wrong and the bias can be
+        // avoided or at least alleviated.
 
-        // Using valid sample count instead of the full count seems like the
-        // 'correct' way to handle samples that were discarded because they fell
-        // outside the image. This doesn't fix the bias from samples discarded
-        // based on surface differences.
-        float misWeight = 1. / validSampleCount;
-        float resamplingWeight = misWeight * pHatLight(surface, Xi.lightIndex) *
-                                 Xi.unbiasedContributionWeight;
+        float resamplingWeight =
+            pHatLight(surface, Xi.lightIndex) * Xi.unbiasedContributionWeight;
 
         sumResamplingWeights += resamplingWeight;
         if (rnd01() < resamplingWeight / sumResamplingWeights)
             reservoir.lightIndex = Xi.lightIndex;
     }
     if (reservoir.lightIndex >= 0)
+    {
+        // Using valid sample count instead of the full count seems like the
+        // 'correct' way to handle samples that were discarded. This appears to
+        // not cause darkening from samples that fell out of bounds, but it
+        // doesn't fix the bias from samples discarded based on surface
+        // differences.
+        // A similar idea is used in the biased version of the algorithm in the
+        // original ReSTIR paper.
+        float misWeight = 1. / validSampleCount;
         reservoir.unbiasedContributionWeight =
-            sumResamplingWeights / pHatLight(surface, reservoir.lightIndex);
+            misWeight * sumResamplingWeights /
+            pHatLight(surface, reservoir.lightIndex);
+    }
 
     return reservoir;
 }
