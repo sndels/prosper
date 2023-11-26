@@ -42,3 +42,5 @@
 - All passes' shaders
   - Cull unused includes
   - Then, cull unused binding sets
+- Better shadow/reflection offset
+  - One of the Ray Tracing Gems had a solution
