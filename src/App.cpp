@@ -1160,7 +1160,7 @@ void App::render(
         // Opaque
         if (_renderDeferred)
         {
-            const GBufferRenderer::Output gbuffer = _gbufferRenderer->record(
+            const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
                 cb, *_world, *_cam, renderArea, indices.nextFrame,
                 _profiler.get());
 

@@ -60,7 +60,7 @@ void RtDirectIllumination::drawUi()
 
 RtDirectIllumination::Output RtDirectIllumination::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRenderer::Output &gbuffer, bool resetAccumulation,
+    const GBufferRendererOutput &gbuffer, bool resetAccumulation,
     uint32_t nextFrame, Profiler *profiler)
 {
     Output ret;

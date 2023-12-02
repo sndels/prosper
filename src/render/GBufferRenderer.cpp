@@ -84,13 +84,13 @@ void GBufferRenderer::recompileShaders(
     }
 }
 
-GBufferRenderer::Output GBufferRenderer::record(
+GBufferRendererOutput GBufferRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
-    Output ret;
+    GBufferRendererOutput ret;
     {
         ret = createOutputs(renderArea.extent);
 
@@ -255,10 +255,10 @@ void GBufferRenderer::destroyGraphicsPipeline()
     _device->logical().destroy(_pipelineLayout);
 }
 
-GBufferRenderer::Output GBufferRenderer::createOutputs(
+GBufferRendererOutput GBufferRenderer::createOutputs(
     const vk::Extent2D &size) const
 {
-    return Output{
+    return GBufferRendererOutput{
         .albedoRoughness = _resources->images.create(
             ImageDescription{
                 .format = sAlbedoRoughnessFormat,
@@ -286,7 +286,7 @@ GBufferRenderer::Output GBufferRenderer::createOutputs(
 }
 
 GBufferRenderer::Attachments GBufferRenderer::createAttachments(
-    const Output &output) const
+    const GBufferRendererOutput &output) const
 {
     return Attachments{
         .color =
@@ -318,7 +318,7 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
 }
 
 void GBufferRenderer::recordBarriers(
-    vk::CommandBuffer cb, const Output &output) const
+    vk::CommandBuffer cb, const GBufferRendererOutput &output) const
 {
     transition<3>(
         *_resources, cb,

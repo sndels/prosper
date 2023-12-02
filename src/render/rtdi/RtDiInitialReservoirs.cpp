@@ -26,7 +26,7 @@ struct PCBlock
 };
 
 vk::Extent2D getRenderExtent(
-    const RenderResources &resources, const GBufferRenderer::Output &gbuffer)
+    const RenderResources &resources, const GBufferRendererOutput &gbuffer)
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(gbuffer.albedoRoughness).extent;
@@ -102,7 +102,7 @@ bool RtDiInitialReservoirs::recompileShaders(
 
 RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRenderer::Output &gbuffer, const uint32_t nextFrame,
+    const GBufferRendererOutput &gbuffer, const uint32_t nextFrame,
     Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);

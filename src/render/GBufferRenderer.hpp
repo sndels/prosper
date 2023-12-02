@@ -12,6 +12,13 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+struct GBufferRendererOutput
+{
+    ImageHandle albedoRoughness;
+    ImageHandle normalMetalness;
+    ImageHandle depth;
+};
+
 class GBufferRenderer
 {
   public:
@@ -34,13 +41,7 @@ class GBufferRenderer
 
     void drawUi();
 
-    struct Output
-    {
-        ImageHandle albedoRoughness;
-        ImageHandle normalMetalness;
-        ImageHandle depth;
-    };
-    [[nodiscard]] Output record(
+    [[nodiscard]] GBufferRendererOutput record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
 
@@ -50,16 +51,19 @@ class GBufferRenderer
 
     void destroyGraphicsPipeline();
 
-    [[nodiscard]] Output createOutputs(const vk::Extent2D &size) const;
+    [[nodiscard]] GBufferRendererOutput createOutputs(
+        const vk::Extent2D &size) const;
 
     struct Attachments
     {
         wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
         vk::RenderingAttachmentInfo depth;
     };
-    [[nodiscard]] Attachments createAttachments(const Output &output) const;
+    [[nodiscard]] Attachments createAttachments(
+        const GBufferRendererOutput &output) const;
 
-    void recordBarriers(vk::CommandBuffer cb, const Output &output) const;
+    void recordBarriers(
+        vk::CommandBuffer cb, const GBufferRendererOutput &output) const;
 
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,

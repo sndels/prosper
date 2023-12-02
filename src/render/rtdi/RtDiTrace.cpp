@@ -78,7 +78,7 @@ constexpr std::array<
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
 vk::Extent2D getRenderExtent(
-    const RenderResources &resources, const GBufferRenderer::Output &gbuffer)
+    const RenderResources &resources, const GBufferRendererOutput &gbuffer)
 {
     const vk::Extent3D targetExtent =
         resources.images.resource(gbuffer.albedoRoughness).extent;

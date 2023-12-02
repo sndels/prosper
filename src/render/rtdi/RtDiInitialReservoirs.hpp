@@ -46,7 +46,7 @@ class RtDiInitialReservoirs
     };
     [[nodiscard]] Output record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const GBufferRenderer::Output &gbuffer, uint32_t nextFrame,
+        const GBufferRendererOutput &gbuffer, uint32_t nextFrame,
         Profiler *profiler);
 
     RenderResources *_resources{nullptr};

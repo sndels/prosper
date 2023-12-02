@@ -41,7 +41,7 @@ class RtDiSpatialReuse
 
     struct Input
     {
-        const GBufferRenderer::Output &gbuffer;
+        const GBufferRendererOutput &gbuffer;
         ImageHandle reservoirs;
     };
     struct Output
