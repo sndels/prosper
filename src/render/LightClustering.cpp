@@ -94,12 +94,12 @@ void LightClustering::recompileShaders(
         externalDsLayouts(camDSLayout, worldDSLayouts));
 }
 
-LightClustering::Output LightClustering::record(
+LightClusteringOutput LightClustering::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const vk::Extent2D &renderExtent, const uint32_t nextFrame,
     Profiler *profiler)
 {
-    Output ret;
+    LightClusteringOutput ret;
     {
         ret = createOutputs(renderExtent);
 
@@ -169,14 +169,14 @@ LightClustering::Output LightClustering::record(
     return ret;
 }
 
-LightClustering::Output LightClustering::createOutputs(
+LightClusteringOutput LightClustering::createOutputs(
     const vk::Extent2D &renderExtent)
 {
     const auto pointersWidth = ((renderExtent.width - 1u) / clusterDim) + 1u;
     const auto pointersHeight = ((renderExtent.height - 1u) / clusterDim) + 1u;
     const auto pointersDepth = zSlices + 1;
 
-    Output ret;
+    LightClusteringOutput ret;
 
     ret.pointers = _resources->images.create(
         ImageDescription{

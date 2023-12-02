@@ -125,7 +125,7 @@ void ForwardRenderer::drawUi()
 
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const LightClustering::Output &lightClusters,
+    const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
     uint32_t nextFrame, bool applyIbl, Profiler *profiler)
 {
     OpaqueOutput ret;
@@ -146,9 +146,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 
 void ForwardRenderer::recordTransparent(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const RecordInOut &inOutTargets,
-    const LightClustering::Output &lightClusters, uint32_t nextFrame,
-    Profiler *profiler)
+    const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
+    uint32_t nextFrame, Profiler *profiler)
 {
     record(
         cb, world, cam, nextFrame, inOutTargets, lightClusters,
@@ -313,7 +312,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 void ForwardRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClustering::Output &lightClusters, const Options &options,
+    const LightClusteringOutput &lightClusters, const Options &options,
     Profiler *profiler, const char *debugName)
 {
     const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
@@ -406,7 +405,7 @@ void ForwardRenderer::record(
 
 void ForwardRenderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets,
-    const LightClustering::Output &lightClusters) const
+    const LightClusteringOutput &lightClusters) const
 {
     transition<3, 2>(
         *_resources, cb,

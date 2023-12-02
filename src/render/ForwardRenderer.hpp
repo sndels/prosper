@@ -53,7 +53,7 @@ class ForwardRenderer
     [[nodiscard]] OpaqueOutput recordOpaque(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea,
-        const LightClustering::Output &lightClusters, uint32_t nextFrame,
+        const LightClusteringOutput &lightClusters, uint32_t nextFrame,
         bool applyIbl, Profiler *profiler);
 
     struct RecordInOut
@@ -64,7 +64,7 @@ class ForwardRenderer
     void recordTransparent(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const RecordInOut &inOutTargets,
-        const LightClustering::Output &lightClusters, uint32_t nextFrame,
+        const LightClusteringOutput &lightClusters, uint32_t nextFrame,
         Profiler *profiler);
 
   private:
@@ -82,11 +82,11 @@ class ForwardRenderer
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         uint32_t nextFrame, const RecordInOut &inOutTargets,
-        const LightClustering::Output &lightClusters, const Options &options,
+        const LightClusteringOutput &lightClusters, const Options &options,
         Profiler *profiler, const char *debugName);
     void recordBarriers(
         vk::CommandBuffer cb, const RecordInOut &inOutTargets,
-        const LightClustering::Output &lightClusters) const;
+        const LightClusteringOutput &lightClusters) const;
 
     struct Attachments
     {

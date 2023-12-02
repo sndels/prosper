@@ -1131,7 +1131,7 @@ void App::render(
         _world->buildCurrentTlas(cb);
     }
 
-    const LightClustering::Output lightClusters = _lightClustering->record(
+    const LightClusteringOutput lightClusters = _lightClustering->record(
         cb, *_world, *_cam, _viewportExtent, indices.nextFrame,
         _profiler.get());
 

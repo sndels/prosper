@@ -54,7 +54,7 @@ class DeferredShading
     struct Input
     {
         const GBufferRendererOutput &gbuffer;
-        const LightClustering::Output &lightClusters;
+        const LightClusteringOutput &lightClusters;
     };
     struct Output
     {

@@ -10,6 +10,14 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 
+struct LightClusteringOutput
+{
+    ImageHandle pointers;
+    TexelBufferHandle indicesCount;
+    TexelBufferHandle indices;
+    vk::DescriptorSet descriptorSet;
+};
+
 class LightClustering
 {
   public:
@@ -42,20 +50,14 @@ class LightClustering
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
-    struct Output
-    {
-        ImageHandle pointers;
-        TexelBufferHandle indicesCount;
-        TexelBufferHandle indices;
-        vk::DescriptorSet descriptorSet;
-    } lightClusters;
-    [[nodiscard]] Output record(
+    [[nodiscard]] LightClusteringOutput record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         const vk::Extent2D &renderExtent, uint32_t nextFrame,
         Profiler *profiler);
 
   private:
-    [[nodiscard]] Output createOutputs(const vk::Extent2D &renderExtent);
+    [[nodiscard]] LightClusteringOutput createOutputs(
+        const vk::Extent2D &renderExtent);
 
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
