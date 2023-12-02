@@ -4,14 +4,13 @@
 #include "../gfx/Device.hpp"
 #include "../render/RenderResourceCollection.hpp"
 #include "../utils/Utils.hpp"
+#include "RenderResourceHandle.hpp"
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/static_array.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-using ImageHandle = RenderResourceHandle<Image>;
 
 class RenderImageCollection
 : public RenderResourceCollection<

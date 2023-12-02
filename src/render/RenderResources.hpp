@@ -13,8 +13,6 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/static_array.hpp>
 
-using BufferHandle = RenderResourceHandle<Buffer>;
-using TexelBufferHandle = RenderResourceHandle<TexelBuffer>;
 using ImageTransition = wheels::Pair<ImageHandle, ImageState>;
 using BufferTransition = wheels::Pair<BufferHandle, BufferState>;
 using TexelBufferTransition = wheels::Pair<TexelBufferHandle, BufferState>;

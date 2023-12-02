@@ -14,6 +14,7 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResourceCollection.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderResourceHandle.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.hpp
