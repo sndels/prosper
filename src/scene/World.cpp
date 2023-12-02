@@ -765,10 +765,8 @@ void World::buildCurrentTlas(vk::CommandBuffer cb)
 
     reserveScratch(sizeInfo.buildScratchSize);
 
-    buildInfo.scratchData =
-        _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-            .buffer = _scratchBuffer.handle,
-        });
+    WHEELS_ASSERT(_scratchBuffer.deviceAddress != 0);
+    buildInfo.scratchData = _scratchBuffer.deviceAddress;
 
     const vk::BufferCopy copyRegion{
         .srcOffset = _tlasInstancesUploadOffset,
@@ -970,6 +968,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
                     .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                 },
             .initialData = b.data.data(),
+            .cacheDeviceAddress = true,
             .debugName = "GeometryBuffer",
         }));
 
@@ -1689,17 +1688,16 @@ void World::createBlases()
         auto &blas = _blases[i];
         // Basics from RT Gems II chapter 16
 
-        const auto positionsAddr =
-            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = _geometryBuffers[buffers.positions.index].handle,
-            });
+        const Buffer &positionsBuffer =
+            _geometryBuffers[buffers.positions.index];
+        WHEELS_ASSERT(positionsBuffer.deviceAddress != 0);
+        const vk::DeviceAddress positionsAddr = positionsBuffer.deviceAddress;
         const auto positionsOffset =
             buffers.positions.offset * sizeof(uint32_t);
 
-        const auto indicesAddr =
-            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = _geometryBuffers[buffers.indices.index].handle,
-            });
+        const Buffer &indicesBuffer = _geometryBuffers[buffers.indices.index];
+        WHEELS_ASSERT(indicesBuffer.deviceAddress != 0);
+        const vk::DeviceAddress indicesAddr = indicesBuffer.deviceAddress;
         const auto indicesOffset = buffers.indices.offset * sizeof(uint32_t);
 
         const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
@@ -1770,10 +1768,8 @@ void World::createBlases()
 
         reserveScratch(sizeInfo.buildScratchSize);
 
-        buildInfo.scratchData =
-            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = _scratchBuffer.handle,
-            });
+        WHEELS_ASSERT(_scratchBuffer.deviceAddress != 0);
+        buildInfo.scratchData = _scratchBuffer.deviceAddress;
 
         const auto cb = _device->beginGraphicsCommands();
 
@@ -1844,6 +1840,7 @@ void World::reserveScratch(vk::DeviceSize byteSize)
                              vk::BufferUsageFlagBits::eStorageBuffer,
                     .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                 },
+            .cacheDeviceAddress = true,
             .debugName = "ScratchBuffer",
         });
     }
@@ -1868,6 +1865,7 @@ void World::reserveTlasInstances(
                                  eAccelerationStructureBuildInputReadOnlyKHR,
                     .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
                 },
+            .cacheDeviceAddress = true,
             .debugName = "InstancesBuffer",
         });
 
@@ -1937,14 +1935,12 @@ void World::createTlasBuildInfos(
         .primitiveOffset = 0,
     };
 
+    WHEELS_ASSERT(_tlasInstancesBuffer.deviceAddress != 0);
     geometryOut = vk::AccelerationStructureGeometryKHR{
         .geometryType = vk::GeometryTypeKHR::eInstances,
         .geometry =
             vk::AccelerationStructureGeometryInstancesDataKHR{
-                .data = _device->logical().getBufferAddress(
-                    vk::BufferDeviceAddressInfo{
-                        .buffer = _tlasInstancesBuffer.handle,
-                    }),
+                .data = _tlasInstancesBuffer.deviceAddress,
             },
     };
 

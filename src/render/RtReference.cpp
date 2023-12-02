@@ -323,10 +323,8 @@ RtReference::Output RtReference::record(
             _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
             &pcBlock);
 
-        const auto sbtAddr =
-            _device->logical().getBufferAddress(vk::BufferDeviceAddressInfo{
-                .buffer = _shaderBindingTable.handle,
-            });
+        WHEELS_ASSERT(_shaderBindingTable.deviceAddress != 0);
+        const vk::DeviceAddress sbtAddr = _shaderBindingTable.deviceAddress;
 
         const vk::StridedDeviceAddressRegionKHR rayGenRegion{
             .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
@@ -717,6 +715,7 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
         .createMapped = true,
+        .cacheDeviceAddress = true,
         .debugName = "RtReferenceSBT",
     });
 
