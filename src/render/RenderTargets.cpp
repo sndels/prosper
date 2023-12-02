@@ -1,5 +1,8 @@
 #include "RenderTargets.hpp"
 
+#include "../gfx/Resources.hpp"
+#include "RenderResources.hpp"
+
 ImageHandle createDepth(
     Device &device, RenderResources &resources, const vk::Extent2D &size,
     const char *debugName)

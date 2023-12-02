@@ -1,5 +1,8 @@
 #include "ImageBasedLighting.hpp"
 
+#include "../scene/World.hpp"
+#include "../utils/Profiler.hpp"
+
 using namespace wheels;
 using namespace glm;
 

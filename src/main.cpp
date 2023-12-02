@@ -8,6 +8,7 @@
 #include <wheels/allocators/linear_allocator.hpp>
 
 #include "App.hpp"
+#include "gfx/Device.hpp"
 #include "utils/Utils.hpp"
 
 #ifdef LIVEPP_PATH

@@ -1,12 +1,12 @@
 #ifndef PROSPER_RENDER_LIGHT_CLUSTERING_HPP
 #define PROSPER_RENDER_LIGHT_CLUSTERING_HPP
 
-#include "../gfx/Device.hpp"
-#include "../scene/Camera.hpp"
-#include "../scene/World.hpp"
-#include "../utils/Profiler.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../scene/Fwd.hpp"
+#include "../utils/Fwd.hpp"
 #include "ComputePass.hpp"
-#include "RenderResources.hpp"
+#include "Fwd.hpp"
+#include "RenderResourceHandle.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 

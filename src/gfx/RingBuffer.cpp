@@ -1,5 +1,7 @@
 #include "RingBuffer.hpp"
 
+#include "Device.hpp"
+
 using namespace wheels;
 namespace
 {

@@ -7,9 +7,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
-#include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
-#include "../utils/Profiler.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 
 class ComputePass

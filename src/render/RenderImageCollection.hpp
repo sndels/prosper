@@ -1,9 +1,9 @@
 #ifndef PROSPER_RENDER_IMAGE_COLLECTION_HPP
 #define PROSPER_RENDER_IMAGE_COLLECTION_HPP
 
-#include "../gfx/Device.hpp"
-#include "../render/RenderResourceCollection.hpp"
+#include "../gfx/Fwd.hpp"
 #include "../utils/Utils.hpp"
+#include "RenderResourceCollection.hpp"
 #include "RenderResourceHandle.hpp"
 
 #include <wheels/allocators/allocator.hpp>

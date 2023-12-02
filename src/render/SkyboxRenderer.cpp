@@ -2,8 +2,13 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../scene/Camera.hpp"
+#include "../scene/World.hpp"
+#include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
+#include "RenderResources.hpp"
 #include "RenderTargets.hpp"
 
 using namespace glm;

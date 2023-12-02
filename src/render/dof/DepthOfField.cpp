@@ -1,5 +1,8 @@
 #include "DepthOfField.hpp"
 
+#include "../../utils/Profiler.hpp"
+#include "../RenderResources.hpp"
+
 using namespace wheels;
 
 DepthOfField::DepthOfField(

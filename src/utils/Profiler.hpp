@@ -1,7 +1,8 @@
 #ifndef PROSPER_UTILS_PROFILER_HPP
 #define PROSPER_UTILS_PROFILER_HPP
 
-#include "../gfx/Device.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../gfx/Resources.hpp"
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>

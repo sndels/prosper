@@ -11,7 +11,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "../utils/Utils.hpp"
-#include "Device.hpp"
+#include "Fwd.hpp"
 
 struct SwapchainSupport
 {

@@ -1,7 +1,8 @@
 #ifndef PROSPER_SCENE_TEXTURE_HPP
 #define PROSPER_SCENE_TEXTURE_HPP
 
-#include "../gfx/Device.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../gfx/Resources.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 

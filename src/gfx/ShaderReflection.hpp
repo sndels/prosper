@@ -16,8 +16,7 @@
 
 #include "../utils/Hashes.hpp"
 #include "../utils/Utils.hpp"
-
-class Device;
+#include "Fwd.hpp"
 
 struct DescriptorSetMetadata
 {

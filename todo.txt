@@ -32,3 +32,9 @@
   - Then, cull unused binding sets
 - Better shadow/reflection offset
   - One of the Ray Tracing Gems had a solution
+- Get rid of more includes in .hpps
+  - ShaderReflection
+    - unique_ptr? is the indirection expensive?
+    - or store reflections per shader handle in device and query each time they are used?
+      more expensive?
+

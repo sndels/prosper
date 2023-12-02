@@ -5,17 +5,14 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
-#include "../gfx/Device.hpp"
-#include "../gfx/Swapchain.hpp"
-#include "../scene/Camera.hpp"
+#include "../gfx/Fwd.hpp"
 #include "../scene/DebugDrawTypes.hpp"
-#include "../scene/World.hpp"
-#include "../utils/Profiler.hpp"
+#include "../scene/Fwd.hpp"
+#include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "ComputePass.hpp"
-#include "GBufferRenderer.hpp"
-#include "LightClustering.hpp"
-#include "RenderResources.hpp"
+#include "Fwd.hpp"
+#include "RenderResourceHandle.hpp"
 
 class DeferredShading
 {

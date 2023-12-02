@@ -1,7 +1,6 @@
 #ifndef PROSPER_SCENE_HPP
 #define PROSPER_SCENE_HPP
 
-#include "Camera.hpp"
 #include "Light.hpp"
 #include "Model.hpp"
 

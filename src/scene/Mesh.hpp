@@ -1,8 +1,7 @@
 #ifndef PROSPER_SCENE_MESH_HPP
 #define PROSPER_SCENE_MESH_HPP
 
-#include "../gfx/Device.hpp"
-#include "Material.hpp"
+#include "../gfx/Resources.hpp"
 
 struct MeshBuffers
 {

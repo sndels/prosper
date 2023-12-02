@@ -16,6 +16,21 @@
 #include <wheels/containers/string.hpp>
 
 #include "gfx/VkUtils.hpp"
+#include "render/DebugRenderer.hpp"
+#include "render/DeferredShading.hpp"
+#include "render/ForwardRenderer.hpp"
+#include "render/GBufferRenderer.hpp"
+#include "render/ImGuiRenderer.hpp"
+#include "render/ImageBasedLighting.hpp"
+#include "render/LightClustering.hpp"
+#include "render/RenderResources.hpp"
+#include "render/RtReference.hpp"
+#include "render/SkyboxRenderer.hpp"
+#include "render/TextureDebug.hpp"
+#include "render/ToneMap.hpp"
+#include "render/dof/DepthOfField.hpp"
+#include "render/rtdi/RtDirectIllumination.hpp"
+#include "scene/World.hpp"
 #include "utils/InputHandler.hpp"
 #include "utils/Utils.hpp"
 

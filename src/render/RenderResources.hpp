@@ -1,13 +1,12 @@
 #ifndef PROSPER_RENDER_RESOURCES_HPP
 #define PROSPER_RENDER_RESOURCES_HPP
 
-#include "../gfx/DescriptorAllocator.hpp"
-#include "../gfx/Device.hpp"
+#include "../gfx/Resources.hpp"
 #include "../gfx/RingBuffer.hpp"
-#include "../render/RenderImageCollection.hpp"
-#include "../render/RenderResourceCollection.hpp"
 #include "../scene/DebugGeometry.hpp"
 #include "../utils/Utils.hpp"
+#include "RenderImageCollection.hpp"
+#include "RenderResourceCollection.hpp"
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>

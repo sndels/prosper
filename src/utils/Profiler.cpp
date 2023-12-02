@@ -1,5 +1,6 @@
 #include "Profiler.hpp"
 
+#include "../gfx/Device.hpp"
 #include "Utils.hpp"
 
 using namespace wheels;

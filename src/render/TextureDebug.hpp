@@ -5,12 +5,12 @@
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/static_array.hpp>
 
-#include "../gfx/Device.hpp"
-#include "../gfx/Swapchain.hpp"
-#include "../utils/Profiler.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "ComputePass.hpp"
-#include "RenderResources.hpp"
+#include "Fwd.hpp"
+#include "RenderResourceHandle.hpp"
 
 #include "../utils/ForEach.hpp"
 

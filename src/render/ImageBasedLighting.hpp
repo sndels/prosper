@@ -4,10 +4,10 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
-#include "../gfx/Device.hpp"
-#include "../scene/World.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../scene/Fwd.hpp"
 #include "ComputePass.hpp"
-#include "RenderResources.hpp"
+#include "Fwd.hpp"
 
 class ImageBasedLighting
 {

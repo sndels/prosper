@@ -4,6 +4,7 @@ set(PROSPER_SCENE_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Camera.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugDrawTypes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Material.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Mesh.hpp

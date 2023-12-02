@@ -1,6 +1,7 @@
 set(PROSPER_GFX_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DescriptorAllocator.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Device.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RingBuffer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ShaderReflection.hpp

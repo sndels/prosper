@@ -2,7 +2,7 @@
 #define PROSPER_GFX_RING_BUFFER_HPP
 
 #include "../utils/Utils.hpp"
-#include "Device.hpp"
+#include "Fwd.hpp"
 #include "Resources.hpp"
 
 #include <wheels/containers/span.hpp>

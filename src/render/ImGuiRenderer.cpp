@@ -7,8 +7,11 @@
 
 #include <wheels/containers/static_array.hpp>
 
+#include "../gfx/Swapchain.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
+#include "RenderResources.hpp"
 
 using namespace wheels;
 

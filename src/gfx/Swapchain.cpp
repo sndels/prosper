@@ -4,6 +4,7 @@
 #include <wheels/containers/span.hpp>
 
 #include "../utils/Utils.hpp"
+#include "Device.hpp"
 #include "VkUtils.hpp"
 
 using namespace wheels;

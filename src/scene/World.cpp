@@ -13,7 +13,10 @@
 #include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
 
+#include "../gfx/Device.hpp"
+#include "../gfx/RingBuffer.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Profiler.hpp"
 #include "../utils/Timer.hpp"
 #include "../utils/Utils.hpp"
 

@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include <imgui.h>
 
+#include "../gfx/DescriptorAllocator.hpp"
+#include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderTargets.hpp"

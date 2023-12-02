@@ -1,6 +1,7 @@
 set(PROSPER_UTILS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Dds.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ForEach.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Hashes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/InputHandler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Profiler.hpp

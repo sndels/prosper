@@ -1,10 +1,13 @@
 #ifndef PROSPER_SCENE_WORLD_HPP
 #define PROSPER_SCENE_WORLD_HPP
 
-#include "../gfx/RingBuffer.hpp"
-#include "../utils/Profiler.hpp"
+#include "../gfx/DescriptorAllocator.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../gfx/ShaderReflection.hpp"
+#include "../utils/Fwd.hpp"
 #include "../utils/Timer.hpp"
 #include "Animations.hpp"
+#include "Camera.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "Model.hpp"
@@ -26,9 +29,6 @@ namespace tinygltf
 {
 class Model;
 };
-
-class Device;
-struct DeferredLoadingContext;
 
 struct WorldDSLayouts
 {

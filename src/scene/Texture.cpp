@@ -16,6 +16,7 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/pair.hpp>
 
+#include "../gfx/Device.hpp"
 #include "../utils/Dds.hpp"
 #include "../utils/Utils.hpp"
 

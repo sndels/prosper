@@ -2,13 +2,12 @@
 #ifndef PROSPER_RENDER_IMGUI_RENDERER_HPP
 #define PROSPER_RENDER_IMGUI_RENDERER_HPP
 
-#include "../gfx/Device.hpp"
-#include "../gfx/Swapchain.hpp"
-#include "../render/RenderResources.hpp"
-#include "../utils/Profiler.hpp"
-
+#include "../gfx/Fwd.hpp"
+#include "../utils/Fwd.hpp"
+#include "Fwd.hpp"
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <vulkan/vulkan.hpp>
 
 class ImGuiRenderer
 {

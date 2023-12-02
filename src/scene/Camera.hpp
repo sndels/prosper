@@ -1,9 +1,8 @@
 #ifndef PROSPER_SCENE_CAMERA_HPP
 #define PROSPER_SCENE_CAMERA_HPP
 
-#include "../gfx/DescriptorAllocator.hpp"
-#include "../gfx/Device.hpp"
-#include "../gfx/RingBuffer.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../gfx/ShaderReflection.hpp"
 #include "../utils/Utils.hpp"
 
 #include <glm/glm.hpp>

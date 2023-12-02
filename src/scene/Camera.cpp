@@ -7,6 +7,9 @@
 #include <glm/gtc/quaternion.hpp>
 #include <imgui.h>
 
+#include "../gfx/DescriptorAllocator.hpp"
+#include "../gfx/Device.hpp"
+#include "../gfx/RingBuffer.hpp"
 #include "../utils/Utils.hpp"
 
 using namespace glm;

@@ -4,8 +4,12 @@
 #include <imgui.h>
 
 #include "../gfx/VkUtils.hpp"
+#include "../scene/Camera.hpp"
+#include "../scene/World.hpp"
+#include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
+#include "RenderResources.hpp"
 #include "RenderTargets.hpp"
 
 using namespace glm;

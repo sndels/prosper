@@ -4,12 +4,12 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
-#include "../../gfx/Device.hpp"
-#include "../../gfx/Swapchain.hpp"
-#include "../../scene/Camera.hpp"
-#include "../../utils/Profiler.hpp"
+#include "../../gfx/Fwd.hpp"
+#include "../../scene/Fwd.hpp"
+#include "../../utils/Fwd.hpp"
 #include "../../utils/Utils.hpp"
-#include "../RenderResources.hpp"
+#include "../Fwd.hpp"
+#include "../RenderResourceHandle.hpp"
 #include "DepthOfFieldCombine.hpp"
 #include "DepthOfFieldDilate.hpp"
 #include "DepthOfFieldFlatten.hpp"

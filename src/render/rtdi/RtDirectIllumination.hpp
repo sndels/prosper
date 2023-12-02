@@ -1,12 +1,11 @@
 #ifndef PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 #define PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 
-#include "../../gfx/Device.hpp"
-#include "../../scene/Camera.hpp"
-#include "../../scene/World.hpp"
-#include "../../utils/Profiler.hpp"
-#include "../GBufferRenderer.hpp"
-#include "../RenderResources.hpp"
+#include "../../gfx/Fwd.hpp"
+#include "../../scene/Fwd.hpp"
+#include "../../utils/Fwd.hpp"
+#include "../Fwd.hpp"
+#include "../RenderResourceHandle.hpp"
 #include "RtDiInitialReservoirs.hpp"
 #include "RtDiSpatialReuse.hpp"
 #include "RtDiTrace.hpp"

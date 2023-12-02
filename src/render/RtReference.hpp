@@ -1,12 +1,15 @@
 #ifndef PROSPER_RENDER_RT_REFERENCE_HPP
 #define PROSPER_RENDER_RT_REFERENCE_HPP
 
-#include "../gfx/Device.hpp"
-#include "../scene/Camera.hpp"
+#include "../gfx/Fwd.hpp"
+#include "../gfx/Resources.hpp"
+#include "../gfx/ShaderReflection.hpp"
 #include "../scene/DebugDrawTypes.hpp"
-#include "../scene/World.hpp"
-#include "../utils/Profiler.hpp"
-#include "RenderResources.hpp"
+#include "../scene/Fwd.hpp"
+#include "../utils/Fwd.hpp"
+#include "../utils/Utils.hpp"
+#include "Fwd.hpp"
+#include "RenderResourceHandle.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

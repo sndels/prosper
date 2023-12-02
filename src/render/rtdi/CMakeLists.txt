@@ -1,4 +1,5 @@
 set(PROSPER_RTDI_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtDiInitialReservoirs.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtDirectIllumination.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtDiSpatialReuse.hpp

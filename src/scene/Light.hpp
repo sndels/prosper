@@ -1,8 +1,7 @@
 #ifndef PROSPER_SCENE_LIGHT_HPP
 #define PROSPER_SCENE_LIGHT_HPP
 
-#include "../gfx/Device.hpp"
-#include "../gfx/RingBuffer.hpp"
+#include "../gfx/Fwd.hpp"
 #include "../utils/Utils.hpp"
 
 #include <glm/glm.hpp>

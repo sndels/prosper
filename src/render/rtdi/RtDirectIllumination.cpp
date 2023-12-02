@@ -1,5 +1,8 @@
 #include "RtDirectIllumination.hpp"
 
+#include "../../utils/Profiler.hpp"
+#include "../RenderResources.hpp"
+
 #include <imgui.h>
 
 using namespace wheels;

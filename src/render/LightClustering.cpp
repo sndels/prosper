@@ -5,6 +5,10 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "../gfx/VkUtils.hpp"
+#include "../scene/Camera.hpp"
+#include "../scene/World.hpp"
+#include "../utils/Profiler.hpp"
+#include "RenderResources.hpp"
 
 using namespace glm;
 using namespace wheels;

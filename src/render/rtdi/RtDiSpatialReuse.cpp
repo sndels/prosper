@@ -2,7 +2,12 @@
 
 #include <glm/glm.hpp>
 
+#include "../../scene/Camera.hpp"
+#include "../../scene/World.hpp"
+#include "../../utils/Profiler.hpp"
 #include "../../utils/Utils.hpp"
+#include "../GBufferRenderer.hpp"
+#include "../RenderResources.hpp"
 
 using namespace glm;
 using namespace wheels;

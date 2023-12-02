@@ -1,7 +1,9 @@
 #ifndef PROSPER_RENDER_TARGETS_HPP
 #define PROSPER_RENDER_TARGETS_HPP
 
-#include "RenderResources.hpp"
+#include "Fwd.hpp"
+#include "RenderResourceHandle.hpp"
+#include <vulkan/vulkan.hpp>
 
 const vk::Format sDepthFormat = vk::Format::eD32Sfloat;
 const vk::Format sIlluminationFormat = vk::Format::eR16G16B16A16Sfloat;

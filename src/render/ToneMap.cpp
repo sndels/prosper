@@ -6,7 +6,9 @@
 #include <fstream>
 
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
+#include "RenderResources.hpp"
 
 using namespace glm;
 using namespace wheels;
