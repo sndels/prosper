@@ -704,6 +704,12 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         buffer.mapped = allocInfo.pMappedData;
     }
 
+    if (info.cacheDeviceAddress)
+        buffer.deviceAddress =
+            _logical.getBufferAddress(vk::BufferDeviceAddressInfo{
+                .buffer = buffer.handle,
+            });
+
     _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eBuffer,
         .objectHandle =

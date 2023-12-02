@@ -137,6 +137,7 @@ struct BufferCreateInfo
     // select vma allocation mode accordingly
     const void *initialData{nullptr};
     bool createMapped{false};
+    bool cacheDeviceAddress{false};
 
     const char *debugName{nullptr};
 };
@@ -146,6 +147,7 @@ struct Buffer
     vk::Buffer handle;
     vk::DeviceSize byteSize{0};
     void *mapped{nullptr};
+    vk::DeviceAddress deviceAddress{0};
     BufferState state{BufferState::Unknown};
     VmaAllocation allocation{nullptr};
 
