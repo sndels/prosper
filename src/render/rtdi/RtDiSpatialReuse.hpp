@@ -19,7 +19,7 @@ class RtDiSpatialReuse
     struct InputDSLayouts
     {
         vk::DescriptorSetLayout camera;
-        const World::DSLayouts &world;
+        const WorldDSLayouts &world;
     };
     RtDiSpatialReuse(
         wheels::ScopedScratch scopeAlloc, Device *device,

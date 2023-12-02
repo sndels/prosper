@@ -95,7 +95,7 @@ vk::Extent2D getRenderExtent(
 RtDiTrace::RtDiTrace(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -129,7 +129,7 @@ RtDiTrace::~RtDiTrace()
 void RtDiTrace::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(_raygenReflection.has_value());
     WHEELS_ASSERT(_rayMissReflection.has_value());
@@ -400,7 +400,7 @@ void RtDiTrace::destroyPipeline()
 }
 
 bool RtDiTrace::compileShaders(
-    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
     printf("Compiling RtDiTrace shaders\n");
 
@@ -623,7 +623,7 @@ void RtDiTrace::updateDescriptorSet(
 }
 
 void RtDiTrace::createPipeline(
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
 
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{

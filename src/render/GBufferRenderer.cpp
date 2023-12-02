@@ -39,7 +39,7 @@ struct PCBlock
 GBufferRenderer::GBufferRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -69,7 +69,7 @@ void GBufferRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(_vertReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
@@ -173,7 +173,7 @@ GBufferRenderer::Output GBufferRenderer::record(
 }
 
 bool GBufferRenderer::compileShaders(
-    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
     printf("Compiling GBufferRenderer shaders\n");
 
@@ -331,7 +331,7 @@ void GBufferRenderer::recordBarriers(
 
 void GBufferRenderer::createGraphicsPipelines(
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 {
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};

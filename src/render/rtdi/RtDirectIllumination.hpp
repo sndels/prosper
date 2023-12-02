@@ -27,7 +27,7 @@ class RtDirectIllumination
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
     ~RtDirectIllumination() = default;
 
     RtDirectIllumination(const RtDirectIllumination &other) = delete;
@@ -39,7 +39,7 @@ class RtDirectIllumination
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     void drawUi();
 

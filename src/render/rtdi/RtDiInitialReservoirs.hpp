@@ -19,7 +19,7 @@ class RtDiInitialReservoirs
     struct InputDSLayouts
     {
         vk::DescriptorSetLayout camera;
-        const World::DSLayouts &world;
+        const WorldDSLayouts &world;
     };
     RtDiInitialReservoirs(
         wheels::ScopedScratch scopeAlloc, Device *device,

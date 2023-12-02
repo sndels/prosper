@@ -26,7 +26,7 @@ class RtReference
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
     ~RtReference();
 
     RtReference(const RtReference &other) = delete;
@@ -38,7 +38,7 @@ class RtReference
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     void drawUi();
 
@@ -63,8 +63,7 @@ class RtReference
     void destroyPipeline();
 
     [[nodiscard]] bool compileShaders(
-        wheels::ScopedScratch scopeAlloc,
-        const World::DSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc,
@@ -72,7 +71,7 @@ class RtReference
     void updateDescriptorSet(uint32_t nextFrame, ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
     void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
     Device *_device{nullptr};

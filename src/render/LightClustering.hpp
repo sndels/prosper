@@ -25,7 +25,7 @@ class LightClustering
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     ~LightClustering() = default;
 
@@ -40,7 +40,7 @@ class LightClustering
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     struct Output
     {

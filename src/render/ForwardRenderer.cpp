@@ -156,7 +156,7 @@ void ForwardRenderer::recordTransparent(
 }
 
 bool ForwardRenderer::compileShaders(
-    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
     printf("Compiling ForwardRenderer shaders\n");
 

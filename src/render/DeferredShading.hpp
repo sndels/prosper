@@ -30,7 +30,7 @@ class DeferredShading
     {
         vk::DescriptorSetLayout camera;
         vk::DescriptorSetLayout lightClusters;
-        const World::DSLayouts &world;
+        const WorldDSLayouts &world;
     };
     DeferredShading(
         wheels::ScopedScratch scopeAlloc, Device *device,

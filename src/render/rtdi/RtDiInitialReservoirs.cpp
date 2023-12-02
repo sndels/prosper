@@ -39,7 +39,7 @@ vk::Extent2D getRenderExtent(
 }
 
 ComputePass::Shader shaderDefinitionCallback(
-    Allocator &alloc, const World::DSLayouts &worldDSLayouts)
+    Allocator &alloc, const WorldDSLayouts &worldDSLayouts)
 {
     const size_t len = 768;
     String defines{alloc, len};

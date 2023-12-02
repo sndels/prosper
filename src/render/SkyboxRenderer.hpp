@@ -16,7 +16,7 @@ class SkyboxRenderer
   public:
     SkyboxRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const World::DSLayouts &worldDSLayouts);
+        RenderResources *resources, const WorldDSLayouts &worldDSLayouts);
     ~SkyboxRenderer();
 
     SkyboxRenderer(const SkyboxRenderer &other) = delete;
@@ -27,7 +27,7 @@ class SkyboxRenderer
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     struct RecordInOut
     {
@@ -54,7 +54,7 @@ class SkyboxRenderer
 
     void destroyGraphicsPipelines();
 
-    void createGraphicsPipelines(const World::DSLayouts &worldDSLayouts);
+    void createGraphicsPipelines(const WorldDSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

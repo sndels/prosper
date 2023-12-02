@@ -49,7 +49,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
     const vk::DescriptorSetLayout &camDSLayout,
-    const World::DSLayouts &worldDSLayout)
+    const WorldDSLayouts &worldDSLayout)
 {
     StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> setLayouts{
         VK_NULL_HANDLE};
@@ -64,7 +64,7 @@ LightClustering::LightClustering(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 : _resources{resources}
 , _computePass{
       WHEELS_MOV(scopeAlloc),
@@ -87,7 +87,7 @@ void LightClustering::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 {
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,

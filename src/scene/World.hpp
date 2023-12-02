@@ -30,6 +30,18 @@ class Model;
 class Device;
 struct DeferredLoadingContext;
 
+struct WorldDSLayouts
+{
+    uint32_t materialSamplerCount{0};
+    vk::DescriptorSetLayout materialDatas;
+    vk::DescriptorSetLayout materialTextures;
+    vk::DescriptorSetLayout geometry;
+    vk::DescriptorSetLayout modelInstances;
+    vk::DescriptorSetLayout rayTracing;
+    vk::DescriptorSetLayout lights;
+    vk::DescriptorSetLayout skybox;
+};
+
 class World
 {
   public:
@@ -37,17 +49,6 @@ class World
     static const uint32_t sSpecularBrdfLutResolution = 512;
     static const uint32_t sSkyboxRadianceResolution = 512;
 
-    struct DSLayouts
-    {
-        uint32_t materialSamplerCount{0};
-        vk::DescriptorSetLayout materialDatas;
-        vk::DescriptorSetLayout materialTextures;
-        vk::DescriptorSetLayout geometry;
-        vk::DescriptorSetLayout modelInstances;
-        vk::DescriptorSetLayout rayTracing;
-        vk::DescriptorSetLayout lights;
-        vk::DescriptorSetLayout skybox;
-    };
     World(
         wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
         Device *device, const std::filesystem::path &scene,
@@ -114,7 +115,7 @@ class World
     size_t _currentScene{0};
     uint32_t _currentCamera{0};
 
-    DSLayouts _dsLayouts;
+    WorldDSLayouts _dsLayouts;
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{

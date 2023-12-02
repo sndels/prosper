@@ -43,7 +43,7 @@ struct PCBlock
 
 SkyboxRenderer::SkyboxRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -72,7 +72,7 @@ SkyboxRenderer::~SkyboxRenderer()
 void SkyboxRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(_vertReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
@@ -234,7 +234,7 @@ void SkyboxRenderer::destroyGraphicsPipelines()
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
-    const World::DSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts)
 {
     const vk::VertexInputBindingDescription vertexBindingDescription{
         .binding = 0,

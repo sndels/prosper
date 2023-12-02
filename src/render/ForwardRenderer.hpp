@@ -26,7 +26,7 @@ class ForwardRenderer
     {
         vk::DescriptorSetLayout camera;
         vk::DescriptorSetLayout lightClusters;
-        const World::DSLayouts &world;
+        const WorldDSLayouts &world;
     };
     ForwardRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
@@ -69,8 +69,7 @@ class ForwardRenderer
 
   private:
     [[nodiscard]] bool compileShaders(
-        wheels::ScopedScratch scopeAlloc,
-        const World::DSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
     void destroyGraphicsPipelines();
     void createGraphicsPipelines(const InputDSLayouts &dsLayouts);

@@ -98,7 +98,7 @@ bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
 RtReference::RtReference(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
 {
@@ -132,7 +132,7 @@ RtReference::~RtReference()
 void RtReference::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(_raygenReflection.has_value());
     WHEELS_ASSERT(_rayMissReflection.has_value());
@@ -426,7 +426,7 @@ void RtReference::destroyPipeline()
 }
 
 bool RtReference::compileShaders(
-    ScopedScratch scopeAlloc, const World::DSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
     printf("Compiling RtReference shaders\n");
 
@@ -629,7 +629,7 @@ void RtReference::updateDescriptorSet(
 }
 
 void RtReference::createPipeline(
-    vk::DescriptorSetLayout camDSLayout, const World::DSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
 
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{

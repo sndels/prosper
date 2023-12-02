@@ -18,7 +18,7 @@ class GBufferRenderer
     GBufferRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
     ~GBufferRenderer();
 
     GBufferRenderer(const GBufferRenderer &other) = delete;
@@ -30,7 +30,7 @@ class GBufferRenderer
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     void drawUi();
 
@@ -46,8 +46,7 @@ class GBufferRenderer
 
   private:
     [[nodiscard]] bool compileShaders(
-        wheels::ScopedScratch scopeAlloc,
-        const World::DSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
     void destroyGraphicsPipeline();
 
@@ -64,7 +63,7 @@ class GBufferRenderer
 
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
-        const World::DSLayouts &worldDSLayouts);
+        const WorldDSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
