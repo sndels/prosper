@@ -1,6 +1,5 @@
 #include "DepthOfFieldGather.hpp"
 
-#include <glm/glm.hpp>
 #include <imgui.h>
 
 #include "../../gfx/VkUtils.hpp"

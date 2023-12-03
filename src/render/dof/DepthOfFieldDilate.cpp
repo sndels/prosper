@@ -1,6 +1,6 @@
 #include "DepthOfFieldDilate.hpp"
 
-#include <glm/glm.hpp>
+#include <glm/detail/type_vec2.hpp>
 #include <imgui.h>
 
 #include "../../gfx/VkUtils.hpp"

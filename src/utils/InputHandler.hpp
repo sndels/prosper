@@ -1,7 +1,8 @@
 #ifndef PROSPER_UTILS_INPUT_HANDLER_HPP
 #define PROSPER_UTILS_INPUT_HANDLER_HPP
 
-#include <glm/glm.hpp>
+#include <glm/detail/type_vec2.hpp>
+#include <glm/fwd.hpp>
 
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>

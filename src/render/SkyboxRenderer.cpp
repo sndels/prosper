@@ -1,7 +1,5 @@
 #include "SkyboxRenderer.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"

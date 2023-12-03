@@ -1,6 +1,5 @@
 #include "LightClustering.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
 

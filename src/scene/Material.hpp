@@ -1,7 +1,8 @@
 #ifndef PROSPER_SCENE_MATERIAL_HPP
 #define PROSPER_SCENE_MATERIAL_HPP
 
-#include <glm/glm.hpp>
+#include <glm/detail/type_vec4.hpp>
+#include <glm/fwd.hpp>
 
 class Texture;
 

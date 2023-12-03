@@ -4,8 +4,9 @@
 #include "Light.hpp"
 #include "Model.hpp"
 
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <glm/detail/type_quat.hpp>
+#include <glm/detail/type_vec3.hpp>
+#include <glm/fwd.hpp>
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>

@@ -1,6 +1,5 @@
 #include "TextureDebug.hpp"
 
-#include <glm/glm.hpp>
 #include <imgui.h>
 
 #include <algorithm>

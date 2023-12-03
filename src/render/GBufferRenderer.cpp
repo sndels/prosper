@@ -1,6 +1,5 @@
 #include "GBufferRenderer.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 
 #include "../gfx/VkUtils.hpp"

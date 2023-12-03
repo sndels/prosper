@@ -1,7 +1,8 @@
 #include "Accessors.hpp"
 
 #include "../utils/Utils.hpp"
-#include <glm/gtc/quaternion.hpp>
+#include <glm/detail/type_quat.hpp>
+#include <glm/fwd.hpp>
 
 using namespace glm;
 

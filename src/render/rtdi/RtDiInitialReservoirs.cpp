@@ -1,7 +1,5 @@
 #include "RtDiInitialReservoirs.hpp"
 
-#include <glm/glm.hpp>
-
 #include "../../scene/Camera.hpp"
 #include "../../scene/World.hpp"
 #include "../../utils/Profiler.hpp"

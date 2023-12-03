@@ -1,7 +1,8 @@
 #ifndef PROSPER_SCENE_MODEL_HPP
 #define PROSPER_SCENE_MODEL_HPP
 
-#include <glm/glm.hpp>
+#include <glm/detail/type_mat3x4.hpp>
+#include <glm/fwd.hpp>
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>

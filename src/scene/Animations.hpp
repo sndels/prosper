@@ -5,8 +5,10 @@
 #include "Accessors.hpp"
 
 #include <cmath>
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <glm/detail/type_quat.hpp>
+#include <glm/detail/type_vec3.hpp>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/fwd.hpp>
 #include <wheels/containers/array.hpp>
 
 enum class InterpolationType

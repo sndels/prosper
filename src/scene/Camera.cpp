@@ -2,9 +2,6 @@
 
 #include <iostream>
 
-#include <glm/gtc/matrix_access.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <imgui.h>
 
 #include "../gfx/DescriptorAllocator.hpp"

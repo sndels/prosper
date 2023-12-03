@@ -1,7 +1,6 @@
 #include "InputHandler.hpp"
 
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 
 using namespace glm;
 using namespace wheels;

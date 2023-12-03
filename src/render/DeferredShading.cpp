@@ -1,6 +1,5 @@
 #include "DeferredShading.hpp"
 
-#include <glm/glm.hpp>
 #include <imgui.h>
 
 #include <fstream>

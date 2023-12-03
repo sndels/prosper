@@ -2,7 +2,6 @@
 #define PROSPER_SCENE_ACCESSORS_HPP
 
 #include <cstdint>
-#include <glm/glm.hpp>
 
 struct KeyFrameInterpolation
 {
