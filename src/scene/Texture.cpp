@@ -3,7 +3,6 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
-#include <variant>
 
 // GLI uses rgba accesses
 #undef GLM_FORCE_XYZW_ONLY
@@ -12,7 +11,6 @@
 
 #include <ispc_texcomp.h>
 #include <stb_image.h>
-#include <tiny_gltf.h>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/pair.hpp>
 
