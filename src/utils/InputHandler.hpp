@@ -7,7 +7,12 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
-struct GLFWwindow;
+extern "C"
+{
+    // Let's assume GLFW is stable enough that a fwd decl is not a problem
+    // The header is pretty thick
+    struct GLFWwindow;
+}
 
 enum class KeyState
 {

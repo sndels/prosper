@@ -9,6 +9,8 @@
 #include <intrin.h>
 #endif // _WIN32
 
+#include <GLFW/glfw3.h>
+
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>

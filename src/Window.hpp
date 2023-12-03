@@ -3,9 +3,14 @@
 
 #include "utils/InputHandler.hpp"
 
-#include <GLFW/glfw3.h>
-
 #include <wheels/containers/pair.hpp>
+
+extern "C"
+{
+    // Let's assume GLFW is stable enough that a fwd decl is not a problem
+    // The header is pretty thick
+    struct GLFWwindow;
+}
 
 class Window
 {

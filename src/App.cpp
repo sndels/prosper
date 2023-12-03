@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <thread>
 
+#include <GLFW/glfw3.h>
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/vector_relational.hpp>

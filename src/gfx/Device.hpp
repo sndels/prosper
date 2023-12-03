@@ -5,7 +5,6 @@
 #include "Resources.hpp"
 #include "ShaderReflection.hpp"
 
-#include <GLFW/glfw3.h>
 #include <shaderc/shaderc.hpp>
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -17,6 +16,13 @@
 #include <atomic>
 #include <filesystem>
 #include <mutex>
+
+extern "C"
+{
+    // Let's assume GLFW is stable enough that a fwd decl is not a problem
+    // The header is pretty thick
+    struct GLFWwindow;
+}
 
 struct QueueFamilies
 {

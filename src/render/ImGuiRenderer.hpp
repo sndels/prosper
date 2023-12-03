@@ -5,9 +5,15 @@
 #include "../gfx/Fwd.hpp"
 #include "../utils/Fwd.hpp"
 #include "Fwd.hpp"
-#include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <vulkan/vulkan.hpp>
+
+extern "C"
+{
+    // Let's assume GLFW is stable enough that a fwd decl is not a problem
+    // The header is pretty thick
+    struct GLFWwindow;
+}
 
 class ImGuiRenderer
 {
