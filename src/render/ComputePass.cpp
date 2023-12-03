@@ -115,6 +115,30 @@ void ComputePass::record(
     cb.dispatch(groups.x, groups.y, groups.z);
 }
 
+void ComputePass::record(
+    vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes, const uvec3 &groups,
+    Span<const vk::DescriptorSet> descriptorSets,
+    Span<const uint32_t> dynamicOffsets) const
+{
+    WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
+    WHEELS_ASSERT(_shaderReflection.has_value());
+    WHEELS_ASSERT(
+        pcBlockBytes.size() == _shaderReflection->pushConstantsBytesize());
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+
+    cb.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, // firstSet
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+
+    cb.pushConstants(
+        _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
+        asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
+
+    cb.dispatch(groups.x, groups.y, groups.z);
+}
+
 void ComputePass::destroyPipelines()
 {
     _device->logical().destroy(_pipeline);

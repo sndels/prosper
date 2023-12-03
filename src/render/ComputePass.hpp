@@ -72,6 +72,12 @@ class ComputePass
         const std::function<Shader(wheels::Allocator &)>
             &shaderDefinitionCallback);
 
+    void record(
+        vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
+        const glm::uvec3 &groups,
+        wheels::Span<const vk::DescriptorSet> descriptorSets,
+        wheels::Span<const uint32_t> dynamicOffsets = {}) const;
+
     void destroyPipelines();
 
     void createDescriptorSets(
@@ -103,23 +109,11 @@ void ComputePass::record(
     wheels::Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets) const
 {
-    WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
-    WHEELS_ASSERT(_shaderReflection.has_value());
-    WHEELS_ASSERT(
-        sizeof(PCBlock) == _shaderReflection->pushConstantsBytesize());
-
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
-
-    cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, // firstSet
-        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
-
-    cb.pushConstants(
-        _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PCBlock),
-        &pcBlock);
-
-    cb.dispatch(groups.x, groups.y, groups.z);
+    record(
+        cb,
+        wheels::Span{
+            reinterpret_cast<const uint8_t *>(&pcBlock), sizeof(pcBlock)},
+        groups, descriptorSets, dynamicOffsets);
 }
 
 #endif // PROSPER_RENDER_COMPUTE_PASS_HPP
