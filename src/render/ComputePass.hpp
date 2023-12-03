@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_COMPUTE_PASS_HPP
 #define PROSPER_RENDER_COMPUTE_PASS_HPP
 
+#include <functional>
 #include <glm/glm.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
@@ -22,11 +23,12 @@ class ComputePass
         wheels::Optional<wheels::String> defines;
     };
 
-    template <typename Callback>
     ComputePass(
         wheels::ScopedScratch scopeAlloc, Device *device,
         DescriptorAllocator *staticDescriptorsAlloc,
-        Callback &&shaderDefinitionCallback, uint32_t storageSetIndex = 0,
+        const std::function<Shader(wheels::Allocator &)>
+            &shaderDefinitionCallback,
+        uint32_t storageSetIndex = 0,
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {},
         vk::ShaderStageFlags storageStageFlags =
             vk::ShaderStageFlagBits::eCompute);
@@ -39,11 +41,11 @@ class ComputePass
     ComputePass &operator=(ComputePass &&other) = delete;
 
     // Returns true if recompile happened
-    template <typename Callback>
     bool recompileShader(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
-        Callback &&shaderDefinitionCallback,
+        const std::function<Shader(wheels::Allocator &)>
+            &shaderDefinitionCallback,
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {});
 
     template <size_t N>
@@ -66,9 +68,10 @@ class ComputePass
         wheels::Span<const uint32_t> dynamicOffsets = {}) const;
 
   private:
-    template <typename Callback>
     [[nodiscard]] bool compileShader(
-        wheels::ScopedScratch scopeAlloc, Callback &&shaderDefinitionCallback);
+        wheels::ScopedScratch scopeAlloc,
+        const std::function<Shader(wheels::Allocator &)>
+            &shaderDefinitionCallback);
 
     void destroyPipelines();
 
@@ -94,51 +97,6 @@ class ComputePass
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 };
-
-template <typename Callback>
-ComputePass::ComputePass(
-    wheels::ScopedScratch scopeAlloc, Device *device,
-    DescriptorAllocator *staticDescriptorsAlloc,
-    Callback &&shaderDefinitionCallback, uint32_t storageSetIndex,
-    wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts,
-    vk::ShaderStageFlags storageStageFlags)
-: _device{device}
-, _storageSetIndex{storageSetIndex}
-{
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-    WHEELS_ASSERT(
-        (_storageSetIndex == externalDsLayouts.size()) &&
-        "Implementation assumes that the pass storage set is the last set and "
-        "is placed right after the last external one");
-
-    printf("Creating ComputePass\n");
-    if (!compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
-        throw std::runtime_error("Shader compilation failed");
-
-    createDescriptorSets(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc, storageStageFlags);
-    createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
-}
-
-template <typename Callback>
-bool ComputePass::recompileShader(
-    wheels::ScopedScratch scopeAlloc,
-    const wheels::HashSet<std::filesystem::path> &changedFiles,
-    Callback &&shaderDefinitionCallback,
-    wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts)
-{
-    WHEELS_ASSERT(_shaderReflection.has_value());
-    if (!_shaderReflection->affected(changedFiles))
-        return false;
-
-    if (compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
-    {
-        destroyPipelines();
-        createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
-        return true;
-    }
-    return false;
-}
 
 template <size_t N>
 void ComputePass::updateDescriptorSet(
@@ -183,39 +141,6 @@ void ComputePass::record(
         &pcBlock);
 
     cb.dispatch(groups.x, groups.y, groups.z);
-}
-
-template <typename Callback>
-bool ComputePass::compileShader(
-    wheels::ScopedScratch scopeAlloc, Callback &&shaderDefinitionCallback)
-{
-    Shader shader = shaderDefinitionCallback(scopeAlloc);
-
-    printf("Compiling %s\n", shader.debugName.c_str());
-
-    wheels::Optional<Device::ShaderCompileResult> compResult =
-        _device->compileShaderModule(
-            scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
-                .relPath = shader.relPath,
-                .debugName = shader.debugName.c_str(),
-                .defines = shader.defines.has_value() ? *shader.defines
-                                                      : wheels::StrSpan{""},
-            });
-
-    if (compResult.has_value())
-    {
-        _device->logical().destroy(_shaderModule);
-
-        ShaderReflection &reflection = compResult->reflection;
-
-        _shaderModule = compResult->module;
-        _shaderReflection = WHEELS_MOV(reflection);
-
-        return true;
-    }
-
-    return false;
 }
 
 #endif // PROSPER_RENDER_COMPUTE_PASS_HPP

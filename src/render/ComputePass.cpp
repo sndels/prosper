@@ -12,6 +12,31 @@
 using namespace glm;
 using namespace wheels;
 
+ComputePass::ComputePass(
+    wheels::ScopedScratch scopeAlloc, Device *device,
+    DescriptorAllocator *staticDescriptorsAlloc,
+    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
+    uint32_t storageSetIndex,
+    wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts,
+    vk::ShaderStageFlags storageStageFlags)
+: _device{device}
+, _storageSetIndex{storageSetIndex}
+{
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+    WHEELS_ASSERT(
+        (_storageSetIndex == externalDsLayouts.size()) &&
+        "Implementation assumes that the pass storage set is the last set and "
+        "is placed right after the last external one");
+
+    printf("Creating ComputePass\n");
+    if (!compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
+        throw std::runtime_error("Shader compilation failed");
+
+    createDescriptorSets(
+        scopeAlloc.child_scope(), staticDescriptorsAlloc, storageStageFlags);
+    createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
+}
+
 ComputePass::~ComputePass()
 {
     if (_device != nullptr)
@@ -22,6 +47,25 @@ ComputePass::~ComputePass()
 
         _device->logical().destroy(_shaderModule);
     }
+}
+
+bool ComputePass::recompileShader(
+    wheels::ScopedScratch scopeAlloc,
+    const wheels::HashSet<std::filesystem::path> &changedFiles,
+    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
+    wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts)
+{
+    WHEELS_ASSERT(_shaderReflection.has_value());
+    if (!_shaderReflection->affected(changedFiles))
+        return false;
+
+    if (compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
+    {
+        destroyPipelines();
+        createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
+        return true;
+    }
+    return false;
 }
 
 vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
@@ -112,4 +156,37 @@ void ComputePass::createPipeline(
 
     _pipeline =
         createComputePipeline(_device->logical(), createInfo, "ComputePass");
+}
+
+bool ComputePass::compileShader(
+    wheels::ScopedScratch scopeAlloc,
+    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback)
+{
+    Shader shader = shaderDefinitionCallback(scopeAlloc);
+
+    printf("Compiling %s\n", shader.debugName.c_str());
+
+    wheels::Optional<Device::ShaderCompileResult> compResult =
+        _device->compileShaderModule(
+            scopeAlloc.child_scope(),
+            Device::CompileShaderModuleArgs{
+                .relPath = shader.relPath,
+                .debugName = shader.debugName.c_str(),
+                .defines = shader.defines.has_value() ? *shader.defines
+                                                      : wheels::StrSpan{""},
+            });
+
+    if (compResult.has_value())
+    {
+        _device->logical().destroy(_shaderModule);
+
+        ShaderReflection &reflection = compResult->reflection;
+
+        _shaderModule = compResult->module;
+        _shaderReflection = WHEELS_MOV(reflection);
+
+        return true;
+    }
+
+    return false;
 }
