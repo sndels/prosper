@@ -23,12 +23,6 @@
 using namespace glm;
 using namespace wheels;
 
-#ifdef _WIN32
-// Windows' header doesn't include these
-#define GL_CLAMP_TO_EDGE 0x812F
-#define GL_MIRRORED_REPEAT 0x8370
-#endif // _WIN32 or _WIN64
-
 namespace
 {
 constexpr uint32_t sMaterialDatasReflectionSet = 0;
@@ -41,6 +35,16 @@ constexpr uint32_t sSkyboxReflectionSet = 0;
 constexpr size_t sWorldMemSize = megabytes(16);
 
 constexpr size_t SKYBOX_VERTS_SIZE = 36;
+
+constexpr int s_gl_nearest = 0x2600;
+constexpr int s_gl_linear = 0x2601;
+constexpr int s_gl_nearest_mipmap_nearest = 0x2700;
+constexpr int s_gl_linear_mipmap_nearest = 0x2701;
+constexpr int s_gl_nearest_mipmap_linear = 0x2702;
+constexpr int s_gl_linear_mimpap_linear = 0x2703;
+constexpr int s_gl_clamp_to_edge = 0x812F;
+constexpr int s_gl_mirrored_repeat = 0x8370;
+constexpr int s_gl_repeat = 0x2901;
 
 tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 {
@@ -115,13 +119,13 @@ constexpr vk::Filter getVkFilterMode(int glEnum)
 {
     switch (glEnum)
     {
-    case GL_NEAREST:
-    case GL_NEAREST_MIPMAP_NEAREST:
-    case GL_NEAREST_MIPMAP_LINEAR:
+    case s_gl_nearest:
+    case s_gl_nearest_mipmap_nearest:
+    case s_gl_nearest_mipmap_linear:
         return vk::Filter::eNearest;
-    case GL_LINEAR:
-    case GL_LINEAR_MIPMAP_NEAREST:
-    case GL_LINEAR_MIPMAP_LINEAR:
+    case s_gl_linear:
+    case s_gl_linear_mipmap_nearest:
+    case s_gl_linear_mimpap_linear:
         return vk::Filter::eLinear;
     }
 
@@ -133,11 +137,11 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 {
     switch (glEnum)
     {
-    case GL_CLAMP_TO_EDGE:
+    case s_gl_clamp_to_edge:
         return vk::SamplerAddressMode::eClampToEdge;
-    case GL_MIRRORED_REPEAT:
+    case s_gl_mirrored_repeat:
         return vk::SamplerAddressMode::eMirroredRepeat;
-    case GL_REPEAT:
+    case s_gl_repeat:
         return vk::SamplerAddressMode::eRepeat;
     }
     std::cerr << "Invalid gl wrapping mode " << glEnum << std::endl;
