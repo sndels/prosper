@@ -57,8 +57,9 @@ void DepthOfFieldFlatten::recompileShaders(
 }
 
 DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
-    vk::CommandBuffer cb, ImageHandle halfResCircleOfConfusion,
-    const uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    ImageHandle halfResCircleOfConfusion, const uint32_t nextFrame,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -78,7 +79,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
             "tileMinMaxCircleOfConfusion");
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =

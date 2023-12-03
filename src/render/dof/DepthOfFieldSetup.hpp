@@ -47,8 +47,9 @@ class DepthOfFieldSetup
         ImageHandle halfResCircleOfConfusion;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const Camera &cam, const Input &input,
-        uint32_t nextFrame, Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const Camera &cam, const Input &input, uint32_t nextFrame,
+        Profiler *profiler);
 
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

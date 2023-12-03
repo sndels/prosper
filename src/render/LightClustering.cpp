@@ -99,16 +99,16 @@ void LightClustering::recompileShaders(
 }
 
 LightClusteringOutput LightClustering::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Extent2D &renderExtent, const uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Extent2D &renderExtent,
+    const uint32_t nextFrame, Profiler *profiler)
 {
     LightClusteringOutput ret;
     {
         ret = createOutputs(renderExtent);
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images.resource(ret.pointers).view,

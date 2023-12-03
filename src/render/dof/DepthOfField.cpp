@@ -34,21 +34,23 @@ void DepthOfField::recompileShaders(
 }
 
 DepthOfField::Output DepthOfField::record(
-    vk::CommandBuffer cb, const Camera &cam, const DepthOfField::Input &input,
-    uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    const DepthOfField::Input &input, uint32_t nextFrame, Profiler *profiler)
 {
     Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "DepthOfField");
 
-        const DepthOfFieldSetup::Output setupOutput =
-            _setupPass.record(cb, cam, input, nextFrame, profiler);
+        const DepthOfFieldSetup::Output setupOutput = _setupPass.record(
+            scopeAlloc.child_scope(), cb, cam, input, nextFrame, profiler);
 
         const DepthOfFieldFlatten::Output flattenOutput = _flattenPass.record(
-            cb, setupOutput.halfResCircleOfConfusion, nextFrame, profiler);
+            scopeAlloc.child_scope(), cb, setupOutput.halfResCircleOfConfusion,
+            nextFrame, profiler);
 
         const DepthOfFieldDilate::Output dilateOutput = _dilatePass.record(
-            cb, flattenOutput.tileMinMaxCircleOfConfusion, nextFrame, profiler);
+            scopeAlloc.child_scope(), cb,
+            flattenOutput.tileMinMaxCircleOfConfusion, nextFrame, profiler);
 
         _resources->images.release(flattenOutput.tileMinMaxCircleOfConfusion);
 
@@ -58,14 +60,15 @@ DepthOfField::Output DepthOfField::record(
             .dilatedTileMinMaxCoC = dilateOutput.dilatedTileMinMaxCoC,
         };
         const DepthOfFieldGather::Output fgGatherOutput = _gatherPass.record(
-            cb, gatherInput, DepthOfFieldGather::GatherType_Foreground,
-            nextFrame, profiler);
+            scopeAlloc.child_scope(), cb, gatherInput,
+            DepthOfFieldGather::GatherType_Foreground, nextFrame, profiler);
         const DepthOfFieldGather::Output bgGatherOutput = _gatherPass.record(
-            cb, gatherInput, DepthOfFieldGather::GatherType_Background,
-            nextFrame, profiler);
+
+            scopeAlloc.child_scope(), cb, gatherInput,
+            DepthOfFieldGather::GatherType_Background, nextFrame, profiler);
 
         ret = _combinePass.record(
-            cb,
+            scopeAlloc.child_scope(), cb,
             DepthOfFieldCombine::Input{
                 .halfResFgBokehWeight = fgGatherOutput.halfResBokehColorWeight,
                 .halfResBgBokehWeight = bgGatherOutput.halfResBokehColorWeight,

@@ -82,8 +82,9 @@ class App
         uint32_t nextImage{0xFFFFFFFF};
     };
     void render(
-        vk::CommandBuffer cb, const vk::Rect2D &renderArea,
-        const RenderIndices &indices, const UiChanges &uiChanges);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const vk::Rect2D &renderArea, const RenderIndices &indices,
+        const UiChanges &uiChanges);
     void blitColorToFinalComposite(
         vk::CommandBuffer cb, ImageHandle toneMapped);
     void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);

@@ -56,9 +56,9 @@ class RtReference
         ImageHandle illumination;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, const Options &options,
-        uint32_t nextFrame, Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        const Options &options, uint32_t nextFrame, Profiler *profiler);
     void releasePreserved();
 
   private:
@@ -71,7 +71,9 @@ class RtReference
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
-    void updateDescriptorSet(uint32_t nextFrame, ImageHandle illumination);
+    void updateDescriptorSet(
+        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
+        ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);

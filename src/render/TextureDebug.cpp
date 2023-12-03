@@ -189,8 +189,8 @@ void TextureDebug::drawUi()
 }
 
 ImageHandle TextureDebug::record(
-    vk::CommandBuffer cb, vk::Extent2D outSize, uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, vk::Extent2D outSize,
+    uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -227,7 +227,7 @@ ImageHandle TextureDebug::record(
             }
 
             _computePass.updateDescriptorSet(
-                nextFrame,
+                WHEELS_MOV(scopeAlloc), nextFrame,
                 StaticArray{
                     DescriptorInfo{vk::DescriptorImageInfo{
                         .imageView = _resources->images.resource(inColor).view,

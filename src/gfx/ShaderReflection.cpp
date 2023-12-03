@@ -888,3 +888,68 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
     return device.logical().createDescriptorSetLayout(
         layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 }
+
+wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
+    generateDescriptorWrites(
+        Allocator &alloc, uint32_t descriptorSetIndex,
+        vk::DescriptorSet descriptorSetHandle,
+        wheels::Span<const DescriptorInfo> descriptorInfos) const
+{
+    const wheels::Array<DescriptorSetMetadata> *metadatas =
+        _descriptorSetMetadatas.find(descriptorSetIndex);
+    WHEELS_ASSERT(metadatas != nullptr);
+    // false positive, custom assert above
+    // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
+    WHEELS_ASSERT(metadatas->size() == descriptorInfos.size());
+
+    wheels::Array<vk::WriteDescriptorSet> descriptorWrites{
+        alloc, descriptorInfos.size()};
+
+    const size_t infoCount = descriptorInfos.size();
+    for (size_t i = 0; i < infoCount; ++i)
+    {
+        const DescriptorInfo &descriptorInfo = descriptorInfos[i];
+
+        const vk::DescriptorImageInfo *pImageInfo =
+            std::get_if<vk::DescriptorImageInfo>(&descriptorInfo);
+        const vk::DescriptorBufferInfo *pBufferInfo =
+            std::get_if<vk::DescriptorBufferInfo>(&descriptorInfo);
+        const vk::BufferView *pTexelBufferView =
+            std::get_if<vk::BufferView>(&descriptorInfo);
+        // TODO:
+        // Refactor this so that single image is also a span? How are the
+        // ergonomics?
+        const wheels::Span<const vk::DescriptorImageInfo> *pImageInfoSpan =
+            std::get_if<wheels::Span<const vk::DescriptorImageInfo>>(
+                &descriptorInfo);
+        const wheels::Span<const vk::DescriptorBufferInfo> *pBufferInfoSpan =
+            std::get_if<wheels::Span<const vk::DescriptorBufferInfo>>(
+                &descriptorInfo);
+
+        uint32_t descriptorCount = 1;
+
+        if (pImageInfoSpan != nullptr)
+        {
+            pImageInfo = pImageInfoSpan->data();
+            descriptorCount = asserted_cast<uint32_t>(pImageInfoSpan->size());
+        }
+        else if (pBufferInfoSpan != nullptr)
+        {
+            pBufferInfo = pBufferInfoSpan->data();
+            descriptorCount = asserted_cast<uint32_t>(pBufferInfoSpan->size());
+        }
+
+        const DescriptorSetMetadata &metadata = (*metadatas)[i];
+        descriptorWrites.push_back(vk::WriteDescriptorSet{
+            .dstSet = descriptorSetHandle,
+            .dstBinding = metadata.binding,
+            .descriptorCount = descriptorCount,
+            .descriptorType = metadata.descriptorType,
+            .pImageInfo = pImageInfo,
+            .pBufferInfo = pBufferInfo,
+            .pTexelBufferView = pTexelBufferView,
+        });
+    }
+
+    return descriptorWrites;
+}

@@ -68,6 +68,25 @@ bool ComputePass::recompileShader(
     return false;
 }
 
+void ComputePass::updateDescriptorSet(
+    ScopedScratch scopeAlloc, uint32_t nextFrame,
+    Span<const DescriptorInfo> descriptorInfos)
+{
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
+    const vk::DescriptorSet ds = _storageSets[nextFrame];
+
+    WHEELS_ASSERT(_shaderReflection.has_value());
+    const wheels::Array descriptorWrites =
+        _shaderReflection->generateDescriptorWrites(
+            scopeAlloc, _storageSetIndex, ds, descriptorInfos);
+
+    _device->logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
+}
+
 vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
 {
     return _storageSets[nextFrame];

@@ -59,8 +59,8 @@ void DepthOfFieldCombine::recompileShaders(
 }
 
 DepthOfFieldCombine::Output DepthOfFieldCombine::record(
-    vk::CommandBuffer cb, const Input &input, const uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
+    const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -103,7 +103,8 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
-        _computePass.updateDescriptorSet(nextFrame, descriptorInfos);
+        _computePass.updateDescriptorSet(
+            WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
         transition<5>(
             *_resources, cb,

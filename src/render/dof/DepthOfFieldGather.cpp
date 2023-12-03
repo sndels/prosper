@@ -81,8 +81,8 @@ void DepthOfFieldGather::recompileShaders(
 }
 
 DepthOfFieldGather::Output DepthOfFieldGather::record(
-    vk::CommandBuffer cb, const Input &input, GatherType gatherType,
-    const uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
+    GatherType gatherType, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
     WHEELS_ASSERT(gatherType < GatherType_Count);
@@ -111,7 +111,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                                                 : "halfResFgBokehColorWeight");
 
         computePass->updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =

@@ -51,9 +51,9 @@ class LightClustering
         const WorldDSLayouts &worldDSLayouts);
 
     [[nodiscard]] LightClusteringOutput record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Extent2D &renderExtent, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, const vk::Extent2D &renderExtent,
+        uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] LightClusteringOutput createOutputs(

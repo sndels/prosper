@@ -50,8 +50,8 @@ class TextureDebug
     void drawUi();
 
     [[nodiscard]] ImageHandle record(
-        vk::CommandBuffer cb, vk::Extent2D outSize, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        vk::Extent2D outSize, uint32_t nextFrame, Profiler *profiler);
 
   private:
     ImageHandle createOutput(vk::Extent2D size);

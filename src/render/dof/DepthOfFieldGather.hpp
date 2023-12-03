@@ -52,8 +52,9 @@ class DepthOfFieldGather
         ImageHandle halfResBokehColorWeight;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const Input &input, GatherType gatherType,
-        uint32_t nextFrame, Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const Input &input, GatherType gatherType, uint32_t nextFrame,
+        Profiler *profiler);
 
     RenderResources *_resources{nullptr};
 

@@ -203,7 +203,7 @@ void Camera::createDescriptorSet(
 {
     WHEELS_ASSERT(_bindingsReflection.has_value());
     _descriptorSetLayout = _bindingsReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), *_device, 0,
+        scopeAlloc.child_scope(), *_device, 0,
         vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment |
             vk::ShaderStageFlagBits::eCompute |
             vk::ShaderStageFlagBits::eRaygenKHR);
@@ -216,9 +216,9 @@ void Camera::createDescriptorSet(
             .range = sizeof(CameraUniforms),
         }},
     };
-    const StaticArray descriptorWrites =
+    const Array descriptorWrites =
         _bindingsReflection->generateDescriptorWrites(
-            sBindingSetIndex, _descriptorSet, descriptorInfos);
+            scopeAlloc, sBindingSetIndex, _descriptorSet, descriptorInfos);
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),

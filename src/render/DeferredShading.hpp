@@ -58,9 +58,9 @@ class DeferredShading
         ImageHandle illumination;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const Input &input, uint32_t nextFrame, bool applyIbl,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, const Input &input,
+        uint32_t nextFrame, bool applyIbl, Profiler *profiler);
 
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

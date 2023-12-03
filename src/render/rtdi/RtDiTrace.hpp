@@ -52,9 +52,9 @@ class RtDiTrace
         ImageHandle illumination;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const Input &input, bool resetAccumulation, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, const Input &input,
+        bool resetAccumulation, uint32_t nextFrame, Profiler *profiler);
     void releasePreserved();
 
   private:
@@ -68,7 +68,8 @@ class RtDiTrace
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(
-        uint32_t nextFrame, Input const &inputs, ImageHandle illumination);
+        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
+        Input const &inputs, ImageHandle illumination);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);

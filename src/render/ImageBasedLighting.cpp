@@ -97,7 +97,8 @@ void ImageBasedLighting::recompileShaders(
 }
 
 void ImageBasedLighting::recordGeneration(
-    vk::CommandBuffer cb, World &world, uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
+    uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -109,7 +110,8 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
-        _sampleIrradiance.updateDescriptorSet(nextFrame, descriptorInfos);
+        _sampleIrradiance.updateDescriptorSet(
+            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         world._skyboxIrradiance.transition(cb, ImageState::ComputeShaderWrite);
 
@@ -137,7 +139,8 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
-        _integrateSpecularBrdf.updateDescriptorSet(nextFrame, descriptorInfos);
+        _integrateSpecularBrdf.updateDescriptorSet(
+            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         world._specularBrdfLut.transition(cb, ImageState::ComputeShaderWrite);
 
@@ -179,7 +182,8 @@ void ImageBasedLighting::recordGeneration(
             DescriptorInfo{imageInfos},
         };
 
-        _prefilterRadiance.updateDescriptorSet(nextFrame, descriptorInfos);
+        _prefilterRadiance.updateDescriptorSet(
+            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
         const vk::DescriptorSet storageSet =
             _prefilterRadiance.storageSet(nextFrame);
 

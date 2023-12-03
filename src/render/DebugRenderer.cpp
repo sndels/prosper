@@ -269,7 +269,7 @@ void DebugRenderer::createDescriptorSets(
 {
     WHEELS_ASSERT(_vertReflection.has_value());
     _linesDSLayout = _vertReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), *_device, GeometryBuffersBindingSet,
+        scopeAlloc.child_scope(), *_device, GeometryBuffersBindingSet,
         vk::ShaderStageFlagBits::eVertex);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
@@ -287,9 +287,10 @@ void DebugRenderer::createDescriptorSets(
             }},
         };
 
-        const StaticArray descriptorWrites =
+        ScopedScratch loopAlloc = scopeAlloc.child_scope();
+        const Array descriptorWrites =
             _vertReflection->generateDescriptorWrites(
-                GeometryBuffersBindingSet, _linesDescriptorSets[i],
+                loopAlloc, GeometryBuffersBindingSet, _linesDescriptorSets[i],
                 descriptorInfos);
 
         _device->logical().updateDescriptorSets(

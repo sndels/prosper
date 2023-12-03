@@ -36,8 +36,8 @@ class ToneMap
         ImageHandle toneMapped;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, ImageHandle inColor, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        ImageHandle inColor, uint32_t nextFrame, Profiler *profiler);
 
   private:
     Output createOutputs(const vk::Extent2D &size);

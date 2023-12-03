@@ -619,10 +619,10 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     if (_applyIbl && !_imageBasedLighting->isGenerated())
         _imageBasedLighting->recordGeneration(
-            cb, *_world, nextFrame, _profiler.get());
+            scopeAlloc.child_scope(), cb, *_world, nextFrame, _profiler.get());
 
     render(
-        cb, renderArea,
+        scopeAlloc.child_scope(), cb, renderArea,
         RenderIndices{
             .nextFrame = nextFrame,
             .nextImage = nextImage,
@@ -1137,8 +1137,9 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 }
 
 void App::render(
-    vk::CommandBuffer cb, const vk::Rect2D &renderArea,
-    const RenderIndices &indices, const UiChanges &uiChanges)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    const vk::Rect2D &renderArea, const RenderIndices &indices,
+    const UiChanges &uiChanges)
 {
     if (_referenceRt || _rtDirectIllumination)
     {
@@ -1147,24 +1148,25 @@ void App::render(
     }
 
     const LightClusteringOutput lightClusters = _lightClustering->record(
-        cb, *_world, *_cam, _viewportExtent, indices.nextFrame,
-        _profiler.get());
+        scopeAlloc.child_scope(), cb, *_world, *_cam, _viewportExtent,
+        indices.nextFrame, _profiler.get());
 
     ImageHandle illumination;
     if (_referenceRt)
     {
         _rtDirectIllumination->releasePreserved();
 
-        illumination = _rtReference
-                           ->record(
-                               cb, *_world, *_cam, renderArea,
-                               RtReference::Options{
-                                   .depthOfField = _renderDoF,
-                                   .ibl = _applyIbl,
-                                   .colorDirty = uiChanges.rtDirty,
-                               },
-                               indices.nextFrame, _profiler.get())
-                           .illumination;
+        illumination =
+            _rtReference
+                ->record(
+                    scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
+                    RtReference::Options{
+                        .depthOfField = _renderDoF,
+                        .ibl = _applyIbl,
+                        .colorDirty = uiChanges.rtDirty,
+                    },
+                    indices.nextFrame, _profiler.get())
+                .illumination;
     }
     else
     {
@@ -1180,12 +1182,12 @@ void App::render(
                 _profiler.get());
 
             if (_deferredRt)
-                illumination =
-                    _rtDirectIllumination
-                        ->record(
-                            cb, *_world, *_cam, gbuffer, uiChanges.rtDirty,
-                            indices.nextFrame, _profiler.get())
-                        .illumination;
+                illumination = _rtDirectIllumination
+                                   ->record(
+                                       scopeAlloc.child_scope(), cb, *_world,
+                                       *_cam, gbuffer, uiChanges.rtDirty,
+                                       indices.nextFrame, _profiler.get())
+                                   .illumination;
             else
             {
                 _rtDirectIllumination->releasePreserved();
@@ -1193,7 +1195,7 @@ void App::render(
                 illumination =
                     _deferredShading
                         ->record(
-                            cb, *_world, *_cam,
+                            scopeAlloc.child_scope(), cb, *_world, *_cam,
                             DeferredShading::Input{
                                 .gbuffer = gbuffer,
                                 .lightClusters = lightClusters,
@@ -1247,7 +1249,7 @@ void App::render(
         if (_renderDoF)
         {
             const DepthOfField::Output dofOutput = _depthOfField->record(
-                cb, *_cam,
+                scopeAlloc.child_scope(), cb, *_cam,
                 DepthOfField::Input{
                     .illumination = illumination,
                     .depth = depth,
@@ -1265,7 +1267,10 @@ void App::render(
     _resources->texelBuffers.release(lightClusters.indices);
 
     const ImageHandle toneMapped =
-        _toneMap->record(cb, illumination, indices.nextFrame, _profiler.get())
+        _toneMap
+            ->record(
+                scopeAlloc.child_scope(), cb, illumination, indices.nextFrame,
+                _profiler.get())
             .toneMapped;
 
     _resources->images.release(illumination);
@@ -1273,7 +1278,8 @@ void App::render(
     if (_textureDebugActive)
     {
         const ImageHandle debugOutput = _textureDebug->record(
-            cb, renderArea.extent, indices.nextFrame, _profiler.get());
+            scopeAlloc.child_scope(), cb, renderArea.extent, indices.nextFrame,
+            _profiler.get());
 
         blitColorToFinalComposite(cb, debugOutput);
 

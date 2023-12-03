@@ -8,8 +8,8 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
-#include "../gfx/Device.hpp"
 #include "../gfx/Fwd.hpp"
+#include "../gfx/ShaderReflection.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 
@@ -48,10 +48,9 @@ class ComputePass
             &shaderDefinitionCallback,
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {});
 
-    template <size_t N>
     void updateDescriptorSet(
-        uint32_t nextFrame,
-        wheels::StaticArray<DescriptorInfo, N> const &descriptorInfos);
+        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
+        wheels::Span<const DescriptorInfo> descriptorInfos);
 
     [[nodiscard]] vk::DescriptorSet storageSet(uint32_t nextFrame) const;
     [[nodiscard]] vk::DescriptorSetLayout storageSetLayout() const;
@@ -97,26 +96,6 @@ class ComputePass
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 };
-
-template <size_t N>
-void ComputePass::updateDescriptorSet(
-    uint32_t nextFrame,
-    wheels::StaticArray<DescriptorInfo, N> const &descriptorInfos)
-{
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = _storageSets[nextFrame];
-
-    WHEELS_ASSERT(_shaderReflection.has_value());
-    const wheels::StaticArray descriptorWrites =
-        _shaderReflection->generateDescriptorWrites(
-            _storageSetIndex, ds, descriptorInfos);
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
-}
 
 template <typename PCBlock>
 void ComputePass::record(

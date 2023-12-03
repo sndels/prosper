@@ -29,8 +29,8 @@ class ImageBasedLighting
         const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     void recordGeneration(
-        vk::CommandBuffer cb, World &world, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
+        uint32_t nextFrame, Profiler *profiler);
 
   private:
     void createOutputs();

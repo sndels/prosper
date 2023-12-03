@@ -44,8 +44,9 @@ class DepthOfField
     using Input = DepthOfFieldSetup::Input;
     using Output = DepthOfFieldCombine::Output;
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const Camera &cam, const Input &input,
-        uint32_t nextFrame, Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const Camera &cam, const Input &input, uint32_t nextFrame,
+        Profiler *profiler);
 
   private:
     RenderResources *_resources{nullptr};

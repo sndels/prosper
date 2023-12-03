@@ -39,8 +39,9 @@ class DepthOfFieldFlatten
         ImageHandle tileMinMaxCircleOfConfusion;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, ImageHandle halfResCircleOfConfusion,
-        uint32_t nextFrame, Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        ImageHandle halfResCircleOfConfusion, uint32_t nextFrame,
+        Profiler *profiler);
 
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

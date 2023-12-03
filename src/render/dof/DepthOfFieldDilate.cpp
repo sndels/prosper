@@ -57,8 +57,8 @@ void DepthOfFieldDilate::recompileShaders(
 }
 
 DepthOfFieldDilate::Output DepthOfFieldDilate::record(
-    vk::CommandBuffer cb, ImageHandle tileMinMaxCoC, const uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle tileMinMaxCoC,
+    const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -78,7 +78,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
             "dilatedTileMinMaxCoC");
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =

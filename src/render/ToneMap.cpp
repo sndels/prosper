@@ -68,8 +68,8 @@ void ToneMap::drawUi()
 }
 
 ToneMap::Output ToneMap::record(
-    vk::CommandBuffer cb, ImageHandle inColor, const uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle inColor,
+    const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -89,7 +89,8 @@ ToneMap::Output ToneMap::record(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
-        _computePass.updateDescriptorSet(nextFrame, descriptorInfos);
+        _computePass.updateDescriptorSet(
+            WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
         transition<2>(
             *_resources, cb,

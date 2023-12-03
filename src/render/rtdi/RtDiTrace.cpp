@@ -177,9 +177,9 @@ void RtDiTrace::drawUi()
 }
 
 RtDiTrace::Output RtDiTrace::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const Input &input, bool resetAccumulation, uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const Input &input, bool resetAccumulation,
+    uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -225,7 +225,8 @@ RtDiTrace::Output RtDiTrace::record(
             _resources->images.appendDebugName(
                 _previousIllumination, "previousRtDiTrace");
 
-        updateDescriptorSet(nextFrame, input, illumination);
+        updateDescriptorSet(
+            WHEELS_MOV(scopeAlloc), nextFrame, input, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -577,7 +578,8 @@ void RtDiTrace::createDescriptorSets(
 }
 
 void RtDiTrace::updateDescriptorSet(
-    uint32_t nextFrame, const Input &input, ImageHandle illumination)
+    ScopedScratch scopeAlloc, uint32_t nextFrame, const Input &input,
+    ImageHandle illumination)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
@@ -618,9 +620,9 @@ void RtDiTrace::updateDescriptorSet(
     };
 
     WHEELS_ASSERT(_raygenReflection.has_value());
-    const StaticArray descriptorWrites =
-        _raygenReflection->generateDescriptorWrites(
-            StorageBindingSet, _descriptorSets[nextFrame], descriptorInfos);
+    const Array descriptorWrites = _raygenReflection->generateDescriptorWrites(
+        scopeAlloc, StorageBindingSet, _descriptorSets[nextFrame],
+        descriptorInfos);
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),

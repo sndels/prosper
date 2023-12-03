@@ -39,8 +39,8 @@ class DepthOfFieldDilate
         ImageHandle dilatedTileMinMaxCoC;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, ImageHandle tileMinMaxCoC, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        ImageHandle tileMinMaxCoC, uint32_t nextFrame, Profiler *profiler);
 
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

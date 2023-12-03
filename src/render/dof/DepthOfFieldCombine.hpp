@@ -47,8 +47,8 @@ class DepthOfFieldCombine
         ImageHandle combinedIlluminationDoF;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const Input &input, uint32_t nextFrame,
-        Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const Input &input, uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);

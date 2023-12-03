@@ -44,7 +44,8 @@ class RtDiInitialReservoirs
         ImageHandle reservoirs;
     };
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam,
         const GBufferRendererOutput &gbuffer, uint32_t nextFrame,
         Profiler *profiler);
 

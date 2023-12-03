@@ -106,9 +106,9 @@ bool RtDiInitialReservoirs::recompileShaders(
 }
 
 RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRendererOutput &gbuffer, const uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const GBufferRendererOutput &gbuffer,
+    const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -129,7 +129,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             "RtDiInitialReservoirs");
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =

@@ -2131,9 +2131,9 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 .range = VK_WHOLE_SIZE,
             }},
         };
-        const StaticArray descriptorWrites =
+        const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
-                sMaterialDatasReflectionSet, _materialDatasDSs[i],
+                scopeAlloc, sMaterialDatasReflectionSet, _materialDatasDSs[i],
                 descriptorInfos);
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -2202,9 +2202,9 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             DescriptorInfo{materialImageInfos},
         };
 
-        const StaticArray descriptorWrites =
+        const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
-                sMaterialTexturesReflectionSet, _materialTexturesDS,
+                scopeAlloc, sMaterialTexturesReflectionSet, _materialTexturesDS,
                 descriptorInfos);
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -2255,9 +2255,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
         };
 
-        const StaticArray descriptorWrites =
+        const Array descriptorWrites =
             _geometryReflection->generateDescriptorWrites(
-                sGeometryReflectionSet, _geometryDS, descriptorInfos);
+                scopeAlloc, sGeometryReflectionSet, _geometryDS,
+                descriptorInfos);
 
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -2329,9 +2330,10 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             }},
         };
 
-        const StaticArray descriptorWrites =
+        const Array descriptorWrites =
             _lightsReflection->generateDescriptorWrites(
-                sLightsReflectionSet, _lightsDescriptorSet, lightInfos);
+                scopeAlloc, sLightsReflectionSet, _lightsDescriptorSet,
+                lightInfos);
 
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -2352,9 +2354,9 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                              sizeof(ModelInstance::Transforms),
                 }},
             };
-            const StaticArray descriptorWrites =
+            const Array descriptorWrites =
                 _modelInstancesReflection->generateDescriptorWrites(
-                    sInstanceTrfnsReflectionSet,
+                    scopeAlloc, sInstanceTrfnsReflectionSet,
                     scene.modelInstancesDescriptorSet, descriptorInfos);
 
             _device->logical().updateDescriptorSets(
@@ -2432,9 +2434,9 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
         };
-        const StaticArray descriptorWrites =
+        const Array descriptorWrites =
             _skyboxReflection->generateDescriptorWrites(
-                sSkyboxReflectionSet, _skyboxDS, descriptorInfos);
+                scopeAlloc, sSkyboxReflectionSet, _skyboxDS, descriptorInfos);
 
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),

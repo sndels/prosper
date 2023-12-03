@@ -82,8 +82,8 @@ void DepthOfFieldSetup::recompileShaders(
 }
 
 DepthOfFieldSetup::Output DepthOfFieldSetup::record(
-    vk::CommandBuffer cb, const Camera &cam, const Input &input,
-    const uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -105,7 +105,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             "HalfResCircleOfConfusion");
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =

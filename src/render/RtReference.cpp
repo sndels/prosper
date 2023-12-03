@@ -191,9 +191,9 @@ void RtReference::drawUi()
 }
 
 RtReference::Output RtReference::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const Options &options, uint32_t nextFrame,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
+    uint32_t nextFrame, Profiler *profiler)
 {
     _frameIndex = ++_frameIndex % sFramePeriod;
 
@@ -243,7 +243,7 @@ RtReference::Output RtReference::record(
             _resources->images.appendDebugName(
                 _previousIllumination, "previousRTIllumination");
 
-        updateDescriptorSet(nextFrame, illumination);
+        updateDescriptorSet(WHEELS_MOV(scopeAlloc), nextFrame, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -603,7 +603,7 @@ void RtReference::createDescriptorSets(
 }
 
 void RtReference::updateDescriptorSet(
-    uint32_t nextFrame, ImageHandle illumination)
+    ScopedScratch scopeAlloc, uint32_t nextFrame, ImageHandle illumination)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
@@ -623,9 +623,9 @@ void RtReference::updateDescriptorSet(
     };
 
     WHEELS_ASSERT(_raygenReflection.has_value());
-    const StaticArray descriptorWrites =
-        _raygenReflection->generateDescriptorWrites(
-            OutputBindingSet, _descriptorSets[nextFrame], descriptorInfos);
+    const Array descriptorWrites = _raygenReflection->generateDescriptorWrites(
+        scopeAlloc, OutputBindingSet, _descriptorSets[nextFrame],
+        descriptorInfos);
 
     _device->logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),

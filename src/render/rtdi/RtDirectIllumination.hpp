@@ -44,7 +44,8 @@ class RtDirectIllumination
 
     using Output = RtDiTrace::Output;
     [[nodiscard]] Output record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam,
         const GBufferRendererOutput &gbuffer, bool resetAccumulation,
         uint32_t nextFrame, Profiler *profiler);
     void releasePreserved();

@@ -106,8 +106,9 @@ bool RtDiSpatialReuse::recompileShaders(
 }
 
 RtDiSpatialReuse::Output RtDiSpatialReuse::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const Input &input, const uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const Input &input, const uint32_t nextFrame,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -129,7 +130,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             "RtDiSpatialReuseReservoirs");
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images

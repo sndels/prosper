@@ -147,9 +147,9 @@ void DeferredShading::drawUi()
 }
 
 DeferredShading::Output DeferredShading::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const Input &input, const uint32_t nextFrame, bool applyIbl,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const Input &input, const uint32_t nextFrame,
+    bool applyIbl, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -162,7 +162,7 @@ DeferredShading::Output DeferredShading::record(
             createIllumination(*_resources, renderExtent, "illumination");
 
         _computePass.updateDescriptorSet(
-            nextFrame,
+            WHEELS_MOV(scopeAlloc), nextFrame,
             StaticArray{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images
