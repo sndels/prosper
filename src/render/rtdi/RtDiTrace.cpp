@@ -1,7 +1,9 @@
 #include "RtDiTrace.hpp"
 
+#include "../../gfx/DescriptorAllocator.hpp"
 #include "../../gfx/VkUtils.hpp"
 #include "../../scene/Camera.hpp"
+#include "../../scene/Scene.hpp"
 #include "../../scene/World.hpp"
 #include "../../utils/Profiler.hpp"
 #include "../../utils/Utils.hpp"
@@ -260,7 +262,9 @@ RtDiTrace::Output RtDiTrace::record(
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
 
-        const auto &scene = world._scenes[world._currentScene];
+        const auto &scene = world.currentScene();
+        const WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -268,21 +272,20 @@ RtDiTrace::Output RtDiTrace::record(
         descriptorSets[RTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[StorageBindingSet] = _descriptorSets[nextFrame];
         descriptorSets[MaterialDatasBindingSet] =
-            world._descriptorSets.materialDatas[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] =
-            world._descriptorSets.materialTextures;
-        descriptorSets[GeometryBindingSet] = world._descriptorSets.geometry;
-        descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
+            worldDSes.materialDatas[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
+        descriptorSets[GeometryBindingSet] = worldDSes.geometry;
+        descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
-        descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
+        descriptorSets[LightsBindingSet] = worldDSes.lights;
 
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),
-            world._byteOffsets.modelInstanceTransforms,
-            world._byteOffsets.directionalLight,
-            world._byteOffsets.pointLights,
-            world._byteOffsets.spotLights,
+            worldByteOffsets.modelInstanceTransforms,
+            worldByteOffsets.directionalLight,
+            worldByteOffsets.pointLights,
+            worldByteOffsets.spotLights,
         };
 
         cb.bindDescriptorSets(

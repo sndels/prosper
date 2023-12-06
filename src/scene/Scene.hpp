@@ -1,6 +1,7 @@
 #ifndef PROSPER_SCENE_HPP
 #define PROSPER_SCENE_HPP
 
+#include "../gfx/Resources.hpp"
 #include "Light.hpp"
 #include "Model.hpp"
 

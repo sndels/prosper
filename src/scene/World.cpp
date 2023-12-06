@@ -4,21 +4,37 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include <condition_variable>
 #include <cstdlib>
 #include <imgui.h>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <tiny_gltf.h>
+#include <vulkan/vulkan_hash.hpp>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>
+#include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
 
+#include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
 #include "../gfx/RingBuffer.hpp"
+#include "../gfx/ShaderReflection.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Timer.hpp"
 #include "../utils/Utils.hpp"
+#include "Animations.hpp"
+#include "Camera.hpp"
+#include "Material.hpp"
+#include "Mesh.hpp"
+#include "Model.hpp"
+#include "Scene.hpp"
+#include "Texture.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -45,6 +61,11 @@ constexpr int s_gl_linear_mimpap_linear = 0x2703;
 constexpr int s_gl_clamp_to_edge = 0x812F;
 constexpr int s_gl_mirrored_repeat = 0x8370;
 constexpr int s_gl_repeat = 0x2901;
+
+bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
+{
+    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
+}
 
 tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 {
@@ -167,8 +188,47 @@ Buffer createTextureStaging(Device *device)
     });
 }
 
+struct DeferredLoadingContext
+{
+    DeferredLoadingContext(
+        Allocator &alloc, Device *device, const std::filesystem::path *sceneDir,
+        const tinygltf::Model &gltfModel);
+    ~DeferredLoadingContext();
+
+    DeferredLoadingContext(const DeferredLoadingContext &) = delete;
+    DeferredLoadingContext(DeferredLoadingContext &&) = delete;
+    DeferredLoadingContext &operator=(const DeferredLoadingContext &) = delete;
+    DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
+
+    Device *device{nullptr};
+    // If there's no worker, main thread handles loading
+    Optional<std::thread> worker;
+
+    // Worker context
+    tinygltf::Model gltfModel;
+    vk::CommandBuffer cb;
+    uint32_t workerLoadedImageCount{0};
+
+    // Shared context
+    std::mutex loadedTextureMutex;
+    std::condition_variable loadedTextureTaken;
+    Optional<Texture2D> loadedTexture;
+    std::atomic<bool> interruptLoading{false};
+    std::atomic<uint32_t> allocationHighWatermark{0};
+
+    // Main context
+    uint32_t materialsGeneration{0};
+    uint32_t framesSinceFinish{0};
+    uint32_t textureArrayBinding{0};
+    uint32_t loadedImageCount{0};
+    uint32_t loadedMaterialCount{0};
+    Array<Material> materials;
+    StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
+    Timer timer;
+};
+
 void loadingWorker(
-    const std::filesystem::path *sceneDir, World::DeferredLoadingContext *ctx)
+    const std::filesystem::path *sceneDir, DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(sceneDir != nullptr);
     // TODO:
@@ -302,14 +362,180 @@ const uint8_t *appendAccessorData(
 
 } // namespace
 
-World::World(
+// TODO: Split scene loading and runtime scene into separate classes, CUs
+class World::Impl
+{
+  public:
+    Impl(
+        Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
+        const std::filesystem::path &scene, bool deferredLoading);
+    ~Impl();
+
+    Impl(const Impl &other) = delete;
+    Impl(Impl &&other) = delete;
+    Impl &operator=(const Impl &other) = delete;
+    Impl &operator=(Impl &&other) = delete;
+
+    void startFrame() const;
+
+    void uploadMaterialDatas(uint32_t nextFrame);
+    void handleDeferredLoading(
+        ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
+        Profiler &profiler);
+
+    void drawDeferredLoadingUi() const;
+    bool drawCameraUi();
+
+    [[nodiscard]] Scene &currentScene();
+    [[nodiscard]] const Scene &currentScene() const;
+    void updateAnimations(float timeS, Profiler *profiler);
+    // Has to be called after updateAnimations()
+    void updateScene(
+        ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
+        Profiler *profiler);
+    void updateBuffers(ScopedScratch scopeAlloc);
+    // Has to be called after updateBuffers()
+    void buildCurrentTlas(vk::CommandBuffer cb);
+    void drawSkybox(vk::CommandBuffer cb) const;
+
+    Allocator &_generalAlloc;
+    LinearAllocator _linearAlloc;
+
+    std::filesystem::path _sceneDir;
+
+    SkyboxResources _skyboxResources;
+
+    Array<CameraParameters> _cameras{_generalAlloc};
+    // True if any instance of the camera is dynamic
+    Array<bool> _cameraDynamic{_generalAlloc};
+    Array<vk::Sampler> _samplers{_generalAlloc};
+    Array<Texture2D> _texture2Ds{_generalAlloc};
+    Array<Buffer> _geometryBuffers{_generalAlloc};
+    Buffer _meshBuffersBuffer;
+    Array<Material> _materials{_generalAlloc};
+    Array<MeshBuffers> _meshBuffers{_generalAlloc};
+    Array<MeshInfo> _meshInfos{_generalAlloc};
+    Array<Buffer> _modelInstances{_generalAlloc};
+    Array<AccelerationStructure> _blases{_generalAlloc};
+    Array<AccelerationStructure> _tlases{_generalAlloc};
+    Array<Model> _models{_generalAlloc};
+    Array<uint8_t> _rawAnimationData{_generalAlloc};
+    Animations _animations{_generalAlloc};
+    Array<Scene> _scenes{_generalAlloc};
+    size_t _currentScene{0};
+    uint32_t _currentCamera{0};
+
+    WorldDSLayouts _dsLayouts;
+    WorldDescriptorSets _descriptorSets;
+    WorldByteOffsets _byteOffsets;
+
+    StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
+    StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{0};
+    Optional<ShaderReflection> _materialsReflection;
+
+    Optional<ShaderReflection> _geometryReflection;
+
+    Optional<ShaderReflection> _modelInstancesReflection;
+    std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
+
+    Optional<ShaderReflection> _lightsReflection;
+    std::unique_ptr<RingBuffer> _lightDataRing;
+
+    Optional<ShaderReflection> _skyboxReflection;
+
+    Optional<DeferredLoadingContext> _deferredLoadingContext;
+    uint32_t _deferredLoadingAllocationHighWatermark{0};
+
+  private:
+    void loadTextures(
+        ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading);
+    void loadMaterials(
+        const tinygltf::Model &gltfModel,
+        const Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading);
+    void loadModels(const tinygltf::Model &gltfModel);
+
+    struct NodeAnimations
+    {
+        Optional<Animation<glm::vec3> *> translation;
+        Optional<Animation<glm::quat> *> rotation;
+        Optional<Animation<glm::vec3> *> scale;
+        // TODO:
+        // Dynamic light parameters. glTF doesn't have an official extension
+        // that supports this so requires a custom exporter plugin fork.
+    };
+    HashMap<uint32_t, NodeAnimations> loadAnimations(
+        Allocator &alloc, ScopedScratch scopeAlloc,
+        const tinygltf::Model &gltfModel);
+
+    void loadScenes(
+        ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        const HashMap<uint32_t, NodeAnimations> &nodeAnimations);
+
+    struct TmpNode
+    {
+        const std::string &gltfName;
+        Array<uint32_t> children;
+        Optional<glm::vec3> translation;
+        Optional<glm::quat> rotation;
+        Optional<glm::vec3> scale;
+        Optional<uint32_t> modelID;
+        Optional<uint32_t> camera;
+        Optional<uint32_t> light;
+
+        TmpNode(Allocator &alloc, const std::string &gltfName)
+        : gltfName{gltfName}
+        , children{alloc}
+        {
+        }
+    };
+    void gatherScene(
+        ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        const tinygltf::Scene &gltfScene, const Array<TmpNode> &nodes);
+
+    void createBlases();
+    void createTlases(ScopedScratch scopeAlloc);
+    void reserveScratch(vk::DeviceSize byteSize);
+    void reserveTlasInstances(
+        Span<const vk::AccelerationStructureInstanceKHR> instances);
+    void updateTlasInstances(ScopedScratch scopeAlloc, const Scene &scene);
+    void createTlasBuildInfos(
+        const Scene &scene,
+        vk::AccelerationStructureBuildRangeInfoKHR &rangeInfoOut,
+        vk::AccelerationStructureGeometryKHR &geometryOut,
+        vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
+        vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
+    void createBuffers();
+    void reflectBindings(ScopedScratch scopeAlloc);
+    void createDescriptorSets(ScopedScratch scopeAlloc);
+
+    [[nodiscard]] bool pollTextureWorker(vk::CommandBuffer cb);
+
+    void loadTextureSingleThreaded(
+        ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame);
+
+    void updateDescriptorsWithNewTexture();
+
+    Device *_device{nullptr};
+    DescriptorAllocator _descriptorAllocator;
+
+    Buffer _scratchBuffer;
+    Buffer _tlasInstancesBuffer;
+    std::unique_ptr<RingBuffer> _tlasInstancesUploadRing;
+    uint32_t _tlasInstancesUploadOffset{0};
+};
+
+World::Impl::Impl(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
     const std::filesystem::path &scene, bool deferredLoading)
 : _generalAlloc{generalAlloc}
 , _linearAlloc{sWorldMemSize}
 , _sceneDir{resPath(scene.parent_path())}
-, _skyboxTexture{scopeAlloc.child_scope(), device, resPath("env/storm.ktx")}
-, _skyboxVertexBuffer{createSkyboxVertexBuffer(device)}
+, _skyboxResources{
+    .texture = TextureCubemap{scopeAlloc.child_scope(), device, resPath("env/storm.ktx")},
+    .radianceViews = Array<vk::ImageView>{_generalAlloc},
+    .vertexBuffer = Buffer{ createSkyboxVertexBuffer(device)},
+}
 , _device{device}
 // Use general for descriptors because because we don't know the required
 // storage up front and the internal array will be reallocated
@@ -318,7 +544,7 @@ World::World(
 {
     WHEELS_ASSERT(_device != nullptr);
 
-    _skyboxIrradiance = _device->createImage(ImageCreateInfo{
+    _skyboxResources.irradiance = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
@@ -333,14 +559,14 @@ World::World(
     });
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
-        _skyboxIrradiance.transition(
+        _skyboxResources.irradiance.transition(
             cb, ImageState::FragmentShaderSampledRead |
                     ImageState::ComputeShaderSampledRead |
                     ImageState::RayTracingSampledRead);
         _device->endGraphicsCommands(cb);
     }
 
-    _specularBrdfLut = _device->createImage(ImageCreateInfo{
+    _skyboxResources.specularBrdfLut = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16Unorm,
@@ -353,7 +579,7 @@ World::World(
     });
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
-        _specularBrdfLut.transition(
+        _skyboxResources.specularBrdfLut.transition(
             cb, ImageState::FragmentShaderSampledRead |
                     ImageState::ComputeShaderSampledRead |
                     ImageState::RayTracingSampledRead);
@@ -364,7 +590,7 @@ World::World(
         asserted_cast<uint32_t>(
             floor(std::log2((static_cast<float>(sSkyboxRadianceResolution))))) +
         1;
-    _skyboxRadiance = _device->createImage(ImageCreateInfo{
+    _skyboxResources.radiance = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
@@ -379,11 +605,11 @@ World::World(
         .debugName = "SkyboxRadiance",
     });
     for (uint32_t i = 0; i < radianceMips; ++i)
-        _skyboxRadianceViews.push_back(
+        _skyboxResources.radianceViews.push_back(
             _device->logical().createImageView(vk::ImageViewCreateInfo{
-                .image = _skyboxRadiance.handle,
+                .image = _skyboxResources.radiance.handle,
                 .viewType = vk::ImageViewType::eCube,
-                .format = _skyboxRadiance.format,
+                .format = _skyboxResources.radiance.format,
                 .subresourceRange =
                     vk::ImageSubresourceRange{
                         .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -395,23 +621,24 @@ World::World(
             }));
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
-        _skyboxRadiance.transition(
+        _skyboxResources.radiance.transition(
             cb, ImageState::FragmentShaderSampledRead |
                     ImageState::ComputeShaderSampledRead |
                     ImageState::RayTracingSampledRead);
         _device->endGraphicsCommands(cb);
     }
 
-    _skyboxSampler = _device->logical().createSampler(vk::SamplerCreateInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .minLod = 0,
-        .maxLod = VK_LOD_CLAMP_NONE,
-    });
+    _skyboxResources.sampler =
+        _device->logical().createSampler(vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eLinear,
+            .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+        });
 
     printf("Loading world\n");
 
@@ -462,7 +689,7 @@ World::World(
     createDescriptorSets(scopeAlloc.child_scope());
 }
 
-World::~World()
+World::Impl::~Impl()
 {
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
@@ -472,13 +699,14 @@ World::~World()
     _device->logical().destroy(_dsLayouts.materialTextures);
     _device->logical().destroy(_dsLayouts.materialDatas);
 
-    _device->destroy(_skyboxVertexBuffer);
-    for (const vk::ImageView view : _skyboxRadianceViews)
+    _device->destroy(_skyboxResources.vertexBuffer);
+    for (const vk::ImageView view : _skyboxResources.radianceViews)
         _device->logical().destroy(view);
-    _device->destroy(_skyboxRadiance);
-    _device->destroy(_specularBrdfLut);
-    _device->destroy(_skyboxIrradiance);
-    _device->logical().destroy(_skyboxSampler);
+    _device->destroy(_skyboxResources.radiance);
+    _device->destroy(_skyboxResources.specularBrdfLut);
+    _device->destroy(_skyboxResources.irradiance);
+    _device->logical().destroy(_skyboxResources.sampler);
+
     for (auto &buffer : _materialsBuffers)
         _device->destroy(buffer);
 
@@ -504,14 +732,14 @@ World::~World()
     _device->destroy(_tlasInstancesBuffer);
 }
 
-void World::startFrame() const
+void World::Impl::startFrame() const
 {
     _modelInstanceTransformsRing->startFrame();
     _lightDataRing->startFrame();
     _tlasInstancesUploadRing->startFrame();
 }
 
-void World::uploadMaterialDatas(uint32_t nextFrame)
+void World::Impl::uploadMaterialDatas(uint32_t nextFrame)
 {
     if (_deferredLoadingContext.has_value())
     {
@@ -530,7 +758,7 @@ void World::uploadMaterialDatas(uint32_t nextFrame)
     }
 }
 
-void World::handleDeferredLoading(
+void World::Impl::handleDeferredLoading(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
     Profiler &profiler)
 {
@@ -575,7 +803,7 @@ void World::handleDeferredLoading(
         updateDescriptorsWithNewTexture();
 }
 
-void World::drawDeferredLoadingUi() const
+void World::Impl::drawDeferredLoadingUi() const
 {
     if (_deferredLoadingContext.has_value())
     {
@@ -592,11 +820,30 @@ void World::drawDeferredLoadingUi() const
     }
 }
 
-Scene &World::currentScene() { return _scenes[_currentScene]; }
+bool World::Impl::drawCameraUi()
+{
+    WHEELS_ASSERT(!_cameras.empty());
+    const uint32_t cameraCount = asserted_cast<uint32_t>(_cameras.size());
+    bool camChanged = false;
+    if (cameraCount > 1)
+    {
+        if (SliderU32("Active camera", &_currentCamera, 0, cameraCount - 1))
+        {
+            // Make sure the new camera's parameters are copied over from
+            camChanged = true;
+        }
+    }
+    return camChanged;
+}
 
-const Scene &World::currentScene() const { return _scenes[_currentScene]; }
+Scene &World::Impl::currentScene() { return _scenes[_currentScene]; }
 
-void World::updateAnimations(float timeS, Profiler *profiler)
+const Scene &World::Impl::currentScene() const
+{
+    return _scenes[_currentScene];
+}
+
+void World::Impl::updateAnimations(float timeS, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -608,7 +855,7 @@ void World::updateAnimations(float timeS, Profiler *profiler)
         animation.update(timeS);
 }
 
-void World::updateScene(
+void World::Impl::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
     Profiler *profiler)
 {
@@ -621,7 +868,7 @@ void World::updateScene(
 
     Array<uint32_t> nodeStack{scopeAlloc, scene.nodes.size()};
     Array<mat4> parentTransforms{scopeAlloc, scene.nodes.size()};
-    wheels::HashSet<uint32_t> visited{scopeAlloc, scene.nodes.size()};
+    HashSet<uint32_t> visited{scopeAlloc, scene.nodes.size()};
     for (uint32_t rootIndex : scene.rootNodes)
     {
         nodeStack.clear();
@@ -716,7 +963,7 @@ void World::updateScene(
     }
 }
 
-void World::updateBuffers(ScopedScratch scopeAlloc)
+void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 {
     const auto &scene = currentScene();
 
@@ -757,7 +1004,7 @@ void World::updateBuffers(ScopedScratch scopeAlloc)
     _byteOffsets.spotLights = scene.lights.spotLights.write(*_lightDataRing);
 }
 
-void World::buildCurrentTlas(vk::CommandBuffer cb)
+void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 {
     const auto &scene = _scenes[_currentScene];
     auto &tlas = _tlases[_currentScene];
@@ -790,14 +1037,14 @@ void World::buildCurrentTlas(vk::CommandBuffer cb)
     // First use needs to have a memory barrier from AS build into the usage
 }
 
-void World::drawSkybox(const vk::CommandBuffer &buffer) const
+void World::Impl::drawSkybox(vk::CommandBuffer cb) const
 {
     const vk::DeviceSize offset = 0;
-    buffer.bindVertexBuffers(0, 1, &_skyboxVertexBuffer.handle, &offset);
-    buffer.draw(asserted_cast<uint32_t>(SKYBOX_VERTS_SIZE), 1, 0, 0);
+    cb.bindVertexBuffers(0, 1, &_skyboxResources.vertexBuffer.handle, &offset);
+    cb.draw(asserted_cast<uint32_t>(SKYBOX_VERTS_SIZE), 1, 0, 0);
 }
 
-void World::loadTextures(
+void World::Impl::loadTextures(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
     Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading)
 {
@@ -879,7 +1126,7 @@ void World::loadTextures(
             asserted_cast<uint32_t>(texture.sampler + 1));
 }
 
-void World::loadMaterials(
+void World::Impl::loadMaterials(
     const tinygltf::Model &gltfModel,
     const Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading)
 {
@@ -960,7 +1207,7 @@ void World::loadMaterials(
     }
 }
 
-void World::loadModels(const tinygltf::Model &gltfModel)
+void World::Impl::loadModels(const tinygltf::Model &gltfModel)
 {
     for (const auto &b : gltfModel.buffers)
         _geometryBuffers.push_back(_device->createBuffer(BufferCreateInfo{
@@ -1116,7 +1363,7 @@ void World::loadModels(const tinygltf::Model &gltfModel)
     });
 }
 
-HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
+HashMap<uint32_t, World::Impl::NodeAnimations> World::Impl::loadAnimations(
     Allocator &alloc, ScopedScratch scopeAlloc,
     const tinygltf::Model &gltfModel)
 {
@@ -1276,9 +1523,9 @@ HashMap<uint32_t, World::NodeAnimations> World::loadAnimations(
     return ret;
 }
 
-void World::loadScenes(
+void World::Impl::loadScenes(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-    const wheels::HashMap<uint32_t, NodeAnimations> &nodeAnimations)
+    const HashMap<uint32_t, NodeAnimations> &nodeAnimations)
 {
     // Parse raw nodes first so conversion to internal format happens only once
     // for potential instances
@@ -1433,7 +1680,7 @@ void World::loadScenes(
             ScopedScratch scratch = scopeAlloc.child_scope();
             Array<uint32_t> nodeStack{scratch, scene.nodes.size()};
             Array<bool> parentDynamics{scratch, scene.nodes.size()};
-            wheels::HashSet<uint32_t> visited{scratch, scene.nodes.size()};
+            HashSet<uint32_t> visited{scratch, scene.nodes.size()};
             for (uint32_t rootIndex : scene.rootNodes)
             {
                 nodeStack.clear();
@@ -1513,9 +1760,9 @@ void World::loadScenes(
     }
 }
 
-void World::gatherScene(
+void World::Impl::gatherScene(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-    const tinygltf::Scene &gltfScene, const wheels::Array<TmpNode> &nodes)
+    const tinygltf::Scene &gltfScene, const Array<TmpNode> &nodes)
 {
     struct NodePair
     {
@@ -1684,7 +1931,7 @@ void World::gatherScene(
     }
 }
 
-void World::createBlases()
+void World::Impl::createBlases()
 {
     WHEELS_ASSERT(_meshBuffers.size() == _meshInfos.size());
     _blases.resize(_meshBuffers.size());
@@ -1788,7 +2035,7 @@ void World::createBlases()
     }
 }
 
-void World::createTlases(ScopedScratch scopeAlloc)
+void World::Impl::createTlases(ScopedScratch scopeAlloc)
 {
     _tlases.resize(_scenes.size());
     for (size_t i = 0; i < _tlases.size(); ++i)
@@ -1834,7 +2081,7 @@ void World::createTlases(ScopedScratch scopeAlloc)
     _tlasInstancesUploadRing->reset();
 }
 
-void World::reserveScratch(vk::DeviceSize byteSize)
+void World::Impl::reserveScratch(vk::DeviceSize byteSize)
 {
     if (_scratchBuffer.byteSize < byteSize)
     {
@@ -1853,8 +2100,8 @@ void World::reserveScratch(vk::DeviceSize byteSize)
     }
 }
 
-void World::reserveTlasInstances(
-    wheels::Span<const vk::AccelerationStructureInstanceKHR> instances)
+void World::Impl::reserveTlasInstances(
+    Span<const vk::AccelerationStructureInstanceKHR> instances)
 {
     const vk::DeviceSize byteSize = sizeof(instances[0]) * instances.size();
     if (_tlasInstancesBuffer.byteSize < byteSize)
@@ -1885,8 +2132,8 @@ void World::reserveTlasInstances(
     }
 }
 
-void World::updateTlasInstances(
-    wheels::ScopedScratch scopeAlloc, const Scene &scene)
+void World::Impl::updateTlasInstances(
+    ScopedScratch scopeAlloc, const Scene &scene)
 {
     // TODO:
     // Is it faster to poke instances directly into a mapped buffer instead
@@ -1930,7 +2177,7 @@ void World::updateTlasInstances(
         _tlasInstancesUploadRing->write_elements(instances);
 }
 
-void World::createTlasBuildInfos(
+void World::Impl::createTlasBuildInfos(
     const Scene &scene,
     vk::AccelerationStructureBuildRangeInfoKHR &rangeInfoOut,
     vk::AccelerationStructureGeometryKHR &geometryOut,
@@ -1963,7 +2210,7 @@ void World::createTlasBuildInfos(
         {rangeInfoOut.primitiveCount});
 }
 
-void World::createBuffers()
+void World::Impl::createBuffers()
 {
     for (size_t i = 0; i < _materialsBuffers.capacity(); ++i)
         _materialsBuffers.push_back(_device->createBuffer(BufferCreateInfo{
@@ -2022,7 +2269,7 @@ void World::createBuffers()
     }
 }
 
-void World::reflectBindings(ScopedScratch scopeAlloc)
+void World::Impl::reflectBindings(ScopedScratch scopeAlloc)
 {
     const auto reflect =
         [&](const String &defines, const std::filesystem::path &relPath)
@@ -2103,7 +2350,7 @@ void World::reflectBindings(ScopedScratch scopeAlloc)
     }
 }
 
-void World::createDescriptorSets(ScopedScratch scopeAlloc)
+void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     if (_device == nullptr)
         throw std::runtime_error(
@@ -2424,20 +2671,20 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             _descriptorAllocator.allocate(_dsLayouts.skybox);
 
         const StaticArray descriptorInfos{
-            DescriptorInfo{_skyboxTexture.imageInfo()},
+            DescriptorInfo{_skyboxResources.texture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxSampler,
-                .imageView = _skyboxIrradiance.view,
+                .sampler = _skyboxResources.sampler,
+                .imageView = _skyboxResources.irradiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxSampler,
-                .imageView = _specularBrdfLut.view,
+                .sampler = _skyboxResources.sampler,
+                .imageView = _skyboxResources.specularBrdfLut.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxSampler,
-                .imageView = _skyboxRadiance.view,
+                .sampler = _skyboxResources.sampler,
+                .imageView = _skyboxResources.radiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
         };
@@ -2452,7 +2699,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
     }
 }
 
-bool World::pollTextureWorker(vk::CommandBuffer cb)
+bool World::Impl::pollTextureWorker(vk::CommandBuffer cb)
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
@@ -2510,7 +2757,7 @@ bool World::pollTextureWorker(vk::CommandBuffer cb)
     return newTextureLoaded;
 }
 
-void World::loadTextureSingleThreaded(
+void World::Impl::loadTextureSingleThreaded(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame)
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
@@ -2531,7 +2778,7 @@ void World::loadTextureSingleThreaded(
         ctx.stagingBuffers[nextFrame], true);
 }
 
-void World::updateDescriptorsWithNewTexture()
+void World::Impl::updateDescriptorsWithNewTexture()
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
@@ -2581,7 +2828,7 @@ void World::updateDescriptorsWithNewTexture()
         ctx.materialsGeneration++;
 }
 
-World::DeferredLoadingContext::DeferredLoadingContext(
+DeferredLoadingContext::DeferredLoadingContext(
     Allocator &alloc, Device *device, const std::filesystem::path *sceneDir,
     const tinygltf::Model &gltfModel)
 : device{device}
@@ -2610,7 +2857,7 @@ World::DeferredLoadingContext::DeferredLoadingContext(
     }
 }
 
-World::DeferredLoadingContext::~DeferredLoadingContext()
+DeferredLoadingContext::~DeferredLoadingContext()
 {
     if (device != nullptr)
     {
@@ -2630,4 +2877,107 @@ World::DeferredLoadingContext::~DeferredLoadingContext()
         for (const Buffer &buffer : stagingBuffers)
             device->destroy(buffer);
     }
+}
+
+World::World(
+    Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
+    const std::filesystem::path &scene, bool deferredLoading)
+: _impl{std::make_unique<World::Impl>(
+      generalAlloc, WHEELS_MOV(scopeAlloc), device, scene, deferredLoading)}
+{
+}
+
+// Define here to have ~Impl defined
+World::~World() = default;
+
+void World::startFrame() const { _impl->startFrame(); }
+
+void World::handleDeferredLoading(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
+    Profiler &profiler)
+{
+    _impl->handleDeferredLoading(
+        WHEELS_MOV(scopeAlloc), cb, nextFrame, profiler);
+}
+
+void World::drawDeferredLoadingUi() const
+{
+    return _impl->drawDeferredLoadingUi();
+}
+
+bool World::drawCameraUi() { return _impl->drawCameraUi(); }
+
+Scene &World::currentScene() { return _impl->currentScene(); }
+
+const Scene &World::currentScene() const { return _impl->currentScene(); }
+
+CameraParameters const &World::currentCamera() const
+{
+    WHEELS_ASSERT(_impl->_currentCamera < _impl->_cameras.size());
+    return _impl->_cameras[_impl->_currentCamera];
+}
+
+bool World::isCurrentCameraDynamic() const
+{
+    WHEELS_ASSERT(_impl->_currentCamera < _impl->_cameraDynamic.size());
+    return _impl->_cameraDynamic[_impl->_currentCamera];
+}
+
+void World::uploadMaterialDatas(uint32_t nextFrame)
+{
+    _impl->uploadMaterialDatas(nextFrame);
+}
+
+void World::updateAnimations(float timeS, Profiler *profiler)
+{
+    _impl->updateAnimations(timeS, profiler);
+}
+
+void World::updateScene(
+    ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
+    Profiler *profiler)
+{
+    _impl->updateScene(WHEELS_MOV(scopeAlloc), cameraTransform, profiler);
+}
+
+void World::updateBuffers(ScopedScratch scopeAlloc)
+{
+    _impl->updateBuffers(WHEELS_MOV(scopeAlloc));
+}
+
+void World::buildCurrentTlas(vk::CommandBuffer cb)
+{
+    _impl->buildCurrentTlas(cb);
+}
+
+void World::drawSkybox(vk::CommandBuffer cb) const { _impl->drawSkybox(cb); }
+
+const WorldDSLayouts &World::dsLayouts() const { return _impl->_dsLayouts; }
+
+const WorldDescriptorSets &World::descriptorSets() const
+{
+    return _impl->_descriptorSets;
+}
+
+const WorldByteOffsets &World::byteOffsets() const
+{
+    return _impl->_byteOffsets;
+}
+
+Span<const Model> World::models() const { return _impl->_models; }
+
+Span<const Material> World::materials() const { return _impl->_materials; }
+
+Span<const MeshInfo> World::meshInfos() const { return _impl->_meshInfos; }
+
+SkyboxResources &World::skyboxResources() { return _impl->_skyboxResources; }
+
+size_t World::deferredLoadingAllocatorHighWatermark() const
+{
+    return _impl->_deferredLoadingAllocationHighWatermark;
+}
+
+size_t World::linearAllocatorHighWatermark() const
+{
+    return _impl->_linearAlloc.allocated_byte_count_high_watermark();
 }

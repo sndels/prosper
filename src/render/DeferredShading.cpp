@@ -6,6 +6,7 @@
 
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
+#include "../scene/Light.hpp"
 #include "../scene/World.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
@@ -212,23 +213,25 @@ DeferredShading::Output DeferredShading::record(
             .ibl = static_cast<uint32_t>(applyIbl),
         };
 
+        const WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
+        descriptorSets[LightsBindingSet] = worldDSes.lights;
         descriptorSets[LightClustersBindingSet] =
             input.lightClusters.descriptorSet;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[MaterialDatasBindingSet] =
-            world._descriptorSets.materialDatas[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] =
-            world._descriptorSets.materialTextures;
-        descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
+            worldDSes.materialDatas[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
+        descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets = {
-            world._byteOffsets.directionalLight,
-            world._byteOffsets.pointLights,
-            world._byteOffsets.spotLights,
+            worldByteOffsets.directionalLight,
+            worldByteOffsets.pointLights,
+            worldByteOffsets.spotLights,
             cam.bufferOffset(),
         };
 

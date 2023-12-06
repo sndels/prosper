@@ -4,6 +4,10 @@
 
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
+#include "../scene/Light.hpp"
+#include "../scene/Material.hpp"
+#include "../scene/Mesh.hpp"
+#include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
@@ -340,28 +344,29 @@ void ForwardRenderer::record(
     cb.bindPipeline(
         vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
 
-    const auto &scene = world._scenes[world._currentScene];
+    const auto &scene = world.currentScene();
+    const WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
     StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
-    descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
+    descriptorSets[LightsBindingSet] = worldDSes.lights;
     descriptorSets[LightClustersBindingSet] = lightClusters.descriptorSet;
     descriptorSets[CameraBindingSet] = cam.descriptorSet();
     descriptorSets[MaterialDatasBindingSet] =
-        world._descriptorSets.materialDatas[nextFrame];
-    descriptorSets[MaterialTexturesBindingSet] =
-        world._descriptorSets.materialTextures;
-    descriptorSets[GeometryBuffersBindingSet] = world._descriptorSets.geometry;
+        worldDSes.materialDatas[nextFrame];
+    descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
+    descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry;
     descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSet;
-    descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
+    descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
 
     const StaticArray dynamicOffsets{
-        world._byteOffsets.directionalLight,
-        world._byteOffsets.pointLights,
-        world._byteOffsets.spotLights,
+        worldByteOffsets.directionalLight,
+        worldByteOffsets.pointLights,
+        worldByteOffsets.spotLights,
         cam.bufferOffset(),
-        world._byteOffsets.modelInstanceTransforms,
+        worldByteOffsets.modelInstanceTransforms,
     };
 
     cb.bindDescriptorSets(
@@ -372,13 +377,16 @@ void ForwardRenderer::record(
 
     setViewportScissor(cb, renderArea);
 
+    const Span<const Model> models = world.models();
+    const Span<const Material> materials = world.materials();
+    const Span<const MeshInfo> meshInfos = world.meshInfos();
     for (const auto &instance : scene.modelInstances)
     {
-        const auto &model = world._models[instance.modelID];
+        const auto &model = models[instance.modelID];
         for (const auto &subModel : model.subModels)
         {
-            const auto &material = world._materials[subModel.materialID];
-            const auto &info = world._meshInfos[subModel.meshID];
+            const auto &material = materials[subModel.materialID];
+            const auto &info = meshInfos[subModel.meshID];
             const auto isTransparent =
                 material.alphaMode == Material::AlphaMode::Blend;
             if ((options.transparents && isTransparent) ||

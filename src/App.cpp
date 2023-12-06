@@ -16,6 +16,7 @@
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/string.hpp>
 
+#include "gfx/DescriptorAllocator.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/DebugRenderer.hpp"
 #include "render/DeferredShading.hpp"
@@ -31,6 +32,7 @@
 #include "render/ToneMap.hpp"
 #include "render/dof/DepthOfField.hpp"
 #include "render/rtdi/RtDirectIllumination.hpp"
+#include "scene/Scene.hpp"
 #include "scene/World.hpp"
 #include "utils/InputHandler.hpp"
 #include "utils/Utils.hpp"
@@ -60,11 +62,6 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
         "Failed to allocate command buffers");
 
     return ret;
-}
-
-bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
-{
-    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
 }
 
 } // namespace
@@ -126,36 +123,36 @@ App::App(const Settings &settings)
     _lightClustering = std::make_unique<LightClustering>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _forwardRenderer = std::make_unique<ForwardRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->_dsLayouts,
+            .world = _world->dsLayouts(),
         });
     _gbufferRenderer = std::make_unique<GBufferRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->_dsLayouts);
+        _cam->descriptorSetLayout(), _world->dsLayouts());
     _deferredShading = std::make_unique<DeferredShading>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(),
         DeferredShading::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->_dsLayouts,
+            .world = _world->dsLayouts(),
         });
     _rtDirectIllumination = std::make_unique<RtDirectIllumination>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _rtReference = std::make_unique<RtReference>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _skyboxRenderer = std::make_unique<SkyboxRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _debugRenderer = std::make_unique<DebugRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
@@ -337,32 +334,32 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
     _lightClustering->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _forwardRenderer->recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->_dsLayouts,
+            .world = _world->dsLayouts(),
         });
     _gbufferRenderer->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _deferredShading->recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         DeferredShading::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->_dsLayouts,
+            .world = _world->dsLayouts(),
         });
     _rtDirectIllumination->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _rtReference->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->_dsLayouts);
+        _world->dsLayouts());
     _skyboxRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _world->_dsLayouts);
+        scopeAlloc.child_scope(), changedFiles, _world->dsLayouts());
     _debugRenderer->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
     _toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);
@@ -587,15 +584,14 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     {
         _cam->lookAt(_sceneCameraTransform);
 
-        const CameraParameters &params =
-            _world->_cameras[_world->_currentCamera];
-        // This makes sure we copy the new params over when a camera is changed,
-        // or for the first camera
+        const CameraParameters &params = _world->currentCamera();
+        // This makes sure we copy the new params over when a camera is
+        // changed, or for the first camera
         _cameraParameters = params;
         _cam->setParameters(params);
         _forceCamUpdate = false;
         // Disable free look for animated cameras
-        _camFreeLook = !_world->_cameraDynamic[_world->_currentCamera];
+        _camFreeLook = !_world->isCurrentCameraDynamic();
     }
 
     WHEELS_ASSERT(
@@ -938,11 +934,10 @@ void App::drawMemory(uint32_t scopeHighWatermark)
     ImGui::Text(
         "  deferred loading: %uMB\n",
         asserted_cast<uint32_t>(
-            _world->_deferredLoadingAllocationHighWatermark / 1000 / 1000));
+            _world->deferredLoadingAllocatorHighWatermark() / 1000 / 1000));
     ImGui::Text(
         "  world: %uKB\n",
-        asserted_cast<uint32_t>(
-            _world->_linearAlloc.allocated_byte_count_high_watermark() / 1000));
+        asserted_cast<uint32_t>(_world->linearAllocatorHighWatermark() / 1000));
     ImGui::Text(
         "  general: %uKB\n",
         asserted_cast<uint32_t>(
@@ -1046,21 +1041,8 @@ bool App::drawCameraUi()
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    WHEELS_ASSERT(!_world->_cameras.empty());
-    const uint32_t cameraCount =
-        asserted_cast<uint32_t>(_world->_cameras.size());
-    if (cameraCount > 1)
-    {
-        if (SliderU32(
-                "Active camera", &_world->_currentCamera, 0, cameraCount - 1))
-        {
-            // Make sure the new camera's parameters are copied over from scene
-            _forceCamUpdate = true;
-        }
-    }
-    // Force free look on non-animated cameras
-
-    if (_world->_cameraDynamic[_world->_currentCamera])
+    _forceCamUpdate |= _world->drawCameraUi();
+    if (_world->isCurrentCameraDynamic())
         ImGui::Checkbox("Free look", &_camFreeLook);
 
     CameraParameters params = _cam->parameters();

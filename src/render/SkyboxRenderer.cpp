@@ -117,10 +117,12 @@ void SkyboxRenderer::record(
         // before transparents
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
+        const WorldDescriptorSets &worldDSes = world.descriptorSets();
+
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
-            1, &world._descriptorSets.skybox, 0, nullptr);
+            1, &worldDSes.skybox, 0, nullptr);
 
         setViewportScissor(cb, renderArea);
 

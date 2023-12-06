@@ -4,6 +4,9 @@
 
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
+#include "../scene/Material.hpp"
+#include "../scene/Mesh.hpp"
+#include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
@@ -114,23 +117,23 @@ GBufferRendererOutput GBufferRenderer::record(
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-        const auto &scene = world._scenes[world._currentScene];
+        const auto &scene = world.currentScene();
+        const WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[MaterialDatasBindingSet] =
-            world._descriptorSets.materialDatas[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] =
-            world._descriptorSets.materialTextures;
-        descriptorSets[GeometryBuffersBindingSet] =
-            world._descriptorSets.geometry;
+            worldDSes.materialDatas[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
+        descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
 
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),
-            world._byteOffsets.modelInstanceTransforms,
+            worldByteOffsets.modelInstanceTransforms,
         };
 
         cb.bindDescriptorSets(
@@ -143,13 +146,16 @@ GBufferRendererOutput GBufferRenderer::record(
 
         setViewportScissor(cb, renderArea);
 
+        const Span<const Model> models = world.models();
+        const Span<const Material> materials = world.materials();
+        const Span<const MeshInfo> meshInfos = world.meshInfos();
         for (const auto &instance : scene.modelInstances)
         {
-            const auto &model = world._models[instance.modelID];
+            const auto &model = models[instance.modelID];
             for (const auto &subModel : model.subModels)
             {
-                const auto &material = world._materials[subModel.materialID];
-                const auto &info = world._meshInfos[subModel.meshID];
+                const auto &material = materials[subModel.materialID];
+                const auto &info = meshInfos[subModel.meshID];
 
                 if (material.alphaMode != Material::AlphaMode::Blend)
                 {

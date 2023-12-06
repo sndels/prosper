@@ -2,6 +2,8 @@
 
 #include "../scene/World.hpp"
 #include "../utils/Profiler.hpp"
+#include <glm/detail/type_vec2.hpp>
+#include <glm/fwd.hpp>
 
 using namespace wheels;
 using namespace glm;
@@ -102,18 +104,21 @@ void ImageBasedLighting::recordGeneration(
 {
     WHEELS_ASSERT(profiler != nullptr);
 
+    SkyboxResources &skyboxResources = world.skyboxResources();
+
     {
         const StaticArray descriptorInfos{
-            DescriptorInfo{world._skyboxTexture.imageInfo()},
+            DescriptorInfo{skyboxResources.texture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = world._skyboxIrradiance.view,
+                .imageView = skyboxResources.irradiance.view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
         _sampleIrradiance.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        world._skyboxIrradiance.transition(cb, ImageState::ComputeShaderWrite);
+        skyboxResources.irradiance.transition(
+            cb, ImageState::ComputeShaderWrite);
 
         const auto _s = profiler->createCpuGpuScope(cb, "SampleIrradiance");
 
@@ -126,7 +131,7 @@ void ImageBasedLighting::recordGeneration(
 
         // Transition so that the texture can be bound without transition for
         // all users
-        world._skyboxIrradiance.transition(
+        skyboxResources.irradiance.transition(
             cb, ImageState::ComputeShaderSampledRead |
                     ImageState::FragmentShaderSampledRead |
                     ImageState::RayTracingSampledRead);
@@ -135,14 +140,15 @@ void ImageBasedLighting::recordGeneration(
     {
         const StaticArray descriptorInfos{
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = world._specularBrdfLut.view,
+                .imageView = skyboxResources.specularBrdfLut.view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
         _integrateSpecularBrdf.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        world._specularBrdfLut.transition(cb, ImageState::ComputeShaderWrite);
+        skyboxResources.specularBrdfLut.transition(
+            cb, ImageState::ComputeShaderWrite);
 
         const auto _s =
             profiler->createCpuGpuScope(cb, "IntegrateSpecularBrdf");
@@ -156,29 +162,29 @@ void ImageBasedLighting::recordGeneration(
 
         // Transition so that the texture can be bound without transition for
         // all users
-        world._specularBrdfLut.transition(
+        skyboxResources.specularBrdfLut.transition(
             cb, ImageState::ComputeShaderSampledRead |
                     ImageState::FragmentShaderSampledRead |
                     ImageState::RayTracingSampledRead);
     }
 
     {
-        const uint32_t mipCount = world._skyboxRadiance.mipCount;
-        WHEELS_ASSERT(mipCount == world._skyboxRadianceViews.size());
+        const uint32_t mipCount = skyboxResources.radiance.mipCount;
+        WHEELS_ASSERT(mipCount == skyboxResources.radianceViews.size());
 
         StaticArray<vk::DescriptorImageInfo, 15> imageInfos{
             vk::DescriptorImageInfo{
-                .imageView = world._skyboxRadianceViews[0],
+                .imageView = skyboxResources.radianceViews[0],
                 .imageLayout = vk::ImageLayout::eGeneral,
             }};
         for (uint32_t i = 1; i < mipCount; ++i)
             imageInfos[i] = vk::DescriptorImageInfo{
-                .imageView = world._skyboxRadianceViews[i],
+                .imageView = skyboxResources.radianceViews[i],
                 .imageLayout = vk::ImageLayout::eGeneral,
             };
 
         const StaticArray descriptorInfos{
-            DescriptorInfo{world._skyboxTexture.imageInfo()},
+            DescriptorInfo{skyboxResources.texture.imageInfo()},
             DescriptorInfo{imageInfos},
         };
 
@@ -187,7 +193,7 @@ void ImageBasedLighting::recordGeneration(
         const vk::DescriptorSet storageSet =
             _prefilterRadiance.storageSet(nextFrame);
 
-        world._skyboxRadiance.transition(cb, ImageState::ComputeShaderWrite);
+        skyboxResources.radiance.transition(cb, ImageState::ComputeShaderWrite);
 
         const auto _s = profiler->createCpuGpuScope(cb, "PrefilterRadiance");
 
@@ -198,7 +204,7 @@ void ImageBasedLighting::recordGeneration(
         // shader?
         const uvec3 groups = uvec3{
             (uvec2{World::sSkyboxRadianceResolution} - 1u) / 16u + 1u,
-            6 * world._skyboxRadiance.mipCount};
+            6 * skyboxResources.radiance.mipCount};
 
         _prefilterRadiance.record(
             cb,
@@ -209,7 +215,7 @@ void ImageBasedLighting::recordGeneration(
 
         // Transition so that the texture can be bound without transition
         // for all users
-        world._skyboxRadiance.transition(
+        skyboxResources.radiance.transition(
             cb, ImageState::ComputeShaderSampledRead |
                     ImageState::FragmentShaderSampledRead |
                     ImageState::RayTracingSampledRead);

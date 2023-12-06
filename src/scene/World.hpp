@@ -1,34 +1,16 @@
 #ifndef PROSPER_SCENE_WORLD_HPP
 #define PROSPER_SCENE_WORLD_HPP
 
-#include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Fwd.hpp"
-#include "../gfx/ShaderReflection.hpp"
+#include "../scene/Texture.hpp"
 #include "../utils/Fwd.hpp"
-#include "../utils/Timer.hpp"
-#include "Animations.hpp"
-#include "Camera.hpp"
-#include "Material.hpp"
-#include "Mesh.hpp"
-#include "Model.hpp"
-#include "Scene.hpp"
-#include "Texture.hpp"
+#include "../utils/Utils.hpp"
+#include "Fwd.hpp"
 
-#include <condition_variable>
 #include <filesystem>
-#include <mutex>
-#include <thread>
-#include <tiny_gltf.h>
-#include <vulkan/vulkan_hash.hpp>
-
+#include <memory>
 #include <wheels/allocators/scoped_scratch.hpp>
-#include <wheels/containers/array.hpp>
-#include <wheels/containers/hash_map.hpp>
-
-namespace tinygltf
-{
-class Model;
-};
+#include <wheels/containers/static_array.hpp>
 
 struct WorldDSLayouts
 {
@@ -42,7 +24,7 @@ struct WorldDSLayouts
     vk::DescriptorSetLayout skybox;
 };
 
-struct WorldDsByteOffsets
+struct WorldByteOffsets
 {
     uint32_t modelInstanceTransforms{0};
     uint32_t directionalLight{0};
@@ -57,6 +39,17 @@ struct WorldDescriptorSets
     vk::DescriptorSet materialTextures;
     vk::DescriptorSet geometry;
     vk::DescriptorSet skybox;
+};
+
+struct SkyboxResources
+{
+    TextureCubemap texture;
+    Image irradiance;
+    Image specularBrdfLut;
+    Image radiance;
+    wheels::Array<vk::ImageView> radianceViews;
+    Buffer vertexBuffer;
+    vk::Sampler sampler;
 };
 
 class World
@@ -79,15 +72,21 @@ class World
 
     void startFrame() const;
 
-    void uploadMaterialDatas(uint32_t nextFrame);
     void handleDeferredLoading(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame, Profiler &profiler);
 
     void drawDeferredLoadingUi() const;
+    // Returns true if the active camera was changed
+    [[nodiscard]] bool drawCameraUi();
 
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
+
+    [[nodiscard]] CameraParameters const &currentCamera() const;
+    [[nodiscard]] bool isCurrentCameraDynamic() const;
+
+    void uploadMaterialDatas(uint32_t nextFrame);
     void updateAnimations(float timeS, Profiler *profiler);
     // Has to be called after updateAnimations()
     void updateScene(
@@ -96,185 +95,23 @@ class World
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers()
     void buildCurrentTlas(vk::CommandBuffer cb);
-    void drawSkybox(const vk::CommandBuffer &buffer) const;
+    void drawSkybox(vk::CommandBuffer cb) const;
 
-    wheels::Allocator &_generalAlloc;
-    wheels::LinearAllocator _linearAlloc;
+    [[nodiscard]] const WorldDSLayouts &dsLayouts() const;
+    [[nodiscard]] const WorldDescriptorSets &descriptorSets() const;
+    [[nodiscard]] const WorldByteOffsets &byteOffsets() const;
+    [[nodiscard]] wheels::Span<const Model> models() const;
+    [[nodiscard]] wheels::Span<const Material> materials() const;
+    [[nodiscard]] wheels::Span<const MeshInfo> meshInfos() const;
+    [[nodiscard]] SkyboxResources &skyboxResources();
 
-    std::filesystem::path _sceneDir;
-
-    // TODO: Private?
-    TextureCubemap _skyboxTexture;
-    Image _skyboxIrradiance;
-    Image _specularBrdfLut;
-    Image _skyboxRadiance;
-    wheels::Array<vk::ImageView> _skyboxRadianceViews{_generalAlloc};
-    Buffer _skyboxVertexBuffer;
-    vk::Sampler _skyboxSampler;
-
-    wheels::Array<CameraParameters> _cameras{_generalAlloc};
-    // True if any instance of the camera is dynamic
-    wheels::Array<bool> _cameraDynamic{_generalAlloc};
-    wheels::Array<vk::Sampler> _samplers{_generalAlloc};
-    wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
-    wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
-    Buffer _meshBuffersBuffer;
-    wheels::Array<Material> _materials{_generalAlloc};
-    wheels::Array<MeshBuffers> _meshBuffers{_generalAlloc};
-    wheels::Array<MeshInfo> _meshInfos{_generalAlloc};
-    wheels::Array<Buffer> _modelInstances{_generalAlloc};
-    wheels::Array<AccelerationStructure> _blases{_generalAlloc};
-    wheels::Array<AccelerationStructure> _tlases{_generalAlloc};
-    wheels::Array<Model> _models{_generalAlloc};
-    wheels::Array<uint8_t> _rawAnimationData{_generalAlloc};
-    Animations _animations{_generalAlloc};
-    wheels::Array<Scene> _scenes{_generalAlloc};
-    size_t _currentScene{0};
-    uint32_t _currentCamera{0};
-
-    WorldDSLayouts _dsLayouts;
-    WorldDescriptorSets _descriptorSets;
-    WorldDsByteOffsets _byteOffsets;
-
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
-    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
-        0};
-    wheels::Optional<ShaderReflection> _materialsReflection;
-
-    wheels::Optional<ShaderReflection> _geometryReflection;
-
-    wheels::Optional<ShaderReflection> _modelInstancesReflection;
-    std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
-
-    wheels::Optional<ShaderReflection> _lightsReflection;
-    std::unique_ptr<RingBuffer> _lightDataRing;
-
-    wheels::Optional<ShaderReflection> _skyboxReflection;
-
-    struct DeferredLoadingContext
-    {
-        DeferredLoadingContext(
-            wheels::Allocator &alloc, Device *device,
-            const std::filesystem::path *sceneDir,
-            const tinygltf::Model &gltfModel);
-        ~DeferredLoadingContext();
-
-        DeferredLoadingContext(const DeferredLoadingContext &) = delete;
-        DeferredLoadingContext(DeferredLoadingContext &&) = delete;
-        DeferredLoadingContext &operator=(const DeferredLoadingContext &) =
-            delete;
-        DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
-
-        Device *device{nullptr};
-        // If there's no worker, main thread handles loading
-        wheels::Optional<std::thread> worker;
-
-        // Worker context
-        tinygltf::Model gltfModel;
-        vk::CommandBuffer cb;
-        uint32_t workerLoadedImageCount{0};
-
-        // Shared context
-        std::mutex loadedTextureMutex;
-        std::condition_variable loadedTextureTaken;
-        wheels::Optional<Texture2D> loadedTexture;
-        std::atomic<bool> interruptLoading{false};
-        std::atomic<uint32_t> allocationHighWatermark{0};
-
-        // Main context
-        uint32_t materialsGeneration{0};
-        uint32_t framesSinceFinish{0};
-        uint32_t textureArrayBinding{0};
-        uint32_t loadedImageCount{0};
-        uint32_t loadedMaterialCount{0};
-        wheels::Array<Material> materials;
-        wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
-        Timer timer;
-    };
-    wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
-    uint32_t _deferredLoadingAllocationHighWatermark{0};
+    [[nodiscard]] size_t deferredLoadingAllocatorHighWatermark() const;
+    [[nodiscard]] size_t linearAllocatorHighWatermark() const;
 
   private:
-    void loadTextures(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-        wheels::Array<Texture2DSampler> &texture2DSamplers,
-        bool deferredLoading);
-    void loadMaterials(
-        const tinygltf::Model &gltfModel,
-        const wheels::Array<Texture2DSampler> &texture2DSamplers,
-        bool deferredLoading);
-    void loadModels(const tinygltf::Model &gltfModel);
-
-    struct NodeAnimations
-    {
-        wheels::Optional<Animation<glm::vec3> *> translation;
-        wheels::Optional<Animation<glm::quat> *> rotation;
-        wheels::Optional<Animation<glm::vec3> *> scale;
-        // TODO:
-        // Dynamic light parameters. glTF doesn't have an official extension
-        // that supports this so requires a custom exporter plugin fork.
-    };
-    wheels::HashMap<uint32_t, NodeAnimations> loadAnimations(
-        wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
-        const tinygltf::Model &gltfModel);
-
-    void loadScenes(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-        const wheels::HashMap<uint32_t, NodeAnimations> &nodeAnimations);
-
-    struct TmpNode
-    {
-        const std::string &gltfName;
-        wheels::Array<uint32_t> children;
-        wheels::Optional<glm::vec3> translation;
-        wheels::Optional<glm::quat> rotation;
-        wheels::Optional<glm::vec3> scale;
-        wheels::Optional<uint32_t> modelID;
-        wheels::Optional<uint32_t> camera;
-        wheels::Optional<uint32_t> light;
-
-        TmpNode(wheels::Allocator &alloc, const std::string &gltfName)
-        : gltfName{gltfName}
-        , children{alloc}
-        {
-        }
-    };
-    void gatherScene(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-        const tinygltf::Scene &gltfScene, const wheels::Array<TmpNode> &nodes);
-
-    void createBlases();
-    void createTlases(wheels::ScopedScratch scopeAlloc);
-    void reserveScratch(vk::DeviceSize byteSize);
-    void reserveTlasInstances(
-        wheels::Span<const vk::AccelerationStructureInstanceKHR> instances);
-    void updateTlasInstances(
-        wheels::ScopedScratch scopeAlloc, const Scene &scene);
-    void createTlasBuildInfos(
-        const Scene &scene,
-        vk::AccelerationStructureBuildRangeInfoKHR &rangeInfoOut,
-        vk::AccelerationStructureGeometryKHR &geometryOut,
-        vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
-        vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
-    void createBuffers();
-    void reflectBindings(wheels::ScopedScratch scopeAlloc);
-    void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
-
-    [[nodiscard]] bool pollTextureWorker(vk::CommandBuffer cb);
-
-    void loadTextureSingleThreaded(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        uint32_t nextFrame);
-
-    void updateDescriptorsWithNewTexture();
-
-    Device *_device{nullptr};
-    DescriptorAllocator _descriptorAllocator;
-
-    Buffer _scratchBuffer;
-    Buffer _tlasInstancesBuffer;
-    std::unique_ptr<RingBuffer> _tlasInstancesUploadRing;
-    uint32_t _tlasInstancesUploadOffset{0};
+    // Pimpl to isolate heavy includes within the World CU
+    class Impl;
+    std::unique_ptr<Impl> _impl;
 };
 
 #endif // PROSPER_SCENE_WORLD_HPP

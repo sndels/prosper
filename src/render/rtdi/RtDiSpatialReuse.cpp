@@ -1,6 +1,7 @@
 #include "RtDiSpatialReuse.hpp"
 
 #include "../../scene/Camera.hpp"
+#include "../../scene/Light.hpp"
 #include "../../scene/World.hpp"
 #include "../../utils/Profiler.hpp"
 #include "../../utils/Utils.hpp"
@@ -174,16 +175,19 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
 
         const auto _s = profiler->createCpuGpuScope(cb, "  SpatialReuse");
 
+        const WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
+        descriptorSets[LightsBindingSet] = worldDSes.lights;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets = {
-            world._byteOffsets.directionalLight,
-            world._byteOffsets.pointLights,
-            world._byteOffsets.spotLights,
+            worldByteOffsets.directionalLight,
+            worldByteOffsets.pointLights,
+            worldByteOffsets.spotLights,
             cam.bufferOffset(),
         };
 
