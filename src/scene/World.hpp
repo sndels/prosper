@@ -42,6 +42,14 @@ struct WorldDSLayouts
     vk::DescriptorSetLayout skybox;
 };
 
+struct WorldDsByteOffsets
+{
+    uint32_t modelInstanceTransforms{0};
+    uint32_t directionalLight{0};
+    uint32_t pointLights{0};
+    uint32_t spotLights{0};
+};
+
 struct WorldDescriptorSets
 {
     vk::DescriptorSet lights;
@@ -126,6 +134,7 @@ class World
 
     WorldDSLayouts _dsLayouts;
     WorldDescriptorSets _descriptorSets;
+    WorldDsByteOffsets _byteOffsets;
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
@@ -136,13 +145,9 @@ class World
 
     wheels::Optional<ShaderReflection> _modelInstancesReflection;
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
-    uint32_t _modelInstanceTransformsByteOffset{0};
 
     wheels::Optional<ShaderReflection> _lightsReflection;
     std::unique_ptr<RingBuffer> _lightDataRing;
-    uint32_t _directionalLightByteOffset{0};
-    uint32_t _pointLightByteOffset{0};
-    uint32_t _spotLightByteOffset{0};
 
     wheels::Optional<ShaderReflection> _skyboxReflection;
 

@@ -154,9 +154,9 @@ LightClusteringOutput LightClustering::record(
             descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
 
             const StaticArray dynamicOffsets = {
-                world._directionalLightByteOffset,
-                world._pointLightByteOffset,
-                world._spotLightByteOffset,
+                world._byteOffsets.directionalLight,
+                world._byteOffsets.pointLights,
+                world._byteOffsets.spotLights,
                 cam.bufferOffset(),
             };
 

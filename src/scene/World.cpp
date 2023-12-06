@@ -741,7 +741,7 @@ void World::updateBuffers(ScopedScratch scopeAlloc)
             }
         }
 
-        _modelInstanceTransformsByteOffset =
+        _byteOffsets.modelInstanceTransforms =
             _modelInstanceTransformsRing->write_elements(transforms);
 
         memcpy(
@@ -751,10 +751,10 @@ void World::updateBuffers(ScopedScratch scopeAlloc)
 
     updateTlasInstances(scopeAlloc.child_scope(), scene);
 
-    _directionalLightByteOffset =
+    _byteOffsets.directionalLight =
         scene.lights.directionalLight.write(*_lightDataRing);
-    _pointLightByteOffset = scene.lights.pointLights.write(*_lightDataRing);
-    _spotLightByteOffset = scene.lights.spotLights.write(*_lightDataRing);
+    _byteOffsets.pointLights = scene.lights.pointLights.write(*_lightDataRing);
+    _byteOffsets.spotLights = scene.lights.spotLights.write(*_lightDataRing);
 }
 
 void World::buildCurrentTlas(vk::CommandBuffer cb)

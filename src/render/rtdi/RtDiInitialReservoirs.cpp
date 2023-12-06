@@ -174,9 +174,9 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets = {
-            world._directionalLightByteOffset,
-            world._pointLightByteOffset,
-            world._spotLightByteOffset,
+            world._byteOffsets.directionalLight,
+            world._byteOffsets.pointLights,
+            world._byteOffsets.spotLights,
             cam.bufferOffset(),
         };
 

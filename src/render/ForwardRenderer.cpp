@@ -357,11 +357,11 @@ void ForwardRenderer::record(
     descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
 
     const StaticArray dynamicOffsets{
-        world._directionalLightByteOffset,
-        world._pointLightByteOffset,
-        world._spotLightByteOffset,
+        world._byteOffsets.directionalLight,
+        world._byteOffsets.pointLights,
+        world._byteOffsets.spotLights,
         cam.bufferOffset(),
-        world._modelInstanceTransformsByteOffset,
+        world._byteOffsets.modelInstanceTransforms,
     };
 
     cb.bindDescriptorSets(

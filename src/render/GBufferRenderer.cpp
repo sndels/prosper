@@ -130,7 +130,7 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),
-            world._modelInstanceTransformsByteOffset,
+            world._byteOffsets.modelInstanceTransforms,
         };
 
         cb.bindDescriptorSets(
