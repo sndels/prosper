@@ -344,16 +344,17 @@ void ForwardRenderer::record(
 
     StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
-    descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
+    descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
     descriptorSets[LightClustersBindingSet] = lightClusters.descriptorSet;
     descriptorSets[CameraBindingSet] = cam.descriptorSet();
     descriptorSets[MaterialDatasBindingSet] =
-        world._materialDatasDSs[nextFrame];
-    descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
-    descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
+        world._descriptorSets.materialDatas[nextFrame];
+    descriptorSets[MaterialTexturesBindingSet] =
+        world._descriptorSets.materialTextures;
+    descriptorSets[GeometryBuffersBindingSet] = world._descriptorSets.geometry;
     descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSet;
-    descriptorSets[SkyboxBindingSet] = world._skyboxDS;
+    descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
 
     const StaticArray dynamicOffsets{
         world._directionalLightByteOffset,

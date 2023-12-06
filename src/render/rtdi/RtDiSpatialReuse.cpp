@@ -176,7 +176,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
+        descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 

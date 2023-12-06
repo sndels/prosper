@@ -2121,12 +2121,13 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
             materialDatasLayouts;
         materialDatasLayouts.resize(
             MAX_FRAMES_IN_FLIGHT, _dsLayouts.materialDatas);
-        _materialDatasDSs.resize(MAX_FRAMES_IN_FLIGHT);
-        _descriptorAllocator.allocate(materialDatasLayouts, _materialDatasDSs);
+        _descriptorSets.materialDatas.resize(MAX_FRAMES_IN_FLIGHT);
+        _descriptorAllocator.allocate(
+            materialDatasLayouts, _descriptorSets.materialDatas);
     }
 
     WHEELS_ASSERT(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
-    WHEELS_ASSERT(_materialDatasDSs.size() == MAX_FRAMES_IN_FLIGHT);
+    WHEELS_ASSERT(_descriptorSets.materialDatas.size() == MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         const StaticArray descriptorInfos = {
@@ -2137,8 +2138,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         };
         const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
-                scopeAlloc, sMaterialDatasReflectionSet, _materialDatasDSs[i],
-                descriptorInfos);
+                scopeAlloc, sMaterialDatasReflectionSet,
+                _descriptorSets.materialDatas[i], descriptorInfos);
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
@@ -2198,7 +2199,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                     vk::ShaderStageFlagBits::eAnyHitKHR,
                 Span{&imageInfoCount, 1}, bindingFlags);
 
-        _materialTexturesDS = _descriptorAllocator.allocate(
+        _descriptorSets.materialTextures = _descriptorAllocator.allocate(
             _dsLayouts.materialTextures, imageInfoCount);
 
         const StaticArray descriptorInfos{
@@ -2208,8 +2209,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
         const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
-                scopeAlloc, sMaterialTexturesReflectionSet, _materialTexturesDS,
-                descriptorInfos);
+                scopeAlloc, sMaterialTexturesReflectionSet,
+                _descriptorSets.materialTextures, descriptorInfos);
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
@@ -2251,7 +2252,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::ShaderStageFlagBits::eAnyHitKHR,
             Span{&bufferCount, 1}, bindingFlags);
 
-        _geometryDS =
+        _descriptorSets.geometry =
             _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
 
         const StaticArray descriptorInfos{
@@ -2261,7 +2262,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
         const Array descriptorWrites =
             _geometryReflection->generateDescriptorWrites(
-                scopeAlloc, sGeometryReflectionSet, _geometryDS,
+                scopeAlloc, sGeometryReflectionSet, _descriptorSets.geometry,
                 descriptorInfos);
 
         _device->logical().updateDescriptorSets(
@@ -2314,7 +2315,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
     // Per light type
     {
-        _lightsDescriptorSet = _descriptorAllocator.allocate(_dsLayouts.lights);
+        _descriptorSets.lights =
+            _descriptorAllocator.allocate(_dsLayouts.lights);
 
         const StaticArray lightInfos{
             DescriptorInfo{vk::DescriptorBufferInfo{
@@ -2336,7 +2338,7 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
 
         const Array descriptorWrites =
             _lightsReflection->generateDescriptorWrites(
-                scopeAlloc, sLightsReflectionSet, _lightsDescriptorSet,
+                scopeAlloc, sLightsReflectionSet, _descriptorSets.lights,
                 lightInfos);
 
         _device->logical().updateDescriptorSets(
@@ -2418,7 +2420,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
                 vk::ShaderStageFlagBits::eCompute |
                 vk::ShaderStageFlagBits::eRaygenKHR);
 
-        _skyboxDS = _descriptorAllocator.allocate(_dsLayouts.skybox);
+        _descriptorSets.skybox =
+            _descriptorAllocator.allocate(_dsLayouts.skybox);
 
         const StaticArray descriptorInfos{
             DescriptorInfo{_skyboxTexture.imageInfo()},
@@ -2440,7 +2443,8 @@ void World::createDescriptorSets(ScopedScratch scopeAlloc)
         };
         const Array descriptorWrites =
             _skyboxReflection->generateDescriptorWrites(
-                scopeAlloc, sSkyboxReflectionSet, _skyboxDS, descriptorInfos);
+                scopeAlloc, sSkyboxReflectionSet, _descriptorSets.skybox,
+                descriptorInfos);
 
         _device->logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -2535,7 +2539,7 @@ void World::updateDescriptorsWithNewTexture()
 
     const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
     const vk::WriteDescriptorSet descriptorWrite{
-        .dstSet = _materialTexturesDS,
+        .dstSet = _descriptorSets.materialTextures,
         .dstBinding = ctx.textureArrayBinding,
         // loadedImageCount is gltf images so bump by one to take our
         // default texture into account

@@ -120,9 +120,11 @@ GBufferRendererOutput GBufferRenderer::record(
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[MaterialDatasBindingSet] =
-            world._materialDatasDSs[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
-        descriptorSets[GeometryBuffersBindingSet] = world._geometryDS;
+            world._descriptorSets.materialDatas[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] =
+            world._descriptorSets.materialTextures;
+        descriptorSets[GeometryBuffersBindingSet] =
+            world._descriptorSets.geometry;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
 

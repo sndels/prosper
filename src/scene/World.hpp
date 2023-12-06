@@ -42,6 +42,15 @@ struct WorldDSLayouts
     vk::DescriptorSetLayout skybox;
 };
 
+struct WorldDescriptorSets
+{
+    vk::DescriptorSet lights;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> materialDatas;
+    vk::DescriptorSet materialTextures;
+    vk::DescriptorSet geometry;
+    vk::DescriptorSet skybox;
+};
+
 class World
 {
   public:
@@ -116,16 +125,13 @@ class World
     uint32_t _currentCamera{0};
 
     WorldDSLayouts _dsLayouts;
+    WorldDescriptorSets _descriptorSets;
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
         0};
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _materialDatasDSs;
-    vk::DescriptorSet _materialTexturesDS;
     wheels::Optional<ShaderReflection> _materialsReflection;
 
-    vk::DescriptorSet _geometryDS;
     wheels::Optional<ShaderReflection> _geometryReflection;
 
     wheels::Optional<ShaderReflection> _modelInstancesReflection;
@@ -133,14 +139,12 @@ class World
     uint32_t _modelInstanceTransformsByteOffset{0};
 
     wheels::Optional<ShaderReflection> _lightsReflection;
-    vk::DescriptorSet _lightsDescriptorSet;
     std::unique_ptr<RingBuffer> _lightDataRing;
     uint32_t _directionalLightByteOffset{0};
     uint32_t _pointLightByteOffset{0};
     uint32_t _spotLightByteOffset{0};
 
     wheels::Optional<ShaderReflection> _skyboxReflection;
-    vk::DescriptorSet _skyboxDS;
 
     struct DeferredLoadingContext
     {

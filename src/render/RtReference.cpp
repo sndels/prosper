@@ -281,13 +281,14 @@ RtReference::Output RtReference::record(
         descriptorSets[RTBindingSet] = scene.rtDescriptorSet;
         descriptorSets[OutputBindingSet] = _descriptorSets[nextFrame];
         descriptorSets[MaterialDatasBindingSet] =
-            world._materialDatasDSs[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
-        descriptorSets[GeometryBindingSet] = world._geometryDS;
-        descriptorSets[SkyboxBindingSet] = world._skyboxDS;
+            world._descriptorSets.materialDatas[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] =
+            world._descriptorSets.materialTextures;
+        descriptorSets[GeometryBindingSet] = world._descriptorSets.geometry;
+        descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
-        descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
+        descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
 
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),

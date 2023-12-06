@@ -214,14 +214,15 @@ DeferredShading::Output DeferredShading::record(
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
-        descriptorSets[LightsBindingSet] = world._lightsDescriptorSet;
+        descriptorSets[LightsBindingSet] = world._descriptorSets.lights;
         descriptorSets[LightClustersBindingSet] =
             input.lightClusters.descriptorSet;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[MaterialDatasBindingSet] =
-            world._materialDatasDSs[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] = world._materialTexturesDS;
-        descriptorSets[SkyboxBindingSet] = world._skyboxDS;
+            world._descriptorSets.materialDatas[nextFrame];
+        descriptorSets[MaterialTexturesBindingSet] =
+            world._descriptorSets.materialTextures;
+        descriptorSets[SkyboxBindingSet] = world._descriptorSets.skybox;
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets = {
