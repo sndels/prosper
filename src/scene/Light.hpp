@@ -4,8 +4,7 @@
 #include "../gfx/Fwd.hpp"
 #include "../utils/Utils.hpp"
 
-#include <glm/detail/type_vec4.hpp>
-#include <glm/fwd.hpp>
+#include <glm/glm.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
 

@@ -3,8 +3,7 @@
 
 #include "../gfx/Resources.hpp"
 
-#include <glm/detail/type_vec3.hpp>
-#include <glm/fwd.hpp>
+#include <glm/glm.hpp>
 
 struct DebugLines
 {

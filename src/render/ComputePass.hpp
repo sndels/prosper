@@ -2,8 +2,7 @@
 #define PROSPER_RENDER_COMPUTE_PASS_HPP
 
 #include <functional>
-#include <glm/detail/type_vec3.hpp>
-#include <glm/fwd.hpp>
+#include <glm/glm.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>

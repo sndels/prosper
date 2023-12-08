@@ -7,9 +7,9 @@
 #include <thread>
 
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/transform.hpp>
-#include <glm/vector_relational.hpp>
 #include <imgui.h>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>

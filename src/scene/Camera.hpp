@@ -4,12 +4,7 @@
 #include "../gfx/Fwd.hpp"
 #include "../gfx/ShaderReflection.hpp"
 #include "../utils/Utils.hpp"
-#include <glm/detail/type_mat4x4.hpp>
-#include <glm/detail/type_vec2.hpp>
-#include <glm/detail/type_vec3.hpp>
-#include <glm/detail/type_vec4.hpp>
-#include <glm/fwd.hpp>
-#include <glm/trigonometric.hpp>
+#include <glm/glm.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 

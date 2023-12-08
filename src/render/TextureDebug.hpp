@@ -1,8 +1,7 @@
 #ifndef PROSPER_RENDER_TEXTURE_DEBUG_HPP
 #define PROSPER_RENDER_TEXTURE_DEBUG_HPP
 
-#include <glm/detail/type_vec2.hpp>
-#include <glm/fwd.hpp>
+#include <glm/glm.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/static_array.hpp>

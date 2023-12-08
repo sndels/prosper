@@ -1,6 +1,6 @@
 #include "DepthOfFieldFlatten.hpp"
 
-#include <glm/detail/type_vec2.hpp>
+#include <glm/glm.hpp>
 #include <imgui.h>
 
 #include "../../gfx/VkUtils.hpp"

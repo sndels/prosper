@@ -96,7 +96,6 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
     TINYGLTF_NO_EXTERNAL_IMAGE
-    GLM_FORCE_XYZW_ONLY
     ${LIVEPP_DEFINE}
 
     # Set up absolute path to resources and binaries
@@ -107,7 +106,12 @@ if(PROSPER_USE_PCH)
     target_precompile_headers(prosper
         PRIVATE
 
-        # Don't include glm because we have force xyzw only and gli uses rgba
+        [["glm/glm.hpp"]]
+        [["glm/gtc/type_ptr.hpp"]]
+        [["glm/gtx/component_wise.hpp"]]
+        [["glm/gtx/matrix_decompose.hpp"]]
+        [["glm/gtx/quaternion.hpp"]]
+        [["glm/gtx/transform.hpp"]]
         [["chrono"]]
         [["filesystem"]]
         [["fstream"]]

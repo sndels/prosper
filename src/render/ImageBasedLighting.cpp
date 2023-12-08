@@ -2,8 +2,7 @@
 
 #include "../scene/World.hpp"
 #include "../utils/Profiler.hpp"
-#include <glm/detail/type_vec2.hpp>
-#include <glm/fwd.hpp>
+#include <glm/glm.hpp>
 
 using namespace wheels;
 using namespace glm;

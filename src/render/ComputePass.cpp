@@ -1,6 +1,6 @@
 #include "ComputePass.hpp"
 
-#include <glm/vector_relational.hpp>
+#include <glm/glm.hpp>
 #include <imgui.h>
 
 #include "../gfx/DescriptorAllocator.hpp"
