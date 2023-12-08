@@ -1,7 +1,6 @@
 #ifndef PROSPER_UTILS_HPP
 #define PROSPER_UTILS_HPP
 
-#include <cassert>
 #include <cstddef>
 #include <filesystem>
 #include <limits>
