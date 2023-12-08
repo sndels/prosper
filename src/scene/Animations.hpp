@@ -117,7 +117,7 @@ template <typename T> void Animation<T>::update(float timeS)
                 value = glm::normalize(value);
         }
         else
-            WHEELS_ASSERT("Unimplemented interpolation mode");
+            WHEELS_ASSERT(!"Unimplemented interpolation mode");
     }
 
     for (T *target : _targets)
