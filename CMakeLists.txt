@@ -115,5 +115,6 @@ if(PROSPER_USE_PCH)
         [["functional"]]
         [["vulkan/vulkan.hpp"]]
         [["vulkan/vulkan_hash.hpp"]]
+        [["wyhash.h"]]
     )
 endif() # PROSPER_USE_PCH
