@@ -15,6 +15,13 @@ layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
 }
 modelInstanceTransforms;
 
+layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 1) readonly buffer
+    PreviousModelInstanceTransformsDSB
+{
+    Transforms instance[];
+}
+previousModelInstanceTransforms;
+
 Vertex transform(Vertex v, Transforms t)
 {
     Vertex ret;

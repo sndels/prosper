@@ -1020,6 +1020,10 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             }
         }
 
+        // This is valid to offset (0) even on the first frame and we'll skip
+        // reads anyway
+        _byteOffsets.previousModelInstanceTransforms =
+            _byteOffsets.modelInstanceTransforms;
         _byteOffsets.modelInstanceTransforms =
             _modelInstanceTransformsRing->write_elements(transforms);
 
@@ -2635,6 +2639,11 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 _descriptorAllocator.allocate(_dsLayouts.modelInstances);
 
             const StaticArray descriptorInfos{
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = _modelInstanceTransformsRing->buffer(),
+                    .range = scene.modelInstances.size() *
+                             sizeof(ModelInstance::Transforms),
+                }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = _modelInstanceTransformsRing->buffer(),
                     .range = scene.modelInstances.size() *

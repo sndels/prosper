@@ -297,6 +297,7 @@ RtReference::Output RtReference::record(
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),
             worldByteOffsets.modelInstanceTransforms,
+            worldByteOffsets.previousModelInstanceTransforms,
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,

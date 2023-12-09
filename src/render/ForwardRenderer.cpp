@@ -367,6 +367,7 @@ void ForwardRenderer::record(
         worldByteOffsets.spotLights,
         cam.bufferOffset(),
         worldByteOffsets.modelInstanceTransforms,
+        worldByteOffsets.previousModelInstanceTransforms,
     };
 
     cb.bindDescriptorSets(
