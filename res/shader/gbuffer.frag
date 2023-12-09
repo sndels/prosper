@@ -8,20 +8,23 @@
 #include "scene/camera.glsl"
 #include "scene/materials.glsl"
 
-// TODO: Skip position and zcam as they aren't used
-layout(location = 0) in vec3 fragPosition;
+// TODO: Skip zcam as it isn't used
+layout(location = 0) in vec3 fragPositionWorld;
 layout(location = 1) in float fragZCam;
 layout(location = 2) in vec2 fragTexCoord0;
-layout(location = 3) in mat3 fragTBN;
+layout(location = 3) in vec4 fragPositionNDC;
+layout(location = 4) in vec4 fragPrevPositionNDC;
+layout(location = 5) in mat3 fragTBN;
 
 layout(location = 0) out vec4 outAlbedoRoughness;
 layout(location = 1) out vec4 outNormalMetallic;
+layout(location = 2) out vec2 outVelocity;
 
 mat3 generateTBN()
 {
     // http://www.thetenthplanet.de/archives/1180
-    vec3 dp1 = dFdx(fragPosition);
-    vec3 dp2 = dFdy(fragPosition);
+    vec3 dp1 = dFdx(fragPositionWorld);
+    vec3 dp2 = dFdy(fragPositionWorld);
     vec2 duv1 = dFdx(fragTexCoord0);
     vec2 duv2 = dFdy(fragTexCoord0);
 
@@ -48,10 +51,16 @@ void main()
     else
         normal = normalize(fragTBN[2]);
 
+    // Store in NDC like in https://alextardif.com/TAA.html
+    vec3 posNDC = fragPositionNDC.xyz / fragPositionNDC.w;
+    vec3 prevPosNDC = fragPrevPositionNDC.xyz / fragPrevPositionNDC.w;
+    vec2 velocity = posNDC.xy - prevPosNDC.xy;
+
     // TODO:
     // Does GLSL support passing uniforms as parameters some way?
     // G-Buffer packing should be a function/macro
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
     outNormalMetallic = vec4(normal, material.metallic);
+    outVelocity = clamp(velocity, vec2(-1), vec2(1));
     // No alpha needed as only opaque surfaces are in gbuffer
 }

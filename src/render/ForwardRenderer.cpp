@@ -48,26 +48,6 @@ constexpr std::array<
     const char *, static_cast<size_t>(ForwardRenderer::DrawType::Count)>
     sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
 
-vk::Rect2D getRenderArea(
-    const RenderResources &resources,
-    const ForwardRenderer::RecordInOut &inOutTargets)
-{
-    const vk::Extent3D targetExtent =
-        resources.images.resource(inOutTargets.illumination).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-    WHEELS_ASSERT(
-        targetExtent == resources.images.resource(inOutTargets.depth).extent);
-
-    return vk::Rect2D{
-        .offset = {0, 0},
-        .extent =
-            {
-                targetExtent.width,
-                targetExtent.height,
-            },
-    };
-}
-
 } // namespace
 
 ForwardRenderer::ForwardRenderer(
@@ -139,12 +119,14 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     OpaqueOutput ret;
     ret.illumination =
         createIllumination(*_resources, renderArea.extent, "illumination");
+    ret.velocity = createVelocity(*_resources, renderArea.extent, "velocity");
     ret.depth = createDepth(*_device, *_resources, renderArea.extent, "depth");
 
     record(
         cb, world, cam, nextFrame,
         RecordInOut{
             .illumination = ret.illumination,
+            .velocity = ret.velocity,
             .depth = ret.depth,
         },
         lightClusters, Options{.ibl = applyIbl}, profiler, "OpaqueGeometry");
@@ -154,12 +136,18 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 
 void ForwardRenderer::recordTransparent(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
-    uint32_t nextFrame, Profiler *profiler)
+    const TransparentInOut &inOutTargets,
+    const LightClusteringOutput &lightClusters, uint32_t nextFrame,
+    Profiler *profiler)
 {
     record(
-        cb, world, cam, nextFrame, inOutTargets, lightClusters,
-        Options{.transparents = true}, profiler, "TransparentGeometry");
+        cb, world, cam, nextFrame,
+        RecordInOut{
+            .illumination = inOutTargets.illumination,
+            .depth = inOutTargets.depth,
+        },
+        lightClusters, Options{.transparents = true}, profiler,
+        "TransparentGeometry");
 }
 
 bool ForwardRenderer::compileShaders(
@@ -285,20 +273,27 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     {
-        const vk::PipelineColorBlendAttachmentState blendAttachment =
-            opaqueColorBlendAttachment();
+        const StaticArray colorAttachmentFormats{
+            sIlluminationFormat,
+            sVelocityFormat,
+        };
+
+        const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
+            colorBlendAttachments{opaqueColorBlendAttachment()};
 
         _pipelines[0] = createGraphicsPipeline(
             _device->logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
                 .vertInputInfo = vertInputInfo,
-                .colorBlendAttachments = Span{&blendAttachment, 1},
+                .colorBlendAttachments = colorBlendAttachments,
                 .shaderStages = _shaderStages,
                 .renderingInfo =
                     vk::PipelineRenderingCreateInfo{
-                        .colorAttachmentCount = 1,
-                        .pColorAttachmentFormats = &sIlluminationFormat,
+                        .colorAttachmentCount = asserted_cast<uint32_t>(
+                            colorAttachmentFormats.capacity()),
+                        .pColorAttachmentFormats =
+                            colorAttachmentFormats.data(),
                         .depthAttachmentFormat = sDepthFormat,
                     },
                 .debugName = "ForwardRenderer::Opaque",
@@ -327,7 +322,6 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             });
     }
 }
-
 void ForwardRenderer::record(
     vk::CommandBuffer cb, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
@@ -348,8 +342,9 @@ void ForwardRenderer::record(
     cb.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,
         .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &attachments.color,
+        .colorAttachmentCount =
+            asserted_cast<uint32_t>(attachments.color.size()),
+        .pColorAttachments = attachments.color.data(),
         .pDepthAttachment = &attachments.depth,
     });
 
@@ -434,17 +429,37 @@ void ForwardRenderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets,
     const LightClusteringOutput &lightClusters) const
 {
-    transition<3, 2>(
-        *_resources, cb,
-        {
-            {inOutTargets.illumination, ImageState::ColorAttachmentReadWrite},
-            {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-            {lightClusters.pointers, ImageState::FragmentShaderRead},
-        },
-        {
-            {lightClusters.indicesCount, BufferState::FragmentShaderRead},
-            {lightClusters.indices, BufferState::FragmentShaderRead},
-        });
+    if (inOutTargets.velocity.isValid())
+    {
+        transition<4, 2>(
+            *_resources, cb,
+            {
+                {inOutTargets.illumination,
+                 ImageState::ColorAttachmentReadWrite},
+                {inOutTargets.velocity, ImageState::ColorAttachmentReadWrite},
+                {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                {lightClusters.pointers, ImageState::FragmentShaderRead},
+            },
+            {
+                {lightClusters.indicesCount, BufferState::FragmentShaderRead},
+                {lightClusters.indices, BufferState::FragmentShaderRead},
+            });
+    }
+    else
+    {
+        transition<3, 2>(
+            *_resources, cb,
+            {
+                {inOutTargets.illumination,
+                 ImageState::ColorAttachmentReadWrite},
+                {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                {lightClusters.pointers, ImageState::FragmentShaderRead},
+            },
+            {
+                {lightClusters.indicesCount, BufferState::FragmentShaderRead},
+                {lightClusters.indices, BufferState::FragmentShaderRead},
+            });
+    }
 }
 
 ForwardRenderer::Attachments ForwardRenderer::createAttachments(
@@ -453,13 +468,13 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
     Attachments ret;
     if (transparents)
     {
-        ret.color = vk::RenderingAttachmentInfo{
+        ret.color.push_back(vk::RenderingAttachmentInfo{
             .imageView =
                 _resources->images.resource(inOutTargets.illumination).view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
-        };
+        });
         ret.depth = vk::RenderingAttachmentInfo{
             .imageView = _resources->images.resource(inOutTargets.depth).view,
             .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
@@ -469,13 +484,23 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
     }
     else
     {
-        ret.color = vk::RenderingAttachmentInfo{
-            .imageView =
-                _resources->images.resource(inOutTargets.illumination).view,
-            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+        ret.color = {
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(inOutTargets.illumination).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(inOutTargets.velocity).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
         };
         ret.depth = vk::RenderingAttachmentInfo{
             .imageView = _resources->images.resource(inOutTargets.depth).view,
@@ -487,4 +512,24 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
     }
 
     return ret;
+}
+
+vk::Rect2D ForwardRenderer::getRenderArea(
+    const RenderResources &resources,
+    const ForwardRenderer::RecordInOut &inOutTargets)
+{
+    const vk::Extent3D targetExtent =
+        resources.images.resource(inOutTargets.illumination).extent;
+    WHEELS_ASSERT(targetExtent.depth == 1);
+    WHEELS_ASSERT(
+        targetExtent == resources.images.resource(inOutTargets.depth).extent);
+
+    return vk::Rect2D{
+        .offset = {0, 0},
+        .extent =
+            {
+                targetExtent.width,
+                targetExtent.height,
+            },
+    };
 }

@@ -1163,6 +1163,7 @@ void App::render(
         // Need to clean up after toggling rt off to not "leak" the resources
         _rtReference->releasePreserved();
 
+        ImageHandle velocity;
         ImageHandle depth;
         // Opaque
         if (_renderDeferred)
@@ -1197,6 +1198,7 @@ void App::render(
             _resources->images.release(gbuffer.albedoRoughness);
             _resources->images.release(gbuffer.normalMetalness);
 
+            velocity = gbuffer.velocity;
             depth = gbuffer.depth;
         }
         else
@@ -1208,13 +1210,14 @@ void App::render(
                     cb, *_world, *_cam, renderArea, lightClusters,
                     indices.nextFrame, _applyIbl, _profiler.get());
             illumination = output.illumination;
+            velocity = output.velocity;
             depth = output.depth;
         }
 
         // Transparent
         _forwardRenderer->recordTransparent(
             cb, *_world, *_cam,
-            ForwardRenderer::RecordInOut{
+            ForwardRenderer::TransparentInOut{
                 .illumination = illumination,
                 .depth = depth,
             },
@@ -1250,6 +1253,7 @@ void App::render(
             illumination = dofOutput.combinedIlluminationDoF;
         }
 
+        _resources->images.release(velocity);
         _resources->images.release(depth);
     }
     _resources->images.release(lightClusters.pointers);

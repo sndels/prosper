@@ -41,3 +41,18 @@ ImageHandle createIllumination(
         },
         debugName);
 }
+
+ImageHandle createVelocity(
+    RenderResources &resources, const vk::Extent2D &size, const char *debugName)
+{
+    return resources.images.create(
+        ImageDescription{
+            .format = sVelocityFormat,
+            .width = size.width,
+            .height = size.height,
+            .usageFlags = vk::ImageUsageFlagBits::eSampled |         // Debug
+                          vk::ImageUsageFlagBits::eColorAttachment | // Render
+                          vk::ImageUsageFlagBits::eStorage,          // TAA
+        },
+        debugName);
+}

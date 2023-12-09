@@ -296,6 +296,7 @@ GBufferRendererOutput GBufferRenderer::createOutputs(
                     vk::ImageUsageFlagBits::eStorage,          // Shading
             },
             "normalMetalness"),
+        .velocity = createVelocity(*_resources, size, "velocity"),
         .depth = createDepth(*_device, *_resources, size, "depth"),
     };
 }
@@ -305,22 +306,37 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
 {
     return Attachments{
         .color =
-            {vk::RenderingAttachmentInfo{
-                 .imageView =
-                     _resources->images.resource(output.albedoRoughness).view,
-                 .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                 .loadOp = vk::AttachmentLoadOp::eClear,
-                 .storeOp = vk::AttachmentStoreOp::eStore,
-                 .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-             },
-             vk::RenderingAttachmentInfo{
-                 .imageView =
-                     _resources->images.resource(output.normalMetalness).view,
-                 .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                 .loadOp = vk::AttachmentLoadOp::eClear,
-                 .storeOp = vk::AttachmentStoreOp::eStore,
-                 .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-             }},
+            {
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        _resources->images.resource(output.albedoRoughness)
+                            .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eClear,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                    .clearValue =
+                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+                },
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        _resources->images.resource(output.normalMetalness)
+                            .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eClear,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                    .clearValue =
+                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+                },
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        _resources->images.resource(output.velocity).view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eClear,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                    .clearValue =
+                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+                },
+            },
         .depth =
             vk::RenderingAttachmentInfo{
                 .imageView = _resources->images.resource(output.depth).view,
@@ -335,11 +351,12 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
 void GBufferRenderer::recordBarriers(
     vk::CommandBuffer cb, const GBufferRendererOutput &output) const
 {
-    transition<3>(
+    transition<4>(
         *_resources, cb,
         {
             {output.albedoRoughness, ImageState::ColorAttachmentWrite},
             {output.normalMetalness, ImageState::ColorAttachmentWrite},
+            {output.velocity, ImageState::ColorAttachmentWrite},
             {output.depth, ImageState::DepthAttachmentReadWrite},
         });
 }
@@ -373,9 +390,10 @@ void GBufferRenderer::createGraphicsPipelines(
     const StaticArray colorAttachmentFormats{
         sAlbedoRoughnessFormat,
         sNormalMetalnessFormat,
+        sVelocityFormat,
     };
 
-    const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
+    const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
         colorBlendAttachments{opaqueColorBlendAttachment()};
 
     // Empty as we'll load vertices manually from a buffer

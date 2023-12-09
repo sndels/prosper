@@ -47,6 +47,7 @@ class ForwardRenderer
     struct OpaqueOutput
     {
         ImageHandle illumination;
+        ImageHandle velocity;
         ImageHandle depth;
     };
     [[nodiscard]] OpaqueOutput recordOpaque(
@@ -55,14 +56,14 @@ class ForwardRenderer
         const LightClusteringOutput &lightClusters, uint32_t nextFrame,
         bool applyIbl, Profiler *profiler);
 
-    struct RecordInOut
+    struct TransparentInOut
     {
         ImageHandle illumination;
         ImageHandle depth;
     };
     void recordTransparent(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const RecordInOut &inOutTargets,
+        const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, uint32_t nextFrame,
         Profiler *profiler);
 
@@ -78,6 +79,12 @@ class ForwardRenderer
         bool transparents{false};
         bool ibl{false};
     };
+    struct RecordInOut
+    {
+        ImageHandle illumination;
+        ImageHandle velocity;
+        ImageHandle depth;
+    };
     void record(
         vk::CommandBuffer cb, const World &world, const Camera &cam,
         uint32_t nextFrame, const RecordInOut &inOutTargets,
@@ -89,11 +96,15 @@ class ForwardRenderer
 
     struct Attachments
     {
-        vk::RenderingAttachmentInfo color;
+        wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
         vk::RenderingAttachmentInfo depth;
     };
     [[nodiscard]] Attachments createAttachments(
         const RecordInOut &inOutTargets, bool transparents) const;
+
+    static vk::Rect2D getRenderArea(
+        const RenderResources &resources,
+        const ForwardRenderer::RecordInOut &inOutTargets);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

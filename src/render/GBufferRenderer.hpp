@@ -16,6 +16,7 @@ struct GBufferRendererOutput
 {
     ImageHandle albedoRoughness;
     ImageHandle normalMetalness;
+    ImageHandle velocity;
     ImageHandle depth;
 };
 
@@ -56,7 +57,7 @@ class GBufferRenderer
 
     struct Attachments
     {
-        wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
+        wheels::StaticArray<vk::RenderingAttachmentInfo, 3> color;
         vk::RenderingAttachmentInfo depth;
     };
     [[nodiscard]] Attachments createAttachments(
