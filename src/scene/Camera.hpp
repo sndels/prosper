@@ -57,6 +57,7 @@ struct CameraUniforms
     glm::mat4 cameraToWorld;
     glm::mat4 cameraToClip;
     glm::mat4 clipToWorld;
+    glm::mat4 previousWorldToClip;
     glm::vec4 eye;
     glm::uvec2 resolution;
     float near;
@@ -79,6 +80,7 @@ class Camera
     Camera &operator=(Camera &&other) = delete;
 
     void init(const CameraTransform &transform, const CameraParameters &params);
+    void endFrame();
 
     void lookAt(const CameraTransform &transform);
     void setParameters(const CameraParameters &parameters);
@@ -98,7 +100,6 @@ class Camera
 
     [[nodiscard]] static float sensorWidth() { return 0.035f; }
 
-    void clearChangedThisFrame();
     [[nodiscard]] bool changedThisFrame() const;
 
     // This offset, if any, is added to internal transformation
@@ -127,6 +128,7 @@ class Camera
     glm::mat4 _cameraToWorld{1.f};
     glm::mat4 _cameraToClip{1.f};
     glm::mat4 _clipToWorld{1.f};
+    glm::mat4 _previousWorldToClip{1.f};
 
     wheels::Optional<ShaderReflection> _bindingsReflection;
     vk::DescriptorSetLayout _descriptorSetLayout;

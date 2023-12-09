@@ -230,7 +230,7 @@ void App::run()
                 scopeBackingAlloc.allocated_byte_count_high_watermark()));
 
         _inputHandler.clearSingleFrameGestures();
-        _cam->clearChangedThisFrame();
+        _cam->endFrame();
 
         _world->endFrame();
 

@@ -50,6 +50,12 @@ void Camera::init(
     updateWorldToCamera();
 }
 
+void Camera::endFrame()
+{
+    _changedThisFrame = false;
+    _previousWorldToClip = _cameraToClip * _worldToCamera;
+}
+
 void Camera::lookAt(const CameraTransform &transform)
 {
     _transform = transform;
@@ -124,6 +130,7 @@ void Camera::updateBuffer(const uvec2 &resolution)
         .cameraToWorld = _cameraToWorld,
         .cameraToClip = _cameraToClip,
         .clipToWorld = _clipToWorld,
+        .previousWorldToClip = _previousWorldToClip,
         .eye =
             vec4{
                 gestureOffset.has_value() ? _transform.apply(*gestureOffset).eye
@@ -152,8 +159,6 @@ const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
 const CameraTransform &Camera::transform() const { return _transform; }
 
 const CameraParameters &Camera::parameters() const { return _parameters; }
-
-void Camera::clearChangedThisFrame() { _changedThisFrame = false; }
 
 bool Camera::changedThisFrame() const { return _changedThisFrame; }
 

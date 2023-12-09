@@ -7,6 +7,7 @@ layout(std430, set = CAMERA_SET, binding = 0) buffer CameraDSB
     mat4 cameraToWorld;
     mat4 cameraToClip;
     mat4 clipToWorld;
+    mat4 previousWorldToClip;
     vec4 eye;
     uvec2 resolution;
     float near;
