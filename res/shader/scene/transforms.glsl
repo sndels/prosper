@@ -41,6 +41,12 @@ Vertex transform(Vertex v, Transforms t)
     return ret;
 }
 
+vec3 worldPosition(Vertex v, Transforms t)
+{
+    // 3x4 SRT multiplies from the right
+    return (vec4(v.Position, 1.0) * t.modelToWorld).xyz;
+}
+
 mat3 generateTBN(vec3 normal, vec4 tangent)
 {
     vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
