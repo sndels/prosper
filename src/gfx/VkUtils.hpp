@@ -63,6 +63,7 @@ struct GraphicsPipelineInfo
     vk::PrimitiveTopology topology{vk::PrimitiveTopology::eTriangleList};
     vk::CullModeFlags cullMode{vk::CullModeFlagBits::eBack};
     vk::CompareOp depthCompareOp{vk::CompareOp::eGreater};
+    bool writeDepth{true};
     const char *debugName{""};
 };
 // Creates a graphics pipeline and assigns debugName to it. Throws on error.

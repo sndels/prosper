@@ -73,7 +73,7 @@ vk::Pipeline createGraphicsPipeline(
 
     const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
         .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
+        .depthWriteEnable = info.writeDepth ? VK_TRUE : VK_FALSE,
         .depthCompareOp = info.depthCompareOp,
     };
 
