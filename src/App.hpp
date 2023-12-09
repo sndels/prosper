@@ -147,6 +147,7 @@ class App
     bool _forceViewportRecreate{false};
     bool _forceCamUpdate{true};
     bool _applyIbl{false};
+    bool _sceneChanged{false};
 
     bool _camFreeLook{false};
     CameraTransform _sceneCameraTransform;

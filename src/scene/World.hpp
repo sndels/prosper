@@ -70,13 +70,15 @@ class World
     World &operator=(const World &other) = delete;
     World &operator=(World &&other) = delete;
 
-    void startFrame() const;
+    void startFrame();
 
     void handleDeferredLoading(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame, Profiler &profiler);
 
     void drawDeferredLoadingUi() const;
+    // Returns true if the next frame will use a different scene
+    bool drawSceneUi();
     // Returns true if the active camera was changed
     [[nodiscard]] bool drawCameraUi();
 

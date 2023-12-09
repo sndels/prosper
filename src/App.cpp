@@ -704,6 +704,11 @@ App::UiChanges App::drawUi(
     const auto _s = _profiler->createCpuScope("App::drawUi");
 
     UiChanges ret;
+    // Actual scene change happens after the frame so let's initialize here with
+    // last frame's value
+    ret.rtDirty = _sceneChanged;
+
+    _sceneChanged = _world->drawSceneUi();
 
     ret.rtDirty |= drawCameraUi();
 

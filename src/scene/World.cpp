@@ -376,7 +376,7 @@ class World::Impl
     Impl &operator=(const Impl &other) = delete;
     Impl &operator=(Impl &&other) = delete;
 
-    void startFrame() const;
+    void startFrame();
 
     void uploadMaterialDatas(uint32_t nextFrame);
     void handleDeferredLoading(
@@ -384,6 +384,7 @@ class World::Impl
         Profiler &profiler);
 
     void drawDeferredLoadingUi() const;
+    bool drawSceneUi();
     bool drawCameraUi();
 
     [[nodiscard]] Scene &currentScene();
@@ -422,6 +423,7 @@ class World::Impl
     Array<uint8_t> _rawAnimationData{_generalAlloc};
     Animations _animations{_generalAlloc};
     Array<Scene> _scenes{_generalAlloc};
+    Optional<size_t> _nextScene;
     size_t _currentScene{0};
     uint32_t _currentCamera{0};
 
@@ -732,8 +734,10 @@ World::Impl::~Impl()
     _device->destroy(_tlasInstancesBuffer);
 }
 
-void World::Impl::startFrame() const
+void World::Impl::startFrame()
 {
+    if (_nextScene.has_value())
+        _currentScene = _nextScene.take();
     _modelInstanceTransformsRing->startFrame();
     _lightDataRing->startFrame();
     _tlasInstancesUploadRing->startFrame();
@@ -818,6 +822,34 @@ void World::Impl::drawDeferredLoadingUi() const
                 _deferredLoadingContext->gltfModel.images.size()));
         ImGui::End();
     }
+}
+
+bool World::Impl::drawSceneUi()
+{
+    WHEELS_ASSERT(!_scenes.empty());
+
+    bool sceneChanged = false;
+    if (_scenes.size() > 1)
+    {
+        ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
+        ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        const uint32_t sceneCount = asserted_cast<uint32_t>(_scenes.size());
+        if (sceneCount > 1)
+        {
+            uint32_t scene = asserted_cast<uint32_t>(_currentScene);
+            if (SliderU32("Active scene", &scene, 0, sceneCount - 1))
+            {
+                // Make sure the new camera's parameters are copied over from
+                sceneChanged = true;
+                _nextScene = scene;
+            }
+        }
+
+        ImGui::End();
+    }
+
+    return sceneChanged;
 }
 
 bool World::Impl::drawCameraUi()
@@ -2892,7 +2924,7 @@ World::World(
 // Define here to have ~Impl defined
 World::~World() = default;
 
-void World::startFrame() const { _impl->startFrame(); }
+void World::startFrame() { _impl->startFrame(); }
 
 void World::handleDeferredLoading(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
@@ -2906,6 +2938,8 @@ void World::drawDeferredLoadingUi() const
 {
     return _impl->drawDeferredLoadingUi();
 }
+
+bool World::drawSceneUi() { return _impl->drawSceneUi(); }
 
 bool World::drawCameraUi() { return _impl->drawCameraUi(); }
 
