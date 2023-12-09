@@ -2594,8 +2594,10 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
     }
 
     // Scene descriptor sets
-    for (auto &scene : _scenes)
+    const size_t sceneCount = _scenes.size();
+    for (size_t i = 0; i < sceneCount; ++i)
     {
+        Scene &scene = _scenes[i];
         {
             scene.modelInstancesDescriptorSet =
                 _descriptorAllocator.allocate(_dsLayouts.modelInstances);
@@ -2648,7 +2650,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
             // common reflection interface
             const vk::WriteDescriptorSetAccelerationStructureKHR asWrite{
                 .accelerationStructureCount = 1,
-                .pAccelerationStructures = &_tlases[0].handle,
+                .pAccelerationStructures = &_tlases[i].handle,
             };
             descriptorWrites[0].pNext = &asWrite;
 
