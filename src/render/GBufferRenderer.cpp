@@ -38,6 +38,7 @@ struct PCBlock
     uint32_t modelInstanceID{0xFFFFFFFF};
     uint32_t meshID{0xFFFFFFFF};
     uint32_t materialID{0xFFFFFFFF};
+    uint32_t previousTransformValid{0};
 };
 
 } // namespace
@@ -165,6 +166,8 @@ GBufferRendererOutput GBufferRenderer::record(
                         .modelInstanceID = instance.id,
                         .meshID = subModel.meshID,
                         .materialID = subModel.materialID,
+                        .previousTransformValid =
+                            instance.previousTransformValid ? 1u : 0u,
                     };
                     cb.pushConstants(
                         _pipelineLayout,

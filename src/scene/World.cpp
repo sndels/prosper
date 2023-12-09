@@ -377,6 +377,7 @@ class World::Impl
     Impl &operator=(Impl &&other) = delete;
 
     void startFrame();
+    void endFrame();
 
     void uploadMaterialDatas(uint32_t nextFrame);
     void handleDeferredLoading(
@@ -430,6 +431,7 @@ class World::Impl
     WorldDSLayouts _dsLayouts;
     WorldDescriptorSets _descriptorSets;
     WorldByteOffsets _byteOffsets;
+    bool _previousModelInstanceTransformsByteOffsetValid{false};
 
     StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{0};
@@ -737,10 +739,27 @@ World::Impl::~Impl()
 void World::Impl::startFrame()
 {
     if (_nextScene.has_value())
+    {
+        {
+            Scene &scene = currentScene();
+            // Transforms will be invalid the next time we select the current
+            // scene
+            for (ModelInstance &mi : scene.modelInstances)
+                mi.previousTransformValid = false;
+        }
+
         _currentScene = _nextScene.take();
+    }
     _modelInstanceTransformsRing->startFrame();
     _lightDataRing->startFrame();
     _tlasInstancesUploadRing->startFrame();
+}
+
+void World::Impl::endFrame()
+{
+    Scene &scene = currentScene();
+    for (ModelInstance &mi : scene.modelInstances)
+        mi.previousTransformValid = true;
 }
 
 void World::Impl::uploadMaterialDatas(uint32_t nextFrame)
@@ -2934,6 +2953,8 @@ World::World(
 World::~World() = default;
 
 void World::startFrame() { _impl->startFrame(); }
+
+void World::endFrame() { _impl->endFrame(); }
 
 void World::handleDeferredLoading(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,

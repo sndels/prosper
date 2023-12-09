@@ -33,6 +33,7 @@ struct ModelInstance
     uint32_t id{0};
     uint32_t modelID{0xFFFFFFFF};
     Transforms transforms;
+    bool previousTransformValid{false};
 };
 
 #endif // PROSPER_SCENE_MODEL_HPP

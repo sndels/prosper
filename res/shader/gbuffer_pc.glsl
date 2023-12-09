@@ -7,6 +7,7 @@ layout(push_constant) uniform GBufferPC
     uint ModelInstanceID;
     uint MeshID;
     uint MaterialID;
+    uint previousTransformValid;
 }
 PC;
 

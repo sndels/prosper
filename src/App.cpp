@@ -232,6 +232,8 @@ void App::run()
         _inputHandler.clearSingleFrameGestures();
         _cam->clearChangedThisFrame();
 
+        _world->endFrame();
+
         _profiler->endCpuFrame();
     }
 

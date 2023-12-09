@@ -9,6 +9,7 @@ layout(push_constant) uniform ForwardPC
     uint MaterialID;
     uint DrawType;
     uint ibl;
+    uint previousTransformValid;
 }
 PC;
 

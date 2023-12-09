@@ -41,6 +41,7 @@ struct PCBlock
     uint32_t materialID{0xFFFFFFFF};
     uint32_t drawType{0};
     uint32_t ibl{0};
+    uint32_t previousTransformValid{0};
 };
 
 constexpr std::array<
@@ -400,6 +401,8 @@ void ForwardRenderer::record(
                     .materialID = subModel.materialID,
                     .drawType = static_cast<uint32_t>(_drawType),
                     .ibl = static_cast<uint32_t>(options.ibl),
+                    .previousTransformValid =
+                        instance.previousTransformValid ? 1u : 0u,
                 };
                 cb.pushConstants(
                     _pipelineLayout,
