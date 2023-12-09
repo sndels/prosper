@@ -322,6 +322,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
                         .pColorAttachmentFormats = &sIlluminationFormat,
                         .depthAttachmentFormat = sDepthFormat,
                     },
+                .writeDepth = false,
                 .debugName = "ForwardRenderer::Transparent",
             });
     }
