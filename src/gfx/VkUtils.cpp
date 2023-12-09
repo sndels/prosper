@@ -41,17 +41,10 @@ vk::Pipeline createComputePipeline(
 }
 
 vk::Pipeline createGraphicsPipeline(
-    vk::Device device, vk::PrimitiveTopology topology,
-    vk::PipelineLayout pipelineLayout,
-    const vk::PipelineVertexInputStateCreateInfo &vertInputInfo,
-    vk::CullModeFlags cullMode, vk::CompareOp depthCompareOp,
-    Span<const vk::PipelineColorBlendAttachmentState> colorBlendAttachments,
-    Span<const vk::PipelineShaderStageCreateInfo> shaderStages,
-    const vk::PipelineRenderingCreateInfo &pipelineRenderingInfo,
-    const char *debugName)
+    vk::Device device, const GraphicsPipelineInfo &info)
 {
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = topology,
+        .topology = info.topology,
     };
 
     // Dynamic state
@@ -63,15 +56,15 @@ vk::Pipeline createGraphicsPipeline(
     vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .lineWidth = 1.0,
     };
-    if (topology == vk::PrimitiveTopology::eTriangleList)
+    if (info.topology == vk::PrimitiveTopology::eTriangleList)
     {
         rasterizerState.polygonMode = vk::PolygonMode::eFill;
-        rasterizerState.cullMode = cullMode;
+        rasterizerState.cullMode = info.cullMode;
         rasterizerState.frontFace = vk::FrontFace::eCounterClockwise;
     }
     else
         WHEELS_ASSERT(
-            topology == vk::PrimitiveTopology::eLineList &&
+            info.topology == vk::PrimitiveTopology::eLineList &&
             "Expected triangle list or line list");
 
     const vk::PipelineMultisampleStateCreateInfo multisampleState{
@@ -81,13 +74,13 @@ vk::Pipeline createGraphicsPipeline(
     const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
         .depthTestEnable = VK_TRUE,
         .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = depthCompareOp,
+        .depthCompareOp = info.depthCompareOp,
     };
 
     const vk::PipelineColorBlendStateCreateInfo opaqueColorBlendState{
         .attachmentCount =
-            asserted_cast<uint32_t>(colorBlendAttachments.size()),
-        .pAttachments = colorBlendAttachments.data(),
+            asserted_cast<uint32_t>(info.colorBlendAttachments.size()),
+        .pAttachments = info.colorBlendAttachments.data(),
     };
 
     const StaticArray dynamicStates = {
@@ -102,9 +95,9 @@ vk::Pipeline createGraphicsPipeline(
         vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
         pipelineChain{
             vk::GraphicsPipelineCreateInfo{
-                .stageCount = asserted_cast<uint32_t>(shaderStages.size()),
-                .pStages = shaderStages.data(),
-                .pVertexInputState = &vertInputInfo,
+                .stageCount = asserted_cast<uint32_t>(info.shaderStages.size()),
+                .pStages = info.shaderStages.data(),
+                .pVertexInputState = &info.vertInputInfo,
                 .pInputAssemblyState = &inputAssembly,
                 .pViewportState = &viewportState,
                 .pRasterizationState = &rasterizerState,
@@ -112,9 +105,9 @@ vk::Pipeline createGraphicsPipeline(
                 .pDepthStencilState = &depthStencilState,
                 .pColorBlendState = &opaqueColorBlendState,
                 .pDynamicState = &dynamicState,
-                .layout = pipelineLayout,
+                .layout = info.layout,
             },
-            pipelineRenderingInfo};
+            info.renderingInfo};
 
     const vk::ResultValue<vk::Pipeline> pipeline =
         device.createGraphicsPipeline(
@@ -127,7 +120,7 @@ vk::Pipeline createGraphicsPipeline(
         .objectType = vk::ObjectType::ePipeline,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkPipeline>(pipeline.value)),
-        .pObjectName = debugName,
+        .pObjectName = info.debugName,
     });
 
     return pipeline.value;

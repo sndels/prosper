@@ -289,15 +289,20 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             opaqueColorBlendAttachment();
 
         _pipelines[0] = createGraphicsPipeline(
-            _device->logical(), vk::PrimitiveTopology::eTriangleList,
-            _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
-            vk::CompareOp::eGreater, Span{&blendAttachment, 1}, _shaderStages,
-            vk::PipelineRenderingCreateInfo{
-                .colorAttachmentCount = 1,
-                .pColorAttachmentFormats = &sIlluminationFormat,
-                .depthAttachmentFormat = sDepthFormat,
-            },
-            "ForwardRenderer::Opaque");
+            _device->logical(),
+            GraphicsPipelineInfo{
+                .layout = _pipelineLayout,
+                .vertInputInfo = vertInputInfo,
+                .colorBlendAttachments = Span{&blendAttachment, 1},
+                .shaderStages = _shaderStages,
+                .renderingInfo =
+                    vk::PipelineRenderingCreateInfo{
+                        .colorAttachmentCount = 1,
+                        .pColorAttachmentFormats = &sIlluminationFormat,
+                        .depthAttachmentFormat = sDepthFormat,
+                    },
+                .debugName = "ForwardRenderer::Opaque",
+            });
     }
 
     {
@@ -305,15 +310,20 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             transparentColorBlendAttachment();
 
         _pipelines[1] = createGraphicsPipeline(
-            _device->logical(), vk::PrimitiveTopology::eTriangleList,
-            _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
-            vk::CompareOp::eGreater, Span{&blendAttachment, 1}, _shaderStages,
-            vk::PipelineRenderingCreateInfo{
-                .colorAttachmentCount = 1,
-                .pColorAttachmentFormats = &sIlluminationFormat,
-                .depthAttachmentFormat = sDepthFormat,
-            },
-            "ForwardRenderer::Transparent");
+            _device->logical(),
+            GraphicsPipelineInfo{
+                .layout = _pipelineLayout,
+                .vertInputInfo = vertInputInfo,
+                .colorBlendAttachments = Span{&blendAttachment, 1},
+                .shaderStages = _shaderStages,
+                .renderingInfo =
+                    vk::PipelineRenderingCreateInfo{
+                        .colorAttachmentCount = 1,
+                        .pColorAttachmentFormats = &sIlluminationFormat,
+                        .depthAttachmentFormat = sDepthFormat,
+                    },
+                .debugName = "ForwardRenderer::Transparent",
+            });
     }
 }
 

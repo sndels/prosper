@@ -319,13 +319,19 @@ void DebugRenderer::createGraphicsPipeline(
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     _pipeline = ::createGraphicsPipeline(
-        _device->logical(), vk::PrimitiveTopology::eLineList, _pipelineLayout,
-        vertInputInfo, vk::CullModeFlagBits::eBack, vk::CompareOp::eGreater,
-        Span{&blendAttachment, 1}, _shaderStages,
-        vk::PipelineRenderingCreateInfo{
-            .colorAttachmentCount = 1,
-            .pColorAttachmentFormats = &sIlluminationFormat,
-            .depthAttachmentFormat = sDepthFormat,
-        },
-        "DebugRenderer::Lines");
+        _device->logical(),
+        GraphicsPipelineInfo{
+            .layout = _pipelineLayout,
+            .vertInputInfo = vertInputInfo,
+            .colorBlendAttachments = Span{&blendAttachment, 1},
+            .shaderStages = _shaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = 1,
+                    .pColorAttachmentFormats = &sIlluminationFormat,
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .topology = vk::PrimitiveTopology::eLineList,
+            .debugName = "DebugRenderer::Lines",
+        });
 }

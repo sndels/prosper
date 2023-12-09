@@ -382,14 +382,19 @@ void GBufferRenderer::createGraphicsPipelines(
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     _pipeline = createGraphicsPipeline(
-        _device->logical(), vk::PrimitiveTopology::eTriangleList,
-        _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eBack,
-        vk::CompareOp::eGreater, colorBlendAttachments, _shaderStages,
-        vk::PipelineRenderingCreateInfo{
-            .colorAttachmentCount =
-                asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
-            .pColorAttachmentFormats = colorAttachmentFormats.data(),
-            .depthAttachmentFormat = sDepthFormat,
-        },
-        "GBufferRenderer");
+        _device->logical(),
+        GraphicsPipelineInfo{
+            .layout = _pipelineLayout,
+            .vertInputInfo = vertInputInfo,
+            .colorBlendAttachments = colorBlendAttachments,
+            .shaderStages = _shaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = asserted_cast<uint32_t>(
+                        colorAttachmentFormats.capacity()),
+                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .debugName = "GBufferRenderer",
+        });
 }

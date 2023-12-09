@@ -276,14 +276,20 @@ void SkyboxRenderer::createGraphicsPipelines(
         opaqueColorBlendAttachment();
 
     _pipeline = createGraphicsPipeline(
-        _device->logical(), vk::PrimitiveTopology::eTriangleList,
-        _pipelineLayout, vertInputInfo, vk::CullModeFlagBits::eNone,
-        vk::CompareOp::eGreaterOrEqual, Span{&blendAttachment, 1},
-        _shaderStages,
-        vk::PipelineRenderingCreateInfo{
-            .colorAttachmentCount = 1,
-            .pColorAttachmentFormats = &sIlluminationFormat,
-            .depthAttachmentFormat = sDepthFormat,
-        },
-        "SkyboxRenderer");
+        _device->logical(),
+        GraphicsPipelineInfo{
+            .layout = _pipelineLayout,
+            .vertInputInfo = vertInputInfo,
+            .colorBlendAttachments = Span{&blendAttachment, 1},
+            .shaderStages = _shaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = 1,
+                    .pColorAttachmentFormats = &sIlluminationFormat,
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .cullMode = vk::CullModeFlagBits::eNone,
+            .depthCompareOp = vk::CompareOp::eGreaterOrEqual,
+            .debugName = "SkyboxRenderer",
+        });
 }

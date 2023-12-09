@@ -52,17 +52,22 @@ vk::Pipeline createComputePipeline(
     vk::Device device, const vk::ComputePipelineCreateInfo &info,
     const char *debugName);
 
+struct GraphicsPipelineInfo
+{
+    vk::PipelineLayout layout;
+    const vk::PipelineVertexInputStateCreateInfo &vertInputInfo;
+    wheels::Span<const vk::PipelineColorBlendAttachmentState>
+        colorBlendAttachments;
+    wheels::Span<const vk::PipelineShaderStageCreateInfo> shaderStages;
+    const vk::PipelineRenderingCreateInfo &renderingInfo;
+    vk::PrimitiveTopology topology{vk::PrimitiveTopology::eTriangleList};
+    vk::CullModeFlags cullMode{vk::CullModeFlagBits::eBack};
+    vk::CompareOp depthCompareOp{vk::CompareOp::eGreater};
+    const char *debugName{""};
+};
 // Creates a graphics pipeline and assigns debugName to it. Throws on error.
 vk::Pipeline createGraphicsPipeline(
-    vk::Device device, vk::PrimitiveTopology topology,
-    vk::PipelineLayout pipelineLayout,
-    const vk::PipelineVertexInputStateCreateInfo &vertInputInfo,
-    vk::CullModeFlags cullMode, vk::CompareOp depthCompareOp,
-    wheels::Span<const vk::PipelineColorBlendAttachmentState>
-        colorBlendAttachments,
-    wheels::Span<const vk::PipelineShaderStageCreateInfo> shaderStages,
-    const vk::PipelineRenderingCreateInfo &pipelineRenderingInfo,
-    const char *debugName);
+    vk::Device device, const GraphicsPipelineInfo &info);
 
 constexpr vk::PipelineColorBlendAttachmentState opaqueColorBlendAttachment()
 {
