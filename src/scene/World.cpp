@@ -11,14 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
-#ifdef _MSC_VER
-// unreachable code in the header
-#pragma warning(push, 0)
-#endif // _MSC_VER
 #include <tiny_gltf.h>
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif // _MSC_VER
 #include <vulkan/vulkan_hash.hpp>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>
