@@ -54,7 +54,8 @@ void main()
     // Store in NDC like in https://alextardif.com/TAA.html
     vec3 posNDC = fragPositionNDC.xyz / fragPositionNDC.w;
     vec3 prevPosNDC = fragPrevPositionNDC.xyz / fragPrevPositionNDC.w;
-    vec2 velocity = posNDC.xy - prevPosNDC.xy;
+    vec2 velocity = (posNDC.xy - camera.currentJitter) -
+                    (prevPosNDC.xy - camera.previousJitter);
 
     // TODO:
     // Does GLSL support passing uniforms as parameters some way?

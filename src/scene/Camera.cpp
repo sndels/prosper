@@ -17,7 +17,19 @@ namespace
 
 const uint32_t sBindingSetIndex = 0;
 
-}
+// Halton base 2 for x and base 3 for y as suggested by Karis in
+// High Quality Temporal Supersampling
+const size_t sHaltonSampleCount = 8;
+// NOLINTBEGIN(cert-err58-cpp) glm doesn't noexcept, but these won't throw
+const std::array<vec2, sHaltonSampleCount> sHalton23 = {
+    vec2{0.5f, 0.3333333333333333f},   vec2{0.25f, 0.6666666666666666f},
+    vec2{0.75f, 0.1111111111111111f},  vec2{0.125f, 0.4444444444444444f},
+    vec2{0.625f, 0.7777777777777778f}, vec2{0.375f, 0.2222222222222222f},
+    vec2{0.875f, 0.5555555555555556f}, vec2{0.0625f, 0.8888888888888888f},
+};
+// NOLINTEND(cert-err58-cpp)
+
+} // namespace
 
 Camera::Camera(
     ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
@@ -54,6 +66,8 @@ void Camera::endFrame()
 {
     _changedThisFrame = false;
     _previousWorldToClip = _cameraToClip * _worldToCamera;
+    _previousJitter = _currentJitter;
+    _jitterIndex = (_jitterIndex + 1) % sHaltonSampleCount;
 }
 
 void Camera::lookAt(const CameraTransform &transform)
@@ -66,9 +80,9 @@ void Camera::lookAt(const CameraTransform &transform)
 void Camera::setParameters(const CameraParameters &parameters)
 {
     _parameters = parameters;
-
-    perspective();
 }
+
+void Camera::setJitter(bool applyJitter) { _applyJitter = applyJitter; }
 
 void Camera::perspective()
 {
@@ -82,17 +96,32 @@ void Camera::perspective()
 
     const float tf = 1.f / tanf(fov * 0.5f);
 
+    if (_applyJitter)
+    {
+        // Based on https://alextardif.com/TAA.html
+        _currentJitter = sHalton23[_jitterIndex];
+        _currentJitter *= 2.f;
+        _currentJitter -= 1.f;
+        _currentJitter /= vec2{
+            static_cast<float>(_resolution.x),
+            static_cast<float>(_resolution.y)};
+    }
+    else
+        _currentJitter = vec2{0.f, 0.f};
+
     // From glTF spec with flipped y and z in [0,1]
+    // Compensate for the flipped y projection by flipping jitter x in the
+    // matrix. That way, the shader can unjitter using the original jitter value
 
     // clang-format off
     _cameraToClip = mat4{1.f,  0.f,  0.f,  0.f,
                          0.f, -1.f,  0.f,  0.f,
                          0.f,  0.f, 0.5f,  0.f,
                          0.f, 0.f,  0.5f, 1.f } *
-                    mat4{tf / ar, 0.f,                     0.f,  0.f,
-                             0.f,  tf,                     0.f,  0.f,
-                             0.f, 0.f,   (zF + zN) / (zN - zF), -1.f,
-                             0.f, 0.f, 2 * zF * zN / (zN - zF),  0.f};
+                    mat4{              tf / ar,              0.f,                     0.f,  0.f,
+                                           0.f,               tf,                     0.f,  0.f,
+                             -_currentJitter.x, _currentJitter.y,   (zF + zN) / (zN - zF), -1.f,
+                                           0.f,              0.f, 2 * zF * zN / (zN - zF),  0.f};
     // clang-format on
 
     _clipToWorld = inverse(_cameraToClip * _worldToCamera);
@@ -105,8 +134,6 @@ void Camera::perspective()
 void Camera::updateResolution(const uvec2 &resolution)
 {
     _resolution = resolution;
-
-    perspective();
 }
 
 void Camera::updateBuffer()
@@ -115,6 +142,9 @@ void Camera::updateBuffer()
     {
         updateWorldToCamera();
     }
+
+    // Always update perspective to have correct jitter regardless of settings
+    perspective();
 
     const CameraUniforms uniforms{
         .worldToCamera = _worldToCamera,
@@ -128,6 +158,8 @@ void Camera::updateBuffer()
                                           : _transform.eye,
                 1.f},
         .resolution = _resolution,
+        .currentJitter = _currentJitter,
+        .previousJitter = _previousJitter,
         .near = _parameters.zN,
         .far = _parameters.zF,
     };

@@ -148,6 +148,8 @@ class App
     bool _forceCamUpdate{true};
     bool _applyIbl{false};
     bool _sceneChanged{false};
+    bool _applyTaa{true};
+    bool _applyJitter{true};
 
     bool _camFreeLook{false};
     CameraTransform _sceneCameraTransform;

@@ -777,15 +777,27 @@ void App::drawRendererSettings(UiChanges &uiChanges)
     {
         if (_referenceRt)
             _rtReference->drawUi();
-        else if (_renderDeferred)
-        {
-            if (_deferredRt)
-                _rtDirectIllumination->drawUi();
-            else
-                _deferredShading->drawUi();
-        }
         else
-            _forwardRenderer->drawUi();
+        {
+            if (_renderDeferred)
+            {
+                if (_deferredRt)
+                    _rtDirectIllumination->drawUi();
+                else
+                    _deferredShading->drawUi();
+            }
+            else
+                _forwardRenderer->drawUi();
+
+            ImGui::Checkbox("Temporal Anti-Aliasing", &_applyTaa);
+            if (!_applyTaa)
+                _cam->setJitter(false);
+            else
+            {
+                ImGui::Checkbox("Jitter", &_applyJitter);
+                _cam->setJitter(_applyJitter);
+            }
+        }
         uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
     }
 

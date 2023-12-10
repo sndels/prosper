@@ -10,6 +10,8 @@ layout(std430, set = CAMERA_SET, binding = 0) buffer CameraDSB
     mat4 previousWorldToClip;
     vec4 eye;
     uvec2 resolution;
+    vec2 currentJitter;
+    vec2 previousJitter;
     float near;
     float far;
 }

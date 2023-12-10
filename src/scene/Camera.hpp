@@ -53,6 +53,8 @@ struct CameraUniforms
     glm::mat4 previousWorldToClip;
     glm::vec4 eye;
     glm::uvec2 resolution;
+    glm::vec2 currentJitter;
+    glm::vec2 previousJitter;
     float near;
     float far;
 };
@@ -77,6 +79,7 @@ class Camera
 
     void lookAt(const CameraTransform &transform);
     void setParameters(const CameraParameters &parameters);
+    void setJitter(bool applyJitter);
     void perspective();
     void updateResolution(const glm::uvec2 &resolution);
 
@@ -121,11 +124,15 @@ class Camera
     glm::mat4 _cameraToClip{1.f};
     glm::mat4 _clipToWorld{1.f};
     glm::mat4 _previousWorldToClip{1.f};
+    glm::vec2 _currentJitter{0.f};
+    glm::vec2 _previousJitter{0.f};
 
     wheels::Optional<ShaderReflection> _bindingsReflection;
     vk::DescriptorSetLayout _descriptorSetLayout;
     vk::DescriptorSet _descriptorSet;
     bool _changedThisFrame{true};
+    bool _applyJitter{false};
+    size_t _jitterIndex{0};
 };
 
 #endif // PROSPER_SCENE_CAMERA_HPP
