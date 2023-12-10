@@ -78,10 +78,7 @@ class RenderResourceCollection
     wheels::Array<wheels::String> _debugNames;
     wheels::Optional<wheels::String> _markedDebugName;
     wheels::Optional<Handle> _markedDebugHandle;
-
-#ifndef NDEBUG
     wheels::Array<bool> _preserved;
-#endif // NDEBUG
 };
 
 template <
@@ -99,9 +96,7 @@ RenderResourceCollection<
 , _aliasedDebugNames{alloc}
 , _generations{alloc}
 , _debugNames{alloc}
-#ifndef NDEBUG
 , _preserved{alloc}
-#endif // NDEBUG
 {
     WHEELS_ASSERT(device != nullptr);
 }
@@ -125,7 +120,6 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::startFrame()
 {
-#ifndef NDEBUG
     const size_t resourceCount = _resources.size();
     WHEELS_ASSERT(resourceCount == _preserved.size());
     WHEELS_ASSERT(resourceCount == _aliasedDebugNames.size());
@@ -141,7 +135,6 @@ void RenderResourceCollection<
                 "Resource leaked");
         (void)aliasedDebugName;
     }
-#endif // NDEBUG
 
     // These are mapped to persistent resource indices
     for (wheels::String &str : _aliasedDebugNames)
@@ -177,9 +170,7 @@ void RenderResourceCollection<
     // _markedDebugName should be persistent and only cleared through an
     // explicit call to clearDebug()
     _markedDebugHandle.reset();
-#ifndef NDEBUG
     _preserved.clear();
-#endif // NDEBUG
 }
 
 template <
@@ -196,9 +187,7 @@ Handle RenderResourceCollection<
     {
         if (!resourceInUse(i))
         {
-#ifndef NDEBUG
             WHEELS_ASSERT(!_preserved[i]);
-#endif // NDEBUG
 
             const Description &existingDesc = _descriptions[i];
             if (existingDesc.matches(desc))
@@ -253,9 +242,7 @@ Handle RenderResourceCollection<
         generation = generation & ~sNotInUseGenerationFlag;
     }
 
-#ifndef NDEBUG
     _preserved.push_back(false);
-#endif // NDEBUG
 
     assertUniqueDebugName(debugName);
     _debugNames.emplace_back(_alloc, debugName);
@@ -401,10 +388,11 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::release(Handle handle)
 {
     assertValidHandle(handle);
-#ifndef NDEBUG
-    WHEELS_ASSERT(
-        !_preserved[handle.index] && "Releasing a preserved resource");
-#endif // NDEBUG
+
+    // Releases on preserved resources are valid as no-ops so that the info
+    // about preserving doesn't have to permeate the renderer.
+    if (_preserved[handle.index])
+        return;
 
     _generations[handle.index]++;
     _generations[handle.index] |= sNotInUseGenerationFlag;
@@ -418,16 +406,12 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::preserve(Handle handle)
 {
-#ifndef NDEBUG
     assertValidHandle(handle);
     WHEELS_ASSERT(
         !_preserved[handle.index] &&
         "Resource is being preseved in two places, ownership gets muddy.");
 
     _preserved[handle.index] = true;
-#else
-    (void)handle;
-#endif // NDEBUG
 }
 
 template <
