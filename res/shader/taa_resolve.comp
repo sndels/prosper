@@ -1,0 +1,34 @@
+#pragma shader_stage(compute)
+
+layout(push_constant) uniform TaaResolvePC { uint ignoreHistory; }
+PC;
+
+layout(binding = 0, rgba16f) uniform readonly image2D inIllumination;
+layout(binding = 1, rgba16f) uniform readonly image2D inPreviousResolved;
+layout(binding = 2, rgba8) uniform image2D outResolved;
+
+layout(local_size_x = 16, local_size_y = 16) in;
+void main()
+{
+    ivec2 res = imageSize(inIllumination);
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(px, res)))
+    {
+        return;
+    }
+
+    vec3 illumination = imageLoad(inIllumination, px).xyz;
+
+    if (PC.ignoreHistory == 1)
+    {
+        imageStore(outResolved, px, vec4(illumination, 1));
+        return;
+    }
+
+    vec3 previousResolved = imageLoad(inPreviousResolved, px).xyz;
+
+    float alpha = 0.1;
+    vec3 resolved = illumination * alpha + previousResolved * (1. - alpha);
+
+    imageStore(outResolved, px, vec4(resolved, 1));
+}

@@ -42,6 +42,9 @@ class RtReference;
 // SkyboxRenderer.hpp
 class SkyboxRenderer;
 
+// TemporalAntiAliasing.hpp
+class TemporalAntiAliasing;
+
 // TextureDebug.hpp
 class TextureDebug;
 
