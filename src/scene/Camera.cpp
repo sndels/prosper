@@ -70,12 +70,13 @@ void Camera::setParameters(const CameraParameters &parameters)
     perspective();
 }
 
-void Camera::perspective(const PerspectiveParameters &params, const float ar)
+void Camera::perspective(
+    const PerspectiveParameters &params, const uvec2 &resolution)
 {
     _parameters.fov = params.fov;
     _parameters.zN = params.zN;
     _parameters.zF = params.zF;
-    _aspectRatio = ar;
+    _resolution = resolution;
 
     perspective();
 }
@@ -83,7 +84,8 @@ void Camera::perspective(const PerspectiveParameters &params, const float ar)
 void Camera::perspective()
 {
     const auto fov = _parameters.fov;
-    const auto ar = _aspectRatio;
+    const auto ar =
+        static_cast<float>(_resolution.x) / static_cast<float>(_resolution.y);
     // Swap near and far for the magical properties of reverse-z
     // https://developer.nvidia.com/content/depth-precision-visualized
     const auto zN = _parameters.zF;
@@ -111,14 +113,14 @@ void Camera::perspective()
     _parameters.focalLength = sensorHeight * tf * 0.5f;
 }
 
-void Camera::updateAspectRatio(float ar)
+void Camera::updateResolution(const uvec2 &resolution)
 {
-    _aspectRatio = ar;
+    _resolution = resolution;
 
     perspective();
 }
 
-void Camera::updateBuffer(const uvec2 &resolution)
+void Camera::updateBuffer()
 {
     if (gestureOffset.has_value())
     {
@@ -136,7 +138,7 @@ void Camera::updateBuffer(const uvec2 &resolution)
                 gestureOffset.has_value() ? _transform.apply(*gestureOffset).eye
                                           : _transform.eye,
                 1.f},
-        .resolution = resolution,
+        .resolution = _resolution,
         .near = _parameters.zN,
         .far = _parameters.zF,
     };

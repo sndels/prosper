@@ -84,11 +84,12 @@ class Camera
 
     void lookAt(const CameraTransform &transform);
     void setParameters(const CameraParameters &parameters);
-    void perspective(const PerspectiveParameters &params, float ar);
+    void perspective(
+        const PerspectiveParameters &params, const glm::uvec2 &resolution);
     void perspective();
-    void updateAspectRatio(float ar);
+    void updateResolution(const glm::uvec2 &resolution);
 
-    void updateBuffer(const glm::uvec2 &resolution);
+    void updateBuffer();
 
     [[nodiscard]] uint32_t bufferOffset() const;
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
@@ -122,7 +123,7 @@ class Camera
 
     CameraTransform _transform;
     CameraParameters _parameters;
-    float _aspectRatio{16.f / 9.f};
+    glm::uvec2 _resolution{};
     uint32_t _parametersByteOffset{0xFFFFFFFF};
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToWorld{1.f};

@@ -176,8 +176,8 @@ App::App(const Settings &settings)
     _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
 
     _cam->init(_sceneCameraTransform, _cameraParameters);
-    _cam->updateAspectRatio(
-        _viewportExtent.width / static_cast<float>(_viewportExtent.height));
+    _cam->updateResolution(
+        uvec2{_viewportExtent.width, _viewportExtent.height});
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
@@ -263,9 +263,8 @@ void App::recreateViewportRelated()
     else
         _viewportExtent = _swapchain->config().extent;
 
-    const float aspectRatio =
-        _viewportExtent.width / static_cast<float>(_viewportExtent.height);
-    _cam->updateAspectRatio(aspectRatio);
+    _cam->updateResolution(
+        uvec2{_viewportExtent.width, _viewportExtent.height});
 }
 
 void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
@@ -599,8 +598,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     WHEELS_ASSERT(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
-    _cam->updateBuffer(
-        uvec2{renderArea.extent.width, renderArea.extent.height});
+    _cam->updateBuffer();
 
     {
         auto _s = _profiler->createCpuScope("World::updateBuffers");
