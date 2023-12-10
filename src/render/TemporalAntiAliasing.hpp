@@ -17,8 +17,8 @@ class TemporalAntiAliasing
   public:
     TemporalAntiAliasing(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDsLayout);
     ~TemporalAntiAliasing() = default;
 
     TemporalAntiAliasing(const TemporalAntiAliasing &other) = delete;
@@ -31,13 +31,19 @@ class TemporalAntiAliasing
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout);
 
+    struct Input
+    {
+        ImageHandle illumination;
+        ImageHandle velocity;
+    };
     struct Output
     {
         ImageHandle resolvedIllumination;
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle inIllumination, uint32_t nextFrame, Profiler *profiler);
+        const Camera &cam, const Input &input, uint32_t nextFrame,
+        Profiler *profiler);
     void releasePreserved();
 
   private:

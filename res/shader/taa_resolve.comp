@@ -2,13 +2,23 @@
 
 // Based on
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/
+// and
+// https://alextardif.com/TAA.html
+
+#include "common/math.glsl"
+#include "scene/camera.glsl"
 
 layout(push_constant) uniform TaaResolvePC { uint ignoreHistory; }
 PC;
 
-layout(binding = 0, rgba16f) uniform readonly image2D inIllumination;
-layout(binding = 1, rgba16f) uniform readonly image2D inPreviousResolved;
-layout(binding = 2, rgba8) uniform image2D outResolved;
+layout(set = STORAGE_SET, binding = 0, rgba16f) uniform readonly image2D
+    inIllumination;
+layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
+layout(set = STORAGE_SET, binding = 2, rg16_snorm) uniform readonly image2D
+    inVelocity;
+layout(set = STORAGE_SET, binding = 3, rgba8) uniform writeonly image2D
+    outResolved;
+layout(set = STORAGE_SET, binding = 4) uniform sampler nearestSampler;
 
 layout(local_size_x = 16, local_size_y = 16) in;
 void main()
@@ -28,7 +38,21 @@ void main()
         return;
     }
 
-    vec3 previousResolved = imageLoad(inPreviousResolved, px).xyz;
+    vec2 velocity = imageLoad(inVelocity, px).xy;
+
+    vec2 uv = (vec2(px) + .5) / vec2(res);
+    vec2 reprojectedUv = uv - velocity * vec2(.5, -.5);
+
+    if (any(notEqual(reprojectedUv, saturate(reprojectedUv))))
+    {
+        imageStore(outResolved, px, vec4(illumination, 1));
+        return;
+    }
+
+    // TODO: Better sampling
+    vec3 previousResolved =
+        texture(sampler2D(inPreviousResolved, nearestSampler), reprojectedUv)
+            .xyz;
 
     float alpha = 0.1;
     vec3 resolved = illumination * alpha + previousResolved * (1. - alpha);

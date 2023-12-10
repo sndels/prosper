@@ -173,7 +173,7 @@ App::App(const Settings &settings)
         scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
     _temporalAntiAliasing = std::make_unique<TemporalAntiAliasing>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _staticDescriptorsAlloc.get());
+        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -1259,7 +1259,11 @@ void App::render(
         {
             const TemporalAntiAliasing::Output taaOutput =
                 _temporalAntiAliasing->record(
-                    scopeAlloc.child_scope(), cb, illumination,
+                    scopeAlloc.child_scope(), cb, *_cam,
+                    TemporalAntiAliasing::Input{
+                        .illumination = illumination,
+                        .velocity = velocity,
+                    },
                     indices.nextFrame, _profiler.get());
 
             _resources->images.release(illumination);

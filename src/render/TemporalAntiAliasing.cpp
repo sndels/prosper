@@ -18,6 +18,13 @@ using namespace wheels;
 namespace
 {
 
+enum BindingSet : uint32_t
+{
+    CameraBindingSet = 0,
+    StorageBindingSet,
+    BindingSetCount,
+};
+
 struct PCBlock
 {
     uint32_t ignoreHistory{0};
@@ -37,9 +44,17 @@ vk::Extent2D getRenderExtent(
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
+
+    const size_t len = 48;
+    String defines{alloc, len};
+    appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
+    WHEELS_ASSERT(defines.size() <= len);
+
     return ComputePass::Shader{
         .relPath = "shader/taa_resolve.comp",
         .debugName = String{alloc, "TaaResolveCS"},
+        .defines = WHEELS_MOV(defines),
     };
 }
 
@@ -47,11 +62,12 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 TemporalAntiAliasing::TemporalAntiAliasing(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    DescriptorAllocator *staticDescriptorsAlloc,
+    vk::DescriptorSetLayout camDsLayout)
 : _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback}
+, _computePass{WHEELS_MOV(scopeAlloc), device,
+               staticDescriptorsAlloc, shaderDefinitionCallback,
+               StorageBindingSet,      Span{&camDsLayout, 1}}
 {
     WHEELS_ASSERT(_resources != nullptr);
 }
@@ -67,15 +83,15 @@ void TemporalAntiAliasing::recompileShaders(
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle inIllumination,
-    const uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {
         const vk::Extent2D renderExtent =
-            getRenderExtent(*_resources, inIllumination);
+            getRenderExtent(*_resources, input.illumination);
 
         ret = createOutputs(renderExtent);
 
@@ -105,7 +121,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
         const StaticArray descriptorInfos{
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = _resources->images.resource(inIllumination).view,
+                .imageView =
+                    _resources->images.resource(input.illumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -114,18 +131,26 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = _resources->images.resource(input.velocity).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     _resources->images.resource(ret.resolvedIllumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = _resources->nearestSampler,
             }},
         };
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
-        transition<3>(
+        transition<4>(
             *_resources, cb,
             {
-                {inIllumination, ImageState::ComputeShaderRead},
+                {input.illumination, ImageState::ComputeShaderRead},
+                {input.velocity, ImageState::ComputeShaderRead},
                 {_previousResolveOutput, ImageState::ComputeShaderRead},
                 {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
             });
@@ -136,15 +161,19 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             (uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u + 1u,
             1u};
 
-        const vk::DescriptorSet descriptorSet =
-            _computePass.storageSet(nextFrame);
+        StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+            VK_NULL_HANDLE};
+        descriptorSets[CameraBindingSet] = cam.descriptorSet();
+        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+
+        const uint32_t camOffset = cam.bufferOffset();
 
         _computePass.record(
             cb,
             PCBlock{
                 .ignoreHistory = ignoreHistory,
             },
-            groups, Span{&descriptorSet, 1});
+            groups, descriptorSets, Span{&camOffset, 1});
 
         _resources->images.release(_previousResolveOutput);
         _previousResolveOutput = ret.resolvedIllumination;
