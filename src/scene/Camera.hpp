@@ -31,13 +31,6 @@ struct CameraTransform
     }
 };
 
-struct PerspectiveParameters
-{
-    float fov{glm::radians(59.f)};
-    float zN{0.1f};
-    float zF{100.f};
-};
-
 // TODO:
 // Split transform from other parameters as it comes from the scene graph
 struct CameraParameters
@@ -84,8 +77,6 @@ class Camera
 
     void lookAt(const CameraTransform &transform);
     void setParameters(const CameraParameters &parameters);
-    void perspective(
-        const PerspectiveParameters &params, const glm::uvec2 &resolution);
     void perspective();
     void updateResolution(const glm::uvec2 &resolution);
 

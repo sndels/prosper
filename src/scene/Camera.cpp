@@ -70,17 +70,6 @@ void Camera::setParameters(const CameraParameters &parameters)
     perspective();
 }
 
-void Camera::perspective(
-    const PerspectiveParameters &params, const uvec2 &resolution)
-{
-    _parameters.fov = params.fov;
-    _parameters.zN = params.zN;
-    _parameters.zF = params.zF;
-    _resolution = resolution;
-
-    perspective();
-}
-
 void Camera::perspective()
 {
     const auto fov = _parameters.fov;
