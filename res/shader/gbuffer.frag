@@ -56,6 +56,9 @@ void main()
     vec3 prevPosNDC = fragPrevPositionNDC.xyz / fragPrevPositionNDC.w;
     vec2 velocity = (posNDC.xy - camera.currentJitter) -
                     (prevPosNDC.xy - camera.previousJitter);
+    // Let's have positive motion be upward in the image to try and avoid
+    // confusion.
+    velocity.y = -velocity.y;
 
     // TODO:
     // Does GLSL support passing uniforms as parameters some way?
