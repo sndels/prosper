@@ -132,6 +132,7 @@ class App
     std::unique_ptr<TextureDebug> _textureDebug;
     std::unique_ptr<DepthOfField> _depthOfField;
     std::unique_ptr<ImageBasedLighting> _imageBasedLighting;
+    std::unique_ptr<TemporalAntiAliasing> _temporalAntiAliasing;
 
     std::unique_ptr<Profiler> _profiler;
 

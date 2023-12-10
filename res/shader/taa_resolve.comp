@@ -1,5 +1,8 @@
 #pragma shader_stage(compute)
 
+// Based on
+// https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail/
+
 layout(push_constant) uniform TaaResolvePC { uint ignoreHistory; }
 PC;
 

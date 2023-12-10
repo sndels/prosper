@@ -28,6 +28,7 @@
 #include "render/RenderResources.hpp"
 #include "render/RtReference.hpp"
 #include "render/SkyboxRenderer.hpp"
+#include "render/TemporalAntiAliasing.hpp"
 #include "render/TextureDebug.hpp"
 #include "render/ToneMap.hpp"
 #include "render/dof/DepthOfField.hpp"
@@ -170,6 +171,9 @@ App::App(const Settings &settings)
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _imageBasedLighting = std::make_unique<ImageBasedLighting>(
         scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
+    _temporalAntiAliasing = std::make_unique<TemporalAntiAliasing>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -369,6 +373,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
     _imageBasedLighting->recompileShaders(
         scopeAlloc.child_scope(), changedFiles);
+    _temporalAntiAliasing->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
@@ -1249,6 +1255,22 @@ void App::render(
             },
             indices.nextFrame, _profiler.get());
 
+        if (_applyTaa)
+        {
+            const TemporalAntiAliasing::Output taaOutput =
+                _temporalAntiAliasing->record(
+                    scopeAlloc.child_scope(), cb, illumination,
+                    indices.nextFrame, _profiler.get());
+
+            _resources->images.release(illumination);
+            illumination = taaOutput.resolvedIllumination;
+        }
+        else
+            _temporalAntiAliasing->releasePreserved();
+
+        // TODO:
+        // Do DoF on raw illumination and have a separate stabilizing TAA pass
+        // that doesn't blend foreground/background (Karis/Abadie).
         if (_renderDoF)
         {
             const DepthOfField::Output dofOutput = _depthOfField->record(
