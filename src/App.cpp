@@ -1244,6 +1244,7 @@ void App::render(
             cb, *_world, *_cam,
             SkyboxRenderer::RecordInOut{
                 .illumination = illumination,
+                .velocity = velocity,
                 .depth = depth,
             },
             _profiler.get());

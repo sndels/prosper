@@ -34,6 +34,7 @@ class SkyboxRenderer
     struct RecordInOut
     {
         ImageHandle illumination;
+        ImageHandle velocity;
         ImageHandle depth;
     };
     void record(
@@ -48,7 +49,7 @@ class SkyboxRenderer
 
     struct Attachments
     {
-        vk::RenderingAttachmentInfo color;
+        wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
         vk::RenderingAttachmentInfo depth;
     };
     [[nodiscard]] Attachments createAttachments(

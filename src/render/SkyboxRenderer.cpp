@@ -110,8 +110,9 @@ void SkyboxRenderer::record(
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
             .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &attachments.color,
+            .colorAttachmentCount =
+                asserted_cast<uint32_t>(attachments.color.size()),
+            .pColorAttachments = attachments.color.data(),
             .pDepthAttachment = &attachments.depth,
         });
 
@@ -202,10 +203,11 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 void SkyboxRenderer::recordBarriers(
     vk::CommandBuffer cb, const RecordInOut &inOutTargets) const
 {
-    transition<2>(
+    transition<3>(
         *_resources, cb,
         {
             {inOutTargets.illumination, ImageState::ColorAttachmentWrite},
+            {inOutTargets.velocity, ImageState::ColorAttachmentWrite},
             {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
         });
 }
@@ -215,12 +217,22 @@ SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(
 {
     return Attachments{
         .color =
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    _resources->images.resource(inOutTargets.illumination).view,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eLoad,
-                .storeOp = vk::AttachmentStoreOp::eStore,
+            {
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        _resources->images.resource(inOutTargets.illumination)
+                            .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eLoad,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                },
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        _resources->images.resource(inOutTargets.velocity).view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eLoad,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                },
             },
         .depth =
             vk::RenderingAttachmentInfo{
@@ -272,20 +284,26 @@ void SkyboxRenderer::createGraphicsPipelines(
             .pSetLayouts = setLayouts.data(),
         });
 
-    const vk::PipelineColorBlendAttachmentState blendAttachment =
-        opaqueColorBlendAttachment();
+    const StaticArray colorAttachmentFormats{
+        sIlluminationFormat,
+        sVelocityFormat,
+    };
+
+    const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
+        colorBlendAttachments{opaqueColorBlendAttachment()};
 
     _pipeline = createGraphicsPipeline(
         _device->logical(),
         GraphicsPipelineInfo{
             .layout = _pipelineLayout,
             .vertInputInfo = vertInputInfo,
-            .colorBlendAttachments = Span{&blendAttachment, 1},
+            .colorBlendAttachments = colorBlendAttachments,
             .shaderStages = _shaderStages,
             .renderingInfo =
                 vk::PipelineRenderingCreateInfo{
-                    .colorAttachmentCount = 1,
-                    .pColorAttachmentFormats = &sIlluminationFormat,
+                    .colorAttachmentCount = asserted_cast<uint32_t>(
+                        colorAttachmentFormats.capacity()),
+                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
                     .depthAttachmentFormat = sDepthFormat,
                 },
             .cullMode = vk::CullModeFlagBits::eNone,
