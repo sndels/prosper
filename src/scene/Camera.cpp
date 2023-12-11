@@ -65,7 +65,8 @@ void Camera::init(
 void Camera::endFrame()
 {
     _changedThisFrame = false;
-    _previousWorldToClip = _cameraToClip * _worldToCamera;
+    _previousCameraToClip = _cameraToClip;
+    _previousWorldToCamera = _worldToCamera;
     _previousJitter = _currentJitter;
     _jitterIndex = (_jitterIndex + 1) % sHaltonSampleCount;
 }
@@ -151,7 +152,8 @@ void Camera::updateBuffer()
         .cameraToWorld = _cameraToWorld,
         .cameraToClip = _cameraToClip,
         .clipToWorld = _clipToWorld,
-        .previousWorldToClip = _previousWorldToClip,
+        .previousWorldToCamera = _previousWorldToCamera,
+        .previousCameraToClip = _previousCameraToClip,
         .eye =
             vec4{
                 gestureOffset.has_value() ? _transform.apply(*gestureOffset).eye

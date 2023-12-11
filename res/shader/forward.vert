@@ -45,8 +45,10 @@ void main()
     if (PC.previousTransformValid == 1)
         prevTrfn = previousModelInstanceTransforms.instance[PC.ModelInstanceID];
     vec3 prevPositionWorld = worldPosition(vertexModel, prevTrfn);
-    fragPrevPositionNDC =
-        camera.previousWorldToClip * vec4(prevPositionWorld, 1.);
+
+    fragPrevPositionNDC = camera.previousCameraToClip *
+                          camera.previousWorldToCamera *
+                          vec4(prevPositionWorld, 1.);
 
     gl_Position = posNDC;
 }

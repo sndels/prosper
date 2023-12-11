@@ -50,7 +50,8 @@ struct CameraUniforms
     glm::mat4 cameraToWorld;
     glm::mat4 cameraToClip;
     glm::mat4 clipToWorld;
-    glm::mat4 previousWorldToClip;
+    glm::mat4 previousWorldToCamera;
+    glm::mat4 previousCameraToClip;
     glm::vec4 eye;
     glm::uvec2 resolution;
     glm::vec2 currentJitter;
@@ -123,7 +124,8 @@ class Camera
     glm::mat4 _cameraToWorld{1.f};
     glm::mat4 _cameraToClip{1.f};
     glm::mat4 _clipToWorld{1.f};
-    glm::mat4 _previousWorldToClip{1.f};
+    glm::mat4 _previousWorldToCamera{1.f};
+    glm::mat4 _previousCameraToClip{1.f};
     glm::vec2 _currentJitter{0.f};
     glm::vec2 _previousJitter{0.f};
 
