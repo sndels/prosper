@@ -177,10 +177,6 @@ vk::DescriptorSetLayout Camera::descriptorSetLayout() const
 
 vk::DescriptorSet Camera::descriptorSet() const { return _descriptorSet; }
 
-const glm::mat4 &Camera::worldToCamera() const { return _worldToCamera; }
-
-const glm::mat4 &Camera::cameraToClip() const { return _cameraToClip; }
-
 const CameraTransform &Camera::transform() const { return _transform; }
 
 const CameraParameters &Camera::parameters() const { return _parameters; }

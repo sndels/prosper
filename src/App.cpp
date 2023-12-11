@@ -153,7 +153,7 @@ App::App(const Settings &settings)
         _world->dsLayouts());
     _skyboxRenderer = std::make_unique<SkyboxRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _world->dsLayouts());
+        _cam->descriptorSetLayout(), _world->dsLayouts());
     _debugRenderer = std::make_unique<DebugRenderer>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
@@ -364,7 +364,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
         _world->dsLayouts());
     _skyboxRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _world->dsLayouts());
+        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
+        _world->dsLayouts());
     _debugRenderer->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
     _toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);

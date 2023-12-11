@@ -89,8 +89,6 @@ class Camera
     [[nodiscard]] uint32_t bufferOffset() const;
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
     [[nodiscard]] vk::DescriptorSet descriptorSet() const;
-    [[nodiscard]] const glm::mat4 &worldToCamera() const;
-    [[nodiscard]] const glm::mat4 &cameraToClip() const;
     [[nodiscard]] const CameraTransform &transform() const;
     [[nodiscard]] const CameraParameters &parameters() const;
 

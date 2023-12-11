@@ -15,7 +15,12 @@ using namespace wheels;
 namespace
 {
 
-constexpr uint32_t sSkyboxBindingSet = 0;
+enum BindingSet : uint32_t
+{
+    SkyboxBindingSet = 0,
+    CameraBindingSet,
+    BindingSetCount,
+};
 
 vk::Rect2D getRenderArea(
     const RenderResources &resources,
@@ -37,15 +42,11 @@ vk::Rect2D getRenderArea(
     };
 }
 
-struct PCBlock
-{
-    mat4 worldToClip;
-};
-
 } // namespace
 
 SkyboxRenderer::SkyboxRenderer(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 : _device{device}
 , _resources{resources}
@@ -58,7 +59,7 @@ SkyboxRenderer::SkyboxRenderer(
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("SkyboxRenderer shader compilation failed");
 
-    createGraphicsPipelines(worldDSLayouts);
+    createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
 SkyboxRenderer::~SkyboxRenderer()
@@ -75,6 +76,7 @@ SkyboxRenderer::~SkyboxRenderer()
 void SkyboxRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
+    const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(_vertReflection.has_value());
@@ -86,7 +88,7 @@ void SkyboxRenderer::recompileShaders(
     if (compileShaders(scopeAlloc.child_scope()))
     {
         destroyGraphicsPipelines();
-        createGraphicsPipelines(worldDSLayouts);
+        createGraphicsPipelines(camDSLayout, worldDSLayouts);
     }
 }
 
@@ -119,20 +121,20 @@ void SkyboxRenderer::record(
 
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
 
+        StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+            VK_NULL_HANDLE};
+        descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
+        descriptorSets[CameraBindingSet] = cam.descriptorSet();
+
+        const uint32_t camOffset = cam.bufferOffset();
+
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
             0, // firstSet
-            1, &worldDSes.skybox, 0, nullptr);
+            asserted_cast<uint32_t>(descriptorSets.size()),
+            descriptorSets.data(), 1, &camOffset);
 
         setViewportScissor(cb, renderArea);
-
-        const PCBlock pcBlock{
-            .worldToClip = cam.cameraToClip() * mat4(mat3(cam.worldToCamera())),
-        };
-        cb.pushConstants(
-            _pipelineLayout, vk::ShaderStageFlagBits::eVertex,
-            0, // offset
-            sizeof(PCBlock), &pcBlock);
 
         world.drawSkybox(cb);
 
@@ -144,9 +146,10 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
     printf("Compiling SkyboxRenderer shaders\n");
 
-    const size_t len = 32;
+    const size_t len = 48;
     String defines{scopeAlloc, len};
-    appendDefineStr(defines, "SKYBOX_SET", sSkyboxBindingSet);
+    appendDefineStr(defines, "SKYBOX_SET", SkyboxBindingSet);
+    appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     WHEELS_ASSERT(defines.size() <= len);
 
     Optional<Device::ShaderCompileResult> vertResult =
@@ -154,6 +157,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.vert",
                                           .debugName = "skyboxVS",
+                                          .defines = defines,
                                       });
     Optional<Device::ShaderCompileResult> fragResult =
         _device->compileShaderModule(
@@ -169,9 +173,6 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
             _device->logical().destroyShaderModule(stage.module);
 
         _vertReflection = WHEELS_MOV(vertResult->reflection);
-        WHEELS_ASSERT(
-            sizeof(PCBlock) == _vertReflection->pushConstantsBytesize());
-
         _fragReflection = WHEELS_MOV(fragResult->reflection);
 
         _shaderStages = {
@@ -239,6 +240,7 @@ void SkyboxRenderer::destroyGraphicsPipelines()
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
+    const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     const vk::VertexInputBindingDescription vertexBindingDescription{
@@ -258,18 +260,16 @@ void SkyboxRenderer::createGraphicsPipelines(
         .vertexAttributeDescriptionCount = 1,
         .pVertexAttributeDescriptions = &vertexAttributeDescription,
     };
-    const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eVertex,
-        .offset = 0,
-        .size = sizeof(PCBlock),
-    };
+
+    StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
+        VK_NULL_HANDLE};
+    setLayouts[SkyboxBindingSet] = worldDSLayouts.skybox;
+    setLayouts[CameraBindingSet] = camDSLayout;
 
     _pipelineLayout =
         _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
-            .setLayoutCount = 1,
-            .pSetLayouts = &worldDSLayouts.skybox,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcRange,
+            .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
+            .pSetLayouts = setLayouts.data(),
         });
 
     const vk::PipelineColorBlendAttachmentState blendAttachment =

@@ -16,7 +16,8 @@ class SkyboxRenderer
   public:
     SkyboxRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const WorldDSLayouts &worldDSLayouts);
+        RenderResources *resources, const vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
     ~SkyboxRenderer();
 
     SkyboxRenderer(const SkyboxRenderer &other) = delete;
@@ -27,6 +28,7 @@ class SkyboxRenderer
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
+        const vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     struct RecordInOut
@@ -54,7 +56,9 @@ class SkyboxRenderer
 
     void destroyGraphicsPipelines();
 
-    void createGraphicsPipelines(const WorldDSLayouts &worldDSLayouts);
+    void createGraphicsPipelines(
+        const vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
