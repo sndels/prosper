@@ -32,9 +32,25 @@ enum BindingSet : uint32_t
 
 struct PCBlock
 {
-    uint32_t ignoreHistory{0};
     uint32_t colorClipping{0};
+    uint32_t flags{0};
+
+    struct Flags
+    {
+        bool ignoreHistory{false};
+        bool catmullRom{false};
+    };
 };
+
+uint32_t pcFlags(PCBlock::Flags flags)
+{
+    uint32_t ret = 0;
+
+    ret |= (uint32_t)flags.ignoreHistory;
+    ret |= (uint32_t)flags.catmullRom << 1;
+
+    return ret;
+}
 
 vk::Extent2D getRenderExtent(
     const RenderResources &resources, ImageHandle inColor)
@@ -106,6 +122,7 @@ void TemporalAntiAliasing::drawUi()
         }
         ImGui::EndCombo();
     }
+    ImGui::Checkbox("Catmull-Rom history samples", &_catmullRom);
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
@@ -200,8 +217,11 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         _computePass.record(
             cb,
             PCBlock{
-                .ignoreHistory = ignoreHistory,
                 .colorClipping = static_cast<uint32_t>(_colorClipping),
+                .flags = pcFlags(PCBlock::Flags{
+                    .ignoreHistory = ignoreHistory,
+                    .catmullRom = _catmullRom,
+                }),
             },
             groups, descriptorSets, Span{&camOffset, 1});
 

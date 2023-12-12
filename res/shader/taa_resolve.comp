@@ -10,10 +10,13 @@
 
 layout(push_constant) uniform TaaResolvePC
 {
-    uint ignoreHistory;
     uint colorClipping;
+    uint flags;
 }
 PC;
+
+bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
+bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
 
 layout(set = STORAGE_SET, binding = 0) uniform texture2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
@@ -82,6 +85,49 @@ vec3 clipColor(ivec2 px, ivec2 res, vec3 previousResolved)
     return vec3(0);
 }
 
+#define samplePrevious(tex, uv) texture(sampler2D(tex, bilinearSampler), uv).xyz
+
+// From Filmic SMAA: Sharp Morphological and Temporal Antialiasing
+// By Jorge Jimenez
+vec3 optimizedCatmullRom(vec2 uv, ivec2 res)
+{
+    vec4 rtMetrics = vec4(1. / vec2(res), vec2(res));
+    vec2 position = uv * rtMetrics.zw;
+    vec2 centerPosition = floor(position - .5) + .5;
+    vec2 f = position - centerPosition;
+    vec2 f2 = f * f;
+    vec2 f3 = f * f2;
+
+    // Any higher than this causes visible posterization artifacts when clipping
+    // is not used
+    float sharpness = 70.;
+    float c = sharpness / 100.;
+    vec2 w0 = -c * f3 + 2. * c * f2 - c * f;
+    vec2 w1 = (2. - c) * f3 - (3. - c) * f2 + 1;
+    vec2 w2 = -(2. - c) * f3 + (3. - 2. * c) * f2 + c * f;
+    vec2 w3 = c * f3 - c * f2;
+
+    vec2 w12 = w1 + w2;
+    vec2 tc12 = rtMetrics.xy * (centerPosition + w2 / w12);
+    vec3 centerColor = samplePrevious(inPreviousResolved, vec2(tc12.x, tc12.y));
+
+    vec2 tc0 = rtMetrics.xy * (centerPosition - 1.);
+    vec2 tc3 = rtMetrics.xy * (centerPosition + 2.);
+
+    vec4 color =
+        vec4(samplePrevious(inPreviousResolved, vec2(tc12.x, tc0.y)), 1.) *
+            (w12.x * w0.y) +
+        vec4(samplePrevious(inPreviousResolved, vec2(tc0.x, tc12.y)), 1.) *
+            (w0.x * w12.y) +
+        vec4(centerColor, 1.) * (w12.x * w12.y) +
+        vec4(samplePrevious(inPreviousResolved, vec2(tc3.x, tc12.y)), 1.) *
+            (w3.x * w12.y) +
+        vec4(samplePrevious(inPreviousResolved, vec2(tc12.x, tc3.y)), 1.) *
+            (w12.x * w3.y);
+
+    return color.rgb / color.a;
+}
+
 layout(local_size_x = 16, local_size_y = 16) in;
 void main()
 {
@@ -96,14 +142,13 @@ void main()
     vec3 illumination =
         texture(sampler2D(inIllumination, nearestSampler), uv).xyz;
 
-    if (PC.ignoreHistory == 1)
+    if (flagIgnoreHistory())
     {
         imageStore(outResolved, px, vec4(illumination, 1));
         return;
     }
 
     vec2 velocity = imageLoad(inVelocity, px).xy;
-
     vec2 reprojectedUv = uv - velocity * vec2(.5, -.5);
 
     if (any(notEqual(reprojectedUv, saturate(reprojectedUv))))
@@ -114,10 +159,9 @@ void main()
 
     // Samples don't fall exactly to texel centers so can't use nearest here.
     // That would cause swimming artifacts in movement.
-    // TODO: Catmull-Rom like UE4 and Jimenez
     vec3 previousResolved =
-        texture(sampler2D(inPreviousResolved, bilinearSampler), reprojectedUv)
-            .xyz;
+        flagCatmullRom() ? optimizedCatmullRom(reprojectedUv, res)
+                         : samplePrevious(inPreviousResolved, reprojectedUv);
     previousResolved = clipColor(px, res, previousResolved);
 
     float alpha = 0.1;
