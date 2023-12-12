@@ -18,6 +18,11 @@ using namespace wheels;
 namespace
 {
 
+constexpr std::array<
+    const char *,
+    static_cast<size_t>(TemporalAntiAliasing::ColorClippingType::Count)>
+    sColorClippingTypeNames = {"None", COLOR_CLIPPING_TYPE_STRS};
+
 enum BindingSet : uint32_t
 {
     CameraBindingSet = 0,
@@ -28,6 +33,7 @@ enum BindingSet : uint32_t
 struct PCBlock
 {
     uint32_t ignoreHistory{0};
+    uint32_t colorClipping{0};
 };
 
 vk::Extent2D getRenderExtent(
@@ -45,10 +51,13 @@ vk::Extent2D getRenderExtent(
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
 
-    const size_t len = 48;
+    const size_t len = 140;
     String defines{alloc, len};
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
+    appendEnumVariantsAsDefines(
+        defines, "ColorClipping",
+        Span{sColorClippingTypeNames.data(), sColorClippingTypeNames.size()});
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -80,6 +89,23 @@ void TemporalAntiAliasing::recompileShaders(
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         Span{&camDSLayout, 1});
+}
+
+void TemporalAntiAliasing::drawUi()
+{
+    uint32_t *currentType = reinterpret_cast<uint32_t *>(&_colorClipping);
+    if (ImGui::BeginCombo(
+            "Color clipping", sColorClippingTypeNames[*currentType]))
+    {
+        for (auto i = 0u; i < static_cast<uint32_t>(ColorClippingType::Count);
+             ++i)
+        {
+            bool selected = *currentType == i;
+            if (ImGui::Selectable(sColorClippingTypeNames[i], &selected))
+                _colorClipping = static_cast<ColorClippingType>(i);
+        }
+        ImGui::EndCombo();
+    }
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
@@ -172,6 +198,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             cb,
             PCBlock{
                 .ignoreHistory = ignoreHistory,
+                .colorClipping = static_cast<uint32_t>(_colorClipping),
             },
             groups, descriptorSets, Span{&camOffset, 1});
 

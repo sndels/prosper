@@ -797,13 +797,16 @@ void App::drawRendererSettings(UiChanges &uiChanges)
                 _forwardRenderer->drawUi();
 
             ImGui::Checkbox("Temporal Anti-Aliasing", &_applyTaa);
+            ImGui::Indent(sIndentPixels);
             if (!_applyTaa)
                 _cam->setJitter(false);
             else
             {
                 ImGui::Checkbox("Jitter", &_applyJitter);
                 _cam->setJitter(_applyJitter);
+                _temporalAntiAliasing->drawUi();
             }
+            ImGui::Unindent(sIndentPixels);
         }
         uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
     }

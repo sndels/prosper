@@ -12,9 +12,26 @@
 #include "Fwd.hpp"
 #include "RenderResourceHandle.hpp"
 
+#include "../utils/ForEach.hpp"
+
+#define COLOR_CLIPPING_TYPES MinMax, Variance
+
+#define COLOR_CLIPPING_TYPES_AND_COUNT COLOR_CLIPPING_TYPES, Count
+
+#define COLOR_CLIPPING_TYPES_STRINGIFY(t) #t,
+
+#define COLOR_CLIPPING_TYPE_STRS                                               \
+    FOR_EACH(COLOR_CLIPPING_TYPES_STRINGIFY, COLOR_CLIPPING_TYPES)
+
 class TemporalAntiAliasing
 {
   public:
+    enum class ColorClippingType : uint32_t
+    {
+        None = 0,
+        COLOR_CLIPPING_TYPES_AND_COUNT
+    };
+
     TemporalAntiAliasing(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
@@ -30,6 +47,8 @@ class TemporalAntiAliasing
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout);
+
+    void drawUi();
 
     struct Input
     {
@@ -53,6 +72,7 @@ class TemporalAntiAliasing
     ComputePass _computePass;
 
     ImageHandle _previousResolveOutput;
+    ColorClippingType _colorClipping{ColorClippingType::Variance};
 };
 
 #endif // PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP
