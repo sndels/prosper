@@ -1,6 +1,10 @@
 #pragma shader_stage(compute)
 
-layout(push_constant) uniform ToneMapPC { float exposure; }
+layout(push_constant) uniform ToneMapPC
+{
+    float exposure;
+    uint zoom;
+}
 PC;
 
 layout(local_size_x = 16, local_size_y = 16) in;
@@ -35,6 +39,16 @@ void main()
         return;
     }
 
-    vec3 color = imageLoad(inColor, coord).xyz;
+    ivec2 inCoord = coord;
+    if (PC.zoom == 1)
+    {
+        // Zoom in a quarter res windoe approximately at the center of the full
+        // render view
+        ivec2 center = res / 2;
+        ivec2 topLeft = center - res / 8;
+        inCoord = topLeft + coord / 4;
+    }
+
+    vec3 color = imageLoad(inColor, inCoord).xyz;
     imageStore(outColor, coord, vec4(tonemap(color), 1));
 }

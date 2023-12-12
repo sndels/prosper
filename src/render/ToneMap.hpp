@@ -46,6 +46,7 @@ class ToneMap
     ComputePass _computePass;
 
     float _exposure{1.f};
+    bool _zoom{false};
 };
 
 #endif // PROSPER_RENDER_TONE_MAP_HPP
