@@ -168,6 +168,9 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = _resources->nearestSampler,
             }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = _resources->bilinearSampler,
+            }},
         };
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);

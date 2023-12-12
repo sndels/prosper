@@ -22,6 +22,7 @@ layout(set = STORAGE_SET, binding = 2, rg16_snorm) uniform readonly image2D
 layout(set = STORAGE_SET, binding = 3, rgba8) uniform writeonly image2D
     outResolved;
 layout(set = STORAGE_SET, binding = 4) uniform sampler nearestSampler;
+layout(set = STORAGE_SET, binding = 5) uniform sampler bilinearSampler;
 
 vec3 minMaxClip(ivec2 px, ivec2 res, vec3 previousResolved)
 {
@@ -111,9 +112,11 @@ void main()
         return;
     }
 
-    // TODO: Better sampling
+    // Samples don't fall exactly to texel centers so can't use nearest here.
+    // That would cause swimming artifacts in movement.
+    // TODO: Catmull-Rom like UE4 and Jimenez
     vec3 previousResolved =
-        texture(sampler2D(inPreviousResolved, nearestSampler), reprojectedUv)
+        texture(sampler2D(inPreviousResolved, bilinearSampler), reprojectedUv)
             .xyz;
     previousResolved = clipColor(px, res, previousResolved);
 
