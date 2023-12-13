@@ -32,7 +32,6 @@ enum BindingSet : uint32_t
 
 struct PCBlock
 {
-    uint32_t colorClipping{0};
     uint32_t flags{0};
 
     struct Flags
@@ -40,6 +39,8 @@ struct PCBlock
         bool ignoreHistory{false};
         bool catmullRom{false};
         bool largestVelocity{false};
+        TemporalAntiAliasing::ColorClippingType colorClipping{
+            TemporalAntiAliasing::ColorClippingType::None};
     };
 };
 
@@ -50,6 +51,10 @@ uint32_t pcFlags(PCBlock::Flags flags)
     ret |= (uint32_t)flags.ignoreHistory;
     ret |= (uint32_t)flags.catmullRom << 1;
     ret |= (uint32_t)flags.largestVelocity << 2;
+    ret |= (uint32_t)flags.colorClipping << 3;
+    // Two bits reserved for color clipping type
+    static_assert(
+        (uint32_t)TemporalAntiAliasing::ColorClippingType::Count - 1 < 0b11);
 
     return ret;
 }
@@ -220,11 +225,12 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         _computePass.record(
             cb,
             PCBlock{
-                .colorClipping = static_cast<uint32_t>(_colorClipping),
                 .flags = pcFlags(PCBlock::Flags{
                     .ignoreHistory = ignoreHistory,
                     .catmullRom = _catmullRom,
-                    .largestVelocity = _largestVelocity}),
+                    .largestVelocity = _largestVelocity,
+                    .colorClipping = _colorClipping,
+                }),
             },
             groups, descriptorSets, Span{&camOffset, 1});
 

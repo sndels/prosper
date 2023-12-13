@@ -8,16 +8,13 @@
 #include "common/math.glsl"
 #include "scene/camera.glsl"
 
-layout(push_constant) uniform TaaResolvePC
-{
-    uint colorClipping;
-    uint flags;
-}
+layout(push_constant) uniform TaaResolvePC { uint flags; }
 PC;
 
 bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
 bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
 bool flagLargestVelocity() { return bitfieldExtract(PC.flags, 2, 1) == 1; }
+uint flagColorClippingType() { return bitfieldExtract(PC.flags, 3, 2); }
 
 layout(set = STORAGE_SET, binding = 0) uniform texture2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
@@ -76,11 +73,12 @@ vec3 varianceClip(ivec2 px, ivec2 res, vec3 previousResolved)
 
 vec3 clipColor(ivec2 px, ivec2 res, vec3 previousResolved)
 {
-    if (PC.colorClipping == ColorClipping_None)
+    uint colorClipping = flagColorClippingType();
+    if (colorClipping == ColorClipping_None)
         return previousResolved;
-    if (PC.colorClipping == ColorClipping_MinMax)
+    if (colorClipping == ColorClipping_MinMax)
         return minMaxClip(px, res, previousResolved);
-    if (PC.colorClipping == ColorClipping_Variance)
+    if (colorClipping == ColorClipping_Variance)
         return varianceClip(px, res, previousResolved);
     return vec3(0);
 }
