@@ -37,4 +37,6 @@
     - unique_ptr? is the indirection expensive?
     - or store reflections per shader handle in device and query each time they are used?
       more expensive?
-
+- Just include the first enum variant name in the macros?
+  - First = 0 should be guaranteed, but need to verify first
+- Util for enum class dropdown, there's now a few of those copypasted around

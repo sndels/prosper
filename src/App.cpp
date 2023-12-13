@@ -1270,6 +1270,7 @@ void App::render(
                     TemporalAntiAliasing::Input{
                         .illumination = illumination,
                         .velocity = velocity,
+                        .depth = depth,
                     },
                     indices.nextFrame, _profiler.get());
 

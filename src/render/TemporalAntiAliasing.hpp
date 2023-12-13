@@ -15,13 +15,16 @@
 #include "../utils/ForEach.hpp"
 
 #define COLOR_CLIPPING_TYPES MinMax, Variance
-
 #define COLOR_CLIPPING_TYPES_AND_COUNT COLOR_CLIPPING_TYPES, Count
-
 #define COLOR_CLIPPING_TYPES_STRINGIFY(t) #t,
-
 #define COLOR_CLIPPING_TYPE_STRS                                               \
     FOR_EACH(COLOR_CLIPPING_TYPES_STRINGIFY, COLOR_CLIPPING_TYPES)
+
+#define VELOCITY_SAMPLING_TYPES Largest, Closest
+#define VELOCITY_SAMPLING_TYPES_AND_COUNT VELOCITY_SAMPLING_TYPES, Count
+#define VELOCITY_SAMPLING_TYPES_STRINGIFY(t) #t,
+#define VELOCITY_SAMPLING_TYPE_STRS                                            \
+    FOR_EACH(VELOCITY_SAMPLING_TYPES_STRINGIFY, VELOCITY_SAMPLING_TYPES)
 
 class TemporalAntiAliasing
 {
@@ -30,6 +33,12 @@ class TemporalAntiAliasing
     {
         None = 0,
         COLOR_CLIPPING_TYPES_AND_COUNT
+    };
+
+    enum class VelocitySamplingType : uint32_t
+    {
+        Center = 0,
+        VELOCITY_SAMPLING_TYPES_AND_COUNT
     };
 
     TemporalAntiAliasing(
@@ -54,6 +63,7 @@ class TemporalAntiAliasing
     {
         ImageHandle illumination;
         ImageHandle velocity;
+        ImageHandle depth;
     };
     struct Output
     {
@@ -73,8 +83,8 @@ class TemporalAntiAliasing
 
     ImageHandle _previousResolveOutput;
     ColorClippingType _colorClipping{ColorClippingType::Variance};
+    VelocitySamplingType _velocitySampling{VelocitySamplingType::Closest};
     bool _catmullRom{true};
-    bool _largestVelocity{true};
 };
 
 #endif // PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP

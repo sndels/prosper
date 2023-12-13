@@ -13,16 +13,17 @@ PC;
 
 bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
 bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
-bool flagLargestVelocity() { return bitfieldExtract(PC.flags, 2, 1) == 1; }
-uint flagColorClippingType() { return bitfieldExtract(PC.flags, 3, 2); }
+uint flagColorClippingType() { return bitfieldExtract(PC.flags, 2, 2); }
+uint flagVelocitySamplingType() { return bitfieldExtract(PC.flags, 4, 2); }
 
 layout(set = STORAGE_SET, binding = 0) uniform texture2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
 layout(set = STORAGE_SET, binding = 2) uniform texture2D inVelocity;
-layout(set = STORAGE_SET, binding = 3, rgba8) uniform writeonly image2D
+layout(set = STORAGE_SET, binding = 3) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 4, rgba8) uniform writeonly image2D
     outResolved;
-layout(set = STORAGE_SET, binding = 4) uniform sampler nearestSampler;
-layout(set = STORAGE_SET, binding = 5) uniform sampler bilinearSampler;
+layout(set = STORAGE_SET, binding = 5) uniform sampler nearestSampler;
+layout(set = STORAGE_SET, binding = 6) uniform sampler bilinearSampler;
 
 vec3 minMaxClip(ivec2 px, ivec2 res, vec3 previousResolved)
 {
@@ -150,6 +151,46 @@ vec2 largestVelocity(ivec2 px, ivec2 res)
     return ret;
 }
 
+vec2 closestVelocity(ivec2 px, ivec2 res)
+{
+    vec2 invRes = 1. / vec2(res);
+    // Depth is the raw non-linear reverse Z
+    float closestDepth = 0.;
+    ivec2 closestOffset = ivec2(0);
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            vec2 uv = (vec2(px + ivec2(x, y)) + .5) * invRes;
+            float depth =
+                texture(sampler2D(inNonLinearDepth, nearestSampler), uv).x;
+            if (depth > closestDepth)
+            {
+                closestDepth = depth;
+                closestOffset = ivec2(x, y);
+            }
+        }
+    }
+
+    vec2 uv = (vec2(px + closestOffset) + .5) * invRes;
+    return texture(sampler2D(inVelocity, nearestSampler), uv).xy;
+}
+
+vec2 sampleVelocity(ivec2 px, ivec2 res)
+{
+    uint samplingType = flagVelocitySamplingType();
+    if (samplingType == VelocitySampling_Center)
+        return texture(
+                   sampler2D(inVelocity, nearestSampler),
+                   (vec2(px) + 0.5) / vec2(res))
+            .xy;
+    if (samplingType == VelocitySampling_Largest)
+        return largestVelocity(px, res);
+    if (samplingType == VelocitySampling_Closest)
+        return closestVelocity(px, res);
+    return vec2(0);
+}
+
 layout(local_size_x = 16, local_size_y = 16) in;
 void main()
 {
@@ -170,9 +211,7 @@ void main()
         return;
     }
 
-    vec2 velocity = flagLargestVelocity()
-                        ? largestVelocity(px, res)
-                        : texture(sampler2D(inVelocity, nearestSampler), uv).xy;
+    vec2 velocity = sampleVelocity(px, res);
 
     vec2 reprojectedUv = uv - velocity * vec2(.5, -.5);
 

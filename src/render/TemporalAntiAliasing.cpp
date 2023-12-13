@@ -22,6 +22,10 @@ constexpr std::array<
     const char *,
     static_cast<size_t>(TemporalAntiAliasing::ColorClippingType::Count)>
     sColorClippingTypeNames = {"None", COLOR_CLIPPING_TYPE_STRS};
+constexpr std::array<
+    const char *,
+    static_cast<size_t>(TemporalAntiAliasing::VelocitySamplingType::Count)>
+    sVelocitySamplingTypeNames = {"Center", VELOCITY_SAMPLING_TYPE_STRS};
 
 enum BindingSet : uint32_t
 {
@@ -38,9 +42,10 @@ struct PCBlock
     {
         bool ignoreHistory{false};
         bool catmullRom{false};
-        bool largestVelocity{false};
         TemporalAntiAliasing::ColorClippingType colorClipping{
             TemporalAntiAliasing::ColorClippingType::None};
+        TemporalAntiAliasing::VelocitySamplingType velocitySampling{
+            TemporalAntiAliasing::VelocitySamplingType::Center};
     };
 };
 
@@ -50,11 +55,14 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
     ret |= (uint32_t)flags.ignoreHistory;
     ret |= (uint32_t)flags.catmullRom << 1;
-    ret |= (uint32_t)flags.largestVelocity << 2;
-    ret |= (uint32_t)flags.colorClipping << 3;
+    ret |= (uint32_t)flags.colorClipping << 2;
     // Two bits reserved for color clipping type
     static_assert(
         (uint32_t)TemporalAntiAliasing::ColorClippingType::Count - 1 < 0b11);
+    ret |= (uint32_t)flags.velocitySampling << 4;
+    // Two bits reserved for velocity sampling type
+    static_assert(
+        (uint32_t)TemporalAntiAliasing::VelocitySamplingType::Count - 1 < 0b11);
 
     return ret;
 }
@@ -74,13 +82,18 @@ vk::Extent2D getRenderExtent(
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
 
-    const size_t len = 140;
+    const size_t len = 256;
     String defines{alloc, len};
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
     appendEnumVariantsAsDefines(
         defines, "ColorClipping",
         Span{sColorClippingTypeNames.data(), sColorClippingTypeNames.size()});
+    appendEnumVariantsAsDefines(
+        defines, "VelocitySampling",
+        Span{
+            sVelocitySamplingTypeNames.data(),
+            sVelocitySamplingTypeNames.size()});
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -116,21 +129,38 @@ void TemporalAntiAliasing::recompileShaders(
 
 void TemporalAntiAliasing::drawUi()
 {
-    uint32_t *currentType = reinterpret_cast<uint32_t *>(&_colorClipping);
-    if (ImGui::BeginCombo(
-            "Color clipping", sColorClippingTypeNames[*currentType]))
     {
-        for (auto i = 0u; i < static_cast<uint32_t>(ColorClippingType::Count);
-             ++i)
+        uint32_t *currentType = reinterpret_cast<uint32_t *>(&_colorClipping);
+        if (ImGui::BeginCombo(
+                "Color clipping", sColorClippingTypeNames[*currentType]))
         {
-            bool selected = *currentType == i;
-            if (ImGui::Selectable(sColorClippingTypeNames[i], &selected))
-                _colorClipping = static_cast<ColorClippingType>(i);
+            for (auto i = 0u;
+                 i < static_cast<uint32_t>(ColorClippingType::Count); ++i)
+            {
+                bool selected = *currentType == i;
+                if (ImGui::Selectable(sColorClippingTypeNames[i], &selected))
+                    _colorClipping = static_cast<ColorClippingType>(i);
+            }
+            ImGui::EndCombo();
         }
-        ImGui::EndCombo();
+    }
+    {
+        uint32_t *currentType =
+            reinterpret_cast<uint32_t *>(&_velocitySampling);
+        if (ImGui::BeginCombo(
+                "Velocity sampling", sVelocitySamplingTypeNames[*currentType]))
+        {
+            for (auto i = 0u;
+                 i < static_cast<uint32_t>(VelocitySamplingType::Count); ++i)
+            {
+                bool selected = *currentType == i;
+                if (ImGui::Selectable(sVelocitySamplingTypeNames[i], &selected))
+                    _velocitySampling = static_cast<VelocitySamplingType>(i);
+            }
+            ImGui::EndCombo();
+        }
     }
     ImGui::Checkbox("Catmull-Rom history samples", &_catmullRom);
-    ImGui::Checkbox("Use largest velocity", &_largestVelocity);
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
@@ -186,6 +216,10 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = _resources->images.resource(input.depth).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     _resources->images.resource(ret.resolvedIllumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
@@ -200,11 +234,12 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
-        transition<4>(
+        transition<5>(
             *_resources, cb,
             {
                 {input.illumination, ImageState::ComputeShaderRead},
                 {input.velocity, ImageState::ComputeShaderRead},
+                {input.depth, ImageState::ComputeShaderRead},
                 {_previousResolveOutput, ImageState::ComputeShaderRead},
                 {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
             });
@@ -228,8 +263,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 .flags = pcFlags(PCBlock::Flags{
                     .ignoreHistory = ignoreHistory,
                     .catmullRom = _catmullRom,
-                    .largestVelocity = _largestVelocity,
                     .colorClipping = _colorClipping,
+                    .velocitySampling = _velocitySampling,
                 }),
             },
             groups, descriptorSets, Span{&camOffset, 1});
