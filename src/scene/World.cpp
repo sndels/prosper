@@ -27,6 +27,7 @@
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Timer.hpp"
+#include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "Animations.hpp"
 #include "Camera.hpp"
@@ -61,11 +62,6 @@ constexpr int s_gl_linear_mimpap_linear = 0x2703;
 constexpr int s_gl_clamp_to_edge = 0x812F;
 constexpr int s_gl_mirrored_repeat = 0x8370;
 constexpr int s_gl_repeat = 0x2901;
-
-bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
-{
-    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
-}
 
 tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
 {
@@ -857,7 +853,7 @@ bool World::Impl::drawSceneUi()
         if (sceneCount > 1)
         {
             uint32_t scene = asserted_cast<uint32_t>(_currentScene);
-            if (SliderU32("Active scene", &scene, 0, sceneCount - 1))
+            if (sliderU32("Active scene", &scene, 0, sceneCount - 1))
             {
                 // Make sure the new camera's parameters are copied over from
                 sceneChanged = true;
@@ -878,7 +874,7 @@ bool World::Impl::drawCameraUi()
     bool camChanged = false;
     if (cameraCount > 1)
     {
-        if (SliderU32("Active camera", &_currentCamera, 0, cameraCount - 1))
+        if (sliderU32("Active camera", &_currentCamera, 0, cameraCount - 1))
         {
             // Make sure the new camera's parameters are copied over from
             camChanged = true;

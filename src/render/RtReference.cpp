@@ -96,11 +96,6 @@ constexpr std::array<
     const char *, static_cast<size_t>(RtReference::DrawType::Count)>
     sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
 
-bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
-{
-    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
-}
-
 } // namespace
 
 RtReference::RtReference(
@@ -171,9 +166,9 @@ void RtReference::drawUi()
         _accumulationDirty |=
             ImGui::Checkbox("Clamp indirect", &_clampIndirect);
         _accumulationDirty |=
-            SliderU32("Roulette Start", &_rouletteStartBounce, 0u, _maxBounces);
+            sliderU32("Roulette Start", &_rouletteStartBounce, 0u, _maxBounces);
         _accumulationDirty |=
-            SliderU32("Max bounces", &_maxBounces, 1u, sMaxBounces);
+            sliderU32("Max bounces", &_maxBounces, 1u, sMaxBounces);
 
         _maxBounces = std::min(_maxBounces, sMaxBounces);
         _rouletteStartBounce = std::min(_rouletteStartBounce, _maxBounces);

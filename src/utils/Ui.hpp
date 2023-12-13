@@ -28,4 +28,12 @@ bool enumDropdown(
 
     return changed;
 }
+
+// Returns true if the value was changed
+inline bool sliderU32(
+    const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
+{
+    return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
+}
+
 #endif // WHEELS_UTILS_UI_HPP
