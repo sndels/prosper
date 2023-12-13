@@ -47,7 +47,7 @@ struct PCBlock
 
 constexpr std::array<
     const char *, static_cast<size_t>(ForwardRenderer::DrawType::Count)>
-    sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
 
 } // namespace
 

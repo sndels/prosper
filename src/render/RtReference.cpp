@@ -94,7 +94,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
 constexpr std::array<
     const char *, static_cast<size_t>(RtReference::DrawType::Count)>
-    sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
 
 bool SliderU32(const char *label, uint32_t *v, uint32_t v_min, uint32_t v_max)
 {

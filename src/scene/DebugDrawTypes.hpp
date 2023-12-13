@@ -4,8 +4,8 @@
 #include "../utils/ForEach.hpp"
 
 #define DEBUG_DRAW_TYPES                                                       \
-    PrimitiveID, MeshID, MaterialID, Position, ShadingNormal, TexCoord0,       \
-        Albedo, Roughness, Metallic
+    Default, PrimitiveID, MeshID, MaterialID, Position, ShadingNormal,         \
+        TexCoord0, Albedo, Roughness, Metallic
 
 #define DEBUG_DRAW_TYPES_AND_COUNT DEBUG_DRAW_TYPES, Count
 

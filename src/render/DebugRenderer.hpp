@@ -19,7 +19,6 @@ class DebugRenderer
   public:
     enum class DrawType : uint32_t
     {
-        Default = 0,
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 

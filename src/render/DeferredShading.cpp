@@ -42,7 +42,7 @@ struct PCBlock
 
 constexpr std::array<
     const char *, static_cast<size_t>(DeferredShading::DrawType::Count)>
-    sDrawTypeNames = {"Default", DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
 
 vk::Extent2D getRenderExtent(
     const RenderResources &resources, const GBufferRendererOutput &gbuffer)

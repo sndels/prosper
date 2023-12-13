@@ -22,11 +22,11 @@ namespace
 constexpr std::array<
     const char *,
     static_cast<size_t>(TemporalAntiAliasing::ColorClippingType::Count)>
-    sColorClippingTypeNames = {"None", COLOR_CLIPPING_TYPE_STRS};
+    sColorClippingTypeNames = {COLOR_CLIPPING_TYPE_STRS};
 constexpr std::array<
     const char *,
     static_cast<size_t>(TemporalAntiAliasing::VelocitySamplingType::Count)>
-    sVelocitySamplingTypeNames = {"Center", VELOCITY_SAMPLING_TYPE_STRS};
+    sVelocitySamplingTypeNames = {VELOCITY_SAMPLING_TYPE_STRS};
 
 enum BindingSet : uint32_t
 {

@@ -14,13 +14,13 @@
 
 #include "../utils/ForEach.hpp"
 
-#define COLOR_CLIPPING_TYPES MinMax, Variance
+#define COLOR_CLIPPING_TYPES None, MinMax, Variance
 #define COLOR_CLIPPING_TYPES_AND_COUNT COLOR_CLIPPING_TYPES, Count
 #define COLOR_CLIPPING_TYPES_STRINGIFY(t) #t,
 #define COLOR_CLIPPING_TYPE_STRS                                               \
     FOR_EACH(COLOR_CLIPPING_TYPES_STRINGIFY, COLOR_CLIPPING_TYPES)
 
-#define VELOCITY_SAMPLING_TYPES Largest, Closest
+#define VELOCITY_SAMPLING_TYPES Center, Largest, Closest
 #define VELOCITY_SAMPLING_TYPES_AND_COUNT VELOCITY_SAMPLING_TYPES, Count
 #define VELOCITY_SAMPLING_TYPES_STRINGIFY(t) #t,
 #define VELOCITY_SAMPLING_TYPE_STRS                                            \
@@ -31,13 +31,11 @@ class TemporalAntiAliasing
   public:
     enum class ColorClippingType : uint32_t
     {
-        None = 0,
         COLOR_CLIPPING_TYPES_AND_COUNT
     };
 
     enum class VelocitySamplingType : uint32_t
     {
-        Center = 0,
         VELOCITY_SAMPLING_TYPES_AND_COUNT
     };
 
