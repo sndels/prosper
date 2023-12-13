@@ -228,6 +228,11 @@ void main()
                          : samplePrevious(inPreviousResolved, reprojectedUv);
     previousResolved = clipColor(px, res, previousResolved);
 
+    // TODO:
+    // Velocity rejection with a smooth bias like Lopez suggests?
+    // What kind of artifact does it help with? The current implementation
+    // already looks pretty good in terms of ghosting.
+
     float alpha = 0.1;
     vec3 resolved = illumination * alpha + previousResolved * (1. - alpha);
 
