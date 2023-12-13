@@ -8,6 +8,7 @@
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
@@ -129,37 +130,10 @@ void TemporalAntiAliasing::recompileShaders(
 
 void TemporalAntiAliasing::drawUi()
 {
-    {
-        uint32_t *currentType = reinterpret_cast<uint32_t *>(&_colorClipping);
-        if (ImGui::BeginCombo(
-                "Color clipping", sColorClippingTypeNames[*currentType]))
-        {
-            for (auto i = 0u;
-                 i < static_cast<uint32_t>(ColorClippingType::Count); ++i)
-            {
-                bool selected = *currentType == i;
-                if (ImGui::Selectable(sColorClippingTypeNames[i], &selected))
-                    _colorClipping = static_cast<ColorClippingType>(i);
-            }
-            ImGui::EndCombo();
-        }
-    }
-    {
-        uint32_t *currentType =
-            reinterpret_cast<uint32_t *>(&_velocitySampling);
-        if (ImGui::BeginCombo(
-                "Velocity sampling", sVelocitySamplingTypeNames[*currentType]))
-        {
-            for (auto i = 0u;
-                 i < static_cast<uint32_t>(VelocitySamplingType::Count); ++i)
-            {
-                bool selected = *currentType == i;
-                if (ImGui::Selectable(sVelocitySamplingTypeNames[i], &selected))
-                    _velocitySampling = static_cast<VelocitySamplingType>(i);
-            }
-            ImGui::EndCombo();
-        }
-    }
+    enumDropdown("Color clipping", _colorClipping, sColorClippingTypeNames);
+    enumDropdown(
+        "Velocity sampling", _velocitySampling, sVelocitySamplingTypeNames);
+
     ImGui::Checkbox("Catmull-Rom history samples", &_catmullRom);
 }
 

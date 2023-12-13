@@ -8,6 +8,7 @@
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Hashes.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
 
@@ -147,22 +148,7 @@ void TextureDebug::drawUi()
         settings->lod = std::clamp(settings->lod, 0, maxLod);
     }
 
-    {
-        auto *currentType =
-            reinterpret_cast<uint32_t *>(&settings->channelType);
-        if (ImGui::BeginCombo(
-                "Channel##TextureDebug", sChannelTypeNames[*currentType]))
-        {
-            for (auto i = 0u; i < static_cast<uint32_t>(ChannelType::Count);
-                 ++i)
-            {
-                bool selected = *currentType == i;
-                if (ImGui::Selectable(sChannelTypeNames[i], &selected))
-                    settings->channelType = static_cast<ChannelType>(i);
-            }
-            ImGui::EndCombo();
-        }
-    }
+    enumDropdown("Channel", settings->channelType, sChannelTypeNames);
 
     {
         // Having drag speed react to the absolute range makes this nicer to use

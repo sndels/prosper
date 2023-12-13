@@ -10,6 +10,7 @@
 #include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
 #include "RenderResources.hpp"
@@ -98,17 +99,7 @@ void ForwardRenderer::recompileShaders(
 
 void ForwardRenderer::drawUi()
 {
-    auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
-    if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
-    {
-        for (auto i = 0u; i < static_cast<uint32_t>(DrawType::Count); ++i)
-        {
-            bool selected = *currentType == i;
-            if (ImGui::Selectable(sDrawTypeNames[i], &selected))
-                _drawType = static_cast<DrawType>(i);
-        }
-        ImGui::EndCombo();
-    }
+    enumDropdown("Draw type", _drawType, sDrawTypeNames);
 }
 
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(

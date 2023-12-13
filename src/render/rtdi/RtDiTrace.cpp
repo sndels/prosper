@@ -6,6 +6,7 @@
 #include "../../scene/Scene.hpp"
 #include "../../scene/World.hpp"
 #include "../../utils/Profiler.hpp"
+#include "../../utils/Ui.hpp"
 #include "../../utils/Utils.hpp"
 #include "../GBufferRenderer.hpp"
 #include "../RenderResources.hpp"
@@ -158,21 +159,7 @@ void RtDiTrace::recompileShaders(
 
 void RtDiTrace::drawUi()
 {
-    auto *currentType = reinterpret_cast<uint32_t *>(&_drawType);
-    if (ImGui::BeginCombo("Draw type", sDrawTypeNames[*currentType]))
-    {
-        for (auto i = 0u; i < static_cast<uint32_t>(RtDiTrace::DrawType::Count);
-             ++i)
-        {
-            bool selected = *currentType == i;
-            if (ImGui::Selectable(sDrawTypeNames[i], &selected))
-            {
-                _drawType = static_cast<DrawType>(i);
-                _accumulationDirty = true;
-            }
-        }
-        ImGui::EndCombo();
-    }
+    _accumulationDirty |= enumDropdown("Draw type", _drawType, sDrawTypeNames);
 
     if (_drawType == DrawType::Default)
         ImGui::Checkbox("Accumulate", &_accumulate);
