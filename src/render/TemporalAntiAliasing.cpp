@@ -39,6 +39,7 @@ struct PCBlock
     {
         bool ignoreHistory{false};
         bool catmullRom{false};
+        bool largestVelocity{false};
     };
 };
 
@@ -48,6 +49,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
     ret |= (uint32_t)flags.ignoreHistory;
     ret |= (uint32_t)flags.catmullRom << 1;
+    ret |= (uint32_t)flags.largestVelocity << 2;
 
     return ret;
 }
@@ -123,6 +125,7 @@ void TemporalAntiAliasing::drawUi()
         ImGui::EndCombo();
     }
     ImGui::Checkbox("Catmull-Rom history samples", &_catmullRom);
+    ImGui::Checkbox("Use largest velocity", &_largestVelocity);
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
@@ -221,7 +224,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 .flags = pcFlags(PCBlock::Flags{
                     .ignoreHistory = ignoreHistory,
                     .catmullRom = _catmullRom,
-                }),
+                    .largestVelocity = _largestVelocity}),
             },
             groups, descriptorSets, Span{&camOffset, 1});
 

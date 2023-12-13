@@ -17,11 +17,11 @@ PC;
 
 bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
 bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
+bool flagLargestVelocity() { return bitfieldExtract(PC.flags, 2, 1) == 1; }
 
 layout(set = STORAGE_SET, binding = 0) uniform texture2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
-layout(set = STORAGE_SET, binding = 2, rg16_snorm) uniform readonly image2D
-    inVelocity;
+layout(set = STORAGE_SET, binding = 2) uniform texture2D inVelocity;
 layout(set = STORAGE_SET, binding = 3, rgba8) uniform writeonly image2D
     outResolved;
 layout(set = STORAGE_SET, binding = 4) uniform sampler nearestSampler;
@@ -128,6 +128,30 @@ vec3 optimizedCatmullRom(vec2 uv, ivec2 res)
     return color.rgb / color.a;
 }
 
+vec2 largestVelocity(ivec2 px, ivec2 res)
+{
+    vec2 invRes = 1. / vec2(res);
+    float retLenSqr = 0.;
+    vec2 ret = vec2(0);
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            vec2 uv = (vec2(px + ivec2(x, y)) + .5) * invRes;
+            vec2 velocity =
+                texture(sampler2D(inVelocity, nearestSampler), uv).xy;
+            float lenSqr = dot(velocity, velocity);
+            if (retLenSqr < lenSqr)
+            {
+                ret = velocity;
+                retLenSqr = lenSqr;
+            }
+        }
+    }
+
+    return ret;
+}
+
 layout(local_size_x = 16, local_size_y = 16) in;
 void main()
 {
@@ -148,7 +172,10 @@ void main()
         return;
     }
 
-    vec2 velocity = imageLoad(inVelocity, px).xy;
+    vec2 velocity = flagLargestVelocity()
+                        ? largestVelocity(px, res)
+                        : texture(sampler2D(inVelocity, nearestSampler), uv).xy;
+
     vec2 reprojectedUv = uv - velocity * vec2(.5, -.5);
 
     if (any(notEqual(reprojectedUv, saturate(reprojectedUv))))

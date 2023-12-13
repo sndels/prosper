@@ -74,6 +74,7 @@ class TemporalAntiAliasing
     ImageHandle _previousResolveOutput;
     ColorClippingType _colorClipping{ColorClippingType::Variance};
     bool _catmullRom{true};
+    bool _largestVelocity{true};
 };
 
 #endif // PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP
