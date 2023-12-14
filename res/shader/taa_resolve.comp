@@ -233,8 +233,19 @@ void main()
     // What kind of artifact does it help with? The current implementation
     // already looks pretty good in terms of ghosting.
 
-    float alpha = 0.1;
-    vec3 resolved = illumination * alpha + previousResolved * (1. - alpha);
+    // Luminance weighting from Tardif, without the compression step.
+    // Skipping it skews toward supressing the flickering highlights more.
+    float luminanceCurrent = luminance(illumination);
+    float luminanceHistory = luminance(previousResolved);
+
+    float currentWeight = .1;
+    float historyWeight = 1. - currentWeight;
+    currentWeight *= 1. / (1. + luminanceCurrent);
+    historyWeight *= 1. / (1. + luminanceHistory);
+
+    vec3 resolved =
+        (illumination * currentWeight + previousResolved * historyWeight) /
+        max(currentWeight + historyWeight, .00001);
 
     imageStore(outResolved, px, vec4(resolved, 1));
 }
