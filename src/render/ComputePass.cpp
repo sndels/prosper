@@ -12,6 +12,13 @@
 using namespace glm;
 using namespace wheels;
 
+namespace
+{
+
+const uint32_t sMaxDynamicOffsets = 8;
+
+}
+
 ComputePass::ComputePass(
     wheels::ScopedScratch scopeAlloc, Device *device,
     DescriptorAllocator *staticDescriptorsAlloc,
@@ -103,6 +110,10 @@ void ComputePass::record(
     wheels::Span<const uint32_t> dynamicOffsets) const
 {
     WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
+    WHEELS_ASSERT(
+        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        "At least some AMD and Intel drivers limit this to 8 per buffer type. "
+        "Let's keep the total under if possible to keep things simple.");
 
     cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
@@ -124,6 +135,10 @@ void ComputePass::record(
     WHEELS_ASSERT(_shaderReflection.has_value());
     WHEELS_ASSERT(
         pcBlockBytes.size() == _shaderReflection->pushConstantsBytesize());
+    WHEELS_ASSERT(
+        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        "At least some AMD and Intel drivers limit this to 8 per buffer type. "
+        "Let's keep the total under if possible to keep things simple.");
 
     cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
 
