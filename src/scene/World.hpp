@@ -31,6 +31,7 @@ struct WorldByteOffsets
     uint32_t directionalLight{0};
     uint32_t pointLights{0};
     uint32_t spotLights{0};
+    uint32_t globalMaterialConstants{0};
 };
 
 struct WorldDescriptorSets
@@ -62,8 +63,8 @@ class World
 
     World(
         wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
-        Device *device, const std::filesystem::path &scene,
-        bool deferredLoading);
+        Device *device, RingBuffer *constantsRing,
+        const std::filesystem::path &scene, bool deferredLoading);
     ~World();
 
     World(const World &other) = delete;
@@ -90,7 +91,7 @@ class World
     [[nodiscard]] CameraParameters const &currentCamera() const;
     [[nodiscard]] bool isCurrentCameraDynamic() const;
 
-    void uploadMaterialDatas(uint32_t nextFrame);
+    void uploadMaterialDatas(uint32_t nextFrame, float lodBias);
     void updateAnimations(float timeS, Profiler *profiler);
     // Has to be called after updateAnimations()
     void updateScene(

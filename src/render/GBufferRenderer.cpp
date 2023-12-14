@@ -134,6 +134,7 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const StaticArray dynamicOffsets{
             cam.bufferOffset(),
+            worldByteOffsets.globalMaterialConstants,
             worldByteOffsets.modelInstanceTransforms,
             worldByteOffsets.previousModelInstanceTransforms,
         };
@@ -209,7 +210,7 @@ bool GBufferRenderer::compileShaders(
                                           .defines = vertDefines,
                                       });
 
-    const size_t fragDefsLen = 128;
+    const size_t fragDefsLen = 150;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
@@ -218,6 +219,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
+    appendDefineStr(fragDefines, "USE_MATERIAL_LOD_BIAS");
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
     Optional<Device::ShaderCompileResult> fragResult =

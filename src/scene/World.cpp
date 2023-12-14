@@ -364,7 +364,8 @@ class World::Impl
   public:
     Impl(
         Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-        const std::filesystem::path &scene, bool deferredLoading);
+        RingBuffer *constantsRing, const std::filesystem::path &scene,
+        bool deferredLoading);
     ~Impl();
 
     Impl(const Impl &other) = delete;
@@ -375,7 +376,8 @@ class World::Impl
     void startFrame();
     void endFrame();
 
-    void uploadMaterialDatas(uint32_t nextFrame);
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) one callsite
+    void uploadMaterialDatas(uint32_t nextFrame, float lodBias);
     void handleDeferredLoading(
         ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
         Profiler &profiler);
@@ -397,6 +399,7 @@ class World::Impl
     void drawSkybox(vk::CommandBuffer cb) const;
 
     Allocator &_generalAlloc;
+    RingBuffer *_constantsRing;
     LinearAllocator _linearAlloc;
 
     std::filesystem::path _sceneDir;
@@ -527,8 +530,10 @@ class World::Impl
 
 World::Impl::Impl(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
+    RingBuffer* constantsRing,
     const std::filesystem::path &scene, bool deferredLoading)
 : _generalAlloc{generalAlloc}
+, _constantsRing{constantsRing}
 , _linearAlloc{sWorldMemSize}
 , _sceneDir{resPath(scene.parent_path())}
 , _skyboxResources{
@@ -543,6 +548,7 @@ World::Impl::Impl(
 
 {
     WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(_constantsRing != nullptr);
 
     _skyboxResources.irradiance = _device->createImage(ImageCreateInfo{
         .desc =
@@ -758,7 +764,8 @@ void World::Impl::endFrame()
         mi.previousTransformValid = true;
 }
 
-void World::Impl::uploadMaterialDatas(uint32_t nextFrame)
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) one callsite
+void World::Impl::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
 {
     if (_deferredLoadingContext.has_value())
     {
@@ -775,6 +782,8 @@ void World::Impl::uploadMaterialDatas(uint32_t nextFrame)
                 _deferredLoadingContext->materialsGeneration;
         }
     }
+
+    _byteOffsets.globalMaterialConstants = _constantsRing->write_value(lodBias);
 }
 
 void World::Impl::handleDeferredLoading(
@@ -2433,6 +2442,10 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 .buffer = _materialsBuffers[i].handle,
                 .range = VK_WHOLE_SIZE,
             }},
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _constantsRing->buffer(),
+                .range = sizeof(float),
+            }},
         };
         const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
@@ -2939,9 +2952,11 @@ DeferredLoadingContext::~DeferredLoadingContext()
 
 World::World(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    const std::filesystem::path &scene, bool deferredLoading)
+    RingBuffer *constantsRing, const std::filesystem::path &scene,
+    bool deferredLoading)
 : _impl{std::make_unique<World::Impl>(
-      generalAlloc, WHEELS_MOV(scopeAlloc), device, scene, deferredLoading)}
+      generalAlloc, WHEELS_MOV(scopeAlloc), device, constantsRing, scene,
+      deferredLoading)}
 {
 }
 
@@ -2985,9 +3000,9 @@ bool World::isCurrentCameraDynamic() const
     return _impl->_cameraDynamic[_impl->_currentCamera];
 }
 
-void World::uploadMaterialDatas(uint32_t nextFrame)
+void World::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
 {
-    _impl->uploadMaterialDatas(nextFrame);
+    _impl->uploadMaterialDatas(nextFrame, lodBias);
 }
 
 void World::updateAnimations(float timeS, Profiler *profiler)

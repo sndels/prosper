@@ -162,7 +162,7 @@ bool ForwardRenderer::compileShaders(
                                           .defines = vertDefines,
                                       });
 
-    const size_t fragDefsLen = 615;
+    const size_t fragDefsLen = 650;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
@@ -177,6 +177,7 @@ bool ForwardRenderer::compileShaders(
     appendEnumVariantsAsDefines(
         fragDefines, "DrawType",
         Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+    appendDefineStr(fragDefines, "USE_MATERIAL_LOD_BIAS");
     LightClustering::appendShaderDefines(fragDefines);
     PointLights::appendShaderDefines(fragDefines);
     SpotLights::appendShaderDefines(fragDefines);
@@ -364,6 +365,7 @@ void ForwardRenderer::record(
         worldByteOffsets.pointLights,
         worldByteOffsets.spotLights,
         cam.bufferOffset(),
+        worldByteOffsets.globalMaterialConstants,
         worldByteOffsets.modelInstanceTransforms,
         worldByteOffsets.previousModelInstanceTransforms,
     };

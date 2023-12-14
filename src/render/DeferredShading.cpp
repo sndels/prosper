@@ -224,6 +224,7 @@ DeferredShading::Output DeferredShading::record(
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,
             cam.bufferOffset(),
+            worldByteOffsets.globalMaterialConstants,
         };
 
         const uvec3 groups = glm::uvec3{

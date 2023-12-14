@@ -117,8 +117,8 @@ App::App(const Settings &settings)
         scopeAlloc.child_scope(), _device.get(), &_resources->constantsRing,
         _staticDescriptorsAlloc.get());
     _world = std::make_unique<World>(
-        _generalAlloc, scopeAlloc.child_scope(), _device.get(), settings.scene,
-        settings.deferredLoading);
+        _generalAlloc, scopeAlloc.child_scope(), _device.get(),
+        &_resources->constantsRing, settings.scene, settings.deferredLoading);
 
     const Timer gpuPassesInitTimer;
     _lightClustering = std::make_unique<LightClustering>(
@@ -586,7 +586,11 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _world->updateScene(
         scopeAlloc.child_scope(), &_sceneCameraTransform, _profiler.get());
 
-    _world->uploadMaterialDatas(nextFrame);
+    // -1 seems like a safe value here since an 8 sample halton sequence is
+    // used. See A Survey of Temporal Antialiasing Techniques by Yang, Liu and
+    // Salvi for details.
+    const float lodBias = _applyTaa ? -1.f : 0.f;
+    _world->uploadMaterialDatas(nextFrame, lodBias);
 
     if (_isPlaying || _forceCamUpdate || uiChanges.timeTweaked)
     {

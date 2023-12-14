@@ -27,6 +27,13 @@ layout(std430, set = MATERIAL_DATAS_SET, binding = 0) readonly buffer
 }
 materialDatas;
 
+layout(std430, set = MATERIAL_DATAS_SET, binding = 1) readonly buffer
+    GlobalMaterialConstantsDSB
+{
+    float lodBias;
+}
+globalMaterialConstants;
+
 layout(set = MATERIAL_TEXTURES_SET, binding = 0) uniform sampler
     materialSamplers[NUM_MATERIAL_SAMPLERS];
 layout(set = MATERIAL_TEXTURES_SET, binding = NUM_MATERIAL_SAMPLERS)
@@ -55,6 +62,13 @@ vec4 sRGBtoLinear(vec4 v) { return vec4(sRGBtoLinear(v.rgb), v.a); }
 #define GET_MATERIAL_SAMPLER(index) materialSamplers[index]
 #endif // NON_UNIFORM_MATERIAL_INDICES
 
+#ifdef USE_MATERIAL_LOD_BIAS
+#define sampleMaterialTexture(smplr, uv)                                       \
+    texture(smplr, uv, globalMaterialConstants.lodBias)
+#else // !USE_MATERIAL_LOD_BIAS
+#define sampleMaterialTexture(smplr, uv) texture(smplr, uv)
+#endif // USE_MATERIAL_LOD_BIAS
+
 Material sampleMaterial(uint index, vec2 uv)
 {
     MaterialData data = materialDatas.materials[index];
@@ -64,7 +78,7 @@ Material sampleMaterial(uint index, vec2 uv)
     uint baseColorTex = data.baseColorTexture & 0xFFFFFF;
     uint baseColorSampler = data.baseColorTexture >> 24;
     if (baseColorTex > 0)
-        linearBaseColor = sRGBtoLinear(texture(
+        linearBaseColor = sRGBtoLinear(sampleMaterialTexture(
             sampler2D(
                 GET_MATERIAL_TEXTURE(baseColorTex),
                 GET_MATERIAL_SAMPLER(baseColorSampler)),
@@ -93,7 +107,7 @@ Material sampleMaterial(uint index, vec2 uv)
     uint metallicRoughnessSampler = data.metallicRoughnessTexture >> 24;
     if (metallicRoughnessTex > 0)
     {
-        vec3 mr = texture(
+        vec3 mr = sampleMaterialTexture(
                       sampler2D(
                           GET_MATERIAL_TEXTURE(metallicRoughnessTex),
                           GET_MATERIAL_SAMPLER(metallicRoughnessSampler)),
@@ -115,7 +129,7 @@ Material sampleMaterial(uint index, vec2 uv)
     if (normalTextureTex > 0)
     {
         vec3 texture_normal =
-            texture(
+            sampleMaterialTexture(
                 sampler2D(
                     GET_MATERIAL_TEXTURE(normalTextureTex),
                     GET_MATERIAL_SAMPLER(normalTextureSampler)),
@@ -138,7 +152,7 @@ float sampleAlpha(uint index, vec2 uv)
     uint baseColorSampler = data.baseColorTexture >> 24;
     if (baseColorTex > 0)
         linearAlpha =
-            sRGBtoLinear(texture(
+            sRGBtoLinear(sampleMaterialTexture(
                              sampler2D(
                                  GET_MATERIAL_TEXTURE(baseColorTex),
                                  GET_MATERIAL_SAMPLER(baseColorSampler)),
