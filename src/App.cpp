@@ -774,6 +774,8 @@ void App::drawRendererSettings(UiChanges &uiChanges)
     uiChanges.rtDirty |=
         ImGui::Checkbox("Reference RT", &_referenceRt) && _referenceRt;
     uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &_renderDoF);
+    ImGui::Checkbox("Temporal Anti-Aliasing", &_applyTaa);
+
     if (!_referenceRt)
     {
         ImGui::Checkbox("Deferred shading", &_renderDeferred);
@@ -781,6 +783,19 @@ void App::drawRendererSettings(UiChanges &uiChanges)
         if (_renderDeferred)
             uiChanges.rtDirty =
                 ImGui::Checkbox("RT direct illumination", &_deferredRt);
+    }
+
+    if (!_applyTaa)
+        _cam->setJitter(false);
+    else
+    {
+        if (ImGui::CollapsingHeader(
+                "Temporal Anti-Aliasing", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Checkbox("Jitter", &_applyJitter);
+            _cam->setJitter(_applyJitter);
+            _temporalAntiAliasing->drawUi();
+        }
     }
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
@@ -801,18 +816,6 @@ void App::drawRendererSettings(UiChanges &uiChanges)
             }
             else
                 _forwardRenderer->drawUi();
-
-            ImGui::Checkbox("Temporal Anti-Aliasing", &_applyTaa);
-            ImGui::Indent(sIndentPixels);
-            if (!_applyTaa)
-                _cam->setJitter(false);
-            else
-            {
-                ImGui::Checkbox("Jitter", &_applyJitter);
-                _cam->setJitter(_applyJitter);
-                _temporalAntiAliasing->drawUi();
-            }
-            ImGui::Unindent(sIndentPixels);
         }
         uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
     }
