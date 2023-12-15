@@ -184,17 +184,15 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             cam.bufferOffset(),
         };
 
-        const uvec3 groups = glm::uvec3{
-            (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
-                1u,
-            1u};
+        const uvec3 extent =
+            glm::uvec3{renderExtent.width, renderExtent.height, 1u};
 
         const PCBlock pcBlock{
             .frameIndex = _frameIndex,
         };
 
         _computePass.record(
-            cb, pcBlock, groups, descriptorSets, dynamicOffsets);
+            cb, pcBlock, extent, descriptorSets, dynamicOffsets);
     }
 
     return ret;

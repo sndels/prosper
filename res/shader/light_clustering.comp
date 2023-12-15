@@ -9,10 +9,6 @@
 #define WRITE_CULLING_BINDS
 #include "scene/light_clusters.glsl"
 
-layout(
-    local_size_x = LIGHT_CLUSTER_DIMENSION,
-    local_size_y = LIGHT_CLUSTER_DIMENSION) in;
-
 layout(push_constant) uniform ClusteringPC { uvec2 resolution; }
 clusteringPC;
 
@@ -108,6 +104,8 @@ Frustum clusterFrustum(uvec3 cluster)
     return f;
 }
 
+// Each group is a separate cluster
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     uvec3 cluster = gl_WorkGroupID.xyz;

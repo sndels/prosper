@@ -21,6 +21,7 @@ class ComputePass
         std::filesystem::path relPath;
         wheels::String debugName;
         wheels::Optional<wheels::String> defines;
+        glm::uvec3 groupSize{16, 16, 1};
     };
 
     ComputePass(
@@ -56,13 +57,13 @@ class ComputePass
     [[nodiscard]] vk::DescriptorSetLayout storageSetLayout() const;
 
     void record(
-        vk::CommandBuffer cb, const glm::uvec3 &groups,
+        vk::CommandBuffer cb, const glm::uvec3 &extent,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {}) const;
 
     template <typename PCBlock>
     void record(
-        vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &groups,
+        vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &extent,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {}) const;
 
@@ -74,7 +75,7 @@ class ComputePass
 
     void record(
         vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
-        const glm::uvec3 &groups,
+        const glm::uvec3 &extent,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {}) const;
 
@@ -101,11 +102,13 @@ class ComputePass
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
+
+    glm::uvec3 _groupSize{16, 16, 1};
 };
 
 template <typename PCBlock>
 void ComputePass::record(
-    vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &groups,
+    vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &extent,
     wheels::Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets) const
 {
@@ -113,7 +116,7 @@ void ComputePass::record(
         cb,
         wheels::Span{
             reinterpret_cast<const uint8_t *>(&pcBlock), sizeof(pcBlock)},
-        groups, descriptorSets, dynamicOffsets);
+        extent, descriptorSets, dynamicOffsets);
 }
 
 #endif // PROSPER_RENDER_COMPUTE_PASS_HPP

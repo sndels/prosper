@@ -16,6 +16,7 @@ using namespace wheels;
 namespace
 {
 
+constexpr uint32_t sGroupDim = 16;
 constexpr uint32_t maxPointIndicesPerTile = 128;
 constexpr uint32_t maxSpotIndicesPerTile = 128;
 
@@ -48,6 +49,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
         .relPath = "shader/light_clustering.comp",
         .debugName = String{alloc, "LightClusteringCS"},
         .defines = WHEELS_MOV(defines),
+        .groupSize = uvec3{sGroupDim, sGroupDim, 1u},
     };
 }
 
@@ -164,12 +166,17 @@ LightClusteringOutput LightClustering::record(
                 cam.bufferOffset(),
             };
 
-            const vk::Extent3D &extent =
+            const vk::Extent3D &outputExtent =
                 _resources->images.resource(ret.pointers).extent;
-            const uvec3 groups{extent.width, extent.height, extent.depth};
+            // Each cluster should have a separate compute group
+            const uvec3 extent =
+                uvec3{
+                    outputExtent.width, outputExtent.height,
+                    outputExtent.depth} *
+                uvec3{sGroupDim, sGroupDim, 1u};
 
             _computePass.record(
-                cb, pcBlock, groups, descriptorSets, dynamicOffsets);
+                cb, pcBlock, extent, descriptorSets, dynamicOffsets);
         }
     }
 

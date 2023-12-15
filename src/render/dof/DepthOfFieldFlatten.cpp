@@ -14,6 +14,8 @@ using namespace wheels;
 namespace
 {
 
+const uint32_t sFlattenFactor = 8;
+
 vk::Extent2D getInputExtent(
     const RenderResources &resources, ImageHandle illumination)
 {
@@ -32,6 +34,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     return ComputePass::Shader{
         .relPath = "shader/dof/flatten.comp",
         .debugName = String{alloc, "DepthOfFieldFlattenCS"},
+        .groupSize = uvec3{sFlattenFactor, sFlattenFactor, 1u},
     };
 }
 
@@ -71,8 +74,8 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
         ret.tileMinMaxCircleOfConfusion = _resources->images.create(
             ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
-                .width = (inputExtent.width - 1) / 8 + 1,
-                .height = (inputExtent.height - 1) / 8 + 1,
+                .width = (inputExtent.width - 1) / sFlattenFactor + 1,
+                .height = (inputExtent.height - 1) / sFlattenFactor + 1,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
             },
@@ -105,11 +108,9 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Flatten");
 
-        const uvec3 groups = uvec3{
-            (glm::uvec2{inputExtent.width, inputExtent.height} - 1u) / 8u + 1u,
-            1u};
+        const uvec3 extent = uvec3{inputExtent.width, inputExtent.height, 1u};
         const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, groups, Span{&storageSet, 1});
+        _computePass.record(cb, extent, Span{&storageSet, 1});
     }
 
     return ret;

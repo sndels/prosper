@@ -162,12 +162,9 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             .focusDistance = camParams.focusDistance,
             .maxBackgroundCoC = maxBgCoCInHalfResPixels,
         };
-        const uvec3 groups = uvec3{
-            (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
-                1u,
-            1u};
+        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
         _computePass.record(
-            cb, pcBlock, groups, descriptorSets, Span{&cameraOffset, 1});
+            cb, pcBlock, extent, descriptorSets, Span{&cameraOffset, 1});
     }
 
     return ret;

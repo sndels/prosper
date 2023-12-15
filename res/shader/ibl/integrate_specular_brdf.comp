@@ -70,7 +70,7 @@ vec2 integrateBRDF(float roughness, float NoV)
     return vec2(A, B) / NumSamples;
 }
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     uvec2 coord = gl_GlobalInvocationID.xy;

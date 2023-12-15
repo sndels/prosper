@@ -153,12 +153,9 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
         const PCBlock pcBlock{
             .frameIndex = _frameIndex,
         };
-        const uvec3 groups = uvec3{
-            (glm::uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u +
-                1u,
-            1u};
+        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
         const vk::DescriptorSet storageSet = computePass->storageSet(nextFrame);
-        computePass->record(cb, pcBlock, groups, Span{&storageSet, 1});
+        computePass->record(cb, pcBlock, extent, Span{&storageSet, 1});
     }
 
     return ret;

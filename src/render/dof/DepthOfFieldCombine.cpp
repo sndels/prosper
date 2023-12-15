@@ -117,11 +117,9 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Combine");
 
-        const uvec3 groups = uvec3{
-            (uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u + 1u,
-            1u};
+        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
         const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, groups, Span{&storageSet, 1});
+        _computePass.record(cb, extent, Span{&storageSet, 1});
     }
 
     return ret;

@@ -220,9 +220,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
         const auto _s = profiler->createCpuGpuScope(cb, "TemporalAntiAliasing");
 
-        const uvec3 groups = uvec3{
-            (uvec2{renderExtent.width, renderExtent.height} - 1u) / 16u + 1u,
-            1u};
+        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -241,7 +239,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                     .velocitySampling = _velocitySampling,
                 }),
             },
-            groups, descriptorSets, Span{&camOffset, 1});
+            extent, descriptorSets, Span{&camOffset, 1});
 
         _resources->images.release(_previousResolveOutput);
         _previousResolveOutput = ret.resolvedIllumination;

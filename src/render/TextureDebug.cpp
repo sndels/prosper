@@ -261,12 +261,10 @@ ImageHandle TextureDebug::record(
                     static_cast<uint32_t>(settings.absBeforeRange),
             };
 
-            const uvec3 groups = uvec3{
-                (glm::uvec2{outSize.width, outSize.height} - 1u) / 16u + 1u,
-                1u};
+            const uvec3 extent = uvec3{outSize.width, outSize.height, 1u};
             const vk::DescriptorSet storageSet =
                 _computePass.storageSet(nextFrame);
-            _computePass.record(cb, pcBlock, groups, Span{&storageSet, 1});
+            _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
         }
     }
 

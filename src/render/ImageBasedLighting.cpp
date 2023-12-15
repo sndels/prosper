@@ -121,15 +121,15 @@ void ImageBasedLighting::recordGeneration(
 
         const auto _s = profiler->createCpuGpuScope(cb, "SampleIrradiance");
 
-        const uvec3 groups = uvec3{
-            (uvec2{World::sSkyboxIrradianceResolution} - 1u) / 16u + 1u, 6u};
+        const uvec3 extent =
+            uvec3{uvec2{World::sSkyboxIrradianceResolution}, 6u};
 
         const vk::DescriptorSet storageSet =
             _sampleIrradiance.storageSet(nextFrame);
-        _sampleIrradiance.record(cb, groups, Span{&storageSet, 1});
+        _sampleIrradiance.record(cb, extent, Span{&storageSet, 1});
 
-        // Transition so that the texture can be bound without transition for
-        // all users
+        // Transition so that the texture can be bound without transition
+        // for all users
         skyboxResources.irradiance.transition(
             cb, ImageState::ComputeShaderSampledRead |
                     ImageState::FragmentShaderSampledRead |
@@ -152,12 +152,12 @@ void ImageBasedLighting::recordGeneration(
         const auto _s =
             profiler->createCpuGpuScope(cb, "IntegrateSpecularBrdf");
 
-        const uvec3 groups = uvec3{
-            (uvec2{World::sSpecularBrdfLutResolution} - 1u) / 16u + 1u, 1u};
+        const uvec3 extent =
+            uvec3{uvec2{World::sSpecularBrdfLutResolution}, 1u};
 
         const vk::DescriptorSet storageSet =
             _integrateSpecularBrdf.storageSet(nextFrame);
-        _integrateSpecularBrdf.record(cb, groups, Span{&storageSet, 1});
+        _integrateSpecularBrdf.record(cb, extent, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition for
         // all users
@@ -201,8 +201,8 @@ void ImageBasedLighting::recordGeneration(
         // previous one. Most groups will early out.
         // Multiple tighter dispatches or a more complex group assignment in
         // shader?
-        const uvec3 groups = uvec3{
-            (uvec2{World::sSkyboxRadianceResolution} - 1u) / 16u + 1u,
+        const uvec3 extent = uvec3{
+            uvec2{World::sSkyboxRadianceResolution},
             6 * skyboxResources.radiance.mipCount};
 
         _prefilterRadiance.record(
@@ -210,7 +210,7 @@ void ImageBasedLighting::recordGeneration(
             PrefilterRadiancePC{
                 .mipCount = mipCount,
             },
-            groups, Span{&storageSet, 1});
+            extent, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition
         // for all users

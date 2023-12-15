@@ -7,7 +7,7 @@ layout(binding = 1, r11f_g11f_b10f) uniform writeonly imageCube outIrradiance;
 
 // Adapted from https://learnopengl.com/PBR/IBL/Diffuse-irradiance
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     uvec2 coordu = gl_GlobalInvocationID.xy;

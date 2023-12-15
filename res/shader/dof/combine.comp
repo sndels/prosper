@@ -57,7 +57,7 @@ vec4 upscaleForeground(ivec2 fullResCoord, float fullResCoC)
     return bilateralFilter(bilaInput);
 }
 
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);

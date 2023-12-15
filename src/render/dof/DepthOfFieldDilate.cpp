@@ -102,10 +102,9 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Dilate");
 
-        const uvec3 groups = uvec3{
-            (uvec2{inputExtent.width, inputExtent.height} - 1u) / 16u + 1u, 1u};
+        const uvec3 extent = uvec3{inputExtent.width, inputExtent.height, 1u};
         const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, groups, Span{&storageSet, 1});
+        _computePass.record(cb, extent, Span{&storageSet, 1});
     }
 
     return ret;

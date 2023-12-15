@@ -105,11 +105,11 @@ vk::DescriptorSetLayout ComputePass::storageSetLayout() const
 }
 
 void ComputePass::record(
-    vk::CommandBuffer cb, const uvec3 &groups,
+    vk::CommandBuffer cb, const uvec3 &extent,
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets) const
 {
-    WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
+    WHEELS_ASSERT(all(greaterThan(extent, glm::uvec3{0u})));
     WHEELS_ASSERT(
         dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
@@ -123,15 +123,17 @@ void ComputePass::record(
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
+    const uvec3 groups = (extent - 1u) / _groupSize + 1u;
+
     cb.dispatch(groups.x, groups.y, groups.z);
 }
 
 void ComputePass::record(
-    vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes, const uvec3 &groups,
+    vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes, const uvec3 &extent,
     Span<const vk::DescriptorSet> descriptorSets,
     Span<const uint32_t> dynamicOffsets) const
 {
-    WHEELS_ASSERT(all(greaterThan(groups, glm::uvec3{0u})));
+    WHEELS_ASSERT(all(greaterThan(extent, uvec3{0u})));
     WHEELS_ASSERT(_shaderReflection.has_value());
     WHEELS_ASSERT(
         pcBlockBytes.size() == _shaderReflection->pushConstantsBytesize());
@@ -150,6 +152,8 @@ void ComputePass::record(
     cb.pushConstants(
         _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
         asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
+
+    const uvec3 groups = (extent - 1u) / _groupSize + 1u;
 
     cb.dispatch(groups.x, groups.y, groups.z);
 }
@@ -221,18 +225,28 @@ bool ComputePass::compileShader(
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback)
 {
     Shader shader = shaderDefinitionCallback(scopeAlloc);
+    WHEELS_ASSERT(all(greaterThan(shader.groupSize, uvec3{0})));
+    _groupSize = shader.groupSize;
 
     printf("Compiling %s\n", shader.debugName.c_str());
 
+    const size_t len =
+        56 + (shader.defines.has_value() ? shader.defines->size() : 0);
+    String defines{scopeAlloc, len};
+    if (shader.defines.has_value())
+        defines.extend(*shader.defines);
+    appendDefineStr(defines, "GROUP_X", shader.groupSize.x);
+    appendDefineStr(defines, "GROUP_Y", shader.groupSize.y);
+    appendDefineStr(defines, "GROUP_Z", shader.groupSize.z);
+    WHEELS_ASSERT(defines.size() <= len);
+
     wheels::Optional<Device::ShaderCompileResult> compResult =
         _device->compileShaderModule(
-            scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
-                .relPath = shader.relPath,
-                .debugName = shader.debugName.c_str(),
-                .defines = shader.defines.has_value() ? *shader.defines
-                                                      : wheels::StrSpan{""},
-            });
+            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+                                          .relPath = shader.relPath,
+                                          .debugName = shader.debugName.c_str(),
+                                          .defines = defines,
+                                      });
 
     if (compResult.has_value())
     {
