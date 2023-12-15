@@ -1,6 +1,7 @@
 #pragma shader_stage(compute)
 
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_shader_image_load_formatted : require
 
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
@@ -10,15 +11,13 @@
 #include "bilateral.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(set = STORAGE_SET, binding = 0, rgba16f) uniform readonly image2D
-    inIllumination;
+layout(set = STORAGE_SET, binding = 0) uniform readonly image2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inNonLinearDepth;
-layout(set = STORAGE_SET, binding = 2, rgba16f) uniform image2D outIllumination;
+layout(set = STORAGE_SET, binding = 2) uniform image2D outIllumination;
 // TODO:
 // 16bits seems like a lot of precision. Can this be r8snorm storing (1-P/z)
 // with users multiplying by MaxBgdCoC?
-layout(set = STORAGE_SET, binding = 3, r16f) uniform image2D
-    outCircleOfConfusion;
+layout(set = STORAGE_SET, binding = 3) uniform image2D outCircleOfConfusion;
 layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
 
 layout(push_constant) uniform SetupPC

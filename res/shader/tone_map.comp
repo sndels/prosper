@@ -1,5 +1,7 @@
 #pragma shader_stage(compute)
 
+#extension GL_EXT_shader_image_load_formatted : require
+
 layout(push_constant) uniform ToneMapPC
 {
     float exposure;
@@ -8,8 +10,8 @@ layout(push_constant) uniform ToneMapPC
 PC;
 
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(binding = 0, rgba16f) uniform readonly image2D inColor;
-layout(binding = 1, rgba8) uniform image2D outColor;
+layout(binding = 0) uniform readonly image2D inColor;
+layout(binding = 1) uniform image2D outColor;
 
 // From Krzysztof Narkowicz
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/

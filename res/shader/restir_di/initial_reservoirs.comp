@@ -1,5 +1,6 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_shader_image_load_formatted : require
 
 #pragma shader_stage(compute)
 
@@ -15,12 +16,12 @@
 layout(push_constant) uniform RtDiInitialReservoirsPC { uint frameIndex; }
 PC;
 
-layout(set = STORAGE_SET, binding = 0, rgba8) uniform readonly image2D
+layout(set = STORAGE_SET, binding = 0) uniform readonly image2D
     inAlbedoRoughness;
-layout(set = STORAGE_SET, binding = 1, rgba16) uniform readonly image2D
+layout(set = STORAGE_SET, binding = 1) uniform readonly image2D
     inNormalMetallic;
 layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
-layout(set = STORAGE_SET, binding = 3, rgba32f) uniform image2D outReservoirs;
+layout(set = STORAGE_SET, binding = 3) uniform image2D outReservoirs;
 layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
 
 // ReSTIR based on

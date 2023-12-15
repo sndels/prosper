@@ -1,6 +1,8 @@
 #pragma shader_stage(compute)
 
-layout(binding = 0, rg16f) uniform writeonly image2D outLut;
+#extension GL_EXT_shader_image_load_formatted : require
+
+layout(binding = 0) uniform writeonly image2D outLut;
 
 #include "../brdf.glsl"
 #include "../common/math.glsl"

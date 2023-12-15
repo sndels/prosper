@@ -1,16 +1,14 @@
 #pragma shader_stage(compute)
 
 #extension GL_GOOGLE_include_directive : require
-#extension GL_KHR_shader_subgroup_basic : require
-#extension GL_KHR_shader_subgroup_arithmetic : require
+#extension GL_EXT_shader_image_load_formatted : require
 
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
-layout(set = 0, binding = 0, rg16f) uniform readonly image2D inTileMinMaxCoC;
+layout(set = 0, binding = 0) uniform readonly image2D inTileMinMaxCoC;
 // TODO: Need this much precision?
-layout(set = 0, binding = 1, rg16f) uniform writeonly image2D
-    outDilatedTileMinMaxCoC;
+layout(set = 0, binding = 1) uniform writeonly image2D outDilatedTileMinMaxCoC;
 
 layout(local_size_x = 16, local_size_y = 16) in;
 void main()

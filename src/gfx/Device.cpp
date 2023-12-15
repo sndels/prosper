@@ -33,6 +33,10 @@ using namespace wheels;
     vk::PhysicalDeviceFeatures2, features.geometryShader,                      \
         vk::PhysicalDeviceFeatures2, features.samplerAnisotropy,               \
         vk::PhysicalDeviceFeatures2,                                           \
+        features.shaderStorageImageReadWithoutFormat,                          \
+        vk::PhysicalDeviceFeatures2,                                           \
+        features.shaderStorageImageWriteWithoutFormat,                         \
+        vk::PhysicalDeviceFeatures2,                                           \
         features.shaderSampledImageArrayDynamicIndexing,                       \
         vk::PhysicalDeviceFeatures2, features.pipelineStatisticsQuery,         \
         vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                \
