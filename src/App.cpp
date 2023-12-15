@@ -1174,6 +1174,7 @@ void App::render(
     if (_referenceRt)
     {
         _rtDirectIllumination->releasePreserved();
+        _temporalAntiAliasing->releasePreserved();
 
         illumination =
             _rtReference
