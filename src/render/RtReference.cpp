@@ -188,7 +188,7 @@ RtReference::Output RtReference::record(
         // TODO:
         // This happens to be the same physical image as last frame for now, but
         // resources should support this kind of accumulation use explicitly
-        ret.illumination = _resources->images.create(
+        ImageHandle illumination = _resources->images.create(
             ImageDescription{
                 .format = vk::Format::eR32G32B32A32Sfloat,
                 .width = renderArea.extent.width,
@@ -228,8 +228,7 @@ RtReference::Output RtReference::record(
             _resources->images.appendDebugName(
                 _previousIllumination, "previousRTIllumination");
 
-        updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame, ret.illumination);
+        updateDescriptorSet(WHEELS_MOV(scopeAlloc), nextFrame, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -251,7 +250,7 @@ RtReference::Output RtReference::record(
         transition<2>(
             *_resources, cb,
             {
-                {ret.illumination, ImageState::RayTracingReadWrite},
+                {illumination, ImageState::RayTracingReadWrite},
                 {_previousIllumination, ImageState::RayTracingReadWrite},
             });
 
@@ -349,8 +348,49 @@ RtReference::Output RtReference::record(
             renderArea.extent.width, renderArea.extent.height, 1);
 
         _resources->images.release(_previousIllumination);
-        _previousIllumination = ret.illumination;
+        _previousIllumination = illumination;
         _resources->images.preserve(_previousIllumination);
+
+        // Further passes expect 16bit illumination with pipelines created with
+        // the attachment format
+        {
+            ret.illumination = createIllumination(
+                *_resources, renderArea.extent, "illumination");
+
+            transition<2>(
+                *_resources, cb,
+                {
+                    {illumination, ImageState::TransferSrc},
+                    {ret.illumination, ImageState::TransferDst},
+                });
+
+            const vk::ImageSubresourceLayers layers{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1};
+
+            const std::array offsets{
+                vk::Offset3D{0, 0, 0},
+                vk::Offset3D{
+                    asserted_cast<int32_t>(renderArea.extent.width),
+                    asserted_cast<int32_t>(renderArea.extent.height),
+                    1,
+                },
+            };
+            const auto blit = vk::ImageBlit{
+                .srcSubresource = layers,
+                .srcOffsets = offsets,
+                .dstSubresource = layers,
+                .dstOffsets = offsets,
+            };
+            cb.blitImage(
+                _resources->images.nativeHandle(illumination),
+                vk::ImageLayout::eTransferSrcOptimal,
+                _resources->images.nativeHandle(ret.illumination),
+                vk::ImageLayout::eTransferDstOptimal, 1, &blit,
+                vk::Filter::eLinear);
+        }
     }
 
     _accumulationDirty = false;

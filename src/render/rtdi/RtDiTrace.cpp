@@ -191,7 +191,7 @@ RtDiTrace::Output RtDiTrace::record(
         // This could be a 'normal' lower bitdepth illumination target when
         // accumulation is skipped. However, glsl needs explicit format for the
         // uniform.
-        ret.illumination = _resources->images.create(
+        ImageHandle illumination = _resources->images.create(
             accumulateImageDescription, "RtDiTrace32bit");
 
         vk::Extent3D previousExtent;
@@ -215,7 +215,7 @@ RtDiTrace::Output RtDiTrace::record(
                 _previousIllumination, "previousRtDiTrace");
 
         updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame, input, ret.illumination);
+            WHEELS_MOV(scopeAlloc), nextFrame, input, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -242,7 +242,7 @@ RtDiTrace::Output RtDiTrace::record(
                 {input.gbuffer.depth, ImageState::RayTracingRead},
                 {input.reservoirs, ImageState::RayTracingRead},
                 {_previousIllumination, ImageState::RayTracingRead},
-                {ret.illumination, ImageState::RayTracingReadWrite},
+                {illumination, ImageState::RayTracingReadWrite},
             });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Trace");
@@ -328,8 +328,46 @@ RtDiTrace::Output RtDiTrace::record(
             renderExtent.width, renderExtent.height, 1);
 
         _resources->images.release(_previousIllumination);
-        _previousIllumination = ret.illumination;
+        _previousIllumination = illumination;
         _resources->images.preserve(_previousIllumination);
+
+        // Further passes expect 16bit illumination with pipelines created with
+        // the attachment format
+        {
+            ret.illumination =
+                createIllumination(*_resources, renderExtent, "RtDiTrace");
+            transition<2>(
+                *_resources, cb,
+                {
+                    {illumination, ImageState::TransferSrc},
+                    {ret.illumination, ImageState::TransferDst},
+                });
+            const vk::ImageSubresourceLayers layers{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1};
+            const std::array offsets{
+                vk::Offset3D{0, 0, 0},
+                vk::Offset3D{
+                    asserted_cast<int32_t>(renderExtent.width),
+                    asserted_cast<int32_t>(renderExtent.height),
+                    1,
+                },
+            };
+            const auto blit = vk::ImageBlit{
+                .srcSubresource = layers,
+                .srcOffsets = offsets,
+                .dstSubresource = layers,
+                .dstOffsets = offsets,
+            };
+            cb.blitImage(
+                _resources->images.nativeHandle(illumination),
+                vk::ImageLayout::eTransferSrcOptimal,
+                _resources->images.nativeHandle(ret.illumination),
+                vk::ImageLayout::eTransferDstOptimal, 1, &blit,
+                vk::Filter::eLinear);
+        }
     }
 
     _accumulationDirty = false;
