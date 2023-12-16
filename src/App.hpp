@@ -12,6 +12,7 @@
 #include "utils/Timer.hpp"
 
 #include <filesystem>
+#include <future>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/static_array.hpp>
@@ -95,6 +96,8 @@ class App
         wheels::ScopedScratch scopeAlloc, bool shouldResizeSwapchain);
 
     wheels::TlsfAllocator _generalAlloc;
+    // Separate allocator for async polling as TlsfAllocator is not thread safe
+    wheels::TlsfAllocator _fileChangePollingAlloc;
 
     InputHandler _inputHandler;
     std::unique_ptr<Window>
@@ -169,6 +172,8 @@ class App
         _imageAvailableSemaphores;
     wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
         _renderFinishedSemaphores;
+
+    std::future<wheels::HashSet<std::filesystem::path>> _fileChanges;
 };
 
 #endif // PROSPER_APP_HPP

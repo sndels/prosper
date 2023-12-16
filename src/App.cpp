@@ -40,6 +40,7 @@
 
 using namespace glm;
 using namespace wheels;
+using namespace std::chrono_literals;
 
 namespace
 {
@@ -69,6 +70,7 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 App::App(const Settings &settings)
 : _generalAlloc{megabytes(16)}
+, _fileChangePollingAlloc{megabytes(1)}
 {
     LinearAllocator scratchBacking{megabytes(16)};
     ScopedScratch scopeAlloc{scratchBacking};
@@ -301,25 +303,55 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     const auto _s = _profiler->createCpuScope("App::recompileShaders");
 
     if (!_recompileShaders)
+    {
+        if (_fileChanges.valid())
+            // This blocks until the future is done which should be fine as it
+            // causes at most one frame drop.
+            _fileChanges = {};
+        return;
+    }
+
+    if (!_fileChanges.valid())
+    {
+        // Push a new async task that polls files to avoid holding back
+        // rendering if it lags.
+        _fileChanges = std::async(
+            std::launch::async,
+            [this]()
+            {
+                const Timer checkTime;
+                auto shadersIterator =
+                    std::filesystem::recursive_directory_iterator(
+                        resPath("shader"));
+                const uint32_t shaderFileBound = 128;
+                HashSet<std::filesystem::path> changedFiles{
+                    _fileChangePollingAlloc, shaderFileBound};
+                for (const auto &entry : shadersIterator)
+                {
+                    if (entry.last_write_time() > _recompileTime)
+                        changedFiles.insert(entry.path().lexically_normal());
+                }
+                WHEELS_ASSERT(changedFiles.capacity() == shaderFileBound);
+
+                if (checkTime.getSeconds() > 0.01f)
+                    fprintf(
+                        stderr, "Shader timestamp check is laggy: %.1fms\n",
+                        checkTime.getSeconds() * 1000.f);
+
+                return changedFiles;
+            });
+        return;
+    }
+
+    const std::future_status status = _fileChanges.wait_for(0s);
+    WHEELS_ASSERT(
+        status != std::future_status::deferred &&
+        "The future should never be lazy");
+    if (status == std::future_status::timeout)
         return;
 
-    const Timer checkTime;
-    auto shadersIterator =
-        std::filesystem::recursive_directory_iterator(resPath("shader"));
-    const uint32_t shaderFileBound = 128;
-    HashSet<std::filesystem::path> changedFiles{scopeAlloc, shaderFileBound};
-    for (const auto &entry : shadersIterator)
-    {
-        if (entry.last_write_time() > _recompileTime)
-            changedFiles.insert(entry.path().lexically_normal());
-    }
-    WHEELS_ASSERT(changedFiles.capacity() == shaderFileBound);
-
-    if (checkTime.getSeconds() > 0.001f)
-        fprintf(
-            stderr, "Shader timestamp check is laggy: %.1fms\n",
-            checkTime.getSeconds() * 1000.f);
-
+    const HashSet<std::filesystem::path> changedFiles{
+        WHEELS_MOV(_fileChanges.get())};
     if (changedFiles.empty())
         return;
 
