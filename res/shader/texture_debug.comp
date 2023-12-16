@@ -23,6 +23,7 @@ PC;
 
 uint flagChannelType() { return bitfieldExtract(PC.flags, 0, 3); }
 bool flagAbsBeforeRange() { return bitfieldExtract(PC.flags, 3, 1) == 1; }
+bool flagZoom() { return bitfieldExtract(PC.flags, 4, 1) == 1; }
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
@@ -50,6 +51,20 @@ void main()
             int leftColumn = (PC.outRes.x - scaledWidth) / 2;
             inUv.x = float(outCoord.x - leftColumn) / float(scaledWidth);
         }
+    }
+
+    if (flagZoom())
+    {
+        inUv *= PC.inRes;
+        inUv = floor(inUv - .5) + .5;
+
+        // Zoom in a quarter res windoe approximately at the center of the full
+        // render view
+        ivec2 center = PC.inRes / 2;
+        ivec2 topLeft = center - PC.inRes / 8;
+        inUv = topLeft + inUv / 4;
+
+        inUv /= PC.inRes;
     }
 
     vec3 color = vec3(0);

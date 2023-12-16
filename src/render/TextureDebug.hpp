@@ -73,6 +73,7 @@ class TextureDebug
     // Not a String because type conversions and allocations from StrSpan. Is
     // there a better universal solution?
     wheels::HashMap<uint64_t, TargetSettings> _targetSettings;
+    bool _zoom{false};
 };
 
 #endif // PROSPER_RENDER_TEXTURE_DEBUG_HPP

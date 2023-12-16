@@ -33,6 +33,7 @@ struct PCBlock
     {
         TextureDebug::ChannelType channelType{TextureDebug::ChannelType::RGB};
         bool absBeforeRange{false};
+        bool zoom{false};
     };
 };
 
@@ -44,6 +45,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
     // Three bits reserved for the channel type
     static_assert((uint32_t)TextureDebug::ChannelType::Count - 1 < 0b111);
     ret |= (uint32_t)flags.absBeforeRange << 3;
+    ret |= (uint32_t)flags.zoom << 4;
 
     return ret;
 }
@@ -185,6 +187,7 @@ void TextureDebug::drawUi()
 
     ImGui::Checkbox("Abs before range", &settings->absBeforeRange);
     ImGui::Checkbox("Bilinear sampler", &settings->useBilinearSampler);
+    ImGui::Checkbox("Zoom", &_zoom);
 
     ImGui::End();
 }
@@ -275,6 +278,7 @@ ImageHandle TextureDebug::record(
                 .flags = pcFlags(PCBlock::Flags{
                     .channelType = settings.channelType,
                     .absBeforeRange = settings.absBeforeRange,
+                    .zoom = _zoom,
                 })};
 
             const uvec3 extent = uvec3{outSize.width, outSize.height, 1u};
