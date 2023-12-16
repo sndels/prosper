@@ -27,10 +27,26 @@ struct PCBlock
 
     vec2 range{0.f, 1.f};
     uint32_t lod{0};
-    uint32_t channelType{0};
+    uint32_t flags{0};
 
-    uint32_t absBeforeRange{0};
+    struct Flags
+    {
+        TextureDebug::ChannelType channelType{TextureDebug::ChannelType::RGB};
+        bool absBeforeRange{false};
+    };
 };
+
+uint32_t pcFlags(PCBlock::Flags flags)
+{
+    uint32_t ret = 0;
+
+    ret |= (uint32_t)flags.channelType;
+    // Three bits reserved for the channel type
+    static_assert((uint32_t)TextureDebug::ChannelType::Count - 1 < 0b111);
+    ret |= (uint32_t)flags.absBeforeRange << 3;
+
+    return ret;
+}
 
 char const *const sOutputDebugName = "TextureDebugOutput";
 
@@ -256,10 +272,10 @@ ImageHandle TextureDebug::record(
                     },
                 .range = settings.range,
                 .lod = asserted_cast<uint32_t>(settings.lod),
-                .channelType = static_cast<uint32_t>(settings.channelType),
-                .absBeforeRange =
-                    static_cast<uint32_t>(settings.absBeforeRange),
-            };
+                .flags = pcFlags(PCBlock::Flags{
+                    .channelType = settings.channelType,
+                    .absBeforeRange = settings.absBeforeRange,
+                })};
 
             const uvec3 extent = uvec3{outSize.width, outSize.height, 1u};
             const vk::DescriptorSet storageSet =

@@ -17,11 +17,12 @@ layout(push_constant) uniform TextureDebugPC
 
     vec2 range;
     uint lod;
-    uint channel;
-
-    uint absBeforeRange;
+    uint flags;
 }
 PC;
+
+uint flagChannelType() { return bitfieldExtract(PC.flags, 0, 3); }
+bool flagAbsBeforeRange() { return bitfieldExtract(PC.flags, 3, 1) == 1; }
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
@@ -55,19 +56,19 @@ void main()
     if (all(greaterThanEqual(inUv, vec2(0))) &&
         all(lessThanEqual(inUv, vec2(1))))
     {
-        if (PC.channel > 3)
+        uint channel = flagChannelType();
+        if (channel > 3)
             color =
                 textureLod(sampler2D(inColor, inSampler), inUv, float(PC.lod))
                     .xyz;
         else
         {
             color = vec3(textureLod(
-                sampler2D(inColor, inSampler), inUv,
-                float(PC.lod))[PC.channel]);
+                sampler2D(inColor, inSampler), inUv, float(PC.lod))[channel]);
         }
     }
 
-    if (PC.absBeforeRange == 1)
+    if (flagAbsBeforeRange())
         color = abs(color);
 
     vec3 scaledColor = (color - PC.range.x) / (PC.range.y - PC.range.x);
