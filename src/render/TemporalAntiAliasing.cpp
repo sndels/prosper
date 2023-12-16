@@ -47,6 +47,7 @@ struct PCBlock
             TemporalAntiAliasing::ColorClippingType::None};
         TemporalAntiAliasing::VelocitySamplingType velocitySampling{
             TemporalAntiAliasing::VelocitySamplingType::Center};
+        bool luminanceWeighting{false};
     };
 };
 
@@ -64,6 +65,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
     // Two bits reserved for velocity sampling type
     static_assert(
         (uint32_t)TemporalAntiAliasing::VelocitySamplingType::Count - 1 < 0b11);
+    ret |= (uint32_t)flags.luminanceWeighting << 6;
 
     return ret;
 }
@@ -135,6 +137,7 @@ void TemporalAntiAliasing::drawUi()
         "Velocity sampling", _velocitySampling, sVelocitySamplingTypeNames);
 
     ImGui::Checkbox("Catmull-Rom history samples", &_catmullRom);
+    ImGui::Checkbox("Luminance Weighting", &_luminanceWeighting);
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
@@ -237,6 +240,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                     .catmullRom = _catmullRom,
                     .colorClipping = _colorClipping,
                     .velocitySampling = _velocitySampling,
+                    .luminanceWeighting = _luminanceWeighting,
                 }),
             },
             extent, descriptorSets, Span{&camOffset, 1});

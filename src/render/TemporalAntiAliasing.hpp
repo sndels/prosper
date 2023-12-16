@@ -83,6 +83,7 @@ class TemporalAntiAliasing
     ColorClippingType _colorClipping{ColorClippingType::Variance};
     VelocitySamplingType _velocitySampling{VelocitySamplingType::Closest};
     bool _catmullRom{true};
+    bool _luminanceWeighting{true};
 };
 
 #endif // PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP

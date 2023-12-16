@@ -17,6 +17,7 @@ bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
 bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
 uint flagColorClippingType() { return bitfieldExtract(PC.flags, 2, 2); }
 uint flagVelocitySamplingType() { return bitfieldExtract(PC.flags, 4, 2); }
+bool flagLuminanceWeighting() { return bitfieldExtract(PC.flags, 6, 1) == 1; }
 
 layout(set = STORAGE_SET, binding = 0) uniform texture2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
@@ -234,15 +235,17 @@ void main()
     // What kind of artifact does it help with? The current implementation
     // already looks pretty good in terms of ghosting.
 
-    // Luminance weighting from Tardif, without the compression step.
-    // Skipping it skews toward supressing the flickering highlights more.
-    float luminanceCurrent = luminance(illumination);
-    float luminanceHistory = luminance(previousResolved);
-
     float currentWeight = .1;
     float historyWeight = 1. - currentWeight;
-    currentWeight *= 1. / (1. + luminanceCurrent);
-    historyWeight *= 1. / (1. + luminanceHistory);
+    if (flagLuminanceWeighting())
+    {
+        // Luminance weighting from Tardif, without the compression step.
+        // Skipping it skews toward supressing the flickering highlights more.
+        float luminanceCurrent = luminance(illumination);
+        float luminanceHistory = luminance(previousResolved);
+        currentWeight *= 1. / (1. + luminanceCurrent);
+        historyWeight *= 1. / (1. + luminanceHistory);
+    }
 
     vec3 resolved =
         (illumination * currentWeight + previousResolved * historyWeight) /
