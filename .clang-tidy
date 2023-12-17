@@ -13,6 +13,8 @@
 # cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers:
 #    Requiring a named constant for a default value seems riddiculous
 #    The constant would be named ~identically to the variable
+# cppcoreguidelines-avoid-do-while
+#    Used in macros
 # cppcoreguidelines-macro-usage:
 #    Situational, for dependencies only
 # cppcoreguidelines-non-private-member-variables-in-classes, misc-non-private-member-variables-in-classes:
@@ -55,6 +57,7 @@ Checks: "*,
         -bugprone-narrowing-conversions,
         -cert-err33-c,
         -cppcoreguidelines-avoid-const-or-ref-data-members,
+        -cppcoreguidelines-avoid-do-while,
         -cppcoreguidelines-avoid-magic-numbers,
         -cppcoreguidelines-macro-usage,
         -cppcoreguidelines-narrowing-conversions,
