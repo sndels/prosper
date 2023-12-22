@@ -1,5 +1,7 @@
-# Pull submodules
-execute_process(COMMAND git submodule update --init --depth 1)
+if(PROSPER_SETUP_DEPENDENCIES)
+    # Pull submodules
+    execute_process(COMMAND git submodule update --init --depth 1)
+endif()
 
 find_package(Vulkan REQUIRED)
 message(STATUS "Vulkan Include = ${Vulkan_INCLUDE_DIR}")
@@ -25,11 +27,14 @@ add_subdirectory(glfw)
 get_target_property(glfw_include_dirs glfw INTERFACE_INCLUDE_DIRECTORIES)
 set_target_properties(glfw PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${glfw_include_dirs}")
 
-message(STATUS "Sync shaderc dependencies")
-execute_process(COMMAND
-    python3 utils/git-sync-deps
-    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/shaderc
-)
+if(PROSPER_SETUP_DEPENDENCIES)
+    message(STATUS "Sync shaderc dependencies")
+    execute_process(COMMAND
+        python3 utils/git-sync-deps
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/shaderc
+    )
+endif()
+
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Skip installation")
 set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip building tests")
 set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "Skip building examples")

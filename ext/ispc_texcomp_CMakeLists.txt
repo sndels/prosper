@@ -21,31 +21,37 @@ else()
     message(FATAL_ERROR "ISPC binaries missing for this build platform")
 endif()
 
-set(ISPC_ARCHIVE_PATH ${ISPC_PLATFORM_DIR}/${ISPC_ARCHIVE_NAME}.${ISPC_ARCHIVE_EXTENSION})
-file(
-    DOWNLOAD
-    https://github.com/ispc/ispc/releases/download/v1.20.0/${ISPC_ARCHIVE_NAME}.${ISPC_ARCHIVE_EXTENSION}
-    ${ISPC_ARCHIVE_PATH}
-    EXPECTED_HASH MD5=${ISPC_ARCHIVE_HASH}
-    SHOW_PROGRESS
-)
+if (PROSPER_SETUP_DEPENDENCIES)
+    set(ISPC_ARCHIVE_PATH ${ISPC_PLATFORM_DIR}/${ISPC_ARCHIVE_NAME}.${ISPC_ARCHIVE_EXTENSION})
+    file(
+        DOWNLOAD
+        https://github.com/ispc/ispc/releases/download/v1.20.0/${ISPC_ARCHIVE_NAME}.${ISPC_ARCHIVE_EXTENSION}
+        ${ISPC_ARCHIVE_PATH}
+        EXPECTED_HASH MD5=${ISPC_ARCHIVE_HASH}
+        SHOW_PROGRESS
+    )
 
-# TODO:
-# This seems to run on every build in msbuild even though download isn't redone. Why?
-# Also seems like this sometimes confuses file tracking and makes ispc commands run again
-add_custom_command(
-    OUTPUT ${ISPC_EXE}
-    COMMAND tar xf ${ISPC_ARCHIVE_PATH}
-    WORKING_DIRECTORY ${ISPC_PLATFORM_DIR}
-    DEPENDS ${ISPC_ARCHIVE_PATH}
-    COMMENT "Unpacking ISPC"
-    VERBATIM
-)
+    # TODO:
+    # This seems to run on every build in msbuild even though download isn't redone. Why?
+    # Also seems like this sometimes confuses file tracking and makes ispc commands run again
+    add_custom_command(
+        OUTPUT ${ISPC_EXE}
+        COMMAND tar xf ${ISPC_ARCHIVE_PATH}
+        WORKING_DIRECTORY ${ISPC_PLATFORM_DIR}
+        DEPENDS ${ISPC_ARCHIVE_PATH}
+        COMMENT "Unpacking ISPC"
+        VERBATIM
+    )
+
+    # Custom target dependency from unpack since we need this for multiple commands
+    add_custom_target(ispc_exe DEPENDS ${ISPC_EXE})
+else()
+    # Match the unpack target
+    add_custom_target(ispc_exe)
+endif()
 
 set(ISPC_FLAGS -O2 --arch=x86-64 --target=sse2,sse4,avx,avx2 --opt=fast-math ${ISPC_PIC_FLAG})
 
-# Custom target dependency from unpack since we need this for multiple commands
-add_custom_target(ispc_exe DEPENDS ${ISPC_EXE})
 
 set(ISPC_TEXCOMP_DIR ${CMAKE_CURRENT_LIST_DIR}/ispc_texcomp/ispc_texcomp)
 set(KERNEL_ISPC_OBJS

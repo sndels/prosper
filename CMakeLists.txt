@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(prosper)
 
+option(PROSPER_USE_PCH "Use pre-compiled headers" ON)
+option(PROSPER_SETUP_DEPENDENCIES "Pull the in-tree dependencies and correct submodule commits" ON)
+
 if(MSVC)
     add_compile_options(/MP)
 endif() # MSVC
@@ -8,8 +11,6 @@ endif() # MSVC
 # Set up sub-builds and sources
 add_subdirectory(ext)
 add_subdirectory(src)
-
-option(PROSPER_USE_PCH "Use pre-compiled headers" ON)
 
 if(LIVEPP_PATH)
     set(LIVEPP_DEFINE "LIVEPP_PATH=L\"${LIVEPP_PATH}\"")
