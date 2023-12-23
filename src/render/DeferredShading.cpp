@@ -40,9 +40,9 @@ struct PCBlock
     uint ibl{0};
 };
 
-constexpr std::array<
+constexpr StaticArray<
     const char *, static_cast<size_t>(DeferredShading::DrawType::Count)>
-    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
 
 vk::Extent2D getRenderExtent(
     const RenderResources &resources, const GBufferRendererOutput &gbuffer)
@@ -154,7 +154,7 @@ DeferredShading::Output DeferredShading::record(
 
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images
                                      .resource(input.gbuffer.albedoRoughness)
@@ -180,22 +180,22 @@ DeferredShading::Output DeferredShading::record(
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = _resources->nearestSampler,
                 }},
-            });
+            }});
 
         transition<5, 2>(
             *_resources, cb,
-            {
+            {{
                 {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
                 {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
                 {input.gbuffer.depth, ImageState::ComputeShaderRead},
                 {ret.illumination, ImageState::ComputeShaderWrite},
                 {input.lightClusters.pointers, ImageState::ComputeShaderRead},
-            },
-            {
+            }},
+            {{
                 {input.lightClusters.indicesCount,
                  BufferState::ComputeShaderRead},
                 {input.lightClusters.indices, BufferState::ComputeShaderRead},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
@@ -219,13 +219,13 @@ DeferredShading::Output DeferredShading::record(
         descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
-        const StaticArray dynamicOffsets = {
+        const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,
             cam.bufferOffset(),
             worldByteOffsets.globalMaterialConstants,
-        };
+        }};
 
         const uvec3 extent =
             glm::uvec3{renderExtent.width, renderExtent.height, 1u};

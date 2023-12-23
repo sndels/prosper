@@ -181,7 +181,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-        _shaderStages = {
+        _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eVertex,
                 .module = vertResult->module,
@@ -191,7 +191,8 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
                 .stage = vk::ShaderStageFlagBits::eFragment,
                 .module = fragResult->module,
                 .pName = "main",
-            }};
+            },
+        }};
         _vertReflection = WHEELS_MOV(vertResult->reflection);
         _fragReflection = WHEELS_MOV(fragResult->reflection);
 
@@ -211,10 +212,10 @@ void DebugRenderer::recordBarriers(
 {
     transition<2>(
         *_resources, cb,
-        {
+        {{
             {inOutTargets.color, ImageState::ColorAttachmentWrite},
             {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-        });
+        }});
 }
 
 DebugRenderer::Attachments DebugRenderer::createAttachments(
@@ -246,7 +247,7 @@ void DebugRenderer::destroyGraphicsPipeline()
 void DebugRenderer::createBuffers()
 {
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _resources->debugLines.push_back(DebugLines{
+        _resources->debugLines[i] = DebugLines{
             .buffer = _device->createBuffer(BufferCreateInfo{
                 .desc =
                     BufferDescription{
@@ -260,7 +261,7 @@ void DebugRenderer::createBuffers()
                 .createMapped = true,
                 .debugName = "DebugLines",
             }),
-        });
+        };
 }
 
 void DebugRenderer::createDescriptorSets(
@@ -273,8 +274,6 @@ void DebugRenderer::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _linesDSLayout};
-    _linesDescriptorSets.resize(
-        _linesDescriptorSets.capacity(), VK_NULL_HANDLE);
     staticDescriptorsAlloc->allocate(layouts, _linesDescriptorSets);
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)

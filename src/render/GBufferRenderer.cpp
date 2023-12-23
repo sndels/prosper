@@ -132,12 +132,12 @@ GBufferRendererOutput GBufferRenderer::record(
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
 
-        const StaticArray dynamicOffsets{
+        const StaticArray dynamicOffsets{{
             cam.bufferOffset(),
             worldByteOffsets.globalMaterialConstants,
             worldByteOffsets.modelInstanceTransforms,
             worldByteOffsets.previousModelInstanceTransforms,
-        };
+        }};
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, _pipelineLayout,
@@ -243,7 +243,7 @@ bool GBufferRenderer::compileShaders(
         WHEELS_ASSERT(
             sizeof(PCBlock) == _fragReflection->pushConstantsBytesize());
 
-        _shaderStages = {
+        _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eVertex,
                 .module = vertResult->module,
@@ -253,7 +253,8 @@ bool GBufferRenderer::compileShaders(
                 .stage = vk::ShaderStageFlagBits::eFragment,
                 .module = fragResult->module,
                 .pName = "main",
-            }};
+            },
+        }};
 
         return true;
     }
@@ -307,38 +308,31 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
     const GBufferRendererOutput &output) const
 {
     return Attachments{
-        .color =
-            {
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        _resources->images.resource(output.albedoRoughness)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-                },
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        _resources->images.resource(output.normalMetalness)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-                },
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        _resources->images.resource(output.velocity).view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-                },
+        .color = {{
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(output.albedoRoughness).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
             },
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(output.normalMetalness).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+            vk::RenderingAttachmentInfo{
+                .imageView = _resources->images.resource(output.velocity).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eClear,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+        }},
         .depth =
             vk::RenderingAttachmentInfo{
                 .imageView = _resources->images.resource(output.depth).view,
@@ -355,12 +349,12 @@ void GBufferRenderer::recordBarriers(
 {
     transition<4>(
         *_resources, cb,
-        {
+        {{
             {output.albedoRoughness, ImageState::ColorAttachmentWrite},
             {output.normalMetalness, ImageState::ColorAttachmentWrite},
             {output.velocity, ImageState::ColorAttachmentWrite},
             {output.depth, ImageState::DepthAttachmentReadWrite},
-        });
+        }});
 }
 
 void GBufferRenderer::createGraphicsPipelines(
@@ -389,11 +383,11 @@ void GBufferRenderer::createGraphicsPipelines(
             .pPushConstantRanges = &pcRange,
         });
 
-    const StaticArray colorAttachmentFormats{
+    const StaticArray colorAttachmentFormats{{
         sAlbedoRoughnessFormat,
         sNormalMetalnessFormat,
         sVelocityFormat,
-    };
+    }};
 
     const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
         colorBlendAttachments{opaqueColorBlendAttachment()};

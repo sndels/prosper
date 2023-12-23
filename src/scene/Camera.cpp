@@ -21,12 +21,16 @@ const uint32_t sBindingSetIndex = 0;
 // High Quality Temporal Supersampling
 const size_t sHaltonSampleCount = 8;
 // NOLINTBEGIN(cert-err58-cpp) glm doesn't noexcept, but these won't throw
-const std::array<vec2, sHaltonSampleCount> sHalton23 = {
-    vec2{0.5f, 0.3333333333333333f},   vec2{0.25f, 0.6666666666666666f},
-    vec2{0.75f, 0.1111111111111111f},  vec2{0.125f, 0.4444444444444444f},
-    vec2{0.625f, 0.7777777777777778f}, vec2{0.375f, 0.2222222222222222f},
-    vec2{0.875f, 0.5555555555555556f}, vec2{0.0625f, 0.8888888888888888f},
-};
+const StaticArray<vec2, sHaltonSampleCount> sHalton23{{
+    vec2{0.5f, 0.3333333333333333f},
+    vec2{0.25f, 0.6666666666666666f},
+    vec2{0.75f, 0.1111111111111111f},
+    vec2{0.125f, 0.4444444444444444f},
+    vec2{0.625f, 0.7777777777777778f},
+    vec2{0.375f, 0.2222222222222222f},
+    vec2{0.875f, 0.5555555555555556f},
+    vec2{0.0625f, 0.8888888888888888f},
+}};
 // NOLINTEND(cert-err58-cpp)
 
 } // namespace

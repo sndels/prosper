@@ -4,6 +4,8 @@
 #include "Device.hpp"
 #include "VkUtils.hpp"
 
+#include <wheels/containers/static_array.hpp>
+
 using namespace wheels;
 
 namespace
@@ -14,7 +16,7 @@ constexpr auto sDefaultAccelerationStructureCount = 100;
 constexpr auto sDefaultSamplerDescriptorCount = 100;
 constexpr auto sDefaultDescriptorCount = 1000;
 constexpr auto sDefaultDescriptorSetCount = 1000;
-constexpr std::array sDefaultPoolSizes{
+constexpr StaticArray sDefaultPoolSizes{{
     vk::DescriptorPoolSize{
         .type = vk::DescriptorType::eSampler,
         .descriptorCount = sDefaultSamplerDescriptorCount,
@@ -63,7 +65,7 @@ constexpr std::array sDefaultPoolSizes{
         .type = vk::DescriptorType::eAccelerationStructureKHR,
         .descriptorCount = sDefaultAccelerationStructureCount,
     },
-};
+}};
 
 } // namespace
 

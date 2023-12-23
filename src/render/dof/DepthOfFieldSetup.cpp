@@ -105,7 +105,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         _resources->images.resource(input.illumination).view,
@@ -130,16 +130,16 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = _resources->nearestSampler,
                 }},
-            });
+            }});
 
         transition<4>(
             *_resources, cb,
-            {
+            {{
                 {input.illumination, ImageState::ComputeShaderRead},
                 {input.depth, ImageState::ComputeShaderRead},
                 {ret.halfResIllumination, ImageState::ComputeShaderWrite},
                 {ret.halfResCircleOfConfusion, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Setup");
 

@@ -5,8 +5,8 @@
 #include "../utils/Utils.hpp"
 
 #include <glm/glm.hpp>
+#include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/span.hpp>
-#include <wheels/containers/static_array.hpp>
 
 struct DirectionalLight
 {
@@ -37,7 +37,7 @@ struct PointLights
         appendDefineStr(str, "MAX_POINT_LIGHT_COUNT", PointLights::sMaxCount);
     };
 
-    wheels::StaticArray<PointLight, sMaxCount> data;
+    wheels::InlineArray<PointLight, sMaxCount> data;
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
@@ -62,7 +62,7 @@ struct SpotLights
         appendDefineStr(str, "MAX_SPOT_LIGHT_COUNT", SpotLights::sMaxCount);
     }
 
-    wheels::StaticArray<SpotLight, sMaxCount> data;
+    wheels::InlineArray<SpotLight, sMaxCount> data;
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =

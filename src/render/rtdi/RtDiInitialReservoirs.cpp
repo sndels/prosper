@@ -129,7 +129,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
 
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         _resources->images.resource(gbuffer.albedoRoughness)
@@ -155,16 +155,16 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = _resources->nearestSampler,
                 }},
-            });
+            }});
 
         transition<4>(
             *_resources, cb,
-            {
+            {{
                 {gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
                 {gbuffer.normalMetalness, ImageState::ComputeShaderRead},
                 {gbuffer.depth, ImageState::ComputeShaderRead},
                 {ret.reservoirs, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "  InitialReservoirs");
 
@@ -177,12 +177,12 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
-        const StaticArray dynamicOffsets = {
+        const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,
             cam.bufferOffset(),
-        };
+        }};
 
         const uvec3 extent =
             glm::uvec3{renderExtent.width, renderExtent.height, 1u};

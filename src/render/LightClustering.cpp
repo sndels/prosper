@@ -111,7 +111,7 @@ LightClusteringOutput LightClustering::record(
 
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images.resource(ret.pointers).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
@@ -120,18 +120,18 @@ LightClusteringOutput LightClustering::record(
                     _resources->texelBuffers.resource(ret.indicesCount).view},
                 DescriptorInfo{
                     _resources->texelBuffers.resource(ret.indices).view},
-            });
+            }});
         ret.descriptorSet = _computePass.storageSet(nextFrame);
 
         transition<1, 2>(
             *_resources, cb,
-            {
+            {{
                 {ret.pointers, ImageState::ComputeShaderWrite},
-            },
-            {
+            }},
+            {{
                 {ret.indices, BufferState::ComputeShaderWrite},
                 {ret.indicesCount, BufferState::TransferDst},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
 
@@ -159,12 +159,12 @@ LightClusteringOutput LightClustering::record(
             descriptorSets[CameraBindingSet] = cam.descriptorSet();
             descriptorSets[LightClustersBindingSet] = ret.descriptorSet;
 
-            const StaticArray dynamicOffsets = {
+            const StaticArray dynamicOffsets{{
                 worldByteOffsets.directionalLight,
                 worldByteOffsets.pointLights,
                 worldByteOffsets.spotLights,
                 cam.bufferOffset(),
-            };
+            }};
 
             const vk::Extent3D &outputExtent =
                 _resources->images.resource(ret.pointers).extent;

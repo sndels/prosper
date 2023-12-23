@@ -10,6 +10,7 @@
 #include "RenderResourceHandle.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
 
 class ForwardRenderer
@@ -95,7 +96,7 @@ class ForwardRenderer
 
     struct Attachments
     {
-        wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
+        wheels::InlineArray<vk::RenderingAttachmentInfo, 2> color;
         vk::RenderingAttachmentInfo depth;
     };
     [[nodiscard]] Attachments createAttachments(
@@ -108,12 +109,12 @@ class ForwardRenderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{{}};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
     wheels::Optional<ShaderReflection> _vertReflection;
     wheels::Optional<ShaderReflection> _fragReflection;
 
     vk::PipelineLayout _pipelineLayout;
-    wheels::StaticArray<vk::Pipeline, 2> _pipelines{{}};
+    wheels::StaticArray<vk::Pipeline, 2> _pipelines;
 
     DrawType _drawType{DrawType::Default};
 };

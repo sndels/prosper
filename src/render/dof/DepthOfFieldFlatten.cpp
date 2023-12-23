@@ -83,7 +83,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
 
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         _resources->images.resource(halfResCircleOfConfusion)
@@ -96,15 +96,15 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-            });
+            }});
 
         transition<2>(
             *_resources, cb,
-            {
+            {{
                 {halfResCircleOfConfusion, ImageState::ComputeShaderRead},
                 {ret.tileMinMaxCircleOfConfusion,
                  ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Flatten");
 

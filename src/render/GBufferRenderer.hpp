@@ -73,7 +73,7 @@ class GBufferRenderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{{}};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
     wheels::Optional<ShaderReflection> _vertReflection;
     wheels::Optional<ShaderReflection> _fragReflection;
 

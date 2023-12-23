@@ -106,13 +106,13 @@ void ImageBasedLighting::recordGeneration(
     SkyboxResources &skyboxResources = world.skyboxResources();
 
     {
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{skyboxResources.texture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = skyboxResources.irradiance.view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-        };
+        }};
         _sampleIrradiance.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
@@ -182,10 +182,10 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             };
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{skyboxResources.texture.imageInfo()},
             DescriptorInfo{imageInfos},
-        };
+        }};
 
         _prefilterRadiance.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);

@@ -52,9 +52,9 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
 char const *const sOutputDebugName = "TextureDebugOutput";
 
-constexpr std::array<
+constexpr StaticArray<
     const char *, static_cast<size_t>(TextureDebug::ChannelType::Count)>
-    sChannelTypeNames = {TEXTURE_DEBUG_CHANNEL_TYPES_STRS};
+    sChannelTypeNames{{TEXTURE_DEBUG_CHANNEL_TYPES_STRS}};
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -232,7 +232,7 @@ ImageHandle TextureDebug::record(
 
             _computePass.updateDescriptorSet(
                 WHEELS_MOV(scopeAlloc), nextFrame,
-                StaticArray{
+                StaticArray{{
                     DescriptorInfo{vk::DescriptorImageInfo{
                         .imageView = _resources->images.resource(inColor).view,
                         .imageLayout = vk::ImageLayout::eGeneral,
@@ -246,14 +246,14 @@ ImageHandle TextureDebug::record(
                                        ? _resources->bilinearSampler
                                        : _resources->nearestSampler,
                     }},
-                });
+                }});
 
             transition<2>(
                 *_resources, cb,
-                {
+                {{
                     {inColor, ImageState::ComputeShaderRead},
                     {ret, ImageState::ComputeShaderWrite},
-                });
+                }});
 
             const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
 

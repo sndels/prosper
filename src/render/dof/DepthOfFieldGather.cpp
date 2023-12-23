@@ -111,7 +111,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
 
         computePass->updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         _resources->images.resource(input.halfResIllumination)
@@ -135,16 +135,16 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-            });
+            }});
 
         transition<4>(
             *_resources, cb,
-            {
+            {{
                 {input.halfResIllumination, ImageState::ComputeShaderRead},
                 {input.halfResCoC, ImageState::ComputeShaderRead},
                 {input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead},
                 {ret.halfResBokehColorWeight, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(
             cb, gatherType == GatherType_Background ? "  GatherBackground"

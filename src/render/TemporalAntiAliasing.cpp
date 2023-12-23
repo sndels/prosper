@@ -19,14 +19,14 @@ using namespace wheels;
 namespace
 {
 
-constexpr std::array<
+constexpr StaticArray<
     const char *,
     static_cast<size_t>(TemporalAntiAliasing::ColorClippingType::Count)>
-    sColorClippingTypeNames = {COLOR_CLIPPING_TYPE_STRS};
-constexpr std::array<
+    sColorClippingTypeNames{{COLOR_CLIPPING_TYPE_STRS}};
+constexpr StaticArray<
     const char *,
     static_cast<size_t>(TemporalAntiAliasing::VelocitySamplingType::Count)>
-    sVelocitySamplingTypeNames = {VELOCITY_SAMPLING_TYPE_STRS};
+    sVelocitySamplingTypeNames{{VELOCITY_SAMPLING_TYPE_STRS}};
 
 enum BindingSet : uint32_t
 {
@@ -177,7 +177,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             _resources->images.appendDebugName(
                 _previousResolveOutput, resolveDebugName);
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     _resources->images.resource(input.illumination).view,
@@ -207,19 +207,19 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = _resources->bilinearSampler,
             }},
-        };
+        }};
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
         transition<5>(
             *_resources, cb,
-            {
+            {{
                 {input.illumination, ImageState::ComputeShaderRead},
                 {input.velocity, ImageState::ComputeShaderRead},
                 {input.depth, ImageState::ComputeShaderRead},
                 {_previousResolveOutput, ImageState::ComputeShaderRead},
                 {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "TemporalAntiAliasing");
 

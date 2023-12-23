@@ -71,7 +71,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
         ret.combinedIlluminationDoF = createIllumination(
             *_resources, renderExtent, "CombinedIllumnationDoF");
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     _resources->images.resource(input.halfResFgBokehWeight)
@@ -101,19 +101,19 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
                         .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-        };
+        }};
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
         transition<5>(
             *_resources, cb,
-            {
+            {{
                 {input.halfResFgBokehWeight, ImageState::ComputeShaderRead},
                 {input.halfResBgBokehWeight, ImageState::ComputeShaderRead},
                 {input.halfResCircleOfConfusion, ImageState::ComputeShaderRead},
                 {input.illumination, ImageState::ComputeShaderRead},
                 {ret.combinedIlluminationDoF, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Combine");
 

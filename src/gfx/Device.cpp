@@ -12,6 +12,7 @@
 #include <GLFW/glfw3.h>
 
 #include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
@@ -64,12 +65,12 @@ constexpr std::array validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation",
 };
-constexpr std::array deviceExtensions = {
+constexpr StaticArray deviceExtensions{{
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-};
+}};
 
 bool supportsGraphics(vk::QueueFlags flags)
 {
@@ -1228,10 +1229,10 @@ void Device::createLogicalDevice()
     const uint32_t transferFamily = *_queueFamilies.transferFamily;
 
     // First queue in family has largest queue, rest descend
-    const StaticArray queuePriorities = {1.f, 0.f};
-    const StaticArray<vk::DeviceQueueCreateInfo, 2> queueCreateInfos = [&]
+    const StaticArray queuePriorities{{1.f, 0.f}};
+    const InlineArray<vk::DeviceQueueCreateInfo, 2> queueCreateInfos = [&]
     {
-        StaticArray<vk::DeviceQueueCreateInfo, 2> cis;
+        InlineArray<vk::DeviceQueueCreateInfo, 2> cis;
         if (graphicsFamily == transferFamily)
         {
             WHEELS_ASSERT(queuePriorities.size() >= 2);

@@ -92,9 +92,9 @@ uint32_t pcFlags(PCBlock::Flags flags)
     return ret;
 }
 
-constexpr std::array<
+constexpr StaticArray<
     const char *, static_cast<size_t>(RtReference::DrawType::Count)>
-    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
 
 } // namespace
 
@@ -249,10 +249,10 @@ RtReference::Output RtReference::record(
 
         transition<2>(
             *_resources, cb,
-            {
+            {{
                 {illumination, ImageState::RayTracingReadWrite},
                 {_previousIllumination, ImageState::RayTracingReadWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "RtReference");
 
@@ -276,7 +276,7 @@ RtReference::Output RtReference::record(
             scene.modelInstancesDescriptorSet;
         descriptorSets[LightsBindingSet] = worldDSes.lights;
 
-        const StaticArray dynamicOffsets{
+        const StaticArray dynamicOffsets{{
             cam.bufferOffset(),
             worldByteOffsets.globalMaterialConstants,
             worldByteOffsets.modelInstanceTransforms,
@@ -284,7 +284,7 @@ RtReference::Output RtReference::record(
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,
-        };
+        }};
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
@@ -359,10 +359,10 @@ RtReference::Output RtReference::record(
 
             transition<2>(
                 *_resources, cb,
-                {
+                {{
                     {illumination, ImageState::TransferSrc},
                     {ret.illumination, ImageState::TransferDst},
-                });
+                }});
 
             const vk::ImageSubresourceLayers layers{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -597,7 +597,7 @@ void RtReference::updateDescriptorSet(
     // Have to compare against both extent and previous native handle?
     WHEELS_ASSERT(_raygenReflection.has_value());
 
-    const StaticArray descriptorInfos{
+    const StaticArray descriptorInfos{{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
                 _resources->images.resource(_previousIllumination).view,
@@ -607,7 +607,7 @@ void RtReference::updateDescriptorSet(
             .imageView = _resources->images.resource(illumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
-    };
+    }};
 
     WHEELS_ASSERT(_raygenReflection.has_value());
     const Array descriptorWrites = _raygenReflection->generateDescriptorWrites(

@@ -5,8 +5,8 @@
 #include "Fwd.hpp"
 #include "Resources.hpp"
 
+#include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/span.hpp>
-#include <wheels/containers/static_array.hpp>
 
 class RingBuffer
 {
@@ -57,10 +57,10 @@ class RingBuffer
     template <typename T, size_t N>
         requires std::is_trivially_copyable_v<T>
     [[nodiscard]] uint32_t write_full_capacity(
-        const wheels::StaticArray<T, N> &data);
+        const wheels::InlineArray<T, N> &data);
     template <typename T, size_t N>
         requires std::is_trivially_copyable_v<T>
-    void write_full_capacity_unaligned(const wheels::StaticArray<T, N> &data);
+    void write_full_capacity_unaligned(const wheels::InlineArray<T, N> &data);
 
   private:
     uint32_t write_internal(wheels::Span<const uint8_t> data, bool aligned);
@@ -68,7 +68,7 @@ class RingBuffer
     Device *_device{nullptr};
     Buffer _buffer;
     uint32_t _currentByteOffset{0};
-    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT - 1> _frameStartOffsets;
+    wheels::InlineArray<uint32_t, MAX_FRAMES_IN_FLIGHT - 1> _frameStartOffsets;
 };
 
 template <typename T>
@@ -113,7 +113,7 @@ void RingBuffer::write_elements_unaligned(const wheels::Array<T> &data)
 
 template <typename T, size_t N>
     requires std::is_trivially_copyable_v<T>
-uint32_t RingBuffer::write_full_capacity(const wheels::StaticArray<T, N> &data)
+uint32_t RingBuffer::write_full_capacity(const wheels::InlineArray<T, N> &data)
 {
     return write_internal(
         wheels::Span{
@@ -125,7 +125,7 @@ uint32_t RingBuffer::write_full_capacity(const wheels::StaticArray<T, N> &data)
 template <typename T, size_t N>
     requires std::is_trivially_copyable_v<T>
 void RingBuffer::write_full_capacity_unaligned(
-    const wheels::StaticArray<T, N> &data)
+    const wheels::InlineArray<T, N> &data)
 {
     write_internal(
         wheels::Span{

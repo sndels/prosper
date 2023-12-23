@@ -130,7 +130,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
 
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame,
-            StaticArray{
+            StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images
                                      .resource(input.gbuffer.albedoRoughness)
@@ -161,17 +161,17 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = _resources->nearestSampler,
                 }},
-            });
+            }});
 
         transition<5>(
             *_resources, cb,
-            {
+            {{
                 {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
                 {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
                 {input.gbuffer.depth, ImageState::ComputeShaderRead},
                 {input.reservoirs, ImageState::ComputeShaderRead},
                 {ret.reservoirs, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "  SpatialReuse");
 
@@ -184,12 +184,12 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
 
-        const StaticArray dynamicOffsets = {
+        const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,
             cam.bufferOffset(),
-        };
+        }};
 
         const uvec3 extent =
             glm::uvec3{renderExtent.width, renderExtent.height, 1u};

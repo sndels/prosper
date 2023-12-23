@@ -176,7 +176,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         _vertReflection = WHEELS_MOV(vertResult->reflection);
         _fragReflection = WHEELS_MOV(fragResult->reflection);
 
-        _shaderStages = {
+        _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eVertex,
                 .module = vertResult->module,
@@ -187,7 +187,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
                 .module = fragResult->module,
                 .pName = "main",
             },
-        };
+        }};
 
         return true;
     }
@@ -205,35 +205,33 @@ void SkyboxRenderer::recordBarriers(
 {
     transition<3>(
         *_resources, cb,
-        {
+        {{
             {inOutTargets.illumination, ImageState::ColorAttachmentWrite},
             {inOutTargets.velocity, ImageState::ColorAttachmentWrite},
             {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-        });
+        }});
 }
 
 SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(
     const RecordInOut &inOutTargets) const
 {
     return Attachments{
-        .color =
-            {
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        _resources->images.resource(inOutTargets.illumination)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eLoad,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                },
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        _resources->images.resource(inOutTargets.velocity).view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eLoad,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                },
+        .color = {{
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(inOutTargets.illumination).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
             },
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    _resources->images.resource(inOutTargets.velocity).view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+            },
+        }},
         .depth =
             vk::RenderingAttachmentInfo{
                 .imageView =
@@ -284,10 +282,10 @@ void SkyboxRenderer::createGraphicsPipelines(
             .pSetLayouts = setLayouts.data(),
         });
 
-    const StaticArray colorAttachmentFormats{
+    const StaticArray colorAttachmentFormats{{
         sIlluminationFormat,
         sVelocityFormat,
-    };
+    }};
 
     const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
         colorBlendAttachments{opaqueColorBlendAttachment()};

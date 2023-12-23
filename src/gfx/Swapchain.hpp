@@ -6,6 +6,7 @@
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/array.hpp>
+#include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
@@ -84,7 +85,7 @@ class Swapchain
     SwapchainConfig _config;
 
     vk::SwapchainKHR _swapchain;
-    wheels::StaticArray<SwapchainImage, MAX_SWAPCHAIN_IMAGES> _images;
+    wheels::InlineArray<SwapchainImage, MAX_SWAPCHAIN_IMAGES> _images;
     uint32_t _nextImage{0};
     wheels::StaticArray<vk::Fence, MAX_FRAMES_IN_FLIGHT> _inFlightFences;
     size_t _nextFrame{0};

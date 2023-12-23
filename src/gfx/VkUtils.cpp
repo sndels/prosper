@@ -83,8 +83,8 @@ vk::Pipeline createGraphicsPipeline(
         .pAttachments = info.colorBlendAttachments.data(),
     };
 
-    const StaticArray dynamicStates = {
-        vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+    const StaticArray dynamicStates{
+        {vk::DynamicState::eViewport, vk::DynamicState::eScissor}};
 
     const vk::PipelineDynamicStateCreateInfo dynamicState{
         .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),

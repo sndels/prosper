@@ -10,6 +10,8 @@
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
+#include <wheels/containers/concepts.hpp>
+#include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
 
 using ImageTransition = wheels::Pair<ImageHandle, ImageState>;
@@ -65,12 +67,37 @@ class RenderResources
     wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
 };
 
-template <size_t ImageCount, size_t BufferCount, size_t TexelBufferCount>
+// TODO:
+// Is there a less messy way to template this while only allowing the exact
+// input types?
+template <
+    template <class, size_t> class ImageArray, size_t ImageCount,
+    template <class, size_t> class BufferArray, size_t BufferCount,
+    template <class, size_t> class TexelBufferArray, size_t TexelBufferCount>
+    requires(
+        (wheels::SameAs<
+             ImageArray<ImageTransition, ImageCount>,
+             wheels::StaticArray<ImageTransition, ImageCount>> ||
+         wheels::SameAs<
+             ImageArray<ImageTransition, ImageCount>,
+             wheels::InlineArray<ImageTransition, ImageCount>>) &&
+        (wheels::SameAs<
+             BufferArray<BufferTransition, BufferCount>,
+             wheels::StaticArray<BufferTransition, BufferCount>> ||
+         wheels::SameAs<
+             BufferArray<BufferTransition, BufferCount>,
+             wheels::InlineArray<BufferTransition, BufferCount>>) &&
+        (wheels::SameAs<
+             TexelBufferArray<TexelBufferTransition, TexelBufferCount>,
+             wheels::StaticArray<TexelBufferTransition, TexelBufferCount>> ||
+         wheels::SameAs<
+             TexelBufferArray<TexelBufferTransition, TexelBufferCount>,
+             wheels::InlineArray<TexelBufferTransition, TexelBufferCount>>))
 void transition(
     RenderResources &resources, vk::CommandBuffer cb,
-    const wheels::StaticArray<ImageTransition, ImageCount> &images,
-    const wheels::StaticArray<BufferTransition, BufferCount> &buffers,
-    const wheels::StaticArray<TexelBufferTransition, TexelBufferCount>
+    const ImageArray<ImageTransition, ImageCount> &images,
+    const BufferArray<BufferTransition, BufferCount> &buffers,
+    const TexelBufferArray<TexelBufferTransition, TexelBufferCount>
         &texelBuffers)
 {
     // TODO:
@@ -79,7 +106,7 @@ void transition(
     // resource type. Is a tighter implementation possible while keeping the
     // ergonomics and not having implicit allocators for heap containers?
 
-    wheels::StaticArray<vk::ImageMemoryBarrier2, ImageCount> imageBarriers;
+    wheels::InlineArray<vk::ImageMemoryBarrier2, ImageCount> imageBarriers;
     for (const auto &image_state : images)
     {
         const wheels::Optional<vk::ImageMemoryBarrier2> barrier =
@@ -89,7 +116,7 @@ void transition(
             imageBarriers.push_back(*barrier);
     }
 
-    wheels::StaticArray<
+    wheels::InlineArray<
         vk::BufferMemoryBarrier2, BufferCount + TexelBufferCount>
         bufferBarriers;
     for (const auto &buffer_state : buffers)
@@ -124,8 +151,8 @@ void transition(
     RenderResources &resources, vk::CommandBuffer cb,
     const wheels::StaticArray<ImageTransition, ImageCount> &images)
 {
-    const wheels::StaticArray<BufferTransition, 1> buffers;
-    const wheels::StaticArray<TexelBufferTransition, 1> texelBuffers;
+    const wheels::InlineArray<BufferTransition, 1> buffers;
+    const wheels::InlineArray<TexelBufferTransition, 1> texelBuffers;
     transition(resources, cb, images, buffers, texelBuffers);
 }
 
@@ -134,8 +161,8 @@ void transition(
     RenderResources &resources, vk::CommandBuffer cb,
     const wheels::StaticArray<BufferTransition, BufferCount> &buffers)
 {
-    const wheels::StaticArray<ImageTransition, 1> images;
-    const wheels::StaticArray<TexelBufferTransition, 1> texelBuffers;
+    const wheels::InlineArray<ImageTransition, 1> images;
+    const wheels::InlineArray<TexelBufferTransition, 1> texelBuffers;
     transition(resources, cb, images, buffers, texelBuffers);
 }
 
@@ -145,8 +172,8 @@ void transition(
     const wheels::StaticArray<TexelBufferTransition, TexelBufferCount>
         &texelBuffers)
 {
-    const wheels::StaticArray<ImageTransition, 1> images;
-    const wheels::StaticArray<BufferTransition, 1> buffers;
+    const wheels::InlineArray<ImageTransition, 1> images;
+    const wheels::InlineArray<BufferTransition, 1> buffers;
     transition(resources, cb, images, buffers, texelBuffers);
 }
 
@@ -156,7 +183,7 @@ void transition(
     const wheels::StaticArray<ImageTransition, ImageCount> &images,
     const wheels::StaticArray<BufferTransition, BufferCount> &buffers)
 {
-    const wheels::StaticArray<TexelBufferTransition, 1> texelBuffers;
+    const wheels::InlineArray<TexelBufferTransition, 1> texelBuffers;
     transition(resources, cb, images, buffers, texelBuffers);
 }
 
@@ -167,7 +194,7 @@ void transition(
     const wheels::StaticArray<TexelBufferTransition, TexelBufferCount>
         &texelBuffers)
 {
-    const wheels::StaticArray<BufferTransition, 1> buffers;
+    const wheels::InlineArray<BufferTransition, 1> buffers;
     transition(resources, cb, images, buffers, texelBuffers);
 }
 
@@ -178,7 +205,7 @@ void transition(
     const wheels::StaticArray<TexelBufferTransition, TexelBufferCount>
         &texelBuffers)
 {
-    const wheels::StaticArray<ImageTransition, 1> images;
+    const wheels::InlineArray<ImageTransition, 1> images;
     transition(resources, cb, images, buffers, texelBuffers);
 }
 

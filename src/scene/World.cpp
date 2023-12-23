@@ -93,7 +93,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
     WHEELS_ASSERT(device != nullptr);
 
     // Avoid large global allocation
-    const StaticArray<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{
+    const StaticArray<glm::vec3, SKYBOX_VERTS_SIZE> skyboxVerts{{
         vec3{-1.0f, 1.0f, -1.0f},  vec3{-1.0f, -1.0f, -1.0f},
         vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
         vec3{1.0f, 1.0f, -1.0f},   vec3{-1.0f, 1.0f, -1.0f},
@@ -117,7 +117,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
         vec3{-1.0f, -1.0f, -1.0f}, vec3{-1.0f, -1.0f, 1.0f},
         vec3{1.0f, -1.0f, -1.0f},  vec3{1.0f, -1.0f, -1.0f},
         vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f},
-    };
+    }};
 
     return device->createBuffer(BufferCreateInfo{
         .desc =
@@ -2273,7 +2273,7 @@ void World::Impl::createTlasBuildInfos(
 void World::Impl::createBuffers()
 {
     for (size_t i = 0; i < _materialsBuffers.capacity(); ++i)
-        _materialsBuffers.push_back(_device->createBuffer(BufferCreateInfo{
+        _materialsBuffers[i] = _device->createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = _materials.size() * sizeof(_materials[0]),
@@ -2285,7 +2285,7 @@ void World::Impl::createBuffers()
             .initialData = _materials.data(),
             .createMapped = true,
             .debugName = "MaterialsBuffer",
-        }));
+        });
 
     {
         size_t maxModelInstanceTransforms = 0;
@@ -2425,10 +2425,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
 
     {
         StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
-            materialDatasLayouts;
-        materialDatasLayouts.resize(
-            MAX_FRAMES_IN_FLIGHT, _dsLayouts.materialDatas);
-        _descriptorSets.materialDatas.resize(MAX_FRAMES_IN_FLIGHT);
+            materialDatasLayouts{_dsLayouts.materialDatas};
         _descriptorAllocator.allocate(
             materialDatasLayouts, _descriptorSets.materialDatas);
     }
@@ -2437,7 +2434,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
     WHEELS_ASSERT(_descriptorSets.materialDatas.size() == MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        const StaticArray descriptorInfos = {
+        const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = _materialsBuffers[i].handle,
                 .range = VK_WHOLE_SIZE,
@@ -2446,7 +2443,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 .buffer = _constantsRing->buffer(),
                 .range = sizeof(float),
             }},
-        };
+        }};
         const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
                 scopeAlloc, sMaterialDatasReflectionSet,
@@ -2489,7 +2486,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
 
-        const StaticArray bindingFlags{
+        const StaticArray bindingFlags{{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
@@ -2498,7 +2495,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 // in flight
                 vk::DescriptorBindingFlagBits::ePartiallyBound |
                 vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending},
-        };
+        }};
 
         WHEELS_ASSERT(_materialsReflection.has_value());
         _dsLayouts.materialTextures =
@@ -2513,10 +2510,10 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorSets.materialTextures = _descriptorAllocator.allocate(
             _dsLayouts.materialTextures, imageInfoCount);
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{materialSamplerInfos},
             DescriptorInfo{materialImageInfos},
-        };
+        }};
 
         const Array descriptorWrites =
             _materialsReflection->generateDescriptorWrites(
@@ -2549,11 +2546,11 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         const auto bufferCount =
             asserted_cast<uint32_t>(bufferInfos.size() - 1);
 
-        const StaticArray bindingFlags = {
+        const StaticArray bindingFlags{{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
-        };
+        }};
 
         WHEELS_ASSERT(_geometryReflection.has_value());
         _dsLayouts.geometry = _geometryReflection->createDescriptorSetLayout(
@@ -2566,10 +2563,10 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorSets.geometry =
             _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{bufferInfos[0]},
             DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
-        };
+        }};
 
         const Array descriptorWrites =
             _geometryReflection->generateDescriptorWrites(
@@ -2587,7 +2584,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         // Need to support differing flags for binds within set here? Does AMD
         // support binding AS in stages other than raygen (recursion = 1)? Is
         // perf affected if AS is bound but unused in anyhit?
-        const StaticArray layoutBindings = {
+        const StaticArray layoutBindings{{
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
@@ -2601,7 +2598,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 .stageFlags = vk::ShaderStageFlagBits::eRaygenKHR |
                               vk::ShaderStageFlagBits::eAnyHitKHR,
             },
-        };
+        }};
         const vk::DescriptorSetLayoutCreateInfo createInfo{
             .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
             .pBindings = layoutBindings.data(),
@@ -2629,7 +2626,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorSets.lights =
             _descriptorAllocator.allocate(_dsLayouts.lights);
 
-        const StaticArray lightInfos{
+        const StaticArray lightInfos{{
             DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = _lightDataRing->buffer(),
                 .offset = 0,
@@ -2645,7 +2642,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 .offset = 0,
                 .range = SpotLights::sBufferByteSize,
             }},
-        };
+        }};
 
         const Array descriptorWrites =
             _lightsReflection->generateDescriptorWrites(
@@ -2666,7 +2663,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
             scene.modelInstancesDescriptorSet =
                 _descriptorAllocator.allocate(_dsLayouts.modelInstances);
 
-            const StaticArray descriptorInfos{
+            const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = _modelInstanceTransformsRing->buffer(),
                     .range = scene.modelInstances.size() *
@@ -2677,7 +2674,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
                 }},
-            };
+            }};
             const Array descriptorWrites =
                 _modelInstancesReflection->generateDescriptorWrites(
                     scopeAlloc, sInstanceTrfnsReflectionSet,
@@ -2695,7 +2692,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 .buffer = scene.rtInstancesBuffer.handle,
                 .range = VK_WHOLE_SIZE};
 
-            StaticArray descriptorWrites{
+            StaticArray descriptorWrites{{
                 vk::WriteDescriptorSet{
                     .dstSet = scene.rtDescriptorSet,
                     .dstBinding = 0,
@@ -2712,7 +2709,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                     .descriptorType = vk::DescriptorType::eStorageBuffer,
                     .pBufferInfo = &instanceInfo,
                 },
-            };
+            }};
 
             // TODO:
             // This seems potentially messy to support with the
@@ -2741,7 +2738,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
         _descriptorSets.skybox =
             _descriptorAllocator.allocate(_dsLayouts.skybox);
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{_skyboxResources.texture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = _skyboxResources.sampler,
@@ -2758,7 +2755,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
                 .imageView = _skyboxResources.radiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
-        };
+        }};
         const Array descriptorWrites =
             _skyboxReflection->generateDescriptorWrites(
                 scopeAlloc, sSkyboxReflectionSet, _descriptorSets.skybox,
@@ -2912,7 +2909,7 @@ DeferredLoadingContext::DeferredLoadingContext(
     // One of these is used by the worker implementation, all by the
     // single threaded one
     for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
-        stagingBuffers.push_back(createTextureStaging(device));
+        stagingBuffers[i] = createTextureStaging(device);
 
     const Optional<vk::CommandPool> transferPool = device->transferPool();
     if (transferPool.has_value())

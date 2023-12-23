@@ -81,7 +81,7 @@ ToneMap::Output ToneMap::record(
 
         ret = createOutputs(renderExtent);
 
-        const StaticArray descriptorInfos{
+        const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = _resources->images.resource(inColor).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
@@ -90,16 +90,16 @@ ToneMap::Output ToneMap::record(
                 .imageView = _resources->images.resource(ret.toneMapped).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-        };
+        }};
         _computePass.updateDescriptorSet(
             WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
 
         transition<2>(
             *_resources, cb,
-            {
+            {{
                 {inColor, ImageState::ComputeShaderRead},
                 {ret.toneMapped, ImageState::ComputeShaderWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 

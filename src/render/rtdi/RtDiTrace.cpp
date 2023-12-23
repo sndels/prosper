@@ -81,9 +81,9 @@ uint32_t pcFlags(PCBlock::Flags flags)
     return ret;
 }
 
-constexpr std::array<
+constexpr StaticArray<
     const char *, static_cast<size_t>(RtDiTrace::DrawType::Count)>
-    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
 
 vk::Extent2D getRenderExtent(
     const RenderResources &resources, const GBufferRendererOutput &gbuffer)
@@ -236,14 +236,14 @@ RtDiTrace::Output RtDiTrace::record(
 
         transition<6>(
             *_resources, cb,
-            {
+            {{
                 {input.gbuffer.albedoRoughness, ImageState::RayTracingRead},
                 {input.gbuffer.normalMetalness, ImageState::RayTracingRead},
                 {input.gbuffer.depth, ImageState::RayTracingRead},
                 {input.reservoirs, ImageState::RayTracingRead},
                 {_previousIllumination, ImageState::RayTracingRead},
                 {illumination, ImageState::RayTracingReadWrite},
-            });
+            }});
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Trace");
 
@@ -267,7 +267,7 @@ RtDiTrace::Output RtDiTrace::record(
             scene.modelInstancesDescriptorSet;
         descriptorSets[LightsBindingSet] = worldDSes.lights;
 
-        const StaticArray dynamicOffsets{
+        const StaticArray dynamicOffsets{{
             cam.bufferOffset(),
             worldByteOffsets.globalMaterialConstants,
             worldByteOffsets.modelInstanceTransforms,
@@ -275,7 +275,7 @@ RtDiTrace::Output RtDiTrace::record(
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,
-        };
+        }};
 
         cb.bindDescriptorSets(
             vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
@@ -338,10 +338,10 @@ RtDiTrace::Output RtDiTrace::record(
                 createIllumination(*_resources, renderExtent, "RtDiTrace");
             transition<2>(
                 *_resources, cb,
-                {
+                {{
                     {illumination, ImageState::TransferSrc},
                     {ret.illumination, ImageState::TransferDst},
-                });
+                }});
             const vk::ImageSubresourceLayers layers{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,
@@ -574,7 +574,7 @@ void RtDiTrace::updateDescriptorSet(
     // Have to compare against both extent and previous native handle?
     WHEELS_ASSERT(_raygenReflection.has_value());
 
-    const StaticArray descriptorInfos{
+    const StaticArray descriptorInfos{{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
                 _resources->images.resource(input.gbuffer.albedoRoughness).view,
@@ -605,7 +605,7 @@ void RtDiTrace::updateDescriptorSet(
         DescriptorInfo{vk::DescriptorImageInfo{
             .sampler = _resources->nearestSampler,
         }},
-    };
+    }};
 
     WHEELS_ASSERT(_raygenReflection.has_value());
     const Array descriptorWrites = _raygenReflection->generateDescriptorWrites(

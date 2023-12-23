@@ -45,9 +45,9 @@ struct PCBlock
     uint32_t previousTransformValid{0};
 };
 
-constexpr std::array<
+constexpr StaticArray<
     const char *, static_cast<size_t>(ForwardRenderer::DrawType::Count)>
-    sDrawTypeNames = {DEBUG_DRAW_TYPES_STRS};
+    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
 
 } // namespace
 
@@ -204,7 +204,7 @@ bool ForwardRenderer::compileShaders(
         WHEELS_ASSERT(
             sizeof(PCBlock) == _fragReflection->pushConstantsBytesize());
 
-        _shaderStages = {
+        _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eVertex,
                 .module = vertResult->module,
@@ -214,7 +214,8 @@ bool ForwardRenderer::compileShaders(
                 .stage = vk::ShaderStageFlagBits::eFragment,
                 .module = fragResult->module,
                 .pName = "main",
-            }};
+            },
+        }};
 
         return true;
     }
@@ -265,10 +266,10 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     {
-        const StaticArray colorAttachmentFormats{
+        const StaticArray colorAttachmentFormats{{
             sIlluminationFormat,
             sVelocityFormat,
-        };
+        }};
 
         const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
             colorBlendAttachments{opaqueColorBlendAttachment()};
@@ -360,7 +361,7 @@ void ForwardRenderer::record(
         scene.modelInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
 
-    const StaticArray dynamicOffsets{
+    const StaticArray dynamicOffsets{{
         worldByteOffsets.directionalLight,
         worldByteOffsets.pointLights,
         worldByteOffsets.spotLights,
@@ -368,7 +369,7 @@ void ForwardRenderer::record(
         worldByteOffsets.globalMaterialConstants,
         worldByteOffsets.modelInstanceTransforms,
         worldByteOffsets.previousModelInstanceTransforms,
-    };
+    }};
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics, _pipelineLayout,
@@ -426,32 +427,32 @@ void ForwardRenderer::recordBarriers(
     {
         transition<4, 2>(
             *_resources, cb,
-            {
+            {{
                 {inOutTargets.illumination,
                  ImageState::ColorAttachmentReadWrite},
                 {inOutTargets.velocity, ImageState::ColorAttachmentReadWrite},
                 {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                 {lightClusters.pointers, ImageState::FragmentShaderRead},
-            },
-            {
+            }},
+            {{
                 {lightClusters.indicesCount, BufferState::FragmentShaderRead},
                 {lightClusters.indices, BufferState::FragmentShaderRead},
-            });
+            }});
     }
     else
     {
         transition<3, 2>(
             *_resources, cb,
-            {
+            {{
                 {inOutTargets.illumination,
                  ImageState::ColorAttachmentReadWrite},
                 {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                 {lightClusters.pointers, ImageState::FragmentShaderRead},
-            },
-            {
+            }},
+            {{
                 {lightClusters.indicesCount, BufferState::FragmentShaderRead},
                 {lightClusters.indices, BufferState::FragmentShaderRead},
-            });
+            }});
     }
 }
 

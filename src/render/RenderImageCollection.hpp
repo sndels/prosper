@@ -8,7 +8,7 @@
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
-#include <wheels/containers/static_array.hpp>
+#include <wheels/containers/inline_array.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -36,7 +36,7 @@ class RenderImageCollection
 
     // TODO:
     // Is the sparsity of this array a memory usage problem?
-    wheels::Array<wheels::StaticArray<vk::ImageView, sMaxMipCount>>
+    wheels::Array<wheels::InlineArray<vk::ImageView, sMaxMipCount>>
         _subresourceViews;
 };
 

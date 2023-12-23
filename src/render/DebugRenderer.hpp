@@ -78,7 +78,7 @@ class DebugRenderer
 
     vk::DescriptorSetLayout _linesDSLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _linesDescriptorSets{VK_NULL_HANDLE};
+        _linesDescriptorSets;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

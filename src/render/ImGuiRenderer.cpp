@@ -239,7 +239,7 @@ void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
 void ImGuiRenderer::createDescriptorPool()
 {
     const uint32_t maxSets = 1000;
-    const StaticArray poolSizes{
+    const StaticArray poolSizes{{
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eSampler,
             .descriptorCount = maxSets,
@@ -284,7 +284,7 @@ void ImGuiRenderer::createDescriptorPool()
             .type = vk::DescriptorType::eInputAttachment,
             .descriptorCount = maxSets,
         },
-    };
+    }};
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .maxSets = maxSets * asserted_cast<uint32_t>(poolSizes.size()),

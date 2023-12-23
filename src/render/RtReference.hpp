@@ -81,9 +81,9 @@ class RtReference
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages{{}};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages;
     wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>
-        _shaderGroups{{}};
+        _shaderGroups;
     wheels::Optional<ShaderReflection> _raygenReflection;
     wheels::Optional<ShaderReflection> _rayMissReflection;
     wheels::Optional<ShaderReflection> _closestHitReflection;
@@ -91,7 +91,7 @@ class RtReference
 
     vk::DescriptorSetLayout _descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets{{}};
+        _descriptorSets;
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

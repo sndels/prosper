@@ -52,7 +52,6 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
     Device *device)
 {
     StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> ret;
-    ret.resize(MAX_FRAMES_IN_FLIGHT);
 
     const vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = device->graphicsPool(),
@@ -187,10 +186,10 @@ App::App(const Settings &settings)
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        _imageAvailableSemaphores.push_back(
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
-        _renderFinishedSemaphores.push_back(
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{}));
+        _imageAvailableSemaphores[i] =
+            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{});
+        _renderFinishedSemaphores[i] =
+            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{});
     }
     _ctorScratchHighWatermark = asserted_cast<uint32_t>(
         scratchBacking.allocated_byte_count_high_watermark());
@@ -1588,10 +1587,10 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
 
 bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
 {
-    const StaticArray waitSemaphores = {_imageAvailableSemaphores[nextFrame]};
-    const StaticArray waitStages{{vk::PipelineStageFlags{
-        vk::PipelineStageFlagBits::eColorAttachmentOutput}}};
-    const StaticArray signalSemaphores{{_renderFinishedSemaphores[nextFrame]}};
+    const StaticArray waitSemaphores{_imageAvailableSemaphores[nextFrame]};
+    const StaticArray waitStages{vk::PipelineStageFlags{
+        vk::PipelineStageFlagBits::eColorAttachmentOutput}};
+    const StaticArray signalSemaphores{_renderFinishedSemaphores[nextFrame]};
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),

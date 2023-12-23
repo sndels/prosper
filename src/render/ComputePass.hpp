@@ -98,7 +98,7 @@ class ComputePass
     vk::DescriptorSetLayout _storageSetLayout;
     uint32_t _storageSetIndex{0xFFFFFFFF};
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _storageSets{
-        {}};
+        VK_NULL_HANDLE};
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;

@@ -243,7 +243,7 @@ void Swapchain::destroy()
     {
         for (auto fence : _inFlightFences)
             _device->logical().destroy(fence);
-        _inFlightFences.clear();
+        _inFlightFences = {};
         _images.clear();
         _device->logical().destroy(_swapchain);
     }
@@ -295,5 +295,5 @@ void Swapchain::createFences()
         .flags = vk::FenceCreateFlagBits::eSignaled,
     };
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _inFlightFences.push_back(_device->logical().createFence(fenceInfo));
+        _inFlightFences[i] = _device->logical().createFence(fenceInfo);
 }
