@@ -102,15 +102,23 @@ void DebugRenderer::recompileShaders(
 }
 
 void DebugRenderer::record(
-    vk::CommandBuffer cb, const Camera &cam, const RecordInOut &inOutTargets,
-    const uint32_t nextFrame, Profiler *profiler) const
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    const RecordInOut &inOutTargets, const uint32_t nextFrame,
+    Profiler *profiler) const
 {
     WHEELS_ASSERT(profiler != nullptr);
 
     {
         const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
-        recordBarriers(cb, inOutTargets);
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 2>{{
+                    {inOutTargets.color, ImageState::ColorAttachmentWrite},
+                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                }},
+            });
 
         const Attachments attachments = createAttachments(inOutTargets);
 
@@ -205,17 +213,6 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
         _device->logical().destroy(fragResult->module);
 
     return false;
-}
-
-void DebugRenderer::recordBarriers(
-    vk::CommandBuffer cb, const RecordInOut &inOutTargets) const
-{
-    transition<2>(
-        *_resources, cb,
-        {{
-            {inOutTargets.color, ImageState::ColorAttachmentWrite},
-            {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-        }});
 }
 
 DebugRenderer::Attachments DebugRenderer::createAttachments(

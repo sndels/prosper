@@ -103,17 +103,21 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
             }},
         }};
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
+            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        transition<5>(
-            *_resources, cb,
-            {{
-                {input.halfResFgBokehWeight, ImageState::ComputeShaderRead},
-                {input.halfResBgBokehWeight, ImageState::ComputeShaderRead},
-                {input.halfResCircleOfConfusion, ImageState::ComputeShaderRead},
-                {input.illumination, ImageState::ComputeShaderRead},
-                {ret.combinedIlluminationDoF, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 5>{{
+                    {input.halfResFgBokehWeight, ImageState::ComputeShaderRead},
+                    {input.halfResBgBokehWeight, ImageState::ComputeShaderRead},
+                    {input.halfResCircleOfConfusion,
+                     ImageState::ComputeShaderRead},
+                    {input.illumination, ImageState::ComputeShaderRead},
+                    {ret.combinedIlluminationDoF,
+                     ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Combine");
 

@@ -78,7 +78,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
             "dilatedTileMinMaxCoC");
 
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
@@ -93,12 +93,14 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
                 }},
             }});
 
-        transition<2>(
-            *_resources, cb,
-            {{
-                {tileMinMaxCoC, ImageState::ComputeShaderRead},
-                {ret.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 2>{{
+                    {tileMinMaxCoC, ImageState::ComputeShaderRead},
+                    {ret.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Dilate");
 

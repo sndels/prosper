@@ -153,7 +153,7 @@ DeferredShading::Output DeferredShading::record(
             createIllumination(*_resources, renderExtent, "illumination");
 
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images
@@ -182,20 +182,26 @@ DeferredShading::Output DeferredShading::record(
                 }},
             }});
 
-        transition<5, 2>(
-            *_resources, cb,
-            {{
-                {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
-                {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
-                {input.gbuffer.depth, ImageState::ComputeShaderRead},
-                {ret.illumination, ImageState::ComputeShaderWrite},
-                {input.lightClusters.pointers, ImageState::ComputeShaderRead},
-            }},
-            {{
-                {input.lightClusters.indicesCount,
-                 BufferState::ComputeShaderRead},
-                {input.lightClusters.indices, BufferState::ComputeShaderRead},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 5>{{
+                    {input.gbuffer.albedoRoughness,
+                     ImageState::ComputeShaderRead},
+                    {input.gbuffer.normalMetalness,
+                     ImageState::ComputeShaderRead},
+                    {input.gbuffer.depth, ImageState::ComputeShaderRead},
+                    {ret.illumination, ImageState::ComputeShaderWrite},
+                    {input.lightClusters.pointers,
+                     ImageState::ComputeShaderRead},
+                }},
+                .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
+                    {input.lightClusters.indicesCount,
+                     BufferState::ComputeShaderRead},
+                    {input.lightClusters.indices,
+                     BufferState::ComputeShaderRead},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 

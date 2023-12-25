@@ -104,7 +104,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             "HalfResCircleOfConfusion");
 
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
@@ -132,14 +132,17 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
                 }},
             }});
 
-        transition<4>(
-            *_resources, cb,
-            {{
-                {input.illumination, ImageState::ComputeShaderRead},
-                {input.depth, ImageState::ComputeShaderRead},
-                {ret.halfResIllumination, ImageState::ComputeShaderWrite},
-                {ret.halfResCircleOfConfusion, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 4>{{
+                    {input.illumination, ImageState::ComputeShaderRead},
+                    {input.depth, ImageState::ComputeShaderRead},
+                    {ret.halfResIllumination, ImageState::ComputeShaderWrite},
+                    {ret.halfResCircleOfConfusion,
+                     ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Setup");
 

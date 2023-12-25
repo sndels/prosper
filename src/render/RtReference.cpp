@@ -228,7 +228,7 @@ RtReference::Output RtReference::record(
             _resources->images.appendDebugName(
                 _previousIllumination, "previousRTIllumination");
 
-        updateDescriptorSet(WHEELS_MOV(scopeAlloc), nextFrame, illumination);
+        updateDescriptorSet(scopeAlloc.child_scope(), nextFrame, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -247,12 +247,14 @@ RtReference::Output RtReference::record(
             });
         }
 
-        transition<2>(
-            *_resources, cb,
-            {{
-                {illumination, ImageState::RayTracingReadWrite},
-                {_previousIllumination, ImageState::RayTracingReadWrite},
-            }});
+        transition(
+            scopeAlloc.child_scope(), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 2>{{
+                    {illumination, ImageState::RayTracingReadWrite},
+                    {_previousIllumination, ImageState::RayTracingReadWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "RtReference");
 
@@ -357,12 +359,14 @@ RtReference::Output RtReference::record(
             ret.illumination = createIllumination(
                 *_resources, renderArea.extent, "illumination");
 
-            transition<2>(
-                *_resources, cb,
-                {{
-                    {illumination, ImageState::TransferSrc},
-                    {ret.illumination, ImageState::TransferDst},
-                }});
+            transition(
+                WHEELS_MOV(scopeAlloc), *_resources, cb,
+                Transitions{
+                    .images = StaticArray<ImageTransition, 2>{{
+                        {illumination, ImageState::TransferSrc},
+                        {ret.illumination, ImageState::TransferDst},
+                    }},
+                });
 
             const vk::ImageSubresourceLayers layers{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,

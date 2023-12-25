@@ -44,15 +44,13 @@ class DebugRenderer
         ImageHandle depth;
     };
     void record(
-        vk::CommandBuffer cb, const Camera &cam,
-        const RecordInOut &inOutTargets, uint32_t nextFrame,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const Camera &cam, const RecordInOut &inOutTargets, uint32_t nextFrame,
         Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    void recordBarriers(
-        vk::CommandBuffer cb, const RecordInOut &inOutTargets) const;
     struct Attachments
     {
         vk::RenderingAttachmentInfo color;

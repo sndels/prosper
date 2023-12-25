@@ -215,7 +215,7 @@ RtDiTrace::Output RtDiTrace::record(
                 _previousIllumination, "previousRtDiTrace");
 
         updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame, input, illumination);
+            scopeAlloc.child_scope(), nextFrame, input, illumination);
 
         {
             const vk::MemoryBarrier2 barrier{
@@ -234,16 +234,18 @@ RtDiTrace::Output RtDiTrace::record(
             });
         }
 
-        transition<6>(
-            *_resources, cb,
-            {{
-                {input.gbuffer.albedoRoughness, ImageState::RayTracingRead},
-                {input.gbuffer.normalMetalness, ImageState::RayTracingRead},
-                {input.gbuffer.depth, ImageState::RayTracingRead},
-                {input.reservoirs, ImageState::RayTracingRead},
-                {_previousIllumination, ImageState::RayTracingRead},
-                {illumination, ImageState::RayTracingReadWrite},
-            }});
+        transition(
+            scopeAlloc.child_scope(), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 6>{{
+                    {input.gbuffer.albedoRoughness, ImageState::RayTracingRead},
+                    {input.gbuffer.normalMetalness, ImageState::RayTracingRead},
+                    {input.gbuffer.depth, ImageState::RayTracingRead},
+                    {input.reservoirs, ImageState::RayTracingRead},
+                    {_previousIllumination, ImageState::RayTracingRead},
+                    {illumination, ImageState::RayTracingReadWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Trace");
 
@@ -336,12 +338,14 @@ RtDiTrace::Output RtDiTrace::record(
         {
             ret.illumination =
                 createIllumination(*_resources, renderExtent, "RtDiTrace");
-            transition<2>(
-                *_resources, cb,
-                {{
-                    {illumination, ImageState::TransferSrc},
-                    {ret.illumination, ImageState::TransferDst},
-                }});
+            transition(
+                WHEELS_MOV(scopeAlloc), *_resources, cb,
+                Transitions{
+                    .images = StaticArray<ImageTransition, 2>{{
+                        {illumination, ImageState::TransferSrc},
+                        {ret.illumination, ImageState::TransferDst},
+                    }},
+                });
             const vk::ImageSubresourceLayers layers{
                 .aspectMask = vk::ImageAspectFlagBits::eColor,
                 .mipLevel = 0,

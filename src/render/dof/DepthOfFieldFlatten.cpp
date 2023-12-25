@@ -82,7 +82,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
             "tileMinMaxCircleOfConfusion");
 
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
@@ -98,13 +98,15 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
                 }},
             }});
 
-        transition<2>(
-            *_resources, cb,
-            {{
-                {halfResCircleOfConfusion, ImageState::ComputeShaderRead},
-                {ret.tileMinMaxCircleOfConfusion,
-                 ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 2>{{
+                    {halfResCircleOfConfusion, ImageState::ComputeShaderRead},
+                    {ret.tileMinMaxCircleOfConfusion,
+                     ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  Flatten");
 

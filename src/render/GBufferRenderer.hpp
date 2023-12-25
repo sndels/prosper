@@ -43,8 +43,9 @@ class GBufferRenderer
     void drawUi();
 
     [[nodiscard]] GBufferRendererOutput record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea, uint32_t nextFrame, Profiler *profiler);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        uint32_t nextFrame, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -62,9 +63,6 @@ class GBufferRenderer
     };
     [[nodiscard]] Attachments createAttachments(
         const GBufferRendererOutput &output) const;
-
-    void recordBarriers(
-        vk::CommandBuffer cb, const GBufferRendererOutput &output) const;
 
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,

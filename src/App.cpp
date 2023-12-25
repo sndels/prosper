@@ -1230,8 +1230,8 @@ void App::render(
         if (_renderDeferred)
         {
             const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
-                cb, *_world, *_cam, renderArea, indices.nextFrame,
-                _profiler.get());
+                scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
+                indices.nextFrame, _profiler.get());
 
             if (_deferredRt)
                 illumination = _rtDirectIllumination
@@ -1268,8 +1268,9 @@ void App::render(
 
             const ForwardRenderer::OpaqueOutput output =
                 _forwardRenderer->recordOpaque(
-                    cb, *_world, *_cam, renderArea, lightClusters,
-                    indices.nextFrame, _applyIbl, _profiler.get());
+                    scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
+                    lightClusters, indices.nextFrame, _applyIbl,
+                    _profiler.get());
             illumination = output.illumination;
             velocity = output.velocity;
             depth = output.depth;
@@ -1277,7 +1278,7 @@ void App::render(
 
         // Transparent
         _forwardRenderer->recordTransparent(
-            cb, *_world, *_cam,
+            scopeAlloc.child_scope(), cb, *_world, *_cam,
             ForwardRenderer::TransparentInOut{
                 .illumination = illumination,
                 .depth = depth,
@@ -1285,7 +1286,7 @@ void App::render(
             lightClusters, indices.nextFrame, _profiler.get());
 
         _skyboxRenderer->record(
-            cb, *_world, *_cam,
+            scopeAlloc.child_scope(), cb, *_world, *_cam,
             SkyboxRenderer::RecordInOut{
                 .illumination = illumination,
                 .velocity = velocity,
@@ -1294,7 +1295,7 @@ void App::render(
             _profiler.get());
 
         _debugRenderer->record(
-            cb, *_cam,
+            scopeAlloc.child_scope(), cb, *_cam,
             DebugRenderer::RecordInOut{
                 .color = illumination,
                 .depth = depth,

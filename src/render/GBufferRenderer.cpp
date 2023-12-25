@@ -92,8 +92,9 @@ void GBufferRenderer::recompileShaders(
 }
 
 GBufferRendererOutput GBufferRenderer::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Rect2D &renderArea, const uint32_t nextFrame,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -101,7 +102,16 @@ GBufferRendererOutput GBufferRenderer::record(
     {
         ret = createOutputs(renderArea.extent);
 
-        recordBarriers(cb, ret);
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 4>{{
+                    {ret.albedoRoughness, ImageState::ColorAttachmentWrite},
+                    {ret.normalMetalness, ImageState::ColorAttachmentWrite},
+                    {ret.velocity, ImageState::ColorAttachmentWrite},
+                    {ret.depth, ImageState::DepthAttachmentReadWrite},
+                }},
+            });
 
         const Attachments attachments = createAttachments(ret);
 
@@ -342,19 +352,6 @@ GBufferRenderer::Attachments GBufferRenderer::createAttachments(
                 .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
             },
     };
-}
-
-void GBufferRenderer::recordBarriers(
-    vk::CommandBuffer cb, const GBufferRendererOutput &output) const
-{
-    transition<4>(
-        *_resources, cb,
-        {{
-            {output.albedoRoughness, ImageState::ColorAttachmentWrite},
-            {output.normalMetalness, ImageState::ColorAttachmentWrite},
-            {output.velocity, ImageState::ColorAttachmentWrite},
-            {output.depth, ImageState::DepthAttachmentReadWrite},
-        }});
 }
 
 void GBufferRenderer::createGraphicsPipelines(

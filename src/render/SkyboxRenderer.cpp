@@ -93,15 +93,25 @@ void SkyboxRenderer::recompileShaders(
 }
 
 void SkyboxRenderer::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const RecordInOut &inOutTargets, Profiler *profiler) const
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const RecordInOut &inOutTargets,
+    Profiler *profiler) const
 {
     WHEELS_ASSERT(profiler != nullptr);
 
     {
         const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
-        recordBarriers(cb, inOutTargets);
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 3>{{
+                    {inOutTargets.illumination,
+                     ImageState::ColorAttachmentWrite},
+                    {inOutTargets.velocity, ImageState::ColorAttachmentWrite},
+                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                }},
+            });
 
         const Attachments attachments = createAttachments(inOutTargets);
 
@@ -198,18 +208,6 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         _device->logical().destroy(fragResult->module);
 
     return false;
-}
-
-void SkyboxRenderer::recordBarriers(
-    vk::CommandBuffer cb, const RecordInOut &inOutTargets) const
-{
-    transition<3>(
-        *_resources, cb,
-        {{
-            {inOutTargets.illumination, ImageState::ColorAttachmentWrite},
-            {inOutTargets.velocity, ImageState::ColorAttachmentWrite},
-            {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-        }});
 }
 
 SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(

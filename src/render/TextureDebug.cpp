@@ -231,7 +231,7 @@ ImageHandle TextureDebug::record(
             }
 
             _computePass.updateDescriptorSet(
-                WHEELS_MOV(scopeAlloc), nextFrame,
+                scopeAlloc.child_scope(), nextFrame,
                 StaticArray{{
                     DescriptorInfo{vk::DescriptorImageInfo{
                         .imageView = _resources->images.resource(inColor).view,
@@ -248,12 +248,14 @@ ImageHandle TextureDebug::record(
                     }},
                 }});
 
-            transition<2>(
-                *_resources, cb,
-                {{
-                    {inColor, ImageState::ComputeShaderRead},
-                    {ret, ImageState::ComputeShaderWrite},
-                }});
+            transition(
+                WHEELS_MOV(scopeAlloc), *_resources, cb,
+                Transitions{
+                    .images = StaticArray<ImageTransition, 2>{{
+                        {inColor, ImageState::ComputeShaderRead},
+                        {ret, ImageState::ComputeShaderWrite},
+                    }},
+                });
 
             const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
 

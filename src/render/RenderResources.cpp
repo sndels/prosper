@@ -64,3 +64,48 @@ void RenderResources::destroyResources()
     texelBuffers.destroyResources();
     buffers.destroyResources();
 }
+
+void transition(
+    wheels::ScopedScratch scopeAlloc, RenderResources &resources,
+    vk::CommandBuffer cb, const Transitions &transitions)
+{
+    wheels::Array<vk::ImageMemoryBarrier2> imageBarriers{
+        scopeAlloc, transitions.images.size()};
+    for (const auto &image_state : transitions.images)
+    {
+        const wheels::Optional<vk::ImageMemoryBarrier2> barrier =
+            resources.images.transitionBarrier(
+                image_state.first, image_state.second);
+        if (barrier.has_value())
+            imageBarriers.push_back(*barrier);
+    }
+
+    wheels::Array<vk::BufferMemoryBarrier2> bufferBarriers{
+        scopeAlloc,
+        transitions.buffers.size() + transitions.texelBuffers.size()};
+    for (const auto &buffer_state : transitions.buffers)
+    {
+        const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
+            resources.buffers.transitionBarrier(
+                buffer_state.first, buffer_state.second);
+        if (barrier.has_value())
+            bufferBarriers.push_back(*barrier);
+    }
+    for (const auto &buffer_state : transitions.texelBuffers)
+    {
+        const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
+            resources.texelBuffers.transitionBarrier(
+                buffer_state.first, buffer_state.second);
+        if (barrier.has_value())
+            bufferBarriers.push_back(*barrier);
+    }
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .bufferMemoryBarrierCount =
+            asserted_cast<uint32_t>(bufferBarriers.size()),
+        .pBufferMemoryBarriers = bufferBarriers.data(),
+        .imageMemoryBarrierCount =
+            asserted_cast<uint32_t>(imageBarriers.size()),
+        .pImageMemoryBarriers = imageBarriers.data(),
+    });
+}

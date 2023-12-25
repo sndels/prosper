@@ -110,7 +110,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                                                 : "halfResFgBokehColorWeight");
 
         computePass->updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
@@ -137,14 +137,17 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                 }},
             }});
 
-        transition<4>(
-            *_resources, cb,
-            {{
-                {input.halfResIllumination, ImageState::ComputeShaderRead},
-                {input.halfResCoC, ImageState::ComputeShaderRead},
-                {input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead},
-                {ret.halfResBokehColorWeight, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 4>{{
+                    {input.halfResIllumination, ImageState::ComputeShaderRead},
+                    {input.halfResCoC, ImageState::ComputeShaderRead},
+                    {input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead},
+                    {ret.halfResBokehColorWeight,
+                     ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(
             cb, gatherType == GatherType_Background ? "  GatherBackground"

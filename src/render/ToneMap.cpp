@@ -92,14 +92,16 @@ ToneMap::Output ToneMap::record(
             }},
         }};
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
+            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        transition<2>(
-            *_resources, cb,
-            {{
-                {inColor, ImageState::ComputeShaderRead},
-                {ret.toneMapped, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 2>{{
+                    {inColor, ImageState::ComputeShaderRead},
+                    {ret.toneMapped, ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "ToneMap");
 

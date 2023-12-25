@@ -62,9 +62,9 @@ void RtDirectIllumination::drawUi()
 }
 
 RtDirectIllumination::Output RtDirectIllumination::record(
-    ScopedScratch scopeAlloc,vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const GBufferRendererOutput &gbuffer, bool resetAccumulation,
-    uint32_t nextFrame, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const GBufferRendererOutput &gbuffer,
+    bool resetAccumulation, uint32_t nextFrame, Profiler *profiler)
 {
     Output ret;
     {
@@ -72,15 +72,15 @@ RtDirectIllumination::Output RtDirectIllumination::record(
 
         const RtDiInitialReservoirs::Output initialReservoirsOutput =
             _initialReservoirs.record(
-              scopeAlloc.child_scope(),   cb, world, cam, gbuffer, nextFrame, profiler);
+                scopeAlloc.child_scope(), cb, world, cam, gbuffer, nextFrame,
+                profiler);
 
         ImageHandle reservoirs = initialReservoirsOutput.reservoirs;
         if (_doSpatialReuse)
         {
             const RtDiSpatialReuse::Output spatialReuseOutput =
                 _spatialReuse.record(
- scopeAlloc.child_scope(),
-                    cb, world, cam,
+                    scopeAlloc.child_scope(), cb, world, cam,
                     RtDiSpatialReuse::Input{
                         .gbuffer = gbuffer,
                         .reservoirs = initialReservoirsOutput.reservoirs,

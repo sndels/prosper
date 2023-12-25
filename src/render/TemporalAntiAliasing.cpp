@@ -209,17 +209,19 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             }},
         }};
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame, descriptorInfos);
+            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        transition<5>(
-            *_resources, cb,
-            {{
-                {input.illumination, ImageState::ComputeShaderRead},
-                {input.velocity, ImageState::ComputeShaderRead},
-                {input.depth, ImageState::ComputeShaderRead},
-                {_previousResolveOutput, ImageState::ComputeShaderRead},
-                {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 5>{{
+                    {input.illumination, ImageState::ComputeShaderRead},
+                    {input.velocity, ImageState::ComputeShaderRead},
+                    {input.depth, ImageState::ComputeShaderRead},
+                    {_previousResolveOutput, ImageState::ComputeShaderRead},
+                    {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "TemporalAntiAliasing");
 

@@ -51,8 +51,8 @@ class ForwardRenderer
         ImageHandle depth;
     };
     [[nodiscard]] OpaqueOutput recordOpaque(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, uint32_t nextFrame,
         bool applyIbl, Profiler *profiler);
 
@@ -62,7 +62,8 @@ class ForwardRenderer
         ImageHandle depth;
     };
     void recordTransparent(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, uint32_t nextFrame,
         Profiler *profiler);
@@ -86,12 +87,14 @@ class ForwardRenderer
         ImageHandle depth;
     };
     void record(
-        vk::CommandBuffer cb, const World &world, const Camera &cam,
-        uint32_t nextFrame, const RecordInOut &inOutTargets,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, uint32_t nextFrame,
+        const RecordInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, const Options &options,
         Profiler *profiler, const char *debugName);
     void recordBarriers(
-        vk::CommandBuffer cb, const RecordInOut &inOutTargets,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const RecordInOut &inOutTargets,
         const LightClusteringOutput &lightClusters) const;
 
     struct Attachments

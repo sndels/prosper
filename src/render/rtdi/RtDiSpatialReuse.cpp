@@ -129,7 +129,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             "RtDiSpatialReuseReservoirs");
 
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = _resources->images
@@ -163,15 +163,19 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
                 }},
             }});
 
-        transition<5>(
-            *_resources, cb,
-            {{
-                {input.gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
-                {input.gbuffer.normalMetalness, ImageState::ComputeShaderRead},
-                {input.gbuffer.depth, ImageState::ComputeShaderRead},
-                {input.reservoirs, ImageState::ComputeShaderRead},
-                {ret.reservoirs, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 5>{{
+                    {input.gbuffer.albedoRoughness,
+                     ImageState::ComputeShaderRead},
+                    {input.gbuffer.normalMetalness,
+                     ImageState::ComputeShaderRead},
+                    {input.gbuffer.depth, ImageState::ComputeShaderRead},
+                    {input.reservoirs, ImageState::ComputeShaderRead},
+                    {ret.reservoirs, ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  SpatialReuse");
 

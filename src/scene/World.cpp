@@ -2424,7 +2424,7 @@ void World::Impl::createDescriptorSets(ScopedScratch scopeAlloc)
             vk::ShaderStageFlagBits::eAnyHitKHR);
 
     {
-        StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
+        const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
             materialDatasLayouts{_dsLayouts.materialDatas};
         _descriptorAllocator.allocate(
             materialDatasLayouts, _descriptorSets.materialDatas);

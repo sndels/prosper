@@ -38,14 +38,12 @@ class SkyboxRenderer
         ImageHandle depth;
     };
     void record(
-        vk::CommandBuffer cb, const World &world, const Camera &camera,
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &camera,
         const RecordInOut &inOutTargets, Profiler *profiler) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
-    void recordBarriers(
-        vk::CommandBuffer cb, const RecordInOut &inOutTargets) const;
 
     struct Attachments
     {

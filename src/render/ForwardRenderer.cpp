@@ -103,9 +103,10 @@ void ForwardRenderer::drawUi()
 }
 
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
-    uint32_t nextFrame, bool applyIbl, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Rect2D &renderArea,
+    const LightClusteringOutput &lightClusters, uint32_t nextFrame,
+    bool applyIbl, Profiler *profiler)
 {
     OpaqueOutput ret;
     ret.illumination =
@@ -114,7 +115,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ret.depth = createDepth(*_device, *_resources, renderArea.extent, "depth");
 
     record(
-        cb, world, cam, nextFrame,
+        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
         RecordInOut{
             .illumination = ret.illumination,
             .velocity = ret.velocity,
@@ -126,13 +127,13 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 }
 
 void ForwardRenderer::recordTransparent(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const TransparentInOut &inOutTargets,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, uint32_t nextFrame,
     Profiler *profiler)
 {
     record(
-        cb, world, cam, nextFrame,
+        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
         RecordInOut{
             .illumination = inOutTargets.illumination,
             .depth = inOutTargets.depth,
@@ -316,16 +317,16 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     }
 }
 void ForwardRenderer::record(
-    vk::CommandBuffer cb, const World &world, const Camera &cam,
-    const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClusteringOutput &lightClusters, const Options &options,
-    Profiler *profiler, const char *debugName)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const uint32_t nextFrame,
+    const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
+    const Options &options, Profiler *profiler, const char *debugName)
 {
     const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
-    recordBarriers(cb, inOutTargets, lightClusters);
+    recordBarriers(WHEELS_MOV(scopeAlloc), cb, inOutTargets, lightClusters);
 
     const Attachments attachments =
         createAttachments(inOutTargets, options.transparents);
@@ -420,39 +421,47 @@ void ForwardRenderer::record(
 }
 
 void ForwardRenderer::recordBarriers(
-    vk::CommandBuffer cb, const RecordInOut &inOutTargets,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    const RecordInOut &inOutTargets,
     const LightClusteringOutput &lightClusters) const
 {
     if (inOutTargets.velocity.isValid())
     {
-        transition<4, 2>(
-            *_resources, cb,
-            {{
-                {inOutTargets.illumination,
-                 ImageState::ColorAttachmentReadWrite},
-                {inOutTargets.velocity, ImageState::ColorAttachmentReadWrite},
-                {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-                {lightClusters.pointers, ImageState::FragmentShaderRead},
-            }},
-            {{
-                {lightClusters.indicesCount, BufferState::FragmentShaderRead},
-                {lightClusters.indices, BufferState::FragmentShaderRead},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 4>{{
+                    {inOutTargets.illumination,
+                     ImageState::ColorAttachmentReadWrite},
+                    {inOutTargets.velocity,
+                     ImageState::ColorAttachmentReadWrite},
+                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                    {lightClusters.pointers, ImageState::FragmentShaderRead},
+                }},
+                .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
+                    {lightClusters.indicesCount,
+                     BufferState::FragmentShaderRead},
+                    {lightClusters.indices, BufferState::FragmentShaderRead},
+                }},
+            });
     }
     else
     {
-        transition<3, 2>(
-            *_resources, cb,
-            {{
-                {inOutTargets.illumination,
-                 ImageState::ColorAttachmentReadWrite},
-                {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-                {lightClusters.pointers, ImageState::FragmentShaderRead},
-            }},
-            {{
-                {lightClusters.indicesCount, BufferState::FragmentShaderRead},
-                {lightClusters.indices, BufferState::FragmentShaderRead},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 3>{{
+                    {inOutTargets.illumination,
+                     ImageState::ColorAttachmentReadWrite},
+                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                    {lightClusters.pointers, ImageState::FragmentShaderRead},
+                }},
+                .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
+                    {lightClusters.indicesCount,
+                     BufferState::FragmentShaderRead},
+                    {lightClusters.indices, BufferState::FragmentShaderRead},
+                }},
+            });
     }
 }
 

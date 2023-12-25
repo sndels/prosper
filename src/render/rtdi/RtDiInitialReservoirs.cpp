@@ -128,7 +128,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             "RtDiInitialReservoirs");
 
         _computePass.updateDescriptorSet(
-            WHEELS_MOV(scopeAlloc), nextFrame,
+            scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
@@ -157,14 +157,16 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
                 }},
             }});
 
-        transition<4>(
-            *_resources, cb,
-            {{
-                {gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
-                {gbuffer.normalMetalness, ImageState::ComputeShaderRead},
-                {gbuffer.depth, ImageState::ComputeShaderRead},
-                {ret.reservoirs, ImageState::ComputeShaderWrite},
-            }});
+        transition(
+            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 4>{{
+                    {gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
+                    {gbuffer.normalMetalness, ImageState::ComputeShaderRead},
+                    {gbuffer.depth, ImageState::ComputeShaderRead},
+                    {ret.reservoirs, ImageState::ComputeShaderWrite},
+                }},
+            });
 
         const auto _s = profiler->createCpuGpuScope(cb, "  InitialReservoirs");
 
