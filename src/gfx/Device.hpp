@@ -8,10 +8,8 @@
 #include <shaderc/shaderc.hpp>
 
 #include <wheels/allocators/scoped_scratch.hpp>
-#include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/optional.hpp>
-#include <wheels/containers/string.hpp>
 
 #include <atomic>
 #include <filesystem>
@@ -46,35 +44,6 @@ struct DeviceProperties
     vk::PhysicalDeviceProperties device;
     vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtPipeline;
     vk::PhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructure;
-};
-
-class FileIncluder : public shaderc::CompileOptions::IncluderInterface
-{
-  public:
-    FileIncluder(
-        wheels::Allocator &alloc,
-        wheels::HashSet<std::filesystem::path> &uniqueIncludes);
-
-    shaderc_include_result *GetInclude(
-        const char *requested_source, shaderc_include_type type,
-        const char *requesting_source, size_t include_depth) override;
-
-    void ReleaseInclude(shaderc_include_result *data) override;
-
-  private:
-    wheels::Allocator &_alloc;
-
-    std::filesystem::path _includePath;
-
-    uint64_t _includeContentID{0};
-    struct IncludeContent
-    {
-        std::unique_ptr<shaderc_include_result> result{nullptr};
-        std::unique_ptr<wheels::String> content{nullptr};
-        std::unique_ptr<wheels::String> path{nullptr};
-    };
-    wheels::HashMap<uint64_t, IncludeContent> _includeContent;
-    wheels::HashSet<std::filesystem::path> &_uniqueIncludes;
 };
 
 struct MemoryAllocationBytes

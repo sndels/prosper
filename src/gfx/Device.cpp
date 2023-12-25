@@ -11,7 +11,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
@@ -328,7 +328,34 @@ const char *statusString(shaderc_compilation_status status)
     }
 }
 
-} // namespace
+class FileIncluder : public shaderc::CompileOptions::IncluderInterface
+{
+  public:
+    FileIncluder(
+        wheels::Allocator &alloc,
+        wheels::HashSet<std::filesystem::path> &uniqueIncludes);
+
+    shaderc_include_result *GetInclude(
+        const char *requested_source, shaderc_include_type type,
+        const char *requesting_source, size_t include_depth) override;
+
+    void ReleaseInclude(shaderc_include_result *data) override;
+
+  private:
+    wheels::Allocator &_alloc;
+
+    std::filesystem::path _includePath;
+
+    uint64_t _includeContentID{0};
+    struct IncludeContent
+    {
+        std::unique_ptr<shaderc_include_result> result{nullptr};
+        std::unique_ptr<wheels::String> content{nullptr};
+        std::unique_ptr<wheels::String> path{nullptr};
+    };
+    wheels::HashMap<uint64_t, IncludeContent> _includeContent;
+    wheels::HashSet<std::filesystem::path> &_uniqueIncludes;
+};
 
 FileIncluder::FileIncluder(
     Allocator &alloc, HashSet<std::filesystem::path> &uniqueIncludes)
@@ -390,6 +417,8 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
     auto id = reinterpret_cast<uint64_t>(data->user_data);
     _includeContent.remove(id);
 }
+
+} // namespace
 
 Device::Device(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, GLFWwindow *window,

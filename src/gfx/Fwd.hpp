@@ -6,7 +6,6 @@ class DescriptorAllocator;
 
 // Device.hpp
 class Device;
-class FileIncluder; // TODO: Move inside Device.cpp
 struct DeviceProperties;
 struct MemoryAllocationBytes;
 struct QueueFamilies;
