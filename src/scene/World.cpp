@@ -2199,6 +2199,8 @@ void World::Impl::updateTlasInstances(
     // Is it faster to poke instances directly into a mapped buffer instead
     // of collecting first and then passing them in one blob as initial
     // data?
+    // Need to be careful to not cause read ops by accident, probably still use
+    // memcpy for the write into the buffer.
     Array<vk::AccelerationStructureInstanceKHR> instances{
         scopeAlloc, scene.rtInstanceCount};
     uint32_t rti = 0;
