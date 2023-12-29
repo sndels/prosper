@@ -7,16 +7,13 @@
 
 #include <filesystem>
 #include <memory>
+#include <vulkan/vulkan.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
 class World
 {
   public:
-    static const uint32_t sSkyboxIrradianceResolution = 64;
-    static const uint32_t sSpecularBrdfLutResolution = 512;
-    static const uint32_t sSkyboxRadianceResolution = 512;
-
     World(
         wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
         Device *device, RingBuffer *constantsRing,

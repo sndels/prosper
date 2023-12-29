@@ -13,6 +13,7 @@ set(PROSPER_SCENE_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Scene.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
     ${CMAKE_CURRENT_LIST_DIR}/World.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/WorldData.hpp
     ${CMAKE_CURRENT_LIST_DIR}/WorldRenderStructs.hpp
     PARENT_SCOPE
 )
@@ -26,5 +27,6 @@ set(PROSPER_SCENE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
     ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/World.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/WorldData.cpp
     PARENT_SCOPE
 )

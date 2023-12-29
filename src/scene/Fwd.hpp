@@ -52,6 +52,9 @@ class TextureCubemap;
 // World.hpp
 class World;
 
+// WorldData.hpp
+class WorldData;
+
 // WorldRenderStructs.hpp
 struct WorldDSLayouts;
 struct WorldByteOffsets;
