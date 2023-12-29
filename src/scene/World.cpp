@@ -22,6 +22,7 @@
 #include "../gfx/RingBuffer.hpp"
 #include "../gfx/ShaderReflection.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Timer.hpp"
 #include "../utils/Ui.hpp"
@@ -382,8 +383,8 @@ World::Impl::Impl(
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
-                .width = sSkyboxIrradianceResolution,
-                .height = sSkyboxIrradianceResolution,
+                .width = SkyboxResources::sSkyboxIrradianceResolution,
+                .height = SkyboxResources::sSkyboxIrradianceResolution,
                 .layerCount = 6,
                 .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
@@ -404,8 +405,8 @@ World::Impl::Impl(
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16Unorm,
-                .width = sSpecularBrdfLutResolution,
-                .height = sSpecularBrdfLutResolution,
+                .width = SkyboxResources::sSpecularBrdfLutResolution,
+                .height = SkyboxResources::sSpecularBrdfLutResolution,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
             },
@@ -421,15 +422,15 @@ World::Impl::Impl(
     }
 
     const uint32_t radianceMips =
-        asserted_cast<uint32_t>(
-            floor(std::log2((static_cast<float>(sSkyboxRadianceResolution))))) +
+        asserted_cast<uint32_t>(floor(std::log2((
+            static_cast<float>(SkyboxResources::sSkyboxRadianceResolution))))) +
         1;
     _skyboxResources.radiance = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
-                .width = sSkyboxRadianceResolution,
-                .height = sSkyboxRadianceResolution,
+                .width = SkyboxResources::sSkyboxRadianceResolution,
+                .height = SkyboxResources::sSkyboxRadianceResolution,
                 .mipCount = radianceMips,
                 .layerCount = 6,
                 .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,

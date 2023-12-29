@@ -51,6 +51,11 @@ class TextureCubemap;
 
 // World.hpp
 class World;
+
+// WorldRenderStructs.hpp
 struct WorldDSLayouts;
+struct WorldByteOffsets;
+struct WorldDescriptorSets;
+struct SkyboxResources;
 
 #endif // PROSPER_SCENE_FWD_HPP

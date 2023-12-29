@@ -1,6 +1,7 @@
 #include "ImageBasedLighting.hpp"
 
 #include "../scene/World.hpp"
+#include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
 #include <glm/glm.hpp>
 
@@ -15,7 +16,8 @@ ComputePass::Shader sampleIrradianceShaderDefinitionCallback(Allocator &alloc)
     const size_t len = 32;
     String defines{alloc, len};
     appendDefineStr(
-        defines, "OUT_RESOLUTION", World::sSkyboxIrradianceResolution);
+        defines, "OUT_RESOLUTION",
+        SkyboxResources::sSkyboxIrradianceResolution);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -31,7 +33,7 @@ ComputePass::Shader integrateSpecularBrdfShaderDefinitionCallback(
     const size_t len = 32;
     String defines{alloc, len};
     appendDefineStr(
-        defines, "OUT_RESOLUTION", World::sSpecularBrdfLutResolution);
+        defines, "OUT_RESOLUTION", SkyboxResources::sSpecularBrdfLutResolution);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -51,7 +53,7 @@ ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
     const size_t len = 32;
     String defines{alloc, len};
     appendDefineStr(
-        defines, "OUT_RESOLUTION", World::sSkyboxRadianceResolution);
+        defines, "OUT_RESOLUTION", SkyboxResources::sSkyboxRadianceResolution);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -122,7 +124,7 @@ void ImageBasedLighting::recordGeneration(
         const auto _s = profiler->createCpuGpuScope(cb, "SampleIrradiance");
 
         const uvec3 extent =
-            uvec3{uvec2{World::sSkyboxIrradianceResolution}, 6u};
+            uvec3{uvec2{SkyboxResources::sSkyboxIrradianceResolution}, 6u};
 
         const vk::DescriptorSet storageSet =
             _sampleIrradiance.storageSet(nextFrame);
@@ -153,7 +155,7 @@ void ImageBasedLighting::recordGeneration(
             profiler->createCpuGpuScope(cb, "IntegrateSpecularBrdf");
 
         const uvec3 extent =
-            uvec3{uvec2{World::sSpecularBrdfLutResolution}, 1u};
+            uvec3{uvec2{SkyboxResources::sSpecularBrdfLutResolution}, 1u};
 
         const vk::DescriptorSet storageSet =
             _integrateSpecularBrdf.storageSet(nextFrame);
@@ -202,7 +204,7 @@ void ImageBasedLighting::recordGeneration(
         // Multiple tighter dispatches or a more complex group assignment in
         // shader?
         const uvec3 extent = uvec3{
-            uvec2{World::sSkyboxRadianceResolution},
+            uvec2{SkyboxResources::sSkyboxRadianceResolution},
             6 * skyboxResources.radiance.mipCount};
 
         _prefilterRadiance.record(

@@ -6,6 +6,7 @@
 #include "../scene/Light.hpp"
 #include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
+#include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"

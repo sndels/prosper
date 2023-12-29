@@ -13,6 +13,7 @@ set(PROSPER_SCENE_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Scene.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.hpp
     ${CMAKE_CURRENT_LIST_DIR}/World.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/WorldRenderStructs.hpp
     PARENT_SCOPE
 )
 
