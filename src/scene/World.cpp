@@ -4,7 +4,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include <condition_variable>
 #include <cstdlib>
 #include <imgui.h>
 #include <iostream>
@@ -13,12 +12,10 @@
 #include <thread>
 #include <tiny_gltf.h>
 #include <vulkan/vulkan_hash.hpp>
-#include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/utils.hpp>
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/pair.hpp>
-#include <wheels/containers/static_array.hpp>
 
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
@@ -31,6 +28,7 @@
 #include "../utils/Utils.hpp"
 #include "Animations.hpp"
 #include "Camera.hpp"
+#include "DeferredLoadingContext.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "Model.hpp"
@@ -163,176 +161,6 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
     }
     std::cerr << "Invalid gl wrapping mode " << glEnum << std::endl;
     return vk::SamplerAddressMode::eClampToEdge;
-}
-
-Buffer createTextureStaging(Device *device)
-{
-    // Assume at most 4k at 8bits per channel
-    const vk::DeviceSize stagingSize = static_cast<size_t>(4096) *
-                                       static_cast<size_t>(4096) *
-                                       sizeof(uint32_t);
-    return device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = stagingSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .createMapped = true,
-        .debugName = "Texture2DStaging",
-    });
-}
-
-struct DeferredLoadingContext
-{
-    DeferredLoadingContext(
-        Allocator &alloc, Device *device, const std::filesystem::path *sceneDir,
-        const tinygltf::Model &gltfModel);
-    ~DeferredLoadingContext();
-
-    DeferredLoadingContext(const DeferredLoadingContext &) = delete;
-    DeferredLoadingContext(DeferredLoadingContext &&) = delete;
-    DeferredLoadingContext &operator=(const DeferredLoadingContext &) = delete;
-    DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
-
-    Device *device{nullptr};
-    // If there's no worker, main thread handles loading
-    Optional<std::thread> worker;
-
-    // Worker context
-    tinygltf::Model gltfModel;
-    vk::CommandBuffer cb;
-    uint32_t workerLoadedImageCount{0};
-
-    // Shared context
-    std::mutex loadedTextureMutex;
-    std::condition_variable loadedTextureTaken;
-    Optional<Texture2D> loadedTexture;
-    std::atomic<bool> interruptLoading{false};
-    std::atomic<uint32_t> allocationHighWatermark{0};
-
-    // Main context
-    uint32_t materialsGeneration{0};
-    uint32_t framesSinceFinish{0};
-    uint32_t textureArrayBinding{0};
-    uint32_t loadedImageCount{0};
-    uint32_t loadedMaterialCount{0};
-    Array<Material> materials;
-    StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
-    Timer timer;
-};
-
-void loadingWorker(
-    const std::filesystem::path *sceneDir, DeferredLoadingContext *ctx)
-{
-    WHEELS_ASSERT(sceneDir != nullptr);
-    // TODO:
-    // Make clang-tidy treat WHEELS_ASSERT as assert so that it considers them
-    // valid null checks
-    WHEELS_ASSERT(
-        ctx != nullptr && ctx->device != nullptr &&
-        ctx->device->transferQueue().has_value() &&
-        ctx->device->graphicsQueue() != *ctx->device->transferQueue());
-
-    // Enough for 4K textures, it seems
-    LinearAllocator scratchBacking{megabytes(256)};
-    ScopedScratch scopeAlloc{scratchBacking};
-
-    while (!ctx->interruptLoading)
-    {
-        if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
-            break;
-
-        WHEELS_ASSERT(
-            ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
-        const tinygltf::Image &image =
-            ctx->gltfModel.images[ctx->workerLoadedImageCount];
-        if (image.uri.empty())
-            throw std::runtime_error("Embedded glTF textures aren't supported. "
-                                     "Scene should be glTF + "
-                                     "bin + textures.");
-
-        ctx->cb.reset();
-        ctx->cb.begin(vk::CommandBufferBeginInfo{
-            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-        });
-
-        Texture2D tex{
-            scopeAlloc.child_scope(),
-            ctx->device,
-            *sceneDir / image.uri,
-            ctx->cb,
-            ctx->stagingBuffers[0],
-            true,
-            true};
-
-        const QueueFamilies &families = ctx->device->queueFamilies();
-        WHEELS_ASSERT(families.graphicsFamily.has_value());
-        WHEELS_ASSERT(families.transferFamily.has_value());
-
-        if (*families.graphicsFamily != *families.transferFamily)
-        {
-            const vk::ImageMemoryBarrier2 releaseBarrier{
-                .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
-                .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-                .dstStageMask = vk::PipelineStageFlagBits2::eNone,
-                .dstAccessMask = vk::AccessFlagBits2::eNone,
-                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                .srcQueueFamilyIndex = *families.transferFamily,
-                .dstQueueFamilyIndex = *families.graphicsFamily,
-                .image = tex.nativeHandle(),
-                .subresourceRange =
-                    vk::ImageSubresourceRange{
-                        .aspectMask = vk::ImageAspectFlagBits::eColor,
-                        .baseMipLevel = 0,
-                        .levelCount = VK_REMAINING_MIP_LEVELS,
-                        .baseArrayLayer = 0,
-                        .layerCount = VK_REMAINING_ARRAY_LAYERS,
-                    },
-            };
-            ctx->cb.pipelineBarrier2(vk::DependencyInfo{
-                .imageMemoryBarrierCount = 1,
-                .pImageMemoryBarriers = &releaseBarrier,
-            });
-        }
-
-        ctx->cb.end();
-
-        const vk::Queue transferQueue = *ctx->device->transferQueue();
-        const vk::SubmitInfo submitInfo{
-            .commandBufferCount = 1,
-            .pCommandBuffers = &ctx->cb,
-        };
-        checkSuccess(
-            transferQueue.submit(1, &submitInfo, vk::Fence{}),
-            "submitTextureUpload");
-        // We could have multiple uploads in flight, but let's be simple for now
-        transferQueue.waitIdle();
-
-        ctx->workerLoadedImageCount++;
-
-        const uint32_t previousHighWatermark = ctx->allocationHighWatermark;
-        if (scratchBacking.allocated_byte_count_high_watermark() >
-            previousHighWatermark)
-        {
-            ctx->allocationHighWatermark = asserted_cast<uint32_t>(
-                scratchBacking.allocated_byte_count_high_watermark());
-        }
-
-        {
-            std::unique_lock lock{ctx->loadedTextureMutex};
-
-            if (ctx->loadedTexture.has_value())
-                ctx->loadedTextureTaken.wait(lock);
-            WHEELS_ASSERT(!ctx->loadedTexture.has_value());
-
-            ctx->loadedTexture.emplace(WHEELS_MOV(tex));
-
-            lock.unlock();
-        }
-    }
 }
 
 // Appends data used by accessor to rawData and returns the pointer to it
@@ -2896,57 +2724,6 @@ void World::Impl::updateDescriptorsWithNewTexture()
 
     if (materialsUpdated)
         ctx.materialsGeneration++;
-}
-
-DeferredLoadingContext::DeferredLoadingContext(
-    Allocator &alloc, Device *device, const std::filesystem::path *sceneDir,
-    const tinygltf::Model &gltfModel)
-: device{device}
-, gltfModel{gltfModel}
-, materials{alloc, gltfModel.materials.size()}
-{
-    WHEELS_ASSERT(sceneDir != nullptr);
-    WHEELS_ASSERT(device != nullptr);
-
-    // One of these is used by the worker implementation, all by the
-    // single threaded one
-    for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
-        stagingBuffers[i] = createTextureStaging(device);
-
-    const Optional<vk::CommandPool> transferPool = device->transferPool();
-    if (transferPool.has_value())
-    {
-        WHEELS_ASSERT(device->transferQueue().has_value());
-
-        cb = device->logical().allocateCommandBuffers(
-            vk::CommandBufferAllocateInfo{
-                .commandPool = *transferPool,
-                .level = vk::CommandBufferLevel::ePrimary,
-                .commandBufferCount = 1})[0];
-        worker = std::thread{&loadingWorker, sceneDir, this};
-    }
-}
-
-DeferredLoadingContext::~DeferredLoadingContext()
-{
-    if (device != nullptr)
-    {
-        if (worker.has_value())
-        {
-            {
-                const std::lock_guard _lock{loadedTextureMutex};
-                if (loadedTexture.has_value())
-                    const Texture2D _tex = loadedTexture.take();
-            }
-            loadedTextureTaken.notify_all();
-
-            interruptLoading = true;
-            worker->join();
-        }
-
-        for (const Buffer &buffer : stagingBuffers)
-            device->destroy(buffer);
-    }
 }
 
 World::World(

@@ -19,6 +19,9 @@ struct PerspectiveParameters;
 // DebugGeometry.hpp
 struct DebugLines;
 
+// DeferredLoadingContext.hpp
+struct DeferredLoadingContext;
+
 // Lights.hpp
 struct DirectionalLight;
 struct PointLight;
