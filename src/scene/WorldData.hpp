@@ -66,7 +66,9 @@ class WorldData
 
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
+    Buffer _geometryUploadBuffer;
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
+    wheels::Array<uint32_t> _geometryBufferRemainingByteCounts{_generalAlloc};
     Buffer _meshBuffersBuffer;
     wheels::Array<MeshBuffers> _meshBuffers{_generalAlloc};
 
@@ -114,6 +116,9 @@ class WorldData
         const wheels::Array<Texture2DSampler> &texture2DSamplers,
         bool deferredLoading);
     void loadModels(const tinygltf::Model &gltfModel);
+    MeshBuffers uploadMeshData(
+        const tinygltf::Model &gltfModel, const MeshBuffers &meshBuffers,
+        const MeshInfo &meshInfo);
 
     struct NodeAnimations
     {

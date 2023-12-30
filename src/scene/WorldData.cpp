@@ -23,6 +23,8 @@ constexpr uint32_t sSkyboxReflectionSet = 0;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
+constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
+
 constexpr int s_gl_nearest = 0x2600;
 constexpr int s_gl_linear = 0x2601;
 constexpr int s_gl_nearest_mipmap_nearest = 0x2700;
@@ -275,6 +277,18 @@ WorldData::WorldData(
             .maxLod = VK_LOD_CLAMP_NONE,
         });
 
+    _geometryUploadBuffer = _device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sGeometryBufferSize,
+                .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .createMapped = true,
+        .debugName = "GeometryUploadBuffer",
+    });
+
     printf("Loading world\n");
 
     Timer t;
@@ -363,6 +377,7 @@ WorldData::~WorldData()
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
     _device->destroy(_scratchBuffer);
+    _device->destroy(_geometryUploadBuffer);
 }
 
 void WorldData::uploadMaterialDatas(uint32_t nextFrame)
@@ -615,23 +630,6 @@ void WorldData::loadMaterials(
 
 void WorldData::loadModels(const tinygltf::Model &gltfModel)
 {
-    for (const auto &b : gltfModel.buffers)
-        _geometryBuffers.push_back(_device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = asserted_cast<uint32_t>(b.data.size()),
-                    .usage = vk::BufferUsageFlagBits::
-                                 eAccelerationStructureBuildInputReadOnlyKHR |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .initialData = b.data.data(),
-            .cacheDeviceAddress = true,
-            .debugName = "GeometryBuffer",
-        }));
-
     _models.reserve(gltfModel.meshes.size());
 
     size_t totalPrimitiveCount = 0;
@@ -710,6 +708,8 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     offset % sizeof(uint32_t) == 0 &&
                     "Shader binds buffers as uint");
 
+                // TODO:
+                // Convert u8 indices to u16 now that we build our own buffers
                 WHEELS_ASSERT(
                     accessor.componentType ==
                         TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT ||
@@ -732,19 +732,27 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
             WHEELS_ASSERT(primitive.material > -2);
             const uint32_t material = primitive.material + 1;
 
-            _meshBuffers.push_back(MeshBuffers{
-                .indices = indices,
-                .positions = positions,
-                .normals = normals,
-                .tangents = tangents,
-                .texCoord0s = texCoord0s,
-                .usesShortIndices = usesShortIndices,
-            });
-            _meshInfos.push_back(MeshInfo{
+            const MeshInfo mi = MeshInfo{
                 .vertexCount = positionsCount,
                 .indexCount = indexCount,
                 .materialID = material,
-            });
+            };
+
+            // Insert attributes into our own buffers
+            const MeshBuffers mbs = uploadMeshData(
+                gltfModel,
+                MeshBuffers{
+                    .indices = indices,
+                    .positions = positions,
+                    .normals = normals,
+                    .tangents = tangents,
+                    .texCoord0s = texCoord0s,
+                    .usesShortIndices = usesShortIndices,
+                },
+                mi);
+
+            _meshBuffers.push_back(mbs);
+            _meshInfos.push_back(mi);
 
             model.subModels.push_back(Model::SubModel{
                 .meshID = asserted_cast<uint32_t>(_meshBuffers.size() - 1),
@@ -767,6 +775,158 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
         .initialData = _meshBuffers.data(),
         .debugName = "MeshBuffersBuffer",
     });
+}
+
+MeshBuffers WorldData::uploadMeshData(
+    const tinygltf::Model &gltfModel, const MeshBuffers &meshBuffers,
+    const MeshInfo &meshInfo)
+{
+    const bool hasTangents = meshBuffers.tangents.index < 0xFFFFFFFF;
+    const bool hasTexCoord0s = meshBuffers.texCoord0s.index < 0xFFFFFFFF;
+
+    // Figure out the required storage
+    const uint32_t indicesByteCount =
+        meshBuffers.usesShortIndices ? meshInfo.indexCount * sizeof(uint16_t)
+                                     : meshInfo.indexCount * sizeof(uint32_t);
+    // Make sure we align for u32 even with u16 indices
+    const uint32_t indicesPaddingByteCount =
+        indicesByteCount % sizeof(uint32_t);
+    const uint32_t positionsByteCount = meshInfo.vertexCount * sizeof(vec3);
+    const uint32_t normalsByteCount = meshInfo.vertexCount * sizeof(vec3);
+    const uint32_t tangentsByteCount =
+        hasTangents ? meshInfo.vertexCount * sizeof(vec4) : 0;
+    const uint32_t texCoord0sByteCount =
+        hasTexCoord0s ? meshInfo.vertexCount * sizeof(vec2) : 0;
+    const uint32_t byteCount = indicesByteCount + indicesPaddingByteCount +
+                               positionsByteCount + normalsByteCount +
+                               tangentsByteCount + texCoord0sByteCount;
+    WHEELS_ASSERT(
+        byteCount < sGeometryBufferSize &&
+        "The default size for geometry buffers doesn't fit the mesh");
+
+    // Find a buffer that fits the data or create a new one
+    // Let's assume there's only a handful of these so we can just comb through
+    // all of them and potentially fill early buffers more completely than if we
+    // just checked the last one.
+    uint32_t dstBufferI = 0;
+    WHEELS_ASSERT(
+        _geometryBuffers.size() == _geometryBufferRemainingByteCounts.size());
+    const uint32_t bufferCount =
+        asserted_cast<uint32_t>(_geometryBufferRemainingByteCounts.size());
+    for (; dstBufferI < bufferCount; ++dstBufferI)
+    {
+        const uint32_t bc = _geometryBufferRemainingByteCounts[dstBufferI];
+        if (bc >= byteCount)
+            break;
+    }
+
+    if (dstBufferI >= _geometryBuffers.size())
+    {
+        _geometryBuffers.push_back(_device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = sGeometryBufferSize,
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureBuildInputReadOnlyKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .cacheDeviceAddress = true,
+            .debugName = "GeometryBuffer",
+        }));
+        _geometryBufferRemainingByteCounts.push_back(sGeometryBufferSize);
+    }
+
+    // Offsets into GPU buffer are for uint
+    const uint32_t elementSize = static_cast<uint32_t>(sizeof(uint32_t));
+
+    const uint32_t startByteOffset =
+        sGeometryBufferSize - _geometryBufferRemainingByteCounts[dstBufferI];
+    // TODO:
+    // All of these have the same index (except skipped attributes). Even if
+    // float and uint values go to separate buffers, all current vertex
+    // attributes will have the same index.
+    const MeshBuffers mb{
+        .indices =
+            {
+                .index = dstBufferI,
+                .offset = startByteOffset / elementSize,
+            },
+        .positions =
+            {
+                .index = dstBufferI,
+                .offset = (startByteOffset + indicesByteCount +
+                           indicesPaddingByteCount) /
+                          elementSize,
+            },
+        .normals =
+            {
+                .index = dstBufferI,
+                .offset = (startByteOffset + indicesByteCount +
+                           indicesPaddingByteCount + positionsByteCount) /
+                          elementSize,
+            },
+        .tangents =
+            {
+                .index = hasTangents ? dstBufferI : 0xFFFFFFFF,
+                .offset = (startByteOffset + indicesByteCount +
+                           positionsByteCount + normalsByteCount) /
+                          elementSize,
+            },
+        .texCoord0s =
+            {
+                .index = hasTexCoord0s ? dstBufferI : 0xFFFFFFFF,
+                .offset = (startByteOffset + indicesByteCount +
+                           indicesPaddingByteCount + positionsByteCount +
+                           normalsByteCount + tangentsByteCount) /
+                          elementSize,
+            },
+        .usesShortIndices = meshBuffers.usesShortIndices,
+    };
+
+    uint32_t *dstPtr =
+        reinterpret_cast<uint32_t *>(_geometryUploadBuffer.mapped);
+    const auto writeBytes = [&](const MeshBuffers::Buffer &srcBuffer,
+                                uint32_t byteCount, uint32_t dstU32Offset)
+    {
+        if (byteCount == 0)
+            return;
+
+        const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
+        memcpy(
+            dstPtr + dstU32Offset,
+            gltfBuffer.data.data() + (srcBuffer.offset * elementSize),
+            byteCount);
+    };
+
+    // Let's just write straight into the dst offsets as our upload buffer is as
+    // big as the destination buffer
+    writeBytes(meshBuffers.indices, indicesByteCount, mb.indices.offset);
+    writeBytes(meshBuffers.positions, positionsByteCount, mb.positions.offset);
+    writeBytes(meshBuffers.normals, normalsByteCount, mb.normals.offset);
+    writeBytes(meshBuffers.tangents, tangentsByteCount, mb.tangents.offset);
+    writeBytes(
+        meshBuffers.texCoord0s, texCoord0sByteCount, mb.texCoord0s.offset);
+
+    // TODO: Use the transfer queue once this moved to async
+    const auto cb = _device->beginGraphicsCommands();
+
+    const vk::BufferCopy copyRegion{
+        .srcOffset = startByteOffset,
+        .dstOffset = startByteOffset,
+        .size = byteCount,
+    };
+    const Buffer &dstBuffer = _geometryBuffers[dstBufferI];
+    cb.copyBuffer(
+        _geometryUploadBuffer.handle, dstBuffer.handle, 1, &copyRegion);
+
+    _device->endGraphicsCommands(cb);
+
+    _geometryBufferRemainingByteCounts[dstBufferI] -= byteCount;
+
+    return mb;
 }
 
 HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
