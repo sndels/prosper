@@ -37,8 +37,6 @@
     - unique_ptr? is the indirection expensive?
     - or store reflections per shader handle in device and query each time they are used?
       more expensive?
-- Refactor loading out of World.cpp
-  - Also clean up async loading in preparation to geometry loading
 - Async geometry loading
   - Separate thread that fills geometry buffers
   - Fixed size geometry buffer (64M?), allocate a new one if mesh doesn't fit in
@@ -69,3 +67,8 @@
   - Per-mesh frustum culling by BB 
   - Depth sorting by BB
   - Meshlet draw indices and indirect args on GPU
+- Split uint and float mesh buffers?
+  - Bitcast op shows up in spirv, suggesting a potential perf hit
+  - Could alias memory with two different bindings, but explicit separation sounds
+    nicer
+  - Should profile
