@@ -72,3 +72,6 @@
   - Could alias memory with two different bindings, but explicit separation sounds
     nicer
   - Should profile
+- Have one BLAS per model instead of one BLAS per submodel
+  - Reduces BLAS overlap in TLAS
+  - Requires different mesh index logic
