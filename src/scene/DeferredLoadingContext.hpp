@@ -25,8 +25,7 @@ struct DeferredLoadingContext
 {
     DeferredLoadingContext(
         wheels::Allocator &alloc, Device *device,
-        const std::filesystem::path *sceneDir,
-        const tinygltf::Model &gltfModel);
+        std::filesystem::path sceneDir, const tinygltf::Model &gltfModel);
     ~DeferredLoadingContext();
 
     DeferredLoadingContext(const DeferredLoadingContext &) = delete;
@@ -34,7 +33,10 @@ struct DeferredLoadingContext
     DeferredLoadingContext &operator=(const DeferredLoadingContext &) = delete;
     DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
 
+    void launch();
+
     Device *device{nullptr};
+    std::filesystem::path sceneDir;
     // If there's no worker, main thread handles loading
     wheels::Optional<std::thread> worker;
 

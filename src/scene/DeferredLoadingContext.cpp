@@ -10,10 +10,8 @@ using namespace wheels;
 namespace
 {
 
-void loadingWorker(
-    const std::filesystem::path *sceneDir, DeferredLoadingContext *ctx)
+void loadingWorker(DeferredLoadingContext *ctx)
 {
-    WHEELS_ASSERT(sceneDir != nullptr);
     // TODO:
     // Make clang-tidy treat WHEELS_ASSERT as assert so that it considers them
     // valid null checks
@@ -48,7 +46,7 @@ void loadingWorker(
         Texture2D tex{
             scopeAlloc.child_scope(),
             ctx->device,
-            *sceneDir / image.uri,
+            ctx->sceneDir / image.uri,
             ctx->cb,
             ctx->stagingBuffers[0],
             true,
@@ -144,32 +142,19 @@ Buffer createTextureStaging(Device *device)
 }
 
 DeferredLoadingContext::DeferredLoadingContext(
-    Allocator &alloc, Device *device, const std::filesystem::path *sceneDir,
+    Allocator &alloc, Device *device, std::filesystem::path sceneDir,
     const tinygltf::Model &gltfModel)
 : device{device}
+, sceneDir{WHEELS_MOV(sceneDir)}
 , gltfModel{gltfModel}
 , materials{alloc, gltfModel.materials.size()}
 {
-    WHEELS_ASSERT(sceneDir != nullptr);
     WHEELS_ASSERT(device != nullptr);
 
     // One of these is used by the worker implementation, all by the
     // single threaded one
     for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
         stagingBuffers[i] = createTextureStaging(device);
-
-    const Optional<vk::CommandPool> transferPool = device->transferPool();
-    if (transferPool.has_value())
-    {
-        WHEELS_ASSERT(device->transferQueue().has_value());
-
-        cb = device->logical().allocateCommandBuffers(
-            vk::CommandBufferAllocateInfo{
-                .commandPool = *transferPool,
-                .level = vk::CommandBufferLevel::ePrimary,
-                .commandBufferCount = 1})[0];
-        worker = std::thread{&loadingWorker, sceneDir, this};
-    }
 }
 
 DeferredLoadingContext::~DeferredLoadingContext()
@@ -191,5 +176,24 @@ DeferredLoadingContext::~DeferredLoadingContext()
 
         for (const Buffer &buffer : stagingBuffers)
             device->destroy(buffer);
+    }
+}
+
+void DeferredLoadingContext::launch()
+{
+    WHEELS_ASSERT(
+        !worker.has_value() && "Tried to launch deferred loading worker twice");
+
+    const Optional<vk::CommandPool> transferPool = device->transferPool();
+    if (transferPool.has_value())
+    {
+        WHEELS_ASSERT(device->transferQueue().has_value());
+
+        cb = device->logical().allocateCommandBuffers(
+            vk::CommandBufferAllocateInfo{
+                .commandPool = *transferPool,
+                .level = vk::CommandBufferLevel::ePrimary,
+                .commandBufferCount = 1})[0];
+        worker = std::thread{&loadingWorker, this};
     }
 }

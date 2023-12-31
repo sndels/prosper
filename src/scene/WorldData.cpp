@@ -300,7 +300,7 @@ WorldData::WorldData(
 
     if (deferredLoading)
         _deferredLoadingContext.emplace(
-            _generalAlloc, _device, &_sceneDir, gltfModel);
+            _generalAlloc, _device, _sceneDir, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -336,6 +336,9 @@ WorldData::WorldData(
 
     reflectBindings(scopeAlloc.child_scope());
     createDescriptorSets(scopeAlloc.child_scope(), ringBuffers);
+
+    if (_deferredLoadingContext.has_value())
+        _deferredLoadingContext->launch();
 }
 
 WorldData::~WorldData()
