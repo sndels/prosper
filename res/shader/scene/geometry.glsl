@@ -24,28 +24,33 @@ layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
     MeshBuffers data[];
 }
 meshBuffersBuffer;
-// Unbounded array requires GL_EXT_nonuniform_qualifier even if it is indexed
-// with a uniform index
+
 layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer GeometryBuffers
 {
     uint data[];
 }
 geometryBuffers[];
 
+#ifdef NON_UNIFORM_GEOMETRY_BUFFER_INDICES
+#define GET_GEOMETRY_BUFFER(index) geometryBuffers[nonuniformEXT(index)]
+#else // !NON_UNIFORM_GEOMETRY_BUFFER_INDICES
+#define GET_GEOMETRY_BUFFER(index) geometryBuffers[index]
+#endif // NON_UNIFORM_GEOMETRY_BUFFER_INDICES
+
 uint loadIndex(MeshBuffer b, uint index, uint usesShortIndices)
 {
     if (usesShortIndices == 1)
     {
-        uint i = geometryBuffers[b.index].data[b.offset + (index / 2)];
+        uint i = GET_GEOMETRY_BUFFER(b.index).data[b.offset + (index / 2)];
         return (i >> ((index & 1) * 16)) & 0xFFFF;
     }
     else
-        return geometryBuffers[b.index].data[b.offset + index];
+        return GET_GEOMETRY_BUFFER(b.index).data[b.offset + index];
 }
 
 float loadFloat(MeshBuffer b, uint index)
 {
-    return uintBitsToFloat(geometryBuffers[b.index].data[b.offset + index]);
+    return uintBitsToFloat(GET_GEOMETRY_BUFFER(b.index).data[b.offset + index]);
 }
 
 vec2 loadVec2(MeshBuffer b, uint index)

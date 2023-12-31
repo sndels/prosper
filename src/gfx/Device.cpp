@@ -45,6 +45,8 @@ using namespace wheels;
         vk::PhysicalDeviceVulkan12Features,                                    \
         shaderSampledImageArrayNonUniformIndexing,                             \
         vk::PhysicalDeviceVulkan12Features,                                    \
+        shaderStorageBufferArrayNonUniformIndexing,                            \
+        vk::PhysicalDeviceVulkan12Features,                                    \
         descriptorBindingUpdateUnusedWhilePending,                             \
         vk::PhysicalDeviceVulkan12Features,                                    \
         descriptorBindingVariableDescriptorCount,                              \

@@ -406,6 +406,7 @@ bool RtDiTrace::compileShaders(
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
     appendDefineStr(raygenDefines, "NON_UNIFORM_MATERIAL_INDICES");
+    appendDefineStr(raygenDefines, "NON_UNIFORM_GEOMETRY_BUFFER_INDICES");
     appendDefineStr(raygenDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(raygenDefines, "RAY_TRACING_SET", RTBindingSet);
     appendDefineStr(raygenDefines, "STORAGE_SET", StorageBindingSet);
