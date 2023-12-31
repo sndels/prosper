@@ -116,8 +116,23 @@ class WorldData
         const wheels::Array<Texture2DSampler> &texture2DSamplers,
         bool deferredLoading);
     void loadModels(const tinygltf::Model &gltfModel);
+
+    struct InputBuffer
+    {
+        uint32_t index{0xFFFFFFFF};
+        uint32_t byteOffset{0};
+    };
+    struct InputMeshBuffers
+    {
+        InputBuffer indices;
+        InputBuffer positions;
+        InputBuffer normals;
+        InputBuffer tangents;
+        InputBuffer texCoord0s;
+        bool usesShortIndices{false};
+    };
     MeshBuffers uploadMeshData(
-        const tinygltf::Model &gltfModel, const MeshBuffers &meshBuffers,
+        const tinygltf::Model &gltfModel, const InputMeshBuffers &meshBuffers,
         const MeshInfo &meshInfo);
 
     struct NodeAnimations

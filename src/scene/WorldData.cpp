@@ -645,10 +645,9 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
         model.subModels.reserve(mesh.primitives.size());
         for (const auto &primitive : mesh.primitives)
         {
-            auto assertedGetAttr =
-                [&](const std::string &name,
-                    bool shouldHave =
-                        false) -> Pair<MeshBuffers::Buffer, uint32_t>
+            auto assertedGetAttr = [&](const std::string &name,
+                                       bool shouldHave =
+                                           false) -> Pair<InputBuffer, uint32_t>
             {
                 const auto &attribute = primitive.attributes.find(name);
                 if (attribute == primitive.attributes.end())
@@ -656,7 +655,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     if (shouldHave)
                         throw std::runtime_error(
                             "Primitive attribute '" + name + "' missing");
-                    return make_pair(MeshBuffers::Buffer{}, 0u);
+                    return make_pair(InputBuffer{}, 0u);
                 }
 
                 const auto &accessor = gltfModel.accessors[attribute->second];
@@ -668,10 +667,9 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     "Shader binds buffers as uint");
 
                 return make_pair(
-                    MeshBuffers::Buffer{
+                    InputBuffer{
                         .index = asserted_cast<uint32_t>(view.buffer),
-                        .offset =
-                            offset / static_cast<uint32_t>(sizeof(uint32_t)),
+                        .byteOffset = offset,
                     },
                     asserted_cast<uint32_t>(accessor.count));
             };
@@ -717,15 +715,13 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                         TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
 
                 return std::make_tuple(
-                    MeshBuffers::Buffer{
+                    InputBuffer{
                         .index = asserted_cast<uint32_t>(view.buffer),
-                        .offset =
-                            offset / static_cast<uint32_t>(sizeof(uint32_t)),
+                        .byteOffset = offset,
                     },
                     asserted_cast<uint32_t>(accessor.count),
-                    static_cast<uint32_t>(
-                        accessor.componentType ==
-                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT));
+                    accessor.componentType ==
+                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
             }();
 
             // -1 is mapped to the default material
@@ -741,7 +737,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
             // Insert attributes into our own buffers
             const MeshBuffers mbs = uploadMeshData(
                 gltfModel,
-                MeshBuffers{
+                InputMeshBuffers{
                     .indices = indices,
                     .positions = positions,
                     .normals = normals,
@@ -778,7 +774,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
 }
 
 MeshBuffers WorldData::uploadMeshData(
-    const tinygltf::Model &gltfModel, const MeshBuffers &meshBuffers,
+    const tinygltf::Model &gltfModel, const InputMeshBuffers &meshBuffers,
     const MeshInfo &meshInfo)
 {
     const bool hasTangents = meshBuffers.tangents.index < 0xFFFFFFFF;
@@ -844,51 +840,33 @@ MeshBuffers WorldData::uploadMeshData(
 
     const uint32_t startByteOffset =
         sGeometryBufferSize - _geometryBufferRemainingByteCounts[dstBufferI];
-    // TODO:
-    // All of these have the same index (except skipped attributes). Even if
-    // float and uint values go to separate buffers, all current vertex
-    // attributes will have the same index.
     const MeshBuffers mb{
-        .indices =
-            {
-                .index = dstBufferI,
-                .offset = startByteOffset / elementSize,
-            },
-        .positions =
-            {
-                .index = dstBufferI,
-                .offset = (startByteOffset + indicesByteCount +
-                           indicesPaddingByteCount) /
-                          elementSize,
-            },
-        .normals =
-            {
-                .index = dstBufferI,
-                .offset = (startByteOffset + indicesByteCount +
-                           indicesPaddingByteCount + positionsByteCount) /
-                          elementSize,
-            },
-        .tangents =
-            {
-                .index = hasTangents ? dstBufferI : 0xFFFFFFFF,
-                .offset = (startByteOffset + indicesByteCount +
-                           positionsByteCount + normalsByteCount) /
-                          elementSize,
-            },
-        .texCoord0s =
-            {
-                .index = hasTexCoord0s ? dstBufferI : 0xFFFFFFFF,
-                .offset = (startByteOffset + indicesByteCount +
-                           indicesPaddingByteCount + positionsByteCount +
-                           normalsByteCount + tangentsByteCount) /
-                          elementSize,
-            },
-        .usesShortIndices = meshBuffers.usesShortIndices,
+        .bufferIndex = dstBufferI,
+        .indicesOffset = startByteOffset / elementSize,
+        .positionsOffset =
+            (startByteOffset + indicesByteCount + indicesPaddingByteCount) /
+            elementSize,
+        .normalsOffset = (startByteOffset + indicesByteCount +
+                          indicesPaddingByteCount + positionsByteCount) /
+                         elementSize,
+        .tangentsOffset = hasTangents
+                              ? (startByteOffset + indicesByteCount +
+                                 positionsByteCount + normalsByteCount) /
+                                    elementSize
+                              : 0xFFFFFFFF,
+        .texCoord0sOffset =
+            hasTexCoord0s ? (startByteOffset + indicesByteCount +
+                             indicesPaddingByteCount + positionsByteCount +
+                             normalsByteCount + tangentsByteCount) /
+                                elementSize
+                          : 0xFFFFFFFF,
+
+        .usesShortIndices = static_cast<uint32_t>(meshBuffers.usesShortIndices),
     };
 
     uint32_t *dstPtr =
         reinterpret_cast<uint32_t *>(_geometryUploadBuffer.mapped);
-    const auto writeBytes = [&](const MeshBuffers::Buffer &srcBuffer,
+    const auto writeBytes = [&](const InputBuffer &srcBuffer,
                                 uint32_t byteCount, uint32_t dstU32Offset)
     {
         if (byteCount == 0)
@@ -897,18 +875,17 @@ MeshBuffers WorldData::uploadMeshData(
         const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
         memcpy(
             dstPtr + dstU32Offset,
-            gltfBuffer.data.data() + (srcBuffer.offset * elementSize),
-            byteCount);
+            gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
     };
 
     // Let's just write straight into the dst offsets as our upload buffer is as
     // big as the destination buffer
-    writeBytes(meshBuffers.indices, indicesByteCount, mb.indices.offset);
-    writeBytes(meshBuffers.positions, positionsByteCount, mb.positions.offset);
-    writeBytes(meshBuffers.normals, normalsByteCount, mb.normals.offset);
-    writeBytes(meshBuffers.tangents, tangentsByteCount, mb.tangents.offset);
+    writeBytes(meshBuffers.indices, indicesByteCount, mb.indicesOffset);
+    writeBytes(meshBuffers.positions, positionsByteCount, mb.positionsOffset);
+    writeBytes(meshBuffers.normals, normalsByteCount, mb.normalsOffset);
+    writeBytes(meshBuffers.tangents, tangentsByteCount, mb.tangentsOffset);
     writeBytes(
-        meshBuffers.texCoord0s, texCoord0sByteCount, mb.texCoord0s.offset);
+        meshBuffers.texCoord0s, texCoord0sByteCount, mb.texCoord0sOffset);
 
     // TODO: Use the transfer queue once this moved to async
     const auto cb = _device->beginGraphicsCommands();
@@ -1508,27 +1485,23 @@ void WorldData::createBlases()
         auto &blas = _blases[i];
         // Basics from RT Gems II chapter 16
 
-        const Buffer &positionsBuffer =
-            _geometryBuffers[buffers.positions.index];
-        WHEELS_ASSERT(positionsBuffer.deviceAddress != 0);
-        const vk::DeviceAddress positionsAddr = positionsBuffer.deviceAddress;
-        const auto positionsOffset =
-            buffers.positions.offset * sizeof(uint32_t);
+        const Buffer &dataBuffer = _geometryBuffers[buffers.bufferIndex];
+        WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
 
-        const Buffer &indicesBuffer = _geometryBuffers[buffers.indices.index];
-        WHEELS_ASSERT(indicesBuffer.deviceAddress != 0);
-        const vk::DeviceAddress indicesAddr = indicesBuffer.deviceAddress;
-        const auto indicesOffset = buffers.indices.offset * sizeof(uint32_t);
+        const vk::DeviceSize positionsOffset =
+            buffers.positionsOffset * sizeof(uint32_t);
+        const vk::DeviceSize indicesOffset =
+            buffers.indicesOffset * sizeof(uint32_t);
 
         const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
             .vertexFormat = vk::Format::eR32G32B32Sfloat,
-            .vertexData = positionsAddr + positionsOffset,
+            .vertexData = dataBuffer.deviceAddress + positionsOffset,
             .vertexStride = 3 * sizeof(float),
             .maxVertex = info.vertexCount,
             .indexType = buffers.usesShortIndices == 1u
                              ? vk::IndexType::eUint16
                              : vk::IndexType::eUint32,
-            .indexData = indicesAddr + indicesOffset,
+            .indexData = dataBuffer.deviceAddress + indicesOffset,
         };
 
         const auto &material = _materials[info.materialID];

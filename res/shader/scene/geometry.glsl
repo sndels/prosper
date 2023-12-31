@@ -11,11 +11,14 @@ struct MeshBuffer
 
 struct MeshBuffers
 {
-    MeshBuffer indices;
-    MeshBuffer positions;
-    MeshBuffer normals;
-    MeshBuffer tangents;
-    MeshBuffer texCoord0s;
+    uint bufferIndex;
+    // All of these offsets are into the data interpreted as a u32 'array'
+    // offset of 0xFFFFFFFF signals an unused attribute
+    uint indicesOffset;
+    uint positionsOffset;
+    uint normalsOffset;
+    uint tangentsOffset;
+    uint texCoord0sOffset;
     uint usesShortIndices;
 };
 layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
@@ -37,44 +40,52 @@ geometryBuffers[];
 #define GET_GEOMETRY_BUFFER(index) geometryBuffers[index]
 #endif // NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 
-uint loadIndex(MeshBuffer b, uint index, uint usesShortIndices)
+uint loadIndex(
+    uint bufferIndex, uint bufferOffset, uint index, uint usesShortIndices)
 {
     if (usesShortIndices == 1)
     {
-        uint i = GET_GEOMETRY_BUFFER(b.index).data[b.offset + (index / 2)];
+        uint i =
+            GET_GEOMETRY_BUFFER(bufferIndex).data[bufferOffset + (index / 2)];
         return (i >> ((index & 1) * 16)) & 0xFFFF;
     }
     else
-        return GET_GEOMETRY_BUFFER(b.index).data[b.offset + index];
+        return GET_GEOMETRY_BUFFER(bufferIndex).data[bufferOffset + index];
 }
 
-float loadFloat(MeshBuffer b, uint index)
+float loadFloat(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return uintBitsToFloat(GET_GEOMETRY_BUFFER(b.index).data[b.offset + index]);
+    return uintBitsToFloat(
+        GET_GEOMETRY_BUFFER(bufferIndex).data[bufferOffset + index]);
 }
 
-vec2 loadVec2(MeshBuffer b, uint index)
+vec2 loadVec2(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return b.index < 0xFFFFFFF
-               ? vec2(loadFloat(b, 2 * index), loadFloat(b, 2 * index + 1))
+    return bufferOffset < 0xFFFFFFFF
+               ? vec2(
+                     loadFloat(bufferIndex, bufferOffset, 2 * index),
+                     loadFloat(bufferIndex, bufferOffset, 2 * index + 1))
                : vec2(0);
 }
 
-vec3 loadVec3(MeshBuffer b, uint index)
+vec3 loadVec3(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return b.index < 0xFFFFFFF
+    return bufferOffset < 0xFFFFFFFF
                ? vec3(
-                     loadFloat(b, 3 * index), loadFloat(b, 3 * index + 1),
-                     loadFloat(b, 3 * index + 2))
+                     loadFloat(bufferIndex, bufferOffset, 3 * index),
+                     loadFloat(bufferIndex, bufferOffset, 3 * index + 1),
+                     loadFloat(bufferIndex, bufferOffset, 3 * index + 2))
                : vec3(0);
 }
 
-vec4 loadVec4(MeshBuffer b, uint index)
+vec4 loadVec4(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return b.index < 0xFFFFFFF
+    return bufferOffset < 0xFFFFFFFF
                ? vec4(
-                     loadFloat(b, 4 * index), loadFloat(b, 4 * index + 1),
-                     loadFloat(b, 4 * index + 2), loadFloat(b, 4 * index + 3))
+                     loadFloat(bufferIndex, bufferOffset, 4 * index),
+                     loadFloat(bufferIndex, bufferOffset, 4 * index + 1),
+                     loadFloat(bufferIndex, bufferOffset, 4 * index + 2),
+                     loadFloat(bufferIndex, bufferOffset, 4 * index + 3))
                : vec4(0);
 }
 
@@ -82,15 +93,20 @@ Vertex loadVertex(uint meshID, uint index)
 {
     MeshBuffers buffers = meshBuffersBuffer.data[meshID];
 
-    uint vertexIndex =
-        loadIndex(buffers.indices, index, buffers.usesShortIndices);
+    uint vertexIndex = loadIndex(
+        buffers.bufferIndex, buffers.indicesOffset, index,
+        buffers.usesShortIndices);
 
     Vertex ret;
 
-    ret.Position = loadVec3(buffers.positions, vertexIndex);
-    ret.Normal = loadVec3(buffers.normals, vertexIndex);
-    ret.Tangent = loadVec4(buffers.tangents, vertexIndex);
-    ret.TexCoord0 = loadVec2(buffers.texCoord0s, vertexIndex);
+    ret.Position =
+        loadVec3(buffers.bufferIndex, buffers.positionsOffset, vertexIndex);
+    ret.Normal =
+        loadVec3(buffers.bufferIndex, buffers.normalsOffset, vertexIndex);
+    ret.Tangent =
+        loadVec4(buffers.bufferIndex, buffers.tangentsOffset, vertexIndex);
+    ret.TexCoord0 =
+        loadVec2(buffers.bufferIndex, buffers.texCoord0sOffset, vertexIndex);
 
     return ret;
 }
@@ -99,10 +115,11 @@ vec2 loadUV(uint meshID, uint index)
 {
     MeshBuffers buffers = meshBuffersBuffer.data[meshID];
 
-    uint vertexIndex =
-        loadIndex(buffers.indices, index, buffers.usesShortIndices);
+    uint vertexIndex = loadIndex(
+        buffers.bufferIndex, buffers.indicesOffset, index,
+        buffers.usesShortIndices);
 
-    return loadVec2(buffers.texCoord0s, vertexIndex);
+    return loadVec2(buffers.bufferIndex, buffers.texCoord0sOffset, vertexIndex);
 }
 
 vec2 baryInterpolate(vec2 v0, vec2 v1, vec2 v2, float a, float b, float c)
