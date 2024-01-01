@@ -77,7 +77,7 @@ class World::Impl
     void drawSkybox(vk::CommandBuffer cb) const;
 
   private:
-    void reserveScratch(vk::DeviceSize byteSize);
+    const Buffer &reserveScratch(vk::DeviceSize byteSize);
     void reserveTlasInstances(uint32_t instanceCount);
     [[nodiscard]] AccelerationStructure createTlas(
         const Scene &scene, vk::AccelerationStructureBuildSizesInfoKHR sizeInfo,
@@ -102,7 +102,12 @@ class World::Impl
 
     WorldByteOffsets _byteOffsets;
 
-    Buffer _scratchBuffer;
+    struct ScratchBuffer
+    {
+        uint32_t framesSinceLastUsed{0};
+        Buffer buffer;
+    };
+    Array<ScratchBuffer> _scratchBuffers{_generalAlloc};
     Buffer _tlasInstancesBuffer;
     std::unique_ptr<RingBuffer> _tlasInstancesUploadRing;
     uint32_t _tlasInstancesUploadOffset{0};
@@ -136,7 +141,8 @@ World::Impl::Impl(
 
 World::Impl::~Impl()
 {
-    _device->destroy(_scratchBuffer);
+    for (auto &sb : _scratchBuffers)
+        _device->destroy(sb.buffer);
     _device->destroy(_tlasInstancesBuffer);
 }
 
@@ -157,6 +163,23 @@ void World::Impl::startFrame()
     _data._modelInstanceTransformsRing->startFrame();
     _lightDataRing->startFrame();
     _tlasInstancesUploadRing->startFrame();
+
+    for (size_t i = 0; i < _scratchBuffers.size();)
+    {
+        ScratchBuffer &sb = _scratchBuffers[i];
+        // TODO:
+        // Should this free logic be done for all the tracked render resources?
+        if (++sb.framesSinceLastUsed > MAX_FRAMES_IN_FLIGHT)
+        {
+            // No in-flight frames are using the buffer so it can be safely
+            // destroyed
+            _device->destroy(sb.buffer);
+            // The reference held by sb is invalid after this
+            _scratchBuffers.erase(i);
+        }
+        else
+            ++i;
+    }
 }
 
 void World::Impl::endFrame()
@@ -413,10 +436,10 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 
     buildInfo.dstAccelerationStructure = tlas.handle;
 
-    reserveScratch(sizeInfo.buildScratchSize);
+    const Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
+    WHEELS_ASSERT(scratchBuffer.deviceAddress != 0);
 
-    WHEELS_ASSERT(_scratchBuffer.deviceAddress != 0);
-    buildInfo.scratchData = _scratchBuffer.deviceAddress;
+    buildInfo.scratchData = scratchBuffer.deviceAddress;
 
     const vk::BufferCopy copyRegion{
         .srcOffset = _tlasInstancesUploadOffset,
@@ -503,14 +526,21 @@ void World::Impl::drawSkybox(vk::CommandBuffer cb) const
     cb.draw(asserted_cast<uint32_t>(WorldData::sSkyboxVertsCount), 1, 0, 0);
 }
 
-void World::Impl::reserveScratch(vk::DeviceSize byteSize)
+const Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
 {
-    if (_scratchBuffer.byteSize < byteSize)
+    // See if we have a big enough buffer available
+    for (ScratchBuffer &sb : _scratchBuffers)
     {
-        // TODO: This destroy isn't safe until all frames in flight have
-        // finished
-        _device->destroy(_scratchBuffer);
-        _scratchBuffer = _device->createBuffer(BufferCreateInfo{
+        if (sb.framesSinceLastUsed > 0 && sb.buffer.byteSize >= byteSize)
+        {
+            sb.framesSinceLastUsed = 0;
+            return sb.buffer;
+        }
+    }
+
+    // Didn't find a viable buffer so allocate a new one
+    _scratchBuffers.push_back(ScratchBuffer{
+        .buffer = _device->createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = byteSize,
@@ -520,8 +550,10 @@ void World::Impl::reserveScratch(vk::DeviceSize byteSize)
                 },
             .cacheDeviceAddress = true,
             .debugName = "ScratchBuffer",
-        });
-    }
+        }),
+    });
+
+    return _scratchBuffers.back().buffer;
 }
 
 void World::Impl::reserveTlasInstances(uint32_t instanceCount)
