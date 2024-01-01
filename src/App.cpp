@@ -1191,10 +1191,11 @@ void App::render(
     const vk::Rect2D &renderArea, const RenderIndices &indices,
     const UiChanges &uiChanges)
 {
+    bool blasesAdded = false;
     if (_referenceRt || _rtDirectIllumination)
     {
         auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
-        _world->buildCurrentTlas(cb);
+        blasesAdded = _world->buildAccelerationStructures(cb);
     }
 
     const LightClusteringOutput lightClusters = _lightClustering->record(
@@ -1214,7 +1215,7 @@ void App::render(
                     RtReference::Options{
                         .depthOfField = _renderDoF,
                         .ibl = _applyIbl,
-                        .colorDirty = uiChanges.rtDirty,
+                        .colorDirty = uiChanges.rtDirty || blasesAdded,
                     },
                     indices.nextFrame, _profiler.get())
                 .illumination;
@@ -1234,12 +1235,13 @@ void App::render(
                 indices.nextFrame, _profiler.get());
 
             if (_deferredRt)
-                illumination = _rtDirectIllumination
-                                   ->record(
-                                       scopeAlloc.child_scope(), cb, *_world,
-                                       *_cam, gbuffer, uiChanges.rtDirty,
-                                       indices.nextFrame, _profiler.get())
-                                   .illumination;
+                illumination =
+                    _rtDirectIllumination
+                        ->record(
+                            scopeAlloc.child_scope(), cb, *_world, *_cam,
+                            gbuffer, uiChanges.rtDirty || blasesAdded,
+                            indices.nextFrame, _profiler.get())
+                        .illumination;
             else
             {
                 _rtDirectIllumination->releasePreserved();

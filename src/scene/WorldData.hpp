@@ -58,7 +58,6 @@ class WorldData
     wheels::LinearAllocator _linearAlloc;
     Device *_device{nullptr};
     DescriptorAllocator _descriptorAllocator;
-    Buffer _scratchBuffer;
 
     Timer _materialStreamingTimer;
 
@@ -69,10 +68,8 @@ class WorldData
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
     Buffer _geometryUploadBuffer;
-    wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
     wheels::Array<uint32_t> _geometryBufferRemainingByteCounts{_generalAlloc};
     Buffer _meshBuffersBuffer;
-    wheels::Array<MeshBuffers> _meshBuffers{_generalAlloc};
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
@@ -93,6 +90,8 @@ class WorldData
     // True if any instance of the camera is dynamic
     wheels::Array<bool> _cameraDynamic{_generalAlloc};
     wheels::Array<Material> _materials{_generalAlloc};
+    wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
+    wheels::Array<MeshBuffers> _meshBuffers{_generalAlloc};
     wheels::Array<MeshInfo> _meshInfos{_generalAlloc};
     wheels::Array<AccelerationStructure> _blases{_generalAlloc};
     wheels::Array<AccelerationStructure> _tlases{_generalAlloc};

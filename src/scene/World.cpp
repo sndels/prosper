@@ -73,12 +73,15 @@ class World::Impl
         ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
         Profiler *profiler);
     void updateBuffers(ScopedScratch scopeAlloc);
-    // Has to be called after updateBuffers()
-    void buildCurrentTlas(vk::CommandBuffer cb);
+    // Has to be called after updateBuffers(). Returns true if new BLASes were
+    // added.
+    bool buildAccelerationStructures(vk::CommandBuffer cb);
     void drawSkybox(vk::CommandBuffer cb) const;
 
   private:
-    const Buffer &reserveScratch(vk::DeviceSize byteSize);
+    Buffer &reserveScratch(vk::DeviceSize byteSize);
+    void buildNextBlas(vk::CommandBuffer cb);
+    void buildCurrentTlas(vk::CommandBuffer cb);
     void reserveTlasInstances(uint32_t instanceCount);
     [[nodiscard]] AccelerationStructure createTlas(
         const Scene &scene, vk::AccelerationStructureBuildSizesInfoKHR sizeInfo,
@@ -96,6 +99,8 @@ class World::Impl
     Device *_device{nullptr};
     std::unique_ptr<RingBuffer> _lightDataRing;
     wheels::Optional<size_t> _nextScene;
+    uint32_t _framesSinceFinalBlasBuilds{0};
+    Timer _blasBuildTimer;
 
   public:
     WorldData _data;
@@ -136,6 +141,20 @@ World::Impl::Impl(
     WHEELS_ASSERT(_device != nullptr);
     WHEELS_ASSERT(_constantsRing != nullptr);
 
+    if (!deferredLoading)
+    {
+        WHEELS_ASSERT(_data._meshBuffers.size() == _data._meshInfos.size());
+        for (const MeshInfo &info : _data._meshInfos)
+        {
+            (void)info;
+
+            const auto cb = _device->beginGraphicsCommands();
+            buildNextBlas(cb);
+            _device->endGraphicsCommands(cb);
+        }
+        printf("BLAS creation took %.2fs\n", _blasBuildTimer.getSeconds());
+    }
+
     // This creates the instance ring and startFrame() assumes it exists
     reserveTlasInstances(1);
 }
@@ -168,8 +187,8 @@ void World::Impl::startFrame()
     for (size_t i = 0; i < _scratchBuffers.size();)
     {
         ScratchBuffer &sb = _scratchBuffers[i];
-        // TODO:
-        // Should this free logic be done for all the tracked render resources?
+        // TODO:l
+        // Should this free logic be done for al the tracked render resources?
         if (++sb.framesSinceLastUsed > MAX_FRAMES_IN_FLIGHT)
         {
             // No in-flight frames are using the buffer so it can be safely
@@ -423,46 +442,39 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
     _byteOffsets.spotLights = scene.lights.spotLights.write(*_lightDataRing);
 }
 
-void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
+bool World::Impl::buildAccelerationStructures(vk::CommandBuffer cb)
 {
-    const Scene &scene = _data._scenes[_data._currentScene];
-    AccelerationStructure &tlas = _data._tlases[_data._currentScene];
+    if (_framesSinceFinalBlasBuilds > MAX_FRAMES_IN_FLIGHT)
+    {
+        // Be conservative and log this after we know the work is done. Let's
+        // not worry about getting a tight time since this will only be off by
+        // frametime at most.
+        printf(
+            "Streamed BLAS builds took %.2fs\n", _blasBuildTimer.getSeconds());
+        _framesSinceFinalBlasBuilds = 0;
+    }
+    else if (_framesSinceFinalBlasBuilds > 0)
+        _framesSinceFinalBlasBuilds++;
 
-    vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
-    vk::AccelerationStructureGeometryKHR geometry;
-    vk::AccelerationStructureBuildGeometryInfoKHR buildInfo;
-    vk::AccelerationStructureBuildSizesInfoKHR sizeInfo;
-    createTlasBuildInfos(scene, rangeInfo, geometry, buildInfo, sizeInfo);
+    bool blasAdded = false;
+    WHEELS_ASSERT(_data._meshBuffers.size() == _data._meshInfos.size());
+    if (_data._meshBuffers.size() > _data._blases.size())
+    {
+        const size_t maxBlasBuildsPerFrame = 10;
+        const size_t unbuiltBlasCount =
+            _data._meshBuffers.size() - _data._blases.size();
+        const size_t blasBuildCount =
+            std::min(unbuiltBlasCount, maxBlasBuildsPerFrame);
+        for (size_t i = 0; i < blasBuildCount; ++i)
+            buildNextBlas(cb);
+        if (blasBuildCount == unbuiltBlasCount)
+            _framesSinceFinalBlasBuilds = 1;
+        blasAdded = true;
+    }
 
-    // Let's not complicate things by duplicating the tlas build info and
-    // instance update logic during load time. Should be fast enough to just do
-    // this on the first frame that uses a given TLAS.
-    if (!tlas.handle)
-        tlas = createTlas(scene, sizeInfo, buildInfo);
+    buildCurrentTlas(cb);
 
-    buildInfo.dstAccelerationStructure = tlas.handle;
-
-    const Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
-    WHEELS_ASSERT(scratchBuffer.deviceAddress != 0);
-
-    buildInfo.scratchData = scratchBuffer.deviceAddress;
-
-    const vk::BufferCopy copyRegion{
-        .srcOffset = _tlasInstancesUploadOffset,
-        .dstOffset = 0,
-        .size = _tlasInstancesBuffer.byteSize,
-    };
-    cb.copyBuffer(
-        _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
-        &copyRegion);
-
-    tlas.buffer.transition(cb, BufferState::AccelerationStructureBuild);
-
-    const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo = &rangeInfo;
-    cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
-
-    // First use needs to 'transition' the backing buffer into
-    // RayTracingAccelerationStructureRead
+    return blasAdded;
 }
 
 AccelerationStructure World::Impl::createTlas(
@@ -535,12 +547,170 @@ void World::Impl::drawSkybox(vk::CommandBuffer cb) const
     cb.draw(asserted_cast<uint32_t>(WorldData::sSkyboxVertsCount), 1, 0, 0);
 }
 
-const Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
+void World::Impl::buildNextBlas(vk::CommandBuffer cb)
+{
+    WHEELS_ASSERT(_data._meshBuffers.size() > _data._blases.size());
+
+    const size_t targetMesh = _data._blases.size();
+    if (targetMesh == 0)
+        _blasBuildTimer.reset();
+    _data._blases.push_back(AccelerationStructure{});
+    auto &blas = _data._blases.back();
+
+    const auto &buffers = _data._meshBuffers[targetMesh];
+    const auto &info = _data._meshInfos[targetMesh];
+
+    // Basics from RT Gems II chapter 16
+
+    const Buffer &dataBuffer = _data._geometryBuffers[buffers.bufferIndex];
+    WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
+
+    const vk::DeviceSize positionsOffset =
+        buffers.positionsOffset * sizeof(uint32_t);
+    const vk::DeviceSize indicesOffset =
+        buffers.indicesOffset * sizeof(uint32_t);
+
+    const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
+        .vertexFormat = vk::Format::eR32G32B32Sfloat,
+        .vertexData = dataBuffer.deviceAddress + positionsOffset,
+        .vertexStride = 3 * sizeof(float),
+        .maxVertex = info.vertexCount,
+        .indexType = buffers.usesShortIndices == 1u ? vk::IndexType::eUint16
+                                                    : vk::IndexType::eUint32,
+        .indexData = dataBuffer.deviceAddress + indicesOffset,
+    };
+
+    const auto &material = _data._materials[info.materialID];
+    const vk::GeometryFlagsKHR geomFlags =
+        material.alphaMode == Material::AlphaMode::Opaque
+            ? vk::GeometryFlagBitsKHR::eOpaque
+            : vk::GeometryFlagsKHR{};
+    const vk::AccelerationStructureGeometryKHR geometry{
+        .geometryType = vk::GeometryTypeKHR::eTriangles,
+        .geometry = triangles,
+        .flags = geomFlags,
+    };
+    const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
+        .primitiveCount = info.indexCount / 3,
+        .primitiveOffset = 0,
+        .firstVertex = 0,
+        .transformOffset = 0,
+    };
+    // dst and scratch will be set once allocated
+    vk::AccelerationStructureBuildGeometryInfoKHR buildInfo{
+        .type = vk::AccelerationStructureTypeKHR::eBottomLevel,
+        .flags = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
+        .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
+        .geometryCount = 1,
+        .pGeometries = &geometry,
+    };
+
+    // TODO: This stuff is ~the same for TLAS and BLAS
+    const auto sizeInfo =
+        _device->logical().getAccelerationStructureBuildSizesKHR(
+            vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
+            {rangeInfo.primitiveCount});
+
+    blas.buffer = _device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sizeInfo.accelerationStructureSize,
+                .usage =
+                    vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
+                    vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                    vk::BufferUsageFlagBits::eStorageBuffer,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
+        .debugName = "BLASBuffer",
+    });
+
+    const vk::AccelerationStructureCreateInfoKHR createInfo{
+        .buffer = blas.buffer.handle,
+        .size = sizeInfo.accelerationStructureSize,
+        .type = buildInfo.type,
+    };
+    blas.handle = _device->logical().createAccelerationStructureKHR(createInfo);
+
+    buildInfo.dstAccelerationStructure = blas.handle;
+
+    Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
+    WHEELS_ASSERT(scratchBuffer.deviceAddress != 0);
+
+    buildInfo.scratchData = scratchBuffer.deviceAddress;
+
+    // Make sure we can use the scratch
+    scratchBuffer.transition(cb, BufferState::AccelerationStructureBuild);
+
+    const auto *pRangeInfo = &rangeInfo;
+    // TODO: Build multiple blas at a time
+    cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
+
+    // Make sure the following TLAS build waits until the BLAS is ready
+    // TODO: Batch these barriers right before the tlas build
+    blas.buffer.transition(cb, BufferState::AccelerationStructureBuild);
+}
+
+void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
+{
+    const Scene &scene = _data._scenes[_data._currentScene];
+    AccelerationStructure &tlas = _data._tlases[_data._currentScene];
+
+    vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
+    vk::AccelerationStructureGeometryKHR geometry;
+    vk::AccelerationStructureBuildGeometryInfoKHR buildInfo;
+    vk::AccelerationStructureBuildSizesInfoKHR sizeInfo;
+    createTlasBuildInfos(scene, rangeInfo, geometry, buildInfo, sizeInfo);
+
+    // Let's not complicate things by duplicating the tlas build info and
+    // instance update logic during load time. Should be fast enough to just do
+    // this on the first frame that uses a given TLAS.
+    if (!tlas.handle)
+        tlas = createTlas(scene, sizeInfo, buildInfo);
+    WHEELS_ASSERT(tlas.buffer.byteSize >= sizeInfo.accelerationStructureSize);
+
+    buildInfo.dstAccelerationStructure = tlas.handle;
+
+    Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
+    WHEELS_ASSERT(scratchBuffer.deviceAddress != 0);
+
+    buildInfo.scratchData = scratchBuffer.deviceAddress;
+
+    const vk::BufferCopy copyRegion{
+        .srcOffset = _tlasInstancesUploadOffset,
+        .dstOffset = 0,
+        .size = _tlasInstancesBuffer.byteSize,
+    };
+    cb.copyBuffer(
+        _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
+        &copyRegion);
+
+    const StaticArray barriers{{
+        *scratchBuffer.transitionBarrier(
+            BufferState::AccelerationStructureBuild, true),
+        *tlas.buffer.transitionBarrier(
+            BufferState::AccelerationStructureBuild, true),
+    }};
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .bufferMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+        .pBufferMemoryBarriers = barriers.data(),
+    });
+
+    const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo = &rangeInfo;
+    cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
+
+    // First use needs to 'transition' the backing buffer into
+    // RayTracingAccelerationStructureRead
+}
+
+Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
 {
     // See if we have a big enough buffer available
     for (ScratchBuffer &sb : _scratchBuffers)
     {
-        if (sb.framesSinceLastUsed > 0 && sb.buffer.byteSize >= byteSize)
+        // Don't check for use within this frame as we assume barriers will be
+        // used on the scratch buffer before use
+        if (sb.buffer.byteSize >= byteSize)
         {
             sb.framesSinceLastUsed = 0;
             return sb.buffer;
@@ -625,18 +795,24 @@ void World::Impl::updateTlasInstances(
 
         for (const auto &sm : model.subModels)
         {
-            const auto &blas = _data._blases[sm.meshID];
-            WHEELS_ASSERT(blas.handle != vk::AccelerationStructureKHR{});
+            // Zero as accelerationStructureReference marks an inactive instance
+            // according to the vk spec
+            uint64_t asReference = 0;
+            if (_data._blases.size() > sm.meshID)
+            {
+                const auto &blas = _data._blases[sm.meshID];
+                asReference =
+                    _device->logical().getAccelerationStructureAddressKHR(
+                        vk::AccelerationStructureDeviceAddressInfoKHR{
+                            .accelerationStructure = blas.handle,
+                        });
+            }
 
             instances.push_back(vk::AccelerationStructureInstanceKHR{
                 .transform = *trfn_cast,
                 .instanceCustomIndex = rti++,
                 .mask = 0xFF,
-                .accelerationStructureReference =
-                    _device->logical().getAccelerationStructureAddressKHR(
-                        vk::AccelerationStructureDeviceAddressInfoKHR{
-                            .accelerationStructure = blas.handle,
-                        }),
+                .accelerationStructureReference = asReference,
             });
         }
     }
@@ -755,9 +931,9 @@ void World::updateBuffers(ScopedScratch scopeAlloc)
     _impl->updateBuffers(WHEELS_MOV(scopeAlloc));
 }
 
-void World::buildCurrentTlas(vk::CommandBuffer cb)
+bool World::buildAccelerationStructures(vk::CommandBuffer cb)
 {
-    _impl->buildCurrentTlas(cb);
+    return _impl->buildAccelerationStructures(cb);
 }
 
 void World::drawSkybox(vk::CommandBuffer cb) const { _impl->drawSkybox(cb); }

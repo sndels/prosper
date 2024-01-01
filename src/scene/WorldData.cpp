@@ -329,10 +329,9 @@ WorldData::WorldData(
                    _generalAlloc, scopeAlloc.child_scope(), gltfModel);
            loadScenes(scopeAlloc.child_scope(), gltfModel, nodeAnimations);
        });
-
-    tl("BLAS creation", [&]() { createBlases(); });
-    _tlases.resize(_scenes.size());
     tl("Buffer creation", [&]() { createBuffers(); });
+
+    _tlases.resize(_scenes.size());
 
     reflectBindings(scopeAlloc.child_scope());
     createDescriptorSets(scopeAlloc.child_scope(), ringBuffers);
@@ -379,7 +378,6 @@ WorldData::~WorldData()
     _device->destroy(_meshBuffersBuffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
-    _device->destroy(_scratchBuffer);
     _device->destroy(_geometryUploadBuffer);
 }
 
@@ -448,17 +446,28 @@ void WorldData::handleDeferredLoading(
 
 void WorldData::drawDeferredLoadingUi() const
 {
-    if (_deferredLoadingContext.has_value())
+    if (_deferredLoadingContext.has_value() ||
+        _blases.size() < _meshInfos.size())
     {
         ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_Appearing);
         ImGui::Begin(
             "DeferredLoadingProgress", nullptr,
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                 ImGuiWindowFlags_AlwaysAutoResize);
-        ImGui::Text(
-            "Images loaded: %u/%u", _deferredLoadingContext->loadedImageCount,
-            asserted_cast<uint32_t>(
-                _deferredLoadingContext->gltfModel.images.size()));
+        if (_deferredLoadingContext.has_value())
+        {
+            ImGui::Text(
+                "Images loaded: %u/%u",
+                _deferredLoadingContext->loadedImageCount,
+                asserted_cast<uint32_t>(
+                    _deferredLoadingContext->gltfModel.images.size()));
+        }
+        if (_blases.size() < _meshInfos.size())
+        {
+            ImGui::Text(
+                "BLASes built: %u/%u", asserted_cast<uint32_t>(_blases.size()),
+                asserted_cast<uint32_t>(_meshInfos.size()));
+        }
         ImGui::End();
     }
 }
@@ -1474,120 +1483,6 @@ void WorldData::gatherScene(
                                    !scene.lights.spotLights.data.empty()))
     {
         scene.lights.directionalLight.parameters.irradiance = vec4{0.f};
-    }
-}
-
-void WorldData::createBlases()
-{
-    WHEELS_ASSERT(_meshBuffers.size() == _meshInfos.size());
-    _blases.resize(_meshBuffers.size());
-    for (size_t i = 0; i < _blases.size(); ++i)
-    {
-        const auto &buffers = _meshBuffers[i];
-        const auto &info = _meshInfos[i];
-        auto &blas = _blases[i];
-        // Basics from RT Gems II chapter 16
-
-        const Buffer &dataBuffer = _geometryBuffers[buffers.bufferIndex];
-        WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
-
-        const vk::DeviceSize positionsOffset =
-            buffers.positionsOffset * sizeof(uint32_t);
-        const vk::DeviceSize indicesOffset =
-            buffers.indicesOffset * sizeof(uint32_t);
-
-        const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
-            .vertexFormat = vk::Format::eR32G32B32Sfloat,
-            .vertexData = dataBuffer.deviceAddress + positionsOffset,
-            .vertexStride = 3 * sizeof(float),
-            .maxVertex = info.vertexCount,
-            .indexType = buffers.usesShortIndices == 1u
-                             ? vk::IndexType::eUint16
-                             : vk::IndexType::eUint32,
-            .indexData = dataBuffer.deviceAddress + indicesOffset,
-        };
-
-        const auto &material = _materials[info.materialID];
-        const vk::GeometryFlagsKHR geomFlags =
-            material.alphaMode == Material::AlphaMode::Opaque
-                ? vk::GeometryFlagBitsKHR::eOpaque
-                : vk::GeometryFlagsKHR{};
-        const vk::AccelerationStructureGeometryKHR geometry{
-            .geometryType = vk::GeometryTypeKHR::eTriangles,
-            .geometry = triangles,
-            .flags = geomFlags,
-        };
-        const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
-            .primitiveCount = info.indexCount / 3,
-            .primitiveOffset = 0,
-            .firstVertex = 0,
-            .transformOffset = 0,
-        };
-        // dst and scratch will be set once allocated
-        vk::AccelerationStructureBuildGeometryInfoKHR buildInfo{
-            .type = vk::AccelerationStructureTypeKHR::eBottomLevel,
-            .flags =
-                vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
-            .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
-            .geometryCount = 1,
-            .pGeometries = &geometry,
-        };
-
-        // TODO: This stuff is ~the same for TLAS and BLAS
-        const auto sizeInfo =
-            _device->logical().getAccelerationStructureBuildSizesKHR(
-                vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
-                {rangeInfo.primitiveCount});
-
-        blas.buffer = _device->createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = sizeInfo.accelerationStructureSize,
-                    .usage = vk::BufferUsageFlagBits::
-                                 eAccelerationStructureStorageKHR |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .debugName = "BLASBuffer",
-        });
-
-        const vk::AccelerationStructureCreateInfoKHR createInfo{
-            .buffer = blas.buffer.handle,
-            .size = sizeInfo.accelerationStructureSize,
-            .type = buildInfo.type,
-        };
-        blas.handle =
-            _device->logical().createAccelerationStructureKHR(createInfo);
-
-        buildInfo.dstAccelerationStructure = blas.handle;
-
-        if (_scratchBuffer.byteSize < sizeInfo.buildScratchSize)
-        {
-            _device->destroy(_scratchBuffer);
-            _scratchBuffer = _device->createBuffer(BufferCreateInfo{
-                .desc =
-                    BufferDescription{
-                        .byteSize = sizeInfo.buildScratchSize,
-                        .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                                 vk::BufferUsageFlagBits::eStorageBuffer,
-                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                    },
-                .cacheDeviceAddress = true,
-                .debugName = "BlasScratchBuffer",
-            });
-        }
-
-        WHEELS_ASSERT(_scratchBuffer.deviceAddress != 0);
-        buildInfo.scratchData = _scratchBuffer.deviceAddress;
-
-        const auto cb = _device->beginGraphicsCommands();
-
-        const auto *pRangeInfo = &rangeInfo;
-        // TODO: Build multiple blas at a time/with the same cb
-        cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
-
-        _device->endGraphicsCommands(cb);
     }
 }
 

@@ -53,8 +53,9 @@ class World
         wheels::ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
         Profiler *profiler);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
-    // Has to be called after updateBuffers()
-    void buildCurrentTlas(vk::CommandBuffer cb);
+    // Has to be called after updateBuffers(). Returns true if new BLASes were
+    // added.
+    bool buildAccelerationStructures(vk::CommandBuffer cb);
     void drawSkybox(vk::CommandBuffer cb) const;
 
     [[nodiscard]] const WorldDSLayouts &dsLayouts() const;
