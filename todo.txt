@@ -75,3 +75,17 @@
 - Have one BLAS per model instead of one BLAS per submodel
   - Reduces BLAS overlap in TLAS
   - Requires different mesh index logic
+- Free managed resources that aren't used
+  - Have a counter for each resource like for scratch buffers?
+  - Make sure the frees don't cause things being reallocated repeatedly
+    - Frees/reallocates should only happen when render passes are toggled
+- Shader cache
+  - Index by hash?
+    - Will clutter the cache with useless blobs
+    - Need to manually clean up when the cache gets too bloated
+  - Index by main source path, compare hash?
+    - Multiple versions of the same shader required?
+    - Could get too messy and brittle
+- Pipeline cache
+  - https://zeux.io/2019/07/17/serializing-pipeline-cache/
+
