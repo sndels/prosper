@@ -41,6 +41,8 @@ class World
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
 
+    [[nodiscard]] AccelerationStructure &currentTLAS();
+
     [[nodiscard]] CameraParameters const &currentCamera() const;
     [[nodiscard]] bool isCurrentCameraDynamic() const;
 

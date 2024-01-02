@@ -66,6 +66,7 @@ class World::Impl
 
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
+    [[nodiscard]] AccelerationStructure &currentTLAS();
     void updateAnimations(float timeS, Profiler *profiler);
     // Has to be called after updateAnimations()
     void updateScene(
@@ -250,6 +251,11 @@ Scene &World::Impl::currentScene()
 const Scene &World::Impl::currentScene() const
 {
     return _data._scenes[_data._currentScene];
+}
+
+AccelerationStructure &World::Impl::currentTLAS()
+{
+    return _data._tlases[_data._currentScene];
 }
 
 void World::Impl::updateAnimations(float timeS, Profiler *profiler)
@@ -709,6 +715,8 @@ bool World::drawCameraUi() { return _impl->drawCameraUi(); }
 Scene &World::currentScene() { return _impl->currentScene(); }
 
 const Scene &World::currentScene() const { return _impl->currentScene(); }
+
+AccelerationStructure &World::currentTLAS() { return _impl->currentTLAS(); }
 
 CameraParameters const &World::currentCamera() const
 {
