@@ -375,7 +375,7 @@ WorldData::~WorldData()
         _device->destroy(scene.rtInstancesBuffer);
     for (auto &buffer : _geometryBuffers)
         _device->destroy(buffer);
-    _device->destroy(_meshBuffersBuffer);
+    _device->destroy(_geometryMetadatasBuffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
     _device->destroy(_geometryUploadBuffer);
@@ -649,7 +649,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
     size_t totalPrimitiveCount = 0;
     for (const auto &mesh : gltfModel.meshes)
         totalPrimitiveCount += mesh.primitives.size();
-    _meshBuffers.reserve(totalPrimitiveCount);
+    _geometryMetadatas.reserve(totalPrimitiveCount);
     _meshInfos.reserve(totalPrimitiveCount);
 
     for (const auto &mesh : gltfModel.meshes)
@@ -749,9 +749,9 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
             };
 
             // Insert attributes into our own buffers
-            const MeshBuffers mbs = uploadMeshData(
+            const GeometryMetadata metadata = uploadGeometryData(
                 gltfModel,
-                InputMeshBuffers{
+                InputGeometryMetadata{
                     .indices = indices,
                     .positions = positions,
                     .normals = normals,
@@ -761,20 +761,21 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                 },
                 mi);
 
-            _meshBuffers.push_back(mbs);
+            _geometryMetadatas.push_back(metadata);
             _meshInfos.push_back(mi);
 
             model.subModels.push_back(Model::SubModel{
-                .meshID = asserted_cast<uint32_t>(_meshBuffers.size() - 1),
+                .meshID =
+                    asserted_cast<uint32_t>(_geometryMetadatas.size() - 1),
                 .materialID = material,
             });
         }
     }
-    _meshBuffersBuffer = _device->createBuffer(BufferCreateInfo{
+    _geometryMetadatasBuffer = _device->createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = asserted_cast<uint32_t>(
-                    _meshBuffers.size() * sizeof(MeshBuffers)),
+                    _geometryMetadatas.size() * sizeof(GeometryMetadata)),
                 .usage = vk::BufferUsageFlagBits::
                              eAccelerationStructureBuildInputReadOnlyKHR |
                          vk::BufferUsageFlagBits::eShaderDeviceAddress |
@@ -782,22 +783,22 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                          vk::BufferUsageFlagBits::eTransferDst,
                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
             },
-        .initialData = _meshBuffers.data(),
-        .debugName = "MeshBuffersBuffer",
+        .initialData = _geometryMetadatas.data(),
+        .debugName = "GeometryMetadatas",
     });
 }
 
-MeshBuffers WorldData::uploadMeshData(
-    const tinygltf::Model &gltfModel, const InputMeshBuffers &meshBuffers,
+GeometryMetadata WorldData::uploadGeometryData(
+    const tinygltf::Model &gltfModel, const InputGeometryMetadata &metadata,
     const MeshInfo &meshInfo)
 {
-    const bool hasTangents = meshBuffers.tangents.index < 0xFFFFFFFF;
-    const bool hasTexCoord0s = meshBuffers.texCoord0s.index < 0xFFFFFFFF;
+    const bool hasTangents = metadata.tangents.index < 0xFFFFFFFF;
+    const bool hasTexCoord0s = metadata.texCoord0s.index < 0xFFFFFFFF;
 
     // Figure out the required storage
     const uint32_t indicesByteCount =
-        meshBuffers.usesShortIndices ? meshInfo.indexCount * sizeof(uint16_t)
-                                     : meshInfo.indexCount * sizeof(uint32_t);
+        metadata.usesShortIndices ? meshInfo.indexCount * sizeof(uint16_t)
+                                  : meshInfo.indexCount * sizeof(uint32_t);
     // Make sure we align for u32 even with u16 indices
     const uint32_t indicesPaddingByteCount =
         indicesByteCount % sizeof(uint32_t);
@@ -854,7 +855,7 @@ MeshBuffers WorldData::uploadMeshData(
 
     const uint32_t startByteOffset =
         sGeometryBufferSize - _geometryBufferRemainingByteCounts[dstBufferI];
-    const MeshBuffers mb{
+    const GeometryMetadata ret{
         .bufferIndex = dstBufferI,
         .indicesOffset = startByteOffset / elementSize,
         .positionsOffset =
@@ -875,7 +876,7 @@ MeshBuffers WorldData::uploadMeshData(
                                 elementSize
                           : 0xFFFFFFFF,
 
-        .usesShortIndices = static_cast<uint32_t>(meshBuffers.usesShortIndices),
+        .usesShortIndices = static_cast<uint32_t>(metadata.usesShortIndices),
     };
 
     uint32_t *dstPtr =
@@ -894,12 +895,11 @@ MeshBuffers WorldData::uploadMeshData(
 
     // Let's just write straight into the dst offsets as our upload buffer is as
     // big as the destination buffer
-    writeBytes(meshBuffers.indices, indicesByteCount, mb.indicesOffset);
-    writeBytes(meshBuffers.positions, positionsByteCount, mb.positionsOffset);
-    writeBytes(meshBuffers.normals, normalsByteCount, mb.normalsOffset);
-    writeBytes(meshBuffers.tangents, tangentsByteCount, mb.tangentsOffset);
-    writeBytes(
-        meshBuffers.texCoord0s, texCoord0sByteCount, mb.texCoord0sOffset);
+    writeBytes(metadata.indices, indicesByteCount, ret.indicesOffset);
+    writeBytes(metadata.positions, positionsByteCount, ret.positionsOffset);
+    writeBytes(metadata.normals, normalsByteCount, ret.normalsOffset);
+    writeBytes(metadata.tangents, tangentsByteCount, ret.tangentsOffset);
+    writeBytes(metadata.texCoord0s, texCoord0sByteCount, ret.texCoord0sOffset);
 
     // TODO: Use the transfer queue once this moved to async
     const auto cb = _device->beginGraphicsCommands();
@@ -917,7 +917,7 @@ MeshBuffers WorldData::uploadMeshData(
 
     _geometryBufferRemainingByteCounts[dstBufferI] -= byteCount;
 
-    return mb;
+    return ret;
 }
 
 HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
@@ -1745,7 +1745,7 @@ void WorldData::createDescriptorSets(
             scopeAlloc, 1 + _geometryBuffers.size()};
 
         bufferInfos.push_back(vk::DescriptorBufferInfo{
-            .buffer = _meshBuffersBuffer.handle,
+            .buffer = _geometryMetadatasBuffer.handle,
             .range = VK_WHOLE_SIZE,
         });
 

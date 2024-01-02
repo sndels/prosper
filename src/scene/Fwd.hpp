@@ -34,7 +34,7 @@ struct Material;
 struct Texture2DSampler;
 
 // Mesh.hpp
-struct MeshBuffers;
+struct GeometryMetadata;
 struct MeshInfo;
 
 // Model.hpp

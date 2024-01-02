@@ -70,7 +70,7 @@ class WorldData
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
     Buffer _geometryUploadBuffer;
     wheels::Array<uint32_t> _geometryBufferRemainingByteCounts{_generalAlloc};
-    Buffer _meshBuffersBuffer;
+    Buffer _geometryMetadatasBuffer;
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
@@ -92,7 +92,7 @@ class WorldData
     wheels::Array<bool> _cameraDynamic{_generalAlloc};
     wheels::Array<Material> _materials{_generalAlloc};
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
-    wheels::Array<MeshBuffers> _meshBuffers{_generalAlloc};
+    wheels::Array<GeometryMetadata> _geometryMetadatas{_generalAlloc};
     wheels::Array<MeshInfo> _meshInfos{_generalAlloc};
     wheels::Array<AccelerationStructure> _blases{_generalAlloc};
     wheels::Array<AccelerationStructure> _tlases{_generalAlloc};
@@ -124,7 +124,7 @@ class WorldData
         uint32_t index{0xFFFFFFFF};
         uint32_t byteOffset{0};
     };
-    struct InputMeshBuffers
+    struct InputGeometryMetadata
     {
         InputBuffer indices;
         InputBuffer positions;
@@ -133,8 +133,8 @@ class WorldData
         InputBuffer texCoord0s;
         bool usesShortIndices{false};
     };
-    MeshBuffers uploadMeshData(
-        const tinygltf::Model &gltfModel, const InputMeshBuffers &meshBuffers,
+    GeometryMetadata uploadGeometryData(
+        const tinygltf::Model &gltfModel, const InputGeometryMetadata &metadata,
         const MeshInfo &meshInfo);
 
     struct NodeAnimations

@@ -3,7 +3,7 @@
 
 #include "../gfx/Resources.hpp"
 
-struct MeshBuffers
+struct GeometryMetadata
 {
     uint32_t bufferIndex{0xFFFFFFFF};
     // All of these offsets are into the data interpreted as a u32 'array'
@@ -16,7 +16,7 @@ struct MeshBuffers
     uint32_t usesShortIndices{0};
 };
 // These are uploaded onto the gpu and tight packing is assumed
-static_assert(alignof(MeshBuffers) == sizeof(uint32_t));
+static_assert(alignof(GeometryMetadata) == sizeof(uint32_t));
 
 struct MeshInfo
 {

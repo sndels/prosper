@@ -143,7 +143,8 @@ World::Impl::Impl(
 
     if (!deferredLoading)
     {
-        WHEELS_ASSERT(_data._meshBuffers.size() == _data._meshInfos.size());
+        WHEELS_ASSERT(
+            _data._geometryMetadatas.size() == _data._meshInfos.size());
         for (const MeshInfo &info : _data._meshInfos)
         {
             (void)info;
@@ -457,12 +458,12 @@ bool World::Impl::buildAccelerationStructures(vk::CommandBuffer cb)
         _framesSinceFinalBlasBuilds++;
 
     bool blasAdded = false;
-    WHEELS_ASSERT(_data._meshBuffers.size() == _data._meshInfos.size());
-    if (_data._meshBuffers.size() > _data._blases.size())
+    WHEELS_ASSERT(_data._geometryMetadatas.size() == _data._meshInfos.size());
+    if (_data._geometryMetadatas.size() > _data._blases.size())
     {
         const size_t maxBlasBuildsPerFrame = 10;
         const size_t unbuiltBlasCount =
-            _data._meshBuffers.size() - _data._blases.size();
+            _data._geometryMetadatas.size() - _data._blases.size();
         const size_t blasBuildCount =
             std::min(unbuiltBlasCount, maxBlasBuildsPerFrame);
         for (size_t i = 0; i < blasBuildCount; ++i)
@@ -549,7 +550,7 @@ void World::Impl::drawSkybox(vk::CommandBuffer cb) const
 
 void World::Impl::buildNextBlas(vk::CommandBuffer cb)
 {
-    WHEELS_ASSERT(_data._meshBuffers.size() > _data._blases.size());
+    WHEELS_ASSERT(_data._geometryMetadatas.size() > _data._blases.size());
 
     const size_t targetMesh = _data._blases.size();
     if (targetMesh == 0)
@@ -557,26 +558,26 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
     _data._blases.push_back(AccelerationStructure{});
     auto &blas = _data._blases.back();
 
-    const auto &buffers = _data._meshBuffers[targetMesh];
-    const auto &info = _data._meshInfos[targetMesh];
+    const GeometryMetadata &metadata = _data._geometryMetadatas[targetMesh];
+    const MeshInfo &info = _data._meshInfos[targetMesh];
 
     // Basics from RT Gems II chapter 16
 
-    const Buffer &dataBuffer = _data._geometryBuffers[buffers.bufferIndex];
+    const Buffer &dataBuffer = _data._geometryBuffers[metadata.bufferIndex];
     WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
 
     const vk::DeviceSize positionsOffset =
-        buffers.positionsOffset * sizeof(uint32_t);
+        metadata.positionsOffset * sizeof(uint32_t);
     const vk::DeviceSize indicesOffset =
-        buffers.indicesOffset * sizeof(uint32_t);
+        metadata.indicesOffset * sizeof(uint32_t);
 
     const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
         .vertexFormat = vk::Format::eR32G32B32Sfloat,
         .vertexData = dataBuffer.deviceAddress + positionsOffset,
         .vertexStride = 3 * sizeof(float),
         .maxVertex = info.vertexCount,
-        .indexType = buffers.usesShortIndices == 1u ? vk::IndexType::eUint16
-                                                    : vk::IndexType::eUint32,
+        .indexType = metadata.usesShortIndices == 1u ? vk::IndexType::eUint16
+                                                     : vk::IndexType::eUint32,
         .indexData = dataBuffer.deviceAddress + indicesOffset,
     };
 

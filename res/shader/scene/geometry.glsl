@@ -9,7 +9,7 @@ struct MeshBuffer
     uint offset;
 };
 
-struct MeshBuffers
+struct GeometryMetadata
 {
     uint bufferIndex;
     // All of these offsets are into the data interpreted as a u32 'array'
@@ -22,11 +22,11 @@ struct MeshBuffers
     uint usesShortIndices;
 };
 layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
-    MeshBuffersBuffer
+    GeometryMetadatas
 {
-    MeshBuffers data[];
+    GeometryMetadata data[];
 }
-meshBuffersBuffer;
+geometryMetadatas;
 
 layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer GeometryBuffers
 {
@@ -91,35 +91,36 @@ vec4 loadVec4(uint bufferIndex, uint bufferOffset, uint index)
 
 Vertex loadVertex(uint meshID, uint index)
 {
-    MeshBuffers buffers = meshBuffersBuffer.data[meshID];
+    GeometryMetadata metadata = geometryMetadatas.data[meshID];
 
     uint vertexIndex = loadIndex(
-        buffers.bufferIndex, buffers.indicesOffset, index,
-        buffers.usesShortIndices);
+        metadata.bufferIndex, metadata.indicesOffset, index,
+        metadata.usesShortIndices);
 
     Vertex ret;
 
     ret.Position =
-        loadVec3(buffers.bufferIndex, buffers.positionsOffset, vertexIndex);
+        loadVec3(metadata.bufferIndex, metadata.positionsOffset, vertexIndex);
     ret.Normal =
-        loadVec3(buffers.bufferIndex, buffers.normalsOffset, vertexIndex);
+        loadVec3(metadata.bufferIndex, metadata.normalsOffset, vertexIndex);
     ret.Tangent =
-        loadVec4(buffers.bufferIndex, buffers.tangentsOffset, vertexIndex);
+        loadVec4(metadata.bufferIndex, metadata.tangentsOffset, vertexIndex);
     ret.TexCoord0 =
-        loadVec2(buffers.bufferIndex, buffers.texCoord0sOffset, vertexIndex);
+        loadVec2(metadata.bufferIndex, metadata.texCoord0sOffset, vertexIndex);
 
     return ret;
 }
 
 vec2 loadUV(uint meshID, uint index)
 {
-    MeshBuffers buffers = meshBuffersBuffer.data[meshID];
+    GeometryMetadata metadata = geometryMetadatas.data[meshID];
 
     uint vertexIndex = loadIndex(
-        buffers.bufferIndex, buffers.indicesOffset, index,
-        buffers.usesShortIndices);
+        metadata.bufferIndex, metadata.indicesOffset, index,
+        metadata.usesShortIndices);
 
-    return loadVec2(buffers.bufferIndex, buffers.texCoord0sOffset, vertexIndex);
+    return loadVec2(
+        metadata.bufferIndex, metadata.texCoord0sOffset, vertexIndex);
 }
 
 vec2 baryInterpolate(vec2 v0, vec2 v1, vec2 v2, float a, float b, float c)
