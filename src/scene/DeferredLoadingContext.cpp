@@ -10,6 +10,92 @@ using namespace wheels;
 namespace
 {
 
+void loadNextTexture(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
+{
+    WHEELS_ASSERT(ctx != nullptr);
+
+    if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
+    {
+        printf("Texture loading took %.2fs\n", ctx->timer.getSeconds());
+        ctx->interruptLoading = true;
+        return;
+    }
+
+    WHEELS_ASSERT(ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
+    const tinygltf::Image &image =
+        ctx->gltfModel.images[ctx->workerLoadedImageCount];
+    if (image.uri.empty())
+        throw std::runtime_error("Embedded glTF textures aren't supported. "
+                                 "Scene should be glTF + "
+                                 "bin + textures.");
+
+    ctx->cb.reset();
+    ctx->cb.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+
+    Texture2D tex{
+        scopeAlloc.child_scope(),
+        ctx->device,
+        ctx->sceneDir / image.uri,
+        ctx->cb,
+        ctx->stagingBuffers[0],
+        true,
+        true};
+
+    const QueueFamilies &families = ctx->device->queueFamilies();
+    WHEELS_ASSERT(families.graphicsFamily.has_value());
+    WHEELS_ASSERT(families.transferFamily.has_value());
+
+    if (*families.graphicsFamily != *families.transferFamily)
+    {
+        const vk::ImageMemoryBarrier2 releaseBarrier{
+            .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eNone,
+            .dstAccessMask = vk::AccessFlagBits2::eNone,
+            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+            .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .srcQueueFamilyIndex = *families.transferFamily,
+            .dstQueueFamilyIndex = *families.graphicsFamily,
+            .image = tex.nativeHandle(),
+            .subresourceRange =
+                vk::ImageSubresourceRange{
+                    .aspectMask = vk::ImageAspectFlagBits::eColor,
+                    .baseMipLevel = 0,
+                    .levelCount = VK_REMAINING_MIP_LEVELS,
+                    .baseArrayLayer = 0,
+                    .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                },
+        };
+        ctx->cb.pipelineBarrier2(vk::DependencyInfo{
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &releaseBarrier,
+        });
+    }
+
+    ctx->cb.end();
+
+    const vk::Queue transferQueue = *ctx->device->transferQueue();
+    const vk::SubmitInfo submitInfo{
+        .commandBufferCount = 1,
+        .pCommandBuffers = &ctx->cb,
+    };
+    checkSuccess(
+        transferQueue.submit(1, &submitInfo, vk::Fence{}),
+        "submitTextureUpload");
+    // We could have multiple uploads in flight, but let's be simple for now
+    transferQueue.waitIdle();
+
+    ctx->workerLoadedImageCount++;
+
+    {
+        const std::lock_guard _lock{ctx->loadedTexturesMutex};
+
+        ctx->loadedTextures.emplace_back(WHEELS_MOV(tex));
+    }
+}
+
 void loadingWorker(DeferredLoadingContext *ctx)
 {
     // TODO:
@@ -25,80 +111,7 @@ void loadingWorker(DeferredLoadingContext *ctx)
 
     while (!ctx->interruptLoading)
     {
-        if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
-        {
-            printf("Texture loading took %.2fs\n", ctx->timer.getSeconds());
-            break;
-        }
-
-        WHEELS_ASSERT(
-            ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
-        const tinygltf::Image &image =
-            ctx->gltfModel.images[ctx->workerLoadedImageCount];
-        if (image.uri.empty())
-            throw std::runtime_error("Embedded glTF textures aren't supported. "
-                                     "Scene should be glTF + "
-                                     "bin + textures.");
-
-        ctx->cb.reset();
-        ctx->cb.begin(vk::CommandBufferBeginInfo{
-            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-        });
-
-        Texture2D tex{
-            scopeAlloc.child_scope(),
-            ctx->device,
-            ctx->sceneDir / image.uri,
-            ctx->cb,
-            ctx->stagingBuffers[0],
-            true,
-            true};
-
-        const QueueFamilies &families = ctx->device->queueFamilies();
-        WHEELS_ASSERT(families.graphicsFamily.has_value());
-        WHEELS_ASSERT(families.transferFamily.has_value());
-
-        if (*families.graphicsFamily != *families.transferFamily)
-        {
-            const vk::ImageMemoryBarrier2 releaseBarrier{
-                .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
-                .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-                .dstStageMask = vk::PipelineStageFlagBits2::eNone,
-                .dstAccessMask = vk::AccessFlagBits2::eNone,
-                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                .srcQueueFamilyIndex = *families.transferFamily,
-                .dstQueueFamilyIndex = *families.graphicsFamily,
-                .image = tex.nativeHandle(),
-                .subresourceRange =
-                    vk::ImageSubresourceRange{
-                        .aspectMask = vk::ImageAspectFlagBits::eColor,
-                        .baseMipLevel = 0,
-                        .levelCount = VK_REMAINING_MIP_LEVELS,
-                        .baseArrayLayer = 0,
-                        .layerCount = VK_REMAINING_ARRAY_LAYERS,
-                    },
-            };
-            ctx->cb.pipelineBarrier2(vk::DependencyInfo{
-                .imageMemoryBarrierCount = 1,
-                .pImageMemoryBarriers = &releaseBarrier,
-            });
-        }
-
-        ctx->cb.end();
-
-        const vk::Queue transferQueue = *ctx->device->transferQueue();
-        const vk::SubmitInfo submitInfo{
-            .commandBufferCount = 1,
-            .pCommandBuffers = &ctx->cb,
-        };
-        checkSuccess(
-            transferQueue.submit(1, &submitInfo, vk::Fence{}),
-            "submitTextureUpload");
-        // We could have multiple uploads in flight, but let's be simple for now
-        transferQueue.waitIdle();
-
-        ctx->workerLoadedImageCount++;
+        loadNextTexture(scopeAlloc.child_scope(), ctx);
 
         const uint32_t previousHighWatermark = ctx->allocationHighWatermark;
         if (scratchBacking.allocated_byte_count_high_watermark() >
@@ -106,12 +119,6 @@ void loadingWorker(DeferredLoadingContext *ctx)
         {
             ctx->allocationHighWatermark = asserted_cast<uint32_t>(
                 scratchBacking.allocated_byte_count_high_watermark());
-        }
-
-        {
-            std::lock_guard _lock{ctx->loadedTexturesMutex};
-
-            ctx->loadedTextures.emplace_back(WHEELS_MOV(tex));
         }
     }
 }
