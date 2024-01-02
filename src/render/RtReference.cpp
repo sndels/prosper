@@ -177,7 +177,7 @@ void RtReference::drawUi()
 }
 
 RtReference::Output RtReference::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
     uint32_t nextFrame, Profiler *profiler)
 {
@@ -231,22 +231,8 @@ RtReference::Output RtReference::record(
 
         updateDescriptorSet(scopeAlloc.child_scope(), nextFrame, illumination);
 
-        {
-            const vk::MemoryBarrier2 barrier{
-                .srcStageMask =
-                    vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR,
-                .srcAccessMask =
-                    vk::AccessFlagBits2::eAccelerationStructureWriteKHR,
-                .dstStageMask =
-                    vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                .dstAccessMask =
-                    vk::AccessFlagBits2::eAccelerationStructureReadKHR,
-            };
-            cb.pipelineBarrier2(vk::DependencyInfo{
-                .memoryBarrierCount = 1,
-                .pMemoryBarriers = &barrier,
-            });
-        }
+        world.currentTLAS().buffer.transition(
+            cb, BufferState::RayTracingAccelerationStructureRead);
 
         transition(
             scopeAlloc.child_scope(), *_resources, cb,

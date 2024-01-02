@@ -456,10 +456,13 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
         _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
         &copyRegion);
 
+    tlas.buffer.transition(cb, BufferState::AccelerationStructureBuild);
+
     const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo = &rangeInfo;
     cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
 
-    // First use needs to have a memory barrier from AS build into the usage
+    // First use needs to 'transition' the backing buffer into
+    // RayTracingAccelerationStructureRead
 }
 
 AccelerationStructure World::Impl::createTlas(
