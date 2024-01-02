@@ -6,7 +6,6 @@ namespace
 template <typename State>
 vk::PipelineStageFlags2 nativeStagesCommon(State state)
 {
-
     vk::PipelineStageFlags2 flags;
 
     if (contains(state, State::StageFragmentShader))
@@ -15,18 +14,24 @@ vk::PipelineStageFlags2 nativeStagesCommon(State state)
         flags |= vk::PipelineStageFlagBits2::eComputeShader;
     if (contains(state, State::StageTransfer))
         flags |= vk::PipelineStageFlagBits2::eTransfer;
+    if (contains(state, State::StageRayTracingShader))
+        flags |= vk::PipelineStageFlagBits2::eRayTracingShaderKHR;
 
     return flags;
 }
 
 vk::PipelineStageFlags2 nativeStages(BufferState state)
 {
-    return nativeStagesCommon(state);
+    vk::PipelineStageFlags2 flags = nativeStagesCommon(state);
+
+    if (contains(state, BufferState::StageAccelerationStructureBuild))
+        flags |= vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR;
+
+    return flags;
 }
 
 vk::PipelineStageFlags2 nativeStages(ImageState state)
 {
-
     vk::PipelineStageFlags2 flags = nativeStagesCommon(state);
 
     if (contains(state, ImageState::StageEarlyFragmentTests))
@@ -35,15 +40,12 @@ vk::PipelineStageFlags2 nativeStages(ImageState state)
         flags |= vk::PipelineStageFlagBits2::eLateFragmentTests;
     if (contains(state, ImageState::StageColorAttachmentOutput))
         flags |= vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-    if (contains(state, ImageState::StageRayTracingShader))
-        flags |= vk::PipelineStageFlagBits2::eRayTracingShaderKHR;
 
     return flags;
 }
 
 template <typename State> vk::AccessFlags2 nativeAccessesCommon(State state)
 {
-
     vk::AccessFlags2 flags;
 
     if (contains(state, State::AccessShaderRead))
@@ -60,12 +62,18 @@ template <typename State> vk::AccessFlags2 nativeAccessesCommon(State state)
 
 vk::AccessFlags2 nativeAccesses(BufferState state)
 {
-    return nativeAccessesCommon(state);
+    vk::AccessFlags2 flags = nativeAccessesCommon(state);
+
+    if (contains(state, BufferState::AccessAccelerationStructureRead))
+        flags |= vk::AccessFlagBits2::eAccelerationStructureReadKHR;
+    if (contains(state, BufferState::AccessAccelerationStructureWrite))
+        flags |= vk::AccessFlagBits2::eAccelerationStructureWriteKHR;
+
+    return flags;
 }
 
 vk::AccessFlags2 nativeAccesses(ImageState state)
 {
-
     vk::AccessFlags2 flags = nativeAccessesCommon(state);
 
     if (contains(state, ImageState::AccessShaderSampledRead))
@@ -94,7 +102,13 @@ template <typename State> bool hasWriteAccessesCommon(State state)
 
 bool hasWriteAccesses(BufferState state)
 {
-    return hasWriteAccessesCommon(state);
+    if (hasWriteAccessesCommon(state))
+        return true;
+
+    if (contains(state, BufferState::AccessAccelerationStructureWrite))
+        return true;
+
+    return false;
 }
 
 bool hasWriteAccesses(ImageState state)
