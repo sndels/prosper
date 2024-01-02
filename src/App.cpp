@@ -617,6 +617,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _world->updateScene(
         scopeAlloc.child_scope(), &_sceneCameraTransform, _profiler.get());
 
+    _world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
+
     // -1 seems like a safe value here since an 8 sample halton sequence is
     // used. See A Survey of Temporal Antialiasing Techniques by Yang, Liu and
     // Salvi for details.
@@ -1001,9 +1003,15 @@ void App::drawMemory(uint32_t scopeHighWatermark)
         "  ctors : %uKB\n",
         asserted_cast<uint32_t>(_ctorScratchHighWatermark) / 1000);
     ImGui::Text(
-        "  deferred loading: %uMB\n",
+        "  deferred linear: %uMB\n",
         asserted_cast<uint32_t>(
-            _world->deferredLoadingAllocatorHighWatermark() / 1000 / 1000));
+            _world->deferredLoadingLinearAllocatorHighWatermark() / 1000 /
+            1000));
+    ImGui::Text(
+        "  deferred general: %uKB\n",
+        asserted_cast<uint32_t>(
+            _world->deferredLoadingGeneralAllocatorHighWatermark() / 1000 /
+            1000));
     ImGui::Text(
         "  world: %uKB\n",
         asserted_cast<uint32_t>(_world->linearAllocatorHighWatermark() / 1000));
@@ -1014,6 +1022,7 @@ void App::drawMemory(uint32_t scopeHighWatermark)
     ImGui::Text("  frame scope: %uKB\n", scopeHighWatermark / 1000);
 
     ImGui::Text("General allocator stats:\n");
+
     ImGui::Text(
         "  count: %u\n", asserted_cast<uint32_t>(allocStats.allocation_count));
     ImGui::Text(

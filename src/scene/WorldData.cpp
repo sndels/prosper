@@ -23,7 +23,9 @@ constexpr uint32_t sSkyboxReflectionSet = 0;
 
 constexpr size_t sWorldMemSize = megabytes(16);
 
-constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
+// This should be plenty while not being a ridiculously heavy descriptor set
+// Need to know the limit up front to create the ds layout
+constexpr size_t sMaxGeometryBuffersCount = 100;
 
 constexpr int s_gl_nearest = 0x2600;
 constexpr int s_gl_linear = 0x2601;
@@ -276,26 +278,13 @@ WorldData::WorldData(
             .maxLod = VK_LOD_CLAMP_NONE,
         });
 
-    _geometryUploadBuffer = _device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = sGeometryBufferSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .createMapped = true,
-        .debugName = "GeometryUploadBuffer",
-    });
-
     printf("Loading world\n");
 
     Timer t;
     const auto gltfModel = loadGLTFModel(resPath(scene));
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
-    _deferredLoadingContext.emplace(
-        _generalAlloc, _device, _sceneDir, gltfModel);
+    _deferredLoadingContext.emplace(_device, _sceneDir, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -366,10 +355,70 @@ WorldData::~WorldData()
         _device->destroy(scene.rtInstancesBuffer);
     for (auto &buffer : _geometryBuffers)
         _device->destroy(buffer);
-    _device->destroy(_geometryMetadatasBuffer);
+    for (auto &buffer : _geometryMetadatasBuffers)
+        _device->destroy(buffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
-    _device->destroy(_geometryUploadBuffer);
+}
+
+void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
+{
+    if (!_deferredLoadingContext.has_value())
+        return;
+
+    if (_geometryGenerations[nextFrame] ==
+        _deferredLoadingContext->geometryGeneration)
+        return;
+
+    Material *mapped = reinterpret_cast<Material *>(
+        _geometryMetadatasBuffers[nextFrame].mapped);
+    memcpy(
+        mapped, _geometryMetadatas.data(),
+        _geometryMetadatas.size() * sizeof(_geometryMetadatas[0]));
+
+    _geometryGenerations[nextFrame] =
+        _deferredLoadingContext->geometryGeneration;
+
+    Array<vk::DescriptorBufferInfo> bufferInfos{
+        scopeAlloc, 1 + _geometryBuffers.size()};
+
+    bufferInfos.push_back(vk::DescriptorBufferInfo{
+        .buffer = _geometryMetadatasBuffers[nextFrame].handle,
+        .range = VK_WHOLE_SIZE,
+    });
+
+    WHEELS_ASSERT(
+        _geometryBuffers.size() == _geometryBufferAllocatedByteCounts.size());
+    const size_t bufferCount = _geometryBuffers.size();
+    for (size_t i = 0; i < bufferCount; ++i)
+    {
+        if (_geometryBufferAllocatedByteCounts[i] == 0)
+        {
+            // We might push a new buffer before the mesh it got created for
+            // gets copied over. Let's just skip in that case
+            WHEELS_ASSERT(i == bufferCount - 1);
+            break;
+        }
+
+        bufferInfos.push_back(vk::DescriptorBufferInfo{
+            .buffer = _geometryBuffers[i].handle,
+            .range = _geometryBufferAllocatedByteCounts[i],
+        });
+    }
+
+    const StaticArray descriptorInfos{{
+        DescriptorInfo{bufferInfos[0]},
+        DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
+    }};
+
+    const Array descriptorWrites =
+        _geometryReflection->generateDescriptorWrites(
+            scopeAlloc, sGeometryReflectionSet,
+            _descriptorSets.geometry[nextFrame], descriptorInfos);
+
+    _device->logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
 }
 
 void WorldData::uploadMaterialDatas(uint32_t nextFrame)
@@ -395,13 +444,20 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
     if (!_deferredLoadingContext.has_value())
         return false;
 
-    _deferredLoadingAllocationHighWatermark = std::max(
-        _deferredLoadingAllocationHighWatermark,
-        _deferredLoadingContext->allocationHighWatermark.load());
+    // TODO: Is max really needed here?
+    _deferredLoadingLinearAllocatorHighWatermark = std::max(
+        _deferredLoadingLinearAllocatorHighWatermark,
+        _deferredLoadingContext->linearAllocatorHighWatermark.load());
+    _deferredLoadingGeneralAllocatorHighWatermark =
+        _deferredLoadingContext->generalAllocatorHightWatermark.load();
 
     if (_deferredLoadingContext->loadedMaterialCount ==
         _deferredLoadingContext->gltfModel.materials.size())
     {
+        WHEELS_ASSERT(
+            _deferredLoadingContext->loadedMeshCount == _meshInfos.size() &&
+            "Meshes should have been loaded before textures");
+
         // Don't clean up until all in flight uploads are finished
         if (_deferredLoadingContext->framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
         {
@@ -420,12 +476,17 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
     if (_deferredLoadingContext->loadedImageCount == 0)
         _materialStreamingTimer.reset();
 
-    size_t newTexturesAvailable = pollTextureWorker(cb);
+    const bool newMeshAvailable = pollMeshWorker(cb);
+    size_t newTexturesAvailable = 0;
+    if (!newMeshAvailable)
+        newTexturesAvailable = pollTextureWorker(cb);
 
+    bool newMaterialsAvailable = false;
     if (newTexturesAvailable > 0)
-        return updateDescriptorsWithNewTextures(newTexturesAvailable);
+        newMaterialsAvailable =
+            updateDescriptorsWithNewTextures(newTexturesAvailable);
 
-    return false;
+    return newMeshAvailable || newMaterialsAvailable;
 }
 
 void WorldData::drawDeferredLoadingUi() const
@@ -441,16 +502,14 @@ void WorldData::drawDeferredLoadingUi() const
         if (_deferredLoadingContext.has_value())
         {
             ImGui::Text(
+                "Meshes loaded: %u/%u",
+                _deferredLoadingContext->loadedMeshCount,
+                asserted_cast<uint32_t>(_meshInfos.size()));
+            ImGui::Text(
                 "Images loaded: %u/%u",
                 _deferredLoadingContext->loadedImageCount,
                 asserted_cast<uint32_t>(
                     _deferredLoadingContext->gltfModel.images.size()));
-        }
-        if (_blases.size() < _meshInfos.size())
-        {
-            ImGui::Text(
-                "BLASes built: %u/%u", asserted_cast<uint32_t>(_blases.size()),
-                asserted_cast<uint32_t>(_meshInfos.size()));
         }
         ImGui::End();
     }
@@ -608,9 +667,10 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
     size_t totalPrimitiveCount = 0;
     for (const auto &mesh : gltfModel.meshes)
         totalPrimitiveCount += mesh.primitives.size();
-    _geometryMetadatas.reserve(totalPrimitiveCount);
-    _meshInfos.reserve(totalPrimitiveCount);
+    _geometryMetadatas.resize(totalPrimitiveCount);
+    _meshInfos.resize(totalPrimitiveCount);
 
+    uint32_t meshID = 0;
     for (const auto &mesh : gltfModel.meshes)
     {
         _models.emplace_back(_linearAlloc);
@@ -707,176 +767,46 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                 .materialID = material,
             };
 
-            // Insert attributes into our own buffers
-            const GeometryMetadata metadata = uploadGeometryData(
-                gltfModel,
-                InputGeometryMetadata{
-                    .indices = indices,
-                    .positions = positions,
-                    .normals = normals,
-                    .tangents = tangents,
-                    .texCoord0s = texCoord0s,
-                    .usesShortIndices = usesShortIndices,
-                },
-                mi);
+            const InputGeometryMetadata inputMetadata{
+                .indices = indices,
+                .positions = positions,
+                .normals = normals,
+                .tangents = tangents,
+                .texCoord0s = texCoord0s,
+                .usesShortIndices = usesShortIndices,
+            };
 
-            _geometryMetadatas.push_back(metadata);
-            _meshInfos.push_back(mi);
+            WHEELS_ASSERT(
+                _deferredLoadingContext.has_value() &&
+                !_deferredLoadingContext->worker.has_value() &&
+                "Loading worker is running while input data is being set "
+                "up");
+            _deferredLoadingContext->meshes.emplace_back(inputMetadata, mi);
+            // Don't set metadata or info for the mesh index as default
+            // values signal invalid or not yet loaded for other parts
 
             model.subModels.push_back(Model::SubModel{
-                .meshID =
-                    asserted_cast<uint32_t>(_geometryMetadatas.size() - 1),
+                .meshID = meshID++,
                 .materialID = material,
             });
         }
     }
-    _geometryMetadatasBuffer = _device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = asserted_cast<uint32_t>(
-                    _geometryMetadatas.size() * sizeof(GeometryMetadata)),
-                .usage = vk::BufferUsageFlagBits::
-                             eAccelerationStructureBuildInputReadOnlyKHR |
-                         vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                         vk::BufferUsageFlagBits::eStorageBuffer |
-                         vk::BufferUsageFlagBits::eTransferDst,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-        .initialData = _geometryMetadatas.data(),
-        .debugName = "GeometryMetadatas",
-    });
-}
 
-GeometryMetadata WorldData::uploadGeometryData(
-    const tinygltf::Model &gltfModel, const InputGeometryMetadata &metadata,
-    const MeshInfo &meshInfo)
-{
-    const bool hasTangents = metadata.tangents.index < 0xFFFFFFFF;
-    const bool hasTexCoord0s = metadata.texCoord0s.index < 0xFFFFFFFF;
-
-    // Figure out the required storage
-    const uint32_t indicesByteCount =
-        metadata.usesShortIndices ? meshInfo.indexCount * sizeof(uint16_t)
-                                  : meshInfo.indexCount * sizeof(uint32_t);
-    // Make sure we align for u32 even with u16 indices
-    const uint32_t indicesPaddingByteCount =
-        indicesByteCount % sizeof(uint32_t);
-    const uint32_t positionsByteCount = meshInfo.vertexCount * sizeof(vec3);
-    const uint32_t normalsByteCount = meshInfo.vertexCount * sizeof(vec3);
-    const uint32_t tangentsByteCount =
-        hasTangents ? meshInfo.vertexCount * sizeof(vec4) : 0;
-    const uint32_t texCoord0sByteCount =
-        hasTexCoord0s ? meshInfo.vertexCount * sizeof(vec2) : 0;
-    const uint32_t byteCount = indicesByteCount + indicesPaddingByteCount +
-                               positionsByteCount + normalsByteCount +
-                               tangentsByteCount + texCoord0sByteCount;
-    WHEELS_ASSERT(
-        byteCount < sGeometryBufferSize &&
-        "The default size for geometry buffers doesn't fit the mesh");
-
-    // Find a buffer that fits the data or create a new one
-    // Let's assume there's only a handful of these so we can just comb through
-    // all of them and potentially fill early buffers more completely than if we
-    // just checked the last one.
-    uint32_t dstBufferI = 0;
-    WHEELS_ASSERT(
-        _geometryBuffers.size() == _geometryBufferRemainingByteCounts.size());
-    const uint32_t bufferCount =
-        asserted_cast<uint32_t>(_geometryBufferRemainingByteCounts.size());
-    for (; dstBufferI < bufferCount; ++dstBufferI)
-    {
-        const uint32_t bc = _geometryBufferRemainingByteCounts[dstBufferI];
-        if (bc >= byteCount)
-            break;
-    }
-
-    if (dstBufferI >= _geometryBuffers.size())
-    {
-        _geometryBuffers.push_back(_device->createBuffer(BufferCreateInfo{
+    for (size_t i = 0; i < _geometryMetadatasBuffers.size(); ++i)
+        _geometryMetadatasBuffers[i] = _device->createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
-                    .byteSize = sGeometryBufferSize,
-                    .usage = vk::BufferUsageFlagBits::
-                                 eAccelerationStructureBuildInputReadOnlyKHR |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer |
+                    .byteSize = asserted_cast<uint32_t>(
+                        _geometryMetadatas.size() * sizeof(GeometryMetadata)),
+                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                              vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
-            .cacheDeviceAddress = true,
-            .debugName = "GeometryBuffer",
-        }));
-        _geometryBufferRemainingByteCounts.push_back(sGeometryBufferSize);
-    }
-
-    // Offsets into GPU buffer are for uint
-    const uint32_t elementSize = static_cast<uint32_t>(sizeof(uint32_t));
-
-    const uint32_t startByteOffset =
-        sGeometryBufferSize - _geometryBufferRemainingByteCounts[dstBufferI];
-    const GeometryMetadata ret{
-        .bufferIndex = dstBufferI,
-        .indicesOffset = startByteOffset / elementSize,
-        .positionsOffset =
-            (startByteOffset + indicesByteCount + indicesPaddingByteCount) /
-            elementSize,
-        .normalsOffset = (startByteOffset + indicesByteCount +
-                          indicesPaddingByteCount + positionsByteCount) /
-                         elementSize,
-        .tangentsOffset = hasTangents
-                              ? (startByteOffset + indicesByteCount +
-                                 positionsByteCount + normalsByteCount) /
-                                    elementSize
-                              : 0xFFFFFFFF,
-        .texCoord0sOffset =
-            hasTexCoord0s ? (startByteOffset + indicesByteCount +
-                             indicesPaddingByteCount + positionsByteCount +
-                             normalsByteCount + tangentsByteCount) /
-                                elementSize
-                          : 0xFFFFFFFF,
-
-        .usesShortIndices = static_cast<uint32_t>(metadata.usesShortIndices),
-    };
-
-    uint32_t *dstPtr =
-        reinterpret_cast<uint32_t *>(_geometryUploadBuffer.mapped);
-    const auto writeBytes = [&](const InputBuffer &srcBuffer,
-                                uint32_t byteCount, uint32_t dstU32Offset)
-    {
-        if (byteCount == 0)
-            return;
-
-        const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
-        memcpy(
-            dstPtr + dstU32Offset,
-            gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
-    };
-
-    // Let's just write straight into the dst offsets as our upload buffer is as
-    // big as the destination buffer
-    writeBytes(metadata.indices, indicesByteCount, ret.indicesOffset);
-    writeBytes(metadata.positions, positionsByteCount, ret.positionsOffset);
-    writeBytes(metadata.normals, normalsByteCount, ret.normalsOffset);
-    writeBytes(metadata.tangents, tangentsByteCount, ret.tangentsOffset);
-    writeBytes(metadata.texCoord0s, texCoord0sByteCount, ret.texCoord0sOffset);
-
-    // TODO: Use the transfer queue once this moved to async
-    const auto cb = _device->beginGraphicsCommands();
-
-    const vk::BufferCopy copyRegion{
-        .srcOffset = startByteOffset,
-        .dstOffset = startByteOffset,
-        .size = byteCount,
-    };
-    const Buffer &dstBuffer = _geometryBuffers[dstBufferI];
-    cb.copyBuffer(
-        _geometryUploadBuffer.handle, dstBuffer.handle, 1, &copyRegion);
-
-    _device->endGraphicsCommands(cb);
-
-    _geometryBufferRemainingByteCounts[dstBufferI] -= byteCount;
-
-    return ret;
+            .initialData = _geometryMetadatas.data(),
+            .createMapped = true,
+            .debugName = "GeometryMetadatas",
+        });
 }
 
 HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
@@ -1690,26 +1620,13 @@ void WorldData::createDescriptorSets(
 
     {
         // Geometry layouts and descriptor set
-        Array<vk::DescriptorBufferInfo> bufferInfos{
-            scopeAlloc, 1 + _geometryBuffers.size()};
-
-        bufferInfos.push_back(vk::DescriptorBufferInfo{
-            .buffer = _geometryMetadatasBuffer.handle,
-            .range = VK_WHOLE_SIZE,
-        });
-
-        for (const auto &b : _geometryBuffers)
-            bufferInfos.push_back(vk::DescriptorBufferInfo{
-                .buffer = b.handle,
-                .range = VK_WHOLE_SIZE,
-            });
-        const auto bufferCount =
-            asserted_cast<uint32_t>(bufferInfos.size() - 1);
+        const uint32_t bufferCount = 1 + sMaxGeometryBuffersCount;
 
         const StaticArray bindingFlags{{
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
-                vk::DescriptorBindingFlagBits::eVariableDescriptorCount},
+                vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
+                vk::DescriptorBindingFlagBits::ePartiallyBound},
         }};
 
         WHEELS_ASSERT(_geometryReflection.has_value());
@@ -1720,22 +1637,29 @@ void WorldData::createDescriptorSets(
                 vk::ShaderStageFlagBits::eAnyHitKHR,
             Span{&bufferCount, 1}, bindingFlags);
 
-        _descriptorSets.geometry =
-            _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
+        WHEELS_ASSERT(_descriptorSets.geometry.size() == MAX_FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+        {
+            _descriptorSets.geometry[i] =
+                _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
 
-        const StaticArray descriptorInfos{{
-            DescriptorInfo{bufferInfos[0]},
-            DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
-        }};
+            const StaticArray descriptorInfos{{
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = _geometryMetadatasBuffers[i].handle,
+                    .range = VK_WHOLE_SIZE,
+                }},
+                DescriptorInfo{Span<const vk::DescriptorBufferInfo>{}},
+            }};
 
-        const Array descriptorWrites =
-            _geometryReflection->generateDescriptorWrites(
-                scopeAlloc, sGeometryReflectionSet, _descriptorSets.geometry,
-                descriptorInfos);
+            const Array descriptorWrites =
+                _geometryReflection->generateDescriptorWrites(
+                    scopeAlloc, sGeometryReflectionSet,
+                    _descriptorSets.geometry[i], descriptorInfos);
 
-        _device->logical().updateDescriptorSets(
-            asserted_cast<uint32_t>(descriptorWrites.size()),
-            descriptorWrites.data(), 0, nullptr);
+            _device->logical().updateDescriptorSets(
+                asserted_cast<uint32_t>(descriptorWrites.size()),
+                descriptorWrites.data(), 0, nullptr);
+        }
     }
 
     // RT layout
@@ -1890,6 +1814,103 @@ void WorldData::createDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
+}
+
+bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
+{
+    WHEELS_ASSERT(_deferredLoadingContext.has_value());
+
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    if (ctx.loadedMeshCount >= _meshInfos.size())
+        return false;
+
+    bool newMeshLoaded = false;
+    const size_t maxMeshesPerFrame = 10;
+    for (size_t i = 0; i < maxMeshesPerFrame; ++i)
+    {
+        // Let's pop meshes one by one to potentially let the async worker push
+        // new ones to fill the quota while we're in this loop
+        Optional<Pair<UploadedGeometryData, MeshInfo>> loaded;
+        {
+            const std::lock_guard _lock{ctx.loadedMeshesMutex};
+            if (ctx.loadedMeshes.empty())
+                break;
+
+            loaded = ctx.loadedMeshes.front();
+            ctx.loadedMeshes.erase(0);
+        }
+
+        if (loaded.has_value())
+        {
+            newMeshLoaded = true;
+            {
+                const std::lock_guard _lock{ctx.geometryBuffersMutex};
+                // Copy over any newly created geometry buffers
+                while (_geometryBuffers.size() < ctx.geometryBuffers.size())
+                {
+                    _geometryBuffers.push_back(
+                        ctx.geometryBuffers[_geometryBuffers.size()]);
+                    WHEELS_ASSERT(
+                        _geometryBuffers.size() <= sMaxGeometryBuffersCount &&
+                        "The layout requires a hard limit on the max number of "
+                        "geometry buffers");
+                    _geometryBufferAllocatedByteCounts.push_back(0u);
+                }
+            }
+
+            const UploadedGeometryData &uploadedData = loaded->first;
+            const MeshInfo &info = loaded->second;
+            const uint32_t targetBufferI = uploadedData.metadata.bufferIndex;
+            WHEELS_ASSERT(uploadedData.byteCount > 0);
+
+            const uint32_t previousAllocatedByteCount =
+                _geometryBufferAllocatedByteCounts[targetBufferI];
+            WHEELS_ASSERT(
+                previousAllocatedByteCount ==
+                    uploadedData.metadata.indicesOffset * sizeof(uint32_t) &&
+                "Uploaded data ranges have to be tight for valid ownership "
+                "transfer");
+
+            const QueueFamilies &families = _device->queueFamilies();
+            WHEELS_ASSERT(families.graphicsFamily.has_value());
+            WHEELS_ASSERT(families.transferFamily.has_value());
+
+            if (*families.graphicsFamily != *families.transferFamily)
+            {
+                const Buffer &geometryBuffer = _geometryBuffers[targetBufferI];
+
+                const vk::BufferMemoryBarrier2 acquireBarrier{
+                    .srcStageMask = vk::PipelineStageFlagBits2::eNone,
+                    .srcAccessMask = vk::AccessFlagBits2::eNone,
+                    .dstStageMask =
+                        vk::PipelineStageFlagBits2::eVertexShader |
+                        vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                    .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+                    .srcQueueFamilyIndex = *families.transferFamily,
+                    .dstQueueFamilyIndex = *families.graphicsFamily,
+                    .buffer = geometryBuffer.handle,
+                    .offset = uploadedData.metadata.indicesOffset,
+                    .size = uploadedData.byteCount,
+                };
+
+                cb.pipelineBarrier2(vk::DependencyInfo{
+                    .bufferMemoryBarrierCount = 1,
+                    .pBufferMemoryBarriers = &acquireBarrier,
+                });
+            }
+
+            _geometryMetadatas[ctx.loadedMeshCount] = uploadedData.metadata;
+            _meshInfos[ctx.loadedMeshCount] = info;
+            // Track the used (and ownership transferred) range
+            _geometryBufferAllocatedByteCounts[targetBufferI] +=
+                uploadedData.byteCount;
+
+            ctx.loadedMeshCount++;
+            ctx.geometryGeneration++;
+        }
+    }
+
+    return newMeshLoaded;
 }
 
 size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)

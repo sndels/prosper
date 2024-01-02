@@ -20,7 +20,7 @@ struct PerspectiveParameters;
 struct DebugLines;
 
 // DeferredLoadingContext.hpp
-struct DeferredLoadingContext;
+class DeferredLoadingContext;
 
 // Lights.hpp
 struct DirectionalLight;

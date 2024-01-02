@@ -7,6 +7,7 @@
 #include "../utils/Utils.hpp"
 #include "Fwd.hpp"
 #include "Material.hpp"
+#include "Mesh.hpp"
 #include "Texture.hpp"
 #include <atomic>
 #include <condition_variable>
@@ -14,18 +15,42 @@
 #include <mutex>
 #include <thread>
 #include <tiny_gltf.h>
-#include <wheels/allocators/allocator.hpp>
+#include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/optional.hpp>
+#include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
+
+struct InputBuffer
+{
+    uint32_t index{0xFFFFFFFF};
+    uint32_t byteOffset{0};
+};
+
+struct InputGeometryMetadata
+{
+    InputBuffer indices;
+    InputBuffer positions;
+    InputBuffer normals;
+    InputBuffer tangents;
+    InputBuffer texCoord0s;
+    bool usesShortIndices{false};
+};
+
+struct UploadedGeometryData
+{
+    GeometryMetadata metadata;
+    uint32_t byteCount{0};
+};
 
 Buffer createTextureStaging(Device *device);
 
-struct DeferredLoadingContext
+class DeferredLoadingContext
 {
+  public:
     DeferredLoadingContext(
-        wheels::Allocator &alloc, Device *device,
-        std::filesystem::path sceneDir, const tinygltf::Model &gltfModel);
+        Device *device, std::filesystem::path sceneDir,
+        const tinygltf::Model &gltfModel);
     ~DeferredLoadingContext();
 
     DeferredLoadingContext(const DeferredLoadingContext &) = delete;
@@ -35,31 +60,60 @@ struct DeferredLoadingContext
 
     void launch();
 
+    UploadedGeometryData uploadGeometryData(
+        const InputGeometryMetadata &metadata, const MeshInfo &meshInfo);
+
+    // TODO:
+    // Make worker context private?
+    // Make shared context private and access through methods that handle
+    // mutexes?
     Device *device{nullptr};
     std::filesystem::path sceneDir;
     // If there's no worker, main thread handles loading
     wheels::Optional<std::thread> worker;
 
     // Worker context
+    wheels::TlsfAllocator alloc;
     tinygltf::Model gltfModel;
     vk::CommandBuffer cb;
     uint32_t workerLoadedImageCount{0};
+    wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes;
+    Buffer geometryUploadBuffer;
+    wheels::Array<uint32_t> geometryBufferRemainingByteCounts{alloc};
+    uint32_t workerLoadedMeshCount{0};
+    Timer meshTimer;
+    Timer textureTimer;
 
     // Shared context
+    std::mutex geometryBuffersMutex;
+    // These are only allocated by the async thread and it will not destroy
+    // them. The managing thread is assumed to copy the buffers from here and is
+    // responsible for their destruction. This array should only be read from
+    // outside this class, write ops are not allowed.
+    wheels::Array<Buffer> geometryBuffers{alloc};
+    std::mutex loadedMeshesMutex;
+    wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes;
+
     std::mutex loadedTexturesMutex;
     wheels::Array<Texture2D> loadedTextures;
+
     std::atomic<bool> interruptLoading{false};
-    std::atomic<uint32_t> allocationHighWatermark{0};
+    std::atomic<uint32_t> linearAllocatorHighWatermark{0};
+    std::atomic<uint32_t> generalAllocatorHightWatermark{0};
 
     // Main context
+    uint32_t geometryGeneration{0};
     uint32_t materialsGeneration{0};
     uint32_t framesSinceFinish{0};
     uint32_t textureArrayBinding{0};
+    uint32_t loadedMeshCount{0};
     uint32_t loadedImageCount{0};
     uint32_t loadedMaterialCount{0};
-    wheels::Array<Material> materials;
+    wheels::Array<Material> materials{alloc};
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
-    Timer timer;
+
+  private:
+    uint32_t getGeometryBuffer(uint32_t byteCount);
 };
 
 #endif // PROSPER_SCENE_DEFERRED_LOADING_CONTEXT

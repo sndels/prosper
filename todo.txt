@@ -37,18 +37,6 @@
     - unique_ptr? is the indirection expensive?
     - or store reflections per shader handle in device and query each time they are used?
       more expensive?
-- Async geometry loading
-  - Separate thread that fills geometry buffers
-  - Fixed size geometry buffer (64M?), allocate a new one if mesh doesn't fit in
-    previous one(s)
-  - Loaded-flag in meshes 
-  - Write descriptor sets when new buffers are used by meshes like with material
-    textures
-  - Build BLASes for new meshes at the top of the frame that uses them, before TLAS
-    - Also need to write instance buffers differently? Or can just tag non-loaded
-      instances and build skips?
-    - Async compute?
-  - Use same thread as with textures? meshes first, textures second?
 - Geometry optimization
   - meshoptimizer, mikktspace
   - cache resulting raw buffers on disc like with textures

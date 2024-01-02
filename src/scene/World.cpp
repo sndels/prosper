@@ -57,6 +57,7 @@ class World::Impl
     void startFrame();
     void endFrame();
 
+    void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) one callsite
     void uploadMaterialDatas(uint32_t nextFrame, float lodBias);
 
@@ -149,6 +150,12 @@ World::Impl::~Impl()
 
 void World::Impl::startFrame()
 {
+    // Launch on the first frame instead of the WorldData ctor to avoid the
+    // deferred loading timer bloating from renderer setup etc.
+    if (_data._deferredLoadingContext.has_value() &&
+        !_data._deferredLoadingContext->worker.has_value())
+        _data._deferredLoadingContext->launch();
+
     if (_nextScene.has_value())
     {
         {
@@ -188,6 +195,12 @@ void World::Impl::endFrame()
     Scene &scene = currentScene();
     for (ModelInstance &mi : scene.modelInstances)
         mi.previousTransformValid = true;
+}
+
+void World::Impl::uploadMeshDatas(
+    wheels::ScopedScratch scopeAlloc, uint32_t nextFrame)
+{
+    _data.uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) one callsite
@@ -534,11 +547,19 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
 
     const size_t targetMesh = _data._blases.size();
     if (targetMesh == 0)
+        // TODO: This will continue to reset until the first blas is built.
+        // Reset at the start of the first frame instead? Same for the material
+        // timer?
         _blasBuildTimer.reset();
+
+    const GeometryMetadata &metadata = _data._geometryMetadatas[targetMesh];
+    if (metadata.bufferIndex == 0xFFFFFFFF)
+        // Mesh is hasn't been uploaded yet
+        return;
+
     _data._blases.push_back(AccelerationStructure{});
     auto &blas = _data._blases.back();
 
-    const GeometryMetadata &metadata = _data._geometryMetadatas[targetMesh];
     const MeshInfo &info = _data._meshInfos[targetMesh];
 
     // Basics from RT Gems II chapter 16
@@ -885,6 +906,12 @@ bool World::isCurrentCameraDynamic() const
     return _impl->_data._cameraDynamic[_impl->_currentCamera];
 }
 
+void World::uploadMeshDatas(
+    wheels::ScopedScratch scopeAlloc, uint32_t nextFrame)
+{
+    _impl->uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
+}
+
 void World::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
 {
     _impl->uploadMaterialDatas(nextFrame, lodBias);
@@ -946,9 +973,14 @@ SkyboxResources &World::skyboxResources()
     return _impl->_data._skyboxResources;
 }
 
-size_t World::deferredLoadingAllocatorHighWatermark() const
+size_t World::deferredLoadingLinearAllocatorHighWatermark() const
 {
-    return _impl->_data._deferredLoadingAllocationHighWatermark;
+    return _impl->_data._deferredLoadingLinearAllocatorHighWatermark;
+}
+
+size_t World::deferredLoadingGeneralAllocatorHighWatermark() const
+{
+    return _impl->_data._deferredLoadingGeneralAllocatorHighWatermark;
 }
 
 size_t World::linearAllocatorHighWatermark() const

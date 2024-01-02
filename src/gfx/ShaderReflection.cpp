@@ -900,7 +900,10 @@ wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
     WHEELS_ASSERT(metadatas != nullptr);
     // false positive, custom assert above
     // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
-    WHEELS_ASSERT(metadatas->size() == descriptorInfos.size());
+    WHEELS_ASSERT(
+        metadatas->size() == descriptorInfos.size() &&
+        "All binds should have a descriptor info. Arrays that are left unbound "
+        "should have an empty span.");
 
     wheels::Array<vk::WriteDescriptorSet> descriptorWrites{
         alloc, descriptorInfos.size()};
@@ -939,16 +942,20 @@ wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
             descriptorCount = asserted_cast<uint32_t>(pBufferInfoSpan->size());
         }
 
-        const DescriptorSetMetadata &metadata = (*metadatas)[i];
-        descriptorWrites.push_back(vk::WriteDescriptorSet{
-            .dstSet = descriptorSetHandle,
-            .dstBinding = metadata.binding,
-            .descriptorCount = descriptorCount,
-            .descriptorType = metadata.descriptorType,
-            .pImageInfo = pImageInfo,
-            .pBufferInfo = pBufferInfo,
-            .pTexelBufferView = pTexelBufferView,
-        });
+        // Zero is expected when descriptors are left unbound explicitly
+        if (descriptorCount > 0)
+        {
+            const DescriptorSetMetadata &metadata = (*metadatas)[i];
+            descriptorWrites.push_back(vk::WriteDescriptorSet{
+                .dstSet = descriptorSetHandle,
+                .dstBinding = metadata.binding,
+                .descriptorCount = descriptorCount,
+                .descriptorType = metadata.descriptorType,
+                .pImageInfo = pImageInfo,
+                .pBufferInfo = pBufferInfo,
+                .pTexelBufferView = pTexelBufferView,
+            });
+        }
     }
 
     return descriptorWrites;

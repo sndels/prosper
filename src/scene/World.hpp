@@ -45,6 +45,7 @@ class World
     [[nodiscard]] CameraParameters const &currentCamera() const;
     [[nodiscard]] bool isCurrentCameraDynamic() const;
 
+    void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     void uploadMaterialDatas(uint32_t nextFrame, float lodBias);
     void updateAnimations(float timeS, Profiler *profiler);
     // Has to be called after updateAnimations()
@@ -65,7 +66,8 @@ class World
     [[nodiscard]] wheels::Span<const MeshInfo> meshInfos() const;
     [[nodiscard]] SkyboxResources &skyboxResources();
 
-    [[nodiscard]] size_t deferredLoadingAllocatorHighWatermark() const;
+    [[nodiscard]] size_t deferredLoadingLinearAllocatorHighWatermark() const;
+    [[nodiscard]] size_t deferredLoadingGeneralAllocatorHighWatermark() const;
     [[nodiscard]] size_t linearAllocatorHighWatermark() const;
 
   private:

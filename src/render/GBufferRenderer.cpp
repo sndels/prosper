@@ -139,7 +139,8 @@ GBufferRendererOutput GBufferRenderer::record(
         descriptorSets[MaterialDatasBindingSet] =
             worldDSes.materialDatas[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
-        descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry;
+        descriptorSets[GeometryBuffersBindingSet] =
+            worldDSes.geometry[nextFrame];
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
 
@@ -170,6 +171,9 @@ GBufferRendererOutput GBufferRenderer::record(
             {
                 const auto &material = materials[subModel.materialID];
                 const auto &info = meshInfos[subModel.meshID];
+                if (info.indexCount == 0)
+                    // Invalid or not yet loaded
+                    continue;
 
                 if (material.alphaMode != Material::AlphaMode::Blend)
                 {

@@ -259,7 +259,7 @@ RtReference::Output RtReference::record(
         descriptorSets[MaterialDatasBindingSet] =
             worldDSes.materialDatas[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
-        descriptorSets[GeometryBindingSet] = worldDSes.geometry;
+        descriptorSets[GeometryBindingSet] = worldDSes.geometry[nextFrame];
         descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;

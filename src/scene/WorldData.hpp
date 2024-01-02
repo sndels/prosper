@@ -45,6 +45,7 @@ class WorldData
     WorldData &operator=(const WorldData &) = delete;
     WorldData &operator=(WorldData &&) = delete;
 
+    void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     void uploadMaterialDatas(uint32_t nextFrame);
     // Returns true if the visible scene was changed.
     bool handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler);
@@ -62,13 +63,11 @@ class WorldData
 
     std::filesystem::path _sceneDir;
 
-    wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
-
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
-    Buffer _geometryUploadBuffer;
-    wheels::Array<uint32_t> _geometryBufferRemainingByteCounts{_generalAlloc};
-    Buffer _geometryMetadatasBuffer;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _geometryMetadatasBuffers;
+    wheels::Array<uint32_t> _geometryBufferAllocatedByteCounts{_generalAlloc};
+    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _geometryGenerations{0};
 
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
@@ -104,7 +103,9 @@ class WorldData
 
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
 
-    uint32_t _deferredLoadingAllocationHighWatermark{0};
+    wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
+    uint32_t _deferredLoadingLinearAllocatorHighWatermark{0};
+    uint32_t _deferredLoadingGeneralAllocatorHighWatermark{0};
 
   private:
     void loadTextures(
@@ -115,20 +116,6 @@ class WorldData
         const wheels::Array<Texture2DSampler> &texture2DSamplers);
     void loadModels(const tinygltf::Model &gltfModel);
 
-    struct InputBuffer
-    {
-        uint32_t index{0xFFFFFFFF};
-        uint32_t byteOffset{0};
-    };
-    struct InputGeometryMetadata
-    {
-        InputBuffer indices;
-        InputBuffer positions;
-        InputBuffer normals;
-        InputBuffer tangents;
-        InputBuffer texCoord0s;
-        bool usesShortIndices{false};
-    };
     GeometryMetadata uploadGeometryData(
         const tinygltf::Model &gltfModel, const InputGeometryMetadata &metadata,
         const MeshInfo &meshInfo);
@@ -177,6 +164,7 @@ class WorldData
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc, const RingBuffers &ringBuffers);
 
+    [[nodiscard]] bool pollMeshWorker(vk::CommandBuffer cb);
     // Returns the count of newly loaded textures
     [[nodiscard]] size_t pollTextureWorker(vk::CommandBuffer cb);
 

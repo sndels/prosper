@@ -5,10 +5,87 @@
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 
+using namespace glm;
 using namespace wheels;
 
 namespace
 {
+
+constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
+
+void loadNextMesh(DeferredLoadingContext *ctx)
+{
+    WHEELS_ASSERT(ctx != nullptr);
+    WHEELS_ASSERT(ctx->workerLoadedMeshCount < ctx->meshes.size());
+
+    ctx->cb.reset();
+    ctx->cb.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+
+    const QueueFamilies &families = ctx->device->queueFamilies();
+    WHEELS_ASSERT(families.graphicsFamily.has_value());
+    WHEELS_ASSERT(families.transferFamily.has_value());
+
+    const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
+        ctx->meshes[ctx->workerLoadedMeshCount];
+
+    const UploadedGeometryData uploadData =
+        ctx->uploadGeometryData(nextMesh.first, nextMesh.second);
+
+    if (*families.graphicsFamily != *families.transferFamily)
+    {
+        const Buffer &buffer =
+            ctx->geometryBuffers[uploadData.metadata.bufferIndex];
+
+        // Transfer ownership of the newly pushed buffer range.
+        // NOTE: This expects the subsequent ranges to be packed tightly. Extra
+        // bytes in between should not happen since the buffer is bound up to
+        // the final offset + bytecount.
+        const vk::BufferMemoryBarrier2 releaseBarrier{
+            .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eNone,
+            .dstAccessMask = vk::AccessFlagBits2::eNone,
+            .srcQueueFamilyIndex = *families.transferFamily,
+            .dstQueueFamilyIndex = *families.graphicsFamily,
+            .buffer = buffer.handle,
+            .offset = uploadData.metadata.indicesOffset,
+            .size = uploadData.byteCount,
+        };
+        ctx->cb.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &releaseBarrier,
+        });
+    }
+
+    ctx->cb.end();
+
+    const vk::Queue transferQueue = ctx->device->transferQueue();
+    const vk::SubmitInfo submitInfo{
+        .commandBufferCount = 1,
+        .pCommandBuffers = &ctx->cb,
+    };
+    checkSuccess(
+        transferQueue.submit(1, &submitInfo, vk::Fence{}),
+        "submitTextureUpload");
+    // We could have multiple uploads in flight, but let's be simple for now
+    transferQueue.waitIdle();
+
+    ctx->workerLoadedMeshCount++;
+
+    {
+        const std::lock_guard _lock{ctx->loadedMeshesMutex};
+
+        ctx->loadedMeshes.emplace_back(uploadData, nextMesh.second);
+    }
+
+    if (ctx->workerLoadedMeshCount == ctx->meshes.size())
+    {
+        printf("Mesh loading took %.2fs\n", ctx->meshTimer.getSeconds());
+        ctx->textureTimer.reset();
+    }
+}
 
 void loadNextTexture(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
 {
@@ -16,7 +93,7 @@ void loadNextTexture(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
 
     if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
     {
-        printf("Texture loading took %.2fs\n", ctx->timer.getSeconds());
+        printf("Texture loading took %.2fs\n", ctx->textureTimer.getSeconds());
         ctx->interruptLoading = true;
         return;
     }
@@ -108,17 +185,27 @@ void loadingWorker(DeferredLoadingContext *ctx)
     LinearAllocator scratchBacking{sLoadingScratchSize};
     ScopedScratch scopeAlloc{scratchBacking};
 
+    ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
     {
-        loadNextTexture(scopeAlloc.child_scope(), ctx);
+        if (ctx->workerLoadedMeshCount < ctx->meshes.size())
+            loadNextMesh(ctx);
+        else
+            loadNextTexture(scopeAlloc.child_scope(), ctx);
 
-        const uint32_t previousHighWatermark = ctx->allocationHighWatermark;
+        // TODO:
+        // Can we just store the high watermark? The allocator doesn't get
+        // recreated between loops
+        const uint32_t previousHighWatermark =
+            ctx->linearAllocatorHighWatermark;
         if (scratchBacking.allocated_byte_count_high_watermark() >
             previousHighWatermark)
         {
-            ctx->allocationHighWatermark = asserted_cast<uint32_t>(
+            ctx->linearAllocatorHighWatermark = asserted_cast<uint32_t>(
                 scratchBacking.allocated_byte_count_high_watermark());
         }
+        ctx->generalAllocatorHightWatermark = asserted_cast<uint32_t>(
+            ctx->alloc.stats().allocated_byte_count_high_watermark);
     }
 }
 
@@ -144,15 +231,18 @@ Buffer createTextureStaging(Device *device)
 }
 
 DeferredLoadingContext::DeferredLoadingContext(
-    Allocator &alloc, Device *device, std::filesystem::path sceneDir,
+    Device *device, std::filesystem::path sceneDir,
     const tinygltf::Model &gltfModel)
 : device{device}
 , sceneDir{WHEELS_MOV(sceneDir)}
+, alloc{megabytes(1)}
 , gltfModel{gltfModel}
 , cb{device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
       .commandPool = device->transferPool(),
       .level = vk::CommandBufferLevel::ePrimary,
       .commandBufferCount = 1})[0]}
+, meshes{alloc}
+, loadedMeshes{alloc, gltfModel.meshes.size()}
 , loadedTextures{alloc, gltfModel.images.size()}
 , materials{alloc, gltfModel.materials.size()}
 {
@@ -162,6 +252,18 @@ DeferredLoadingContext::DeferredLoadingContext(
     // single threaded one
     for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
         stagingBuffers[i] = createTextureStaging(device);
+
+    geometryUploadBuffer = device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sGeometryBufferSize,
+                .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .createMapped = true,
+        .debugName = "GeometryUploadBuffer",
+    });
 }
 
 DeferredLoadingContext::~DeferredLoadingContext()
@@ -176,6 +278,8 @@ DeferredLoadingContext::~DeferredLoadingContext()
 
         for (const Buffer &buffer : stagingBuffers)
             device->destroy(buffer);
+
+        device->destroy(geometryUploadBuffer);
     }
 }
 
@@ -183,6 +287,165 @@ void DeferredLoadingContext::launch()
 {
     WHEELS_ASSERT(
         !worker.has_value() && "Tried to launch deferred loading worker twice");
-    timer.reset();
     worker = std::thread{&loadingWorker, this};
+}
+
+UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
+    const InputGeometryMetadata &metadata, const MeshInfo &meshInfo)
+{
+    const bool hasTangents = metadata.tangents.index < 0xFFFFFFFF;
+    const bool hasTexCoord0s = metadata.texCoord0s.index < 0xFFFFFFFF;
+
+    // Figure out the required storage
+    const uint32_t indicesByteCount =
+        metadata.usesShortIndices ? meshInfo.indexCount * sizeof(uint16_t)
+                                  : meshInfo.indexCount * sizeof(uint32_t);
+    // Make sure we align for u32 even with u16 indices
+    const uint32_t indicesPaddingByteCount =
+        indicesByteCount % sizeof(uint32_t);
+    const uint32_t positionsByteCount = meshInfo.vertexCount * sizeof(vec3);
+    const uint32_t normalsByteCount = meshInfo.vertexCount * sizeof(vec3);
+    const uint32_t tangentsByteCount =
+        hasTangents ? meshInfo.vertexCount * sizeof(vec4) : 0;
+    const uint32_t texCoord0sByteCount =
+        hasTexCoord0s ? meshInfo.vertexCount * sizeof(vec2) : 0;
+    const uint32_t byteCount = indicesByteCount + indicesPaddingByteCount +
+                               positionsByteCount + normalsByteCount +
+                               tangentsByteCount + texCoord0sByteCount;
+    WHEELS_ASSERT(
+        byteCount < sGeometryBufferSize &&
+        "The default size for geometry buffers doesn't fit the mesh");
+
+    // Offsets into GPU buffer are for uint
+    const uint32_t elementSize = static_cast<uint32_t>(sizeof(uint32_t));
+
+    const uint32_t dstBufferI = getGeometryBuffer(byteCount);
+
+    // The mesh data ranges are expected to not leave gaps in the buffer so that
+    // ownership is transferred properly between the queues.
+    const uint32_t startByteOffset =
+        sGeometryBufferSize - geometryBufferRemainingByteCounts[dstBufferI];
+
+    UploadedGeometryData ret{
+        .metadata =
+            GeometryMetadata{
+                .bufferIndex = dstBufferI,
+                .indicesOffset = startByteOffset / elementSize,
+                .positionsOffset = (startByteOffset + indicesByteCount +
+                                    indicesPaddingByteCount) /
+                                   elementSize,
+                .normalsOffset =
+                    (startByteOffset + indicesByteCount +
+                     indicesPaddingByteCount + positionsByteCount) /
+                    elementSize,
+                .tangentsOffset =
+                    hasTangents ? (startByteOffset + indicesByteCount +
+                                   positionsByteCount + normalsByteCount) /
+                                      elementSize
+                                : 0xFFFFFFFF,
+                .texCoord0sOffset =
+                    hasTexCoord0s
+                        ? (startByteOffset + indicesByteCount +
+                           indicesPaddingByteCount + positionsByteCount +
+                           normalsByteCount + tangentsByteCount) /
+                              elementSize
+                        : 0xFFFFFFFF,
+
+                .usesShortIndices =
+                    static_cast<uint32_t>(metadata.usesShortIndices),
+            },
+        .byteCount = byteCount,
+    };
+
+    uint32_t *dstPtr =
+        reinterpret_cast<uint32_t *>(geometryUploadBuffer.mapped);
+    const auto writeBytes = [&](const InputBuffer &srcBuffer,
+                                uint32_t byteCount, uint32_t dstU32Offset)
+    {
+        if (byteCount == 0)
+            return;
+
+        const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
+        memcpy(
+            dstPtr + dstU32Offset,
+            gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
+    };
+
+    // Let's just write straight into the dst offsets as our upload buffer is as
+    // big as the destination buffer
+    writeBytes(metadata.indices, indicesByteCount, ret.metadata.indicesOffset);
+    writeBytes(
+        metadata.positions, positionsByteCount, ret.metadata.positionsOffset);
+    writeBytes(metadata.normals, normalsByteCount, ret.metadata.normalsOffset);
+    writeBytes(
+        metadata.tangents, tangentsByteCount, ret.metadata.tangentsOffset);
+    writeBytes(
+        metadata.texCoord0s, texCoord0sByteCount,
+        ret.metadata.texCoord0sOffset);
+
+    const vk::BufferCopy copyRegion{
+        .srcOffset = startByteOffset,
+        .dstOffset = startByteOffset,
+        .size = byteCount,
+    };
+    const Buffer &dstBuffer = geometryBuffers[dstBufferI];
+    // Don't use the context command buffer since this method is also used by
+    // the non-async loading implementations
+    cb.copyBuffer(
+        geometryUploadBuffer.handle, dstBuffer.handle, 1, &copyRegion);
+
+    // The mesh data ranges are expected to not leave gaps in the buffer so that
+    // ownership is transferred properly between the queues. Any
+    // alignment/padding for the next mesh should be included in the byte
+    // count of the previous one.
+    geometryBufferRemainingByteCounts[dstBufferI] -= byteCount;
+
+    return ret;
+}
+
+uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
+{
+    // Find a buffer that fits the data or create a new one
+    // Let's assume there's only a handful of these so we can just comb through
+    // all of them and potentially fill early buffers more completely than if we
+    // just checked the last one.
+    uint32_t dstBufferI = 0;
+    WHEELS_ASSERT(
+        geometryBuffers.size() == geometryBufferRemainingByteCounts.size());
+    const uint32_t bufferCount =
+        asserted_cast<uint32_t>(geometryBufferRemainingByteCounts.size());
+    for (; dstBufferI < bufferCount; ++dstBufferI)
+    {
+        const uint32_t bc = geometryBufferRemainingByteCounts[dstBufferI];
+        if (bc >= byteCount)
+            break;
+    }
+
+    if (dstBufferI >= geometryBuffers.size())
+    {
+        const Buffer buffer = device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = sGeometryBufferSize,
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureBuildInputReadOnlyKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .cacheDeviceAddress = true,
+            .debugName = "GeometryBuffer",
+        });
+        {
+            // The managing thread should only read the buffer array. A lock
+            // is only be needed for the append op on the worker side to sync
+            // those reads.
+            const std::lock_guard _lock{geometryBuffersMutex};
+            geometryBuffers.push_back(buffer);
+        }
+        geometryBufferRemainingByteCounts.push_back(sGeometryBufferSize);
+    }
+
+    return dstBufferI;
 }

@@ -358,7 +358,7 @@ void ForwardRenderer::record(
     descriptorSets[MaterialDatasBindingSet] =
         worldDSes.materialDatas[nextFrame];
     descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
-    descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry;
+    descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry[nextFrame];
     descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
@@ -391,6 +391,10 @@ void ForwardRenderer::record(
         {
             const auto &material = materials[subModel.materialID];
             const auto &info = meshInfos[subModel.meshID];
+            if (info.indexCount == 0)
+                // Invalid or not yet loaded
+                continue;
+
             const auto isTransparent =
                 material.alphaMode == Material::AlphaMode::Blend;
             if ((options.transparents && isTransparent) ||

@@ -35,7 +35,7 @@ struct WorldDescriptorSets
     vk::DescriptorSet lights;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> materialDatas;
     vk::DescriptorSet materialTextures;
-    vk::DescriptorSet geometry;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> geometry;
     vk::DescriptorSet skybox;
 };
 
