@@ -874,11 +874,11 @@ void World::startFrame() { _impl->startFrame(); }
 
 void World::endFrame() { _impl->endFrame(); }
 
-void World::handleDeferredLoading(
+bool World::handleDeferredLoading(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
     Profiler &profiler)
 {
-    _impl->_data.handleDeferredLoading(
+    return _impl->_data.handleDeferredLoading(
         WHEELS_MOV(scopeAlloc), cb, nextFrame, profiler);
 }
 

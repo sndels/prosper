@@ -152,6 +152,7 @@ class App
     bool _forceCamUpdate{true};
     bool _applyIbl{false};
     bool _sceneChanged{false};
+    bool _newSceneDataLoaded{false};
     bool _applyTaa{true};
     bool _applyJitter{true};
 

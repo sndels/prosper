@@ -46,7 +46,8 @@ class WorldData
     WorldData &operator=(WorldData &&) = delete;
 
     void uploadMaterialDatas(uint32_t nextFrame);
-    void handleDeferredLoading(
+    // Returns true if the visible scene was changed.
+    bool handleDeferredLoading(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame, Profiler &profiler);
 
@@ -187,7 +188,7 @@ class WorldData
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame);
 
-    void updateDescriptorsWithNewTextures(size_t newTextureCount);
+    bool updateDescriptorsWithNewTextures(size_t newTextureCount);
 };
 
 #endif // PROSPER_SCENE_WORLD_DATA_HPP

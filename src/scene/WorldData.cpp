@@ -399,12 +399,12 @@ void WorldData::uploadMaterialDatas(uint32_t nextFrame)
         _deferredLoadingContext->materialsGeneration;
 }
 
-void WorldData::handleDeferredLoading(
+bool WorldData::handleDeferredLoading(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
     Profiler &profiler)
 {
     if (!_deferredLoadingContext.has_value())
-        return;
+        return false;
 
     _deferredLoadingAllocationHighWatermark = std::max(
         _deferredLoadingAllocationHighWatermark,
@@ -422,7 +422,7 @@ void WorldData::handleDeferredLoading(
 
             _deferredLoadingContext.reset();
         }
-        return;
+        return false;
     }
 
     // No gpu as timestamps are flaky for this work
@@ -441,7 +441,9 @@ void WorldData::handleDeferredLoading(
     }
 
     if (newTexturesAvailable > 0)
-        updateDescriptorsWithNewTextures(newTexturesAvailable);
+        return updateDescriptorsWithNewTextures(newTexturesAvailable);
+
+    return false;
 }
 
 void WorldData::drawDeferredLoadingUi() const
@@ -2028,7 +2030,7 @@ void WorldData::loadTextureSingleThreaded(
         ctx.stagingBuffers[nextFrame], true);
 }
 
-void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
+bool WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
@@ -2081,4 +2083,6 @@ void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 
     if (materialsUpdated)
         ctx.materialsGeneration++;
+
+    return materialsUpdated;
 }

@@ -668,7 +668,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         },
         uiChanges);
 
-    _world->handleDeferredLoading(
+    _newSceneDataLoaded = _world->handleDeferredLoading(
         scopeAlloc.child_scope(), cb, nextFrame, *_profiler);
 
     _profiler->endGpuFrame(cb);
@@ -748,7 +748,10 @@ App::UiChanges App::drawUi(
     UiChanges ret;
     // Actual scene change happens after the frame so let's initialize here with
     // last frame's value
-    ret.rtDirty = _sceneChanged;
+    // TODO:
+    // At least _newSceneDataLoaded would probably be less surprising if
+    // combined to the dirty flag somewhere else
+    ret.rtDirty = _sceneChanged || _newSceneDataLoaded;
 
     _sceneChanged = _world->drawSceneUi();
 
