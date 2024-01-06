@@ -71,7 +71,7 @@ App::App(const Settings &settings)
 : _generalAlloc{megabytes(16)}
 , _fileChangePollingAlloc{megabytes(1)}
 {
-    LinearAllocator scratchBacking{megabytes(16)};
+    LinearAllocator scratchBacking{sLoadingScratchSize};
     ScopedScratch scopeAlloc{scratchBacking};
 
     const auto &tl = [](const char *stage, std::function<void()> const &fn)

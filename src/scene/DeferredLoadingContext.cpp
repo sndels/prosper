@@ -20,8 +20,7 @@ void loadingWorker(DeferredLoadingContext *ctx)
         ctx->device->transferQueue().has_value() &&
         ctx->device->graphicsQueue() != *ctx->device->transferQueue());
 
-    // Enough for 4K textures, it seems
-    LinearAllocator scratchBacking{megabytes(256)};
+    LinearAllocator scratchBacking{sLoadingScratchSize};
     ScopedScratch scopeAlloc{scratchBacking};
 
     while (!ctx->interruptLoading)
