@@ -60,6 +60,8 @@ class WorldData
     DescriptorAllocator _descriptorAllocator;
     Buffer _scratchBuffer;
 
+    Timer _materialStreamingTimer;
+
     std::filesystem::path _sceneDir;
 
     wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;

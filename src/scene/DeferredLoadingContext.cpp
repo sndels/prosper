@@ -26,7 +26,10 @@ void loadingWorker(DeferredLoadingContext *ctx)
     while (!ctx->interruptLoading)
     {
         if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
+        {
+            printf("Texture loading took %.2fs\n", ctx->timer.getSeconds());
             break;
+        }
 
         WHEELS_ASSERT(
             ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
@@ -181,6 +184,7 @@ void DeferredLoadingContext::launch()
                 .commandPool = *transferPool,
                 .level = vk::CommandBufferLevel::ePrimary,
                 .commandBufferCount = 1})[0];
+        timer.reset();
         worker = std::thread{&loadingWorker, this};
     }
 }

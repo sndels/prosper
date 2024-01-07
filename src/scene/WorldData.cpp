@@ -420,7 +420,7 @@ void WorldData::handleDeferredLoading(
         {
             printf(
                 "Material streaming took %.2fs\n",
-                _deferredLoadingContext->timer.getSeconds());
+                _materialStreamingTimer.getSeconds());
 
             _deferredLoadingContext.reset();
         }
@@ -431,7 +431,7 @@ void WorldData::handleDeferredLoading(
     const auto _s = profiler.createCpuScope("DeferredLoading");
 
     if (_deferredLoadingContext->loadedImageCount == 0)
-        _deferredLoadingContext->timer.reset();
+        _materialStreamingTimer.reset();
 
     size_t newTexturesAvailable = 0;
     if (_deferredLoadingContext->worker.has_value())
