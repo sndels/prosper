@@ -433,17 +433,17 @@ void WorldData::handleDeferredLoading(
     if (_deferredLoadingContext->loadedImageCount == 0)
         _deferredLoadingContext->timer.reset();
 
-    bool newTextureAvailable = false;
+    size_t newTexturesAvailable = 0;
     if (_deferredLoadingContext->worker.has_value())
-        newTextureAvailable = pollTextureWorker(cb);
+        newTexturesAvailable = pollTextureWorker(cb);
     else
     {
         loadTextureSingleThreaded(scopeAlloc.child_scope(), cb, nextFrame);
-        newTextureAvailable = true;
+        newTexturesAvailable = 1;
     }
 
-    if (newTextureAvailable)
-        updateDescriptorsWithNewTexture();
+    if (newTexturesAvailable > 0)
+        updateDescriptorsWithNewTextures(newTexturesAvailable);
 }
 
 void WorldData::drawDeferredLoadingUi() const
@@ -2046,62 +2046,70 @@ void WorldData::createDescriptorSets(
     }
 }
 
-bool WorldData::pollTextureWorker(vk::CommandBuffer cb)
+size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
     WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfModel.images.size());
 
-    bool newTextureLoaded = false;
+    size_t newTexturesLoaded = 0;
+    const size_t maxTexturesPerFrame = 10;
+    for (size_t i = 0; i < maxTexturesPerFrame; ++i)
     {
-        const std::lock_guard _lock{ctx.loadedTextureMutex};
-        if (ctx.loadedTexture.has_value())
+        bool newTextureLoaded = false;
         {
-            _texture2Ds.emplace_back(ctx.loadedTexture.take());
+            // Let's pop textures one by one to potentially let the async worker
+            // push new ones to fill the quota while we're in this loop
+            const std::lock_guard _lock{ctx.loadedTexturesMutex};
+            if (ctx.loadedTextures.empty())
+                break;
+
+            _texture2Ds.emplace_back(WHEELS_MOV(ctx.loadedTextures.front()));
+            ctx.loadedTextures.erase(0);
             newTextureLoaded = true;
         }
-    }
 
-    if (newTextureLoaded)
-    {
-        ctx.loadedTextureTaken.notify_all();
-
-        const QueueFamilies &families = _device->queueFamilies();
-        WHEELS_ASSERT(families.graphicsFamily.has_value());
-        WHEELS_ASSERT(families.transferFamily.has_value());
-
-        if (*families.graphicsFamily != *families.transferFamily)
+        if (newTextureLoaded)
         {
-            const vk::ImageMemoryBarrier2 acquireBarrier{
-                .srcStageMask = vk::PipelineStageFlagBits2::eNone,
-                .srcAccessMask = vk::AccessFlagBits2::eNone,
-                .dstStageMask =
-                    vk::PipelineStageFlagBits2::eFragmentShader |
-                    vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
-                .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
-                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-                .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                .srcQueueFamilyIndex = *families.transferFamily,
-                .dstQueueFamilyIndex = *families.graphicsFamily,
-                .image = _texture2Ds.back().nativeHandle(),
-                .subresourceRange =
-                    vk::ImageSubresourceRange{
-                        .aspectMask = vk::ImageAspectFlagBits::eColor,
-                        .baseMipLevel = 0,
-                        .levelCount = VK_REMAINING_MIP_LEVELS,
-                        .baseArrayLayer = 0,
-                        .layerCount = VK_REMAINING_ARRAY_LAYERS,
-                    },
-            };
-            cb.pipelineBarrier2(vk::DependencyInfo{
-                .imageMemoryBarrierCount = 1,
-                .pImageMemoryBarriers = &acquireBarrier,
-            });
+            newTexturesLoaded++;
+
+            const QueueFamilies &families = _device->queueFamilies();
+            WHEELS_ASSERT(families.graphicsFamily.has_value());
+            WHEELS_ASSERT(families.transferFamily.has_value());
+
+            if (*families.graphicsFamily != *families.transferFamily)
+            {
+                const vk::ImageMemoryBarrier2 acquireBarrier{
+                    .srcStageMask = vk::PipelineStageFlagBits2::eNone,
+                    .srcAccessMask = vk::AccessFlagBits2::eNone,
+                    .dstStageMask =
+                        vk::PipelineStageFlagBits2::eFragmentShader |
+                        vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                    .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
+                    .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                    .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                    .srcQueueFamilyIndex = *families.transferFamily,
+                    .dstQueueFamilyIndex = *families.graphicsFamily,
+                    .image = _texture2Ds.back().nativeHandle(),
+                    .subresourceRange =
+                        vk::ImageSubresourceRange{
+                            .aspectMask = vk::ImageAspectFlagBits::eColor,
+                            .baseMipLevel = 0,
+                            .levelCount = VK_REMAINING_MIP_LEVELS,
+                            .baseArrayLayer = 0,
+                            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                        },
+                };
+                cb.pipelineBarrier2(vk::DependencyInfo{
+                    .imageMemoryBarrierCount = 1,
+                    .pImageMemoryBarriers = &acquireBarrier,
+                });
+            }
         }
     }
 
-    return newTextureLoaded;
+    return newTexturesLoaded;
 }
 
 void WorldData::loadTextureSingleThreaded(
@@ -2125,26 +2133,31 @@ void WorldData::loadTextureSingleThreaded(
         ctx.stagingBuffers[nextFrame], true);
 }
 
-void WorldData::updateDescriptorsWithNewTexture()
+void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    const size_t textureCount = _texture2Ds.size();
+    for (size_t i = 0; i < newTextureCount; ++i)
+    {
+        const vk::DescriptorImageInfo imageInfo =
+            _texture2Ds[textureCount - newTextureCount + i].imageInfo();
+        const vk::WriteDescriptorSet descriptorWrite{
+            .dstSet = _descriptorSets.materialTextures,
+            .dstBinding = ctx.textureArrayBinding,
+            // loadedImageCount is gltf images so bump by one to take our
+            // default texture into account
+            .dstArrayElement = ctx.loadedImageCount + 1,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eSampledImage,
+            .pImageInfo = &imageInfo,
+        };
+        _device->logical().updateDescriptorSets(
+            1, &descriptorWrite, 0, nullptr);
 
-    const vk::DescriptorImageInfo imageInfo = _texture2Ds.back().imageInfo();
-    const vk::WriteDescriptorSet descriptorWrite{
-        .dstSet = _descriptorSets.materialTextures,
-        .dstBinding = ctx.textureArrayBinding,
-        // loadedImageCount is gltf images so bump by one to take our
-        // default texture into account
-        .dstArrayElement = ctx.loadedImageCount + 1,
-        .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::eSampledImage,
-        .pImageInfo = &imageInfo,
-    };
-    _device->logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
-
-    ctx.loadedImageCount++;
+        ctx.loadedImageCount++;
+    }
 
     // Update next material(s) in line if the required textures are
     // loaded

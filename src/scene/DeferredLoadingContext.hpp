@@ -46,9 +46,8 @@ struct DeferredLoadingContext
     uint32_t workerLoadedImageCount{0};
 
     // Shared context
-    std::mutex loadedTextureMutex;
-    std::condition_variable loadedTextureTaken;
-    wheels::Optional<Texture2D> loadedTexture;
+    std::mutex loadedTexturesMutex;
+    wheels::Array<Texture2D> loadedTextures;
     std::atomic<bool> interruptLoading{false};
     std::atomic<uint32_t> allocationHighWatermark{0};
 

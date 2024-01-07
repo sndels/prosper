@@ -106,15 +106,9 @@ void loadingWorker(DeferredLoadingContext *ctx)
         }
 
         {
-            std::unique_lock lock{ctx->loadedTextureMutex};
+            std::lock_guard _lock{ctx->loadedTexturesMutex};
 
-            if (ctx->loadedTexture.has_value())
-                ctx->loadedTextureTaken.wait(lock);
-            WHEELS_ASSERT(!ctx->loadedTexture.has_value());
-
-            ctx->loadedTexture.emplace(WHEELS_MOV(tex));
-
-            lock.unlock();
+            ctx->loadedTextures.emplace_back(WHEELS_MOV(tex));
         }
     }
 }
@@ -146,6 +140,7 @@ DeferredLoadingContext::DeferredLoadingContext(
 : device{device}
 , sceneDir{WHEELS_MOV(sceneDir)}
 , gltfModel{gltfModel}
+, loadedTextures{alloc, gltfModel.images.size()}
 , materials{alloc, gltfModel.materials.size()}
 {
     WHEELS_ASSERT(device != nullptr);
@@ -162,13 +157,6 @@ DeferredLoadingContext::~DeferredLoadingContext()
     {
         if (worker.has_value())
         {
-            {
-                const std::lock_guard _lock{loadedTextureMutex};
-                if (loadedTexture.has_value())
-                    const Texture2D _tex = loadedTexture.take();
-            }
-            loadedTextureTaken.notify_all();
-
             interruptLoading = true;
             worker->join();
         }

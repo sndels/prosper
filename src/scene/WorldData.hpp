@@ -179,13 +179,14 @@ class WorldData
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc, const RingBuffers &ringBuffers);
 
-    [[nodiscard]] bool pollTextureWorker(vk::CommandBuffer cb);
+    // Returns the count of newly loaded textures
+    [[nodiscard]] size_t pollTextureWorker(vk::CommandBuffer cb);
 
     void loadTextureSingleThreaded(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame);
 
-    void updateDescriptorsWithNewTexture();
+    void updateDescriptorsWithNewTextures(size_t newTextureCount);
 };
 
 #endif // PROSPER_SCENE_WORLD_DATA_HPP
