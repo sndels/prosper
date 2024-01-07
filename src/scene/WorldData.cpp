@@ -162,8 +162,7 @@ const uint8_t *appendAccessorData(
 
 WorldData::WorldData(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    const RingBuffers &ringBuffers, const std::filesystem::path &scene,
-    bool deferredLoading)
+    const RingBuffers &ringBuffers, const std::filesystem::path &scene)
 : _generalAlloc{generalAlloc}
 , _linearAlloc{sWorldMemSize}
 , _device{device}
@@ -295,12 +294,8 @@ WorldData::WorldData(
     const auto gltfModel = loadGLTFModel(resPath(scene));
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
-    // Deferred loading is used for textures only
-    deferredLoading = deferredLoading && !gltfModel.textures.empty();
-
-    if (deferredLoading)
-        _deferredLoadingContext.emplace(
-            _generalAlloc, _device, _sceneDir, gltfModel);
+    _deferredLoadingContext.emplace(
+        _generalAlloc, _device, _sceneDir, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -312,14 +307,11 @@ WorldData::WorldData(
     Array<Texture2DSampler> texture2DSamplers{
         _generalAlloc, gltfModel.textures.size() + 1};
     tl("Texture loading",
-       [&]()
-       {
-           loadTextures(
-               scopeAlloc.child_scope(), gltfModel, texture2DSamplers,
-               deferredLoading);
+       [&]() {
+           loadTextures(scopeAlloc.child_scope(), gltfModel, texture2DSamplers);
        });
     tl("Material loading",
-       [&]() { loadMaterials(gltfModel, texture2DSamplers, deferredLoading); });
+       [&]() { loadMaterials(gltfModel, texture2DSamplers); });
     tl("Model loading ", [&]() { loadModels(gltfModel); });
     tl("Animation and scene loading ",
        [&]()
@@ -336,8 +328,7 @@ WorldData::WorldData(
     reflectBindings(scopeAlloc.child_scope());
     createDescriptorSets(scopeAlloc.child_scope(), ringBuffers);
 
-    if (_deferredLoadingContext.has_value())
-        _deferredLoadingContext->launch();
+    _deferredLoadingContext->launch();
 }
 
 WorldData::~WorldData()
@@ -481,7 +472,7 @@ size_t WorldData::linearAllocatorHighWatermark() const
 
 void WorldData::loadTextures(
     ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-    Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading)
+    Array<Texture2DSampler> &texture2DSamplers)
 {
     {
         const vk::SamplerCreateInfo info{
@@ -534,24 +525,6 @@ void WorldData::loadTextures(
     WHEELS_ASSERT(
         gltfModel.images.size() < 0xFFFFFE &&
         "Too many textures to pack in u32 texture index");
-    if (!deferredLoading)
-    {
-        for (const auto &image : gltfModel.images)
-        {
-            if (image.uri.empty())
-                throw std::runtime_error("Embedded glTF textures aren't "
-                                         "supported. Scene should be glTF + "
-                                         "bin + textures.");
-
-            const vk::CommandBuffer cb = _device->beginGraphicsCommands();
-
-            _texture2Ds.emplace_back(
-                scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
-                stagingBuffer, true);
-
-            _device->endGraphicsCommands(cb);
-        }
-    }
 
     _device->destroy(stagingBuffer);
 
@@ -563,7 +536,7 @@ void WorldData::loadTextures(
 
 void WorldData::loadMaterials(
     const tinygltf::Model &gltfModel,
-    const Array<Texture2DSampler> &texture2DSamplers, bool deferredLoading)
+    const Array<Texture2DSampler> &texture2DSamplers)
 {
     _materials.push_back(Material{});
 
@@ -627,18 +600,13 @@ void WorldData::loadMaterials(
             mat.alphaCutoff = static_cast<float>(elem->second.Factor());
         }
 
-        if (deferredLoading)
-        {
-            WHEELS_ASSERT(_deferredLoadingContext.has_value());
-            // Copy the alpha mode of the real material because that's used to
-            // set opaque flag in rt
-            _materials.push_back(Material{
-                .alphaMode = mat.alphaMode,
-            });
-            _deferredLoadingContext->materials.push_back(mat);
-        }
-        else
-            _materials.push_back(mat);
+        // Copy the alpha mode of the real material because that's used to
+        // set opaque flag in rt
+        _materials.push_back(Material{
+            .alphaMode = mat.alphaMode,
+        });
+        WHEELS_ASSERT(_deferredLoadingContext.has_value());
+        _deferredLoadingContext->materials.push_back(mat);
     }
 }
 
@@ -1678,21 +1646,12 @@ void WorldData::createDescriptorSets(
         // textures that are loaded later
         Array<vk::DescriptorImageInfo> materialImageInfos{
             scopeAlloc, _texture2Ds.capacity()};
-        if (_deferredLoadingContext.has_value())
-        {
-            // Fill missing textures with the default info so potential reads
-            // are still to valid descriptors
-            WHEELS_ASSERT(_texture2Ds.size() == 1);
-            const vk::DescriptorImageInfo defaultInfo =
-                _texture2Ds[0].imageInfo();
-            for (size_t i = 0; i < materialImageInfos.capacity(); ++i)
-                materialImageInfos.push_back(defaultInfo);
-        }
-        else
-        {
-            for (const auto &tex : _texture2Ds)
-                materialImageInfos.push_back(tex.imageInfo());
-        }
+        // Fill missing textures with the default info so potential reads
+        // are still to valid descriptors
+        WHEELS_ASSERT(_texture2Ds.size() == 1);
+        const vk::DescriptorImageInfo defaultInfo = _texture2Ds[0].imageInfo();
+        for (size_t i = 0; i < materialImageInfos.capacity(); ++i)
+            materialImageInfos.push_back(defaultInfo);
 
         const auto imageInfoCount =
             asserted_cast<uint32_t>(materialImageInfos.size());
@@ -1734,9 +1693,8 @@ void WorldData::createDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
 
-        if (_deferredLoadingContext.has_value())
-            _deferredLoadingContext->textureArrayBinding =
-                asserted_cast<uint32_t>(materialSamplerInfos.size());
+        _deferredLoadingContext->textureArrayBinding =
+            asserted_cast<uint32_t>(materialSamplerInfos.size());
     }
 
     {

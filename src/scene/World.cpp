@@ -46,8 +46,7 @@ class World::Impl
   public:
     Impl(
         Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-        RingBuffer *constantsRing, const std::filesystem::path &scene,
-        bool deferredLoading);
+        RingBuffer *constantsRing, const std::filesystem::path &scene);
     ~Impl();
 
     Impl(const Impl &other) = delete;
@@ -121,40 +120,21 @@ class World::Impl
 
 World::Impl::Impl(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    RingBuffer *constantsRing, const std::filesystem::path &scene,
-    bool deferredLoading)
+    RingBuffer *constantsRing, const std::filesystem::path &scene)
 : _generalAlloc{generalAlloc}
 , _constantsRing{constantsRing}
 , _device{device}
 , _lightDataRing{createLightDataRing(_device)}
 , _data{
-      generalAlloc,
-      WHEELS_MOV(scopeAlloc),
-      device,
+      generalAlloc, WHEELS_MOV(scopeAlloc), device,
       WorldData::RingBuffers{
           .constantsRing = _constantsRing,
           .lightDataRing = _lightDataRing.get(),
       },
-      scene,
-      deferredLoading}
+      scene}
 {
     WHEELS_ASSERT(_device != nullptr);
     WHEELS_ASSERT(_constantsRing != nullptr);
-
-    if (!deferredLoading)
-    {
-        WHEELS_ASSERT(
-            _data._geometryMetadatas.size() == _data._meshInfos.size());
-        for (const MeshInfo &info : _data._meshInfos)
-        {
-            (void)info;
-
-            const auto cb = _device->beginGraphicsCommands();
-            buildNextBlas(cb);
-            _device->endGraphicsCommands(cb);
-        }
-        printf("BLAS creation took %.2fs\n", _blasBuildTimer.getSeconds());
-    }
 
     // This creates the instance ring and startFrame() assumes it exists
     reserveTlasInstances(1);
@@ -860,11 +840,9 @@ void World::Impl::createTlasBuildInfos(
 
 World::World(
     Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    RingBuffer *constantsRing, const std::filesystem::path &scene,
-    bool deferredLoading)
+    RingBuffer *constantsRing, const std::filesystem::path &scene)
 : _impl{std::make_unique<World::Impl>(
-      generalAlloc, WHEELS_MOV(scopeAlloc), device, constantsRing, scene,
-      deferredLoading)}
+      generalAlloc, WHEELS_MOV(scopeAlloc), device, constantsRing, scene)}
 {
 }
 

@@ -119,7 +119,7 @@ App::App(const Settings &settings)
         _staticDescriptorsAlloc.get());
     _world = std::make_unique<World>(
         _generalAlloc, scopeAlloc.child_scope(), _device.get(),
-        &_resources->constantsRing, settings.scene, settings.deferredLoading);
+        &_resources->constantsRing, settings.scene);
 
     const Timer gpuPassesInitTimer;
     _lightClustering = std::make_unique<LightClustering>(

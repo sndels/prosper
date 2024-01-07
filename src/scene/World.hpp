@@ -17,7 +17,7 @@ class World
     World(
         wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
         Device *device, RingBuffer *constantsRing,
-        const std::filesystem::path &scene, bool deferredLoading);
+        const std::filesystem::path &scene);
     ~World();
 
     World(const World &other) = delete;

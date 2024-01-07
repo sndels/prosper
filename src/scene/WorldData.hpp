@@ -37,7 +37,7 @@ class WorldData
     WorldData(
         wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
         Device *device, const RingBuffers &ringBuffers,
-        const std::filesystem::path &scene, bool deferredLoading);
+        const std::filesystem::path &scene);
     ~WorldData();
 
     WorldData(const WorldData &) = delete;
@@ -111,12 +111,10 @@ class WorldData
   private:
     void loadTextures(
         wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-        wheels::Array<Texture2DSampler> &texture2DSamplers,
-        bool deferredLoading);
+        wheels::Array<Texture2DSampler> &texture2DSamplers);
     void loadMaterials(
         const tinygltf::Model &gltfModel,
-        const wheels::Array<Texture2DSampler> &texture2DSamplers,
-        bool deferredLoading);
+        const wheels::Array<Texture2DSampler> &texture2DSamplers);
     void loadModels(const tinygltf::Model &gltfModel);
 
     struct InputBuffer

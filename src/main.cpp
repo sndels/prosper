@@ -30,7 +30,6 @@ App::Settings parseCli(int argc, char *argv[])
         options.add_options()
             ("debugLayers", "Enable Vulkan debug layers")
             ("dumpShaderDisassembly", "Dump shader disassembly to stdout")
-            ("disableDeferredLoading", "Load all assets up front")
             ("breakOnValidationError", "Break debugger on Vulkan validation error")
             ("sceneFile", std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
              cxxopts::value<std::string>()->default_value(""));
@@ -55,7 +54,6 @@ App::Settings parseCli(int argc, char *argv[])
 
     return App::Settings{
         .scene = scenePath,
-        .deferredLoading = !args["disableDeferredLoading"].as<bool>(),
         .device =
             Device::Settings{
                 .enableDebugLayers = args["debugLayers"].as<bool>(),
