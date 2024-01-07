@@ -858,13 +858,13 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
         .range = bufferDesc.byteSize,
     });
 
-    const TexelBuffer ret{
-        .handle = buffer.handle,
-        .view = view,
-        .format = desc.format,
-        .size = bufferDesc.byteSize,
-        .allocation = buffer.allocation,
-    };
+    TexelBuffer ret;
+    ret.handle = buffer.handle;
+    ret.view = view;
+    ret.format = desc.format;
+    ret.size = bufferDesc.byteSize;
+    ret.allocation = buffer.allocation;
+
     trackTexelBuffer(ret);
 
     return ret;

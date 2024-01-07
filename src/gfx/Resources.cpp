@@ -209,6 +209,19 @@ void bufferTransition(
 
 } // namespace
 
+Buffer Buffer::clone() const
+{
+    Buffer ret;
+    ret.handle = handle;
+    ret.byteSize = byteSize;
+    ret.mapped = mapped;
+    ret.deviceAddress = deviceAddress;
+    ret.state = state;
+    ret.allocation = allocation;
+
+    return ret;
+}
+
 wheels::Optional<vk::BufferMemoryBarrier2> Buffer::transitionBarrier(
     BufferState newState, bool force_barrier)
 {

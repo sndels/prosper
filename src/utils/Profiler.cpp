@@ -112,8 +112,8 @@ GpuFrameProfiler::~GpuFrameProfiler()
 
 GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
 : _device{other._device}
-, _timestampBuffer{other._timestampBuffer}
-, _statisticsBuffer{other._statisticsBuffer}
+, _timestampBuffer{WHEELS_MOV(other._timestampBuffer)}
+, _statisticsBuffer{WHEELS_MOV(other._statisticsBuffer)}
 , _pools{other._pools}
 , _queryScopeIndices{WHEELS_MOV(other._queryScopeIndices)}
 , _scopeHasStats{WHEELS_MOV(other._scopeHasStats)}
@@ -126,8 +126,8 @@ GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
     if (this != &other)
     {
         _device = other._device;
-        _timestampBuffer = other._timestampBuffer;
-        _statisticsBuffer = other._statisticsBuffer;
+        _timestampBuffer = WHEELS_MOV(other._timestampBuffer);
+        _statisticsBuffer = WHEELS_MOV(other._statisticsBuffer);
         _pools = other._pools;
         _queryScopeIndices = WHEELS_MOV(other._queryScopeIndices);
         _scopeHasStats = WHEELS_MOV(other._scopeHasStats);

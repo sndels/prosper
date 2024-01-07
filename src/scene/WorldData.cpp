@@ -1849,7 +1849,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
                 while (_geometryBuffers.size() < ctx.geometryBuffers.size())
                 {
                     _geometryBuffers.push_back(
-                        ctx.geometryBuffers[_geometryBuffers.size()]);
+                        ctx.geometryBuffers[_geometryBuffers.size()].clone());
                     WHEELS_ASSERT(
                         _geometryBuffers.size() <= sMaxGeometryBuffersCount &&
                         "The layout requires a hard limit on the max number of "

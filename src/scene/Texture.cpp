@@ -340,7 +340,7 @@ Texture::~Texture() { destroy(); }
 
 Texture::Texture(Texture &&other) noexcept
 : _device{other._device}
-, _image{other._image}
+, _image{WHEELS_MOV(other._image)}
 {
     other._device = nullptr;
 }
@@ -351,7 +351,7 @@ Texture &Texture::operator=(Texture &&other) noexcept
     {
         destroy();
         _device = other._device;
-        _image = other._image;
+        _image = WHEELS_MOV(other._image);
 
         other._device = nullptr;
     }
@@ -560,7 +560,7 @@ TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
     {
         destroy();
         _device = other._device;
-        _image = other._image;
+        _image = WHEELS_MOV(other._image);
         _sampler = other._sampler;
 
         other._device = nullptr;

@@ -423,7 +423,7 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
 
     if (dstBufferI >= geometryBuffers.size())
     {
-        const Buffer buffer = device->createBuffer(BufferCreateInfo{
+        Buffer buffer = device->createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = sGeometryBufferSize,
@@ -442,7 +442,7 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
             // is only be needed for the append op on the worker side to sync
             // those reads.
             const std::lock_guard _lock{geometryBuffersMutex};
-            geometryBuffers.push_back(buffer);
+            geometryBuffers.push_back(WHEELS_MOV(buffer));
         }
         geometryBufferRemainingByteCounts.push_back(sGeometryBufferSize);
     }
