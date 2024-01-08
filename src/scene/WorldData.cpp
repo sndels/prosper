@@ -390,9 +390,7 @@ void WorldData::uploadMaterialDatas(uint32_t nextFrame)
         _deferredLoadingContext->materialsGeneration;
 }
 
-bool WorldData::handleDeferredLoading(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
-    Profiler &profiler)
+bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 {
     if (!_deferredLoadingContext.has_value())
         return false;
@@ -422,14 +420,7 @@ bool WorldData::handleDeferredLoading(
     if (_deferredLoadingContext->loadedImageCount == 0)
         _materialStreamingTimer.reset();
 
-    size_t newTexturesAvailable = 0;
-    if (_deferredLoadingContext->worker.has_value())
-        newTexturesAvailable = pollTextureWorker(cb);
-    else
-    {
-        loadTextureSingleThreaded(scopeAlloc.child_scope(), cb, nextFrame);
-        newTexturesAvailable = 1;
-    }
+    size_t newTexturesAvailable = pollTextureWorker(cb);
 
     if (newTexturesAvailable > 0)
         return updateDescriptorsWithNewTextures(newTexturesAvailable);

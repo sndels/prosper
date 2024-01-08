@@ -495,16 +495,13 @@ Device::Device(
 
         printf("%s\n", _properties.device.deviceName.data());
     }
-
-    WHEELS_ASSERT(_transferQueue.has_value() == _transferPool.has_value());
 }
 
 Device::~Device()
 {
     // Also cleans up associated command buffers
     _logical.destroy(_graphicsPool);
-    if (_transferPool.has_value())
-        _logical.destroy(*_transferPool);
+    _logical.destroy(_transferPool);
     vmaDestroyAllocator(_allocator);
     // Implicitly cleans up associated queues as well
     _logical.destroy();
@@ -525,9 +522,9 @@ vk::CommandPool Device::graphicsPool() const { return _graphicsPool; }
 
 vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
 
-Optional<vk::CommandPool> Device::transferPool() const { return _transferPool; }
+vk::CommandPool Device::transferPool() const { return _transferPool; }
 
-Optional<vk::Queue> Device::transferQueue() const { return _transferQueue; }
+vk::Queue Device::transferQueue() const { return _transferQueue; }
 
 const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 
@@ -1320,10 +1317,10 @@ void Device::createLogicalDevice()
     _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
     if (graphicsFamily == transferFamily)
     {
-        if (graphicsFamilyQueueCount > 1)
-            _transferQueue = _logical.getQueue(graphicsFamily, 1);
-        // No separate transfer queue if it couldn't be created from the
-        // graphics family
+        WHEELS_ASSERT(
+            graphicsFamilyQueueCount > 1 &&
+            "Device doesn't support two queues");
+        _transferQueue = _logical.getQueue(graphicsFamily, 1);
     }
     else
         _transferQueue = _logical.getQueue(transferFamily, 0);
@@ -1353,16 +1350,13 @@ void Device::createCommandPools()
         _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
     }
     {
-        if (_transferQueue.has_value())
-        {
-            WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
+        WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
 
-            const vk::CommandPoolCreateInfo poolInfo{
-                .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-                .queueFamilyIndex = *_queueFamilies.transferFamily,
-            };
-            _transferPool = _logical.createCommandPool(poolInfo, nullptr);
-        }
+        const vk::CommandPoolCreateInfo poolInfo{
+            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            .queueFamilyIndex = *_queueFamilies.transferFamily,
+        };
+        _transferPool = _logical.createCommandPool(poolInfo, nullptr);
     }
 }
 

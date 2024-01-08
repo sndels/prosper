@@ -853,12 +853,9 @@ void World::startFrame() { _impl->startFrame(); }
 
 void World::endFrame() { _impl->endFrame(); }
 
-bool World::handleDeferredLoading(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
-    Profiler &profiler)
+bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 {
-    return _impl->_data.handleDeferredLoading(
-        WHEELS_MOV(scopeAlloc), cb, nextFrame, profiler);
+    return _impl->_data.handleDeferredLoading(cb, profiler);
 }
 
 void World::drawDeferredLoadingUi() const

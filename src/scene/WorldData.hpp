@@ -47,9 +47,7 @@ class WorldData
 
     void uploadMaterialDatas(uint32_t nextFrame);
     // Returns true if the visible scene was changed.
-    bool handleDeferredLoading(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        uint32_t nextFrame, Profiler &profiler);
+    bool handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler);
 
     void drawDeferredLoadingUi() const;
     [[nodiscard]] size_t linearAllocatorHighWatermark() const;

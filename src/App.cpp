@@ -668,8 +668,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         },
         uiChanges);
 
-    _newSceneDataLoaded = _world->handleDeferredLoading(
-        scopeAlloc.child_scope(), cb, nextFrame, *_profiler);
+    _newSceneDataLoaded = _world->handleDeferredLoading(cb, *_profiler);
 
     _profiler->endGpuFrame(cb);
 

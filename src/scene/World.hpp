@@ -29,9 +29,7 @@ class World
     void endFrame();
 
     // Returns true if the visible scene was changed.
-    bool handleDeferredLoading(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        uint32_t nextFrame, Profiler &profiler);
+    bool handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler);
 
     void drawDeferredLoadingUi() const;
     // Returns true if the next frame will use a different scene

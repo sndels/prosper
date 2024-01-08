@@ -76,7 +76,7 @@ void loadNextTexture(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
 
     ctx->cb.end();
 
-    const vk::Queue transferQueue = *ctx->device->transferQueue();
+    const vk::Queue transferQueue = ctx->device->transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
         .pCommandBuffers = &ctx->cb,
@@ -103,8 +103,7 @@ void loadingWorker(DeferredLoadingContext *ctx)
     // valid null checks
     WHEELS_ASSERT(
         ctx != nullptr && ctx->device != nullptr &&
-        ctx->device->transferQueue().has_value() &&
-        ctx->device->graphicsQueue() != *ctx->device->transferQueue());
+        ctx->device->graphicsQueue() != ctx->device->transferQueue());
 
     LinearAllocator scratchBacking{sLoadingScratchSize};
     ScopedScratch scopeAlloc{scratchBacking};
@@ -150,6 +149,10 @@ DeferredLoadingContext::DeferredLoadingContext(
 : device{device}
 , sceneDir{WHEELS_MOV(sceneDir)}
 , gltfModel{gltfModel}
+, cb{device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+      .commandPool = device->transferPool(),
+      .level = vk::CommandBufferLevel::ePrimary,
+      .commandBufferCount = 1})[0]}
 , loadedTextures{alloc, gltfModel.images.size()}
 , materials{alloc, gltfModel.materials.size()}
 {
@@ -180,18 +183,6 @@ void DeferredLoadingContext::launch()
 {
     WHEELS_ASSERT(
         !worker.has_value() && "Tried to launch deferred loading worker twice");
-
-    const Optional<vk::CommandPool> transferPool = device->transferPool();
-    if (transferPool.has_value())
-    {
-        WHEELS_ASSERT(device->transferQueue().has_value());
-
-        cb = device->logical().allocateCommandBuffers(
-            vk::CommandBufferAllocateInfo{
-                .commandPool = *transferPool,
-                .level = vk::CommandBufferLevel::ePrimary,
-                .commandBufferCount = 1})[0];
-        timer.reset();
-        worker = std::thread{&loadingWorker, this};
-    }
+    timer.reset();
+    worker = std::thread{&loadingWorker, this};
 }
