@@ -32,12 +32,12 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - Animation support for transformations
 - Polling shader recompilation
 - Render texture debug view
+- Streaming mesh and texture loads
+  - Separate thread for loading when a distinct queue is available for GPU transfers
 
 ### Under the hood
 
 - Bindless materials
-  - Streaming texture loads
-    - Separate thread for loading when a distinct queue is available for transfers
   - Texture cache with BC7 compression
     - Generated during texture load when a scene is loaded the first time
 - Bindless geometry
