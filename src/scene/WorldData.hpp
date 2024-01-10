@@ -116,10 +116,6 @@ class WorldData
         const wheels::Array<Texture2DSampler> &texture2DSamplers);
     void loadModels(const tinygltf::Model &gltfModel);
 
-    GeometryMetadata uploadGeometryData(
-        const tinygltf::Model &gltfModel, const InputGeometryMetadata &metadata,
-        const MeshInfo &meshInfo);
-
     struct NodeAnimations
     {
         wheels::Optional<Animation<glm::vec3> *> translation;
