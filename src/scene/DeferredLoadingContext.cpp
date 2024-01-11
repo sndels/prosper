@@ -13,7 +13,88 @@ namespace
 
 constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
 
-void loadNextMesh(DeferredLoadingContext *ctx)
+template <typename T>
+void copyInputData(
+    Array<T> &dst, const tinygltf::Model &gltfModel,
+    const InputBuffer &srcBuffer)
+{
+    if (dst.size() == 0)
+        return;
+
+    const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
+    const size_t byteCount = dst.size() * sizeof(T);
+    WHEELS_ASSERT(byteCount == srcBuffer.byteCount);
+
+    memcpy(
+        dst.data(), gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
+}
+
+template <typename T>
+void copyBytes(uint32_t *dst, const Array<T> &src, uint32_t dstU32Offset)
+{
+    if (src.empty())
+        return;
+
+    memcpy(dst + dstU32Offset, src.data(), src.size() * sizeof(T));
+}
+
+DeferredLoadingContext::MeshData getMeshData(
+    Allocator &alloc, const tinygltf::Model &gltfModel,
+    const InputGeometryMetadata &metadata, const MeshInfo &meshInfo)
+{
+    DeferredLoadingContext::MeshData ret{
+        .indices = Array<uint32_t>{alloc},
+        .positions = Array<vec3>{alloc},
+        .normals = Array<vec3>{alloc},
+        .tangents = Array<vec4>{alloc},
+        .texCoord0s = Array<vec2>{alloc},
+    };
+
+    ret.indices.resize(meshInfo.indexCount);
+    // TODO: Support 8bit indices
+    if (metadata.usesShortIndices)
+    {
+        const tinygltf::Buffer &gltfBuffer =
+            gltfModel.buffers[metadata.indices.index];
+        // Don't fail if there's padding in source data
+        WHEELS_ASSERT(
+            sizeof(uint16_t) * meshInfo.indexCount ==
+                metadata.indices.byteCount ||
+            sizeof(uint16_t) * (meshInfo.indexCount + 1) ==
+                metadata.indices.byteCount);
+
+        const uint16_t *src = reinterpret_cast<const uint16_t *>(
+            gltfBuffer.data.data() + metadata.indices.byteOffset);
+        for (uint32_t i = 0; i < meshInfo.indexCount; ++i)
+            ret.indices[i] = static_cast<uint32_t>(src[i]);
+    }
+    else
+        copyInputData(ret.indices, gltfModel, metadata.indices);
+
+    ret.positions.resize(meshInfo.vertexCount);
+    copyInputData(ret.positions, gltfModel, metadata.positions);
+
+    ret.normals.resize(meshInfo.vertexCount);
+    copyInputData(ret.normals, gltfModel, metadata.normals);
+
+    const bool hasTangents = metadata.tangents.index < 0xFFFFFFFF;
+    if (hasTangents)
+    {
+        ret.tangents.resize(meshInfo.vertexCount);
+        copyInputData(ret.tangents, gltfModel, metadata.tangents);
+    }
+
+    const bool hasTexCoord0s = metadata.texCoord0s.index < 0xFFFFFFFF;
+    if (hasTexCoord0s)
+    {
+        ret.texCoord0s.resize(meshInfo.vertexCount);
+        copyInputData(ret.texCoord0s, gltfModel, metadata.texCoord0s);
+    }
+
+    return ret;
+}
+
+void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
     WHEELS_ASSERT(ctx->workerLoadedMeshCount < ctx->meshes.size());
@@ -29,9 +110,14 @@ void loadNextMesh(DeferredLoadingContext *ctx)
 
     const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
         ctx->meshes[ctx->workerLoadedMeshCount];
+    const InputGeometryMetadata &metadata = nextMesh.first;
+    const MeshInfo &info = nextMesh.second;
 
-    const UploadedGeometryData uploadData =
-        ctx->uploadGeometryData(nextMesh.first, nextMesh.second);
+    DeferredLoadingContext::MeshData meshData =
+        getMeshData(scopeAlloc, ctx->gltfModel, metadata, info);
+
+    const UploadedGeometryData uploadData = ctx->uploadGeometryData(
+        scopeAlloc.child_scope(), WHEELS_MOV(meshData), info);
 
     if (*families.graphicsFamily != *families.transferFamily)
     {
@@ -39,9 +125,9 @@ void loadNextMesh(DeferredLoadingContext *ctx)
             ctx->geometryBuffers[uploadData.metadata.bufferIndex];
 
         // Transfer ownership of the newly pushed buffer range.
-        // NOTE: This expects the subsequent ranges to be packed tightly. Extra
-        // bytes in between should not happen since the buffer is bound up to
-        // the final offset + bytecount.
+        // NOTE: This expects the subsequent ranges to be packed tightly.
+        // Extra bytes in between should not happen since the buffer is
+        // bound up to the final offset + bytecount.
         const vk::BufferMemoryBarrier2 releaseBarrier{
             .srcStageMask = vk::PipelineStageFlagBits2::eCopy,
             .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
@@ -189,7 +275,7 @@ void loadingWorker(DeferredLoadingContext *ctx)
     while (!ctx->interruptLoading)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
-            loadNextMesh(ctx);
+            loadNextMesh(scopeAlloc.child_scope(), ctx);
         else
             loadNextTexture(scopeAlloc.child_scope(), ctx);
 
@@ -291,27 +377,59 @@ void DeferredLoadingContext::launch()
 }
 
 UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
-    const InputGeometryMetadata &metadata, const MeshInfo &meshInfo)
+    ScopedScratch scopeAlloc, MeshData &&meshData, const MeshInfo &meshInfo)
 {
-    const bool hasTangents = metadata.tangents.index < 0xFFFFFFFF;
-    const bool hasTexCoord0s = metadata.texCoord0s.index < 0xFFFFFFFF;
+    WHEELS_ASSERT(meshData.indices.size() == meshInfo.indexCount);
+    WHEELS_ASSERT(meshData.positions.size() == meshInfo.vertexCount);
+    WHEELS_ASSERT(meshData.normals.size() == meshInfo.vertexCount);
+    WHEELS_ASSERT(
+        meshData.tangents.size() == meshInfo.vertexCount ||
+        meshData.tangents.empty());
+    WHEELS_ASSERT(
+        meshData.texCoord0s.size() == meshInfo.vertexCount ||
+        meshData.texCoord0s.empty());
+
+    const bool hasTangents = !meshData.tangents.empty();
+    const bool hasTexCoord0s = !meshData.texCoord0s.empty();
+
+    const bool usesShortIndices = meshInfo.vertexCount <= 0xFFFF;
+    Array<uint8_t> packedIndices{scopeAlloc};
+    if (usesShortIndices)
+    {
+        size_t byteCount = meshInfo.indexCount * sizeof(uint16_t);
+        // Let's pad to 4byte boundary to make things simpler later
+        byteCount = (byteCount + sizeof(uint32_t) - 1) / sizeof(uint32_t) *
+                    sizeof(uint32_t);
+        WHEELS_ASSERT(byteCount % sizeof(uint32_t) == 0);
+
+        packedIndices.resize(byteCount);
+        uint16_t *dst = reinterpret_cast<uint16_t *>(packedIndices.data());
+        for (size_t i = 0; i < meshInfo.indexCount; ++i)
+            dst[i] = asserted_cast<uint16_t>(meshData.indices[i]);
+    }
+    else
+    {
+        // TODO:
+        // Just use the data directly instead the extra allocation and memcpy?
+        const size_t byteCount = meshInfo.indexCount * sizeof(uint32_t);
+        packedIndices.resize(byteCount);
+        memcpy(packedIndices.data(), meshData.indices.data(), byteCount);
+    }
 
     // Figure out the required storage
     const uint32_t indicesByteCount =
-        metadata.usesShortIndices ? meshInfo.indexCount * sizeof(uint16_t)
-                                  : meshInfo.indexCount * sizeof(uint32_t);
-    // Make sure we align for u32 even with u16 indices
-    const uint32_t indicesPaddingByteCount =
-        indicesByteCount % sizeof(uint32_t);
-    const uint32_t positionsByteCount = meshInfo.vertexCount * sizeof(vec3);
-    const uint32_t normalsByteCount = meshInfo.vertexCount * sizeof(vec3);
+        asserted_cast<uint32_t>(packedIndices.size());
+    const uint32_t positionsByteCount =
+        asserted_cast<uint32_t>(meshData.positions.size() * sizeof(vec3));
+    const uint32_t normalsByteCount =
+        asserted_cast<uint32_t>(meshData.normals.size() * sizeof(vec3));
     const uint32_t tangentsByteCount =
-        hasTangents ? meshInfo.vertexCount * sizeof(vec4) : 0;
+        asserted_cast<uint32_t>(meshData.tangents.size() * sizeof(vec4));
     const uint32_t texCoord0sByteCount =
-        hasTexCoord0s ? meshInfo.vertexCount * sizeof(vec2) : 0;
-    const uint32_t byteCount = indicesByteCount + indicesPaddingByteCount +
-                               positionsByteCount + normalsByteCount +
-                               tangentsByteCount + texCoord0sByteCount;
+        asserted_cast<uint32_t>(meshData.texCoord0s.size() * sizeof(vec2));
+    const uint32_t byteCount = indicesByteCount + positionsByteCount +
+                               normalsByteCount + tangentsByteCount +
+                               texCoord0sByteCount;
     WHEELS_ASSERT(
         byteCount < sGeometryBufferSize &&
         "The default size for geometry buffers doesn't fit the mesh");
@@ -331,12 +449,10 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
             GeometryMetadata{
                 .bufferIndex = dstBufferI,
                 .indicesOffset = startByteOffset / elementSize,
-                .positionsOffset = (startByteOffset + indicesByteCount +
-                                    indicesPaddingByteCount) /
-                                   elementSize,
+                .positionsOffset =
+                    (startByteOffset + indicesByteCount) / elementSize,
                 .normalsOffset =
-                    (startByteOffset + indicesByteCount +
-                     indicesPaddingByteCount + positionsByteCount) /
+                    (startByteOffset + indicesByteCount + positionsByteCount) /
                     elementSize,
                 .tangentsOffset =
                     hasTangents ? (startByteOffset + indicesByteCount +
@@ -344,44 +460,24 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
                                       elementSize
                                 : 0xFFFFFFFF,
                 .texCoord0sOffset =
-                    hasTexCoord0s
-                        ? (startByteOffset + indicesByteCount +
-                           indicesPaddingByteCount + positionsByteCount +
-                           normalsByteCount + tangentsByteCount) /
-                              elementSize
-                        : 0xFFFFFFFF,
-
-                .usesShortIndices =
-                    static_cast<uint32_t>(metadata.usesShortIndices),
-            },
+                    hasTexCoord0s ? (startByteOffset + indicesByteCount +
+                                     positionsByteCount + normalsByteCount +
+                                     tangentsByteCount) /
+                                        elementSize
+                                  : 0xFFFFFFFF,
+                .usesShortIndices = usesShortIndices},
         .byteCount = byteCount,
     };
 
     uint32_t *dstPtr =
         reinterpret_cast<uint32_t *>(geometryUploadBuffer.mapped);
-    const auto writeBytes = [&](const InputBuffer &srcBuffer,
-                                uint32_t byteCount, uint32_t dstU32Offset)
-    {
-        if (byteCount == 0)
-            return;
-
-        const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
-        memcpy(
-            dstPtr + dstU32Offset,
-            gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
-    };
-
     // Let's just write straight into the dst offsets as our upload buffer is as
     // big as the destination buffer
-    writeBytes(metadata.indices, indicesByteCount, ret.metadata.indicesOffset);
-    writeBytes(
-        metadata.positions, positionsByteCount, ret.metadata.positionsOffset);
-    writeBytes(metadata.normals, normalsByteCount, ret.metadata.normalsOffset);
-    writeBytes(
-        metadata.tangents, tangentsByteCount, ret.metadata.tangentsOffset);
-    writeBytes(
-        metadata.texCoord0s, texCoord0sByteCount,
-        ret.metadata.texCoord0sOffset);
+    copyBytes(dstPtr, packedIndices, ret.metadata.indicesOffset);
+    copyBytes(dstPtr, meshData.positions, ret.metadata.positionsOffset);
+    copyBytes(dstPtr, meshData.normals, ret.metadata.normalsOffset);
+    copyBytes(dstPtr, meshData.tangents, ret.metadata.tangentsOffset);
+    copyBytes(dstPtr, meshData.texCoord0s, ret.metadata.texCoord0sOffset);
 
     const vk::BufferCopy copyRegion{
         .srcOffset = startByteOffset,

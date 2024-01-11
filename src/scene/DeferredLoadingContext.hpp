@@ -12,6 +12,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <filesystem>
+#include <glm/glm.hpp>
 #include <mutex>
 #include <thread>
 #include <tiny_gltf.h>
@@ -61,8 +62,17 @@ class DeferredLoadingContext
 
     void launch();
 
+    struct MeshData
+    {
+        wheels::Array<uint32_t> indices;
+        wheels::Array<glm::vec3> positions;
+        wheels::Array<glm::vec3> normals;
+        wheels::Array<glm::vec4> tangents;
+        wheels::Array<glm::vec2> texCoord0s;
+    };
     UploadedGeometryData uploadGeometryData(
-        const InputGeometryMetadata &metadata, const MeshInfo &meshInfo);
+        wheels::ScopedScratch scopeAlloc, MeshData &&meshData,
+        const MeshInfo &meshInfo);
 
     // TODO:
     // Make worker context private?
