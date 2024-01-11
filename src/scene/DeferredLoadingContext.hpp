@@ -29,6 +29,13 @@ struct InputBuffer
     uint32_t byteCount{0};
 };
 
+enum class IndicesType
+{
+    Uint8,
+    Uint16,
+    Uint32,
+};
+
 struct InputGeometryMetadata
 {
     InputBuffer indices;
@@ -36,7 +43,7 @@ struct InputGeometryMetadata
     InputBuffer normals;
     InputBuffer tangents;
     InputBuffer texCoord0s;
-    bool usesShortIndices{false};
+    uint8_t indexByteWidth{0};
 };
 
 struct UploadedGeometryData

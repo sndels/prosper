@@ -51,8 +51,20 @@ DeferredLoadingContext::MeshData getMeshData(
     };
 
     ret.indices.resize(meshInfo.indexCount);
-    // TODO: Support 8bit indices
-    if (metadata.usesShortIndices)
+    if (metadata.indexByteWidth == sizeof(uint8_t))
+    {
+        const tinygltf::Buffer &gltfBuffer =
+            gltfModel.buffers[metadata.indices.index];
+        WHEELS_ASSERT(
+            sizeof(uint8_t) * meshInfo.indexCount ==
+            metadata.indices.byteCount);
+
+        const uint8_t *src = reinterpret_cast<const uint8_t *>(
+            gltfBuffer.data.data() + metadata.indices.byteOffset);
+        for (uint32_t i = 0; i < meshInfo.indexCount; ++i)
+            ret.indices[i] = static_cast<uint32_t>(src[i]);
+    }
+    else if (metadata.indexByteWidth == sizeof(uint16_t))
     {
         const tinygltf::Buffer &gltfBuffer =
             gltfModel.buffers[metadata.indices.index];
@@ -69,7 +81,10 @@ DeferredLoadingContext::MeshData getMeshData(
             ret.indices[i] = static_cast<uint32_t>(src[i]);
     }
     else
+    {
+        WHEELS_ASSERT(metadata.indexByteWidth == sizeof(uint32_t));
         copyInputData(ret.indices, gltfModel, metadata.indices);
+    }
 
     ret.positions.resize(meshInfo.vertexCount);
     copyInputData(ret.positions, gltfModel, metadata.positions);
@@ -535,8 +550,8 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
         });
         {
             // The managing thread should only read the buffer array. A lock
-            // is only be needed for the append op on the worker side to sync
-            // those reads.
+            // is only be needed for the append op on the worker side to
+            // sync those reads.
             const std::lock_guard _lock{geometryBuffersMutex};
             geometryBuffers.push_back(WHEELS_MOV(buffer));
         }

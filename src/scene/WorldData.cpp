@@ -729,7 +729,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     "maps.\n",
                     mesh.name.c_str());
 
-            const auto [indices, indexCount, usesShortIndices] = [&]
+            const auto [indices, indexCount, indexByteWidth] = [&]
             {
                 WHEELS_ASSERT(primitive.indices > -1);
                 const auto &accessor = gltfModel.accessors[primitive.indices];
@@ -740,13 +740,21 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     offset % sizeof(uint32_t) == 0 &&
                     "Shader binds buffers as uint");
 
-                // TODO:
-                // Convert u8 indices to u16 now that we build our own buffers
-                WHEELS_ASSERT(
-                    accessor.componentType ==
-                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT ||
-                    accessor.componentType ==
-                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
+                uint8_t indexByteWidth = 0;
+                switch (accessor.componentType)
+                {
+                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+                    indexByteWidth = sizeof(uint32_t);
+                    break;
+                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+                    indexByteWidth = sizeof(uint16_t);
+                    break;
+                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+                    indexByteWidth = sizeof(uint8_t);
+                    break;
+                default:
+                    WHEELS_ASSERT(!"Unknown index component type");
+                }
 
                 return std::make_tuple(
                     InputBuffer{
@@ -754,9 +762,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                         .byteOffset = offset,
                         .byteCount = asserted_cast<uint32_t>(view.byteLength),
                     },
-                    asserted_cast<uint32_t>(accessor.count),
-                    accessor.componentType ==
-                        TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT);
+                    asserted_cast<uint32_t>(accessor.count), indexByteWidth);
             }();
 
             // -1 is mapped to the default material
@@ -775,7 +781,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                 .normals = normals,
                 .tangents = tangents,
                 .texCoord0s = texCoord0s,
-                .usesShortIndices = usesShortIndices,
+                .indexByteWidth = indexByteWidth,
             };
 
             WHEELS_ASSERT(
