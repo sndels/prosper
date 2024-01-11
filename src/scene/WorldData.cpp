@@ -703,6 +703,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     InputBuffer{
                         .index = asserted_cast<uint32_t>(view.buffer),
                         .byteOffset = offset,
+                        .byteCount = asserted_cast<uint32_t>(view.byteLength),
                     },
                     asserted_cast<uint32_t>(accessor.count));
             };
@@ -751,6 +752,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                     InputBuffer{
                         .index = asserted_cast<uint32_t>(view.buffer),
                         .byteOffset = offset,
+                        .byteCount = asserted_cast<uint32_t>(view.byteLength),
                     },
                     asserted_cast<uint32_t>(accessor.count),
                     accessor.componentType ==

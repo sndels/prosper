@@ -25,6 +25,7 @@ struct InputBuffer
 {
     uint32_t index{0xFFFFFFFF};
     uint32_t byteOffset{0};
+    uint32_t byteCount{0};
 };
 
 struct InputGeometryMetadata
