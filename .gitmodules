@@ -28,3 +28,6 @@
 [submodule "ext/ispctex"]
 	path = ext/ispc_texcomp
 	url = https://github.com/GameTechDev/ISPCTextureCompressor.git
+[submodule "ext/meshoptimizer"]
+	path = ext/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git

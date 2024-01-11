@@ -98,4 +98,7 @@ add_subdirectory(wheels)
 
 add_subdirectory(cxxopts)
 
+add_subdirectory(meshoptimizer)
+
+# TODO: Why does compilation fail for any modules that are added after this ispc "include"?
 include(ispc_texcomp_CMakeLists.txt)
