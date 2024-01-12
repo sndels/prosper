@@ -100,5 +100,17 @@ add_subdirectory(cxxopts)
 
 add_subdirectory(meshoptimizer)
 
+add_library(mikktspace STATIC)
+target_sources(mikktspace
+    PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/mikktspace/mikktspace.c
+    ${CMAKE_CURRENT_LIST_DIR}/mikktspace/mikktspace.h
+)
+target_include_directories(imgui
+    SYSTEM
+    PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}/mikktspace
+)
+
 # TODO: Why does compilation fail for any modules that are added after this ispc "include"?
 include(ispc_texcomp_CMakeLists.txt)

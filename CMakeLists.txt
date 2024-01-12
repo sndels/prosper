@@ -82,6 +82,7 @@ target_link_libraries(prosper
     imgui
     ispc_texcomp
     meshoptimizer
+    mikktspace
     shaderc
     spirv_headers
     stb_image

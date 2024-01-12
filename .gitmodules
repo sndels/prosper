@@ -31,3 +31,6 @@
 [submodule "ext/meshoptimizer"]
 	path = ext/meshoptimizer
 	url = https://github.com/zeux/meshoptimizer.git
+[submodule "ext/mikktspace"]
+	path = ext/mikktspace
+	url = https://github.com/mmikk/MikkTSpace.git
