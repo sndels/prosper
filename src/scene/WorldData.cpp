@@ -753,13 +753,6 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
             WHEELS_ASSERT(
                 texCoord0sCount == 0 || texCoord0sCount == positionsCount);
 
-            if (tangentsCount == 0)
-                fprintf(
-                    stderr,
-                    "Missing tangents for '%s'. RT won't have normal "
-                    "maps.\n",
-                    mesh.name.c_str());
-
             const auto [indices, indexCount, indexByteWidth] = [&]
             {
                 WHEELS_ASSERT(primitive.indices > -1);
@@ -825,7 +818,8 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
             _deferredLoadingContext->meshes.emplace_back(
                 inputMetadata, meshInfo);
             // Don't set metadata or info for the mesh index as default
-            // values signal invalid or not yet loaded for other parts
+            // values signal invalid or not yet loaded for other parts. Tangents
+            // generation might also change the number of unique vertices.
 
             model.subModels.push_back(Model::SubModel{
                 .meshID = meshID++,

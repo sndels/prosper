@@ -3,6 +3,7 @@
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
 #include <meshoptimizer.h>
+#include <mikktspace.h>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 
@@ -124,6 +125,202 @@ DeferredLoadingContext::MeshData getMeshData(
     return ret;
 }
 
+// mikktspace defined interface
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,bugprone-easily-swappable-parameters)
+
+int mikkTGetNumFaces(const SMikkTSpaceContext *pContext)
+{
+    WHEELS_ASSERT(pContext != nullptr);
+    WHEELS_ASSERT(pContext->m_pUserData != nullptr);
+
+    const DeferredLoadingContext::MeshData *meshData =
+        reinterpret_cast<const DeferredLoadingContext::MeshData *>(
+            pContext->m_pUserData);
+
+    WHEELS_ASSERT(
+        meshData->positions.size() % 3 == 0 &&
+        "We assume only tris in the data");
+
+    const size_t faceCount = meshData->positions.size() / 3;
+
+    return asserted_cast<int>(faceCount);
+}
+
+int mikkTGetNumVerticesOfFace(
+    const SMikkTSpaceContext * /*pContext*/, const int /*iFace*/)
+{
+    // We only have tris
+    return 3;
+}
+
+int mikkTVertexIndex(const int iFace, const int iVert)
+{
+    // Go through faces in the opposite order, this seems to fix the glTF normal
+    // map handedness problem in glTF2.0 NormalTangentTest
+    return iFace * 3 + (2 - iVert);
+}
+
+void mikkTGetPosition(
+    const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace,
+    const int iVert)
+{
+    WHEELS_ASSERT(pContext != nullptr);
+    WHEELS_ASSERT(pContext->m_pUserData != nullptr);
+
+    const DeferredLoadingContext::MeshData *meshData =
+        reinterpret_cast<const DeferredLoadingContext::MeshData *>(
+            pContext->m_pUserData);
+
+    const int vertexI = mikkTVertexIndex(iFace, iVert);
+    const vec3 &pos = meshData->positions[vertexI];
+
+    memcpy(fvPosOut, &pos.x, sizeof(pos));
+}
+
+void mikkTGetNormal(
+    const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace,
+    const int iVert)
+{
+    WHEELS_ASSERT(pContext != nullptr);
+    WHEELS_ASSERT(pContext->m_pUserData != nullptr);
+
+    const DeferredLoadingContext::MeshData *meshData =
+        reinterpret_cast<const DeferredLoadingContext::MeshData *>(
+            pContext->m_pUserData);
+
+    const int vertexI = mikkTVertexIndex(iFace, iVert);
+    const vec3 &normal = meshData->normals[vertexI];
+
+    memcpy(fvNormOut, &normal.x, sizeof(normal));
+}
+
+void mikkTGetTexCoord(
+    const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace,
+    const int iVert)
+{
+    WHEELS_ASSERT(pContext != nullptr);
+    WHEELS_ASSERT(pContext->m_pUserData != nullptr);
+
+    const DeferredLoadingContext::MeshData *meshData =
+        reinterpret_cast<const DeferredLoadingContext::MeshData *>(
+            pContext->m_pUserData);
+
+    const int vertexI = mikkTVertexIndex(iFace, iVert);
+    const vec2 &texCoord0 = meshData->texCoord0s[vertexI];
+
+    memcpy(fvTexcOut, &texCoord0.x, sizeof(texCoord0));
+}
+
+void mikkTSetTSpaceBasic(
+    const SMikkTSpaceContext *pContext, const float fvTangent[],
+    const float fSign, const int iFace, const int iVert)
+{
+    WHEELS_ASSERT(pContext != nullptr);
+    WHEELS_ASSERT(pContext->m_pUserData != nullptr);
+
+    DeferredLoadingContext::MeshData *meshData =
+        reinterpret_cast<DeferredLoadingContext::MeshData *>(
+            pContext->m_pUserData);
+
+    const int vertexI = mikkTVertexIndex(iFace, iVert);
+    meshData->tangents[vertexI] =
+        vec4{fvTangent[0], fvTangent[1], fvTangent[2], fSign};
+}
+
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,bugprone-easily-swappable-parameters)
+
+template <typename T>
+void flattenAttribute(
+    Allocator &alloc, Array<T> &attribute, const Array<uint32_t> &indices)
+{
+    Array<T> flattened{alloc, indices.size()};
+    for (const uint32_t i : indices)
+        flattened.push_back(attribute[i]);
+
+    attribute = WHEELS_MOV(flattened);
+}
+
+// alloc needs to be the same as the one used for meshData
+void generateTangents(
+    Allocator &alloc, DeferredLoadingContext::MeshData *meshData)
+{
+    WHEELS_ASSERT(meshData != nullptr);
+    WHEELS_ASSERT(meshData->tangents.empty());
+    WHEELS_ASSERT(meshData->positions.size() == meshData->normals.size());
+    WHEELS_ASSERT(meshData->positions.size() == meshData->texCoord0s.size());
+
+    // Flatten data first as instructed in the mikktspace header
+    // TODO: tmp buffers here
+    const size_t flattenedVertexCount = meshData->indices.size();
+    flattenAttribute(alloc, meshData->positions, meshData->indices);
+    flattenAttribute(alloc, meshData->normals, meshData->indices);
+    flattenAttribute(alloc, meshData->texCoord0s, meshData->indices);
+    meshData->indices.clear();
+
+    meshData->tangents.resize(flattenedVertexCount);
+
+    // Now we can generate the tangents
+    SMikkTSpaceInterface sMikkTInterface{
+        .m_getNumFaces = &mikkTGetNumFaces,
+        .m_getNumVerticesOfFace = mikkTGetNumVerticesOfFace,
+        .m_getPosition = mikkTGetPosition,
+        .m_getNormal = mikkTGetNormal,
+        .m_getTexCoord = mikkTGetTexCoord,
+        .m_setTSpaceBasic = mikkTSetTSpaceBasic,
+    };
+
+    const SMikkTSpaceContext mikkCtx{
+        .m_pInterface = &sMikkTInterface,
+        .m_pUserData = meshData,
+    };
+
+    genTangSpaceDefault(&mikkCtx);
+
+    // And now that we have tangents, we can re-generate indices
+    const StaticArray vertexStreams{{
+        meshopt_Stream{
+            .data = meshData->positions.data(),
+            .size = sizeof(vec3),
+            .stride = sizeof(vec3),
+        },
+        meshopt_Stream{
+            .data = meshData->normals.data(),
+            .size = sizeof(vec3),
+            .stride = sizeof(vec3),
+        },
+        meshopt_Stream{
+            .data = meshData->tangents.data(),
+            .size = sizeof(vec4),
+            .stride = sizeof(vec4),
+        },
+        meshopt_Stream{
+            .data = meshData->texCoord0s.data(),
+            .size = sizeof(vec2),
+            .stride = sizeof(vec2),
+        },
+    }};
+
+    Array<uint32_t> remapTable{alloc};
+    remapTable.resize(flattenedVertexCount);
+    const size_t uniqueVertexCount = meshopt_generateVertexRemapMulti(
+        remapTable.data(), nullptr, flattenedVertexCount, flattenedVertexCount,
+        vertexStreams.data(), vertexStreams.size());
+
+    meshData->indices.resize(flattenedVertexCount);
+    meshopt_remapIndexBuffer(
+        meshData->indices.data(), nullptr, flattenedVertexCount,
+        remapTable.data());
+
+    remapVertexAttribute(
+        alloc, meshData->positions, remapTable, uniqueVertexCount);
+    remapVertexAttribute(
+        alloc, meshData->normals, remapTable, uniqueVertexCount);
+    remapVertexAttribute(
+        alloc, meshData->tangents, remapTable, uniqueVertexCount);
+    remapVertexAttribute(
+        alloc, meshData->texCoord0s, remapTable, uniqueVertexCount);
+}
+
 // alloc needs to be the same as the one used for meshData
 void optimizeMeshData(
     Allocator &alloc, DeferredLoadingContext::MeshData *meshData,
@@ -187,13 +384,20 @@ void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
     const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
         ctx->meshes[meshIndex];
     const InputGeometryMetadata &metadata = nextMesh.first;
-    const MeshInfo &info = nextMesh.second;
+    MeshInfo info = nextMesh.second;
 
     DeferredLoadingContext::MeshData meshData =
         getMeshData(scopeAlloc, ctx->gltfModel, metadata, info);
 
+    if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
+    {
+        generateTangents(scopeAlloc, &meshData);
+        info.vertexCount = asserted_cast<uint32_t>(meshData.positions.size());
+    }
+
     optimizeMeshData(
-        scopeAlloc, &meshData, ctx->gltfModel.meshes[meshIndex].name);
+        scopeAlloc, &meshData,
+        ctx->gltfModel.meshes[metadata.sourceMeshIndex].name);
 
     const UploadedGeometryData uploadData = ctx->uploadGeometryData(
         scopeAlloc.child_scope(), WHEELS_MOV(meshData), info);
