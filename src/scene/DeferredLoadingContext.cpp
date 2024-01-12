@@ -2,6 +2,7 @@
 
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
+#include <meshoptimizer.h>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 
@@ -36,6 +37,20 @@ void copyBytes(uint32_t *dst, const Array<T> &src, uint32_t dstU32Offset)
         return;
 
     memcpy(dst + dstU32Offset, src.data(), src.size() * sizeof(T));
+}
+
+template <typename T>
+void remapVertexAttribute(
+    Allocator &alloc, Array<T> &src, const Array<uint32_t> &remapIndices,
+    size_t uniqueVertexCount)
+{
+    Array<T> remapped{alloc};
+    remapped.resize(uniqueVertexCount);
+    meshopt_remapVertexBuffer(
+        remapped.data(), src.data(), src.size(), sizeof(T),
+        remapIndices.data());
+
+    src = WHEELS_MOV(remapped);
 }
 
 DeferredLoadingContext::MeshData getMeshData(
@@ -109,10 +124,56 @@ DeferredLoadingContext::MeshData getMeshData(
     return ret;
 }
 
+// alloc needs to be the same as the one used for meshData
+void optimizeMeshData(
+    Allocator &alloc, DeferredLoadingContext::MeshData *meshData,
+    const std::string &meshName)
+{
+    WHEELS_ASSERT(meshData != nullptr);
+
+    const size_t indexCount = meshData->indices.size();
+    const size_t vertexCount = meshData->positions.size();
+
+    Array<uint32_t> tmpIndices{alloc};
+    tmpIndices.resize(meshData->indices.size());
+    meshopt_optimizeVertexCache(
+        tmpIndices.data(), meshData->indices.data(), indexCount, vertexCount);
+
+    const float vertexCacheDegradationThreshod = 1.00f;
+    meshopt_optimizeOverdraw(
+        meshData->indices.data(), tmpIndices.data(), tmpIndices.size(),
+        &meshData->positions.data()[0].x, vertexCount, sizeof(vec3),
+        vertexCacheDegradationThreshod);
+
+    Array<uint32_t> remapIndices{alloc};
+    remapIndices.resize(vertexCount);
+    const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
+        remapIndices.data(), meshData->indices.data(), indexCount, vertexCount);
+    if (uniqueVertexCount < vertexCount)
+        fprintf(stderr, "Mesh '%s' has unused vertices\n", meshName.c_str());
+
+    // Reuse tmpIndices as it's not required after optimizeOverdraw
+    meshopt_remapIndexBuffer(
+        tmpIndices.data(), meshData->indices.data(), indexCount,
+        remapIndices.data());
+    meshData->indices = WHEELS_MOV(tmpIndices);
+
+    remapVertexAttribute(
+        alloc, meshData->positions, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(
+        alloc, meshData->normals, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(
+        alloc, meshData->tangents, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(
+        alloc, meshData->texCoord0s, remapIndices, uniqueVertexCount);
+}
+
 void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
-    WHEELS_ASSERT(ctx->workerLoadedMeshCount < ctx->meshes.size());
+
+    const uint32_t meshIndex = ctx->workerLoadedMeshCount;
+    WHEELS_ASSERT(meshIndex < ctx->meshes.size());
 
     ctx->cb.reset();
     ctx->cb.begin(vk::CommandBufferBeginInfo{
@@ -124,12 +185,15 @@ void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
     WHEELS_ASSERT(families.transferFamily.has_value());
 
     const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
-        ctx->meshes[ctx->workerLoadedMeshCount];
+        ctx->meshes[meshIndex];
     const InputGeometryMetadata &metadata = nextMesh.first;
     const MeshInfo &info = nextMesh.second;
 
     DeferredLoadingContext::MeshData meshData =
         getMeshData(scopeAlloc, ctx->gltfModel, metadata, info);
+
+    optimizeMeshData(
+        scopeAlloc, &meshData, ctx->gltfModel.meshes[meshIndex].name);
 
     const UploadedGeometryData uploadData = ctx->uploadGeometryData(
         scopeAlloc.child_scope(), WHEELS_MOV(meshData), info);
