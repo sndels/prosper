@@ -168,7 +168,8 @@ class WorldData
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         uint32_t nextFrame);
 
-    bool updateDescriptorsWithNewTextures(size_t newTextureCount);
+    void updateDescriptorsWithNewTextures(size_t newTextureCount);
+    bool updateMaterials();
 };
 
 #endif // PROSPER_SCENE_WORLD_DATA_HPP

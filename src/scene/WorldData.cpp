@@ -444,22 +444,27 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
     if (!_deferredLoadingContext.has_value())
         return false;
 
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+
     // TODO: Is max really needed here?
     _deferredLoadingLinearAllocatorHighWatermark = std::max(
         _deferredLoadingLinearAllocatorHighWatermark,
-        _deferredLoadingContext->linearAllocatorHighWatermark.load());
+        ctx.linearAllocatorHighWatermark.load());
     _deferredLoadingGeneralAllocatorHighWatermark =
-        _deferredLoadingContext->generalAllocatorHightWatermark.load();
+        ctx.generalAllocatorHightWatermark.load();
 
-    if (_deferredLoadingContext->loadedMaterialCount ==
-        _deferredLoadingContext->gltfModel.materials.size())
+    const bool allMeshesLoaded = ctx.loadedMeshCount == ctx.meshes.size();
+    const bool allMaterialsLoaded =
+        ctx.loadedMaterialCount == ctx.materials.size();
+
+    if (allMeshesLoaded && allMaterialsLoaded)
     {
         WHEELS_ASSERT(
-            _deferredLoadingContext->loadedMeshCount == _meshInfos.size() &&
+            ctx.loadedMeshCount == _meshInfos.size() &&
             "Meshes should have been loaded before textures");
 
         // Don't clean up until all in flight uploads are finished
-        if (_deferredLoadingContext->framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
+        if (ctx.framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
         {
             printf(
                 "Material streaming took %.2fs\n",
@@ -473,18 +478,37 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
     // No gpu as timestamps are flaky for this work
     const auto _s = profiler.createCpuScope("DeferredLoading");
 
-    if (_deferredLoadingContext->loadedImageCount == 0)
+    if (ctx.loadedImageCount == 0)
         _materialStreamingTimer.reset();
 
-    const bool newMeshAvailable = pollMeshWorker(cb);
-    size_t newTexturesAvailable = 0;
-    if (!newMeshAvailable)
-        newTexturesAvailable = pollTextureWorker(cb);
+    bool newMeshAvailable = false;
+    if (!allMeshesLoaded)
+        newMeshAvailable = pollMeshWorker(cb);
 
-    bool newMaterialsAvailable = false;
+    size_t newTexturesAvailable = 0;
+    bool shouldUpdateMaterials = false;
+    if (allMeshesLoaded)
+    {
+        // All materials loaded implies all images loaded
+        WHEELS_ASSERT(!allMaterialsLoaded);
+
+        if (ctx.loadedImageCount < ctx.gltfModel.images.size())
+        {
+            newTexturesAvailable = pollTextureWorker(cb);
+        }
+        else
+            // We should not get here if the model has any images
+            WHEELS_ASSERT(
+                ctx.gltfModel.images.empty() &&
+                ctx.loadedMaterialCount < ctx.gltfModel.materials.size());
+        shouldUpdateMaterials = true;
+    }
+
     if (newTexturesAvailable > 0)
-        newMaterialsAvailable =
-            updateDescriptorsWithNewTextures(newTexturesAvailable);
+        updateDescriptorsWithNewTextures(newTexturesAvailable);
+
+    const bool newMaterialsAvailable =
+        shouldUpdateMaterials ? updateMaterials() : false;
 
     return newMeshAvailable || newMaterialsAvailable;
 }
@@ -1829,8 +1853,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    if (ctx.loadedMeshCount >= _meshInfos.size())
-        return false;
+    WHEELS_ASSERT(ctx.loadedMeshCount < ctx.meshes.size());
 
     bool newMeshLoaded = false;
     const size_t maxMeshesPerFrame = 10;
@@ -2008,7 +2031,7 @@ void WorldData::loadTextureSingleThreaded(
         ctx.stagingBuffers[nextFrame], true);
 }
 
-bool WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
+void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 {
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
@@ -2033,7 +2056,11 @@ bool WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 
         ctx.loadedImageCount++;
     }
+}
 
+bool WorldData::updateMaterials()
+{
+    DeferredLoadingContext &ctx = *_deferredLoadingContext;
     // Update next material(s) in line if the required textures are
     // loaded
     bool materialsUpdated = false;
