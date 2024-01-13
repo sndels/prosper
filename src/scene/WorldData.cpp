@@ -322,6 +322,10 @@ WorldData::WorldData(
 
 WorldData::~WorldData()
 {
+    // Make sure the deferred loader exits before we clean up any shared
+    // resources
+    _deferredLoadingContext.reset();
+
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->logical().destroy(_dsLayouts.rayTracing);
