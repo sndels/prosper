@@ -13,6 +13,7 @@
 #include <stb_image.h>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/pair.hpp>
+#include <wyhash.h>
 
 #include "../gfx/Device.hpp"
 #include "../utils/Dds.hpp"
@@ -23,8 +24,10 @@ using namespace wheels;
 namespace
 {
 
-// This should be incremented when breaking changes are made to what's cached
-const uint32_t sShaderCacheVersion = 2;
+const uint64_t sTextureCacheMagic = 0x5845545250535250; // PRSPRTEX
+// This should be incremented when breaking changes are made to
+// what's cached
+const uint32_t sTextureCacheVersion = 3;
 
 struct UncompressedPixelData
 {
@@ -78,28 +81,109 @@ std::filesystem::path cacheTagPath(const std::filesystem::path &cacheFile)
     return tagPath;
 }
 
-bool cacheValid(const std::filesystem::path &cacheFile)
+struct CacheTag
+{
+    uint32_t version{0xFFFFFFFFu};
+    // Use write time instead of a hash because hashing a 4k texture is _slow_
+    // in debug.
+    std::filesystem::file_time_type sourceWriteTime;
+};
+
+CacheTag readCacheTag(const std::filesystem::path &cacheFile)
+{
+    CacheTag tag;
+
+    const std::filesystem::path tagPath = cacheTagPath(cacheFile);
+    if (!std::filesystem::exists(tagPath))
+        return tag;
+
+    // NOTE:
+    // Caches aren't supposed to be portable so we don't pay attention to
+    // endianness.
+    std::ifstream tagFile{tagPath};
+
+    readRaw(tagFile, tag.version);
+    if (sTextureCacheVersion != tag.version)
+        return tag;
+
+    // Magic after version because the first two versions didn't have a magic
+    // number at all
+    uint64_t magic{0};
+    static_assert(sizeof(magic) == sizeof(sTextureCacheMagic));
+
+    readRaw(tagFile, magic);
+    if (magic != sTextureCacheMagic)
+        throw std::runtime_error(
+            "Expected a valid texture cache tag in file '" + tagPath.string() +
+            "'");
+
+    readRaw(tagFile, tag.sourceWriteTime);
+
+    return tag;
+}
+
+void writeCacheTag(
+    const std::filesystem::path &cacheFile,
+    const std::filesystem::file_time_type &sourceWriteTime)
+{
+    const std::filesystem::path tagPath = cacheTagPath(cacheFile);
+
+    std::filesystem::remove(tagPath);
+
+    // Write into a tmp file and rename when done to minimize the potential for
+    // corrupted files
+    std::filesystem::path tagTmpPath = tagPath;
+    tagTmpPath.replace_extension("prosper_cache_tag_TMP");
+
+    // NOTE:
+    // Caches aren't supposed to be portable so we don't pay attention to
+    // endianness.
+    std::ofstream tagFile{tagTmpPath, std::ios_base::binary};
+    writeRaw(tagFile, sTextureCacheVersion);
+    writeRaw(tagFile, sTextureCacheMagic);
+    writeRaw(tagFile, sourceWriteTime);
+    tagFile.close();
+
+    // Make sure we have rw permissions for the user to be nice
+    const std::filesystem::perms initialPerms =
+        std::filesystem::status(tagTmpPath).permissions();
+    std::filesystem::permissions(
+        tagTmpPath, initialPerms | std::filesystem::perms::owner_read |
+                        std::filesystem::perms::owner_write);
+
+    // Rename when the file is done to minimize the potential of a corrupted
+    // file
+    std::filesystem::rename(tagTmpPath, tagPath);
+}
+
+bool cacheValid(
+    const std::filesystem::path &cacheFile,
+    const std::filesystem::file_time_type &sourceWriteTime)
 {
     try
     {
         if (!std::filesystem::exists(cacheFile))
+        {
+            fprintf(
+                stdout, "Missing cache file %s\n", cacheFile.string().c_str());
             return false;
+        }
 
-        const std::filesystem::path tagPath = cacheTagPath(cacheFile);
-        if (!std::filesystem::exists(tagPath))
+        const CacheTag storedTag = readCacheTag(cacheFile);
+
+        if (sTextureCacheVersion != storedTag.version)
+        {
+            fprintf(
+                stdout, "Old cache data version for %s\n",
+                cacheFile.string().c_str());
             return false;
+        }
 
-        std::ifstream tagFile{tagPath};
-        uint32_t cacheVersion = 0xFFFFFFFFu;
-        static_assert(sizeof(cacheVersion) == sizeof(sShaderCacheVersion));
-        // NOTE:
-        // Caches aren't supposed to be portable so this doesn't pay attention
-        // to endianness.
-        tagFile.read(
-            reinterpret_cast<char *>(&cacheVersion), sizeof(cacheVersion));
-
-        if (sShaderCacheVersion != cacheVersion)
+        if (storedTag.sourceWriteTime != sourceWriteTime)
+        {
+            fprintf(stdout, "Stale cache for %s\n", cacheFile.string().c_str());
             return false;
+        }
     }
     catch (std::exception &)
     {
@@ -272,23 +356,6 @@ void compress(
     }
 
     writeDds(dds, targetPath);
-
-    const std::filesystem::path tagPath = cacheTagPath(targetPath);
-    std::ofstream tagFile{tagPath, std::ios_base::binary};
-    // NOTE:
-    // Caches aren't supposed to be portable so this doesn't pay
-    // attention to endianness.
-    tagFile.write(
-        reinterpret_cast<const char *>(&sShaderCacheVersion),
-        sizeof(sShaderCacheVersion));
-    tagFile.close();
-
-    // Make sure we have rw permissions for the user to be nice
-    const std::filesystem::perms initialPerms =
-        std::filesystem::status(tagPath).permissions();
-    std::filesystem::permissions(
-        tagPath, initialPerms | std::filesystem::perms::owner_read |
-                     std::filesystem::perms::owner_write);
 }
 
 void transitionImageLayout(
@@ -372,8 +439,11 @@ Texture2D::Texture2D(
     const bool skipPostTransition)
 : Texture(device)
 {
+    const std::filesystem::file_time_type sourceWriteTime =
+        std::filesystem::last_write_time(path);
+
     const auto cached = cachePath(path);
-    if (!cacheValid(cached))
+    if (!cacheValid(cached, sourceWriteTime))
     {
         auto pixels = pixelsFromFile(path);
 
@@ -404,6 +474,8 @@ Texture2D::Texture2D(
         }
 
         compress(scopeAlloc.child_scope(), cached, pixels, mipmap);
+
+        writeCacheTag(cached, sourceWriteTime);
 
         stbi_image_free(pixels.dataOwned);
     }
