@@ -44,6 +44,8 @@ struct InputGeometryMetadata
     InputBuffer tangents;
     InputBuffer texCoord0s;
     uint8_t indexByteWidth{0};
+    uint32_t sourceMeshIndex{0xFFFFFFFF};
+    uint32_t sourcePrimitiveIndex{0xFFFFFFFF};
 };
 
 struct UploadedGeometryData

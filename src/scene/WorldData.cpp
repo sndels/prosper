@@ -695,13 +695,20 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
     _meshInfos.resize(totalPrimitiveCount);
 
     uint32_t meshID = 0;
-    for (const auto &mesh : gltfModel.meshes)
+    const size_t sourceMeshCount = gltfModel.meshes.size();
+    for (size_t mi = 0; mi < sourceMeshCount; ++mi)
     {
+        const tinygltf::Mesh &mesh = gltfModel.meshes[mi];
+
         _models.emplace_back(_linearAlloc);
         Model &model = _models.back();
-        model.subModels.reserve(mesh.primitives.size());
-        for (const auto &primitive : mesh.primitives)
+
+        const size_t sourcePrimitiveCount = mesh.primitives.size();
+        model.subModels.reserve(sourcePrimitiveCount);
+        for (size_t pi = 0; pi < sourcePrimitiveCount; ++pi)
         {
+            const tinygltf::Primitive &primitive = mesh.primitives[pi];
+
             auto assertedGetAttr = [&](const std::string &name,
                                        bool shouldHave =
                                            false) -> Pair<InputBuffer, uint32_t>
@@ -793,7 +800,7 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
             WHEELS_ASSERT(primitive.material > -2);
             const uint32_t material = primitive.material + 1;
 
-            const MeshInfo mi = MeshInfo{
+            const MeshInfo meshInfo = MeshInfo{
                 .vertexCount = positionsCount,
                 .indexCount = indexCount,
                 .materialID = material,
@@ -806,6 +813,8 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                 .tangents = tangents,
                 .texCoord0s = texCoord0s,
                 .indexByteWidth = indexByteWidth,
+                .sourceMeshIndex = asserted_cast<uint32_t>(mi),
+                .sourcePrimitiveIndex = asserted_cast<uint32_t>(pi),
             };
 
             WHEELS_ASSERT(
@@ -813,7 +822,8 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                 !_deferredLoadingContext->worker.has_value() &&
                 "Loading worker is running while input data is being set "
                 "up");
-            _deferredLoadingContext->meshes.emplace_back(inputMetadata, mi);
+            _deferredLoadingContext->meshes.emplace_back(
+                inputMetadata, meshInfo);
             // Don't set metadata or info for the mesh index as default
             // values signal invalid or not yet loaded for other parts
 
