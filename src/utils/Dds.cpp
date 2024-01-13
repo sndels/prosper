@@ -128,10 +128,16 @@ Dds::Dds(
 
 void writeDds(const Dds &dds, const std::filesystem::path &path)
 {
+    std::filesystem::remove(path);
+
+    // Write into a tmp file and rename when done to minimize the potential for
+    // corrupted files
+    std::filesystem::path tmpPath = path;
+    tmpPath.replace_extension("dds_TMP");
     // NOTE:
     // Caches aren't supposed to be portable so this doesn't pay attention to
     // endianness.
-    std::ofstream outFile{path, std::ios_base::binary};
+    std::ofstream outFile{tmpPath, std::ios_base::binary};
     outFile.write(
         reinterpret_cast<const char *>(&sDdsMagic), sizeof(sDdsMagic));
 
@@ -191,10 +197,14 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
 
     // Make sure we have rw permissions for the user to be nice
     const std::filesystem::perms initialPerms =
-        std::filesystem::status(path).permissions();
+        std::filesystem::status(tmpPath).permissions();
     std::filesystem::permissions(
-        path, initialPerms | std::filesystem::perms::owner_read |
-                  std::filesystem::perms::owner_write);
+        tmpPath, initialPerms | std::filesystem::perms::owner_read |
+                     std::filesystem::perms::owner_write);
+
+    // Rename when the file is done to minimize the potential of a corrupted
+    // file
+    std::filesystem::rename(tmpPath, path);
 }
 
 Dds readDds(Allocator &alloc, const std::filesystem::path &path)
