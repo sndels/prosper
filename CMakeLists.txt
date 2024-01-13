@@ -3,14 +3,32 @@ project(prosper)
 
 option(PROSPER_USE_PCH "Use pre-compiled headers" ON)
 option(PROSPER_SETUP_DEPENDENCIES "Pull the in-tree dependencies and correct submodule commits" ON)
+option(PROSPER_ALWAYS_O2_DEPENDENCIES "Always build dependencies as optimized" ON)
 
 if(MSVC)
     add_compile_options(/MP)
+
+    if(PROSPER_ALWAYS_O2_DEPENDENCIES)
+        # RTC1 (both /RTCs and /RTCu) is incompatible with /O2
+        string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+        string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
+    endif()
 endif() # MSVC
 
 # Set up sub-builds and sources
 add_subdirectory(ext)
 add_subdirectory(src)
+
+if(PROSPER_ALWAYS_O2_DEPENDENCIES)
+    # Only optimize the dependencies that have a noticeable impact
+    if(MSVC)
+        target_compile_options(meshoptimizer PRIVATE "/O2")
+        target_compile_options(mikktspace PRIVATE "/O2")
+    else()
+        target_compile_options(meshoptimizer PRIVATE "-O2")
+        target_compile_options(mikktspace PRIVATE "-O2")
+    endif()
+endif()
 
 if(LIVEPP_PATH)
     set(LIVEPP_DEFINE "LIVEPP_PATH=L\"${LIVEPP_PATH}\"")
