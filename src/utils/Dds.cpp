@@ -1,5 +1,6 @@
 #include "Dds.hpp"
 
+#include "Utils.hpp"
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -138,8 +139,8 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
     // Caches aren't supposed to be portable so this doesn't pay attention to
     // endianness.
     std::ofstream outFile{tmpPath, std::ios_base::binary};
-    outFile.write(
-        reinterpret_cast<const char *>(&sDdsMagic), sizeof(sDdsMagic));
+
+    writeRaw(outFile, sDdsMagic);
 
     const bool isCompressed = isFormatCompressed(dds.format);
     const uint32_t pixelStride = isCompressed ? 0 : 4;
@@ -179,20 +180,19 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
         // MIPMAP | TEXTURE
         .dwCaps = 0x00401000u,
     };
-    outFile.write(
-        reinterpret_cast<const char *>(&ddsHeader), sizeof(ddsHeader));
+    writeRaw(outFile, ddsHeader);
 
     const DdsHeaderDxt10 ddsHeaderDxt10{
         .dxgiFormat = dds.format,
         .resourceDimension = D3d10ResourceDimension::Texture2d,
         .arraySize = 1,
     };
-    outFile.write(
-        reinterpret_cast<const char *>(&ddsHeaderDxt10),
-        sizeof(ddsHeaderDxt10));
+    writeRaw(outFile, ddsHeaderDxt10);
 
-    outFile.write(
-        reinterpret_cast<const char *>(dds.data.data()), dds.data.size());
+    // TODO:
+    // Wheels: Array::span() defaults that return a full span
+    writeRawSpan(outFile, Span{dds.data.data(), dds.data.size()});
+
     outFile.close();
 
     // Make sure we have rw permissions for the user to be nice
@@ -213,13 +213,14 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     // Caches aren't supposed to be portable so this doesn't pay attention to
     // endianness.
     std::ifstream inFile{path, std::ios_base::binary};
+
     uint32_t magic = 0;
-    inFile.read(reinterpret_cast<char *>(&magic), sizeof(magic));
+    readRaw(inFile, magic);
     WHEELS_ASSERT(magic == sDdsMagic && "File doesn't appear to be a dds");
 
-    // We don't use the legacy header so write it empty
     DdsHeader ddsHeader;
-    inFile.read(reinterpret_cast<char *>(&ddsHeader), sizeof(ddsHeader));
+    readRaw(inFile, ddsHeader);
+
     WHEELS_ASSERT(ddsHeader.dwSize == 124 && "Unexpexted DDS_HEADER size");
     // Programming guide advises against checking 0x1, 0x1000 and 0x2000, but
     // gli was pedantic here so let's do that as well. This is for our cache
@@ -257,8 +258,8 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     WHEELS_ASSERT(ddsHeader.dwCaps == 0x00401000 && "Unexpected DDS_CAPS");
 
     DdsHeaderDxt10 ddsHeaderDxt10;
-    inFile.read(
-        reinterpret_cast<char *>(&ddsHeaderDxt10), sizeof(ddsHeaderDxt10));
+    readRaw(inFile, ddsHeaderDxt10);
+
     WHEELS_ASSERT(
         (ddsHeaderDxt10.dxgiFormat == DxgiFormat::R8G8B8A8Unorm ||
          ddsHeaderDxt10.dxgiFormat == DxgiFormat::BC7Unorm) &&
@@ -273,6 +274,10 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     Dds ret{
         alloc, ddsHeader.dwWidth, ddsHeader.dwHeight, ddsHeaderDxt10.dxgiFormat,
         ddsHeader.dwMipMapCount};
+
+    // TODO:
+    // Wheels: Array::span() defaults that return a full span
+    readRawSpan(inFile, Span{ret.data.data(), ret.data.size()});
 
     inFile.read(reinterpret_cast<char *>(ret.data.data()), ret.data.size());
 
