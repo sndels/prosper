@@ -76,4 +76,10 @@
     - Could get too messy and brittle
 - Pipeline cache
   - https://zeux.io/2019/07/17/serializing-pipeline-cache/
-
+- Be smarter with temporary allocations in deferred loading
+- Calculate bitangent in pixel shader like suggested on the mikktspace site
+- Scene stats
+  - Node count (active scene)
+    - Also a count for animated nodes
+  - Mesh count
+  - Triangle count
