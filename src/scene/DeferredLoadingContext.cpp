@@ -601,9 +601,11 @@ Buffer createTextureStaging(Device *device)
 
 DeferredLoadingContext::DeferredLoadingContext(
     Device *device, std::filesystem::path sceneDir,
+    std::filesystem::file_time_type sceneWriteTime,
     const tinygltf::Model &gltfModel)
 : device{device}
 , sceneDir{WHEELS_MOV(sceneDir)}
+, sceneWriteTime{sceneWriteTime}
 , alloc{megabytes(1)}
 , gltfModel{gltfModel}
 , cb{device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{

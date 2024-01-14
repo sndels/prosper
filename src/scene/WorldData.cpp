@@ -280,11 +280,17 @@ WorldData::WorldData(
 
     printf("Loading world\n");
 
+    const std::filesystem::path fullScenePath = resPath(scene);
+
+    const std::filesystem::file_time_type sourceWriteTime =
+        std::filesystem::last_write_time(fullScenePath);
+
     Timer t;
-    const auto gltfModel = loadGLTFModel(resPath(scene));
+    const auto gltfModel = loadGLTFModel(fullScenePath);
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
-    _deferredLoadingContext.emplace(_device, _sceneDir, gltfModel);
+    _deferredLoadingContext.emplace(
+        _device, _sceneDir, sourceWriteTime, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {

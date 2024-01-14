@@ -61,6 +61,7 @@ class DeferredLoadingContext
   public:
     DeferredLoadingContext(
         Device *device, std::filesystem::path sceneDir,
+        std::filesystem::file_time_type sceneWriteTime,
         const tinygltf::Model &gltfModel);
     ~DeferredLoadingContext();
 
@@ -89,6 +90,7 @@ class DeferredLoadingContext
     // mutexes?
     Device *device{nullptr};
     std::filesystem::path sceneDir;
+    std::filesystem::file_time_type sceneWriteTime;
     // If there's no worker, main thread handles loading
     wheels::Optional<std::thread> worker;
 
