@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <limits>
 #include <string>
 
@@ -72,6 +73,38 @@ std::filesystem::path binPath(const std::filesystem::path &path);
 
 wheels::String readFileString(
     wheels::Allocator &alloc, const std::filesystem::path &path);
+
+template <typename T> void readRaw(std::ifstream &stream, T &value)
+{
+    stream.read(reinterpret_cast<char *>(&value), sizeof(value));
+}
+
+template <typename T>
+void readRawSpan(std::ifstream &stream, wheels::Span<T> span)
+{
+    stream.read(reinterpret_cast<char *>(span.data()), span.size() * sizeof(T));
+}
+
+template <typename T> void writeRaw(std::ofstream &stream, const T &value)
+{
+    stream.write(reinterpret_cast<const char *>(&value), sizeof(value));
+}
+
+template <typename T>
+void writeRawSpan(std::ofstream &stream, wheels::Span<const T> span)
+{
+    stream.write(
+        reinterpret_cast<const char *>(span.data()), span.size() * sizeof(T));
+}
+
+// TODO:
+// Figure out deduction for Span<T> -> Span<const T> -> T
+template <typename T>
+void writeRawSpan(std::ofstream &stream, wheels::Span<T> span)
+{
+    stream.write(
+        reinterpret_cast<const char *>(span.data()), span.size() * sizeof(T));
+}
 
 inline void appendDefineStr(wheels::String &str, wheels::StrSpan name)
 {
