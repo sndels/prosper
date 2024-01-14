@@ -56,6 +56,22 @@ struct UploadedGeometryData
 
 Buffer createTextureStaging(Device *device);
 
+// Changes to this require changes to sMeshCacheVersion
+struct MeshCacheHeader
+{
+    std::filesystem::file_time_type sourceWriteTime;
+    uint32_t indexCount{0};
+    uint32_t vertexCount{0};
+    // Offsets are for u32 values starting from the beginning of the blob.
+    // The offset for indices is 0.
+    uint32_t positionsOffset{0xFFFFFFFF};
+    uint32_t normalsOffset{0xFFFFFFFF};
+    uint32_t tangentsOffset{0xFFFFFFFF};
+    uint32_t texCoord0sOffset{0xFFFFFFFF};
+    uint32_t usesShortIndices{0};
+    uint32_t blobByteCount{0};
+};
+
 class DeferredLoadingContext
 {
   public:
@@ -72,17 +88,9 @@ class DeferredLoadingContext
 
     void launch();
 
-    struct MeshData
-    {
-        wheels::Array<uint32_t> indices;
-        wheels::Array<glm::vec3> positions;
-        wheels::Array<glm::vec3> normals;
-        wheels::Array<glm::vec4> tangents;
-        wheels::Array<glm::vec2> texCoord0s;
-    };
     UploadedGeometryData uploadGeometryData(
-        wheels::ScopedScratch scopeAlloc, MeshData &&meshData,
-        const MeshInfo &meshInfo);
+        const MeshCacheHeader &cacheHeader,
+        const wheels::Array<uint8_t> &dataBlob);
 
     // TODO:
     // Make worker context private?
