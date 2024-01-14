@@ -7,7 +7,7 @@ struct GeometryMetadata
 {
     uint32_t bufferIndex{0xFFFFFFFF};
     // All of these offsets are into the data interpreted as a u32 'array'
-    // offset of 0xFFFFFFFF signals
+    // offset of 0xFFFFFFFF signals an unused attribute
     uint32_t indicesOffset{0xFFFFFFFF};
     uint32_t positionsOffset{0xFFFFFFFF};
     uint32_t normalsOffset{0xFFFFFFFF};
