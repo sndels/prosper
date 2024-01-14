@@ -33,13 +33,15 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - Polling shader recompilation
 - Render texture debug view
 - Streaming mesh and texture loads
-  - Separate thread for loading when a distinct queue is available for GPU transfers
+  - Separate thread for loading and separate transfer queue for uploads
+  - Texture cache with BC7 compression
+    - Generated automatically if missing or stale
+  - Mesh cache with mesh data optimization and tangent generation
+    - Generated automatically if missing or stale
 
 ### Under the hood
 
 - Bindless materials
-  - Texture cache with BC7 compression
-    - Generated during texture load when a scene is loaded the first time
 - Bindless geometry
 - Ring buffers (SSBO, transfer source)
   - Camera constants
@@ -79,7 +81,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - This is my own toy and experiment base so no need to complicate things with
     more graceful handling for wrong inputs etc.
 
-Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and, on Linux, `xorg-dev`. Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
+Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and, on Linux, `xorg-dev`. Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [meshoptimizer](https://github.com/zeux/meshoptimizer), [mikktspace](https://github.com/mmikk/MikkTSpace), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
+
 
 ## Building
 
