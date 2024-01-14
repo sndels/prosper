@@ -35,9 +35,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - Streaming mesh and texture loads
   - Separate thread for loading and separate transfer queue for uploads
   - Texture cache with BC7 compression
-    - Generated automatically if missing or stale
   - Mesh cache with mesh data optimization and tangent generation
-    - Generated automatically if missing or stale
+  - Missing or stale cache entries generated during loading
 
 ### Under the hood
 
