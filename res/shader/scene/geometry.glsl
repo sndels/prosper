@@ -21,7 +21,7 @@ struct GeometryMetadata
     uint texCoord0sOffset;
     uint meshletsOffset;
     uint meshletVerticesOffset;
-    uint meshletTrianglesOffset;
+    uint meshletTrianglesByteOffset;
     uint usesShortIndices;
 };
 layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
@@ -45,6 +45,12 @@ layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
 }
 geometryBuffersU16[];
 layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+    GeometryBuffersU8
+{
+    uint8_t data[];
+}
+geometryBuffersU8[];
+layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
     GeometryBuffersF32
 {
     float data[];
@@ -54,10 +60,12 @@ geometryBuffersF32[];
 #ifdef NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 #define GET_GEOMETRY_BUFFER_U32(index) geometryBuffersU32[nonuniformEXT(index)]
 #define GET_GEOMETRY_BUFFER_U16(index) geometryBuffersU16[nonuniformEXT(index)]
+#define GET_GEOMETRY_BUFFER_U8(index) geometryBuffersU8[nonuniformEXT(index)]
 #define GET_GEOMETRY_BUFFER_F32(index) geometryBuffersF32[nonuniformEXT(index)]
 #else // !NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 #define GET_GEOMETRY_BUFFER_U32(index) geometryBuffersU32[index]
 #define GET_GEOMETRY_BUFFER_U16(index) geometryBuffersU16[index]
+#define GET_GEOMETRY_BUFFER_U8(index) geometryBuffersU8[index]
 #define GET_GEOMETRY_BUFFER_F32(index) geometryBuffersF32[index]
 #endif // NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 
@@ -76,6 +84,11 @@ uint loadIndex(
 float loadFloat(uint bufferIndex, uint bufferOffset, uint index)
 {
     return GET_GEOMETRY_BUFFER_F32(bufferIndex).data[bufferOffset + index];
+}
+
+uint loadU8(uint bufferIndex, uint bufferOffset, uint index)
+{
+    return uint(GET_GEOMETRY_BUFFER_U8(bufferIndex).data[bufferOffset + index]);
 }
 
 vec2 loadVec2(uint bufferIndex, uint bufferOffset, uint index)
@@ -108,26 +121,78 @@ vec4 loadVec4(uint bufferIndex, uint bufferOffset, uint index)
                : vec4(0);
 }
 
-Vertex loadVertex(uint meshID, uint index)
+struct MeshletInfo
 {
-    GeometryMetadata metadata = geometryMetadatas.data[meshID];
+    uint vertexOffset;
+    uint triangleByteOffset;
+    uint vertexCount;
+    uint triangleCount;
+};
 
+MeshletInfo loadMeshletInfo(GeometryMetadata metadata, uint index)
+{
+    MeshletInfo ret;
+    ret.vertexOffset = GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
+                           .data[metadata.meshletsOffset + index * 4];
+    ret.triangleByteOffset = GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
+                                 .data[metadata.meshletsOffset + index * 4 + 1];
+    ret.vertexCount = GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
+                          .data[metadata.meshletsOffset + index * 4 + 2];
+    ret.triangleCount = GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
+                            .data[metadata.meshletsOffset + index * 4 + 3];
+
+    return ret;
+}
+
+uint loadMeshletVertexIndex(
+    GeometryMetadata metadata, MeshletInfo info, uint index)
+{
+    return loadIndex(
+        metadata.bufferIndex,
+        metadata.meshletVerticesOffset + info.vertexOffset, index,
+        metadata.usesShortIndices);
+}
+
+uvec3 loadMeshletTriangle(
+    GeometryMetadata metadata, MeshletInfo info, uint index)
+{
+    return uvec3(
+        loadU8(
+            metadata.bufferIndex,
+            metadata.meshletTrianglesByteOffset + info.triangleByteOffset,
+            index * 3 + 0),
+        loadU8(
+            metadata.bufferIndex,
+            metadata.meshletTrianglesByteOffset + info.triangleByteOffset,
+            index * 3 + 1),
+        loadU8(
+            metadata.bufferIndex,
+            metadata.meshletTrianglesByteOffset + info.triangleByteOffset,
+            index * 3 + 2));
+}
+
+Vertex loadVertex(GeometryMetadata metadata, uint index)
+{
+    Vertex ret;
+
+    ret.Position =
+        loadVec3(metadata.bufferIndex, metadata.positionsOffset, index);
+    ret.Normal = loadVec3(metadata.bufferIndex, metadata.normalsOffset, index);
+    ret.Tangent =
+        loadVec4(metadata.bufferIndex, metadata.tangentsOffset, index);
+    ret.TexCoord0 =
+        loadVec2(metadata.bufferIndex, metadata.texCoord0sOffset, index);
+
+    return ret;
+}
+
+Vertex loadVertexThroughIndexBuffer(GeometryMetadata metadata, uint index)
+{
     uint vertexIndex = loadIndex(
         metadata.bufferIndex, metadata.indicesOffset, index,
         metadata.usesShortIndices);
 
-    Vertex ret;
-
-    ret.Position =
-        loadVec3(metadata.bufferIndex, metadata.positionsOffset, vertexIndex);
-    ret.Normal =
-        loadVec3(metadata.bufferIndex, metadata.normalsOffset, vertexIndex);
-    ret.Tangent =
-        loadVec4(metadata.bufferIndex, metadata.tangentsOffset, vertexIndex);
-    ret.TexCoord0 =
-        loadVec2(metadata.bufferIndex, metadata.texCoord0sOffset, vertexIndex);
-
-    return ret;
+    return loadVertex(metadata, vertexIndex);
 }
 
 vec2 loadUV(uint meshID, uint index)

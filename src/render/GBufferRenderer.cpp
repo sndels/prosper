@@ -79,9 +79,9 @@ void GBufferRenderer::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(_vertReflection.has_value());
+    WHEELS_ASSERT(_meshReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
-    if (!_vertReflection->affected(changedFiles) &&
+    if (!_meshReflection->affected(changedFiles) &&
         !_fragReflection->affected(changedFiles))
         return;
 
@@ -187,12 +187,12 @@ GBufferRendererOutput GBufferRenderer::record(
                     };
                     cb.pushConstants(
                         _pipelineLayout,
-                        vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eMeshEXT |
                             vk::ShaderStageFlagBits::eFragment,
                         0, // offset
                         sizeof(PCBlock), &pcBlock);
 
-                    cb.draw(info.indexCount, 1, 0, 0);
+                    cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
                 }
             }
         }
@@ -208,21 +208,25 @@ bool GBufferRenderer::compileShaders(
 {
     printf("Compiling GBufferRenderer shaders\n");
 
-    const size_t vertDefsLen = 128;
-    String vertDefines{scopeAlloc, vertDefsLen};
-    appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
-    appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
+    const size_t meshDefsLen = 176;
+    String meshDefines{scopeAlloc, meshDefsLen};
+    appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
-        vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
-    appendDefineStr(vertDefines, "USE_GBUFFER_PC");
-    WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
+        meshDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+    appendDefineStr(meshDefines, "USE_GBUFFER_PC");
+    appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
+    appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
+    appendDefineStr(
+        meshDefines, "LOCAL_SIZE_X", std::max(sMaxMsVertices, sMaxMsTriangles));
+    WHEELS_ASSERT(meshDefines.size() <= meshDefsLen);
 
-    Optional<Device::ShaderCompileResult> vertResult =
+    Optional<Device::ShaderCompileResult> meshResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                          .relPath = "shader/forward.vert",
-                                          .debugName = "gbufferVS",
-                                          .defines = vertDefines,
+                                          .relPath = "shader/forward.mesh",
+                                          .debugName = "gbufferMS",
+                                          .defines = meshDefines,
                                       });
 
     const size_t fragDefsLen = 150;
@@ -245,14 +249,14 @@ bool GBufferRenderer::compileShaders(
                                           .defines = fragDefines,
                                       });
 
-    if (vertResult.has_value() && fragResult.has_value())
+    if (meshResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-        _vertReflection = WHEELS_MOV(vertResult->reflection);
+        _meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == _vertReflection->pushConstantsBytesize());
+            sizeof(PCBlock) == _meshReflection->pushConstantsBytesize());
 
         _fragReflection = WHEELS_MOV(fragResult->reflection);
         WHEELS_ASSERT(
@@ -260,8 +264,8 @@ bool GBufferRenderer::compileShaders(
 
         _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
-                .stage = vk::ShaderStageFlagBits::eVertex,
-                .module = vertResult->module,
+                .stage = vk::ShaderStageFlagBits::eMeshEXT,
+                .module = meshResult->module,
                 .pName = "main",
             },
             vk::PipelineShaderStageCreateInfo{
@@ -274,8 +278,8 @@ bool GBufferRenderer::compileShaders(
         return true;
     }
 
-    if (vertResult.has_value())
-        _device->logical().destroy(vertResult->module);
+    if (meshResult.has_value())
+        _device->logical().destroy(meshResult->module);
     if (fragResult.has_value())
         _device->logical().destroy(fragResult->module);
 
@@ -372,7 +376,7 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
 
     const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eVertex |
+        .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
         .size = sizeof(PCBlock),
@@ -394,14 +398,10 @@ void GBufferRenderer::createGraphicsPipelines(
     const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
         colorBlendAttachments{opaqueColorBlendAttachment()};
 
-    // Empty as we'll load vertices manually from a buffer
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
-
     _pipeline = createGraphicsPipeline(
         _device->logical(),
         GraphicsPipelineInfo{
             .layout = _pipelineLayout,
-            .vertInputInfo = &vertInputInfo,
             .colorBlendAttachments = colorBlendAttachments,
             .shaderStages = _shaderStages,
             .renderingInfo =

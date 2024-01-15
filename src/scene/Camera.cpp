@@ -233,7 +233,8 @@ void Camera::createDescriptorSet(
         scopeAlloc.child_scope(), *_device, 0,
         vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment |
             vk::ShaderStageFlagBits::eCompute |
-            vk::ShaderStageFlagBits::eRaygenKHR);
+            vk::ShaderStageFlagBits::eRaygenKHR |
+            vk::ShaderStageFlagBits::eMeshEXT);
 
     _descriptorSet = staticDescriptorsAlloc->allocate(_descriptorSetLayout);
 

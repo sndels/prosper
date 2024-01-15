@@ -18,7 +18,9 @@ class ForwardRenderer
   public:
     enum class DrawType : uint32_t
     {
-        DEBUG_DRAW_TYPES_AND_COUNT
+        DEBUG_DRAW_TYPES,
+        MeshletID,
+        Count,
     };
 
     struct InputDSLayouts
@@ -113,7 +115,7 @@ class ForwardRenderer
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
-    wheels::Optional<ShaderReflection> _vertReflection;
+    wheels::Optional<ShaderReflection> _meshReflection;
     wheels::Optional<ShaderReflection> _fragReflection;
 
     vk::PipelineLayout _pipelineLayout;

@@ -56,6 +56,7 @@ using namespace wheels;
         vk::PhysicalDeviceVulkan12Features, runtimeDescriptorArray,            \
         vk::PhysicalDeviceVulkan12Features, hostQueryReset,                    \
         vk::PhysicalDeviceVulkan12Features, bufferDeviceAddress,               \
+        vk::PhysicalDeviceVulkan12Features, storageBuffer8BitAccess,           \
         vk::PhysicalDeviceVulkan13Features, synchronization2,                  \
         vk::PhysicalDeviceVulkan13Features, dynamicRendering,                  \
         vk::PhysicalDeviceVulkan13Features, maintenance4,                      \

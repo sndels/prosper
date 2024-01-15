@@ -11,6 +11,7 @@ namespace
 constexpr uint32_t sMaxScopeCount = 512;
 // Each scope has a query for start and end
 constexpr uint32_t sMaxTimestampCount = sMaxScopeCount * 2;
+// TODO: Mesh shader stats
 constexpr vk::QueryPipelineStatisticFlags sPipelineStatisticsFlags =
     vk::QueryPipelineStatisticFlagBits::eInputAssemblyVertices |
     vk::QueryPipelineStatisticFlagBits::eInputAssemblyPrimitives |

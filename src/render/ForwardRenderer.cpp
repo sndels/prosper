@@ -48,7 +48,7 @@ struct PCBlock
 
 constexpr StaticArray<
     const char *, static_cast<size_t>(ForwardRenderer::DrawType::Count)>
-    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
+    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS "MeshletID"}};
 
 } // namespace
 
@@ -85,9 +85,9 @@ void ForwardRenderer::recompileShaders(
     const wheels::HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(_vertReflection.has_value());
+    WHEELS_ASSERT(_meshReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
-    if (!_vertReflection->affected(changedFiles) &&
+    if (!_meshReflection->affected(changedFiles) &&
         !_fragReflection->affected(changedFiles))
         return;
 
@@ -148,23 +148,27 @@ bool ForwardRenderer::compileShaders(
 {
     printf("Compiling ForwardRenderer shaders\n");
 
-    const size_t vertDefsLen = 92;
-    String vertDefines{scopeAlloc, vertDefsLen};
-    appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);
-    appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
+    const size_t meshDefsLen = 153;
+    String meshDefines{scopeAlloc, meshDefsLen};
+    appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
-        vertDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
-    WHEELS_ASSERT(vertDefines.size() <= vertDefsLen);
+        meshDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+    appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
+    appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
+    appendDefineStr(
+        meshDefines, "LOCAL_SIZE_X", std::max(sMaxMsVertices, sMaxMsTriangles));
+    WHEELS_ASSERT(meshDefines.size() <= meshDefsLen);
 
-    Optional<Device::ShaderCompileResult> vertResult =
+    Optional<Device::ShaderCompileResult> meshResult =
         _device->compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
-                                          .relPath = "shader/forward.vert",
-                                          .debugName = "geometryVS",
-                                          .defines = vertDefines,
+                                          .relPath = "shader/forward.mesh",
+                                          .debugName = "geometryMS",
+                                          .defines = meshDefines,
                                       });
 
-    const size_t fragDefsLen = 650;
+    const size_t fragDefsLen = 675;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
@@ -193,14 +197,14 @@ bool ForwardRenderer::compileShaders(
                                           .defines = fragDefines,
                                       });
 
-    if (vertResult.has_value() && fragResult.has_value())
+    if (meshResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
 
-        _vertReflection = WHEELS_MOV(vertResult->reflection);
+        _meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == _vertReflection->pushConstantsBytesize());
+            sizeof(PCBlock) == _meshReflection->pushConstantsBytesize());
 
         _fragReflection = WHEELS_MOV(fragResult->reflection);
         WHEELS_ASSERT(
@@ -208,8 +212,8 @@ bool ForwardRenderer::compileShaders(
 
         _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
-                .stage = vk::ShaderStageFlagBits::eVertex,
-                .module = vertResult->module,
+                .stage = vk::ShaderStageFlagBits::eMeshEXT,
+                .module = meshResult->module,
                 .pName = "main",
             },
             vk::PipelineShaderStageCreateInfo{
@@ -222,8 +226,8 @@ bool ForwardRenderer::compileShaders(
         return true;
     }
 
-    if (vertResult.has_value())
-        _device->logical().destroy(vertResult->module);
+    if (meshResult.has_value())
+        _device->logical().destroy(meshResult->module);
     if (fragResult.has_value())
         _device->logical().destroy(fragResult->module);
 
@@ -251,7 +255,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
 
     const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eVertex |
+        .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
         .size = sizeof(PCBlock),
@@ -263,9 +267,6 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             .pushConstantRangeCount = 1,
             .pPushConstantRanges = &pcRange,
         });
-
-    // Empty as we'll load vertices manually from a buffer
-    const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     {
         const StaticArray colorAttachmentFormats{{
@@ -280,7 +281,6 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             _device->logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
-                .vertInputInfo = &vertInputInfo,
                 .colorBlendAttachments = colorBlendAttachments,
                 .shaderStages = _shaderStages,
                 .renderingInfo =
@@ -303,7 +303,6 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             _device->logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
-                .vertInputInfo = &vertInputInfo,
                 .colorBlendAttachments = Span{&blendAttachment, 1},
                 .shaderStages = _shaderStages,
                 .renderingInfo =
@@ -384,6 +383,7 @@ void ForwardRenderer::record(
     const Span<const Model> models = world.models();
     const Span<const Material> materials = world.materials();
     const Span<const MeshInfo> meshInfos = world.meshInfos();
+
     for (const auto &instance : scene.modelInstances)
     {
         const auto &model = models[instance.modelID];
@@ -412,12 +412,12 @@ void ForwardRenderer::record(
                 };
                 cb.pushConstants(
                     _pipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex |
+                    vk::ShaderStageFlagBits::eMeshEXT |
                         vk::ShaderStageFlagBits::eFragment,
                     0, // offset
                     sizeof(PCBlock), &pcBlock);
 
-                cb.draw(info.indexCount, 1, 0, 0);
+                cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
             }
         }
     }

@@ -1513,11 +1513,12 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
     }
 
     {
-        const size_t len = 121;
+        const size_t len = 169;
         String defines{scopeAlloc, len};
         appendDefineStr(defines, "GEOMETRY_SET", sGeometryReflectionSet);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
         defines.extend("#extension GL_EXT_shader_16bit_storage : require\n");
+        defines.extend("#extension GL_EXT_shader_8bit_storage : require\n");
         WHEELS_ASSERT(defines.size() <= len);
 
         _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
@@ -1683,7 +1684,8 @@ void WorldData::createDescriptorSets(
             scopeAlloc.child_scope(), *_device, sGeometryReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
                 vk::ShaderStageFlagBits::eRaygenKHR |
-                vk::ShaderStageFlagBits::eAnyHitKHR,
+                vk::ShaderStageFlagBits::eAnyHitKHR |
+                vk::ShaderStageFlagBits::eMeshEXT,
             Span{&bufferCount, 1}, bindingFlags);
 
         WHEELS_ASSERT(_descriptorSets.geometry.size() == MAX_FRAMES_IN_FLIGHT);
@@ -1746,7 +1748,8 @@ void WorldData::createDescriptorSets(
             scopeAlloc.child_scope(), *_device, sInstanceTrfnsReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
                 vk::ShaderStageFlagBits::eRaygenKHR |
-                vk::ShaderStageFlagBits::eAnyHitKHR);
+                vk::ShaderStageFlagBits::eAnyHitKHR |
+                vk::ShaderStageFlagBits::eMeshEXT);
 
     WHEELS_ASSERT(_lightsReflection.has_value());
     _dsLayouts.lights = _lightsReflection->createDescriptorSetLayout(
@@ -1935,7 +1938,8 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
                     .srcAccessMask = vk::AccessFlagBits2::eNone,
                     .dstStageMask =
                         vk::PipelineStageFlagBits2::eVertexShader |
-                        vk::PipelineStageFlagBits2::eRayTracingShaderKHR,
+                        vk::PipelineStageFlagBits2::eRayTracingShaderKHR |
+                        vk::PipelineStageFlagBits2::eMeshShaderEXT,
                     .dstAccessMask = vk::AccessFlagBits2::eShaderRead,
                     .srcQueueFamilyIndex = *families.transferFamily,
                     .dstQueueFamilyIndex = *families.graphicsFamily,

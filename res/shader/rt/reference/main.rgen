@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_shader_image_load_formatted : require
 #extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_8bit_storage : require
 
 #pragma shader_stage(raygen)
 
@@ -133,9 +134,11 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
     Transforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceID];
 
-    Vertex v0 = loadVertex(instance.meshID, hit.primitiveID * 3 + 0);
-    Vertex v1 = loadVertex(instance.meshID, hit.primitiveID * 3 + 1);
-    Vertex v2 = loadVertex(instance.meshID, hit.primitiveID * 3 + 2);
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
+
+    Vertex v0 = loadVertexThroughIndexBuffer(metadata, hit.primitiveID * 3 + 0);
+    Vertex v1 = loadVertexThroughIndexBuffer(metadata, hit.primitiveID * 3 + 1);
+    Vertex v2 = loadVertexThroughIndexBuffer(metadata, hit.primitiveID * 3 + 2);
 
     Vertex vi = interpolate(v0, v1, v2, hit.baryCoord);
     Vertex v = transform(vi, trfn);
