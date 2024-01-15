@@ -293,7 +293,7 @@ void SkyboxRenderer::createGraphicsPipelines(
         _device->logical(),
         GraphicsPipelineInfo{
             .layout = _pipelineLayout,
-            .vertInputInfo = vertInputInfo,
+            .vertInputInfo = &vertInputInfo,
             .colorBlendAttachments = colorBlendAttachments,
             .shaderStages = _shaderStages,
             .renderingInfo =

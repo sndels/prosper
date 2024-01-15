@@ -280,7 +280,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             _device->logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
-                .vertInputInfo = vertInputInfo,
+                .vertInputInfo = &vertInputInfo,
                 .colorBlendAttachments = colorBlendAttachments,
                 .shaderStages = _shaderStages,
                 .renderingInfo =
@@ -303,7 +303,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             _device->logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
-                .vertInputInfo = vertInputInfo,
+                .vertInputInfo = &vertInputInfo,
                 .colorBlendAttachments = Span{&blendAttachment, 1},
                 .shaderStages = _shaderStages,
                 .renderingInfo =

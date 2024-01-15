@@ -55,7 +55,7 @@ vk::Pipeline createComputePipeline(
 struct GraphicsPipelineInfo
 {
     vk::PipelineLayout layout;
-    const vk::PipelineVertexInputStateCreateInfo &vertInputInfo;
+    const vk::PipelineVertexInputStateCreateInfo *vertInputInfo{nullptr};
     wheels::Span<const vk::PipelineColorBlendAttachmentState>
         colorBlendAttachments;
     wheels::Span<const vk::PipelineShaderStageCreateInfo> shaderStages;

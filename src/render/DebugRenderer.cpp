@@ -318,7 +318,7 @@ void DebugRenderer::createGraphicsPipeline(
         _device->logical(),
         GraphicsPipelineInfo{
             .layout = _pipelineLayout,
-            .vertInputInfo = vertInputInfo,
+            .vertInputInfo = &vertInputInfo,
             .colorBlendAttachments = Span{&blendAttachment, 1},
             .shaderStages = _shaderStages,
             .renderingInfo =

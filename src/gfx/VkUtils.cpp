@@ -97,7 +97,7 @@ vk::Pipeline createGraphicsPipeline(
             vk::GraphicsPipelineCreateInfo{
                 .stageCount = asserted_cast<uint32_t>(info.shaderStages.size()),
                 .pStages = info.shaderStages.data(),
-                .pVertexInputState = &info.vertInputInfo,
+                .pVertexInputState = info.vertInputInfo,
                 .pInputAssemblyState = &inputAssembly,
                 .pViewportState = &viewportState,
                 .pRasterizationState = &rasterizerState,
