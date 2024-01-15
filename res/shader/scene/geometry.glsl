@@ -19,6 +19,9 @@ struct GeometryMetadata
     uint normalsOffset;
     uint tangentsOffset;
     uint texCoord0sOffset;
+    uint meshletsOffset;
+    uint meshletVerticesOffset;
+    uint meshletTrianglesOffset;
     uint usesShortIndices;
 };
 layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
