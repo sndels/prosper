@@ -28,7 +28,8 @@ using namespace wheels;
     vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,           \
         vk::PhysicalDeviceVulkan13Features,                                    \
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,                       \
+        vk::PhysicalDeviceMeshShaderFeaturesEXT
 
 #define REQUIRED_FEATURES                                                      \
     vk::PhysicalDeviceFeatures2, features.geometryShader,                      \
@@ -58,7 +59,8 @@ using namespace wheels;
         vk::PhysicalDeviceVulkan13Features, maintenance4,                      \
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         accelerationStructure,                                                 \
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline
+        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,   \
+        vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader
 
 namespace
 {
@@ -72,6 +74,7 @@ constexpr StaticArray deviceExtensions{{
     VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
     VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
     VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+    VK_EXT_MESH_SHADER_EXTENSION_NAME,
 }};
 
 bool supportsGraphics(vk::QueueFlags flags)
