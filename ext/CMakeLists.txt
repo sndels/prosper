@@ -29,16 +29,18 @@ set_target_properties(glfw PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${gl
 
 if(PROSPER_SETUP_DEPENDENCIES)
     message(STATUS "Sync shaderc dependencies")
+    find_package(Python COMPONENTS Interpreter)
     execute_process(COMMAND
-        python3 utils/git-sync-deps
+        ${Python_EXECUTABLE} utils/git-sync-deps
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/shaderc
     )
 endif()
 
-set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Skip installation")
-set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip building tests")
-set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "Skip building examples")
-set(SHADERC_SKIP_COPYRIGHT_CHECK ON CACHE BOOL "Skip copyright check")
+set(SHADERC_ENABLE_SHARED_CRT ON)
+set(SHADERC_SKIP_INSTALL ON)
+set(SHADERC_SKIP_TESTS ON)
+set(SHADERC_SKIP_EXAMPLES ON)
+set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
 add_subdirectory(shaderc)
 get_target_property(shaderc_include_dirs shaderc INTERFACE_INCLUDE_DIRECTORIES)
 set_target_properties(shaderc PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${shaderc_include_dirs}")
