@@ -19,6 +19,8 @@ const float sIndentPixels = 10.f;
 // have a hard limit of 64MB for a single mesh from the default geometry
 // buffer size.
 const size_t sLoadingScratchSize = wheels::megabytes(256);
+const size_t sMaxMsVertices = 64;
+const size_t sMaxMsTriangles = 124;
 
 // Statically casts a into T, asserts that the value fits in T if T is integral
 template <typename T, typename V> constexpr T asserted_cast(V a)

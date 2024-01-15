@@ -15,7 +15,7 @@ struct GeometryMetadata
     uint32_t texCoord0sOffset{0xFFFFFFFF};
     uint32_t meshletsOffset{0xFFFFFFFF};
     uint32_t meshletVerticesOffset{0xFFFFFFFF};
-    uint32_t meshletTrianglesOffset{0xFFFFFFFF};
+    uint32_t meshletTrianglesByteOffset{0xFFFFFFFF};
     uint32_t usesShortIndices{0};
 };
 // These are uploaded onto the gpu and tight packing is assumed

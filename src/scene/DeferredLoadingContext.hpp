@@ -62,12 +62,16 @@ struct MeshCacheHeader
     std::filesystem::file_time_type sourceWriteTime;
     uint32_t indexCount{0};
     uint32_t vertexCount{0};
+    uint32_t meshletCount{0};
     // Offsets are for u32 values starting from the beginning of the blob.
     // The offset for indices is 0.
     uint32_t positionsOffset{0xFFFFFFFF};
     uint32_t normalsOffset{0xFFFFFFFF};
     uint32_t tangentsOffset{0xFFFFFFFF};
     uint32_t texCoord0sOffset{0xFFFFFFFF};
+    uint32_t meshletsOffset{0xFFFFFFFF};
+    uint32_t meshletVerticesOffset{0xFFFFFFFF};
+    uint32_t meshletTrianglesByteOffset{0xFFFFFFFF};
     uint32_t usesShortIndices{0};
     uint32_t blobByteCount{0};
 };
