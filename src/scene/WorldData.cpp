@@ -405,8 +405,10 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
         if (_geometryBufferAllocatedByteCounts[i] == 0)
         {
             // We might push a new buffer before the mesh it got created for
-            // gets copied over. Let's just skip in that case
-            WHEELS_ASSERT(i == bufferCount - 1);
+            // gets copied over. Let's just skip in that case. Just make sure we
+            // won't leave other already used buffers hanging.
+            for (size_t j = i + 1; j < bufferCount; ++j)
+                WHEELS_ASSERT(_geometryBufferAllocatedByteCounts[j] == 0);
             break;
         }
 
