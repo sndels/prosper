@@ -44,6 +44,7 @@ struct DeviceProperties
     vk::PhysicalDeviceProperties device;
     vk::PhysicalDeviceRayTracingPipelinePropertiesKHR rtPipeline;
     vk::PhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructure;
+    vk::PhysicalDeviceMeshShaderPropertiesEXT meshShader;
 };
 
 struct MemoryAllocationBytes

@@ -482,13 +482,21 @@ Device::Device(
         const auto props = _physical.getProperties2<
             vk::PhysicalDeviceProperties2,
             vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
-            vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
+            vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
+            vk::PhysicalDeviceMeshShaderPropertiesEXT>();
         _properties.device =
             props.get<vk::PhysicalDeviceProperties2>().properties;
         _properties.rtPipeline =
             props.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
         _properties.accelerationStructure =
             props.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
+        _properties.meshShader =
+            props.get<vk::PhysicalDeviceMeshShaderPropertiesEXT>();
+
+        WHEELS_ASSERT(
+            _properties.meshShader.maxMeshOutputVertices >= sMaxMsVertices);
+        WHEELS_ASSERT(
+            _properties.meshShader.maxMeshOutputPrimitives >= sMaxMsTriangles);
 
         {
             const auto apiPacked = _properties.device.apiVersion;
