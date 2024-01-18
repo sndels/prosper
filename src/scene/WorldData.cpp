@@ -281,6 +281,9 @@ WorldData::WorldData(
     printf("Loading world\n");
 
     const std::filesystem::path fullScenePath = resPath(scene);
+    if (!std::filesystem::exists(fullScenePath))
+        throw std::runtime_error(
+            "Couldn't find '" + fullScenePath.string() + "'");
 
     const std::filesystem::file_time_type sourceWriteTime =
         std::filesystem::last_write_time(fullScenePath);
