@@ -23,6 +23,7 @@
             "program": "${workspaceFolder}/build/RelWithDebInfo/prosper.exe",
             "args": [
                 // "--breakOnValidationError",
+                // "--robustAccess",
                 "--debugLayers"
             ],
             "stopAtEntry": false,
@@ -38,6 +39,7 @@
             "program": "${workspaceFolder}/build/Debug/prosper.exe",
             "args": [
                 // "--breakOnValidationError",
+                // "--robustAccess",
                 "--debugLayers"
             ],
             "stopAtEntry": false,
@@ -53,6 +55,7 @@
             "program": "${workspaceFolder}/build/prosper",
             "args": [
                 // "--breakOnValidationError",
+                // "--robustAccess",
                 "--debugLayers"
             ],
             "cwd": "${workspaceFolder}",

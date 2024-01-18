@@ -165,7 +165,8 @@ QueueFamilies findQueueFamilies(
 }
 
 bool checkDeviceExtensionSupport(
-    ScopedScratch scopeAlloc, const vk::PhysicalDevice device)
+    ScopedScratch scopeAlloc, const vk::PhysicalDevice device,
+    const Device::Settings &settings)
 {
     const auto availableExtensions =
         device.enumerateDeviceExtensionProperties(nullptr);
@@ -174,6 +175,10 @@ bool checkDeviceExtensionSupport(
     HashSet<String> requiredExtensions{scopeAlloc, deviceExtensions.size() * 2};
     for (const char *ext : deviceExtensions)
         requiredExtensions.insert(String{scopeAlloc, ext});
+
+    if (settings.robustAccess)
+        requiredExtensions.insert(
+            String{scopeAlloc, VK_EXT_ROBUSTNESS_2_EXTENSION_NAME});
 
     for (const auto &extension : availableExtensions)
         requiredExtensions.remove(String{scopeAlloc, extension.extensionName});
@@ -472,7 +477,7 @@ Device::Device(
     selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
-    createLogicalDevice();
+    createLogicalDevice(scopeAlloc.child_scope());
     VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
 
     createAllocator();
@@ -1119,7 +1124,8 @@ bool Device::isDeviceSuitable(
         return false;
     }
 
-    if (!checkDeviceExtensionSupport(scopeAlloc.child_scope(), device))
+    if (!checkDeviceExtensionSupport(
+            scopeAlloc.child_scope(), device, _settings))
         return false;
 
     const SwapchainSupport swapSupport{scopeAlloc, device, _surface};
@@ -1131,7 +1137,8 @@ bool Device::isDeviceSuitable(
 
     printf("Checking feature support\n");
 
-    const auto features = device.getFeatures2<ALL_FEATURE_STRUCTS_LIST>();
+    {
+        const auto features = device.getFeatures2<ALL_FEATURE_STRUCTS_LIST>();
 
 #define CHECK_REQUIRED_FEATURES(container, feature)                            \
     if (features.get<container>().feature == VK_FALSE)                         \
@@ -1140,9 +1147,40 @@ bool Device::isDeviceSuitable(
         return false;                                                          \
     }
 
-    FOR_EACH_PAIR(CHECK_REQUIRED_FEATURES, REQUIRED_FEATURES);
+        FOR_EACH_PAIR(CHECK_REQUIRED_FEATURES, REQUIRED_FEATURES);
 
 #undef CHECK_REQUIRED_FEATURES
+    }
+
+    if (_settings.robustAccess)
+    {
+        const auto allFeatures = device.getFeatures2<
+            vk::PhysicalDeviceFeatures2,
+            vk::PhysicalDeviceRobustness2FeaturesEXT>();
+
+        const vk::PhysicalDeviceFeatures2 &features =
+            allFeatures.get<vk::PhysicalDeviceFeatures2>();
+
+        // robustBufferAccess2 requires enabling robustBufferAccess
+        if (features.features.robustBufferAccess == VK_FALSE)
+        {
+            fprintf(stderr, "Missing robustBufferAccess\n");
+            return false;
+        }
+
+        const vk::PhysicalDeviceRobustness2FeaturesEXT &robustness =
+            allFeatures.get<vk::PhysicalDeviceRobustness2FeaturesEXT>();
+        if (robustness.robustBufferAccess2 == VK_FALSE)
+        {
+            fprintf(stderr, "Missing robustBufferAccess2\n");
+            return false;
+        }
+        if (robustness.robustImageAccess2 == VK_FALSE)
+        {
+            fprintf(stderr, "Missing robustImageAccess2\n");
+            return false;
+        }
+    }
 
     const auto props = device.getProperties2<
         vk::PhysicalDeviceProperties2, vk::PhysicalDeviceSubgroupProperties>();
@@ -1259,7 +1297,7 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
     throw std::runtime_error("Failed to find a suitable GPU");
 }
 
-void Device::createLogicalDevice()
+void Device::createLogicalDevice(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(_queueFamilies.graphicsFamily.has_value());
     WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
@@ -1300,7 +1338,18 @@ void Device::createLogicalDevice()
         return cis;
     }();
 
-    vk::StructureChain<vk::DeviceCreateInfo, ALL_FEATURE_STRUCTS_LIST>
+    Array<const char *> enabledExtensions{
+        scopeAlloc, deviceExtensions.size() + 1};
+    for (const char *ext : deviceExtensions)
+        enabledExtensions.push_back(ext);
+
+    const char *robustness2Name = VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
+    if (_settings.robustAccess)
+        enabledExtensions.push_back(robustness2Name);
+
+    vk::StructureChain<
+        vk::DeviceCreateInfo, ALL_FEATURE_STRUCTS_LIST,
+        vk::PhysicalDeviceRobustness2FeaturesEXT>
         createChain;
     createChain.get<vk::DeviceCreateInfo>() = vk::DeviceCreateInfo{
         .pNext = &createChain.get<vk::PhysicalDeviceFeatures2>(),
@@ -1314,8 +1363,8 @@ void Device::createLogicalDevice()
         .ppEnabledLayerNames =
             _settings.enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount =
-            asserted_cast<uint32_t>(deviceExtensions.size()),
-        .ppEnabledExtensionNames = deviceExtensions.data(),
+            asserted_cast<uint32_t>(enabledExtensions.size()),
+        .ppEnabledExtensionNames = enabledExtensions.data(),
     };
 
 #define TOGGLE_REQUIRED_FEATURES(container, feature)                           \
@@ -1324,6 +1373,19 @@ void Device::createLogicalDevice()
     FOR_EACH_PAIR(TOGGLE_REQUIRED_FEATURES, REQUIRED_FEATURES);
 
 #undef TOGGLE_REQUIRED_FEATURES
+
+    if (_settings.robustAccess)
+    {
+        createChain.get<vk::PhysicalDeviceFeatures2>()
+            .features.robustBufferAccess = VK_TRUE;
+        createChain.get<vk::PhysicalDeviceRobustness2FeaturesEXT>() =
+            vk::PhysicalDeviceRobustness2FeaturesEXT{
+                .robustBufferAccess2 = VK_TRUE,
+                .robustImageAccess2 = VK_TRUE,
+            };
+    }
+    else
+        createChain.unlink<vk::PhysicalDeviceRobustness2FeaturesEXT>();
 
     _logical = _physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
 

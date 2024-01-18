@@ -31,6 +31,7 @@ App::Settings parseCli(int argc, char *argv[])
             ("debugLayers", "Enable Vulkan debug layers")
             ("dumpShaderDisassembly", "Dump shader disassembly to stdout")
             ("breakOnValidationError", "Break debugger on Vulkan validation error")
+            ("robustAccess", "Enable VK_EXT_robustness2 for buffers and images")
             ("sceneFile", std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
              cxxopts::value<std::string>()->default_value(""));
     // clang-format on
@@ -61,6 +62,7 @@ App::Settings parseCli(int argc, char *argv[])
                     args["dumpShaderDisassembly"].as<bool>(),
                 .breakOnValidationError =
                     args["breakOnValidationError"].as<bool>(),
+                .robustAccess = args["robustAccess"].as<bool>(),
             },
     };
 }
