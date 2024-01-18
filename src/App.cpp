@@ -1289,15 +1289,6 @@ void App::render(
             depth = output.depth;
         }
 
-        // Transparent
-        _forwardRenderer->recordTransparent(
-            scopeAlloc.child_scope(), cb, *_world, *_cam,
-            ForwardRenderer::TransparentInOut{
-                .illumination = illumination,
-                .depth = depth,
-            },
-            lightClusters, indices.nextFrame, _profiler.get());
-
         _skyboxRenderer->record(
             scopeAlloc.child_scope(), cb, *_world, *_cam,
             SkyboxRenderer::RecordInOut{
@@ -1306,6 +1297,15 @@ void App::render(
                 .depth = depth,
             },
             _profiler.get());
+
+        // Transparent
+        _forwardRenderer->recordTransparent(
+            scopeAlloc.child_scope(), cb, *_world, *_cam,
+            ForwardRenderer::TransparentInOut{
+                .illumination = illumination,
+                .depth = depth,
+            },
+            lightClusters, indices.nextFrame, _profiler.get());
 
         _debugRenderer->record(
             scopeAlloc.child_scope(), cb, *_cam,
