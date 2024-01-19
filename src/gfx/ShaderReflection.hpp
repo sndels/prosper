@@ -62,7 +62,8 @@ class ShaderReflection
         wheels::Span<const vk::DescriptorBindingFlags> bindingFlags = {}) const;
 
     // TODO: This doesn't deduce N from infos defined as an initializer list
-    // Takes bindings sorted by the glsl binding indices
+    // Takes bindings sorted by the glsl binding indices. Aliased binds take
+    // just one binding.
     [[nodiscard]] wheels::Array<vk::WriteDescriptorSet>
     generateDescriptorWrites(
         wheels::Allocator &alloc, uint32_t descriptorSetIndex,

@@ -618,6 +618,8 @@ void fillMetadata(
         if (std::holds_alternative<SpvRuntimeArray>(*typeResult.type))
             descriptorCount = 0;
         else // Struct is the default count 1
+             // This might fire when a runtime array bind is declared but not
+             // actually used
             WHEELS_ASSERT(std::holds_alternative<SpvStruct>(*typeResult.type));
     }
     break;
@@ -747,6 +749,32 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
             metadatas.begin(), metadatas.end(),
             [](const DescriptorSetMetadata &a, const DescriptorSetMetadata &b)
             { return a.binding < b.binding; });
+
+        // Get rid of aliased storage buffer bindings so that we just have the
+        // one to generate writes for
+        for (size_t i = 1; i < metadatas.size(); ++i)
+        {
+            const DescriptorSetMetadata &current = metadatas[i];
+            DescriptorSetMetadata &previous = metadatas[i - 1];
+            if (current.binding == previous.binding)
+            {
+                WHEELS_ASSERT(
+                    current.descriptorType == previous.descriptorType);
+                WHEELS_ASSERT(
+                    current.descriptorType ==
+                        vk::DescriptorType::eStorageBuffer ||
+                    current.descriptorType ==
+                        vk::DescriptorType::eStorageBufferDynamic);
+
+                // Concat aliased names so the aliasing is clear when generating
+                // layouts or binds
+                previous.name.push_back('|');
+                previous.name.extend(current.name);
+
+                metadatas.erase(i);
+                i--;
+            }
+        }
     }
 
     return ret;
