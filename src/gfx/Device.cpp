@@ -25,7 +25,8 @@
 using namespace wheels;
 
 #define ALL_FEATURE_STRUCTS_LIST                                               \
-    vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan12Features,           \
+    vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,           \
+        vk::PhysicalDeviceVulkan12Features,                                    \
         vk::PhysicalDeviceVulkan13Features,                                    \
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,                       \
@@ -41,6 +42,7 @@ using namespace wheels;
         vk::PhysicalDeviceFeatures2,                                           \
         features.shaderSampledImageArrayDynamicIndexing,                       \
         vk::PhysicalDeviceFeatures2, features.pipelineStatisticsQuery,         \
+        vk::PhysicalDeviceVulkan11Features, storageBuffer16BitAccess,          \
         vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                \
         vk::PhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound,   \
         vk::PhysicalDeviceVulkan12Features,                                    \

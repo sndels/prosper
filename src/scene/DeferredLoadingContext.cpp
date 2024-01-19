@@ -942,24 +942,28 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
     geometryBufferRemainingByteCounts[dstBufferI] -= cacheHeader.blobByteCount;
 
     // Offsets into GPU buffer are for u32
-    const uint32_t startOffset =
+    const uint32_t startOffsetU32 =
         startByteOffset / asserted_cast<uint32_t>(sizeof(uint32_t));
+    const uint32_t startOffsetU16 =
+        startByteOffset / asserted_cast<uint32_t>(sizeof(uint16_t));
 
     const UploadedGeometryData ret{
         .metadata =
             GeometryMetadata{
                 .bufferIndex = dstBufferI,
-                .indicesOffset = startOffset,
-                .positionsOffset = startOffset + cacheHeader.positionsOffset,
-                .normalsOffset = startOffset + cacheHeader.normalsOffset,
+                .indicesOffset =
+                    (cacheHeader.usesShortIndices == 1 ? startOffsetU16
+                                                       : startOffsetU32),
+                .positionsOffset = startOffsetU32 + cacheHeader.positionsOffset,
+                .normalsOffset = startOffsetU32 + cacheHeader.normalsOffset,
                 .tangentsOffset =
                     cacheHeader.tangentsOffset == 0xFFFFFFFF
                         ? 0xFFFFFFFF
-                        : startOffset + cacheHeader.tangentsOffset,
+                        : startOffsetU32 + cacheHeader.tangentsOffset,
                 .texCoord0sOffset =
                     cacheHeader.texCoord0sOffset == 0xFFFFFFFF
                         ? 0xFFFFFFFF
-                        : startOffset + cacheHeader.texCoord0sOffset,
+                        : startOffsetU32 + cacheHeader.texCoord0sOffset,
                 .usesShortIndices = cacheHeader.usesShortIndices,
             },
         .byteCount = cacheHeader.blobByteCount,

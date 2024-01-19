@@ -31,16 +31,34 @@ layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
 }
 geometryMetadatas;
 
-layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer GeometryBuffers
+// Aliased binds of the same SSBOs
+layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+    GeometryBuffersU32
 {
     uint data[];
 }
-geometryBuffers[];
+geometryBuffersU32[];
+layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+    GeometryBuffersU16
+{
+    uint16_t data[];
+}
+geometryBuffersU16[];
+layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+    GeometryBuffersF32
+{
+    float data[];
+}
+geometryBuffersF32[];
 
 #ifdef NON_UNIFORM_GEOMETRY_BUFFER_INDICES
-#define GET_GEOMETRY_BUFFER(index) geometryBuffers[nonuniformEXT(index)]
+#define GET_GEOMETRY_BUFFER_U32(index) geometryBuffersU32[nonuniformEXT(index)]
+#define GET_GEOMETRY_BUFFER_U16(index) geometryBuffersU16[nonuniformEXT(index)]
+#define GET_GEOMETRY_BUFFER_F32(index) geometryBuffersF32[nonuniformEXT(index)]
 #else // !NON_UNIFORM_GEOMETRY_BUFFER_INDICES
-#define GET_GEOMETRY_BUFFER(index) geometryBuffers[index]
+#define GET_GEOMETRY_BUFFER_U32(index) geometryBuffersU32[index]
+#define GET_GEOMETRY_BUFFER_U16(index) geometryBuffersU16[index]
+#define GET_GEOMETRY_BUFFER_F32(index) geometryBuffersF32[index]
 #endif // NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 
 uint loadIndex(
@@ -48,18 +66,16 @@ uint loadIndex(
 {
     if (usesShortIndices == 1)
     {
-        uint i =
-            GET_GEOMETRY_BUFFER(bufferIndex).data[bufferOffset + (index / 2)];
-        return (i >> ((index & 1) * 16)) & 0xFFFF;
+        return uint(
+            GET_GEOMETRY_BUFFER_U16(bufferIndex).data[bufferOffset + index]);
     }
     else
-        return GET_GEOMETRY_BUFFER(bufferIndex).data[bufferOffset + index];
+        return GET_GEOMETRY_BUFFER_U32(bufferIndex).data[bufferOffset + index];
 }
 
 float loadFloat(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return uintBitsToFloat(
-        GET_GEOMETRY_BUFFER(bufferIndex).data[bufferOffset + index]);
+    return GET_GEOMETRY_BUFFER_F32(bufferIndex).data[bufferOffset + index];
 }
 
 vec2 loadVec2(uint bufferIndex, uint bufferOffset, uint index)

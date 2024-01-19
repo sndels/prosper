@@ -1511,10 +1511,11 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
     }
 
     {
-        const size_t len = 92;
+        const size_t len = 121;
         String defines{scopeAlloc, len};
         appendDefineStr(defines, "GEOMETRY_SET", sGeometryReflectionSet);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
+        defines.extend("#extension GL_EXT_shader_16bit_storage : require\n");
         WHEELS_ASSERT(defines.size() <= len);
 
         _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
@@ -1911,8 +1912,11 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
             const uint32_t previousAllocatedByteCount =
                 _geometryBufferAllocatedByteCounts[targetBufferI];
             WHEELS_ASSERT(
-                previousAllocatedByteCount ==
-                    uploadedData.metadata.indicesOffset * sizeof(uint32_t) &&
+                ((uploadedData.metadata.usesShortIndices &&
+                  previousAllocatedByteCount ==
+                      uploadedData.metadata.indicesOffset * sizeof(uint16_t)) ||
+                 (previousAllocatedByteCount ==
+                  uploadedData.metadata.indicesOffset * sizeof(uint32_t))) &&
                 "Uploaded data ranges have to be tight for valid ownership "
                 "transfer");
 
