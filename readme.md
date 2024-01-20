@@ -19,6 +19,7 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - From the environment map with split sum approximation
 - 1D ACES-tonemap[^2]
 - Deferred and forward rendering paths
+  - Mesh shaders without culling
 - ReSTIR DI in deferred path
   - Initial candidate sampling and biased spatial reuse implemented so far
 - Path tracing reference
