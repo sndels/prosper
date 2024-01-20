@@ -934,12 +934,6 @@ void App::drawProfiling(
                     swapExtent.width * swapExtent.height;
 
                 // Stats from AMD's 'D3D12 Right On Queue' GDC2016
-                const float rasterPrimPerPrim =
-                    stats.iaPrimitives == 0
-                        ? -1.f
-                        : static_cast<float>(stats.clipPrimitives) /
-                              static_cast<float>(stats.iaPrimitives);
-
                 const float fragsPerPrim =
                     stats.clipPrimitives == 0
                         ? -1.f
@@ -954,7 +948,6 @@ void App::drawProfiling(
 
                 ImGui::Indent();
 
-                ImGui::Text("Raster prim per prim: %.2f", rasterPrimPerPrim);
                 ImGui::Text("Frags per prim: %.2f", fragsPerPrim);
                 ImGui::Text("Overdraw: %.2f", overdraw);
 

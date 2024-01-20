@@ -13,9 +13,6 @@ constexpr uint32_t sMaxScopeCount = 512;
 constexpr uint32_t sMaxTimestampCount = sMaxScopeCount * 2;
 // TODO: Mesh shader stats
 constexpr vk::QueryPipelineStatisticFlags sPipelineStatisticsFlags =
-    vk::QueryPipelineStatisticFlagBits::eInputAssemblyVertices |
-    vk::QueryPipelineStatisticFlagBits::eInputAssemblyPrimitives |
-    vk::QueryPipelineStatisticFlagBits::eVertexShaderInvocations |
     vk::QueryPipelineStatisticFlagBits::eClippingPrimitives |
     vk::QueryPipelineStatisticFlagBits::eFragmentShaderInvocations;
 constexpr size_t sStatTypeCount = asserted_cast<size_t>(
@@ -199,19 +196,13 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
         ret.push_back(ScopeData{
             .index = _queryScopeIndices[i],
             .millis = millis,
-            .stats =
-                hasStats
-                    ? Optional{PipelineStatistics{
-                          .iaVertices = stats[static_cast<size_t>(i) * 5 + 0],
-                          .iaPrimitives = stats[static_cast<size_t>(i) * 5 + 1],
-                          .vsInvocations =
-                              stats[static_cast<size_t>(i) * 5 + 2],
-                          .clipPrimitives =
-                              stats[static_cast<size_t>(i) * 5 + 3],
-                          .fragInvocations =
-                              stats[static_cast<size_t>(i) * 5 + 4],
-                      }}
-                    : Optional<PipelineStatistics>{},
+            .stats = hasStats ? Optional{PipelineStatistics{
+                                    .clipPrimitives =
+                                        stats[static_cast<size_t>(i) * 5],
+                                    .fragInvocations =
+                                        stats[static_cast<size_t>(i) * 5 + 1],
+                                }}
+                              : Optional<PipelineStatistics>{},
         });
     };
 
