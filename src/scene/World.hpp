@@ -66,7 +66,6 @@ class World
     [[nodiscard]] wheels::Span<const MeshInfo> meshInfos() const;
     [[nodiscard]] SkyboxResources &skyboxResources();
 
-    [[nodiscard]] size_t deferredLoadingLinearAllocatorHighWatermark() const;
     [[nodiscard]] size_t deferredLoadingGeneralAllocatorHighWatermark() const;
     [[nodiscard]] size_t linearAllocatorHighWatermark() const;
 

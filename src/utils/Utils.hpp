@@ -15,10 +15,6 @@
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
 const size_t MAX_SWAPCHAIN_IMAGES = 8;
 const float sIndentPixels = 10.f;
-// Enough for 4K textures, it seems. Should also be plenty for meshes as we
-// have a hard limit of 64MB for a single mesh from the default geometry
-// buffer size.
-const size_t sLoadingScratchSize = wheels::megabytes(256);
 const size_t sMaxMsVertices = 64;
 const size_t sMaxMsTriangles = 124;
 

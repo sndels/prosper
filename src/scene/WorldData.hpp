@@ -104,7 +104,6 @@ class WorldData
     std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
 
     wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
-    uint32_t _deferredLoadingLinearAllocatorHighWatermark{0};
     uint32_t _deferredLoadingGeneralAllocatorHighWatermark{0};
 
   private:

@@ -132,7 +132,6 @@ class DeferredLoadingContext
     wheels::Array<Texture2D> loadedTextures;
 
     std::atomic<bool> interruptLoading{false};
-    std::atomic<uint32_t> linearAllocatorHighWatermark{0};
     std::atomic<uint32_t> generalAllocatorHightWatermark{0};
 
     // Main context

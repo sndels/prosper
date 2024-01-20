@@ -71,7 +71,7 @@ App::App(const Settings &settings)
 : _generalAlloc{megabytes(16)}
 , _fileChangePollingAlloc{megabytes(1)}
 {
-    LinearAllocator scratchBacking{sLoadingScratchSize};
+    LinearAllocator scratchBacking{megabytes(16)};
     ScopedScratch scopeAlloc{scratchBacking};
 
     const auto &tl = [](const char *stage, std::function<void()> const &fn)
@@ -1003,12 +1003,7 @@ void App::drawMemory(uint32_t scopeHighWatermark)
         "  ctors : %uKB\n",
         asserted_cast<uint32_t>(_ctorScratchHighWatermark) / 1000);
     ImGui::Text(
-        "  deferred linear: %uMB\n",
-        asserted_cast<uint32_t>(
-            _world->deferredLoadingLinearAllocatorHighWatermark() / 1000 /
-            1000));
-    ImGui::Text(
-        "  deferred general: %uKB\n",
+        "  deferred general: %uMB\n",
         asserted_cast<uint32_t>(
             _world->deferredLoadingGeneralAllocatorHighWatermark() / 1000 /
             1000));

@@ -461,10 +461,6 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
 
-    // TODO: Is max really needed here?
-    _deferredLoadingLinearAllocatorHighWatermark = std::max(
-        _deferredLoadingLinearAllocatorHighWatermark,
-        ctx.linearAllocatorHighWatermark.load());
     _deferredLoadingGeneralAllocatorHighWatermark =
         ctx.generalAllocatorHightWatermark.load();
 

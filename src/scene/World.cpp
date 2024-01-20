@@ -973,11 +973,6 @@ SkyboxResources &World::skyboxResources()
     return _impl->_data._skyboxResources;
 }
 
-size_t World::deferredLoadingLinearAllocatorHighWatermark() const
-{
-    return _impl->_data._deferredLoadingLinearAllocatorHighWatermark;
-}
-
 size_t World::deferredLoadingGeneralAllocatorHighWatermark() const
 {
     return _impl->_data._deferredLoadingGeneralAllocatorHighWatermark;

@@ -5,13 +5,19 @@
 #include <meshoptimizer.h>
 #include <mikktspace.h>
 #include <wheels/allocators/linear_allocator.hpp>
-#include <wheels/allocators/scoped_scratch.hpp>
 
 using namespace glm;
 using namespace wheels;
 
 namespace
 {
+
+// Enough for 4K textures, it seems. Should also be plenty for meshes as we
+// have a hard limit of 64MB for a single mesh from the default geometry
+// buffer size.
+const size_t sLoadingScratchSize = megabytes(256);
+// Extra mem for things outside the ctx loading loop
+const size_t sLoadingAllocatorSize = sLoadingScratchSize + megabytes(16);
 
 constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
 
@@ -497,7 +503,7 @@ bool cacheValid(
 }
 
 void writeCache(
-    ScopedScratch scopeAlloc, const std::filesystem::path &sceneDir,
+    Allocator &alloc, const std::filesystem::path &sceneDir,
     std::filesystem::file_time_type sceneWriteTime, uint32_t meshIndex,
     MeshData &&meshData, const MeshInfo &meshInfo)
 {
@@ -516,8 +522,8 @@ void writeCache(
 
     const bool usesShortIndices = meshInfo.vertexCount <= 0xFFFF;
     // TODO: Also pack meshlet vertices if short indices are used
-    Array<uint8_t> packedIndices{scopeAlloc};
-    Array<uint8_t> packedMeshletVertices{scopeAlloc};
+    Array<uint8_t> packedIndices{alloc};
+    Array<uint8_t> packedMeshletVertices{alloc};
     if (usesShortIndices)
     {
         {
@@ -707,7 +713,7 @@ void writeCache(
     std::filesystem::rename(cacheTmpPath, cachePath);
 }
 
-void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
+void loadNextMesh(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
 
@@ -734,28 +740,28 @@ void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
     if (!cacheValid(cachePath, ctx->sceneWriteTime))
     {
         MeshData meshData =
-            getMeshData(scopeAlloc, ctx->gltfModel, metadata, info);
+            getMeshData(ctx->alloc, ctx->gltfModel, metadata, info);
 
         if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
         {
-            generateTangents(scopeAlloc, &meshData);
+            generateTangents(ctx->alloc, &meshData);
             info.vertexCount =
                 asserted_cast<uint32_t>(meshData.positions.size());
         }
 
         optimizeMeshData(
-            scopeAlloc, &meshData,
+            ctx->alloc, &meshData,
             ctx->gltfModel.meshes[metadata.sourceMeshIndex].name);
 
         generateMeshlets(&meshData);
 
         writeCache(
-            scopeAlloc.child_scope(), ctx->sceneDir, ctx->sceneWriteTime,
-            meshIndex, WHEELS_MOV(meshData), info);
+            ctx->alloc, ctx->sceneDir, ctx->sceneWriteTime, meshIndex,
+            WHEELS_MOV(meshData), info);
     }
 
     // Always read from the cache to make caching issues always visible
-    Array<uint8_t> dataBlob{scopeAlloc};
+    Array<uint8_t> dataBlob{ctx->alloc};
     const Optional<MeshCacheHeader> cacheHeader =
         readCache(cachePath, &dataBlob);
     WHEELS_ASSERT(cacheHeader.has_value());
@@ -821,7 +827,7 @@ void loadNextMesh(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
     }
 }
 
-void loadNextTexture(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
+void loadNextTexture(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
 
@@ -845,8 +851,10 @@ void loadNextTexture(ScopedScratch scopeAlloc, DeferredLoadingContext *ctx)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
+    LinearAllocator scopeBacking{ctx->alloc, sLoadingScratchSize};
+
     Texture2D tex{
-        scopeAlloc.child_scope(),
+        ScopedScratch{scopeBacking},
         ctx->device,
         ctx->sceneDir / image.uri,
         ctx->cb,
@@ -916,28 +924,14 @@ void loadingWorker(DeferredLoadingContext *ctx)
         ctx != nullptr && ctx->device != nullptr &&
         ctx->device->graphicsQueue() != ctx->device->transferQueue());
 
-    LinearAllocator scratchBacking{sLoadingScratchSize};
-    ScopedScratch scopeAlloc{scratchBacking};
-
     ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
-            loadNextMesh(scopeAlloc.child_scope(), ctx);
+            loadNextMesh(ctx);
         else
-            loadNextTexture(scopeAlloc.child_scope(), ctx);
+            loadNextTexture(ctx);
 
-        // TODO:
-        // Can we just store the high watermark? The allocator doesn't get
-        // recreated between loops
-        const uint32_t previousHighWatermark =
-            ctx->linearAllocatorHighWatermark;
-        if (scratchBacking.allocated_byte_count_high_watermark() >
-            previousHighWatermark)
-        {
-            ctx->linearAllocatorHighWatermark = asserted_cast<uint32_t>(
-                scratchBacking.allocated_byte_count_high_watermark());
-        }
         ctx->generalAllocatorHightWatermark = asserted_cast<uint32_t>(
             ctx->alloc.stats().allocated_byte_count_high_watermark);
     }
@@ -971,7 +965,7 @@ DeferredLoadingContext::DeferredLoadingContext(
 : device{device}
 , sceneDir{WHEELS_MOV(sceneDir)}
 , sceneWriteTime{sceneWriteTime}
-, alloc{megabytes(1)}
+, alloc{sLoadingAllocatorSize}
 , gltfModel{gltfModel}
 , cb{device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
       .commandPool = device->transferPool(),
