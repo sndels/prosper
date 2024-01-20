@@ -15,6 +15,7 @@ struct GeometryMetadata
     uint32_t tangentsOffset{0xFFFFFFFF};
     uint32_t texCoord0sOffset{0xFFFFFFFF};
     uint32_t meshletsOffset{0xFFFFFFFF};
+    uint32_t meshletBoundsOffset{0xFFFFFFFF};
     // This addresses U16 if short indices are in use.
     uint32_t meshletVerticesOffset{0xFFFFFFFF};
     // This addresses U8.

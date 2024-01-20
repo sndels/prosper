@@ -21,6 +21,7 @@ struct GeometryMetadata
     uint tangentsOffset;
     uint texCoord0sOffset;
     uint meshletsOffset;
+    uint meshletBoundsOffset;
     // This addresses U16 if short indices are in use.
     uint meshletVerticesOffset;
     // This addresses U8.
@@ -146,6 +147,44 @@ MeshletInfo loadMeshletInfo(GeometryMetadata metadata, uint index)
                           .data[metadata.meshletsOffset + index * 4 + 2];
     ret.triangleCount = GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
                             .data[metadata.meshletsOffset + index * 4 + 3];
+
+    return ret;
+}
+
+struct MeshletBounds
+{
+    // Bounding sphere
+    vec3 center;
+    float radius;
+    // Normal cone
+    vec3 coneAxis;
+    float coneCutoff;
+};
+#define MESHLET_BOUNDS_F32_COUNT 11
+
+MeshletBounds loadMeshletBounds(GeometryMetadata metadata, uint index)
+{
+    MeshletBounds ret;
+    ret.center = vec3(
+        loadFloat(
+            metadata.bufferIndex, metadata.meshletBoundsOffset, index * 5),
+        loadFloat(
+            metadata.bufferIndex, metadata.meshletBoundsOffset, index * 5 + 1),
+        loadFloat(
+            metadata.bufferIndex, metadata.meshletBoundsOffset, index * 5 + 2));
+    ret.radius = loadFloat(
+        metadata.bufferIndex, metadata.meshletBoundsOffset, index * 5 + 3);
+
+    // int<->uint is actually a proper bitcast in GLSL
+    int packedCone =
+        int(GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
+                .data[metadata.meshletBoundsOffset + index * 5 + 4]);
+    // This shift dance seens to be required as shift + mask (& 0xFF) gives
+    // wrong results. Conversion into uint or some other sign bit shenanigans?
+    ret.coneAxis =
+        vec3(ivec3(packedCone << 24, packedCone << 16, packedCone << 8) >> 24) /
+        127.;
+    ret.coneCutoff = (packedCone >> 24) / 127.;
 
     return ret;
 }
