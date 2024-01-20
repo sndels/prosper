@@ -713,9 +713,27 @@ void writeCache(
     std::filesystem::rename(cacheTmpPath, cachePath);
 }
 
+namespace
+{
+
+// Need to pass the allocator with function pointers that don't have userdata
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+Allocator *sMeshoptAllocator = nullptr;
+
+} // namespace
+
 void loadNextMesh(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
+
+    // Set up a custom allocator for meshopt, let's keep track of allocations
+    // there too
+    sMeshoptAllocator = &ctx->alloc;
+    auto meshoptAllocate = [](size_t byteCount) -> void *
+    { return sMeshoptAllocator->allocate(byteCount); };
+    auto meshoptDeallocate = [](void *ptr)
+    { sMeshoptAllocator->deallocate(ptr); };
+    meshopt_setAllocator(meshoptAllocate, meshoptDeallocate);
 
     const uint32_t meshIndex = ctx->workerLoadedMeshCount;
     WHEELS_ASSERT(meshIndex < ctx->meshes.size());
