@@ -53,18 +53,34 @@ void remapVertexAttribute(
 
 struct MeshData
 {
+    struct Bounds
+    {
+        // Bounding sphere
+        vec3 center{};
+        float radius{0.f};
+        // Normal cone
+        i8vec3 coneAxisS8{};
+        int8_t coneCutoffS8{0};
+    };
+
     wheels::Array<uint32_t> indices;
     wheels::Array<glm::vec3> positions;
     wheels::Array<glm::vec3> normals;
     wheels::Array<glm::vec4> tangents;
     wheels::Array<glm::vec2> texCoord0s;
     wheels::Array<meshopt_Meshlet> meshlets;
+    wheels::Array<Bounds> meshletBounds;
     wheels::Array<uint32_t> meshletVertices;
     wheels::Array<uint8_t> meshletTriangles;
 };
 static_assert(
     sizeof(meshopt_Meshlet) == 4 * sizeof(uint32_t),
     "Mesh shaders use meshoptimizer meshlets as is.");
+static_assert(sizeof(MeshData::Bounds) == 5 * sizeof(uint32_t));
+static_assert(offsetof(MeshData::Bounds, coneAxisS8) == 4 * sizeof(uint32_t));
+static_assert(
+    offsetof(MeshData::Bounds, coneCutoffS8) ==
+    4 * sizeof(uint32_t) + 3 * sizeof(int8_t));
 
 MeshData getMeshData(
     Allocator &alloc, const tinygltf::Model &gltfModel,
@@ -77,6 +93,7 @@ MeshData getMeshData(
         .tangents = Array<vec4>{alloc},
         .texCoord0s = Array<vec2>{alloc},
         .meshlets = Array<meshopt_Meshlet>{alloc},
+        .meshletBounds = Array<MeshData::Bounds>{alloc},
         .meshletVertices = Array<uint32_t>{alloc},
         .meshletTriangles = Array<uint8_t>{alloc},
     };
@@ -409,12 +426,38 @@ void generateMeshlets(MeshData *meshData)
     meshData->meshletTriangles.resize(
         lastMeshlet.triangle_offset +
         ((lastMeshlet.triangle_count * 3 + 3) & ~3));
+
+    meshData->meshletBounds.reserve(meshData->meshlets.size());
+    for (const meshopt_Meshlet &meshlet : meshData->meshlets)
+    {
+        const meshopt_Bounds bounds = meshopt_computeMeshletBounds(
+            &meshData->meshletVertices[meshlet.vertex_offset],
+            &meshData->meshletTriangles[meshlet.triangle_offset],
+            meshlet.triangle_count, &meshData->positions[0].x,
+            meshData->positions.size(), sizeof(vec3));
+        meshData->meshletBounds.push_back(MeshData::Bounds{
+            .center =
+                vec3{
+                    bounds.center[0],
+                    bounds.center[1],
+                    bounds.center[2],
+                },
+            .radius = bounds.radius,
+            .coneAxisS8 =
+                i8vec3{
+                    bounds.cone_axis_s8[0],
+                    bounds.cone_axis_s8[1],
+                    bounds.cone_axis_s8[2],
+                },
+            .coneCutoffS8 = bounds.cone_cutoff_s8,
+        });
+    }
 }
 
 const uint64_t sMeshCacheMagic = 0x48534D5250535250; // PRSPRMSH
 // This should be incremented when breaking changes are made to
 // what's cached
-const uint32_t sMeshCacheVersion = 2;
+const uint32_t sMeshCacheVersion = 3;
 
 std::filesystem::path getCachePath(
     const std::filesystem::path &sceneDir, uint32_t meshIndex)
@@ -472,6 +515,7 @@ Optional<MeshCacheHeader> readCache(
     readRaw(cacheFile, ret->tangentsOffset);
     readRaw(cacheFile, ret->texCoord0sOffset);
     readRaw(cacheFile, ret->meshletsOffset);
+    readRaw(cacheFile, ret->meshletBoundsOffset);
     readRaw(cacheFile, ret->meshletVerticesOffset);
     readRaw(cacheFile, ret->meshletTrianglesByteOffset);
     readRaw(cacheFile, ret->usesShortIndices);
@@ -587,6 +631,8 @@ void writeCache(
         asserted_cast<uint32_t>(meshData.texCoord0s.size() * sizeof(vec2));
     const uint32_t meshletsByteCount = asserted_cast<uint32_t>(
         meshData.meshlets.size() * sizeof(meshopt_Meshlet));
+    const uint32_t meshletBoundsByteCount = asserted_cast<uint32_t>(
+        meshData.meshletBounds.size() * sizeof(MeshData::Bounds));
     const uint32_t meshletVerticesByteCount =
         asserted_cast<uint32_t>(packedMeshletVertices.size());
     const uint32_t meshletTrianglesByteCount = asserted_cast<uint32_t>(
@@ -594,7 +640,8 @@ void writeCache(
     const uint32_t byteCount =
         indicesByteCount + positionsByteCount + normalsByteCount +
         tangentsByteCount + texCoord0sByteCount + meshletsByteCount +
-        meshletVerticesByteCount + meshletTrianglesByteCount;
+        meshletBoundsByteCount + meshletVerticesByteCount +
+        meshletTrianglesByteCount;
     WHEELS_ASSERT(
         byteCount % sizeof(uint32_t) == 0 &&
         "We'll read this data from a u32 buffer so it should be aligned "
@@ -626,15 +673,20 @@ void writeCache(
             (indicesByteCount + positionsByteCount + normalsByteCount +
              tangentsByteCount + texCoord0sByteCount) /
             elementSize,
-        .meshletVerticesOffset =
+        .meshletBoundsOffset =
             (indicesByteCount + positionsByteCount + normalsByteCount +
              tangentsByteCount + texCoord0sByteCount + meshletsByteCount) /
+            elementSize,
+        .meshletVerticesOffset =
+            (indicesByteCount + positionsByteCount + normalsByteCount +
+             tangentsByteCount + texCoord0sByteCount + meshletsByteCount +
+             meshletBoundsByteCount) /
             static_cast<uint32_t>(
                 usesShortIndices ? sizeof(uint16_t) : sizeof(uint32_t)),
-        .meshletTrianglesByteOffset = indicesByteCount + positionsByteCount +
-                                      normalsByteCount + tangentsByteCount +
-                                      texCoord0sByteCount + meshletsByteCount +
-                                      meshletVerticesByteCount,
+        .meshletTrianglesByteOffset =
+            indicesByteCount + positionsByteCount + normalsByteCount +
+            tangentsByteCount + texCoord0sByteCount + meshletsByteCount +
+            meshletBoundsByteCount + meshletVerticesByteCount,
         .usesShortIndices = usesShortIndices ? 1u : 0u,
         .blobByteCount = byteCount,
     };
@@ -668,6 +720,7 @@ void writeCache(
     writeRaw(cacheFile, header.tangentsOffset);
     writeRaw(cacheFile, header.texCoord0sOffset);
     writeRaw(cacheFile, header.meshletsOffset);
+    writeRaw(cacheFile, header.meshletBoundsOffset);
     writeRaw(cacheFile, header.meshletVerticesOffset);
     writeRaw(cacheFile, header.meshletTrianglesByteOffset);
     writeRaw(cacheFile, header.usesShortIndices);
@@ -688,6 +741,9 @@ void writeCache(
         Span{meshData.texCoord0s.data(), meshData.texCoord0s.size()});
     writeRawSpan(
         cacheFile, Span{meshData.meshlets.data(), meshData.meshlets.size()});
+    writeRawSpan(
+        cacheFile,
+        Span{meshData.meshletBounds.data(), meshData.meshletBounds.size()});
     writeRawSpan(
         cacheFile,
         Span{packedMeshletVertices.data(), packedMeshletVertices.size()});
@@ -1099,6 +1155,8 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
                         ? 0xFFFFFFFF
                         : startOffsetU32 + cacheHeader.texCoord0sOffset,
                 .meshletsOffset = startOffsetU32 + cacheHeader.meshletsOffset,
+                .meshletBoundsOffset =
+                    startOffsetU32 + cacheHeader.meshletBoundsOffset,
                 .meshletVerticesOffset =
                     (cacheHeader.usesShortIndices == 1 ? startOffsetU16
                                                        : startOffsetU32) +
