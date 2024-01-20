@@ -12,15 +12,18 @@ struct MeshBuffer
 struct GeometryMetadata
 {
     uint bufferIndex;
-    // All of these offsets are into the data interpreted as a u32 'array'
-    // offset of 0xFFFFFFFF signals an unused attribute
+    // These offsets are into the geometry data buffers. Most are for U32/F32
+    // and an offset of 0xFFFFFFFF signals an unused attribute.
+    // This addresses U16 if short indices are in use.
     uint indicesOffset;
     uint positionsOffset;
     uint normalsOffset;
     uint tangentsOffset;
     uint texCoord0sOffset;
     uint meshletsOffset;
+    // This addresses U16 if short indices are in use.
     uint meshletVerticesOffset;
+    // This addresses U8.
     uint meshletTrianglesByteOffset;
     uint usesShortIndices;
 };
@@ -123,7 +126,10 @@ vec4 loadVec4(uint bufferIndex, uint bufferOffset, uint index)
 
 struct MeshletInfo
 {
+    // This is an offset of full indices from the beginning of the meshlet
+    // vertices buffer so it works for both U32 and U16.
     uint vertexOffset;
+    // This addresses U8.
     uint triangleByteOffset;
     uint vertexCount;
     uint triangleCount;

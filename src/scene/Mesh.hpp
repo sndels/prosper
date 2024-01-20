@@ -6,15 +6,18 @@
 struct GeometryMetadata
 {
     uint32_t bufferIndex{0xFFFFFFFF};
-    // All of these offsets are into the data interpreted as a u32 'array'
-    // offset of 0xFFFFFFFF signals an unused attribute
+    // These offsets are into the geometry data buffers. Most are for U32/F32
+    // and an offset of 0xFFFFFFFF signals an unused attribute.
+    // This addresses U16 if short indices are in use.
     uint32_t indicesOffset{0xFFFFFFFF};
     uint32_t positionsOffset{0xFFFFFFFF};
     uint32_t normalsOffset{0xFFFFFFFF};
     uint32_t tangentsOffset{0xFFFFFFFF};
     uint32_t texCoord0sOffset{0xFFFFFFFF};
     uint32_t meshletsOffset{0xFFFFFFFF};
+    // This addresses U16 if short indices are in use.
     uint32_t meshletVerticesOffset{0xFFFFFFFF};
+    // This addresses U8.
     uint32_t meshletTrianglesByteOffset{0xFFFFFFFF};
     uint32_t usesShortIndices{0};
 };
