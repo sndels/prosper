@@ -14,9 +14,6 @@
 
 struct PipelineStatistics
 {
-    uint32_t iaVertices{0};
-    uint32_t iaPrimitives{0};
-    uint32_t vsInvocations{0};
     uint32_t clipPrimitives{0};
     uint32_t fragInvocations{0};
 };
