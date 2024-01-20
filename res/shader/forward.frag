@@ -85,6 +85,17 @@ void main()
 
     float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 
+    // Store in NDC like in https://alextardif.com/TAA.html
+    vec3 posNDC = inVertex.positionNDC.xyz / inVertex.positionNDC.w;
+    vec3 prevPosNDC = inVertex.prevPositionNDC.xyz / inVertex.prevPositionNDC.w;
+    vec2 velocity = (posNDC.xy - camera.currentJitter) -
+                    (prevPosNDC.xy - camera.previousJitter);
+    // Let's have positive motion be upward in the image to try and avoid
+    // confusion.
+    velocity.y = -velocity.y;
+
+    outVelocity = clamp(velocity, vec2(-1), vec2(1));
+
     if (PC.DrawType >= DrawType_PrimitiveID)
     {
         if (PC.DrawType == DrawType_MeshletID)
@@ -104,15 +115,5 @@ void main()
         return;
     }
 
-    // Store in NDC like in https://alextardif.com/TAA.html
-    vec3 posNDC = inVertex.positionNDC.xyz / inVertex.positionNDC.w;
-    vec3 prevPosNDC = inVertex.prevPositionNDC.xyz / inVertex.prevPositionNDC.w;
-    vec2 velocity = (posNDC.xy - camera.currentJitter) -
-                    (prevPosNDC.xy - camera.previousJitter);
-    // Let's have positive motion be upward in the image to try and avoid
-    // confusion.
-    velocity.y = -velocity.y;
-
     outColor = vec4(color, alpha);
-    outVelocity = clamp(velocity, vec2(-1), vec2(1));
 }
