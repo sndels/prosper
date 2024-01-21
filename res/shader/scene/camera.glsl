@@ -10,6 +10,14 @@ layout(std430, set = CAMERA_SET, binding = 0) buffer CameraDSB
     mat4 previousWorldToCamera;
     mat4 previousCameraToClip;
     vec4 eye;
+    // These are world space plane normal,distance and normals point into the
+    // frustum
+    vec4 nearPlane;
+    vec4 farPlane;
+    vec4 leftPlane;
+    vec4 rightPlane;
+    vec4 topPlane;
+    vec4 bottomPlane;
     uvec2 resolution;
     vec2 currentJitter;
     vec2 previousJitter;

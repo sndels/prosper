@@ -650,7 +650,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     WHEELS_ASSERT(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
-    _cam->updateBuffer();
+    _cam->updateBuffer(_debugFrustum);
 
     {
         auto _s = _profiler->createCpuScope("World::updateBuffers");

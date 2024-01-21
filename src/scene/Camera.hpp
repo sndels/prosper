@@ -53,6 +53,12 @@ struct CameraUniforms
     glm::mat4 previousWorldToCamera;
     glm::mat4 previousCameraToClip;
     glm::vec4 eye;
+    glm::vec4 nearPlane;
+    glm::vec4 farPlane;
+    glm::vec4 leftPlane;
+    glm::vec4 rightPlane;
+    glm::vec4 topPlane;
+    glm::vec4 bottomPlane;
     glm::uvec2 resolution;
     glm::vec2 currentJitter;
     glm::vec2 previousJitter;
@@ -96,7 +102,7 @@ class Camera
     void perspective();
     void updateResolution(const glm::uvec2 &resolution);
 
-    void updateBuffer();
+    void updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum);
 
     [[nodiscard]] uint32_t bufferOffset() const;
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
@@ -124,6 +130,7 @@ class Camera
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void updateWorldToCamera();
+    void updateFrustumPlanes(const FrustumCorners &corners);
 
     Device *_device{nullptr};
     RingBuffer *_constantsRing{nullptr};
@@ -140,6 +147,14 @@ class Camera
     glm::mat4 _previousCameraToClip{1.f};
     glm::vec2 _currentJitter{0.f};
     glm::vec2 _previousJitter{0.f};
+    // These are world space plane normal,distance and normals point into the
+    // frustum
+    glm::vec4 _nearPlane{0.f};
+    glm::vec4 _farPlane{0.f};
+    glm::vec4 _leftPlane{0.f};
+    glm::vec4 _rightPlane{0.f};
+    glm::vec4 _topPlane{0.f};
+    glm::vec4 _bottomPlane{0.f};
 
     wheels::Optional<ShaderReflection> _bindingsReflection;
     vk::DescriptorSetLayout _descriptorSetLayout;
