@@ -1022,7 +1022,6 @@ Buffer createTextureStaging(Device *device)
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
-        .createMapped = true,
         .debugName = "Texture2DStaging",
     });
 }
@@ -1060,7 +1059,6 @@ DeferredLoadingContext::DeferredLoadingContext(
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
-        .createMapped = true,
         .debugName = "GeometryUploadBuffer",
     });
 }

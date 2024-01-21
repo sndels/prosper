@@ -29,7 +29,6 @@ RingBuffer::RingBuffer(
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
-        .createMapped = true,
         .debugName = debugName,
     });
     WHEELS_ASSERT(_buffer.mapped != nullptr);

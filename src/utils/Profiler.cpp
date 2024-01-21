@@ -70,7 +70,6 @@ GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
               .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                             vk::MemoryPropertyFlagBits::eHostCoherent,
           },
-      .createMapped = true,
       .debugName = "GpuProfilerTimestampReadback"})}
 , _statisticsBuffer{device->createBuffer(BufferCreateInfo{
       .desc =
@@ -80,7 +79,6 @@ GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
               .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                             vk::MemoryPropertyFlagBits::eHostCoherent,
           },
-      .createMapped = true,
       .debugName = "GpuProfilerStatisticsReadback"})}
 , _queryScopeIndices{alloc, sMaxScopeCount}
 , _scopeHasStats{alloc, sMaxScopeCount}
