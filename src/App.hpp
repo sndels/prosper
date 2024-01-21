@@ -162,6 +162,8 @@ class App
     bool _camFreeLook{false};
     CameraTransform _sceneCameraTransform;
     CameraParameters _cameraParameters;
+    wheels::Optional<FrustumCorners> _debugFrustum;
+    glm::vec3 _frustumDebugColor{1.f, 1.f, 1.f};
 
     wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> _sceneStats;
     wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> _drawStats;
