@@ -9,6 +9,7 @@
 #include "scene/Camera.hpp"
 #include "scene/Fwd.hpp"
 #include "utils/Profiler.hpp"
+#include "utils/SceneStats.hpp"
 #include "utils/Timer.hpp"
 
 #include <filesystem>
@@ -73,6 +74,7 @@ class App
     bool drawTimeline();
     // Returns true if settings changed
     bool drawCameraUi();
+    void drawSceneStats() const;
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 
@@ -158,6 +160,8 @@ class App
     bool _camFreeLook{false};
     CameraTransform _sceneCameraTransform;
     CameraParameters _cameraParameters;
+
+    SceneStats _sceneStats;
 
     std::chrono::high_resolution_clock::time_point _lastTimeChange;
     float _timeOffsetS{0.f};

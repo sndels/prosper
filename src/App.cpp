@@ -605,6 +605,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         uiChanges =
             drawUi(scopeAlloc.child_scope(), profilerDatas, scopeHighWatermark);
     }
+    // Clear for new frame after UI was drawn
+    _sceneStats = SceneStats{};
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -615,7 +617,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _world->updateAnimations(timeS, _profiler.get());
 
     _world->updateScene(
-        scopeAlloc.child_scope(), &_sceneCameraTransform, _profiler.get());
+        scopeAlloc.child_scope(), &_sceneCameraTransform, &_sceneStats,
+        _profiler.get());
 
     _world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 
@@ -765,6 +768,8 @@ App::UiChanges App::drawUi(
     drawProfiling(scopeAlloc.child_scope(), profilerDatas);
 
     drawMemory(scopeHighWatermark);
+
+    drawSceneStats();
 
     ret.rtDirty |= _isPlaying;
     ret.timeTweaked |= drawTimeline();
@@ -1150,6 +1155,20 @@ bool App::drawCameraUi()
     return changed;
 }
 
+void App::drawSceneStats() const
+{
+    ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
+    ImGui::Begin("Scene stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    ImGui::Text("Total triangles: %u", _sceneStats.totalTriangleCount);
+    ImGui::Text("Total meshlets: %u", _sceneStats.totalMeshletCount);
+    ImGui::Text("Total meshes: %u", _sceneStats.totalMeshCount);
+    ImGui::Text("Total nodes: %u", _sceneStats.totalNodeCount);
+    ImGui::Text("Animated nodes: %u", _sceneStats.animatedNodeCount);
+
+    ImGui::End();
+}
+
 void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 {
     auto &debugLines = _resources->debugLines[nextFrame];
@@ -1231,7 +1250,7 @@ void App::render(
         {
             const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
-                indices.nextFrame, _profiler.get());
+                indices.nextFrame, &_sceneStats, _profiler.get());
 
             if (_deferredRt)
                 illumination =
@@ -1270,7 +1289,7 @@ void App::render(
             const ForwardRenderer::OpaqueOutput output =
                 _forwardRenderer->recordOpaque(
                     scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
-                    lightClusters, indices.nextFrame, _applyIbl,
+                    lightClusters, indices.nextFrame, _applyIbl, &_sceneStats,
                     _profiler.get());
             illumination = output.illumination;
             velocity = output.velocity;
@@ -1293,7 +1312,7 @@ void App::render(
                 .illumination = illumination,
                 .depth = depth,
             },
-            lightClusters, indices.nextFrame, _profiler.get());
+            lightClusters, indices.nextFrame, &_sceneStats, _profiler.get());
 
         _debugRenderer->record(
             scopeAlloc.child_scope(), cb, *_cam,

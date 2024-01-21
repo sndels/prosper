@@ -77,11 +77,6 @@
 - Pipeline cache
   - https://zeux.io/2019/07/17/serializing-pipeline-cache/
 - Calculate bitangent in pixel shader like suggested on the mikktspace site
-- Scene stats
-  - Node count (active scene)
-    - Also a count for animated nodes
-  - Mesh count
-  - Triangle count
 - Fix init/load time crashes causing broken teardown and VMA asserts masking the
   actual root cause throws
   - Non-throwing ctors and separate init to make sure cleanup always happens?

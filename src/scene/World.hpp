@@ -51,7 +51,7 @@ class World
     // Has to be called after updateAnimations()
     void updateScene(
         wheels::ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-        Profiler *profiler);
+        SceneStats *sceneStats, Profiler *profiler);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.

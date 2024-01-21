@@ -5,6 +5,7 @@ set(PROSPER_UTILS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Hashes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/InputHandler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Profiler.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/SceneStats.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Ui.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Utils.hpp

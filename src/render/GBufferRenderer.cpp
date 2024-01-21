@@ -10,6 +10,7 @@
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/SceneStats.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
 #include "RenderResources.hpp"
@@ -95,8 +96,9 @@ void GBufferRenderer::recompileShaders(
 GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Rect2D &renderArea, const uint32_t nextFrame,
-    Profiler *profiler)
+    SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
     GBufferRendererOutput ret;
@@ -193,6 +195,10 @@ GBufferRendererOutput GBufferRenderer::record(
                         sizeof(PCBlock), &pcBlock);
 
                     cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
+
+                    sceneStats->totalMeshCount++;
+                    sceneStats->totalTriangleCount += info.indexCount / 3;
+                    sceneStats->totalMeshletCount += info.meshletCount;
                 }
             }
         }

@@ -45,7 +45,7 @@ class GBufferRenderer
     [[nodiscard]] GBufferRendererOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextFrame, Profiler *profiler);
+        uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
