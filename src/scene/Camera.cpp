@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
 
 #include "../gfx/DescriptorAllocator.hpp"
@@ -203,6 +204,48 @@ void Camera::applyOffset(const CameraOffset &offset)
     _transform = _transform.apply(offset);
 
     updateWorldToCamera();
+}
+
+FrustumCorners Camera::getFrustumCorners() const
+{
+    const CameraTransform transform = gestureOffset.has_value()
+                                          ? _transform.apply(*gestureOffset)
+                                          : _transform;
+
+    const vec3 right = vec3{row(_worldToCamera, 0)};
+    const vec3 up = vec3{row(_worldToCamera, 1)};
+    // Flip so that fwd is the real camera direction in world space
+    // These vectors aren't used to construct a coordinate frame so right is
+    // *not* flipped for handedness correction
+    const vec3 fwd = -vec3{row(_worldToCamera, 2)};
+
+    const float ar =
+        static_cast<float>(_resolution.x) / static_cast<float>(_resolution.y);
+    const float halfYFar = _parameters.zF * tanf(_parameters.fov * 0.5f);
+    const float halfXFar = halfYFar * ar;
+    const float halfYNear = _parameters.zN * tanf(_parameters.fov * 0.5f);
+    const float halfXNear = halfYNear * ar;
+
+    const FrustumCorners ret{
+        .bottomLeftNear = transform.eye + _parameters.zN * fwd -
+                          halfXNear * right - halfYNear * up,
+        .bottomRightNear = transform.eye + _parameters.zN * fwd +
+                           halfXNear * right - halfYNear * up,
+        .topLeftNear = transform.eye + _parameters.zN * fwd -
+                       halfXNear * right + halfYNear * up,
+        .topRightNear = transform.eye + _parameters.zN * fwd +
+                        halfXNear * right + halfYNear * up,
+        .bottomLeftFar = transform.eye + _parameters.zF * fwd -
+                         halfXFar * right - halfYFar * up,
+        .bottomRightFar = transform.eye + _parameters.zF * fwd +
+                          halfXFar * right - halfYFar * up,
+        .topLeftFar = transform.eye + _parameters.zF * fwd - halfXFar * right +
+                      halfYFar * up,
+        .topRightFar = transform.eye + _parameters.zF * fwd + halfXFar * right +
+                       halfYFar * up,
+    };
+
+    return ret;
 }
 
 void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
