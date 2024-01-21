@@ -27,12 +27,12 @@ const vk::Format sNormalMetalnessFormat = vk::Format::eR16G16B16A16Sfloat;
 
 enum BindingSet : uint32_t
 {
-    CameraBindingSet = 0,
-    MaterialDatasBindingSet = 1,
-    MaterialTexturesBindingSet = 2,
-    GeometryBuffersBindingSet = 3,
-    ModelInstanceTrfnsBindingSet = 4,
-    BindingSetCount = 5
+    CameraBindingSet,
+    MaterialDatasBindingSet,
+    MaterialTexturesBindingSet,
+    GeometryBuffersBindingSet,
+    ModelInstanceTrfnsBindingSet,
+    BindingSetCount,
 };
 
 struct PCBlock

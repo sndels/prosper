@@ -25,7 +25,7 @@ namespace
 
 enum BindingSet : uint32_t
 {
-    LightsBindingSet = 0,
+    LightsBindingSet,
     LightClustersBindingSet,
     CameraBindingSet,
     MaterialDatasBindingSet,

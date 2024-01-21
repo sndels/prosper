@@ -19,7 +19,7 @@ constexpr uint32_t sFramePeriod = 4096;
 
 enum BindingSet : uint32_t
 {
-    LightsBindingSet = 0,
+    LightsBindingSet,
     CameraBindingSet,
     StorageBindingSet,
     BindingSetCount,

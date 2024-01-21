@@ -18,7 +18,7 @@ namespace
 
 enum BindingSet : uint32_t
 {
-    SkyboxBindingSet = 0,
+    SkyboxBindingSet,
     CameraBindingSet,
     BindingSetCount,
 };

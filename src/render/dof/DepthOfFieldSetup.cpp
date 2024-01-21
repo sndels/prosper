@@ -17,9 +17,9 @@ namespace
 
 enum BindingSet : uint32_t
 {
-    CameraBindingSet = 0,
-    StorageBindingSet = 1,
-    BindingSetCount = 2,
+    CameraBindingSet,
+    StorageBindingSet,
+    BindingSetCount,
 };
 
 struct PCBlock

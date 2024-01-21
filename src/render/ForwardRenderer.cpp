@@ -26,14 +26,14 @@ namespace
 
 enum BindingSet : uint32_t
 {
-    LightsBindingSet = 0,
-    LightClustersBindingSet = 1,
-    CameraBindingSet = 2,
-    MaterialDatasBindingSet = 3,
-    MaterialTexturesBindingSet = 4,
-    GeometryBuffersBindingSet = 5,
-    ModelInstanceTrfnsBindingSet = 6,
-    SkyboxBindingSet = 7,
+    LightsBindingSet,
+    LightClustersBindingSet,
+    CameraBindingSet,
+    MaterialDatasBindingSet,
+    MaterialTexturesBindingSet,
+    GeometryBuffersBindingSet,
+    ModelInstanceTrfnsBindingSet,
+    SkyboxBindingSet,
     BindingSetCount,
 };
 

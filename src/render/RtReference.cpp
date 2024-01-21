@@ -26,16 +26,16 @@ constexpr uint32_t sFramePeriod = 4096;
 
 enum BindingSet : uint32_t
 {
-    CameraBindingSet = 0,
-    RTBindingSet = 1,
-    OutputBindingSet = 2,
-    MaterialDatasBindingSet = 3,
-    MaterialTexturesBindingSet = 4,
-    GeometryBindingSet = 5,
-    SkyboxBindingSet = 6,
-    ModelInstanceTrfnsBindingSet = 7,
-    LightsBindingSet = 8,
-    BindingSetCount = 9,
+    CameraBindingSet,
+    RTBindingSet,
+    OutputBindingSet,
+    MaterialDatasBindingSet,
+    MaterialTexturesBindingSet,
+    GeometryBindingSet,
+    SkyboxBindingSet,
+    ModelInstanceTrfnsBindingSet,
+    LightsBindingSet,
+    BindingSetCount,
 };
 
 constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
@@ -46,7 +46,7 @@ constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
 
 enum class StageIndex : uint32_t
 {
-    RayGen = 0,
+    RayGen,
     ClosestHit,
     AnyHit,
     Miss,
@@ -54,7 +54,7 @@ enum class StageIndex : uint32_t
 
 enum class GroupIndex : uint32_t
 {
-    RayGen = 0,
+    RayGen,
     Hit,
     Miss,
 };

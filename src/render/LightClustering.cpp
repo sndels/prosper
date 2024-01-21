@@ -23,10 +23,10 @@ constexpr uint32_t maxSpotIndicesPerTile = 128;
 
 enum BindingSet : uint32_t
 {
-    LightsBindingSet = 0,
-    CameraBindingSet = 1,
-    LightClustersBindingSet = 2,
-    BindingSetCount = 3,
+    LightsBindingSet,
+    CameraBindingSet,
+    LightClustersBindingSet,
+    BindingSetCount,
 };
 
 struct ClusteringPCBlock

@@ -21,9 +21,9 @@ struct Material
 {
     enum class AlphaMode : uint32_t
     {
-        Opaque = 0,
-        Mask = 1,
-        Blend = 2,
+        Opaque,
+        Mask,
+        Blend,
     };
 
     // Needs to match shader
