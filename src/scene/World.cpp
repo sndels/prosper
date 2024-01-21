@@ -570,7 +570,8 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
     const vk::DeviceSize positionsOffset =
         metadata.positionsOffset * sizeof(uint32_t);
     const vk::DeviceSize indicesOffset =
-        metadata.indicesOffset * sizeof(uint32_t);
+        metadata.indicesOffset *
+        (metadata.usesShortIndices == 1 ? sizeof(uint16_t) : sizeof(uint32_t));
 
     const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
         .vertexFormat = vk::Format::eR32G32B32Sfloat,

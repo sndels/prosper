@@ -51,6 +51,7 @@ struct InputGeometryMetadata
 struct UploadedGeometryData
 {
     GeometryMetadata metadata;
+    uint32_t byteOffset{0};
     uint32_t byteCount{0};
 };
 

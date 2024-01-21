@@ -1943,7 +1943,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
                     .srcQueueFamilyIndex = *families.transferFamily,
                     .dstQueueFamilyIndex = *families.graphicsFamily,
                     .buffer = geometryBuffer.handle,
-                    .offset = uploadedData.metadata.indicesOffset,
+                    .offset = uploadedData.byteOffset,
                     .size = uploadedData.byteCount,
                 };
 

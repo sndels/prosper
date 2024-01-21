@@ -808,7 +808,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
             .srcQueueFamilyIndex = *families.transferFamily,
             .dstQueueFamilyIndex = *families.graphicsFamily,
             .buffer = buffer.handle,
-            .offset = uploadData.metadata.indicesOffset,
+            .offset = uploadData.byteOffset,
             .size = uploadData.byteCount,
         };
         ctx->cb.pipelineBarrier2(vk::DependencyInfo{
@@ -1107,6 +1107,7 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
                     startByteOffset + cacheHeader.meshletTrianglesByteOffset,
                 .usesShortIndices = cacheHeader.usesShortIndices,
             },
+        .byteOffset = startByteOffset,
         .byteCount = cacheHeader.blobByteCount,
     };
 
