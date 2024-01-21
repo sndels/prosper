@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
 
 #include "../gfx/DescriptorAllocator.hpp"
@@ -32,6 +33,14 @@ const StaticArray<vec2, sHaltonSampleCount> sHalton23{{
     vec2{0.0625f, 0.8888888888888888f},
 }};
 // NOLINTEND(cert-err58-cpp)
+
+vec4 getPlane(vec3 p0, vec3 p1, vec3 p2)
+{
+    const vec3 normal = normalize(cross(p1 - p0, p2 - p0));
+    const float distance = -dot(normal, p0);
+
+    return vec4{normal, distance};
+}
 
 } // namespace
 
@@ -141,7 +150,7 @@ void Camera::updateResolution(const uvec2 &resolution)
     _resolution = resolution;
 }
 
-void Camera::updateBuffer()
+void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
 {
     if (gestureOffset.has_value())
     {
@@ -150,6 +159,9 @@ void Camera::updateBuffer()
 
     // Always update perspective to have correct jitter regardless of settings
     perspective();
+
+    updateFrustumPlanes(
+        debugFrustum.has_value() ? *debugFrustum : getFrustumCorners());
 
     const CameraUniforms uniforms{
         .worldToCamera = _worldToCamera,
@@ -163,6 +175,12 @@ void Camera::updateBuffer()
                 gestureOffset.has_value() ? _transform.apply(*gestureOffset).eye
                                           : _transform.eye,
                 1.f},
+        .nearPlane = _nearPlane,
+        .farPlane = _farPlane,
+        .leftPlane = _leftPlane,
+        .rightPlane = _rightPlane,
+        .topPlane = _topPlane,
+        .bottomPlane = _bottomPlane,
         .resolution = _resolution,
         .currentJitter = _currentJitter,
         .previousJitter = _previousJitter,
@@ -318,4 +336,22 @@ void Camera::updateWorldToCamera()
     _clipToWorld = inverse(_cameraToClip * _worldToCamera);
 
     _changedThisFrame = true;
+}
+
+void Camera::updateFrustumPlanes(const FrustumCorners &corners)
+{
+    // Use corners instead of shortcutting with fwd and near/far to make this
+    // work with cached corners as well
+    _nearPlane = getPlane(
+        corners.bottomRightNear, corners.bottomLeftNear, corners.topRightNear);
+    _farPlane = getPlane(
+        corners.bottomRightFar, corners.topRightFar, corners.bottomLeftFar);
+    _leftPlane = getPlane(
+        corners.bottomLeftNear, corners.bottomLeftFar, corners.topLeftNear);
+    _rightPlane = getPlane(
+        corners.bottomRightNear, corners.topRightNear, corners.bottomRightFar);
+    _topPlane =
+        getPlane(corners.topLeftNear, corners.topLeftFar, corners.topRightNear);
+    _bottomPlane = getPlane(
+        corners.bottomLeftNear, corners.bottomRightNear, corners.bottomLeftFar);
 }
