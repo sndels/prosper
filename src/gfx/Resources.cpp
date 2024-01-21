@@ -16,6 +16,10 @@ vk::PipelineStageFlags2 nativeStagesCommon(State state)
         flags |= vk::PipelineStageFlagBits2::eTransfer;
     if (contains(state, State::StageRayTracingShader))
         flags |= vk::PipelineStageFlagBits2::eRayTracingShaderKHR;
+    if (contains(state, State::StageTaskShader))
+        flags |= vk::PipelineStageFlagBits2::eTaskShaderEXT;
+    if (contains(state, State::StageMeshShader))
+        flags |= vk::PipelineStageFlagBits2::eMeshShaderEXT;
 
     return flags;
 }

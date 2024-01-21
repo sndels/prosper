@@ -19,17 +19,19 @@ enum class BufferState : uint32_t
     StageTransfer = 0x4,
     StageAccelerationStructureBuild = 0x8,
     StageRayTracingShader = 0x10,
+    StageTaskShader = 0x20,
+    StageMeshShader = 0x40,
 
     // Access
     // Covers sampled and storage reads
-    AccessShaderRead = 0x20,
-    AccessShaderWrite = 0x40,
+    AccessShaderRead = 0x80,
+    AccessShaderWrite = 0x100,
     // Covers copy, blit, resolve and clear
-    AccessTransferRead = 0x80,
+    AccessTransferRead = 0x200,
     // Covers copy, blit, resolve and clear
-    AccessTransferWrite = 0x100,
-    AccessAccelerationStructureRead = 0x200,
-    AccessAccelerationStructureWrite = 0x400,
+    AccessTransferWrite = 0x400,
+    AccessAccelerationStructureRead = 0x800,
+    AccessAccelerationStructureWrite = 0x1000,
 
     // Combined Masks
     FragmentShaderRead = StageFragmentShader | AccessShaderRead,
@@ -43,6 +45,14 @@ enum class BufferState : uint32_t
                                  AccessAccelerationStructureWrite,
     RayTracingAccelerationStructureRead =
         StageRayTracingShader | AccessAccelerationStructureRead,
+    TaskShaderRead = StageTaskShader | AccessShaderRead,
+    TaskShaderWrite = StageTaskShader | AccessShaderWrite,
+    TaskShaderReadWrite =
+        StageTaskShader | AccessShaderRead | AccessShaderWrite,
+    MeshShaderRead = StageMeshShader | AccessShaderRead,
+    MeshShaderWrite = StageMeshShader | AccessShaderWrite,
+    MeshShaderReadWrite =
+        StageMeshShader | AccessShaderRead | AccessShaderWrite,
 };
 
 // TODO:
@@ -60,20 +70,22 @@ enum class ImageState : uint32_t
     StageRayTracingShader = 0x20,
     // Covers copy, blit, resolve and clear
     StageTransfer = 0x40,
+    StageTaskShader = 0x80,
+    StageMeshShader = 0x100,
 
     // Access
     // Covers sampled and storage reads
-    AccessShaderSampledRead = 0x80,
-    AccessShaderRead = 0x100,
-    AccessShaderWrite = 0x200,
-    AccessColorAttachmentRead = 0x400,
-    AccessColorAttachmentWrite = 0x800,
-    AccessDepthAttachmentRead = 0x1000,
-    AccessDepthAttachmentWrite = 0x2000,
+    AccessShaderSampledRead = 0x200,
+    AccessShaderRead = 0x400,
+    AccessShaderWrite = 0x800,
+    AccessColorAttachmentRead = 0x1000,
+    AccessColorAttachmentWrite = 0x2000,
+    AccessDepthAttachmentRead = 0x4000,
+    AccessDepthAttachmentWrite = 0x8000,
     // Covers copy, blit, resolve and clear
-    AccessTransferRead = 0x4000,
+    AccessTransferRead = 0x10000,
     // Covers copy, blit, resolve and clear
-    AccessTransferWrite = 0x8000,
+    AccessTransferWrite = 0x20000,
 
     // Combined Masks
     ColorAttachmentWrite =
@@ -96,6 +108,14 @@ enum class ImageState : uint32_t
     RayTracingReadWrite = RayTracingRead | RayTracingWrite,
     TransferSrc = StageTransfer | AccessTransferRead,
     TransferDst = StageTransfer | AccessTransferWrite,
+    TaskShaderRead = StageTaskShader | AccessShaderRead,
+    TaskShaderWrite = StageTaskShader | AccessShaderWrite,
+    TaskShaderReadWrite =
+        StageTaskShader | AccessShaderRead | AccessShaderWrite,
+    MeshShaderRead = StageMeshShader | AccessShaderRead,
+    MeshShaderWrite = StageMeshShader | AccessShaderWrite,
+    MeshShaderReadWrite =
+        StageMeshShader | AccessShaderRead | AccessShaderWrite,
 };
 
 template <typename T>
