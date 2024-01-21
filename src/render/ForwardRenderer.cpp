@@ -11,6 +11,7 @@
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/SceneStats.hpp"
 #include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
@@ -107,7 +108,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Rect2D &renderArea,
     const LightClusteringOutput &lightClusters, uint32_t nextFrame,
-    bool applyIbl, Profiler *profiler)
+    bool applyIbl, SceneStats *sceneStats, Profiler *profiler)
 {
     OpaqueOutput ret;
     ret.illumination =
@@ -122,7 +123,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .velocity = ret.velocity,
             .depth = ret.depth,
         },
-        lightClusters, Options{.ibl = applyIbl}, profiler, "OpaqueGeometry");
+        lightClusters, Options{.ibl = applyIbl}, sceneStats, profiler,
+        "OpaqueGeometry");
 
     return ret;
 }
@@ -131,7 +133,7 @@ void ForwardRenderer::recordTransparent(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, uint32_t nextFrame,
-    Profiler *profiler)
+    SceneStats *sceneStats, Profiler *profiler)
 {
     record(
         WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
@@ -139,7 +141,7 @@ void ForwardRenderer::recordTransparent(
             .illumination = inOutTargets.illumination,
             .depth = inOutTargets.depth,
         },
-        lightClusters, Options{.transparents = true}, profiler,
+        lightClusters, Options{.transparents = true}, sceneStats, profiler,
         "TransparentGeometry");
 }
 
@@ -320,8 +322,12 @@ void ForwardRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const uint32_t nextFrame,
     const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
-    const Options &options, Profiler *profiler, const char *debugName)
+    const Options &options, SceneStats *sceneStats, Profiler *profiler,
+    const char *debugName)
 {
+    WHEELS_ASSERT(sceneStats != nullptr);
+    WHEELS_ASSERT(profiler != nullptr);
+
     const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
@@ -418,6 +424,10 @@ void ForwardRenderer::record(
                     sizeof(PCBlock), &pcBlock);
 
                 cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
+
+                sceneStats->totalMeshCount++;
+                sceneStats->totalTriangleCount += info.indexCount / 3;
+                sceneStats->totalMeshletCount += info.meshletCount;
             }
         }
     }

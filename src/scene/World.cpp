@@ -8,6 +8,7 @@
 #include "../gfx/Device.hpp"
 #include "../gfx/RingBuffer.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/SceneStats.hpp"
 #include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "Animations.hpp"
@@ -71,7 +72,7 @@ class World::Impl
     // Has to be called after updateAnimations()
     void updateScene(
         ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-        Profiler *profiler);
+        SceneStats *sceneStats, Profiler *profiler);
     void updateBuffers(ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
@@ -285,10 +286,11 @@ void World::Impl::updateAnimations(float timeS, Profiler *profiler)
 
 void World::Impl::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-    Profiler *profiler)
+    SceneStats *sceneStats, Profiler *profiler)
 {
     WHEELS_ASSERT(profiler != nullptr);
     WHEELS_ASSERT(cameraTransform != nullptr);
+    WHEELS_ASSERT(sceneStats != nullptr);
 
     auto _s = profiler->createCpuScope("World::updateScene");
 
@@ -386,6 +388,10 @@ void World::Impl::updateScene(
                         vec4{mat3{modelToWorld4x4} * vec3{0.f, 0.f, -1.f}, 0.f};
                 }
                 parentTransforms.emplace_back(modelToWorld4x4);
+
+                sceneStats->totalNodeCount++;
+                if (node.dynamicTransform)
+                    sceneStats->animatedNodeCount++;
             }
         }
     }
@@ -929,9 +935,10 @@ void World::updateAnimations(float timeS, Profiler *profiler)
 
 void World::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-    Profiler *profiler)
+    SceneStats *sceneStats, Profiler *profiler)
 {
-    _impl->updateScene(WHEELS_MOV(scopeAlloc), cameraTransform, profiler);
+    _impl->updateScene(
+        WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats, profiler);
 }
 
 void World::updateBuffers(ScopedScratch scopeAlloc)

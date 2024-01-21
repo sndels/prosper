@@ -15,6 +15,9 @@ class GpuFrameProfiler;
 class Profiler;
 struct PipelineStatistics;
 
+// SceneStats.hpp
+struct SceneStats;
+
 // Timer.hpp
 class Timer;
 

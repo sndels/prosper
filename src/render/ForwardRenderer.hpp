@@ -56,7 +56,7 @@ class ForwardRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, uint32_t nextFrame,
-        bool applyIbl, Profiler *profiler);
+        bool applyIbl, SceneStats *sceneStats, Profiler *profiler);
 
     struct TransparentInOut
     {
@@ -68,7 +68,7 @@ class ForwardRenderer
         const World &world, const Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, uint32_t nextFrame,
-        Profiler *profiler);
+        SceneStats *sceneStats, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -93,7 +93,7 @@ class ForwardRenderer
         const World &world, const Camera &cam, uint32_t nextFrame,
         const RecordInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, const Options &options,
-        Profiler *profiler, const char *debugName);
+        SceneStats *sceneStats, Profiler *profiler, const char *debugName);
     void recordBarriers(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const RecordInOut &inOutTargets,
