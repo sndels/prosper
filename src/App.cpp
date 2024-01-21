@@ -1156,6 +1156,21 @@ bool App::drawCameraUi()
 
     ImGui::Text("Focal length: %.3fmm", params.focalLength * 1e3);
 
+    if (_debugFrustum.has_value())
+    {
+        if (ImGui::Button("Clear debug frustum"))
+            _debugFrustum.reset();
+
+        ImGui::ColorEdit3(
+            "Frustum color", &_frustumDebugColor[0],
+            ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_PickerHueWheel);
+    }
+    else
+    {
+        if (ImGui::Button("Freeze debug frustum"))
+            _debugFrustum = _cam->getFrustumCorners();
+    }
+
     ImGui::End();
 
     return changed;
@@ -1223,6 +1238,43 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
             debugLines.addLine(pos, pos + up * debugLineLength, debugGreen);
             debugLines.addLine(pos, pos + fwd * debugLineLength, debugBlue);
         }
+    }
+
+    if (_debugFrustum.has_value())
+    {
+        const FrustumCorners &corners = *_debugFrustum;
+
+        // Near plane
+        debugLines.addLine(
+            corners.bottomLeftNear, corners.topLeftNear, _frustumDebugColor);
+        debugLines.addLine(
+            corners.bottomLeftNear, corners.bottomRightNear,
+            _frustumDebugColor);
+        debugLines.addLine(
+            corners.topRightNear, corners.topLeftNear, _frustumDebugColor);
+        debugLines.addLine(
+            corners.topRightNear, corners.bottomRightNear, _frustumDebugColor);
+
+        // Far plane
+        debugLines.addLine(
+            corners.bottomLeftFar, corners.topLeftFar, _frustumDebugColor);
+        debugLines.addLine(
+            corners.bottomLeftFar, corners.bottomRightFar, _frustumDebugColor);
+        debugLines.addLine(
+            corners.topRightFar, corners.topLeftFar, _frustumDebugColor);
+        debugLines.addLine(
+            corners.topRightFar, corners.bottomRightFar, _frustumDebugColor);
+
+        // Pyramid edges
+        debugLines.addLine(
+            corners.bottomLeftNear, corners.bottomLeftFar, _frustumDebugColor);
+        debugLines.addLine(
+            corners.bottomRightNear, corners.bottomRightFar,
+            _frustumDebugColor);
+        debugLines.addLine(
+            corners.topLeftNear, corners.topLeftFar, _frustumDebugColor);
+        debugLines.addLine(
+            corners.topRightNear, corners.topRightFar, _frustumDebugColor);
     }
 }
 
