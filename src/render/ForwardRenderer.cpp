@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
 #include "../scene/Light.hpp"
@@ -34,6 +35,7 @@ enum BindingSet : uint32_t
     GeometryBuffersBindingSet,
     ModelInstanceTrfnsBindingSet,
     SkyboxBindingSet,
+    DrawStatsBindingSet,
     BindingSetCount,
 };
 
@@ -54,19 +56,22 @@ constexpr StaticArray<
 } // namespace
 
 ForwardRenderer::ForwardRenderer(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device,
+    DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
     const InputDSLayouts &dsLayouts)
 : _device{device}
 , _resources{resources}
 {
     WHEELS_ASSERT(_device != nullptr);
     WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating ForwardRenderer\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("ForwardRenderer shader compilation failed");
 
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipelines(dsLayouts);
 }
 
@@ -75,6 +80,8 @@ ForwardRenderer::~ForwardRenderer()
     if (_device != nullptr)
     {
         destroyGraphicsPipelines();
+
+        _device->logical().destroy(_drawStatsLayout);
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -107,8 +114,9 @@ void ForwardRenderer::drawUi()
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Rect2D &renderArea,
-    const LightClusteringOutput &lightClusters, uint32_t nextFrame,
-    bool applyIbl, SceneStats *sceneStats, Profiler *profiler)
+    const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
+    uint32_t nextFrame, bool applyIbl, SceneStats *sceneStats,
+    Profiler *profiler)
 {
     OpaqueOutput ret;
     ret.illumination =
@@ -123,8 +131,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .velocity = ret.velocity,
             .depth = ret.depth,
         },
-        lightClusters, Options{.ibl = applyIbl}, sceneStats, profiler,
-        "OpaqueGeometry");
+        lightClusters, inOutDrawStats, Options{.ibl = applyIbl}, sceneStats,
+        profiler, "OpaqueGeometry");
 
     return ret;
 }
@@ -132,8 +140,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 void ForwardRenderer::recordTransparent(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const TransparentInOut &inOutTargets,
-    const LightClusteringOutput &lightClusters, uint32_t nextFrame,
-    SceneStats *sceneStats, Profiler *profiler)
+    const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
+    uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
 {
     record(
         WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
@@ -141,8 +149,8 @@ void ForwardRenderer::recordTransparent(
             .illumination = inOutTargets.illumination,
             .depth = inOutTargets.depth,
         },
-        lightClusters, Options{.transparents = true}, sceneStats, profiler,
-        "TransparentGeometry");
+        lightClusters, inOutDrawStats, Options{.transparents = true},
+        sceneStats, profiler, "TransparentGeometry");
 }
 
 bool ForwardRenderer::compileShaders(
@@ -150,12 +158,13 @@ bool ForwardRenderer::compileShaders(
 {
     printf("Compiling ForwardRenderer shaders\n");
 
-    const size_t meshDefsLen = 153;
+    const size_t meshDefsLen = 178;
     String meshDefines{scopeAlloc, meshDefsLen};
     appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         meshDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+    appendDefineStr(meshDefines, "DRAW_STATS_SET", DrawStatsBindingSet);
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
     appendDefineStr(
@@ -236,6 +245,46 @@ bool ForwardRenderer::compileShaders(
     return false;
 }
 
+void ForwardRenderer::createDescriptorSets(
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+{
+    WHEELS_ASSERT(_meshReflection.has_value());
+    _drawStatsLayout = _meshReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), *_device, DrawStatsBindingSet,
+        vk::ShaderStageFlagBits::eMeshEXT);
+
+    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT * 2>
+        layouts{_drawStatsLayout};
+    staticDescriptorsAlloc->allocate(layouts, _drawStatsSets);
+}
+
+void ForwardRenderer::updateDescriptorSet(
+    ScopedScratch scopeAlloc, uint32_t nextFrame, bool transparents,
+    BufferHandle inOutDrawStats)
+{
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
+    const vk::DescriptorSet ds = _drawStatsSets
+        [nextFrame * MAX_FRAMES_IN_FLIGHT + (transparents ? 1u : 0u)];
+
+    const StaticArray infos{
+        DescriptorInfo{vk::DescriptorBufferInfo{
+            .buffer = _resources->buffers.resource(inOutDrawStats).handle,
+            .range = VK_WHOLE_SIZE,
+        }},
+    };
+
+    WHEELS_ASSERT(_meshReflection.has_value());
+    const wheels::Array descriptorWrites =
+        _meshReflection->generateDescriptorWrites(
+            scopeAlloc, DrawStatsBindingSet, ds, infos);
+
+    _device->logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
+}
+
 void ForwardRenderer::destroyGraphicsPipelines()
 {
     for (auto &p : _pipelines)
@@ -255,6 +304,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     setLayouts[GeometryBuffersBindingSet] = dsLayouts.world.geometry;
     setLayouts[ModelInstanceTrfnsBindingSet] = dsLayouts.world.modelInstances;
     setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
+    setLayouts[DrawStatsBindingSet] = _drawStatsLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
@@ -322,8 +372,8 @@ void ForwardRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const uint32_t nextFrame,
     const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
-    const Options &options, SceneStats *sceneStats, Profiler *profiler,
-    const char *debugName)
+    BufferHandle inOutDrawStats, const Options &options, SceneStats *sceneStats,
+    Profiler *profiler, const char *debugName)
 {
     WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
@@ -332,7 +382,13 @@ void ForwardRenderer::record(
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
-    recordBarriers(WHEELS_MOV(scopeAlloc), cb, inOutTargets, lightClusters);
+    updateDescriptorSet(
+        scopeAlloc.child_scope(), nextFrame, options.transparents,
+        inOutDrawStats);
+
+    recordBarriers(
+        WHEELS_MOV(scopeAlloc), cb, inOutTargets, lightClusters,
+        inOutDrawStats);
 
     const Attachments attachments =
         createAttachments(inOutTargets, options.transparents);
@@ -367,6 +423,8 @@ void ForwardRenderer::record(
     descriptorSets[ModelInstanceTrfnsBindingSet] =
         scene.modelInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
+    descriptorSets[DrawStatsBindingSet] =
+        _drawStatsSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
 
     const StaticArray dynamicOffsets{{
         worldByteOffsets.directionalLight,
@@ -437,8 +495,8 @@ void ForwardRenderer::record(
 
 void ForwardRenderer::recordBarriers(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const RecordInOut &inOutTargets,
-    const LightClusteringOutput &lightClusters) const
+    const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
+    BufferHandle inOutDrawStats) const
 {
     if (inOutTargets.velocity.isValid())
     {
@@ -453,6 +511,10 @@ void ForwardRenderer::recordBarriers(
                     {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                     {lightClusters.pointers, ImageState::FragmentShaderRead},
                 }},
+                .buffers =
+                    StaticArray<BufferTransition, 1>{
+                        {inOutDrawStats, BufferState::MeshShaderReadWrite},
+                    },
                 .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
                     {lightClusters.indicesCount,
                      BufferState::FragmentShaderRead},
@@ -471,6 +533,10 @@ void ForwardRenderer::recordBarriers(
                     {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                     {lightClusters.pointers, ImageState::FragmentShaderRead},
                 }},
+                .buffers =
+                    StaticArray<BufferTransition, 1>{
+                        {inOutDrawStats, BufferState::MeshShaderReadWrite},
+                    },
                 .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
                     {lightClusters.indicesCount,
                      BufferState::FragmentShaderRead},

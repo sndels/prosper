@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
 #include "../scene/Material.hpp"
@@ -32,6 +33,7 @@ enum BindingSet : uint32_t
     MaterialTexturesBindingSet,
     GeometryBuffersBindingSet,
     ModelInstanceTrfnsBindingSet,
+    DrawStatsBindingSet,
     BindingSetCount,
 };
 
@@ -46,7 +48,8 @@ struct PCBlock
 } // namespace
 
 GBufferRenderer::GBufferRenderer(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, Device *device,
+    DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 : _device{device}
@@ -54,12 +57,14 @@ GBufferRenderer::GBufferRenderer(
 {
     WHEELS_ASSERT(_device != nullptr);
     WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating GBufferRenderer\n");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("GBufferRenderer shader compilation failed");
 
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
 }
 
@@ -68,6 +73,8 @@ GBufferRenderer::~GBufferRenderer()
     if (_device != nullptr)
     {
         destroyGraphicsPipeline();
+
+        _device->logical().destroy(_drawStatsLayout);
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -95,7 +102,8 @@ void GBufferRenderer::recompileShaders(
 
 GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Rect2D &renderArea, const uint32_t nextFrame,
+    const Camera &cam, const vk::Rect2D &renderArea,
+    BufferHandle inOutDrawStats, const uint32_t nextFrame,
     SceneStats *sceneStats, Profiler *profiler)
 {
     WHEELS_ASSERT(sceneStats != nullptr);
@@ -105,6 +113,9 @@ GBufferRendererOutput GBufferRenderer::record(
     {
         ret = createOutputs(renderArea.extent);
 
+        updateDescriptorSet(
+            scopeAlloc.child_scope(), nextFrame, inOutDrawStats);
+
         transition(
             WHEELS_MOV(scopeAlloc), *_resources, cb,
             Transitions{
@@ -113,6 +124,9 @@ GBufferRendererOutput GBufferRenderer::record(
                     {ret.normalMetalness, ImageState::ColorAttachmentWrite},
                     {ret.velocity, ImageState::ColorAttachmentWrite},
                     {ret.depth, ImageState::DepthAttachmentReadWrite},
+                }},
+                .buffers = StaticArray<BufferTransition, 1>{{
+                    {inOutDrawStats, BufferState::MeshShaderReadWrite},
                 }},
             });
 
@@ -145,6 +159,7 @@ GBufferRendererOutput GBufferRenderer::record(
             worldDSes.geometry[nextFrame];
         descriptorSets[ModelInstanceTrfnsBindingSet] =
             scene.modelInstancesDescriptorSet;
+        descriptorSets[DrawStatsBindingSet] = _drawStatsSets[nextFrame];
 
         const StaticArray dynamicOffsets{{
             cam.bufferOffset(),
@@ -214,12 +229,13 @@ bool GBufferRenderer::compileShaders(
 {
     printf("Compiling GBufferRenderer shaders\n");
 
-    const size_t meshDefsLen = 176;
+    const size_t meshDefsLen = 201;
     String meshDefines{scopeAlloc, meshDefsLen};
     appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         meshDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+    appendDefineStr(meshDefines, "DRAW_STATS_SET", DrawStatsBindingSet);
     appendDefineStr(meshDefines, "USE_GBUFFER_PC");
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
@@ -290,6 +306,44 @@ bool GBufferRenderer::compileShaders(
         _device->logical().destroy(fragResult->module);
 
     return false;
+}
+
+void GBufferRenderer::createDescriptorSets(
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+{
+    WHEELS_ASSERT(_meshReflection.has_value());
+    _drawStatsLayout = _meshReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), *_device, DrawStatsBindingSet,
+        vk::ShaderStageFlagBits::eMeshEXT);
+
+    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+        _drawStatsLayout};
+    staticDescriptorsAlloc->allocate(layouts, _drawStatsSets);
+}
+
+void GBufferRenderer::updateDescriptorSet(
+    ScopedScratch scopeAlloc, uint32_t nextFrame, BufferHandle inOutDrawStats)
+{
+    // TODO:
+    // Don't update if resources are the same as before (for this DS index)?
+    // Have to compare against both extent and previous native handle?
+    const vk::DescriptorSet ds = _drawStatsSets[nextFrame];
+
+    const StaticArray infos{
+        DescriptorInfo{vk::DescriptorBufferInfo{
+            .buffer = _resources->buffers.resource(inOutDrawStats).handle,
+            .range = VK_WHOLE_SIZE,
+        }},
+    };
+
+    WHEELS_ASSERT(_meshReflection.has_value());
+    const wheels::Array descriptorWrites =
+        _meshReflection->generateDescriptorWrites(
+            scopeAlloc, DrawStatsBindingSet, ds, infos);
+
+    _device->logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
 }
 
 void GBufferRenderer::destroyGraphicsPipeline()
@@ -380,6 +434,7 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = worldDSLayouts.geometry;
     setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
+    setLayouts[DrawStatsBindingSet] = _drawStatsLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
