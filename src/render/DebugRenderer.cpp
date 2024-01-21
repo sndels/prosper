@@ -255,7 +255,6 @@ void DebugRenderer::createBuffers()
                             vk::MemoryPropertyFlagBits::eHostCoherent |
                             vk::MemoryPropertyFlagBits::eHostVisible,
                     },
-                .createMapped = true,
                 .debugName = "DebugLines",
             }),
         };

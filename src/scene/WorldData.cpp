@@ -851,7 +851,6 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
             .initialData = _geometryMetadatas.data(),
-            .createMapped = true,
             .debugName = "GeometryMetadatas",
         });
 }
@@ -1437,7 +1436,6 @@ void WorldData::createBuffers()
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
             .initialData = _materials.data(),
-            .createMapped = true,
             .debugName = "MaterialsBuffer",
         });
 
@@ -1457,7 +1455,6 @@ void WorldData::createBuffers()
                         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                       vk::MemoryPropertyFlagBits::eHostCoherent,
                     },
-                .createMapped = true,
                 .debugName = "RTInstances",
             });
         }

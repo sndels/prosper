@@ -724,7 +724,13 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         vk::MemoryPropertyFlagBits::eHostVisible)
         // Readback is not used yet so assume this is for staging
         allocFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-    if (info.createMapped)
+
+    const vk::MemoryPropertyFlags hostVisibleCoherent =
+        (vk::MemoryPropertyFlagBits::eHostVisible |
+         vk::MemoryPropertyFlagBits::eHostCoherent);
+    const bool createMapped =
+        (desc.properties & hostVisibleCoherent) == hostVisibleCoherent;
+    if (createMapped)
         allocFlags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     const VmaAllocationCreateInfo allocCreateInfo = {
@@ -752,7 +758,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
 
     buffer.byteSize = desc.byteSize;
 
-    if (info.createMapped)
+    if (createMapped)
     {
         WHEELS_ASSERT(allocInfo.pMappedData);
         buffer.mapped = allocInfo.pMappedData;
@@ -787,7 +793,6 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
-            .createMapped = true,
             .debugName = stagingDebugName.c_str(),
         });
 

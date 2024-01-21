@@ -661,7 +661,6 @@ void TextureCubemap::copyPixels(
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
-        .createMapped = true,
         .debugName = "TextureCubemapStaging",
     });
 

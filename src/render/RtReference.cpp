@@ -697,7 +697,6 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
-        .createMapped = true,
         .cacheDeviceAddress = true,
         .debugName = "RtReferenceSBT",
     });

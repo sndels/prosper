@@ -145,6 +145,7 @@ struct BufferDescription
 {
     vk::DeviceSize byteSize{0};
     vk::BufferUsageFlags usage;
+    // HostVisible|HostCoherent gets mapped persistently
     vk::MemoryPropertyFlags properties;
 
     [[nodiscard]] bool matches(const BufferDescription &other) const
@@ -165,7 +166,6 @@ struct BufferCreateInfo
     // TODO: When readback is needed, add enum for gpuonly, staging, readback to
     // select vma allocation mode accordingly
     const void *initialData{nullptr};
-    bool createMapped{false};
     bool cacheDeviceAddress{false};
 
     const char *debugName{nullptr};
