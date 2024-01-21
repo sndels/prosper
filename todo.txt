@@ -82,5 +82,3 @@
   - Non-throwing ctors and separate init to make sure cleanup always happens?
 - Have texture and mesh cache both next to the scene instead of textures being
   next to the textures?
-- Remove explicit indices from enum classes that have concrete types
-  - Error prone when adding/removing things, spec guarantees 0,1,2,3...

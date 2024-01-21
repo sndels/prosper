@@ -30,7 +30,7 @@ constexpr StaticArray<
 
 enum BindingSet : uint32_t
 {
-    CameraBindingSet = 0,
+    CameraBindingSet,
     StorageBindingSet,
     BindingSetCount,
 };

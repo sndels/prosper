@@ -20,8 +20,8 @@ class DepthOfFieldGather
   public:
     enum GatherType : uint32_t
     {
-        GatherType_Foreground = 0,
-        GatherType_Background = 1,
+        GatherType_Foreground,
+        GatherType_Background,
         GatherType_Count,
     };
 

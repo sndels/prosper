@@ -19,9 +19,9 @@ namespace
 
 enum BindingSet : uint32_t
 {
-    CameraBindingSet = 0,
-    GeometryBuffersBindingSet = 1,
-    BindingSetCount = 2,
+    CameraBindingSet,
+    GeometryBuffersBindingSet,
+    BindingSetCount,
 };
 
 vk::Rect2D getRenderArea(

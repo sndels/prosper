@@ -23,7 +23,7 @@ enum class KeyState
 
 enum Key : uint8_t
 {
-    KeyI = 0,
+    KeyI,
     KeyW,
     KeyA,
     KeyS,
