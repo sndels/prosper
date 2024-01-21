@@ -21,6 +21,18 @@ const size_t sLoadingAllocatorSize = sLoadingScratchSize + megabytes(16);
 
 constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
 
+const uint64_t sMeshCacheMagic = 0x48534D5250535250; // PRSPRMSH
+// This should be incremented when breaking changes are made to
+// what's cached
+const uint32_t sMeshCacheVersion = 3;
+
+// Balance between cluster size and cone culling efficiency
+const float sConeWeight = 0.5f;
+
+// Need to pass the allocator with function pointers that don't have userdata
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+Allocator *sMeshoptAllocator = nullptr;
+
 template <typename T>
 void copyInputData(
     Array<T> &dst, const tinygltf::Model &gltfModel,
@@ -389,9 +401,6 @@ void optimizeMeshData(
         alloc, meshData->texCoord0s, remapIndices, uniqueVertexCount);
 }
 
-// TODO: Tweak once cone culling is used
-const float sConeWeight = 0.f;
-
 void generateMeshlets(MeshData *meshData)
 {
     WHEELS_ASSERT(meshData != nullptr);
@@ -453,11 +462,6 @@ void generateMeshlets(MeshData *meshData)
         });
     }
 }
-
-const uint64_t sMeshCacheMagic = 0x48534D5250535250; // PRSPRMSH
-// This should be incremented when breaking changes are made to
-// what's cached
-const uint32_t sMeshCacheVersion = 3;
 
 std::filesystem::path getCachePath(
     const std::filesystem::path &sceneDir, uint32_t meshIndex)
@@ -768,15 +772,6 @@ void writeCache(
     // file
     std::filesystem::rename(cacheTmpPath, cachePath);
 }
-
-namespace
-{
-
-// Need to pass the allocator with function pointers that don't have userdata
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-Allocator *sMeshoptAllocator = nullptr;
-
-} // namespace
 
 void loadNextMesh(DeferredLoadingContext *ctx)
 {
