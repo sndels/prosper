@@ -46,10 +46,38 @@ outVertices[];
 layout(location = 9) perprimitiveEXT out OutPrimitive { uint meshletID; }
 outPrimitives[];
 
-void writeTransformedVertex(
-    GeometryMetadata metadata, uint globalVertexIndex, uint meshletVertexIndex)
+float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, 1)); }
+
+void transformBounds(inout MeshletBounds bounds, Transforms trfn, float scale)
 {
-    Transforms trfn = modelInstanceTransforms.instance[PC.ModelInstanceID];
+    // Need full SRT for center as it's the cluster center in model space
+    bounds.center = (vec4(bounds.center, 1.0) * trfn.modelToWorld).xyz;
+    bounds.radius = abs(bounds.radius * scale);
+    bounds.coneAxis = normalize(bounds.coneAxis * mat3(trfn.modelToWorld));
+}
+
+bool isSphereOutsideFrustum(MeshletBounds bounds)
+{
+    return signedDistance(camera.nearPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.farPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.leftPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.rightPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.bottomPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.topPlane, bounds.center) < -bounds.radius;
+}
+
+bool isConeCapHidden(MeshletBounds bounds)
+{
+    // From meshoptimizer.h
+    return dot(bounds.center - camera.eye.xyz, bounds.coneAxis) >=
+           (bounds.coneCutoff * length(bounds.center - camera.eye.xyz) +
+            bounds.radius);
+}
+
+void writeTransformedVertex(
+    GeometryMetadata metadata, Transforms trfn, uint globalVertexIndex,
+    uint meshletVertexIndex)
+{
     Vertex vertexModel = loadVertex(metadata, globalVertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
 
@@ -81,6 +109,8 @@ void writeTransformedVertex(
     gl_MeshVerticesEXT[meshletVertexIndex].gl_Position = posNDC;
 }
 
+shared bool groupMeshletCulled;
+
 void main()
 {
     uint meshletID = gl_WorkGroupID.x;
@@ -89,11 +119,44 @@ void main()
     GeometryMetadata metadata = geometryMetadatas.data[PC.MeshID];
     MeshletInfo meshletInfo = loadMeshletInfo(metadata, meshletID);
 
+    // TODO:
+    // Cull in a task shader instead if those are available?
+    // 680M doesn't have task shaders so do compute culling instead for that?
+    // Have just the compute culling pipeline instead of a separate task shader
+    // implementation for simplicity?
+    Transforms trfn = modelInstanceTransforms.instance[PC.ModelInstanceID];
+
+    // Masking the culling seems to be a bit faster on 680M at least. Probably
+    // helps some late subgroups skip this entirely.
     if (threadID == 0)
     {
+        groupMeshletCulled = false;
+        // 0 scale means that the scale is non-uniform and we can't transfrom
+        // the bounds reliably
+        float scale = modelInstanceScales.instance[PC.ModelInstanceID];
+        if (scale != 0.)
+        {
+            MeshletBounds bounds = loadMeshletBounds(metadata, meshletID);
+            transformBounds(bounds, trfn, scale);
+
+            groupMeshletCulled = isSphereOutsideFrustum(bounds);
+            if (!groupMeshletCulled)
+                groupMeshletCulled = isConeCapHidden(bounds);
+        }
+
         atomicAdd(drawStats.drawnMeshletCount, 1);
-        atomicAdd(drawStats.rasterizedTriangleCount, meshletInfo.triangleCount);
+        if (!groupMeshletCulled)
+            atomicAdd(
+                drawStats.rasterizedTriangleCount, meshletInfo.triangleCount);
     }
+    barrier();
+
+    if (groupMeshletCulled)
+    {
+        meshletInfo.vertexCount = 0;
+        meshletInfo.triangleCount = 0;
+    }
+
     SetMeshOutputsEXT(meshletInfo.vertexCount, meshletInfo.triangleCount);
 
     if (threadID < meshletInfo.vertexCount)
@@ -101,14 +164,21 @@ void main()
         uint vertexIndex =
             loadMeshletVertexIndex(metadata, meshletInfo, threadID);
 
-        writeTransformedVertex(metadata, vertexIndex, threadID);
+        writeTransformedVertex(metadata, trfn, vertexIndex, threadID);
     }
 
     if (threadID < meshletInfo.triangleCount)
     {
         outPrimitives[threadID].meshletID = meshletID;
         gl_MeshPrimitivesEXT[threadID].gl_PrimitiveID = int(threadID);
-        gl_PrimitiveTriangleIndicesEXT[threadID] =
-            loadMeshletTriangle(metadata, meshletInfo, threadID);
+
+        uvec3 triIndices = loadMeshletTriangle(metadata, meshletInfo, threadID);
+        gl_PrimitiveTriangleIndicesEXT[threadID] = triIndices;
+
+        // Per-triangle backface culling seemed to be 2-3% slower on 680M and
+        // 4080 when implemented like in
+        // https://zeux.io/2023/04/28/triangle-backface-culling/
+        // or like in
+        // https://github.com/zeux/niagara/blob/5c4da32850ae32a0528f11e22e09ada5348f4e0c/src/shaders/meshlet.mesh.glsl
     }
 }
