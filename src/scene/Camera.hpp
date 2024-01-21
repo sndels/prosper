@@ -60,6 +60,18 @@ struct CameraUniforms
     float far;
 };
 
+struct FrustumCorners
+{
+    glm::vec3 bottomLeftNear{0.f};
+    glm::vec3 bottomRightNear{0.f};
+    glm::vec3 topLeftNear{0.f};
+    glm::vec3 topRightNear{0.f};
+    glm::vec3 bottomLeftFar{0.f};
+    glm::vec3 bottomRightFar{0.f};
+    glm::vec3 topLeftFar{0.f};
+    glm::vec3 topRightFar{0.f};
+};
+
 class Camera
 {
   public:
@@ -102,6 +114,8 @@ class Camera
     void applyGestureOffset();
     // Applies an offset without touching the held one
     void applyOffset(const CameraOffset &offset);
+
+    FrustumCorners getFrustumCorners() const;
 
   private:
     void createBindingsReflection(wheels::ScopedScratch scopeAlloc);
