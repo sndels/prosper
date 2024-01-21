@@ -47,6 +47,7 @@ namespace
 
 constexpr uint32_t WIDTH = 1920;
 constexpr uint32_t HEIGHT = 1080;
+constexpr uint32_t sDrawStatsByteSize = 2 * sizeof(uint32_t);
 
 StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
     Device *device)
@@ -127,15 +128,16 @@ App::App(const Settings &settings)
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
     _forwardRenderer = std::make_unique<ForwardRenderer>(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get(),
+        _resources.get(),
         ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->dsLayouts(),
         });
     _gbufferRenderer = std::make_unique<GBufferRenderer>(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->dsLayouts());
+        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get(),
+        _resources.get(), _cam->descriptorSetLayout(), _world->dsLayouts());
     _deferredShading = std::make_unique<DeferredShading>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(),
@@ -602,11 +604,14 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     {
         _imguiRenderer->startFrame(_profiler.get());
 
-        uiChanges =
-            drawUi(scopeAlloc.child_scope(), profilerDatas, scopeHighWatermark);
+        uiChanges = drawUi(
+            scopeAlloc.child_scope(), nextFrame, profilerDatas,
+            scopeHighWatermark);
     }
-    // Clear for new frame after UI was drawn
-    _sceneStats = SceneStats{};
+    // Clear stats for new frame after UI was drawn
+    _sceneStats[nextFrame] = SceneStats{};
+    if (_resources->buffers.isValidHandle(_drawStats[nextFrame]))
+        _resources->buffers.release(_drawStats[nextFrame]);
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -617,8 +622,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _world->updateAnimations(timeS, _profiler.get());
 
     _world->updateScene(
-        scopeAlloc.child_scope(), &_sceneCameraTransform, &_sceneStats,
-        _profiler.get());
+        scopeAlloc.child_scope(), &_sceneCameraTransform,
+        &_sceneStats[nextFrame], _profiler.get());
 
     _world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 
@@ -744,7 +749,8 @@ void App::capFramerate()
 }
 
 App::UiChanges App::drawUi(
-    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas,
+    ScopedScratch scopeAlloc, uint32_t nextFrame,
+    const Array<Profiler::ScopeData> &profilerDatas,
     uint32_t scopeHighWatermark)
 {
     const auto _s = _profiler->createCpuScope("App::drawUi");
@@ -769,7 +775,7 @@ App::UiChanges App::drawUi(
 
     drawMemory(scopeHighWatermark);
 
-    drawSceneStats();
+    drawSceneStats(nextFrame);
 
     ret.rtDirty |= _isPlaying;
     ret.timeTweaked |= drawTimeline();
@@ -1155,16 +1161,32 @@ bool App::drawCameraUi()
     return changed;
 }
 
-void App::drawSceneStats() const
+void App::drawSceneStats(uint32_t nextFrame) const
 {
+
+    uint32_t drawnMeshletCount = 0;
+    uint32_t rasterizedTriangleCount = 0;
+    if (_resources->buffers.isValidHandle(_drawStats[nextFrame]))
+    {
+        const uint32_t *readbackPtr = reinterpret_cast<const uint32_t *>(
+            _resources->buffers.resource(_drawStats[nextFrame]).mapped);
+        WHEELS_ASSERT(readbackPtr != nullptr);
+
+        drawnMeshletCount = readbackPtr[0];
+        rasterizedTriangleCount = readbackPtr[1];
+    }
+
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    ImGui::Text("Total triangles: %u", _sceneStats.totalTriangleCount);
-    ImGui::Text("Total meshlets: %u", _sceneStats.totalMeshletCount);
-    ImGui::Text("Total meshes: %u", _sceneStats.totalMeshCount);
-    ImGui::Text("Total nodes: %u", _sceneStats.totalNodeCount);
-    ImGui::Text("Animated nodes: %u", _sceneStats.animatedNodeCount);
+    ImGui::Text(
+        "Total triangles: %u", _sceneStats[nextFrame].totalTriangleCount);
+    ImGui::Text("Rasterized triangles: %u", rasterizedTriangleCount);
+    ImGui::Text("Total meshlets: %u", _sceneStats[nextFrame].totalMeshletCount);
+    ImGui::Text("Drawn meshlets: %u", drawnMeshletCount);
+    ImGui::Text("Total meshes: %u", _sceneStats[nextFrame].totalMeshCount);
+    ImGui::Text("Total nodes: %u", _sceneStats[nextFrame].totalNodeCount);
+    ImGui::Text("Animated nodes: %u", _sceneStats[nextFrame].animatedNodeCount);
 
     ImGui::End();
 }
@@ -1221,6 +1243,20 @@ void App::render(
         indices.nextFrame, _profiler.get());
 
     ImageHandle illumination;
+    const BufferHandle drawStats = _resources->buffers.create(
+        BufferDescription{
+            .byteSize = sDrawStatsByteSize,
+            .usage = vk::BufferUsageFlagBits::eTransferDst |
+                     vk::BufferUsageFlagBits::eTransferSrc |
+                     vk::BufferUsageFlagBits::eStorageBuffer,
+            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        },
+        "DrawStats");
+
+    _resources->buffers.transition(cb, drawStats, BufferState::TransferDst);
+    cb.fillBuffer(
+        _resources->buffers.nativeHandle(drawStats), 0, sDrawStatsByteSize, 0);
+
     if (_referenceRt)
     {
         _rtDirectIllumination->releasePreserved();
@@ -1250,7 +1286,8 @@ void App::render(
         {
             const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
-                indices.nextFrame, &_sceneStats, _profiler.get());
+                drawStats, indices.nextFrame, &_sceneStats[indices.nextFrame],
+                _profiler.get());
 
             if (_deferredRt)
                 illumination =
@@ -1289,8 +1326,8 @@ void App::render(
             const ForwardRenderer::OpaqueOutput output =
                 _forwardRenderer->recordOpaque(
                     scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
-                    lightClusters, indices.nextFrame, _applyIbl, &_sceneStats,
-                    _profiler.get());
+                    lightClusters, drawStats, indices.nextFrame, _applyIbl,
+                    &_sceneStats[indices.nextFrame], _profiler.get());
             illumination = output.illumination;
             velocity = output.velocity;
             depth = output.depth;
@@ -1312,7 +1349,8 @@ void App::render(
                 .illumination = illumination,
                 .depth = depth,
             },
-            lightClusters, indices.nextFrame, &_sceneStats, _profiler.get());
+            lightClusters, drawStats, indices.nextFrame,
+            &_sceneStats[indices.nextFrame], _profiler.get());
 
         _debugRenderer->record(
             scopeAlloc.child_scope(), cb, *_cam,
@@ -1406,6 +1444,18 @@ void App::render(
     }
 
     blitFinalComposite(cb, indices.nextImage);
+
+    readbackDrawStats(cb, indices.nextFrame, drawStats);
+
+    _resources->buffers.release(drawStats);
+
+    // Need to preserve both the new and old readback buffers. Release happens
+    // after the readback is read from when nextFrame wraps around.
+    for (const BufferHandle buffer : _drawStats)
+    {
+        if (_resources->buffers.isValidHandle(buffer))
+            _resources->buffers.preserve(buffer);
+    }
 }
 
 void App::blitColorToFinalComposite(
@@ -1604,6 +1654,45 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
             .pImageMemoryBarriers = &barrier,
         });
     }
+}
+
+void App::readbackDrawStats(
+    vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer)
+{
+    BufferHandle &dstBuffer = _drawStats[nextFrame];
+    WHEELS_ASSERT(!_resources->buffers.isValidHandle(dstBuffer));
+    dstBuffer = _resources->buffers.create(
+        BufferDescription{
+            .byteSize = sDrawStatsByteSize,
+            .usage = vk::BufferUsageFlagBits::eTransferDst,
+            .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                          vk::MemoryPropertyFlagBits::eHostCoherent,
+        },
+        "DrawStatsReadback");
+    WHEELS_ASSERT(
+        _resources->buffers.resource(srcBuffer).byteSize ==
+        _resources->buffers.resource(dstBuffer).byteSize);
+
+    const StaticArray barriers{{
+        *_resources->buffers.transitionBarrier(
+            srcBuffer, BufferState::TransferSrc, true),
+        *_resources->buffers.transitionBarrier(
+            dstBuffer, BufferState::TransferDst, true),
+    }};
+
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .bufferMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+        .pBufferMemoryBarriers = barriers.data(),
+    });
+
+    const vk::BufferCopy region{
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = sDrawStatsByteSize,
+    };
+    cb.copyBuffer(
+        _resources->buffers.nativeHandle(srcBuffer),
+        _resources->buffers.nativeHandle(dstBuffer), 1, &region);
 }
 
 bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)

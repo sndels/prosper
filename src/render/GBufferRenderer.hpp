@@ -25,7 +25,8 @@ class GBufferRenderer
   public:
     GBufferRenderer(
         wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, vk::DescriptorSetLayout camDSLayout,
+        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
+        vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
     ~GBufferRenderer();
 
@@ -45,11 +46,19 @@ class GBufferRenderer
     [[nodiscard]] GBufferRendererOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler);
+        BufferHandle inOutDrawStats, uint32_t nextFrame, SceneStats *sceneStats,
+        Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
+
+    void createDescriptorSets(
+        wheels::ScopedScratch scopeAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc);
+    void updateDescriptorSet(
+        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
+        BufferHandle inOutDrawStats);
 
     void destroyGraphicsPipeline();
 
@@ -77,6 +86,10 @@ class GBufferRenderer
 
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
+
+    vk::DescriptorSetLayout _drawStatsLayout;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _drawStatsSets{
+        VK_NULL_HANDLE};
 };
 
 #endif // PROSPER_RENDER_GBUFFER_RENDERER_HPP

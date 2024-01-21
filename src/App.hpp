@@ -61,7 +61,7 @@ class App
         bool timeTweaked{false};
     };
     UiChanges drawUi(
-        wheels::ScopedScratch scopeAlloc,
+        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
         const wheels::Array<Profiler::ScopeData> &profilerDatas,
         uint32_t scopeHighWatermark);
     void drawOptions();
@@ -74,7 +74,7 @@ class App
     bool drawTimeline();
     // Returns true if settings changed
     bool drawCameraUi();
-    void drawSceneStats() const;
+    void drawSceneStats(uint32_t nextFrame) const;
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 
@@ -90,6 +90,8 @@ class App
     void blitColorToFinalComposite(
         vk::CommandBuffer cb, ImageHandle toneMapped);
     void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);
+    void readbackDrawStats(
+        vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer);
     // Returns true if present succeeded, false if swapchain should be recreated
     [[nodiscard]] bool submitAndPresent(
         vk::CommandBuffer cb, uint32_t nextFrame);
@@ -161,7 +163,8 @@ class App
     CameraTransform _sceneCameraTransform;
     CameraParameters _cameraParameters;
 
-    SceneStats _sceneStats;
+    wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> _sceneStats;
+    wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> _drawStats;
 
     std::chrono::high_resolution_clock::time_point _lastTimeChange;
     float _timeOffsetS{0.f};
