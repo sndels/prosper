@@ -489,7 +489,8 @@ Device::Device(
             vk::PhysicalDeviceProperties2,
             vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
             vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
-            vk::PhysicalDeviceMeshShaderPropertiesEXT>();
+            vk::PhysicalDeviceMeshShaderPropertiesEXT,
+            vk::PhysicalDeviceSubgroupProperties>();
         _properties.device =
             props.get<vk::PhysicalDeviceProperties2>().properties;
         _properties.rtPipeline =
@@ -498,11 +499,28 @@ Device::Device(
             props.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
         _properties.meshShader =
             props.get<vk::PhysicalDeviceMeshShaderPropertiesEXT>();
+        _properties.subgroup =
+            props.get<vk::PhysicalDeviceSubgroupProperties>();
 
         WHEELS_ASSERT(
             _properties.meshShader.maxMeshOutputVertices >= sMaxMsVertices);
         WHEELS_ASSERT(
             _properties.meshShader.maxMeshOutputPrimitives >= sMaxMsTriangles);
+
+        const vk::ShaderStageFlags meshAndComputeStages =
+            vk::ShaderStageFlagBits::eMeshEXT |
+            vk::ShaderStageFlagBits::eCompute;
+        WHEELS_ASSERT(
+            (_properties.subgroup.supportedStages & meshAndComputeStages) ==
+            meshAndComputeStages);
+
+        const vk::SubgroupFeatureFlags basicBallotAndArithmetic =
+            vk::SubgroupFeatureFlagBits::eBasic |
+            vk::SubgroupFeatureFlagBits::eBallot |
+            vk::SubgroupFeatureFlagBits::eArithmetic;
+        WHEELS_ASSERT(
+            (_properties.subgroup.supportedOperations &
+             basicBallotAndArithmetic) == basicBallotAndArithmetic);
 
         {
             const auto apiPacked = _properties.device.apiVersion;
