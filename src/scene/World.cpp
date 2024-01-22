@@ -1,5 +1,6 @@
 #include "World.hpp"
 
+#include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
 #include <memory>
 #include <wheels/allocators/utils.hpp>
@@ -37,6 +38,15 @@ std::unique_ptr<RingBuffer> createLightDataRing(Device *device)
     return std::make_unique<RingBuffer>(
         device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
         "LightDataRing");
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+bool relativeEq(float a, float b, float maxRelativeDiff)
+{
+    const float diff = std::abs(a - b);
+    const float maxMagnitude = std::max(std::abs(a), std::abs(b));
+    const float scaledEpsilon = maxRelativeDiff * maxMagnitude;
+    return diff < scaledEpsilon;
 }
 
 } // namespace
@@ -405,6 +415,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
         Array<Scene::RTInstance> rtInstances{scopeAlloc, scene.rtInstanceCount};
         Array<ModelInstance::Transforms> transforms{
             scopeAlloc, scene.modelInstances.size()};
+        Array<float> scales{scopeAlloc, scene.modelInstances.size()};
 
         // The RTInstances generated here have to match the indices that get
         // assigned to tlas instances
@@ -412,6 +423,22 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
         {
             const auto &instance = scene.modelInstances[mi];
             transforms.push_back(instance.transforms);
+
+            const mat3x4 &modelToWorld = instance.transforms.modelToWorld;
+            // lengths of rows instead of columns because of the transposed 3x4
+            const vec3 scale{
+                length(row(modelToWorld, 0)), length(row(modelToWorld, 1)),
+                length(row(modelToWorld, 2))};
+
+            // Zero scale indicates that the scale is non-uniform
+            float uniformScale = 0.f;
+            // 0.1mm precision should be plenty
+            const float tolerance = 0.0001f;
+            if (relativeEq(scale.x, scale.y, tolerance) &&
+                relativeEq(scale.x, scale.z, tolerance))
+                uniformScale = scale.x;
+            scales.push_back(uniformScale);
+
             for (const auto &model : _data._models[instance.modelID].subModels)
             {
                 rtInstances.push_back(Scene::RTInstance{
@@ -428,6 +455,8 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             _byteOffsets.modelInstanceTransforms;
         _byteOffsets.modelInstanceTransforms =
             _data._modelInstanceTransformsRing->write_elements(transforms);
+        _byteOffsets.modelInstanceScales =
+            _data._modelInstanceTransformsRing->write_elements(scales);
 
         memcpy(
             scene.rtInstancesBuffer.mapped, rtInstances.data(),

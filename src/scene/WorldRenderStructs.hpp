@@ -24,6 +24,7 @@ struct WorldByteOffsets
 {
     uint32_t modelInstanceTransforms{0};
     uint32_t previousModelInstanceTransforms{0};
+    uint32_t modelInstanceScales{0};
     uint32_t directionalLight{0};
     uint32_t pointLights{0};
     uint32_t spotLights{0};

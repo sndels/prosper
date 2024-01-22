@@ -1460,8 +1460,10 @@ void WorldData::createBuffers()
         }
 
         const uint32_t bufferSize = asserted_cast<uint32_t>(
-            (maxModelInstanceTransforms * sizeof(ModelInstance::Transforms) +
-             static_cast<size_t>(RingBuffer::sAlignment)) *
+            ((maxModelInstanceTransforms * sizeof(ModelInstance::Transforms) +
+              static_cast<size_t>(RingBuffer::sAlignment)) +
+             (maxModelInstanceTransforms * sizeof(float) +
+              static_cast<size_t>(RingBuffer::sAlignment))) *
             MAX_FRAMES_IN_FLIGHT);
         _modelInstanceTransformsRing = std::make_unique<RingBuffer>(
             _device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
@@ -1805,6 +1807,10 @@ void WorldData::createDescriptorSets(
                     .buffer = _modelInstanceTransformsRing->buffer(),
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
+                }},
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = _modelInstanceTransformsRing->buffer(),
+                    .range = scene.modelInstances.size() * sizeof(float),
                 }},
             }};
             const Array descriptorWrites =
