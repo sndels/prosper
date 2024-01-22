@@ -261,6 +261,7 @@ RtDiTrace::Output RtDiTrace::record(
             worldByteOffsets.globalMaterialConstants,
             worldByteOffsets.modelInstanceTransforms,
             worldByteOffsets.previousModelInstanceTransforms,
+            worldByteOffsets.modelInstanceScales,
             worldByteOffsets.directionalLight,
             worldByteOffsets.pointLights,
             worldByteOffsets.spotLights,

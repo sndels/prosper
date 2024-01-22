@@ -434,6 +434,7 @@ void ForwardRenderer::record(
         worldByteOffsets.globalMaterialConstants,
         worldByteOffsets.modelInstanceTransforms,
         worldByteOffsets.previousModelInstanceTransforms,
+        worldByteOffsets.modelInstanceScales,
     }};
 
     cb.bindDescriptorSets(
