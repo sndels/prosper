@@ -14,10 +14,10 @@
 #include "../../restir_di/reservoir.glsl"
 #include "../../scene/camera.glsl"
 #include "../../scene/geometry.glsl"
+#include "../../scene/instances.glsl"
 #include "../../scene/lighting.glsl"
 #include "../../scene/materials.glsl"
 #include "../../scene/skybox.glsl"
-#include "../../scene/transforms.glsl"
 #include "../ray.glsl"
 #include "../rt_data.glsl"
 

@@ -77,7 +77,7 @@ class WorldData
 
     wheels::Optional<ShaderReflection> _materialsReflection;
     wheels::Optional<ShaderReflection> _geometryReflection;
-    wheels::Optional<ShaderReflection> _modelInstancesReflection;
+    wheels::Optional<ShaderReflection> _sceneInstancesReflection;
     wheels::Optional<ShaderReflection> _lightsReflection;
     wheels::Optional<ShaderReflection> _skyboxReflection;
 

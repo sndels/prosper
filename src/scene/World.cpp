@@ -412,12 +412,13 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
     const auto &scene = currentScene();
 
     {
-        Array<Scene::RTInstance> rtInstances{scopeAlloc, scene.rtInstanceCount};
+        Array<Scene::DrawInstance> drawInstances{
+            scopeAlloc, scene.drawInstanceCount};
         Array<ModelInstance::Transforms> transforms{
             scopeAlloc, scene.modelInstances.size()};
         Array<float> scales{scopeAlloc, scene.modelInstances.size()};
 
-        // The RTInstances generated here have to match the indices that get
+        // The DrawInstances generated here have to match the indices that get
         // assigned to tlas instances
         for (auto mi = 0u; mi < scene.modelInstances.size(); ++mi)
         {
@@ -441,7 +442,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 
             for (const auto &model : _data._models[instance.modelID].subModels)
             {
-                rtInstances.push_back(Scene::RTInstance{
+                drawInstances.push_back(Scene::DrawInstance{
                     .modelInstanceID = mi,
                     .meshID = model.meshID,
                     .materialID = model.materialID,
@@ -459,8 +460,8 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             _data._modelInstanceTransformsRing->write_elements(scales);
 
         memcpy(
-            scene.rtInstancesBuffer.mapped, rtInstances.data(),
-            sizeof(Scene::RTInstance) * rtInstances.size());
+            scene.drawInstancesBuffer.mapped, drawInstances.data(),
+            sizeof(Scene::DrawInstance) * drawInstances.size());
     }
 
     updateTlasInstances(scopeAlloc.child_scope(), scene);
@@ -536,7 +537,7 @@ AccelerationStructure World::Impl::createTlas(
         });
 
     const vk::DescriptorBufferInfo instanceInfo{
-        .buffer = scene.rtInstancesBuffer.handle, .range = VK_WHOLE_SIZE};
+        .buffer = scene.drawInstancesBuffer.handle, .range = VK_WHOLE_SIZE};
 
     StaticArray descriptorWrites{{
         vk::WriteDescriptorSet{
@@ -827,7 +828,7 @@ void World::Impl::updateTlasInstances(
     // Need to be careful to not cause read ops by accident, probably still use
     // memcpy for the write into the buffer.
     Array<vk::AccelerationStructureInstanceKHR> instances{
-        scopeAlloc, scene.rtInstanceCount};
+        scopeAlloc, scene.drawInstanceCount};
     uint32_t rti = 0;
     for (const auto &mi : scene.modelInstances)
     {
@@ -858,9 +859,9 @@ void World::Impl::updateTlasInstances(
             });
         }
     }
-    WHEELS_ASSERT(instances.size() == scene.rtInstanceCount);
+    WHEELS_ASSERT(instances.size() == scene.drawInstanceCount);
 
-    reserveTlasInstances(scene.rtInstanceCount);
+    reserveTlasInstances(scene.drawInstanceCount);
 
     _tlasInstancesUploadOffset =
         _tlasInstancesUploadRing->write_elements(instances);
@@ -874,7 +875,7 @@ void World::Impl::createTlasBuildInfos(
     vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut)
 {
     rangeInfoOut = vk::AccelerationStructureBuildRangeInfoKHR{
-        .primitiveCount = scene.rtInstanceCount,
+        .primitiveCount = scene.drawInstanceCount,
         .primitiveOffset = 0,
     };
 

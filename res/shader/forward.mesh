@@ -15,7 +15,7 @@
 
 #include "scene/camera.glsl"
 #include "scene/geometry.glsl"
-#include "scene/transforms.glsl"
+#include "scene/instances.glsl"
 
 layout(std430, set = DRAW_STATS_SET, binding = 0) buffer DrawStats
 {

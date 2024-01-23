@@ -32,7 +32,7 @@ enum BindingSet : uint32_t
     MaterialDatasBindingSet,
     MaterialTexturesBindingSet,
     GeometryBuffersBindingSet,
-    ModelInstanceTrfnsBindingSet,
+    SceneInstancesBindingSet,
     DrawStatsBindingSet,
     BindingSetCount,
 };
@@ -157,8 +157,8 @@ GBufferRendererOutput GBufferRenderer::record(
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
         descriptorSets[GeometryBuffersBindingSet] =
             worldDSes.geometry[nextFrame];
-        descriptorSets[ModelInstanceTrfnsBindingSet] =
-            scene.modelInstancesDescriptorSet;
+        descriptorSets[SceneInstancesBindingSet] =
+            scene.sceneInstancesDescriptorSet;
         descriptorSets[DrawStatsBindingSet] = _drawStatsSets[nextFrame];
 
         const StaticArray dynamicOffsets{{
@@ -235,7 +235,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
-        meshDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+        meshDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(meshDefines, "DRAW_STATS_SET", DrawStatsBindingSet);
     appendDefineStr(meshDefines, "USE_GBUFFER_PC");
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
@@ -434,7 +434,7 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[MaterialDatasBindingSet] = worldDSLayouts.materialDatas;
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = worldDSLayouts.geometry;
-    setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
+    setLayouts[SceneInstancesBindingSet] = worldDSLayouts.sceneInstances;
     setLayouts[DrawStatsBindingSet] = _drawStatsLayout;
 
     const vk::PushConstantRange pcRange{

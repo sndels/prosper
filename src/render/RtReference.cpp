@@ -33,7 +33,7 @@ enum BindingSet : uint32_t
     MaterialTexturesBindingSet,
     GeometryBindingSet,
     SkyboxBindingSet,
-    ModelInstanceTrfnsBindingSet,
+    SceneInstancesBindingSet,
     LightsBindingSet,
     BindingSetCount,
 };
@@ -261,8 +261,8 @@ RtReference::Output RtReference::record(
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
         descriptorSets[GeometryBindingSet] = worldDSes.geometry[nextFrame];
         descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
-        descriptorSets[ModelInstanceTrfnsBindingSet] =
-            scene.modelInstancesDescriptorSet;
+        descriptorSets[SceneInstancesBindingSet] =
+            scene.sceneInstancesDescriptorSet;
         descriptorSets[LightsBindingSet] = worldDSes.lights;
 
         const StaticArray dynamicOffsets{{
@@ -434,8 +434,7 @@ bool RtReference::compileShaders(
     appendDefineStr(raygenDefines, "GEOMETRY_SET", GeometryBindingSet);
     appendDefineStr(raygenDefines, "SKYBOX_SET", SkyboxBindingSet);
     appendDefineStr(
-        raygenDefines, "MODEL_INSTANCE_TRFNS_SET",
-        ModelInstanceTrfnsBindingSet);
+        raygenDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(raygenDefines, "LIGHTS_SET", LightsBindingSet);
     PointLights::appendShaderDefines(raygenDefines);
     SpotLights::appendShaderDefines(raygenDefines);
@@ -456,8 +455,7 @@ bool RtReference::compileShaders(
         worldDSLayouts.materialSamplerCount);
     appendDefineStr(anyhitDefines, "GEOMETRY_SET", GeometryBindingSet);
     appendDefineStr(
-        anyhitDefines, "MODEL_INSTANCE_TRFNS_SET",
-        ModelInstanceTrfnsBindingSet);
+        anyhitDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     WHEELS_ASSERT(anyhitDefines.size() <= anyhitDefsLen);
 
     Optional<Device::ShaderCompileResult> raygenResult =
@@ -625,7 +623,7 @@ void RtReference::createPipeline(
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBindingSet] = worldDSLayouts.geometry;
     setLayouts[SkyboxBindingSet] = worldDSLayouts.skybox;
-    setLayouts[ModelInstanceTrfnsBindingSet] = worldDSLayouts.modelInstances;
+    setLayouts[SceneInstancesBindingSet] = worldDSLayouts.sceneInstances;
     setLayouts[LightsBindingSet] = worldDSLayouts.lights;
 
     const vk::PushConstantRange pcRange{

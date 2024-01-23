@@ -14,7 +14,7 @@ struct WorldDSLayouts
     vk::DescriptorSetLayout materialDatas;
     vk::DescriptorSetLayout materialTextures;
     vk::DescriptorSetLayout geometry;
-    vk::DescriptorSetLayout modelInstances;
+    vk::DescriptorSetLayout sceneInstances;
     vk::DescriptorSetLayout rayTracing;
     vk::DescriptorSetLayout lights;
     vk::DescriptorSetLayout skybox;

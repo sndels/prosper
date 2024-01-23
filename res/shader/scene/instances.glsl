@@ -1,5 +1,5 @@
-#ifndef SCENE_TRANSFORMS_GLSL
-#define SCENE_TRANSFORMS_GLSL
+#ifndef SCENE_INTSTANCES_GLSL
+#define SCENE_INTSTANCES_GLSL
 
 #include "vertex.glsl"
 
@@ -8,26 +8,39 @@ struct Transforms
     mat3x4 modelToWorld;
     mat3x4 normalToWorld;
 };
-layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 0) readonly buffer
+layout(std430, set = SCENE_INSTANCES_SET, binding = 0) readonly buffer
     ModelInstanceTransformsDSB
 {
     Transforms instance[];
 }
 modelInstanceTransforms;
 
-layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 1) readonly buffer
+layout(std430, set = SCENE_INSTANCES_SET, binding = 1) readonly buffer
     PreviousModelInstanceTransformsDSB
 {
     Transforms instance[];
 }
 previousModelInstanceTransforms;
 
-layout(std430, set = MODEL_INSTANCE_TRFNS_SET, binding = 2) readonly buffer
+layout(std430, set = SCENE_INSTANCES_SET, binding = 2) readonly buffer
     ModelInstanceScalesDSB
 {
     float instance[];
 }
 modelInstanceScales;
+
+struct DrawInstance
+{
+    uint modelInstanceID;
+    uint meshID;
+    uint materialID;
+};
+layout(std430, set = SCENE_INSTANCES_SET, binding = 3) readonly buffer
+    DrawInstances
+{
+    DrawInstance instance[];
+}
+drawInstances;
 
 Vertex transform(Vertex v, Transforms t)
 {
@@ -60,4 +73,4 @@ mat3 generateTBN(vec3 normal, vec4 tangent)
     return mat3(tangent.xyz, bitangent, normal);
 }
 
-#endif // SCENE_TRANSFORMS_GLSL
+#endif // SCENE_INTSTANCES_GLSL
