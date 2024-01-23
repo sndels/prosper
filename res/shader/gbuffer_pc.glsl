@@ -4,7 +4,6 @@
 layout(push_constant) uniform GBufferPC
 {
     // Some of these are mirrored between this and ForwardPC
-    uint DrawInstanceID;
     uint previousTransformValid;
 }
 PC;

@@ -14,6 +14,7 @@
 #include "../utils/SceneStats.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
+#include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
 
@@ -39,7 +40,6 @@ enum BindingSet : uint32_t
 
 struct PCBlock
 {
-    uint32_t drawInstanceID{0xFFFFFFFF};
     uint32_t previousTransformValid{0};
 };
 
@@ -72,7 +72,7 @@ GBufferRenderer::~GBufferRenderer()
     {
         destroyGraphicsPipeline();
 
-        _device->logical().destroy(_drawStatsLayout);
+        _device->logical().destroy(_meshSetLayout);
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -99,11 +99,12 @@ void GBufferRenderer::recompileShaders(
 }
 
 GBufferRendererOutput GBufferRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Rect2D &renderArea,
-    BufferHandle inOutDrawStats, const uint32_t nextFrame,
-    SceneStats *sceneStats, Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+    const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
+    const uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -111,8 +112,12 @@ GBufferRendererOutput GBufferRenderer::record(
     {
         ret = createOutputs(renderArea.extent);
 
+        const MeshletCullerOutput cullerOutput = meshletCuller->record(
+            scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque, world,
+            cam, nextFrame, "GBuffer", sceneStats, profiler);
+
         updateDescriptorSet(
-            scopeAlloc.child_scope(), nextFrame, inOutDrawStats);
+            scopeAlloc.child_scope(), nextFrame, cullerOutput, inOutDrawStats);
 
         transition(
             WHEELS_MOV(scopeAlloc), *_resources, cb,
@@ -123,8 +128,11 @@ GBufferRendererOutput GBufferRenderer::record(
                     {ret.velocity, ImageState::ColorAttachmentWrite},
                     {ret.depth, ImageState::DepthAttachmentReadWrite},
                 }},
-                .buffers = StaticArray<BufferTransition, 1>{{
+                .buffers = StaticArray<BufferTransition, 3>{{
                     {inOutDrawStats, BufferState::MeshShaderReadWrite},
+                    {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
+                    {cullerOutput.argumentBuffer,
+                     BufferState::DrawIndirectRead},
                 }},
             });
 
@@ -143,7 +151,7 @@ GBufferRendererOutput GBufferRenderer::record(
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
 
-        const auto &scene = world.currentScene();
+        const Scene &scene = world.currentScene();
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
         const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
@@ -157,7 +165,7 @@ GBufferRendererOutput GBufferRenderer::record(
             worldDSes.geometry[nextFrame];
         descriptorSets[SceneInstancesBindingSet] =
             scene.sceneInstancesDescriptorSet;
-        descriptorSets[DrawStatsBindingSet] = _drawStatsSets[nextFrame];
+        descriptorSets[DrawStatsBindingSet] = _meshSets[nextFrame];
 
         const StaticArray dynamicOffsets{{
             cam.bufferOffset(),
@@ -177,48 +185,22 @@ GBufferRendererOutput GBufferRenderer::record(
 
         setViewportScissor(cb, renderArea);
 
-        const Span<const Model> models = world.models();
-        const Span<const Material> materials = world.materials();
-        const Span<const MeshInfo> meshInfos = world.meshInfos();
-        uint32_t drawInstanceID = 0;
-        for (const auto &instance : scene.modelInstances)
-        {
-            const auto &model = models[instance.modelID];
-            for (const auto &subModel : model.subModels)
-            {
-                const auto &material = materials[subModel.materialID];
-                const auto &info = meshInfos[subModel.meshID];
-                // 0 means invalid or not yet loaded
-                if (info.indexCount > 0)
-                {
+        const PCBlock pcBlock{
+            .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
+        };
+        cb.pushConstants(
+            _pipelineLayout, vk::ShaderStageFlagBits::eMeshEXT,
+            0, // offset
+            sizeof(PCBlock), &pcBlock);
 
-                    if (material.alphaMode != Material::AlphaMode::Blend)
-                    {
-                        // TODO: Push buffers and offsets
-                        const PCBlock pcBlock{
-                            .drawInstanceID = drawInstanceID,
-                            .previousTransformValid =
-                                scene.previousTransformsValid ? 1u : 0u,
-                        };
-                        cb.pushConstants(
-                            _pipelineLayout,
-                            vk::ShaderStageFlagBits::eMeshEXT |
-                                vk::ShaderStageFlagBits::eFragment,
-                            0, // offset
-                            sizeof(PCBlock), &pcBlock);
-
-                        cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
-
-                        sceneStats->totalMeshCount++;
-                        sceneStats->totalTriangleCount += info.indexCount / 3;
-                        sceneStats->totalMeshletCount += info.meshletCount;
-                    }
-                }
-                drawInstanceID++;
-            }
-        }
+        const vk::Buffer argumentHandle =
+            _resources->buffers.nativeHandle(cullerOutput.argumentBuffer);
+        cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
 
         cb.endRendering();
+
+        _resources->buffers.release(cullerOutput.dataBuffer);
+        _resources->buffers.release(cullerOutput.argumentBuffer);
     }
 
     return ret;
@@ -235,7 +217,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         meshDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
-    appendDefineStr(meshDefines, "DRAW_STATS_SET", DrawStatsBindingSet);
+    appendDefineStr(meshDefines, "MESH_SHADER_SET", DrawStatsBindingSet);
     appendDefineStr(meshDefines, "USE_GBUFFER_PC");
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
@@ -283,8 +265,6 @@ bool GBufferRenderer::compileShaders(
             sizeof(PCBlock) == _meshReflection->pushConstantsBytesize());
 
         _fragReflection = WHEELS_MOV(fragResult->reflection);
-        WHEELS_ASSERT(
-            sizeof(PCBlock) == _fragReflection->pushConstantsBytesize());
 
         _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
@@ -314,29 +294,34 @@ void GBufferRenderer::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(_meshReflection.has_value());
-    _drawStatsLayout = _meshReflection->createDescriptorSetLayout(
+    _meshSetLayout = _meshReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), *_device, DrawStatsBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _drawStatsLayout};
-    staticDescriptorsAlloc->allocate(layouts, _drawStatsSets);
+        _meshSetLayout};
+    staticDescriptorsAlloc->allocate(layouts, _meshSets);
 }
 
 void GBufferRenderer::updateDescriptorSet(
-    ScopedScratch scopeAlloc, uint32_t nextFrame, BufferHandle inOutDrawStats)
+    ScopedScratch scopeAlloc, uint32_t nextFrame,
+    const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = _drawStatsSets[nextFrame];
+    const vk::DescriptorSet ds = _meshSets[nextFrame];
 
-    const StaticArray infos{
+    const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = _resources->buffers.resource(inOutDrawStats).handle,
+            .buffer = _resources->buffers.nativeHandle(inOutDrawStats),
             .range = VK_WHOLE_SIZE,
         }},
-    };
+        DescriptorInfo{vk::DescriptorBufferInfo{
+            .buffer = _resources->buffers.nativeHandle(cullerOutput.dataBuffer),
+            .range = VK_WHOLE_SIZE,
+        }},
+    }};
 
     WHEELS_ASSERT(_meshReflection.has_value());
     const wheels::Array descriptorWrites =
@@ -436,11 +421,10 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = worldDSLayouts.geometry;
     setLayouts[SceneInstancesBindingSet] = worldDSLayouts.sceneInstances;
-    setLayouts[DrawStatsBindingSet] = _drawStatsLayout;
+    setLayouts[DrawStatsBindingSet] = _meshSetLayout;
 
     const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
-                      vk::ShaderStageFlagBits::eFragment,
+        .stageFlags = vk::ShaderStageFlagBits::eMeshEXT,
         .offset = 0,
         .size = sizeof(PCBlock),
     };

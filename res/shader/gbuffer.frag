@@ -4,7 +4,6 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "gbuffer_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/instances.glsl"
 #include "scene/materials.glsl"
@@ -20,7 +19,11 @@ layout(location = 0) in InVertex
 }
 inVertex;
 
-layout(location = 9) in InPrimitive { flat uint meshletID; }
+layout(location = 9) in InPrimitive
+{
+    flat uint drawInstanceID;
+    flat uint meshletID;
+}
 inPrimitive;
 
 layout(location = 0) out vec4 outAlbedoRoughness;
@@ -43,7 +46,7 @@ mat3 generateTBN()
 
 void main()
 {
-    DrawInstance instance = drawInstances.instance[PC.DrawInstanceID];
+    DrawInstance instance = drawInstances.instance[inPrimitive.drawInstanceID];
     Material material = sampleMaterial(instance.materialID, inVertex.texCoord0);
 
     // Early out if alpha test failed / zero alpha

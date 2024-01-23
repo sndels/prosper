@@ -45,9 +45,9 @@ class GBufferRenderer
 
     [[nodiscard]] GBufferRendererOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        BufferHandle inOutDrawStats, uint32_t nextFrame, SceneStats *sceneStats,
-        Profiler *profiler);
+        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+        const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
+        uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -58,7 +58,7 @@ class GBufferRenderer
         DescriptorAllocator *staticDescriptorsAlloc);
     void updateDescriptorSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
-        BufferHandle inOutDrawStats);
+        const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats);
 
     void destroyGraphicsPipeline();
 
@@ -87,8 +87,8 @@ class GBufferRenderer
     vk::PipelineLayout _pipelineLayout;
     vk::Pipeline _pipeline;
 
-    vk::DescriptorSetLayout _drawStatsLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _drawStatsSets{
+    vk::DescriptorSetLayout _meshSetLayout;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _meshSets{
         VK_NULL_HANDLE};
 };
 

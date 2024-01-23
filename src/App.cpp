@@ -25,6 +25,7 @@
 #include "render/ImGuiRenderer.hpp"
 #include "render/ImageBasedLighting.hpp"
 #include "render/LightClustering.hpp"
+#include "render/MeshletCuller.hpp"
 #include "render/RenderResources.hpp"
 #include "render/RtReference.hpp"
 #include "render/SkyboxRenderer.hpp"
@@ -177,6 +178,8 @@ App::App(const Settings &settings)
     _temporalAntiAliasing = std::make_unique<TemporalAntiAliasing>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
+    _meshletCuller =
+        std::make_unique<MeshletCuller>(_device.get(), _resources.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -230,6 +233,7 @@ void App::run()
 
         _resources->startFrame();
         _world->startFrame();
+        _meshletCuller->startFrame();
 
         drawFrame(
             scopeAlloc.child_scope(),
@@ -1337,9 +1341,9 @@ void App::render(
         if (_renderDeferred)
         {
             const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
-                scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
-                drawStats, indices.nextFrame, &_sceneStats[indices.nextFrame],
-                _profiler.get());
+                scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
+                *_cam, renderArea, drawStats, indices.nextFrame,
+                &_sceneStats[indices.nextFrame], _profiler.get());
 
             if (_deferredRt)
                 illumination =
@@ -1377,8 +1381,9 @@ void App::render(
 
             const ForwardRenderer::OpaqueOutput output =
                 _forwardRenderer->recordOpaque(
-                    scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
-                    lightClusters, drawStats, indices.nextFrame, _applyIbl,
+                    scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
+                    *_cam, renderArea, lightClusters, drawStats,
+                    indices.nextFrame, _applyIbl,
                     &_sceneStats[indices.nextFrame], _profiler.get());
             illumination = output.illumination;
             velocity = output.velocity;
@@ -1396,7 +1401,7 @@ void App::render(
 
         // Transparent
         _forwardRenderer->recordTransparent(
-            scopeAlloc.child_scope(), cb, *_world, *_cam,
+            scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world, *_cam,
             ForwardRenderer::TransparentInOut{
                 .illumination = illumination,
                 .depth = depth,

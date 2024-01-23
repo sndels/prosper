@@ -17,12 +17,23 @@
 #include "scene/geometry.glsl"
 #include "scene/instances.glsl"
 
-layout(std430, set = DRAW_STATS_SET, binding = 0) buffer DrawStats
+layout(std430, set = MESH_SHADER_SET, binding = 0) buffer DrawStats
 {
     uint drawnMeshletCount;
     uint rasterizedTriangleCount;
 }
 drawStats;
+
+struct MeshletInstance
+{
+    uint drawInstanceID;
+    uint meshletID;
+};
+layout(std430, set = MESH_SHADER_SET, binding = 1) buffer MeshletInstances
+{
+    MeshletInstance instance[];
+}
+meshletInstances;
 
 layout(local_size_x = LOCAL_SIZE_X) in;
 layout(
@@ -43,7 +54,11 @@ layout(location = 0) out OutVertex
 }
 outVertices[];
 
-layout(location = 9) perprimitiveEXT out OutPrimitive { uint meshletID; }
+layout(location = 9) perprimitiveEXT out OutPrimitive
+{
+    uint drawInstanceID;
+    uint meshletID;
+}
 outPrimitives[];
 
 float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, 1)); }
@@ -114,12 +129,15 @@ shared bool groupMeshletCulled;
 
 void main()
 {
-    uint meshletID = gl_WorkGroupID.x;
     uint threadID = gl_LocalInvocationIndex;
 
-    DrawInstance instance = drawInstances.instance[PC.DrawInstanceID];
+    MeshletInstance meshletInstance =
+        meshletInstances.instance[gl_WorkGroupID.x];
+    DrawInstance instance =
+        drawInstances.instance[meshletInstance.drawInstanceID];
     GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
-    MeshletInfo meshletInfo = loadMeshletInfo(metadata, meshletID);
+    MeshletInfo meshletInfo =
+        loadMeshletInfo(metadata, meshletInstance.meshletID);
 
     // TODO:
     // Cull in a task shader instead if those are available?
@@ -139,7 +157,8 @@ void main()
         float scale = modelInstanceScales.instance[instance.modelInstanceID];
         if (scale != 0.)
         {
-            MeshletBounds bounds = loadMeshletBounds(metadata, meshletID);
+            MeshletBounds bounds =
+                loadMeshletBounds(metadata, meshletInstance.meshletID);
             transformBounds(bounds, trfn, scale);
 
             groupMeshletCulled = isSphereOutsideFrustum(bounds);
@@ -172,7 +191,8 @@ void main()
 
     if (threadID < meshletInfo.triangleCount)
     {
-        outPrimitives[threadID].meshletID = meshletID;
+        outPrimitives[threadID].drawInstanceID = meshletInstance.drawInstanceID;
+        outPrimitives[threadID].meshletID = meshletInstance.meshletID;
         gl_MeshPrimitivesEXT[threadID].gl_PrimitiveID = int(threadID);
 
         uvec3 triIndices = loadMeshletTriangle(metadata, meshletInfo, threadID);

@@ -139,6 +139,7 @@ class App
     std::unique_ptr<DepthOfField> _depthOfField;
     std::unique_ptr<ImageBasedLighting> _imageBasedLighting;
     std::unique_ptr<TemporalAntiAliasing> _temporalAntiAliasing;
+    std::unique_ptr<MeshletCuller> _meshletCuller;
 
     std::unique_ptr<Profiler> _profiler;
 
