@@ -16,6 +16,7 @@
 #include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
+#include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
 
@@ -41,7 +42,6 @@ enum BindingSet : uint32_t
 
 struct PCBlock
 {
-    uint32_t drawInstanceID{0xFFFFFFFF};
     uint32_t drawType{0};
     uint32_t ibl{0};
     uint32_t previousTransformValid{0};
@@ -79,7 +79,7 @@ ForwardRenderer::~ForwardRenderer()
     {
         destroyGraphicsPipelines();
 
-        _device->logical().destroy(_drawStatsLayout);
+        _device->logical().destroy(_meshSetLayout);
 
         for (auto const &stage : _shaderStages)
             _device->logical().destroyShaderModule(stage.module);
@@ -110,11 +110,11 @@ void ForwardRenderer::drawUi()
 }
 
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Rect2D &renderArea,
-    const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, bool applyIbl, SceneStats *sceneStats,
-    Profiler *profiler)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+    const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
+    BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
+    SceneStats *sceneStats, Profiler *profiler)
 {
     OpaqueOutput ret;
     ret.illumination =
@@ -123,7 +123,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ret.depth = createDepth(*_device, *_resources, renderArea.extent, "depth");
 
     record(
-        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
+        WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
         RecordInOut{
             .illumination = ret.illumination,
             .velocity = ret.velocity,
@@ -136,13 +136,14 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 }
 
 void ForwardRenderer::recordTransparent(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const TransparentInOut &inOutTargets,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+    const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
     uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
 {
     record(
-        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
+        WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
         RecordInOut{
             .illumination = inOutTargets.illumination,
             .depth = inOutTargets.depth,
@@ -162,7 +163,7 @@ bool ForwardRenderer::compileShaders(
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         meshDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
-    appendDefineStr(meshDefines, "DRAW_STATS_SET", DrawStatsBindingSet);
+    appendDefineStr(meshDefines, "MESH_SHADER_SET", DrawStatsBindingSet);
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
     appendDefineStr(
@@ -249,31 +250,35 @@ void ForwardRenderer::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(_meshReflection.has_value());
-    _drawStatsLayout = _meshReflection->createDescriptorSetLayout(
+    _meshSetLayout = _meshReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), *_device, DrawStatsBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT * 2>
-        layouts{_drawStatsLayout};
-    staticDescriptorsAlloc->allocate(layouts, _drawStatsSets);
+        layouts{_meshSetLayout};
+    staticDescriptorsAlloc->allocate(layouts, _meshSets);
 }
 
 void ForwardRenderer::updateDescriptorSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame, bool transparents,
-    BufferHandle inOutDrawStats)
+    const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = _drawStatsSets
-        [nextFrame * MAX_FRAMES_IN_FLIGHT + (transparents ? 1u : 0u)];
+    const vk::DescriptorSet ds =
+        _meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + (transparents ? 1u : 0u)];
 
-    const StaticArray infos{
+    const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = _resources->buffers.resource(inOutDrawStats).handle,
+            .buffer = _resources->buffers.nativeHandle(inOutDrawStats),
             .range = VK_WHOLE_SIZE,
         }},
-    };
+        DescriptorInfo{vk::DescriptorBufferInfo{
+            .buffer = _resources->buffers.nativeHandle(cullerOutput.dataBuffer),
+            .range = VK_WHOLE_SIZE,
+        }},
+    }};
 
     WHEELS_ASSERT(_meshReflection.has_value());
     const wheels::Array descriptorWrites =
@@ -304,7 +309,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     setLayouts[GeometryBuffersBindingSet] = dsLayouts.world.geometry;
     setLayouts[SceneInstancesBindingSet] = dsLayouts.world.sceneInstances;
     setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
-    setLayouts[DrawStatsBindingSet] = _drawStatsLayout;
+    setLayouts[DrawStatsBindingSet] = _meshSetLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
@@ -369,12 +374,14 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     }
 }
 void ForwardRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const uint32_t nextFrame,
-    const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
-    BufferHandle inOutDrawStats, const Options &options, SceneStats *sceneStats,
-    Profiler *profiler, const char *debugName)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+    const uint32_t nextFrame, const RecordInOut &inOutTargets,
+    const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
+    const Options &options, SceneStats *sceneStats, Profiler *profiler,
+    const char *debugName)
 {
+    WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
@@ -382,12 +389,21 @@ void ForwardRenderer::record(
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
+    const MeshletCuller::Mode cullerMode =
+        options.transparents ? MeshletCuller::Mode::Transparent
+                             : MeshletCuller::Mode::Opaque;
+    const char *cullerDebugPrefix =
+        options.transparents ? "Transparent" : "Opaque";
+    const MeshletCullerOutput cullerOutput = meshletCuller->record(
+        scopeAlloc.child_scope(), cb, cullerMode, world, cam, nextFrame,
+        cullerDebugPrefix, sceneStats, profiler);
+
     updateDescriptorSet(
-        scopeAlloc.child_scope(), nextFrame, options.transparents,
+        scopeAlloc.child_scope(), nextFrame, options.transparents, cullerOutput,
         inOutDrawStats);
 
     recordBarriers(
-        WHEELS_MOV(scopeAlloc), cb, inOutTargets, lightClusters,
+        WHEELS_MOV(scopeAlloc), cb, inOutTargets, lightClusters, cullerOutput,
         inOutDrawStats);
 
     const Attachments attachments =
@@ -407,7 +423,7 @@ void ForwardRenderer::record(
     cb.bindPipeline(
         vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
 
-    const auto &scene = world.currentScene();
+    const Scene &scene = world.currentScene();
     const WorldDescriptorSets &worldDSes = world.descriptorSets();
     const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
@@ -424,7 +440,7 @@ void ForwardRenderer::record(
         scene.sceneInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
     descriptorSets[DrawStatsBindingSet] =
-        _drawStatsSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
+        _meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
 
     const StaticArray dynamicOffsets{{
         worldByteOffsets.directionalLight,
@@ -445,59 +461,31 @@ void ForwardRenderer::record(
 
     setViewportScissor(cb, renderArea);
 
-    const Span<const Model> models = world.models();
-    const Span<const Material> materials = world.materials();
-    const Span<const MeshInfo> meshInfos = world.meshInfos();
+    const PCBlock pcBlock{
+        .drawType = static_cast<uint32_t>(_drawType),
+        .ibl = static_cast<uint32_t>(options.ibl),
+        .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
+    };
+    cb.pushConstants(
+        _pipelineLayout,
+        vk::ShaderStageFlagBits::eMeshEXT | vk::ShaderStageFlagBits::eFragment,
+        0, // offset
+        sizeof(PCBlock), &pcBlock);
 
-    uint32_t drawInstanceID = 0;
-    for (const auto &instance : scene.modelInstances)
-    {
-        const auto &model = models[instance.modelID];
-        for (const auto &subModel : model.subModels)
-        {
-            const auto &material = materials[subModel.materialID];
-            const auto &info = meshInfos[subModel.meshID];
-            // 0 means invalid or not yet loaded
-            if (info.indexCount > 0)
-            {
-                const auto isTransparent =
-                    material.alphaMode == Material::AlphaMode::Blend;
-                if ((options.transparents && isTransparent) ||
-                    (!options.transparents && !isTransparent))
-                {
-                    // TODO: Push buffers and offsets
-                    const PCBlock pcBlock{
-                        .drawInstanceID = drawInstanceID,
-                        .drawType = static_cast<uint32_t>(_drawType),
-                        .ibl = static_cast<uint32_t>(options.ibl),
-                        .previousTransformValid =
-                            scene.previousTransformsValid ? 1u : 0u,
-                    };
-                    cb.pushConstants(
-                        _pipelineLayout,
-                        vk::ShaderStageFlagBits::eMeshEXT |
-                            vk::ShaderStageFlagBits::eFragment,
-                        0, // offset
-                        sizeof(PCBlock), &pcBlock);
-
-                    cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
-
-                    sceneStats->totalMeshCount++;
-                    sceneStats->totalTriangleCount += info.indexCount / 3;
-                    sceneStats->totalMeshletCount += info.meshletCount;
-                }
-            }
-            drawInstanceID++;
-        }
-    }
+    const vk::Buffer argumentHandle =
+        _resources->buffers.nativeHandle(cullerOutput.argumentBuffer);
+    cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
 
     cb.endRendering();
+
+    _resources->buffers.release(cullerOutput.dataBuffer);
+    _resources->buffers.release(cullerOutput.argumentBuffer);
 }
 
 void ForwardRenderer::recordBarriers(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
-    BufferHandle inOutDrawStats) const
+    const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats) const
 {
     if (inOutTargets.velocity.isValid())
     {
@@ -512,10 +500,12 @@ void ForwardRenderer::recordBarriers(
                     {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                     {lightClusters.pointers, ImageState::FragmentShaderRead},
                 }},
-                .buffers =
-                    StaticArray<BufferTransition, 1>{
-                        {inOutDrawStats, BufferState::MeshShaderReadWrite},
-                    },
+                .buffers = StaticArray<BufferTransition, 3>{{
+                    {inOutDrawStats, BufferState::MeshShaderReadWrite},
+                    {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
+                    {cullerOutput.argumentBuffer,
+                     BufferState::DrawIndirectRead},
+                }},
                 .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
                     {lightClusters.indicesCount,
                      BufferState::FragmentShaderRead},
@@ -534,10 +524,12 @@ void ForwardRenderer::recordBarriers(
                     {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                     {lightClusters.pointers, ImageState::FragmentShaderRead},
                 }},
-                .buffers =
-                    StaticArray<BufferTransition, 1>{
-                        {inOutDrawStats, BufferState::MeshShaderReadWrite},
-                    },
+                .buffers = StaticArray<BufferTransition, 3>{{
+                    {inOutDrawStats, BufferState::MeshShaderReadWrite},
+                    {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
+                    {cullerOutput.argumentBuffer,
+                     BufferState::DrawIndirectRead},
+                }},
                 .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
                     {lightClusters.indicesCount,
                      BufferState::FragmentShaderRead},

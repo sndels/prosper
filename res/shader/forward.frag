@@ -28,7 +28,11 @@ layout(location = 0) in InVertex
 }
 inVertex;
 
-layout(location = 9) in InPrimitive { flat uint meshletID; }
+layout(location = 9) in InPrimitive
+{
+    flat uint drawInstanceID;
+    flat uint meshletID;
+}
 inPrimitive;
 
 layout(location = 0) out vec4 outColor;
@@ -50,7 +54,7 @@ mat3 generateTBN()
 
 void main()
 {
-    DrawInstance instance = drawInstances.instance[PC.DrawInstanceID];
+    DrawInstance instance = drawInstances.instance[inPrimitive.drawInstanceID];
 
     VisibleSurface surface;
     surface.positionWS = inVertex.positionWorld;

@@ -61,17 +61,10 @@ layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
 }
 geometryBuffersF32[];
 
-#ifdef NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 #define GET_GEOMETRY_BUFFER_U32(index) geometryBuffersU32[nonuniformEXT(index)]
 #define GET_GEOMETRY_BUFFER_U16(index) geometryBuffersU16[nonuniformEXT(index)]
 #define GET_GEOMETRY_BUFFER_U8(index) geometryBuffersU8[nonuniformEXT(index)]
 #define GET_GEOMETRY_BUFFER_F32(index) geometryBuffersF32[nonuniformEXT(index)]
-#else // !NON_UNIFORM_GEOMETRY_BUFFER_INDICES
-#define GET_GEOMETRY_BUFFER_U32(index) geometryBuffersU32[index]
-#define GET_GEOMETRY_BUFFER_U16(index) geometryBuffersU16[index]
-#define GET_GEOMETRY_BUFFER_U8(index) geometryBuffersU8[index]
-#define GET_GEOMETRY_BUFFER_F32(index) geometryBuffersF32[index]
-#endif // NON_UNIFORM_GEOMETRY_BUFFER_INDICES
 
 uint loadIndex(
     uint bufferIndex, uint bufferOffset, uint index, uint usesShortIndices)

@@ -50,17 +50,8 @@ vec3 sRGBtoLinear(vec3 v)
 // Alpha shouldn't be converted
 vec4 sRGBtoLinear(vec4 v) { return vec4(sRGBtoLinear(v.rgb), v.a); }
 
-#ifdef NON_UNIFORM_MATERIAL_INDICES
 #define GET_MATERIAL_TEXTURE(index) materialTextures[nonuniformEXT(index)]
-#else // !NON_UNIFORM_MATERIAL_INDICES
-#define GET_MATERIAL_TEXTURE(index) materialTextures[index]
-#endif // NON_UNIFORM_MATERIAL_INDICES
-
-#ifdef NON_UNIFORM_MATERIAL_INDICES
 #define GET_MATERIAL_SAMPLER(index) materialSamplers[nonuniformEXT(index)]
-#else // !NON_UNIFORM_MATERIAL_INDICES
-#define GET_MATERIAL_SAMPLER(index) materialSamplers[index]
-#endif // NON_UNIFORM_MATERIAL_INDICES
 
 #ifdef USE_MATERIAL_LOD_BIAS
 #define sampleMaterialTexture(smplr, uv)                                       \

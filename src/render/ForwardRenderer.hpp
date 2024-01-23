@@ -55,7 +55,8 @@ class ForwardRenderer
     };
     [[nodiscard]] OpaqueOutput recordOpaque(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+        const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         uint32_t nextFrame, bool applyIbl, SceneStats *sceneStats,
         Profiler *profiler);
@@ -67,7 +68,7 @@ class ForwardRenderer
     };
     void recordTransparent(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam,
+        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler);
@@ -79,9 +80,10 @@ class ForwardRenderer
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
+
     void updateDescriptorSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame, bool transparents,
-        BufferHandle inOutDrawStats);
+        const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats);
 
     void destroyGraphicsPipelines();
     void createGraphicsPipelines(const InputDSLayouts &dsLayouts);
@@ -99,8 +101,8 @@ class ForwardRenderer
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, uint32_t nextFrame,
-        const RecordInOut &inOutTargets,
+        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+        uint32_t nextFrame, const RecordInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         const Options &options, SceneStats *sceneStats, Profiler *profiler,
         const char *debugName);
@@ -108,6 +110,7 @@ class ForwardRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const RecordInOut &inOutTargets,
         const LightClusteringOutput &lightClusters,
+        const MeshletCullerOutput &cullerOutput,
         BufferHandle inOutDrawStats) const;
 
     struct Attachments
@@ -132,10 +135,10 @@ class ForwardRenderer
     vk::PipelineLayout _pipelineLayout;
     wheels::StaticArray<vk::Pipeline, 2> _pipelines;
 
-    vk::DescriptorSetLayout _drawStatsLayout;
+    vk::DescriptorSetLayout _meshSetLayout;
     // Separate sets for transparents and opaque
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT * 2>
-        _drawStatsSets{VK_NULL_HANDLE};
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT * 2> _meshSets{
+        VK_NULL_HANDLE};
 
     DrawType _drawType{DrawType::Default};
 };
