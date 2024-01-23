@@ -1745,6 +1745,7 @@ void WorldData::createDescriptorSets(
         _sceneInstancesReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sSceneInstancesReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
+                vk::ShaderStageFlagBits::eFragment |
                 vk::ShaderStageFlagBits::eRaygenKHR |
                 vk::ShaderStageFlagBits::eAnyHitKHR |
                 vk::ShaderStageFlagBits::eMeshEXT);

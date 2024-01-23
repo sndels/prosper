@@ -41,9 +41,7 @@ enum BindingSet : uint32_t
 
 struct PCBlock
 {
-    uint32_t modelInstanceID{0xFFFFFFFF};
-    uint32_t meshID{0xFFFFFFFF};
-    uint32_t materialID{0xFFFFFFFF};
+    uint32_t drawInstanceID{0xFFFFFFFF};
     uint32_t drawType{0};
     uint32_t ibl{0};
     uint32_t previousTransformValid{0};
@@ -179,7 +177,7 @@ bool ForwardRenderer::compileShaders(
                                           .defines = meshDefines,
                                       });
 
-    const size_t fragDefsLen = 675;
+    const size_t fragDefsLen = 705;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
@@ -190,6 +188,8 @@ bool ForwardRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
+    appendDefineStr(
+        fragDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(fragDefines, "SKYBOX_SET", SkyboxBindingSet);
     appendEnumVariantsAsDefines(
         fragDefines, "DrawType",
@@ -449,6 +449,7 @@ void ForwardRenderer::record(
     const Span<const Material> materials = world.materials();
     const Span<const MeshInfo> meshInfos = world.meshInfos();
 
+    uint32_t drawInstanceID = 0;
     for (const auto &instance : scene.modelInstances)
     {
         const auto &model = models[instance.modelID];
@@ -456,38 +457,37 @@ void ForwardRenderer::record(
         {
             const auto &material = materials[subModel.materialID];
             const auto &info = meshInfos[subModel.meshID];
-            if (info.indexCount == 0)
-                // Invalid or not yet loaded
-                continue;
-
-            const auto isTransparent =
-                material.alphaMode == Material::AlphaMode::Blend;
-            if ((options.transparents && isTransparent) ||
-                (!options.transparents && !isTransparent))
+            // 0 means invalid or not yet loaded
+            if (info.indexCount > 0)
             {
-                // TODO: Push buffers and offsets
-                const PCBlock pcBlock{
-                    .modelInstanceID = instance.id,
-                    .meshID = subModel.meshID,
-                    .materialID = subModel.materialID,
-                    .drawType = static_cast<uint32_t>(_drawType),
-                    .ibl = static_cast<uint32_t>(options.ibl),
-                    .previousTransformValid =
-                        instance.previousTransformValid ? 1u : 0u,
-                };
-                cb.pushConstants(
-                    _pipelineLayout,
-                    vk::ShaderStageFlagBits::eMeshEXT |
-                        vk::ShaderStageFlagBits::eFragment,
-                    0, // offset
-                    sizeof(PCBlock), &pcBlock);
+                const auto isTransparent =
+                    material.alphaMode == Material::AlphaMode::Blend;
+                if ((options.transparents && isTransparent) ||
+                    (!options.transparents && !isTransparent))
+                {
+                    // TODO: Push buffers and offsets
+                    const PCBlock pcBlock{
+                        .drawInstanceID = drawInstanceID,
+                        .drawType = static_cast<uint32_t>(_drawType),
+                        .ibl = static_cast<uint32_t>(options.ibl),
+                        .previousTransformValid =
+                            instance.previousTransformValid ? 1u : 0u,
+                    };
+                    cb.pushConstants(
+                        _pipelineLayout,
+                        vk::ShaderStageFlagBits::eMeshEXT |
+                            vk::ShaderStageFlagBits::eFragment,
+                        0, // offset
+                        sizeof(PCBlock), &pcBlock);
 
-                cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
+                    cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
 
-                sceneStats->totalMeshCount++;
-                sceneStats->totalTriangleCount += info.indexCount / 3;
-                sceneStats->totalMeshletCount += info.meshletCount;
+                    sceneStats->totalMeshCount++;
+                    sceneStats->totalTriangleCount += info.indexCount / 3;
+                    sceneStats->totalMeshletCount += info.meshletCount;
+                }
             }
+            drawInstanceID++;
         }
     }
 

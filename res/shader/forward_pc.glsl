@@ -4,9 +4,7 @@
 layout(push_constant) uniform ForwardPC
 {
     // Some of these are mirrored between this and GBufferPC
-    uint ModelInstanceID;
-    uint MeshID;
-    uint MaterialID;
+    uint DrawInstanceID;
     uint DrawType;
     uint ibl;
     uint previousTransformValid;

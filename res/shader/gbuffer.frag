@@ -6,6 +6,7 @@
 
 #include "gbuffer_pc.glsl"
 #include "scene/camera.glsl"
+#include "scene/instances.glsl"
 #include "scene/materials.glsl"
 
 layout(location = 0) in InVertex
@@ -42,7 +43,8 @@ mat3 generateTBN()
 
 void main()
 {
-    Material material = sampleMaterial(PC.MaterialID, inVertex.texCoord0);
+    DrawInstance instance = drawInstances.instance[PC.DrawInstanceID];
+    Material material = sampleMaterial(instance.materialID, inVertex.texCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)

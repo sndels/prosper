@@ -75,8 +75,8 @@ bool isConeCapHidden(MeshletBounds bounds)
 }
 
 void writeTransformedVertex(
-    GeometryMetadata metadata, Transforms trfn, uint globalVertexIndex,
-    uint meshletVertexIndex)
+    DrawInstance instance, GeometryMetadata metadata, Transforms trfn,
+    uint globalVertexIndex, uint meshletVertexIndex)
 {
     Vertex vertexModel = loadVertex(metadata, globalVertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
@@ -99,7 +99,8 @@ void writeTransformedVertex(
 
     Transforms prevTrfn = trfn;
     if (PC.previousTransformValid == 1)
-        prevTrfn = previousModelInstanceTransforms.instance[PC.ModelInstanceID];
+        prevTrfn =
+            previousModelInstanceTransforms.instance[instance.modelInstanceID];
     vec3 prevPositionWorld = worldPosition(vertexModel, prevTrfn);
 
     outVertices[meshletVertexIndex].prevPositionNDC =
@@ -116,7 +117,8 @@ void main()
     uint meshletID = gl_WorkGroupID.x;
     uint threadID = gl_LocalInvocationIndex;
 
-    GeometryMetadata metadata = geometryMetadatas.data[PC.MeshID];
+    DrawInstance instance = drawInstances.instance[PC.DrawInstanceID];
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
     MeshletInfo meshletInfo = loadMeshletInfo(metadata, meshletID);
 
     // TODO:
@@ -124,7 +126,8 @@ void main()
     // 680M doesn't have task shaders so do compute culling instead for that?
     // Have just the compute culling pipeline instead of a separate task shader
     // implementation for simplicity?
-    Transforms trfn = modelInstanceTransforms.instance[PC.ModelInstanceID];
+    Transforms trfn =
+        modelInstanceTransforms.instance[instance.modelInstanceID];
 
     // Masking the culling seems to be a bit faster on 680M at least. Probably
     // helps some late subgroups skip this entirely.
@@ -133,7 +136,7 @@ void main()
         groupMeshletCulled = false;
         // 0 scale means that the scale is non-uniform and we can't transfrom
         // the bounds reliably
-        float scale = modelInstanceScales.instance[PC.ModelInstanceID];
+        float scale = modelInstanceScales.instance[instance.modelInstanceID];
         if (scale != 0.)
         {
             MeshletBounds bounds = loadMeshletBounds(metadata, meshletID);
@@ -164,7 +167,7 @@ void main()
         uint vertexIndex =
             loadMeshletVertexIndex(metadata, meshletInfo, threadID);
 
-        writeTransformedVertex(metadata, trfn, vertexIndex, threadID);
+        writeTransformedVertex(instance, metadata, trfn, vertexIndex, threadID);
     }
 
     if (threadID < meshletInfo.triangleCount)
