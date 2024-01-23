@@ -10,6 +10,7 @@
 #include "debug.glsl"
 #include "forward_pc.glsl"
 #include "scene/camera.glsl"
+#include "scene/instances.glsl"
 #include "scene/light_clusters.glsl"
 #include "scene/lighting.glsl"
 #include "scene/lights.glsl"
@@ -49,11 +50,13 @@ mat3 generateTBN()
 
 void main()
 {
+    DrawInstance instance = drawInstances.instance[PC.DrawInstanceID];
+
     VisibleSurface surface;
     surface.positionWS = inVertex.positionWorld;
     surface.invViewRayWS = normalize(camera.eye.xyz - inVertex.positionWorld);
     surface.uv = inVertex.texCoord0;
-    surface.material = sampleMaterial(PC.MaterialID, inVertex.texCoord0);
+    surface.material = sampleMaterial(instance.materialID, inVertex.texCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (surface.material.alpha == 0)
@@ -105,9 +108,9 @@ void main()
         }
 
         DebugInputs di;
-        di.meshID = PC.MeshID;
+        di.meshID = instance.meshID;
         di.primitiveID = gl_PrimitiveID;
-        di.materialID = PC.MaterialID;
+        di.materialID = instance.materialID;
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
         di.texCoord0 = inVertex.texCoord0;

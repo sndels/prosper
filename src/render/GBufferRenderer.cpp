@@ -39,9 +39,7 @@ enum BindingSet : uint32_t
 
 struct PCBlock
 {
-    uint32_t modelInstanceID{0xFFFFFFFF};
-    uint32_t meshID{0xFFFFFFFF};
-    uint32_t materialID{0xFFFFFFFF};
+    uint32_t drawInstanceID{0xFFFFFFFF};
     uint32_t previousTransformValid{0};
 };
 
@@ -182,6 +180,7 @@ GBufferRendererOutput GBufferRenderer::record(
         const Span<const Model> models = world.models();
         const Span<const Material> materials = world.materials();
         const Span<const MeshInfo> meshInfos = world.meshInfos();
+        uint32_t drawInstanceID = 0;
         for (const auto &instance : scene.modelInstances)
         {
             const auto &model = models[instance.modelID];
@@ -189,33 +188,33 @@ GBufferRendererOutput GBufferRenderer::record(
             {
                 const auto &material = materials[subModel.materialID];
                 const auto &info = meshInfos[subModel.meshID];
-                if (info.indexCount == 0)
-                    // Invalid or not yet loaded
-                    continue;
-
-                if (material.alphaMode != Material::AlphaMode::Blend)
+                // 0 means invalid or not yet loaded
+                if (info.indexCount > 0)
                 {
-                    // TODO: Push buffers and offsets
-                    const PCBlock pcBlock{
-                        .modelInstanceID = instance.id,
-                        .meshID = subModel.meshID,
-                        .materialID = subModel.materialID,
-                        .previousTransformValid =
-                            instance.previousTransformValid ? 1u : 0u,
-                    };
-                    cb.pushConstants(
-                        _pipelineLayout,
-                        vk::ShaderStageFlagBits::eMeshEXT |
-                            vk::ShaderStageFlagBits::eFragment,
-                        0, // offset
-                        sizeof(PCBlock), &pcBlock);
 
-                    cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
+                    if (material.alphaMode != Material::AlphaMode::Blend)
+                    {
+                        // TODO: Push buffers and offsets
+                        const PCBlock pcBlock{
+                            .drawInstanceID = drawInstanceID,
+                            .previousTransformValid =
+                                instance.previousTransformValid ? 1u : 0u,
+                        };
+                        cb.pushConstants(
+                            _pipelineLayout,
+                            vk::ShaderStageFlagBits::eMeshEXT |
+                                vk::ShaderStageFlagBits::eFragment,
+                            0, // offset
+                            sizeof(PCBlock), &pcBlock);
 
-                    sceneStats->totalMeshCount++;
-                    sceneStats->totalTriangleCount += info.indexCount / 3;
-                    sceneStats->totalMeshletCount += info.meshletCount;
+                        cb.drawMeshTasksEXT(info.meshletCount, 1, 1);
+
+                        sceneStats->totalMeshCount++;
+                        sceneStats->totalTriangleCount += info.indexCount / 3;
+                        sceneStats->totalMeshletCount += info.meshletCount;
+                    }
                 }
+                drawInstanceID++;
             }
         }
 
@@ -252,7 +251,7 @@ bool GBufferRenderer::compileShaders(
                                           .defines = meshDefines,
                                       });
 
-    const size_t fragDefsLen = 150;
+    const size_t fragDefsLen = 174;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
@@ -261,6 +260,8 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "NUM_MATERIAL_SAMPLERS",
         worldDSLayouts.materialSamplerCount);
+    appendDefineStr(
+        fragDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(fragDefines, "USE_MATERIAL_LOD_BIAS");
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
