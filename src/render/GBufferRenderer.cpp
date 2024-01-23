@@ -198,7 +198,7 @@ GBufferRendererOutput GBufferRenderer::record(
                         const PCBlock pcBlock{
                             .drawInstanceID = drawInstanceID,
                             .previousTransformValid =
-                                instance.previousTransformValid ? 1u : 0u,
+                                scene.previousTransformsValid ? 1u : 0u,
                         };
                         cb.pushConstants(
                             _pipelineLayout,

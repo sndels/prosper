@@ -50,6 +50,7 @@ struct Scene
     float endTimeS{0.f};
 
     wheels::Array<ModelInstance> modelInstances;
+    bool previousTransformsValid{false};
 
     struct DrawInstance
     {

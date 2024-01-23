@@ -471,7 +471,7 @@ void ForwardRenderer::record(
                         .drawType = static_cast<uint32_t>(_drawType),
                         .ibl = static_cast<uint32_t>(options.ibl),
                         .previousTransformValid =
-                            instance.previousTransformValid ? 1u : 0u,
+                            scene.previousTransformsValid ? 1u : 0u,
                     };
                     cb.pushConstants(
                         _pipelineLayout,
