@@ -172,8 +172,7 @@ void World::Impl::startFrame()
             Scene &scene = currentScene();
             // Transforms will be invalid the next time we select the current
             // scene
-            for (ModelInstance &mi : scene.modelInstances)
-                mi.previousTransformValid = false;
+            scene.previousTransformsValid = false;
         }
 
         _data._currentScene = _nextScene.take();
@@ -203,8 +202,7 @@ void World::Impl::startFrame()
 void World::Impl::endFrame()
 {
     Scene &scene = currentScene();
-    for (ModelInstance &mi : scene.modelInstances)
-        mi.previousTransformValid = true;
+    scene.previousTransformsValid = true;
 }
 
 void World::Impl::uploadMeshDatas(
