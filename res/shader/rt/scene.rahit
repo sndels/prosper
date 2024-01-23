@@ -8,6 +8,7 @@
 
 #include "../common/random.glsl"
 #include "../scene/geometry.glsl"
+#include "../scene/instances.glsl"
 #include "../scene/materials.glsl"
 #include "payload.glsl"
 #include "rt_data.glsl"
@@ -17,7 +18,7 @@ hitAttributeEXT vec2 baryCoord;
 
 void main()
 {
-    RTInstance instance = rtInstances.data[gl_InstanceCustomIndexEXT];
+    DrawInstance instance = drawInstances.instance[gl_InstanceCustomIndexEXT];
 
     vec2 uv0 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 0);
     vec2 uv1 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 1);

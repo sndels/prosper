@@ -17,7 +17,7 @@ namespace
 constexpr uint32_t sMaterialDatasReflectionSet = 0;
 constexpr uint32_t sMaterialTexturesReflectionSet = 1;
 constexpr uint32_t sGeometryReflectionSet = 0;
-constexpr uint32_t sInstanceTrfnsReflectionSet = 0;
+constexpr uint32_t sSceneInstancesReflectionSet = 0;
 constexpr uint32_t sLightsReflectionSet = 0;
 constexpr uint32_t sSkyboxReflectionSet = 0;
 
@@ -338,7 +338,7 @@ WorldData::~WorldData()
     _device->logical().destroy(_dsLayouts.lights);
     _device->logical().destroy(_dsLayouts.skybox);
     _device->logical().destroy(_dsLayouts.rayTracing);
-    _device->logical().destroy(_dsLayouts.modelInstances);
+    _device->logical().destroy(_dsLayouts.sceneInstances);
     _device->logical().destroy(_dsLayouts.geometry);
     _device->logical().destroy(_dsLayouts.materialTextures);
     _device->logical().destroy(_dsLayouts.materialDatas);
@@ -365,7 +365,7 @@ WorldData::~WorldData()
         _device->destroy(tlas.buffer);
     }
     for (auto &scene : _scenes)
-        _device->destroy(scene.rtInstancesBuffer);
+        _device->destroy(scene.drawInstancesBuffer);
     for (auto &buffer : _geometryBuffers)
         _device->destroy(buffer);
     for (auto &buffer : _geometryMetadatasBuffers)
@@ -1325,7 +1325,7 @@ void WorldData::gatherScene(
                     .id = *sceneNode.modelInstance,
                     .modelID = *sceneNode.modelID,
                 });
-                scene.rtInstanceCount += asserted_cast<uint32_t>(
+                scene.drawInstanceCount += asserted_cast<uint32_t>(
                     _models[*sceneNode.modelID].subModels.size());
             }
 
@@ -1446,16 +1446,16 @@ void WorldData::createBuffers()
             maxModelInstanceTransforms = std::max(
                 maxModelInstanceTransforms, scene.modelInstances.size());
 
-            scene.rtInstancesBuffer = _device->createBuffer(BufferCreateInfo{
+            scene.drawInstancesBuffer = _device->createBuffer(BufferCreateInfo{
                 .desc =
                     BufferDescription{
-                        .byteSize =
-                            sizeof(Scene::RTInstance) * scene.rtInstanceCount,
+                        .byteSize = sizeof(Scene::DrawInstance) *
+                                    scene.drawInstanceCount,
                         .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                       vk::MemoryPropertyFlagBits::eHostCoherent,
                     },
-                .debugName = "RTInstances",
+                .debugName = "DrawInstances",
             });
         }
 
@@ -1526,11 +1526,11 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
         const size_t len = 64;
         String defines{scopeAlloc, len};
         appendDefineStr(
-            defines, "MODEL_INSTANCE_TRFNS_SET", sInstanceTrfnsReflectionSet);
+            defines, "SCENE_INSTANCES_SET", sSceneInstancesReflectionSet);
         WHEELS_ASSERT(defines.size() <= len);
 
-        _modelInstancesReflection =
-            reflect(defines, "shader/scene/transforms.glsl");
+        _sceneInstancesReflection =
+            reflect(defines, "shader/scene/instances.glsl");
     }
 
     {
@@ -1740,10 +1740,10 @@ void WorldData::createDescriptorSets(
             _device->logical().createDescriptorSetLayout(createInfo);
     }
 
-    WHEELS_ASSERT(_modelInstancesReflection.has_value());
-    _dsLayouts.modelInstances =
-        _modelInstancesReflection->createDescriptorSetLayout(
-            scopeAlloc.child_scope(), *_device, sInstanceTrfnsReflectionSet,
+    WHEELS_ASSERT(_sceneInstancesReflection.has_value());
+    _dsLayouts.sceneInstances =
+        _sceneInstancesReflection->createDescriptorSetLayout(
+            scopeAlloc.child_scope(), *_device, sSceneInstancesReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
                 vk::ShaderStageFlagBits::eRaygenKHR |
                 vk::ShaderStageFlagBits::eAnyHitKHR |
@@ -1794,8 +1794,8 @@ void WorldData::createDescriptorSets(
     {
         Scene &scene = _scenes[i];
         {
-            scene.modelInstancesDescriptorSet =
-                _descriptorAllocator.allocate(_dsLayouts.modelInstances);
+            scene.sceneInstancesDescriptorSet =
+                _descriptorAllocator.allocate(_dsLayouts.sceneInstances);
 
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1812,11 +1812,15 @@ void WorldData::createDescriptorSets(
                     .buffer = _modelInstanceTransformsRing->buffer(),
                     .range = scene.modelInstances.size() * sizeof(float),
                 }},
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = scene.drawInstancesBuffer.handle,
+                    .range = VK_WHOLE_SIZE,
+                }},
             }};
             const Array descriptorWrites =
-                _modelInstancesReflection->generateDescriptorWrites(
-                    scopeAlloc, sInstanceTrfnsReflectionSet,
-                    scene.modelInstancesDescriptorSet, descriptorInfos);
+                _sceneInstancesReflection->generateDescriptorWrites(
+                    scopeAlloc, sSceneInstancesReflectionSet,
+                    scene.sceneInstancesDescriptorSet, descriptorInfos);
 
             _device->logical().updateDescriptorSets(
                 asserted_cast<uint32_t>(descriptorWrites.size()),

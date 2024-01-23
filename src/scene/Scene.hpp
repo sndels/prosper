@@ -51,15 +51,15 @@ struct Scene
 
     wheels::Array<ModelInstance> modelInstances;
 
-    struct RTInstance
+    struct DrawInstance
     {
         uint32_t modelInstanceID{0};
         uint32_t meshID{0xFFFFFFFF};
         uint32_t materialID{0xFFFFFFFF};
     };
-    uint32_t rtInstanceCount{0};
-    Buffer rtInstancesBuffer;
-    vk::DescriptorSet modelInstancesDescriptorSet;
+    uint32_t drawInstanceCount{0};
+    Buffer drawInstancesBuffer;
+    vk::DescriptorSet sceneInstancesDescriptorSet;
     vk::DescriptorSet rtDescriptorSet;
 
     Lights lights;

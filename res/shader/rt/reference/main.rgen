@@ -13,10 +13,10 @@
 #include "../../debug.glsl"
 #include "../../scene/camera.glsl"
 #include "../../scene/geometry.glsl"
+#include "../../scene/instances.glsl"
 #include "../../scene/lighting.glsl"
 #include "../../scene/materials.glsl"
 #include "../../scene/skybox.glsl"
-#include "../../scene/transforms.glsl"
 #include "../ray.glsl"
 #include "../rt_data.glsl"
 
@@ -129,7 +129,7 @@ void importanceSampleBounce(
 
 VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 {
-    RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
+    DrawInstance instance = drawInstances.instance[hit.instanceCustomIndex];
 
     Transforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceID];
@@ -166,7 +166,7 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 
 vec3 debugColor(RayPayload hit, VisibleSurface surface)
 {
-    RTInstance instance = rtInstances.data[hit.instanceCustomIndex];
+    DrawInstance instance = drawInstances.instance[hit.instanceCustomIndex];
 
     DebugInputs di;
     di.meshID = instance.meshID;

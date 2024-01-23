@@ -33,7 +33,7 @@ enum BindingSet : uint32_t
     MaterialDatasBindingSet,
     MaterialTexturesBindingSet,
     GeometryBuffersBindingSet,
-    ModelInstanceTrfnsBindingSet,
+    SceneInstancesBindingSet,
     SkyboxBindingSet,
     DrawStatsBindingSet,
     BindingSetCount,
@@ -163,7 +163,7 @@ bool ForwardRenderer::compileShaders(
     appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
-        meshDefines, "MODEL_INSTANCE_TRFNS_SET", ModelInstanceTrfnsBindingSet);
+        meshDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(meshDefines, "DRAW_STATS_SET", DrawStatsBindingSet);
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
@@ -302,7 +302,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     setLayouts[MaterialDatasBindingSet] = dsLayouts.world.materialDatas;
     setLayouts[MaterialTexturesBindingSet] = dsLayouts.world.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = dsLayouts.world.geometry;
-    setLayouts[ModelInstanceTrfnsBindingSet] = dsLayouts.world.modelInstances;
+    setLayouts[SceneInstancesBindingSet] = dsLayouts.world.sceneInstances;
     setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
     setLayouts[DrawStatsBindingSet] = _drawStatsLayout;
 
@@ -420,8 +420,8 @@ void ForwardRenderer::record(
         worldDSes.materialDatas[nextFrame];
     descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
     descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry[nextFrame];
-    descriptorSets[ModelInstanceTrfnsBindingSet] =
-        scene.modelInstancesDescriptorSet;
+    descriptorSets[SceneInstancesBindingSet] =
+        scene.sceneInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
     descriptorSets[DrawStatsBindingSet] =
         _drawStatsSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
