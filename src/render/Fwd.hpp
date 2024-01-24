@@ -33,6 +33,10 @@ class LightClustering;
 class LightClustering;
 struct LightClusteringOutput;
 
+// MeshletCuller.hpp
+struct MeshletCullerOutput;
+class MeshletCuller;
+
 // RenderResources.hpp
 class RenderResources;
 
