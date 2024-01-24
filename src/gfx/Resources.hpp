@@ -21,17 +21,19 @@ enum class BufferState : uint32_t
     StageRayTracingShader = 0x10,
     StageTaskShader = 0x20,
     StageMeshShader = 0x40,
+    StageDrawIndirect = 0x80,
 
     // Access
     // Covers sampled and storage reads
-    AccessShaderRead = 0x80,
-    AccessShaderWrite = 0x100,
+    AccessShaderRead = 0x100,
+    AccessShaderWrite = 0x200,
     // Covers copy, blit, resolve and clear
-    AccessTransferRead = 0x200,
+    AccessTransferRead = 0x400,
     // Covers copy, blit, resolve and clear
-    AccessTransferWrite = 0x400,
-    AccessAccelerationStructureRead = 0x800,
-    AccessAccelerationStructureWrite = 0x1000,
+    AccessTransferWrite = 0x800,
+    AccessAccelerationStructureRead = 0x1000,
+    AccessAccelerationStructureWrite = 0x2000,
+    AccessIndirectCommandRead = 0x4000,
 
     // Combined Masks
     FragmentShaderRead = StageFragmentShader | AccessShaderRead,
@@ -53,6 +55,7 @@ enum class BufferState : uint32_t
     MeshShaderWrite = StageMeshShader | AccessShaderWrite,
     MeshShaderReadWrite =
         StageMeshShader | AccessShaderRead | AccessShaderWrite,
+    DrawIndirectRead = StageDrawIndirect | AccessIndirectCommandRead,
 };
 
 // TODO:
