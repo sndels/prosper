@@ -30,6 +30,8 @@ vk::PipelineStageFlags2 nativeStages(BufferState state)
 
     if (contains(state, BufferState::StageAccelerationStructureBuild))
         flags |= vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR;
+    if (contains(state, BufferState::StageDrawIndirect))
+        flags |= vk::PipelineStageFlagBits2::eDrawIndirect;
 
     return flags;
 }
@@ -72,6 +74,8 @@ vk::AccessFlags2 nativeAccesses(BufferState state)
         flags |= vk::AccessFlagBits2::eAccelerationStructureReadKHR;
     if (contains(state, BufferState::AccessAccelerationStructureWrite))
         flags |= vk::AccessFlagBits2::eAccelerationStructureWriteKHR;
+    if (contains(state, BufferState::AccessIndirectCommandRead))
+        flags |= vk::AccessFlagBits2::eIndirectCommandRead;
 
     return flags;
 }
