@@ -35,26 +35,32 @@ layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
 }
 geometryMetadatas;
 
+layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer MeshletCounts
+{
+    uint data[];
+}
+meshletCounts;
+
 // Aliased binds of the same SSBOs
-layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+layout(std430, set = GEOMETRY_SET, binding = 2) readonly buffer
     GeometryBuffersU32
 {
     uint data[];
 }
 geometryBuffersU32[];
-layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+layout(std430, set = GEOMETRY_SET, binding = 2) readonly buffer
     GeometryBuffersU16
 {
     uint16_t data[];
 }
 geometryBuffersU16[];
-layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+layout(std430, set = GEOMETRY_SET, binding = 2) readonly buffer
     GeometryBuffersU8
 {
     uint8_t data[];
 }
 geometryBuffersU8[];
-layout(std430, set = GEOMETRY_SET, binding = 1) readonly buffer
+layout(std430, set = GEOMETRY_SET, binding = 2) readonly buffer
     GeometryBuffersF32
 {
     float data[];

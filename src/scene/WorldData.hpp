@@ -66,6 +66,7 @@ class WorldData
     wheels::Array<vk::Sampler> _samplers{_generalAlloc};
     wheels::Array<Texture2D> _texture2Ds{_generalAlloc};
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _geometryMetadatasBuffers;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _meshletCountsBuffers;
     wheels::Array<uint32_t> _geometryBufferAllocatedByteCounts{_generalAlloc};
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _geometryGenerations{0};
 
@@ -113,7 +114,8 @@ class WorldData
     void loadMaterials(
         const tinygltf::Model &gltfModel,
         const wheels::Array<Texture2DSampler> &texture2DSamplers);
-    void loadModels(const tinygltf::Model &gltfModel);
+    void loadModels(
+        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
 
     struct NodeAnimations
     {

@@ -310,7 +310,8 @@ WorldData::WorldData(
        });
     tl("Material loading",
        [&]() { loadMaterials(gltfModel, texture2DSamplers); });
-    tl("Model loading ", [&]() { loadModels(gltfModel); });
+    tl("Model loading ",
+       [&]() { loadModels(scopeAlloc.child_scope(), gltfModel); });
     tl("Animation and scene loading ",
        [&]()
        {
@@ -370,6 +371,8 @@ WorldData::~WorldData()
         _device->destroy(buffer);
     for (auto &buffer : _geometryMetadatasBuffers)
         _device->destroy(buffer);
+    for (auto &buffer : _meshletCountsBuffers)
+        _device->destroy(buffer);
     for (auto &sampler : _samplers)
         _device->logical().destroy(sampler);
 }
@@ -383,20 +386,41 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
         _deferredLoadingContext->geometryGeneration)
         return;
 
-    Material *mapped = reinterpret_cast<Material *>(
-        _geometryMetadatasBuffers[nextFrame].mapped);
-    memcpy(
-        mapped, _geometryMetadatas.data(),
-        _geometryMetadatas.size() * sizeof(_geometryMetadatas[0]));
+    {
+        uint8_t *mapped = reinterpret_cast<uint8_t *>(
+            _geometryMetadatasBuffers[nextFrame].mapped);
+        memcpy(
+            mapped, _geometryMetadatas.data(),
+            _geometryMetadatas.size() * sizeof(_geometryMetadatas[0]));
+    }
+    {
+        Array<uint32_t> meshletCounts{scopeAlloc, _meshInfos.size()};
+        for (const MeshInfo &info : _meshInfos)
+        {
+            if (info.indexCount > 0)
+                meshletCounts.push_back(info.meshletCount);
+            else
+                meshletCounts.push_back(0u);
+        }
+        uint32_t *mapped = reinterpret_cast<uint32_t *>(
+            _meshletCountsBuffers[nextFrame].mapped);
+        memcpy(
+            mapped, meshletCounts.data(),
+            meshletCounts.size() * sizeof(meshletCounts[0]));
+    }
 
     _geometryGenerations[nextFrame] =
         _deferredLoadingContext->geometryGeneration;
 
     Array<vk::DescriptorBufferInfo> bufferInfos{
-        scopeAlloc, 1 + _geometryBuffers.size()};
+        scopeAlloc, 2 + _geometryBuffers.size()};
 
     bufferInfos.push_back(vk::DescriptorBufferInfo{
         .buffer = _geometryMetadatasBuffers[nextFrame].handle,
+        .range = VK_WHOLE_SIZE,
+    });
+    bufferInfos.push_back(vk::DescriptorBufferInfo{
+        .buffer = _meshletCountsBuffers[nextFrame].handle,
         .range = VK_WHOLE_SIZE,
     });
 
@@ -423,7 +447,8 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
 
     const StaticArray descriptorInfos{{
         DescriptorInfo{bufferInfos[0]},
-        DescriptorInfo{bufferInfos.span(1, bufferInfos.size())},
+        DescriptorInfo{bufferInfos[1]},
+        DescriptorInfo{bufferInfos.span(2, bufferInfos.size())},
     }};
 
     const Array descriptorWrites =
@@ -695,7 +720,8 @@ void WorldData::loadMaterials(
     }
 }
 
-void WorldData::loadModels(const tinygltf::Model &gltfModel)
+void WorldData::loadModels(
+    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
 {
     _models.reserve(gltfModel.meshes.size());
 
@@ -852,6 +878,26 @@ void WorldData::loadModels(const tinygltf::Model &gltfModel)
                 },
             .initialData = _geometryMetadatas.data(),
             .debugName = "GeometryMetadatas",
+        });
+
+    Array<uint32_t> zeroMeshletCounts{scopeAlloc};
+    zeroMeshletCounts.resize(_meshInfos.size());
+    memset(
+        zeroMeshletCounts.data(), 0,
+        zeroMeshletCounts.size() * sizeof(uint32_t));
+    for (size_t i = 0; i < _meshletCountsBuffers.size(); ++i)
+        _meshletCountsBuffers[i] = _device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = asserted_cast<uint32_t>(
+                        _meshInfos.size() * sizeof(uint32_t)),
+                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .initialData = zeroMeshletCounts.data(),
+            .debugName = "MeshletCounts",
         });
 }
 
@@ -1668,9 +1714,10 @@ void WorldData::createDescriptorSets(
 
     {
         // Geometry layouts and descriptor set
-        const uint32_t bufferCount = 1 + sMaxGeometryBuffersCount;
+        const uint32_t bufferCount = 2 + sMaxGeometryBuffersCount;
 
         const StaticArray bindingFlags{{
+            vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{},
             vk::DescriptorBindingFlags{
                 vk::DescriptorBindingFlagBits::eVariableDescriptorCount |
@@ -1695,6 +1742,10 @@ void WorldData::createDescriptorSets(
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = _geometryMetadatasBuffers[i].handle,
+                    .range = VK_WHOLE_SIZE,
+                }},
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = _meshletCountsBuffers[i].handle,
                     .range = VK_WHOLE_SIZE,
                 }},
                 DescriptorInfo{Span<const vk::DescriptorBufferInfo>{}},
