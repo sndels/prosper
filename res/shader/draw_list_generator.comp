@@ -1,0 +1,102 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_8bit_storage : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+
+#include "scene/geometry.glsl"
+#include "scene/instances.glsl"
+#include "scene/materials.glsl"
+
+// TODO: Put in a header?
+struct DrawMeshletInstance
+{
+    uint drawInstanceID;
+    uint meshletID;
+};
+layout(std430, set = STORAGE_SET, binding = 0) writeonly buffer DrawList
+{
+    DrawMeshletInstance instance[];
+}
+outDrawList;
+
+layout(std430, set = STORAGE_SET, binding = 1) buffer DispatchArguments
+{
+    uint groupsX;
+    uint groupsY;
+    uint groupsZ;
+}
+outDispatchArguments;
+
+layout(push_constant) uniform DrawListGeneratorPC { uint matchTransparents; }
+PC;
+
+layout(local_size_x = GROUP_X) in;
+void main()
+{
+    // These were zeroed before the pass to init X for use as the write pointer
+    if (gl_GlobalInvocationID.x == 0)
+    {
+        outDispatchArguments.groupsY = 1;
+        outDispatchArguments.groupsZ = 1;
+    }
+
+    uint threadID = gl_LocalInvocationIndex;
+    uint drawInstanceID = gl_WorkGroupID.x;
+
+    DrawInstance instance = drawInstances.instance[drawInstanceID];
+
+    // Skip meshes that haven't been loaded yet
+    uint meshletCount = meshletCounts.data[instance.meshID];
+    if (meshletCount == 0)
+        return;
+
+    // Skip transparents or opaques based on mode
+    MaterialData material = materialDatas.materials[instance.materialID];
+    if (PC.matchTransparents == 1)
+    {
+        if (material.alphaMode != AlphaModeBlend)
+            return;
+    }
+    else
+    {
+        if (material.alphaMode == AlphaModeBlend)
+            return;
+    }
+
+    // Split writing work between the threads
+    uint threadMeshlets = meshletCount / GROUP_X;
+    uint extraMeshlets = meshletCount % GROUP_X;
+    if (threadID < extraMeshlets)
+        threadMeshlets += 1;
+
+    // Figure out the subgroup offset for writes
+    uint subgroupMeshletCount = subgroupAdd(threadMeshlets);
+    uint subgroupStartOffset;
+    if (subgroupElect())
+        subgroupStartOffset =
+            atomicAdd(outDispatchArguments.groupsX, subgroupMeshletCount);
+    subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
+
+    // Get active lane count for offsets within group
+    uvec4 activeMask = subgroupBallot(true);
+    uint activeSubgroupThreadCount = subgroupBallotBitCount(activeMask);
+    uint activeSubgroupThreadID = subgroupBallotExclusiveBitCount(activeMask);
+
+    for (uint i = 0; i < threadMeshlets; ++i)
+    {
+        // This works out with the early threads having an extra meshlet when
+        // GROUP_X doesn't divide meshletCount evenly
+        uint meshletID = i * GROUP_X + threadID;
+        // Interleave writes within the subgroup for efficiency, same logic as
+        // with the meshletID
+        uint writeIndex = subgroupStartOffset + i * activeSubgroupThreadCount +
+                          activeSubgroupThreadID;
+        outDrawList.instance[writeIndex] =
+            DrawMeshletInstance(drawInstanceID, meshletID);
+    }
+}

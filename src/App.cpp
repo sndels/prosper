@@ -178,8 +178,9 @@ App::App(const Settings &settings)
     _temporalAntiAliasing = std::make_unique<TemporalAntiAliasing>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
-    _meshletCuller =
-        std::make_unique<MeshletCuller>(_device.get(), _resources.get());
+    _meshletCuller = std::make_unique<MeshletCuller>(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get(), _world->dsLayouts());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -413,6 +414,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), changedFiles);
     _temporalAntiAliasing->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
+    _meshletCuller->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, _world->dsLayouts());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 

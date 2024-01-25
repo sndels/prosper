@@ -1613,7 +1613,7 @@ void WorldData::createDescriptorSets(
     WHEELS_ASSERT(_materialsReflection.has_value());
     _dsLayouts.materialDatas = _materialsReflection->createDescriptorSetLayout(
         scopeAlloc.child_scope(), *_device, sMaterialDatasReflectionSet,
-        vk::ShaderStageFlagBits::eFragment |
+        vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute |
             vk::ShaderStageFlagBits::eRaygenKHR |
             vk::ShaderStageFlagBits::eAnyHitKHR);
 
@@ -1728,6 +1728,7 @@ void WorldData::createDescriptorSets(
         _dsLayouts.geometry = _geometryReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sGeometryReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
+                vk::ShaderStageFlagBits::eCompute |
                 vk::ShaderStageFlagBits::eRaygenKHR |
                 vk::ShaderStageFlagBits::eAnyHitKHR |
                 vk::ShaderStageFlagBits::eMeshEXT,
@@ -1796,6 +1797,7 @@ void WorldData::createDescriptorSets(
         _sceneInstancesReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), *_device, sSceneInstancesReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
+                vk::ShaderStageFlagBits::eCompute |
                 vk::ShaderStageFlagBits::eFragment |
                 vk::ShaderStageFlagBits::eRaygenKHR |
                 vk::ShaderStageFlagBits::eAnyHitKHR |
