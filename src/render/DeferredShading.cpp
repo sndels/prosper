@@ -110,13 +110,13 @@ DeferredShading::DeferredShading(
     const InputDSLayouts &dsLayouts)
 : _resources{resources}
 , _computePass{
-      WHEELS_MOV(scopeAlloc),
-      device,
-      staticDescriptorsAlloc,
+      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
       [&dsLayouts](Allocator &alloc)
       { return shaderDefinitionCallback(alloc, dsLayouts.world); },
-      StorageBindingSet,
-      externalDsLayouts(dsLayouts)}
+      ComputePassOptions{
+          .storageSetIndex = StorageBindingSet,
+          .externalDsLayouts = externalDsLayouts(dsLayouts),
+      }}
 {
     WHEELS_ASSERT(_resources != nullptr);
 }

@@ -63,9 +63,13 @@ DepthOfFieldSetup::DepthOfFieldSetup(
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 : _resources{resources}
-, _computePass{WHEELS_MOV(scopeAlloc), device,
-               staticDescriptorsAlloc, shaderDefinitionCallback,
-               StorageBindingSet,      Span{&camDsLayout, 1}}
+, _computePass{
+      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+      shaderDefinitionCallback,
+      ComputePassOptions{
+          .storageSetIndex = StorageBindingSet,
+          .externalDsLayouts = Span{&camDsLayout, 1},
+      }}
 {
     WHEELS_ASSERT(_resources != nullptr);
 }

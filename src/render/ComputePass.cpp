@@ -23,15 +23,13 @@ ComputePass::ComputePass(
     wheels::ScopedScratch scopeAlloc, Device *device,
     DescriptorAllocator *staticDescriptorsAlloc,
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
-    uint32_t storageSetIndex,
-    wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts,
-    vk::ShaderStageFlags storageStageFlags)
+    const ComputePassOptions &options)
 : _device{device}
-, _storageSetIndex{storageSetIndex}
+, _storageSetIndex{options.storageSetIndex}
 {
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
     WHEELS_ASSERT(
-        (_storageSetIndex == externalDsLayouts.size()) &&
+        (_storageSetIndex == options.externalDsLayouts.size()) &&
         "Implementation assumes that the pass storage set is the last set and "
         "is placed right after the last external one");
 
@@ -40,8 +38,9 @@ ComputePass::ComputePass(
         throw std::runtime_error("Shader compilation failed");
 
     createDescriptorSets(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc, storageStageFlags);
-    createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
+        options.storageStageFlags);
+    createPipeline(scopeAlloc.child_scope(), options.externalDsLayouts);
 }
 
 ComputePass::~ComputePass()

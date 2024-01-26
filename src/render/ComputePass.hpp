@@ -13,6 +13,13 @@
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 
+struct ComputePassOptions
+{
+    uint32_t storageSetIndex{0};
+    wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts;
+    vk::ShaderStageFlags storageStageFlags{vk::ShaderStageFlagBits::eCompute};
+};
+
 class ComputePass
 {
   public:
@@ -29,10 +36,7 @@ class ComputePass
         DescriptorAllocator *staticDescriptorsAlloc,
         const std::function<Shader(wheels::Allocator &)>
             &shaderDefinitionCallback,
-        uint32_t storageSetIndex = 0,
-        wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {},
-        vk::ShaderStageFlags storageStageFlags =
-            vk::ShaderStageFlagBits::eCompute);
+        const ComputePassOptions &options = ComputePassOptions{});
 
     ~ComputePass();
 

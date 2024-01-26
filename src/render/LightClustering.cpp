@@ -74,13 +74,14 @@ LightClustering::LightClustering(
     const WorldDSLayouts &worldDSLayouts)
 : _resources{resources}
 , _computePass{
-      WHEELS_MOV(scopeAlloc),
-      device,
-      staticDescriptorsAlloc,
+      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
       shaderDefinitionCallback,
-      LightClustersBindingSet,
-      externalDsLayouts(camDSLayout, worldDSLayouts),
-      vk::ShaderStageFlagBits::eCompute | vk::ShaderStageFlagBits::eFragment}
+      ComputePassOptions{
+          .storageSetIndex = LightClustersBindingSet,
+          .externalDsLayouts = externalDsLayouts(camDSLayout, worldDSLayouts),
+          .storageStageFlags = vk::ShaderStageFlagBits::eCompute |
+                               vk::ShaderStageFlagBits::eFragment,
+      }}
 {
     WHEELS_ASSERT(_resources != nullptr);
 }
