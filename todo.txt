@@ -82,3 +82,6 @@
   - Non-throwing ctors and separate init to make sure cleanup always happens?
 - Have texture and mesh cache both next to the scene instead of textures being
   next to the textures?
+- Pick MS group size based on maxPreferredMeshWorkGroupInvocation, max vert/tri count
+  - AMD seems to have enough for all verts/tris (256), but nv prefers "only" 32
+  - Looping in MS over meshlet verts, tris
