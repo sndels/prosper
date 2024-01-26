@@ -33,6 +33,9 @@ ComputePass::ComputePass(
         "Implementation assumes that the pass storage set is the last set and "
         "is placed right after the last external one");
 
+    for (auto &sets : _storageSets)
+        sets.resize(options.perFrameRecordLimit);
+
     printf("Creating ComputePass\n");
     if (!compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
         throw std::runtime_error("Shader compilation failed");
@@ -74,14 +77,21 @@ bool ComputePass::recompileShader(
     return false;
 }
 
+void ComputePass::startFrame() { _nextRecordIndex = 0; }
+
 void ComputePass::updateDescriptorSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame,
     Span<const DescriptorInfo> descriptorInfos)
 {
+    WHEELS_ASSERT(
+        _nextRecordIndex < _storageSets[nextFrame].size() &&
+        "Too many records, forgot to call startFrame() or construct this "
+        "ComputePass with enough records?");
+
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = _storageSets[nextFrame];
+    const vk::DescriptorSet ds = _storageSets[nextFrame][_nextRecordIndex];
 
     WHEELS_ASSERT(_shaderReflection.has_value());
     const wheels::Array descriptorWrites =
@@ -95,7 +105,12 @@ void ComputePass::updateDescriptorSet(
 
 vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
 {
-    return _storageSets[nextFrame];
+    WHEELS_ASSERT(
+        _nextRecordIndex < _storageSets[nextFrame].size() &&
+        "Too many records, forgot to call startFrame() or construct this "
+        "ComputePass with enough records?");
+
+    return _storageSets[nextFrame][_nextRecordIndex];
 }
 
 vk::DescriptorSetLayout ComputePass::storageSetLayout() const
@@ -106,7 +121,7 @@ vk::DescriptorSetLayout ComputePass::storageSetLayout() const
 void ComputePass::record(
     vk::CommandBuffer cb, const uvec3 &extent,
     Span<const vk::DescriptorSet> descriptorSets,
-    wheels::Span<const uint32_t> dynamicOffsets) const
+    wheels::Span<const uint32_t> dynamicOffsets)
 {
     WHEELS_ASSERT(all(greaterThan(extent, glm::uvec3{0u})));
     WHEELS_ASSERT(
@@ -125,12 +140,18 @@ void ComputePass::record(
     const uvec3 groups = (extent - 1u) / _groupSize + 1u;
 
     cb.dispatch(groups.x, groups.y, groups.z);
+
+    if (_storageSets[0].size() > 1)
+    {
+        // This can equal perFrameRecordLimit if all of them are used
+        _nextRecordIndex++;
+    }
 }
 
 void ComputePass::record(
     vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes, const uvec3 &extent,
     Span<const vk::DescriptorSet> descriptorSets,
-    Span<const uint32_t> dynamicOffsets) const
+    Span<const uint32_t> dynamicOffsets)
 {
     WHEELS_ASSERT(all(greaterThan(extent, uvec3{0u})));
     WHEELS_ASSERT(_shaderReflection.has_value());
@@ -155,6 +176,12 @@ void ComputePass::record(
     const uvec3 groups = (extent - 1u) / _groupSize + 1u;
 
     cb.dispatch(groups.x, groups.y, groups.z);
+
+    if (_storageSets[0].size() > 1)
+    {
+        // This can equal perFrameRecordLimit if all of them are used
+        _nextRecordIndex++;
+    }
 }
 
 void ComputePass::destroyPipelines()
@@ -171,9 +198,12 @@ void ComputePass::createDescriptorSets(
     _storageSetLayout = _shaderReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), *_device, _storageSetIndex, storageStageFlags);
 
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _storageSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _storageSets);
+    for (auto &sets : _storageSets)
+    {
+        InlineArray<vk::DescriptorSetLayout, sPerFrameRecordLimit> layouts;
+        layouts.resize(sets.size(), _storageSetLayout);
+        staticDescriptorsAlloc->allocate(layouts, sets);
+    }
 }
 
 void ComputePass::createPipeline(
