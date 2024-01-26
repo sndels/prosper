@@ -301,6 +301,7 @@ struct AccelerationStructure
 {
     vk::AccelerationStructureKHR handle;
     Buffer buffer;
+    vk::DeviceAddress address{0};
 };
 
 #endif // PROSPER_GFX_RESOURCES_HPP

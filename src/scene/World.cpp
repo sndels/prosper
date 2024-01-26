@@ -495,6 +495,10 @@ AccelerationStructure World::Impl::createTlas(
         .type = buildInfo.type,
     };
     tlas.handle = _device->logical().createAccelerationStructureKHR(createInfo);
+    tlas.address = _device->logical().getAccelerationStructureAddressKHR(
+        vk::AccelerationStructureDeviceAddressInfoKHR{
+            .accelerationStructure = tlas.handle,
+        });
 
     const vk::DescriptorBufferInfo instanceInfo{
         .buffer = scene.rtInstancesBuffer.handle, .range = VK_WHOLE_SIZE};
@@ -633,6 +637,10 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
         .type = buildInfo.type,
     };
     blas.handle = _device->logical().createAccelerationStructureKHR(createInfo);
+    blas.address = _device->logical().getAccelerationStructureAddressKHR(
+        vk::AccelerationStructureDeviceAddressInfoKHR{
+            .accelerationStructure = blas.handle,
+        });
 
     buildInfo.dstAccelerationStructure = blas.handle;
 
@@ -804,11 +812,7 @@ void World::Impl::updateTlasInstances(
             if (_data._blases.size() > sm.meshID)
             {
                 const auto &blas = _data._blases[sm.meshID];
-                asReference =
-                    _device->logical().getAccelerationStructureAddressKHR(
-                        vk::AccelerationStructureDeviceAddressInfoKHR{
-                            .accelerationStructure = blas.handle,
-                        });
+                asReference = blas.address;
             }
 
             instances.push_back(vk::AccelerationStructureInstanceKHR{
