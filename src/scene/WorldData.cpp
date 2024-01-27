@@ -6,6 +6,7 @@
 
 #include "../gfx/Device.hpp"
 #include <cstdio>
+#include <cstdlib>
 #include <imgui.h>
 
 using namespace glm;
@@ -1291,21 +1292,21 @@ void WorldData::gatherScene(
             const uint32_t firstChild =
                 asserted_cast<uint32_t>(scene.nodes.size());
             // If no children, firstChild <= lastChild false as intended.
-            const uint32_t lastChild = firstChild + childCount - 1;
+            const uint32_t lastChild = firstChild + childCount * 100 - 1;
             scene.nodes.resize(
-                scene.nodes.size() + asserted_cast<size_t>(childCount));
+                scene.nodes.size() + asserted_cast<size_t>(childCount * 100));
 
             Scene::Node &sceneNode = scene.nodes[indices.sceneNode];
             sceneNode.gltfSourceNode = indices.tmpNode;
             sceneNode.firstChild = firstChild;
             sceneNode.lastChild = lastChild;
 
-            for (uint32_t i = 0; i < childCount; ++i)
+            for (uint32_t i = 0; i < childCount * 100; ++i)
             {
                 const uint32_t childIndex = sceneNode.firstChild + i;
                 scene.nodes[childIndex].parent = indices.sceneNode;
                 nodeStack.emplace_back(
-                    asserted_cast<uint32_t>(tmpNode.children[i]),
+                    asserted_cast<uint32_t>(tmpNode.children[i % childCount]),
                     asserted_cast<uint32_t>(childIndex));
             }
 
@@ -1314,6 +1315,11 @@ void WorldData::gatherScene(
             sceneNode.scale = tmpNode.scale;
             sceneNode.modelID = tmpNode.modelID;
             sceneNode.camera = tmpNode.camera;
+
+            if (sceneNode.modelID.has_value())
+                sceneNode.translation =
+                    (vec3(rand(), rand(), rand()) / (float)RAND_MAX) * 4.f -
+                    2.f;
 
             if (sceneNode.modelID.has_value())
             {

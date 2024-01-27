@@ -1400,14 +1400,14 @@ void App::render(
             _profiler.get());
 
         // Transparent
-        _forwardRenderer->recordTransparent(
-            scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world, *_cam,
-            ForwardRenderer::TransparentInOut{
-                .illumination = illumination,
-                .depth = depth,
-            },
-            lightClusters, drawStats, indices.nextFrame,
-            &_sceneStats[indices.nextFrame], _profiler.get());
+        // _forwardRenderer->recordTransparent(
+        //     scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
+        //     *_cam, ForwardRenderer::TransparentInOut{
+        //         .illumination = illumination,
+        //         .depth = depth,
+        //     },
+        //     lightClusters, drawStats, indices.nextFrame,
+        //     &_sceneStats[indices.nextFrame], _profiler.get());
 
         _debugRenderer->record(
             scopeAlloc.child_scope(), cb, *_cam,

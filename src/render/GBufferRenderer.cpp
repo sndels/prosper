@@ -195,7 +195,11 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const vk::Buffer argumentHandle =
             _resources->buffers.nativeHandle(cullerOutput.argumentBuffer);
+        // This executes 51964 mesh shader groups, ie. the lower 16bits of
+        // indirect groupCountX=116600
         cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
+        // This executes 116600 mesh shader groups as you'd expect
+        // cb.drawMeshTasksEXT(116600, 1, 1);
 
         cb.endRendering();
 

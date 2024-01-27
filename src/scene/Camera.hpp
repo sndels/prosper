@@ -17,7 +17,7 @@ struct CameraOffset
 
 struct CameraTransform
 {
-    glm::vec3 eye{1.f, 0.5f, 1.f};
+    glm::vec3 eye{4.f, 2.0f, 4.f};
     glm::vec3 target{0.f, 0.f, 0.f};
     glm::vec3 up{0.f, 1.f, 0.f};
 
