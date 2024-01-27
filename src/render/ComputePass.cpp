@@ -149,6 +149,33 @@ void ComputePass::record(
 }
 
 void ComputePass::record(
+    vk::CommandBuffer cb, vk::Buffer argumentBuffer,
+    Span<const vk::DescriptorSet> descriptorSets,
+    wheels::Span<const uint32_t> dynamicOffsets)
+{
+    WHEELS_ASSERT(
+        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        "At least some AMD and Intel drivers limit this to 8 per buffer type. "
+        "Let's keep the total under if possible to keep things simple.");
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+
+    cb.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _pipelineLayout,
+        0, // firstSet
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+
+    cb.dispatchIndirect(argumentBuffer, 0);
+
+    if (_storageSets[0].size() > 1)
+    {
+        // This can equal perFrameRecordLimit if all of them are used
+        _nextRecordIndex++;
+    }
+}
+
+void ComputePass::record(
     vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes, const uvec3 &extent,
     Span<const vk::DescriptorSet> descriptorSets,
     Span<const uint32_t> dynamicOffsets)

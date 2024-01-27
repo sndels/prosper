@@ -77,6 +77,12 @@ class ComputePass
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
     // Increments the conuter for descriptor sets.
+    void record(
+        vk::CommandBuffer cb, vk::Buffer argumentBuffer,
+        wheels::Span<const vk::DescriptorSet> descriptorSets,
+        wheels::Span<const uint32_t> dynamicOffsets = {});
+
+    // Increments the conuter for descriptor sets.
     template <typename PCBlock>
     void record(
         vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &extent,
