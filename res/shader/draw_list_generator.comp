@@ -20,17 +20,10 @@ struct DrawMeshletInstance
 };
 layout(std430, set = STORAGE_SET, binding = 0) writeonly buffer DrawList
 {
+    uint count;
     DrawMeshletInstance instance[];
 }
 outDrawList;
-
-layout(std430, set = STORAGE_SET, binding = 1) buffer DispatchArguments
-{
-    uint groupsX;
-    uint groupsY;
-    uint groupsZ;
-}
-outDispatchArguments;
 
 layout(push_constant) uniform DrawListGeneratorPC { uint matchTransparents; }
 PC;
@@ -38,13 +31,6 @@ PC;
 layout(local_size_x = GROUP_X) in;
 void main()
 {
-    // These were zeroed before the pass to init X for use as the write pointer
-    if (gl_GlobalInvocationID.x == 0)
-    {
-        outDispatchArguments.groupsY = 1;
-        outDispatchArguments.groupsZ = 1;
-    }
-
     uint threadID = gl_LocalInvocationIndex;
     uint drawInstanceID = gl_WorkGroupID.x;
 
@@ -79,7 +65,7 @@ void main()
     uint subgroupStartOffset;
     if (subgroupElect())
         subgroupStartOffset =
-            atomicAdd(outDispatchArguments.groupsX, subgroupMeshletCount);
+            atomicAdd(outDrawList.count, subgroupMeshletCount);
     subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
 
     // Get active lane count for offsets within group

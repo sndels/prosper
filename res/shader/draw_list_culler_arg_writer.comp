@@ -1,0 +1,40 @@
+
+#pragma shader_stage(compute)
+
+// TODO: Put in a header?
+struct DrawMeshletInstance
+{
+    uint drawInstanceID;
+    uint meshletID;
+};
+layout(std430, set = 0, binding = 0) readonly buffer InDrawList
+{
+    uint count;
+    DrawMeshletInstance instance[];
+}
+inDrawList;
+layout(std430, set = 0, binding = 1) buffer DispatchArguments
+{
+    uint groupsX;
+    uint groupsY;
+    uint groupsZ;
+}
+outDispatchArguments;
+
+layout(local_size_x = 1) in;
+void main()
+{
+    if (inDrawList.count > 0)
+    {
+        outDispatchArguments.groupsX =
+            (inDrawList.count - 1) / CULLER_GROUP_SIZE + 1;
+        outDispatchArguments.groupsY = 1;
+        outDispatchArguments.groupsZ = 1;
+    }
+    else
+    {
+        outDispatchArguments.groupsX = 0;
+        outDispatchArguments.groupsY = 0;
+        outDispatchArguments.groupsZ = 0;
+    }
+}

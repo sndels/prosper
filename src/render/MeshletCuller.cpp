@@ -19,13 +19,11 @@ namespace
 {
 
 // Should be plenty for any scene that's realistically loaded in
-const uint32_t sMeshDrawListByteSize = static_cast<uint32_t>(megabytes(5));
+const uint32_t sMeshDrawListByteSize =
+    static_cast<uint32_t>(sizeof(uint32_t) + megabytes(5));
 const uint32_t sArgumentsByteSize = static_cast<uint32_t>(3 * sizeof(uint32_t));
 const uint32_t sGeneratorGroupSize = 16;
-// TODO:
-// Bigger groups: count in draw list and indirect args written from that in a
-// 1-sized CS?
-const uint32_t sCullerGroupSize = 1;
+const uint32_t sCullerGroupSize = 64;
 
 // Keep this a tight upper bound or make arrays dynamic if usage varies a
 // lot based on content
@@ -94,6 +92,21 @@ generatorExternalDsLayouts(const WorldDSLayouts &worldDsLayouts)
     return setLayouts;
 }
 
+ComputePass::Shader argumentsWriterDefinitionCallback(Allocator &alloc)
+{
+    const size_t len = 29;
+    String defines{alloc, len};
+    appendDefineStr(defines, "CULLER_GROUP_SIZE", sCullerGroupSize);
+    WHEELS_ASSERT(defines.size() <= len);
+
+    return ComputePass::Shader{
+        .relPath = "shader/draw_list_culler_arg_writer.comp",
+        .debugName = String{alloc, "DrawListCullerArgWriterCS"},
+        .defines = WHEELS_MOV(defines),
+        .groupSize = uvec3{1, 1, 1},
+    };
+}
+
 ComputePass::Shader cullerDefinitionCallback(Allocator &alloc)
 {
     const size_t len = 96;
@@ -143,6 +156,12 @@ vk::DescriptorSetLayout camDsLayout)
           .perFrameRecordLimit = sMaxRecordsPerFrame,
           .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
       }}
+, _cullerArgumentsWriter{
+      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+      argumentsWriterDefinitionCallback,
+      ComputePassOptions{
+          .perFrameRecordLimit = sMaxRecordsPerFrame,
+      }}
 , _drawListCuller{
       WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
       cullerDefinitionCallback,
@@ -166,6 +185,9 @@ void MeshletCuller::recompileShaders(
         [&worldDsLayouts](Allocator &alloc)
         { return generatorDefinitionCallback(alloc, worldDsLayouts); },
         generatorExternalDsLayouts(worldDsLayouts));
+    _cullerArgumentsWriter.recompileShader(
+        scopeAlloc.child_scope(), changedFiles,
+        argumentsWriterDefinitionCallback);
     _drawListCuller.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, cullerDefinitionCallback,
         cullerExternalDsLayouts(worldDsLayouts, camDsLayout));
@@ -174,6 +196,7 @@ void MeshletCuller::recompileShaders(
 void MeshletCuller::startFrame()
 {
     _drawListGenerator.startFrame();
+    _cullerArgumentsWriter.startFrame();
     _drawListCuller.startFrame();
 }
 
@@ -182,21 +205,29 @@ MeshletCullerOutput MeshletCuller::record(
     const World &world, const Camera &cam, uint32_t nextFrame,
     const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler)
 {
-    const MeshletCullerOutput initialList = recordGenerateList(
+    const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,
         sceneStats, profiler);
 
+    const BufferHandle cullerArgs = recordWriteCullerArgs(
+        scopeAlloc.child_scope(), cb, nextFrame, initialList, debugPrefix,
+        profiler);
+
     const MeshletCullerOutput culledList = recordCullList(
-        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame, initialList,
+        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
+        CullerInput{
+            .dataBuffer = initialList,
+            .argumentBuffer = cullerArgs,
+        },
         debugPrefix, profiler);
 
-    _resources->buffers.release(initialList.dataBuffer);
-    _resources->buffers.release(initialList.argumentBuffer);
+    _resources->buffers.release(initialList);
+    _resources->buffers.release(cullerArgs);
 
     return culledList;
 }
 
-MeshletCullerOutput MeshletCuller::recordGenerateList(
+BufferHandle MeshletCuller::recordGenerateList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, uint32_t nextFrame, const char *debugPrefix,
     SceneStats *sceneStats, Profiler *profiler)
@@ -253,63 +284,32 @@ MeshletCullerOutput MeshletCuller::recordGenerateList(
     dataName.extend(debugPrefix);
     dataName.extend("MeshletDrawList");
 
-    String argumentsName{scopeAlloc};
-    argumentsName.extend(debugPrefix);
-    argumentsName.extend("CullerDiscpatchArguments");
-
-    const MeshletCullerOutput ret{
-        .dataBuffer = _resources->buffers.create(
-            BufferDescription{
-                .byteSize = sMeshDrawListByteSize,
-                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-            dataName.c_str()),
-        .argumentBuffer = _resources->buffers.create(
-            BufferDescription{
-                .byteSize = sArgumentsByteSize,
-                .usage = vk::BufferUsageFlagBits::eTransferDst |
-                         vk::BufferUsageFlagBits::eStorageBuffer |
-                         vk::BufferUsageFlagBits::eIndirectBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-            argumentsName.c_str()),
-    };
+    const BufferHandle ret = _resources->buffers.create(
+        BufferDescription{
+            .byteSize = sMeshDrawListByteSize,
+            .usage = vk::BufferUsageFlagBits::eTransferDst |
+                     vk::BufferUsageFlagBits::eStorageBuffer,
+            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        },
+        dataName.c_str());
 
     _drawListGenerator.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
-        StaticArray{{
-            DescriptorInfo{
-                vk::DescriptorBufferInfo{
-                    .buffer = _resources->buffers.nativeHandle(ret.dataBuffer),
-                    .range = VK_WHOLE_SIZE,
-                },
-            },
-            DescriptorInfo{
-                vk::DescriptorBufferInfo{
-                    .buffer =
-                        _resources->buffers.nativeHandle(ret.argumentBuffer),
-                    .range = VK_WHOLE_SIZE,
-                },
+        StaticArray{DescriptorInfo{
+            vk::DescriptorBufferInfo{
+                .buffer = _resources->buffers.nativeHandle(ret),
+                .range = VK_WHOLE_SIZE,
             },
         }});
 
-    _resources->buffers.transition(
-        cb, ret.argumentBuffer, BufferState::TransferDst);
+    _resources->buffers.transition(cb, ret, BufferState::TransferDst);
 
     // Clear count as it will be used for atomic adds
     cb.fillBuffer(
-        _resources->buffers.nativeHandle(ret.argumentBuffer), 0,
-        sizeof(uint32_t), 0u);
+        _resources->buffers.nativeHandle(ret), 0, sizeof(uint32_t), 0u);
 
-    transition(
-        WHEELS_MOV(scopeAlloc), *_resources, cb,
-        Transitions{
-            .buffers = StaticArray<BufferTransition, 2>{{
-                {ret.dataBuffer, BufferState::ComputeShaderWrite},
-                {ret.argumentBuffer, BufferState::ComputeShaderReadWrite},
-            }},
-        });
+    _resources->buffers.transition(
+        cb, ret, BufferState::ComputeShaderReadWrite);
 
     String scopeName{scopeAlloc};
     scopeName.extend(debugPrefix);
@@ -358,9 +358,60 @@ MeshletCullerOutput MeshletCuller::recordGenerateList(
     return ret;
 }
 
+BufferHandle MeshletCuller::recordWriteCullerArgs(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
+    BufferHandle drawList, const char *debugPrefix, Profiler *profiler)
+{
+    String argumentsName{scopeAlloc};
+    argumentsName.extend(debugPrefix);
+    argumentsName.extend("DrawListCullerArguments");
+
+    const BufferHandle ret = _resources->buffers.create(
+        BufferDescription{
+            .byteSize = sArgumentsByteSize,
+            .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                     vk::BufferUsageFlagBits::eIndirectBuffer,
+            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+        },
+        argumentsName.c_str());
+
+    _cullerArgumentsWriter.updateDescriptorSet(
+        scopeAlloc.child_scope(), nextFrame,
+        StaticArray{{
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _resources->buffers.nativeHandle(drawList),
+                .range = VK_WHOLE_SIZE,
+            }},
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _resources->buffers.nativeHandle(ret),
+                .range = VK_WHOLE_SIZE,
+            }},
+        }});
+
+    transition(
+        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        Transitions{
+            .buffers = StaticArray<BufferTransition, 2>{{
+                {drawList, BufferState::ComputeShaderRead},
+                {ret, BufferState::ComputeShaderWrite},
+            }},
+        });
+
+    String scopeName{scopeAlloc};
+    scopeName.extend(debugPrefix);
+    scopeName.extend("DrawListCullerArgs");
+    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
+
+    const vk::DescriptorSet ds = _cullerArgumentsWriter.storageSet(nextFrame);
+
+    _cullerArgumentsWriter.record(cb, glm::uvec3{1, 1, 1}, Span{&ds, 1});
+
+    return ret;
+}
+
 MeshletCullerOutput MeshletCuller::recordCullList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, uint32_t nextFrame, const MeshletCullerOutput &input,
+    const Camera &cam, uint32_t nextFrame, const CullerInput &input,
     const char *debugPrefix, Profiler *profiler)
 {
     String dataName{scopeAlloc};

@@ -19,11 +19,13 @@ struct DrawMeshletInstance
 };
 layout(std430, set = STORAGE_SET, binding = 0) readonly buffer InDrawList
 {
+    uint count;
     DrawMeshletInstance instance[];
 }
 inDrawList;
 layout(std430, set = STORAGE_SET, binding = 1) writeonly buffer OutDrawList
 {
+    uint count;
     DrawMeshletInstance instance[];
 }
 outDrawList;
@@ -75,7 +77,8 @@ void main()
     }
 
     uint threadID = gl_GlobalInvocationID.x;
-    // TODO: Skip extra threads when group size is greater than 1
+    if (threadID >= inDrawList.count)
+        return;
 
     DrawMeshletInstance meshletInstance = inDrawList.instance[threadID];
     DrawInstance instance =
@@ -106,8 +109,12 @@ void main()
     uint subgroupMeshletCount = subgroupBallotBitCount(visibleMeshletsMask);
     uint subgroupStartOffset;
     if (subgroupElect())
+    {
+        // Keep count in the buffer in sync for consistency
+        atomicAdd(outDrawList.count, subgroupMeshletCount);
         subgroupStartOffset =
             atomicAdd(outDispatchArguments.groupsX, subgroupMeshletCount);
+    }
     subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
 
     // Write out within the subgroup block

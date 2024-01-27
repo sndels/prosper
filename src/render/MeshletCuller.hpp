@@ -55,21 +55,31 @@ class MeshletCuller
         const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler);
 
   private:
-    [[nodiscard]] MeshletCullerOutput recordGenerateList(
+    [[nodiscard]] BufferHandle recordGenerateList(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
         const World &world, uint32_t nextFrame, const char *debugPrefix,
         SceneStats *sceneStats, Profiler *profiler);
 
+    [[nodiscard]] BufferHandle recordWriteCullerArgs(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        uint32_t nextFrame, BufferHandle drawList, const char *debugPrefix,
+        Profiler *profiler);
+
+    struct CullerInput
+    {
+        BufferHandle dataBuffer;
+        BufferHandle argumentBuffer;
+    };
     [[nodiscard]] MeshletCullerOutput recordCullList(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, uint32_t nextFrame,
-        const MeshletCullerOutput &input, const char *debugPrefix,
-        Profiler *profiler);
+        const CullerInput &input, const char *debugPrefix, Profiler *profiler);
 
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     ComputePass _drawListGenerator;
+    ComputePass _cullerArgumentsWriter;
     ComputePass _drawListCuller;
 };
 
