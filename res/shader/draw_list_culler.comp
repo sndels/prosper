@@ -1,0 +1,118 @@
+#pragma shader_stage(compute)
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_8bit_storage : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+
+#include "scene/camera.glsl"
+#include "scene/geometry.glsl"
+#include "scene/instances.glsl"
+
+// TODO: Put in a header?
+struct DrawMeshletInstance
+{
+    uint drawInstanceID;
+    uint meshletID;
+};
+layout(std430, set = STORAGE_SET, binding = 0) readonly buffer InDrawList
+{
+    DrawMeshletInstance instance[];
+}
+inDrawList;
+layout(std430, set = STORAGE_SET, binding = 1) writeonly buffer OutDrawList
+{
+    DrawMeshletInstance instance[];
+}
+outDrawList;
+
+layout(std430, set = STORAGE_SET, binding = 2) buffer DispatchArguments
+{
+    uint groupsX;
+    uint groupsY;
+    uint groupsZ;
+}
+outDispatchArguments;
+
+float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, 1)); }
+
+void transformBounds(inout MeshletBounds bounds, Transforms trfn, float scale)
+{
+    // Need full SRT for center as it's the cluster center in model space
+    bounds.center = (vec4(bounds.center, 1.0) * trfn.modelToWorld).xyz;
+    bounds.radius = abs(bounds.radius * scale);
+    bounds.coneAxis = normalize(bounds.coneAxis * mat3(trfn.modelToWorld));
+}
+
+bool isSphereOutsideFrustum(MeshletBounds bounds)
+{
+    return signedDistance(camera.nearPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.farPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.leftPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.rightPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.bottomPlane, bounds.center) < -bounds.radius ||
+           signedDistance(camera.topPlane, bounds.center) < -bounds.radius;
+}
+
+bool isConeCapHidden(MeshletBounds bounds)
+{
+    // From meshoptimizer.h
+    return dot(bounds.center - camera.eye.xyz, bounds.coneAxis) >=
+           (bounds.coneCutoff * length(bounds.center - camera.eye.xyz) +
+            bounds.radius);
+}
+
+layout(local_size_x = GROUP_X) in;
+void main()
+{
+    // These were zeroed before the pass to init X for use as the write pointer
+    if (gl_GlobalInvocationID.x == 0)
+    {
+        outDispatchArguments.groupsY = 1;
+        outDispatchArguments.groupsZ = 1;
+    }
+
+    uint threadID = gl_GlobalInvocationID.x;
+    // TODO: Skip extra threads when group size is greater than 1
+
+    DrawMeshletInstance meshletInstance = inDrawList.instance[threadID];
+    DrawInstance instance =
+        drawInstances.instance[meshletInstance.drawInstanceID];
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
+    MeshletInfo meshletInfo =
+        loadMeshletInfo(metadata, meshletInstance.meshletID);
+
+    Transforms trfn =
+        modelInstanceTransforms.instance[instance.modelInstanceID];
+
+    float scale = modelInstanceScales.instance[instance.modelInstanceID];
+    bool meshletVisible = true;
+    if (scale != 0.)
+    {
+        MeshletBounds bounds =
+            loadMeshletBounds(metadata, meshletInstance.meshletID);
+        transformBounds(bounds, trfn, scale);
+
+        // TODO: Flip the logic to avoid !s here
+        meshletVisible = !isSphereOutsideFrustum(bounds);
+        if (meshletVisible)
+            meshletVisible = !isConeCapHidden(bounds);
+    }
+
+    // Figure out the subgroup offset for writes
+    uvec4 visibleMeshletsMask = subgroupBallot(meshletVisible);
+    uint subgroupMeshletCount = subgroupBallotBitCount(visibleMeshletsMask);
+    uint subgroupStartOffset;
+    if (subgroupElect())
+        subgroupStartOffset =
+            atomicAdd(outDispatchArguments.groupsX, subgroupMeshletCount);
+    subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
+
+    // Write out within the subgroup block
+    uint threadOffset = subgroupBallotExclusiveBitCount(visibleMeshletsMask);
+    if (meshletVisible)
+        outDrawList.instance[subgroupStartOffset + threadOffset] =
+            meshletInstance;
+}

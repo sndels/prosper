@@ -27,7 +27,8 @@ class MeshletCuller
     MeshletCuller(
         wheels::ScopedScratch scopeAlloc, Device *device,
         RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        const WorldDSLayouts &worldDsLayouts);
+        const WorldDSLayouts &worldDsLayouts,
+        vk::DescriptorSetLayout camDsLayout);
     ~MeshletCuller() = default;
 
     MeshletCuller(const MeshletCuller &other) = delete;
@@ -38,7 +39,8 @@ class MeshletCuller
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
-        const WorldDSLayouts &WorldDSLayouts);
+        const WorldDSLayouts &WorldDSLayouts,
+        vk::DescriptorSetLayout camDsLayout);
 
     void startFrame();
 
@@ -53,10 +55,22 @@ class MeshletCuller
         const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler);
 
   private:
+    [[nodiscard]] MeshletCullerOutput recordGenerateList(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
+        const World &world, uint32_t nextFrame, const char *debugPrefix,
+        SceneStats *sceneStats, Profiler *profiler);
+
+    [[nodiscard]] MeshletCullerOutput recordCullList(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        const World &world, const Camera &cam, uint32_t nextFrame,
+        const MeshletCullerOutput &input, const char *debugPrefix,
+        Profiler *profiler);
+
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     ComputePass _drawListGenerator;
+    ComputePass _drawListCuller;
 };
 
 #endif // PROSPER_RENDER_MESHLET_CULLER_HPP

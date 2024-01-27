@@ -61,34 +61,6 @@ layout(location = 9) perprimitiveEXT out OutPrimitive
 }
 outPrimitives[];
 
-float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, 1)); }
-
-void transformBounds(inout MeshletBounds bounds, Transforms trfn, float scale)
-{
-    // Need full SRT for center as it's the cluster center in model space
-    bounds.center = (vec4(bounds.center, 1.0) * trfn.modelToWorld).xyz;
-    bounds.radius = abs(bounds.radius * scale);
-    bounds.coneAxis = normalize(bounds.coneAxis * mat3(trfn.modelToWorld));
-}
-
-bool isSphereOutsideFrustum(MeshletBounds bounds)
-{
-    return signedDistance(camera.nearPlane, bounds.center) < -bounds.radius ||
-           signedDistance(camera.farPlane, bounds.center) < -bounds.radius ||
-           signedDistance(camera.leftPlane, bounds.center) < -bounds.radius ||
-           signedDistance(camera.rightPlane, bounds.center) < -bounds.radius ||
-           signedDistance(camera.bottomPlane, bounds.center) < -bounds.radius ||
-           signedDistance(camera.topPlane, bounds.center) < -bounds.radius;
-}
-
-bool isConeCapHidden(MeshletBounds bounds)
-{
-    // From meshoptimizer.h
-    return dot(bounds.center - camera.eye.xyz, bounds.coneAxis) >=
-           (bounds.coneCutoff * length(bounds.center - camera.eye.xyz) +
-            bounds.radius);
-}
-
 void writeTransformedVertex(
     DrawInstance instance, GeometryMetadata metadata, Transforms trfn,
     uint globalVertexIndex, uint meshletVertexIndex)
@@ -125,8 +97,6 @@ void writeTransformedVertex(
     gl_MeshVerticesEXT[meshletVertexIndex].gl_Position = posNDC;
 }
 
-shared bool groupMeshletCulled;
-
 void main()
 {
     uint threadID = gl_LocalInvocationIndex;
@@ -138,45 +108,13 @@ void main()
     GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
     MeshletInfo meshletInfo =
         loadMeshletInfo(metadata, meshletInstance.meshletID);
-
-    // TODO:
-    // Cull in a task shader instead if those are available?
-    // 680M doesn't have task shaders so do compute culling instead for that?
-    // Have just the compute culling pipeline instead of a separate task shader
-    // implementation for simplicity?
     Transforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceID];
 
-    // Masking the culling seems to be a bit faster on 680M at least. Probably
-    // helps some late subgroups skip this entirely.
     if (threadID == 0)
     {
-        groupMeshletCulled = false;
-        // 0 scale means that the scale is non-uniform and we can't transfrom
-        // the bounds reliably
-        float scale = modelInstanceScales.instance[instance.modelInstanceID];
-        if (scale != 0.)
-        {
-            MeshletBounds bounds =
-                loadMeshletBounds(metadata, meshletInstance.meshletID);
-            transformBounds(bounds, trfn, scale);
-
-            groupMeshletCulled = isSphereOutsideFrustum(bounds);
-            if (!groupMeshletCulled)
-                groupMeshletCulled = isConeCapHidden(bounds);
-        }
-
         atomicAdd(drawStats.drawnMeshletCount, 1);
-        if (!groupMeshletCulled)
-            atomicAdd(
-                drawStats.rasterizedTriangleCount, meshletInfo.triangleCount);
-    }
-    barrier();
-
-    if (groupMeshletCulled)
-    {
-        meshletInfo.vertexCount = 0;
-        meshletInfo.triangleCount = 0;
+        atomicAdd(drawStats.rasterizedTriangleCount, meshletInfo.triangleCount);
     }
 
     SetMeshOutputsEXT(meshletInfo.vertexCount, meshletInfo.triangleCount);

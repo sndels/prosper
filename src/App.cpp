@@ -180,7 +180,8 @@ App::App(const Settings &settings)
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _meshletCuller = std::make_unique<MeshletCuller>(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _world->dsLayouts());
+        _staticDescriptorsAlloc.get(), _world->dsLayouts(),
+        _cam->descriptorSetLayout());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -415,7 +416,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _temporalAntiAliasing->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
     _meshletCuller->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _world->dsLayouts());
+        scopeAlloc.child_scope(), changedFiles, _world->dsLayouts(),
+        _cam->descriptorSetLayout());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 

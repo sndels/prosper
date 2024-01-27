@@ -1,6 +1,7 @@
 #include "MeshletCuller.hpp"
 
 #include "../gfx/Device.hpp"
+#include "../scene/Camera.hpp"
 #include "../scene/Material.hpp"
 #include "../scene/Mesh.hpp"
 #include "../scene/Model.hpp"
@@ -20,59 +21,107 @@ namespace
 // Should be plenty for any scene that's realistically loaded in
 const uint32_t sMeshDrawListByteSize = static_cast<uint32_t>(megabytes(5));
 const uint32_t sArgumentsByteSize = static_cast<uint32_t>(3 * sizeof(uint32_t));
-const uint32_t sThreadsPerMesh = 16;
+const uint32_t sGeneratorGroupSize = 16;
+// TODO:
+// Bigger groups: count in draw list and indirect args written from that in a
+// 1-sized CS?
+const uint32_t sCullerGroupSize = 1;
 
 // Keep this a tight upper bound or make arrays dynamic if usage varies a
 // lot based on content
 const uint32_t sMaxRecordsPerFrame = 2;
 
-enum BindingSet : uint32_t
+enum GeneratorBindingSet : uint32_t
 {
-    GeometryBindingSet,
-    SceneInstancesBindingSet,
-    MaterialDatasBindingSet,
-    MaterialTexturesBindingSet,
-    StorageBindingSet,
-    BindingSetCount,
+    GeneratorGeometryBindingSet,
+    GeneratorSceneInstancesBindingSet,
+    GeneratorMaterialDatasBindingSet,
+    GeneratorMaterialTexturesBindingSet,
+    GeneratorStorageBindingSet,
+    GeneratorBindingSetCount,
 };
 
-struct PCBlock
+struct GeneratorPCBlock
 {
     uint matchTransparents;
 };
 
-ComputePass::Shader shaderDefinitionCallback(
+enum CullerBindingSet : uint32_t
+{
+    CullerCameraBindingSet,
+    CullerGeometryBindingSet,
+    CullerSceneInstancesBindingSet,
+    CullerStorageBindingSet,
+    CullerBindingSetCount,
+};
+
+ComputePass::Shader generatorDefinitionCallback(
     Allocator &alloc, const WorldDSLayouts &worldDSLayouts)
 {
     const size_t len = 168;
     String defines{alloc, len};
-    appendDefineStr(defines, "GEOMETRY_SET", GeometryBindingSet);
-    appendDefineStr(defines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
-    appendDefineStr(defines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
+    appendDefineStr(defines, "GEOMETRY_SET", GeneratorGeometryBindingSet);
     appendDefineStr(
-        defines, "MATERIAL_TEXTURES_SET", MaterialTexturesBindingSet);
+        defines, "SCENE_INSTANCES_SET", GeneratorSceneInstancesBindingSet);
+    appendDefineStr(
+        defines, "MATERIAL_DATAS_SET", GeneratorMaterialDatasBindingSet);
+    appendDefineStr(
+        defines, "MATERIAL_TEXTURES_SET", GeneratorMaterialTexturesBindingSet);
     appendDefineStr(
         defines, "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
-    appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
+    appendDefineStr(defines, "STORAGE_SET", GeneratorStorageBindingSet);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
         .relPath = "shader/draw_list_generator.comp",
         .debugName = String{alloc, "DrawListGeneratorCS"},
         .defines = WHEELS_MOV(defines),
-        .groupSize = uvec3{sThreadsPerMesh, 1, 1},
+        .groupSize = uvec3{sGeneratorGroupSize, 1, 1},
     };
 }
 
-StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
-    const WorldDSLayouts &worldDsLayouts)
+StaticArray<vk::DescriptorSetLayout, GeneratorBindingSetCount - 1>
+generatorExternalDsLayouts(const WorldDSLayouts &worldDsLayouts)
 {
-    StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> setLayouts{
+    StaticArray<vk::DescriptorSetLayout, GeneratorBindingSetCount - 1>
+        setLayouts{VK_NULL_HANDLE};
+    setLayouts[GeneratorGeometryBindingSet] = worldDsLayouts.geometry;
+    setLayouts[GeneratorSceneInstancesBindingSet] =
+        worldDsLayouts.sceneInstances;
+    setLayouts[GeneratorMaterialDatasBindingSet] = worldDsLayouts.materialDatas;
+    setLayouts[GeneratorMaterialTexturesBindingSet] =
+        worldDsLayouts.materialTextures;
+    return setLayouts;
+}
+
+ComputePass::Shader cullerDefinitionCallback(Allocator &alloc)
+{
+    const size_t len = 96;
+    String defines{alloc, len};
+    appendDefineStr(defines, "CAMERA_SET", CullerCameraBindingSet);
+    appendDefineStr(defines, "GEOMETRY_SET", CullerGeometryBindingSet);
+    appendDefineStr(
+        defines, "SCENE_INSTANCES_SET", CullerSceneInstancesBindingSet);
+    appendDefineStr(defines, "STORAGE_SET", CullerStorageBindingSet);
+    WHEELS_ASSERT(defines.size() <= len);
+
+    return ComputePass::Shader{
+        .relPath = "shader/draw_list_culler.comp",
+        .debugName = String{alloc, "DrawListCullerCS"},
+        .defines = WHEELS_MOV(defines),
+        .groupSize = uvec3{sCullerGroupSize, 1, 1},
+    };
+}
+
+StaticArray<vk::DescriptorSetLayout, CullerBindingSetCount - 1>
+cullerExternalDsLayouts(
+    const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
+{
+    StaticArray<vk::DescriptorSetLayout, CullerBindingSetCount - 1> setLayouts{
         VK_NULL_HANDLE};
-    setLayouts[GeometryBindingSet] = worldDsLayouts.geometry;
-    setLayouts[SceneInstancesBindingSet] = worldDsLayouts.sceneInstances;
-    setLayouts[MaterialDatasBindingSet] = worldDsLayouts.materialDatas;
-    setLayouts[MaterialTexturesBindingSet] = worldDsLayouts.materialTextures;
+    setLayouts[CullerCameraBindingSet] = camDsLayout;
+    setLayouts[CullerGeometryBindingSet] = worldDsLayouts.geometry;
+    setLayouts[CullerSceneInstancesBindingSet] = worldDsLayouts.sceneInstances;
     return setLayouts;
 }
 
@@ -81,17 +130,26 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
 MeshletCuller::MeshletCuller(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
-    const WorldDSLayouts &worldDsLayouts)
+    const WorldDSLayouts &worldDsLayouts, 
+vk::DescriptorSetLayout camDsLayout)
 : _device{device}
 , _resources{resources}
 , _drawListGenerator{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
       [&worldDsLayouts](Allocator &alloc)
-      { return shaderDefinitionCallback(alloc, worldDsLayouts); },
+      { return generatorDefinitionCallback(alloc, worldDsLayouts); },
       ComputePassOptions{
-          .storageSetIndex = StorageBindingSet,
+          .storageSetIndex = GeneratorStorageBindingSet,
           .perFrameRecordLimit = sMaxRecordsPerFrame,
-          .externalDsLayouts = externalDsLayouts(worldDsLayouts),
+          .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
+      }}
+, _drawListCuller{
+      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+      cullerDefinitionCallback,
+      ComputePassOptions{
+          .storageSetIndex = CullerStorageBindingSet,
+          .perFrameRecordLimit = sMaxRecordsPerFrame,
+          .externalDsLayouts = cullerExternalDsLayouts(worldDsLayouts, camDsLayout),
       }}
 {
     WHEELS_ASSERT(_device != nullptr);
@@ -101,21 +159,47 @@ MeshletCuller::MeshletCuller(
 void MeshletCuller::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    const WorldDSLayouts &worldDsLayouts)
+    const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
 {
     _drawListGenerator.recompileShader(
-        WHEELS_MOV(scopeAlloc), changedFiles,
+        scopeAlloc.child_scope(), changedFiles,
         [&worldDsLayouts](Allocator &alloc)
-        { return shaderDefinitionCallback(alloc, worldDsLayouts); },
-        externalDsLayouts(worldDsLayouts));
+        { return generatorDefinitionCallback(alloc, worldDsLayouts); },
+        generatorExternalDsLayouts(worldDsLayouts));
+    _drawListCuller.recompileShader(
+        WHEELS_MOV(scopeAlloc), changedFiles, cullerDefinitionCallback,
+        cullerExternalDsLayouts(worldDsLayouts, camDsLayout));
 }
 
-void MeshletCuller::startFrame() { _drawListGenerator.startFrame(); }
+void MeshletCuller::startFrame()
+{
+    _drawListGenerator.startFrame();
+    _drawListCuller.startFrame();
+}
 
 MeshletCullerOutput MeshletCuller::record(
-    wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, const Camera &cam, uint32_t nextFrame,
     const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler)
+{
+    const MeshletCullerOutput initialList = recordGenerateList(
+        scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,
+        sceneStats, profiler);
+
+    const MeshletCullerOutput culledList = recordCullList(
+        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame, initialList,
+        debugPrefix, profiler);
+
+    _resources->buffers.release(initialList.dataBuffer);
+    _resources->buffers.release(initialList.argumentBuffer);
+
+    return culledList;
+}
+
+MeshletCullerOutput MeshletCuller::recordGenerateList(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
+    const World &world, uint32_t nextFrame, const char *debugPrefix,
+    SceneStats *sceneStats, Profiler *profiler)
 {
     {
         String scopeName{scopeAlloc};
@@ -167,7 +251,121 @@ MeshletCullerOutput MeshletCuller::record(
 
     String dataName{scopeAlloc};
     dataName.extend(debugPrefix);
-    dataName.extend("MeshDrawList");
+    dataName.extend("MeshletDrawList");
+
+    String argumentsName{scopeAlloc};
+    argumentsName.extend(debugPrefix);
+    argumentsName.extend("CullerDiscpatchArguments");
+
+    const MeshletCullerOutput ret{
+        .dataBuffer = _resources->buffers.create(
+            BufferDescription{
+                .byteSize = sMeshDrawListByteSize,
+                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
+            dataName.c_str()),
+        .argumentBuffer = _resources->buffers.create(
+            BufferDescription{
+                .byteSize = sArgumentsByteSize,
+                .usage = vk::BufferUsageFlagBits::eTransferDst |
+                         vk::BufferUsageFlagBits::eStorageBuffer |
+                         vk::BufferUsageFlagBits::eIndirectBuffer,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
+            argumentsName.c_str()),
+    };
+
+    _drawListGenerator.updateDescriptorSet(
+        scopeAlloc.child_scope(), nextFrame,
+        StaticArray{{
+            DescriptorInfo{
+                vk::DescriptorBufferInfo{
+                    .buffer = _resources->buffers.nativeHandle(ret.dataBuffer),
+                    .range = VK_WHOLE_SIZE,
+                },
+            },
+            DescriptorInfo{
+                vk::DescriptorBufferInfo{
+                    .buffer =
+                        _resources->buffers.nativeHandle(ret.argumentBuffer),
+                    .range = VK_WHOLE_SIZE,
+                },
+            },
+        }});
+
+    _resources->buffers.transition(
+        cb, ret.argumentBuffer, BufferState::TransferDst);
+
+    // Clear count as it will be used for atomic adds
+    cb.fillBuffer(
+        _resources->buffers.nativeHandle(ret.argumentBuffer), 0,
+        sizeof(uint32_t), 0u);
+
+    transition(
+        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        Transitions{
+            .buffers = StaticArray<BufferTransition, 2>{{
+                {ret.dataBuffer, BufferState::ComputeShaderWrite},
+                {ret.argumentBuffer, BufferState::ComputeShaderReadWrite},
+            }},
+        });
+
+    String scopeName{scopeAlloc};
+    scopeName.extend(debugPrefix);
+    scopeName.extend("DrawListGeneration");
+    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
+
+    const GeneratorPCBlock pcBlock{
+        .matchTransparents = mode == Mode::Transparent ? 1u : 0u,
+    };
+
+    const Scene &scene = world.currentScene();
+    const WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+
+    StaticArray<vk::DescriptorSet, GeneratorBindingSetCount> descriptorSets{
+        VK_NULL_HANDLE};
+    descriptorSets[GeneratorGeometryBindingSet] = worldDSes.geometry[nextFrame];
+    descriptorSets[GeneratorSceneInstancesBindingSet] =
+        scene.sceneInstancesDescriptorSet;
+    descriptorSets[GeneratorMaterialDatasBindingSet] =
+        worldDSes.materialDatas[nextFrame];
+    descriptorSets[GeneratorMaterialTexturesBindingSet] =
+        worldDSes.materialTextures;
+    descriptorSets[GeneratorStorageBindingSet] =
+        _drawListGenerator.storageSet(nextFrame);
+
+    const StaticArray dynamicOffsets{{
+        worldByteOffsets.modelInstanceTransforms,
+        worldByteOffsets.previousModelInstanceTransforms,
+        worldByteOffsets.modelInstanceScales,
+        worldByteOffsets.globalMaterialConstants,
+    }};
+
+    WHEELS_ASSERT(
+        scene.drawInstanceCount * 2u *
+            static_cast<uint32_t>(sizeof(uint32_t)) <=
+        sMeshDrawListByteSize);
+
+    // We want group per instance so multiply the extent by thread count
+    const uvec3 extent =
+        glm::uvec3{scene.drawInstanceCount * sGeneratorGroupSize, 1u, 1u};
+
+    _drawListGenerator.record(
+        cb, pcBlock, extent, descriptorSets, dynamicOffsets);
+
+    return ret;
+}
+
+MeshletCullerOutput MeshletCuller::recordCullList(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, uint32_t nextFrame, const MeshletCullerOutput &input,
+    const char *debugPrefix, Profiler *profiler)
+{
+    String dataName{scopeAlloc};
+    dataName.extend(debugPrefix);
+    dataName.extend("CulledMeshletDrawList");
 
     String argumentsName{scopeAlloc};
     argumentsName.extend(debugPrefix);
@@ -192,9 +390,13 @@ MeshletCullerOutput MeshletCuller::record(
             argumentsName.c_str()),
     };
 
-    _drawListGenerator.updateDescriptorSet(
+    _drawListCuller.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = _resources->buffers.nativeHandle(input.dataBuffer),
+                .range = VK_WHOLE_SIZE,
+            }},
             DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = _resources->buffers.nativeHandle(ret.dataBuffer),
                 .range = VK_WHOLE_SIZE,
@@ -216,7 +418,9 @@ MeshletCullerOutput MeshletCuller::record(
     transition(
         WHEELS_MOV(scopeAlloc), *_resources, cb,
         Transitions{
-            .buffers = StaticArray<BufferTransition, 2>{{
+            .buffers = StaticArray<BufferTransition, 4>{{
+                {input.dataBuffer, BufferState::ComputeShaderRead},
+                {input.argumentBuffer, BufferState::DrawIndirectRead},
                 {ret.dataBuffer, BufferState::ComputeShaderWrite},
                 {ret.argumentBuffer, BufferState::ComputeShaderReadWrite},
             }},
@@ -224,33 +428,27 @@ MeshletCullerOutput MeshletCuller::record(
 
     String scopeName{scopeAlloc};
     scopeName.extend(debugPrefix);
-    scopeName.extend("DrawListGeneration");
+    scopeName.extend("DrawListCuller");
     const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
-
-    const PCBlock pcBlock{
-        .matchTransparents = mode == Mode::Transparent ? 1u : 0u,
-    };
 
     const Scene &scene = world.currentScene();
     const WorldDescriptorSets &worldDSes = world.descriptorSets();
     const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
-    StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+    StaticArray<vk::DescriptorSet, CullerBindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
-    descriptorSets[GeometryBindingSet] = worldDSes.geometry[nextFrame];
-    descriptorSets[SceneInstancesBindingSet] =
+    descriptorSets[CullerCameraBindingSet] = cam.descriptorSet();
+    descriptorSets[CullerGeometryBindingSet] = worldDSes.geometry[nextFrame];
+    descriptorSets[CullerSceneInstancesBindingSet] =
         scene.sceneInstancesDescriptorSet;
-    descriptorSets[MaterialDatasBindingSet] =
-        worldDSes.materialDatas[nextFrame];
-    descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
-    descriptorSets[StorageBindingSet] =
-        _drawListGenerator.storageSet(nextFrame);
+    descriptorSets[CullerStorageBindingSet] =
+        _drawListCuller.storageSet(nextFrame);
 
     const StaticArray dynamicOffsets{{
+        cam.bufferOffset(),
         worldByteOffsets.modelInstanceTransforms,
         worldByteOffsets.previousModelInstanceTransforms,
         worldByteOffsets.modelInstanceScales,
-        worldByteOffsets.globalMaterialConstants,
     }};
 
     WHEELS_ASSERT(
@@ -258,12 +456,9 @@ MeshletCullerOutput MeshletCuller::record(
             static_cast<uint32_t>(sizeof(uint32_t)) <=
         sMeshDrawListByteSize);
 
-    // We want group per instance so multiply the extent by thread count
-    const uvec3 extent =
-        glm::uvec3{scene.drawInstanceCount * sThreadsPerMesh, 1u, 1u};
-
-    _drawListGenerator.record(
-        cb, pcBlock, extent, descriptorSets, dynamicOffsets);
+    const vk::Buffer argumentsHandle =
+        _resources->buffers.nativeHandle(input.argumentBuffer);
+    _drawListCuller.record(cb, argumentsHandle, descriptorSets, dynamicOffsets);
 
     return ret;
 }
