@@ -120,27 +120,41 @@ void main()
 
     SetMeshOutputsEXT(meshletInfo.vertexCount, meshletInfo.triangleCount);
 
-    if (threadID < meshletInfo.vertexCount)
+    uint verticesPerThread = (meshletInfo.vertexCount - 1) / LOCAL_SIZE_X + 1;
+    for (uint i = 0; i < verticesPerThread; ++i)
     {
-        uint vertexIndex =
-            loadMeshletVertexIndex(metadata, meshletInfo, threadID);
+        uint meshletID = i * LOCAL_SIZE_X + threadID;
+        if (meshletID < meshletInfo.vertexCount)
+        {
+            uint vertexIndex =
+                loadMeshletVertexIndex(metadata, meshletInfo, meshletID);
 
-        writeTransformedVertex(instance, metadata, trfn, vertexIndex, threadID);
+            writeTransformedVertex(
+                instance, metadata, trfn, vertexIndex, meshletID);
+        }
     }
 
-    if (threadID < meshletInfo.triangleCount)
+    uint trianglesPerThread =
+        (meshletInfo.triangleCount - 1) / LOCAL_SIZE_X + 1;
+    for (uint i = 0; i < trianglesPerThread; ++i)
     {
-        outPrimitives[threadID].drawInstanceID = meshletInstance.drawInstanceID;
-        outPrimitives[threadID].meshletID = meshletInstance.meshletID;
-        gl_MeshPrimitivesEXT[threadID].gl_PrimitiveID = int(threadID);
+        uint triangleID = i * LOCAL_SIZE_X + threadID;
+        if (triangleID < meshletInfo.triangleCount)
+        {
+            outPrimitives[triangleID].drawInstanceID =
+                meshletInstance.drawInstanceID;
+            outPrimitives[triangleID].meshletID = meshletInstance.meshletID;
+            gl_MeshPrimitivesEXT[triangleID].gl_PrimitiveID = int(triangleID);
 
-        uvec3 triIndices = loadMeshletTriangle(metadata, meshletInfo, threadID);
-        gl_PrimitiveTriangleIndicesEXT[threadID] = triIndices;
+            uvec3 triIndices =
+                loadMeshletTriangle(metadata, meshletInfo, triangleID);
+            gl_PrimitiveTriangleIndicesEXT[triangleID] = triIndices;
 
-        // Per-triangle backface culling seemed to be 2-3% slower on 680M and
-        // 4080 when implemented like in
-        // https://zeux.io/2023/04/28/triangle-backface-culling/
-        // or like in
-        // https://github.com/zeux/niagara/blob/5c4da32850ae32a0528f11e22e09ada5348f4e0c/src/shaders/meshlet.mesh.glsl
+            // Per-triangle backface culling seemed to be 2-3% slower on 680M
+            // and 4080 when implemented like in
+            // https://zeux.io/2023/04/28/triangle-backface-culling/
+            // or like in
+            // https://github.com/zeux/niagara/blob/5c4da32850ae32a0528f11e22e09ada5348f4e0c/src/shaders/meshlet.mesh.glsl
+        }
     }
 }

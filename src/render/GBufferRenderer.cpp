@@ -211,6 +211,9 @@ bool GBufferRenderer::compileShaders(
 {
     printf("Compiling GBufferRenderer shaders\n");
 
+    const vk::PhysicalDeviceMeshShaderPropertiesEXT &meshShaderProps =
+        _device->properties().meshShader;
+
     const size_t meshDefsLen = 201;
     String meshDefines{scopeAlloc, meshDefsLen};
     appendDefineStr(meshDefines, "CAMERA_SET", CameraBindingSet);
@@ -222,7 +225,10 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
     appendDefineStr(
-        meshDefines, "LOCAL_SIZE_X", std::max(sMaxMsVertices, sMaxMsTriangles));
+        meshDefines, "LOCAL_SIZE_X",
+        std::min(
+            meshShaderProps.maxPreferredMeshWorkGroupInvocations,
+            asserted_cast<uint32_t>(sMaxMsTriangles)));
     WHEELS_ASSERT(meshDefines.size() <= meshDefsLen);
 
     Optional<Device::ShaderCompileResult> meshResult =
