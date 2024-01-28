@@ -17,23 +17,14 @@
 #include "scene/materials.glsl"
 #include "scene/skybox.glsl"
 
-layout(location = 0) in InVertex
-{
-    vec3 positionWorld;
-    float zCam;
-    vec2 texCoord0;
-    vec4 positionNDC;
-    vec4 prevPositionNDC;
-    mat3 tbn;
-}
-inVertex;
-
-layout(location = 9) in InPrimitive
-{
-    flat uint drawInstanceID;
-    flat uint meshletID;
-}
-inPrimitive;
+layout(location = 0) in vec3 inPositionWorld;
+layout(location = 1) in float inZCam;
+layout(location = 2) in vec2 inTexCoord0;
+layout(location = 3) in vec4 inPositionNDC;
+layout(location = 4) in vec4 inPrevPositionNDC;
+layout(location = 5) in mat3 inTbn;
+layout(location = 8) in flat uint inDrawInstanceID;
+layout(location = 9) in flat uint inMeshletID;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec2 outVelocity;
@@ -41,12 +32,12 @@ layout(location = 1) out vec2 outVelocity;
 mat3 generateTBN()
 {
     // http://www.thetenthplanet.de/archives/1180
-    vec3 dp1 = dFdx(inVertex.positionWorld);
-    vec3 dp2 = dFdy(inVertex.positionWorld);
-    vec2 duv1 = dFdx(inVertex.texCoord0);
-    vec2 duv2 = dFdy(inVertex.texCoord0);
+    vec3 dp1 = dFdx(inPositionWorld);
+    vec3 dp2 = dFdy(inPositionWorld);
+    vec2 duv1 = dFdx(inTexCoord0);
+    vec2 duv2 = dFdy(inTexCoord0);
 
-    vec3 N = normalize(inVertex.tbn[2]);
+    vec3 N = normalize(inTbn[2]);
     vec3 T = normalize(dp1 * duv2.t - dp2 * duv1.t);
     vec3 B = normalize(cross(N, T));
     return mat3(T, B, N);
@@ -54,13 +45,13 @@ mat3 generateTBN()
 
 void main()
 {
-    DrawInstance instance = drawInstances.instance[inPrimitive.drawInstanceID];
+    DrawInstance instance = drawInstances.instance[inDrawInstanceID];
 
     VisibleSurface surface;
-    surface.positionWS = inVertex.positionWorld;
-    surface.invViewRayWS = normalize(camera.eye.xyz - inVertex.positionWorld);
-    surface.uv = inVertex.texCoord0;
-    surface.material = sampleMaterial(instance.materialID, inVertex.texCoord0);
+    surface.positionWS = inPositionWorld;
+    surface.invViewRayWS = normalize(camera.eye.xyz - inPositionWorld);
+    surface.uv = inTexCoord0;
+    surface.material = sampleMaterial(instance.materialID, inTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (surface.material.alpha == 0)
@@ -68,11 +59,11 @@ void main()
 
     if (surface.material.normal.x != -2) // -2 signals no material normal
     {
-        mat3 TBN = length(inVertex.tbn[0]) > 0 ? inVertex.tbn : generateTBN();
+        mat3 TBN = length(inTbn[0]) > 0 ? inTbn : generateTBN();
         surface.normalWS = normalize(TBN * surface.material.normal.xyz);
     }
     else
-        surface.normalWS = normalize(inVertex.tbn[2]);
+        surface.normalWS = normalize(inTbn[2]);
 
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
 
@@ -81,7 +72,7 @@ void main()
     color += evalDirectionalLight(surface);
 
     LightClusterInfo lightInfo =
-        unpackClusterPointer(uvec2(gl_FragCoord.xy), inVertex.zCam);
+        unpackClusterPointer(uvec2(gl_FragCoord.xy), inZCam);
 
     color += evalPointLights(surface, lightInfo);
 
@@ -93,8 +84,8 @@ void main()
     float alpha = surface.material.alpha > 0 ? surface.material.alpha : 1.0;
 
     // Store in NDC like in https://alextardif.com/TAA.html
-    vec3 posNDC = inVertex.positionNDC.xyz / inVertex.positionNDC.w;
-    vec3 prevPosNDC = inVertex.prevPositionNDC.xyz / inVertex.prevPositionNDC.w;
+    vec3 posNDC = inPositionNDC.xyz / inPositionNDC.w;
+    vec3 prevPosNDC = inPrevPositionNDC.xyz / inPrevPositionNDC.w;
     vec2 velocity = (posNDC.xy - camera.currentJitter) -
                     (prevPosNDC.xy - camera.previousJitter);
     // Let's have positive motion be upward in the image to try and avoid
@@ -107,7 +98,7 @@ void main()
     {
         if (PC.DrawType == DrawType_MeshletID)
         {
-            outColor = vec4(uintToColor(inPrimitive.meshletID), 1);
+            outColor = vec4(uintToColor(inMeshletID), 1);
             return;
         }
 
@@ -117,7 +108,7 @@ void main()
         di.materialID = instance.materialID;
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
-        di.texCoord0 = inVertex.texCoord0;
+        di.texCoord0 = inTexCoord0;
         outColor = vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1);
         return;
     }

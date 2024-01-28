@@ -44,23 +44,14 @@ layout(
 // maxMeshOutputMemorySize=32768
 // maxMeshOutputComponents=127
 
-layout(location = 0) out OutVertex
-{
-    vec3 positionWorld;
-    float zCam;
-    vec2 texCoord0;
-    vec4 positionNDC;
-    vec4 prevPositionNDC;
-    mat3 tbn;
-}
-outVertices[];
-
-layout(location = 9) perprimitiveEXT out OutPrimitive
-{
-    uint drawInstanceID;
-    uint meshletID;
-}
-outPrimitives[];
+layout(location = 0) out vec3 outPositionWorld[];
+layout(location = 1) out float outZCam[];
+layout(location = 2) out vec2 outTexCoord0[];
+layout(location = 3) out vec4 outPositionNDC[];
+layout(location = 4) out vec4 outPrevPositionNDC[];
+layout(location = 5) out mat3 outTbn[];
+layout(location = 8) perprimitiveEXT out flat uint outDrawInstanceID[];
+layout(location = 9) perprimitiveEXT out flat uint outMeshletID[];
 
 void writeTransformedVertex(
     DrawInstance instance, GeometryMetadata metadata, Transforms trfn,
@@ -70,20 +61,19 @@ void writeTransformedVertex(
     Vertex vertexWorld = transform(vertexModel, trfn);
 
     if (vertexWorld.Tangent.w != 0)
-        outVertices[meshletVertexIndex].tbn =
+        outTbn[meshletVertexIndex] =
             generateTBN(vertexWorld.Normal, vertexWorld.Tangent);
     else
-        outVertices[meshletVertexIndex].tbn =
-            mat3(vec3(0), vec3(0), vertexWorld.Normal);
+        outTbn[meshletVertexIndex] = mat3(vec3(0), vec3(0), vertexWorld.Normal);
 
-    outVertices[meshletVertexIndex].positionWorld = vertexWorld.Position;
-    outVertices[meshletVertexIndex].texCoord0 = vertexWorld.TexCoord0;
+    outPositionWorld[meshletVertexIndex] = vertexWorld.Position;
+    outTexCoord0[meshletVertexIndex] = vertexWorld.TexCoord0;
 
     vec4 posCam = camera.worldToCamera * vec4(vertexWorld.Position, 1);
-    outVertices[meshletVertexIndex].zCam = posCam.z;
+    outZCam[meshletVertexIndex] = posCam.z;
 
     vec4 posNDC = camera.cameraToClip * posCam;
-    outVertices[meshletVertexIndex].positionNDC = posNDC;
+    outPositionNDC[meshletVertexIndex] = posNDC;
 
     Transforms prevTrfn = trfn;
     if (PC.previousTransformValid == 1)
@@ -91,9 +81,9 @@ void writeTransformedVertex(
             previousModelInstanceTransforms.instance[instance.modelInstanceID];
     vec3 prevPositionWorld = worldPosition(vertexModel, prevTrfn);
 
-    outVertices[meshletVertexIndex].prevPositionNDC =
-        camera.previousCameraToClip * camera.previousWorldToCamera *
-        vec4(prevPositionWorld, 1.);
+    outPrevPositionNDC[meshletVertexIndex] = camera.previousCameraToClip *
+                                             camera.previousWorldToCamera *
+                                             vec4(prevPositionWorld, 1.);
 
     gl_MeshVerticesEXT[meshletVertexIndex].gl_Position = posNDC;
 }
@@ -141,9 +131,8 @@ void main()
         uint triangleID = i * LOCAL_SIZE_X + threadID;
         if (triangleID < meshletInfo.triangleCount)
         {
-            outPrimitives[triangleID].drawInstanceID =
-                meshletInstance.drawInstanceID;
-            outPrimitives[triangleID].meshletID = meshletInstance.meshletID;
+            outDrawInstanceID[triangleID] = meshletInstance.drawInstanceID;
+            outMeshletID[triangleID] = meshletInstance.meshletID;
             gl_MeshPrimitivesEXT[triangleID].gl_PrimitiveID = int(triangleID);
 
             uvec3 triIndices =
