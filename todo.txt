@@ -37,29 +37,7 @@
     - unique_ptr? is the indirection expensive?
     - or store reflections per shader handle in device and query each time they are used?
       more expensive?
-- Geometry optimization
-  - meshoptimizer, mikktspace
-  - cache resulting raw buffers on disc like with textures
-    - hash raw bytes, if libs' outputs are stable? by input file touch time?
-    - Separate file per mesh? could just read cache in loader thread like with
-      textures
-    - conversion wide, single thread that transfers data? messy handling for wide
-      writes even though raw geometry writes dosn't have to use the transfer queue?
-    - if wider, also go wide for texture compression
-- Mesh shading
-  - Async geometry loading/optimization first, add meshlet generation after
-  - cone and per-tri culling?
-    - https://zeux.io/2023/04/28/triangle-backface-culling/
-    - Bench per-tri!
-- Indirect draw
-  - Per-mesh frustum culling by BB 
-  - Depth sorting by BB
-  - Meshlet draw indices and indirect args on GPU
-- Split uint and float mesh buffers?
-  - Bitcast op shows up in spirv, suggesting a potential perf hit
-  - Could alias memory with two different bindings, but explicit separation sounds
-    nicer
-  - Should profile
+- Per-mesh frustum culling before meshlet draw list generation
 - Have one BLAS per model instead of one BLAS per submodel
   - Reduces BLAS overlap in TLAS
   - Requires different mesh index logic
@@ -81,3 +59,5 @@
   - Non-throwing ctors and separate init to make sure cleanup always happens?
 - Have texture and mesh cache both next to the scene instead of textures being
   next to the textures?
+- Compile time loops in mesh shader
+  - Profile the impact
