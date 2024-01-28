@@ -502,6 +502,15 @@ Device::Device(
         _properties.subgroup =
             props.get<vk::PhysicalDeviceSubgroupProperties>();
 
+#ifdef __linux__
+        // The AMD 680M on amdpro drivers seems to misreport this higher
+        // than what's actually used
+        if (_properties.device.vendorID == 0x1002 &&
+            _properties.device.deviceID == 0x1681)
+            _properties.meshShader.maxMeshWorkGroupCount[0] = std::min(
+                _properties.meshShader.maxMeshWorkGroupCount[0], 0xFFFFu);
+#endif // __linux__
+
         WHEELS_ASSERT(
             _properties.meshShader.maxMeshOutputVertices >= sMaxMsVertices);
         WHEELS_ASSERT(
