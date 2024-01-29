@@ -19,7 +19,9 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - From the environment map with split sum approximation
 - 1D ACES-tonemap[^2]
 - Deferred and forward rendering paths
-  - Mesh shaders without culling
+  - Mesh shaders
+  - Drawlist generation and meshlet culling in compute
+    - Not all HW supports task shaders so let's have a unified implementation
 - ReSTIR DI in deferred path
   - Initial candidate sampling and biased spatial reuse implemented so far
 - Path tracing reference
@@ -82,7 +84,6 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
     more graceful handling for wrong inputs etc.
 
 Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and, on Linux, `xorg-dev`. Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [meshoptimizer](https://github.com/zeux/meshoptimizer), [mikktspace](https://github.com/mmikk/MikkTSpace), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
-
 
 ## Building
 
