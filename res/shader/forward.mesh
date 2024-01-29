@@ -44,14 +44,17 @@ layout(
 // maxMeshOutputMemorySize=32768
 // maxMeshOutputComponents=127
 
+// TODO:
+// Pack these further because less data is less data
 layout(location = 0) out vec3 outPositionWorld[];
 layout(location = 1) out float outZCam[];
 layout(location = 2) out vec2 outTexCoord0[];
 layout(location = 3) out vec4 outPositionNDC[];
 layout(location = 4) out vec4 outPrevPositionNDC[];
-layout(location = 5) out mat3 outTbn[];
-layout(location = 8) perprimitiveEXT out flat uint outDrawInstanceID[];
-layout(location = 9) perprimitiveEXT out flat uint outMeshletID[];
+layout(location = 5) out vec3 outNormalWorld[];
+layout(location = 6) out vec4 outTangentWorldSign[];
+layout(location = 7) perprimitiveEXT out flat uint outDrawInstanceID[];
+layout(location = 8) perprimitiveEXT out flat uint outMeshletID[];
 
 void writeTransformedVertex(
     DrawInstance instance, GeometryMetadata metadata, Transforms trfn,
@@ -59,12 +62,6 @@ void writeTransformedVertex(
 {
     Vertex vertexModel = loadVertex(metadata, globalVertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
-
-    if (vertexWorld.Tangent.w != 0)
-        outTbn[meshletVertexIndex] =
-            generateTBN(vertexWorld.Normal, vertexWorld.Tangent);
-    else
-        outTbn[meshletVertexIndex] = mat3(vec3(0), vec3(0), vertexWorld.Normal);
 
     outPositionWorld[meshletVertexIndex] = vertexWorld.Position;
     outTexCoord0[meshletVertexIndex] = vertexWorld.TexCoord0;
@@ -84,6 +81,9 @@ void writeTransformedVertex(
     outPrevPositionNDC[meshletVertexIndex] = camera.previousCameraToClip *
                                              camera.previousWorldToCamera *
                                              vec4(prevPositionWorld, 1.);
+
+    outNormalWorld[meshletVertexIndex] = vertexWorld.Normal;
+    outTangentWorldSign[meshletVertexIndex] = vertexWorld.Tangent;
 
     gl_MeshVerticesEXT[meshletVertexIndex].gl_Position = posNDC;
 }

@@ -76,7 +76,6 @@
     - Could get too messy and brittle
 - Pipeline cache
   - https://zeux.io/2019/07/17/serializing-pipeline-cache/
-- Calculate bitangent in pixel shader like suggested on the mikktspace site
 - Fix init/load time crashes causing broken teardown and VMA asserts masking the
   actual root cause throws
   - Non-throwing ctors and separate init to make sure cleanup always happens?

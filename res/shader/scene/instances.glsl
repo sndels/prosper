@@ -67,10 +67,4 @@ vec3 worldPosition(Vertex v, Transforms t)
     return (vec4(v.Position, 1.0) * t.modelToWorld).xyz;
 }
 
-mat3 generateTBN(vec3 normal, vec4 tangent)
-{
-    vec3 bitangent = cross(normal, tangent.xyz) * tangent.w;
-    return mat3(tangent.xyz, bitangent, normal);
-}
-
 #endif // SCENE_INTSTANCES_GLSL

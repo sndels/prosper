@@ -28,6 +28,16 @@ layout(set = OUTPUT_SET, binding = 1) uniform image2D outColor;
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
+vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
+{
+    vec3 vNt = tangentSpaceNormal;
+    vec3 vN = normal;
+    vec3 vT = tangent;
+    // From mikktspace.com
+    vec3 vB = sgn * cross(vN, vT);
+    return normalize(vNt.x * vT + vNt.y * vB + vNt.z * vN);
+}
+
 #define MISS_INDEX 0xFFFFFFFF
 
 float shadow(vec3 p, vec3 l, float tMin, float lDist)
@@ -151,12 +161,10 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 
     // -2 signals no material normal, w=0 no vertex tangent
     if (surface.material.normal.x != -2 && v.Tangent.w != 0)
-    {
-        mat3 TBN = generateTBN(v.Normal, v.Tangent);
-        surface.normalWS = normalize(TBN * surface.material.normal.xyz);
-    }
+        surface.normalWS = mappedNormal(
+            surface.material.normal, v.Normal, v.Tangent.xyz, v.Tangent.w);
     else
-        surface.normalWS = v.Normal;
+        surface.normalWS = normalize(v.Normal);
 
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
     surface.linearDepth = length(surface.positionWS - ray.o);

@@ -22,25 +22,22 @@ layout(location = 1) in float inZCam;
 layout(location = 2) in vec2 inTexCoord0;
 layout(location = 3) in vec4 inPositionNDC;
 layout(location = 4) in vec4 inPrevPositionNDC;
-layout(location = 5) in mat3 inTbn;
-layout(location = 8) in flat uint inDrawInstanceID;
-layout(location = 9) in flat uint inMeshletID;
+layout(location = 5) in vec3 inNormalWorld;
+layout(location = 6) in vec4 inTangentWorldSign;
+layout(location = 7) in flat uint inDrawInstanceID;
+layout(location = 8) in flat uint inMeshletID;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec2 outVelocity;
 
-mat3 generateTBN()
+vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
 {
-    // http://www.thetenthplanet.de/archives/1180
-    vec3 dp1 = dFdx(inPositionWorld);
-    vec3 dp2 = dFdy(inPositionWorld);
-    vec2 duv1 = dFdx(inTexCoord0);
-    vec2 duv2 = dFdy(inTexCoord0);
-
-    vec3 N = normalize(inTbn[2]);
-    vec3 T = normalize(dp1 * duv2.t - dp2 * duv1.t);
-    vec3 B = normalize(cross(N, T));
-    return mat3(T, B, N);
+    vec3 vNt = tangentSpaceNormal;
+    vec3 vN = normal;
+    vec3 vT = tangent;
+    // From mikktspace.com
+    vec3 vB = sgn * cross(vN, vT);
+    return normalize(vNt.x * vT + vNt.y * vB + vNt.z * vN);
 }
 
 void main()
@@ -58,12 +55,11 @@ void main()
         discard;
 
     if (surface.material.normal.x != -2) // -2 signals no material normal
-    {
-        mat3 TBN = length(inTbn[0]) > 0 ? inTbn : generateTBN();
-        surface.normalWS = normalize(TBN * surface.material.normal.xyz);
-    }
+        surface.normalWS = mappedNormal(
+            surface.material.normal, inNormalWorld, inTangentWorldSign.xyz,
+            inTangentWorldSign.w);
     else
-        surface.normalWS = normalize(inTbn[2]);
+        surface.normalWS = normalize(inNormalWorld);
 
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
 
