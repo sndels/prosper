@@ -22,17 +22,18 @@
 class DepthOfField
 {
   public:
-    DepthOfField(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout cameraDsLayout);
-
+    DepthOfField() = default;
     ~DepthOfField() = default;
 
     DepthOfField(const DepthOfField &other) = delete;
     DepthOfField(DepthOfField &&other) = delete;
     DepthOfField &operator=(const DepthOfField &other) = delete;
     DepthOfField &operator=(DepthOfField &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout cameraDsLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -49,6 +50,7 @@ class DepthOfField
         Profiler *profiler);
 
   private:
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
 
     DepthOfFieldSetup _setupPass;

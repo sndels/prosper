@@ -13,10 +13,8 @@
 class DescriptorAllocator
 {
   public:
-    // Both alloc and device need to live as long as this
-    DescriptorAllocator(
-        wheels::Allocator &alloc, Device *device,
-        vk::DescriptorPoolCreateFlags flags = vk::DescriptorPoolCreateFlags{});
+    // alloc needs to live as long as this
+    DescriptorAllocator(wheels::Allocator &alloc) noexcept;
     // Descriptors allocated by this allocator are implicitly freed when the
     // pools are destroyed
     ~DescriptorAllocator();
@@ -25,6 +23,11 @@ class DescriptorAllocator
     DescriptorAllocator(DescriptorAllocator &&) = delete;
     DescriptorAllocator &operator=(DescriptorAllocator const &) = delete;
     DescriptorAllocator &operator=(DescriptorAllocator &&) = delete;
+
+    // device needs to live as long as this
+    void init(
+        Device *device,
+        vk::DescriptorPoolCreateFlags flags = vk::DescriptorPoolCreateFlags{});
 
     // Reset frees all allocated descriptors/sets and makes the pools available
     // for new allocations
@@ -46,6 +49,7 @@ class DescriptorAllocator
         wheels::Span<const vk::DescriptorSetLayout> layouts,
         wheels::Span<vk::DescriptorSet> output, const void *allocatePNext);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     int32_t _activePool{-1};
     wheels::Array<vk::DescriptorPool> _pools;

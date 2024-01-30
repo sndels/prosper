@@ -58,20 +58,24 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-DepthOfFieldSetup::DepthOfFieldSetup(
+void DepthOfFieldSetup::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
-: _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback,
-      ComputePassOptions{
-          .storageSetIndex = StorageBindingSet,
-          .externalDsLayouts = Span{&camDsLayout, 1},
-      }}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        shaderDefinitionCallback,
+        ComputePassOptions{
+            .storageSetIndex = StorageBindingSet,
+            .externalDsLayouts = Span{&camDsLayout, 1},
+        });
+
+    _initialized = true;
 }
 
 void DepthOfFieldSetup::recompileShaders(
@@ -79,6 +83,8 @@ void DepthOfFieldSetup::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDsLayout)
 {
+    WHEELS_ASSERT(_initialized);
+
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         Span{&camDsLayout, 1});
@@ -88,6 +94,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;

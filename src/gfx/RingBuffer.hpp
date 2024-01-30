@@ -15,15 +15,17 @@ class RingBuffer
     // minUniformBufferOffsetAlignment
     static const uint32_t sAlignment = 256;
 
-    RingBuffer(
-        Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
-        const char *debugName);
+    RingBuffer() = default;
     ~RingBuffer();
 
     RingBuffer(const RingBuffer &) = delete;
     RingBuffer &operator=(const RingBuffer &) = delete;
     RingBuffer(RingBuffer &&) = delete;
     RingBuffer &operator=(RingBuffer &&) = delete;
+
+    void init(
+        Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
+        const char *debugName);
 
     [[nodiscard]] vk::Buffer buffer() const;
 
@@ -65,6 +67,7 @@ class RingBuffer
   private:
     uint32_t write_internal(wheels::Span<const uint8_t> data, bool aligned);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     Buffer _buffer;
     uint32_t _currentByteOffset{0};
@@ -75,6 +78,8 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 uint32_t RingBuffer::write_value(const T &data)
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     return write_internal(
         wheels::Span{reinterpret_cast<const uint8_t *>(&data), sizeof(data)},
         true);
@@ -84,6 +89,8 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 void RingBuffer::write_value_unaligned(const T &data)
 {
+    WHEELS_ASSERT(_initialized);
+
     write_internal(
         wheels::Span{reinterpret_cast<const uint8_t *>(&data), sizeof(data)},
         false);
@@ -93,6 +100,8 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 uint32_t RingBuffer::write_elements(const wheels::Array<T> &data)
 {
+    WHEELS_ASSERT(_initialized);
+
     return write_internal(
         wheels::Span{
             reinterpret_cast<const uint8_t *>(data.data()),
@@ -104,6 +113,8 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 void RingBuffer::write_elements_unaligned(const wheels::Array<T> &data)
 {
+    WHEELS_ASSERT(_initialized);
+
     write_internal(
         wheels::Span{
             reinterpret_cast<const uint8_t *>(data.data()),
@@ -115,6 +126,8 @@ template <typename T, size_t N>
     requires std::is_trivially_copyable_v<T>
 uint32_t RingBuffer::write_full_capacity(const wheels::InlineArray<T, N> &data)
 {
+    WHEELS_ASSERT(_initialized);
+
     return write_internal(
         wheels::Span{
             reinterpret_cast<const uint8_t *>(data.data()),
@@ -127,6 +140,8 @@ template <typename T, size_t N>
 void RingBuffer::write_full_capacity_unaligned(
     const wheels::InlineArray<T, N> &data)
 {
+    WHEELS_ASSERT(_initialized);
+
     write_internal(
         wheels::Span{
             reinterpret_cast<const uint8_t *>(data.data()),

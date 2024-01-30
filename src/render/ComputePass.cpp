@@ -19,33 +19,6 @@ const uint32_t sMaxDynamicOffsets = 8;
 
 }
 
-ComputePass::ComputePass(
-    wheels::ScopedScratch scopeAlloc, Device *device,
-    DescriptorAllocator *staticDescriptorsAlloc,
-    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
-    const ComputePassOptions &options)
-: _device{device}
-, _storageSetIndex{options.storageSetIndex}
-{
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-    WHEELS_ASSERT(
-        (_storageSetIndex == options.externalDsLayouts.size()) &&
-        "Implementation assumes that the pass storage set is the last set and "
-        "is placed right after the last external one");
-
-    for (auto &sets : _storageSets)
-        sets.resize(options.perFrameRecordLimit);
-
-    printf("Creating ComputePass\n");
-    if (!compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
-        throw std::runtime_error("Shader compilation failed");
-
-    createDescriptorSets(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        options.storageStageFlags);
-    createPipeline(scopeAlloc.child_scope(), options.externalDsLayouts);
-}
-
 ComputePass::~ComputePass()
 {
     if (_device != nullptr)
@@ -58,12 +31,46 @@ ComputePass::~ComputePass()
     }
 }
 
+void ComputePass::init(
+    wheels::ScopedScratch scopeAlloc, Device *device,
+    DescriptorAllocator *staticDescriptorsAlloc,
+    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
+    const ComputePassOptions &options)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+    WHEELS_ASSERT(
+        (options.storageSetIndex == options.externalDsLayouts.size()) &&
+        "Implementation assumes that the pass storage set is the last set and "
+        "is placed right after the last external one");
+
+    _device = device;
+    _storageSetIndex = options.storageSetIndex;
+
+    for (auto &sets : _storageSets)
+        sets.resize(options.perFrameRecordLimit);
+
+    printf("Creating ComputePass\n");
+    if (!compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
+        throw std::runtime_error("Shader compilation failed");
+
+    createDescriptorSets(
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
+        options.storageStageFlags);
+    createPipeline(scopeAlloc.child_scope(), options.externalDsLayouts);
+
+    _initialized = true;
+}
+
 bool ComputePass::recompileShader(
     wheels::ScopedScratch scopeAlloc,
     const wheels::HashSet<std::filesystem::path> &changedFiles,
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
     wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(_shaderReflection.has_value());
     if (!_shaderReflection->affected(changedFiles))
         return false;
@@ -77,12 +84,19 @@ bool ComputePass::recompileShader(
     return false;
 }
 
-void ComputePass::startFrame() { _nextRecordIndex = 0; }
+void ComputePass::startFrame()
+{
+    WHEELS_ASSERT(_initialized);
+
+    _nextRecordIndex = 0;
+}
 
 void ComputePass::updateDescriptorSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame,
     Span<const DescriptorInfo> descriptorInfos)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(
         _nextRecordIndex < _storageSets[nextFrame].size() &&
         "Too many records, forgot to call startFrame() or construct this "
@@ -105,6 +119,8 @@ void ComputePass::updateDescriptorSet(
 
 vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(
         _nextRecordIndex < _storageSets[nextFrame].size() &&
         "Too many records, forgot to call startFrame() or construct this "
@@ -115,6 +131,8 @@ vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
 
 vk::DescriptorSetLayout ComputePass::storageSetLayout() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _storageSetLayout;
 }
 
@@ -123,6 +141,8 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(all(greaterThan(extent, glm::uvec3{0u})));
     WHEELS_ASSERT(
         dynamicOffsets.size() < sMaxDynamicOffsets &&
@@ -153,6 +173,8 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(
         dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
@@ -180,6 +202,8 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     Span<const uint32_t> dynamicOffsets)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(all(greaterThan(extent, uvec3{0u})));
     WHEELS_ASSERT(_shaderReflection.has_value());
     WHEELS_ASSERT(

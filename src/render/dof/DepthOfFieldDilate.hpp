@@ -18,17 +18,18 @@
 class DepthOfFieldDilate
 {
   public:
-    DepthOfFieldDilate(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
-
+    DepthOfFieldDilate() = default;
     ~DepthOfFieldDilate() = default;
 
     DepthOfFieldDilate(const DepthOfFieldDilate &other) = delete;
     DepthOfFieldDilate(DepthOfFieldDilate &&other) = delete;
     DepthOfFieldDilate &operator=(const DepthOfFieldDilate &other) = delete;
     DepthOfFieldDilate &operator=(DepthOfFieldDilate &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -42,6 +43,7 @@ class DepthOfFieldDilate
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         ImageHandle tileMinMaxCoC, uint32_t nextFrame, Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };

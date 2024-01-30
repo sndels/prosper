@@ -28,16 +28,33 @@ const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 
 } // namespace
 
-ImGuiRenderer::ImGuiRenderer(
+ImGuiRenderer::~ImGuiRenderer()
+{
+    destroySwapchainRelated();
+
+    if (_device != nullptr)
+    {
+        _device->logical().destroy(_renderpass);
+        _device->logical().destroy(_descriptorPool);
+
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+    }
+}
+
+void ImGuiRenderer::init(
     Device *device, RenderResources *resources,
     const vk::Extent2D &renderExtent, GLFWwindow *window,
     const SwapchainConfig &swapConfig)
-: _device{device}
-, _resources{resources}
 {
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(window != nullptr);
+
+    _device = device;
+    _resources = resources;
 
     printf("Creating ImGuiRenderer\n");
 
@@ -85,22 +102,14 @@ ImGuiRenderer::ImGuiRenderer(
         style.TabRounding = 0.f;
         style.ScrollbarRounding = 0.f;
     }
-}
 
-ImGuiRenderer::~ImGuiRenderer()
-{
-    destroySwapchainRelated();
-    _device->logical().destroy(_renderpass);
-    _device->logical().destroy(_descriptorPool);
-
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    _initialized = true;
 }
 
 // NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
 void ImGuiRenderer::startFrame(Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
     const auto _s = profiler->createCpuScope("ImGui::startFrame");
 
@@ -118,6 +127,7 @@ void ImGuiRenderer::startFrame(Profiler *profiler)
 void ImGuiRenderer::endFrame(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     {
@@ -148,6 +158,8 @@ void ImGuiRenderer::endFrame(
 
 ImVec2 ImGuiRenderer::centerAreaOffset() const
 {
+    WHEELS_ASSERT(_initialized);
+
     const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
     WHEELS_ASSERT(node != nullptr);
 
@@ -156,6 +168,8 @@ ImVec2 ImGuiRenderer::centerAreaOffset() const
 
 ImVec2 ImGuiRenderer::centerAreaSize() const
 {
+    WHEELS_ASSERT(_initialized);
+
     const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
     WHEELS_ASSERT(node != nullptr);
 
@@ -202,12 +216,17 @@ void ImGuiRenderer::createRenderPass()
 
 void ImGuiRenderer::destroySwapchainRelated()
 {
-    _device->logical().destroy(_fbo);
-    _device->destroy(_resources->finalComposite);
+    if (_device != nullptr)
+    {
+        _device->logical().destroy(_fbo);
+        _device->destroy(_resources->finalComposite);
+    }
 }
 
 void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     destroySwapchainRelated();
 
     auto &image = _resources->finalComposite;

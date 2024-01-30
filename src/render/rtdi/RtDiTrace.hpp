@@ -21,17 +21,19 @@ class RtDiTrace
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    RtDiTrace(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+    RtDiTrace() = default;
     ~RtDiTrace();
 
     RtDiTrace(const RtDiTrace &other) = delete;
     RtDiTrace(RtDiTrace &&other) = delete;
     RtDiTrace &operator=(const RtDiTrace &other) = delete;
     RtDiTrace &operator=(RtDiTrace &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -74,6 +76,7 @@ class RtDiTrace
         const WorldDSLayouts &worldDSLayouts);
     void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

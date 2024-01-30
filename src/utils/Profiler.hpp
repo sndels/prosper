@@ -59,7 +59,7 @@ class GpuFrameProfiler
         wheels::Optional<PipelineStatistics> stats;
     };
 
-    GpuFrameProfiler(wheels::Allocator &alloc, Device *device);
+    GpuFrameProfiler(wheels::Allocator &alloc) noexcept;
     ~GpuFrameProfiler();
 
     GpuFrameProfiler(GpuFrameProfiler const &) = delete;
@@ -68,6 +68,7 @@ class GpuFrameProfiler
     GpuFrameProfiler &operator=(GpuFrameProfiler &&other) noexcept;
 
   protected:
+    void init(Device *device);
     void startFrame();
     void endFrame(vk::CommandBuffer cb);
 
@@ -80,7 +81,7 @@ class GpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeData> getData(wheels::Allocator &alloc);
 
   private:
-    Device *_device;
+    Device *_device{nullptr};
     Buffer _timestampBuffer;
     Buffer _statisticsBuffer;
     QueryPools _pools;
@@ -121,7 +122,7 @@ class CpuFrameProfiler
         float millis{0.f};
     };
 
-    CpuFrameProfiler(wheels::Allocator &alloc);
+    CpuFrameProfiler(wheels::Allocator &alloc) noexcept;
     ~CpuFrameProfiler() = default;
 
     CpuFrameProfiler(CpuFrameProfiler const &) = delete;
@@ -184,7 +185,7 @@ class Profiler
         wheels::Optional<PipelineStatistics> gpuStats;
     };
 
-    Profiler(wheels::Allocator &alloc, Device *device);
+    Profiler(wheels::Allocator &alloc) noexcept;
     ~Profiler() = default;
 
     // Assume one profiler that is initialized in place
@@ -192,6 +193,8 @@ class Profiler
     Profiler(Profiler &&) = delete;
     Profiler &operator=(Profiler const &) = delete;
     Profiler &operator=(Profiler &&) = delete;
+
+    void init(Device *device);
 
     // Should be called before startGpuFrame, whenever the cpu frame loop starts
     void startCpuFrame();
@@ -232,6 +235,7 @@ class Profiler
         EndGpuCalled,
     };
 
+    bool _initialized{false};
     DebugState _debugState{DebugState::NewFrame};
 
     wheels::Allocator &_alloc;

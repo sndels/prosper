@@ -21,7 +21,8 @@ class TimeAccessor
         float startTimeS{0.f};
         float endTimeS{0.f};
     };
-    TimeAccessor(const float *data, uint32_t count, const Interval &interval);
+    TimeAccessor(
+        const float *data, uint32_t count, const Interval &interval) noexcept;
 
     float endTimeS() const;
     KeyFrameInterpolation interpolation(float timeS) const;
@@ -38,7 +39,7 @@ template <typename T> class ValueAccessor
 {
   public:
     // Count is for vector elements, not individual float
-    ValueAccessor(const uint8_t *data, uint32_t count);
+    ValueAccessor(const uint8_t *data, uint32_t count) noexcept;
 
     T read(uint32_t index) const;
 

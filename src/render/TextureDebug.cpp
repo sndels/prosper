@@ -66,26 +66,40 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-TextureDebug::TextureDebug(
-    Allocator &alloc, ScopedScratch scopeAlloc, Device *device,
-    RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc)
-: _resources{resources}
-, _computePass{WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc, shaderDefinitionCallback}
-, _targetSettings{alloc}
+TextureDebug::TextureDebug(Allocator &alloc) noexcept
+: _targetSettings{alloc}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+}
+
+void TextureDebug::init(
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        shaderDefinitionCallback);
+
+    _initialized = true;
 }
 
 void TextureDebug::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
+    WHEELS_ASSERT(_initialized);
+
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 void TextureDebug::drawUi()
 {
+    WHEELS_ASSERT(_initialized);
+
     ImGui::SetNextWindowPos(ImVec2{400.f, 400.f}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2{50.f, 80.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("TextureDebug", nullptr);
@@ -196,6 +210,7 @@ ImageHandle TextureDebug::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, vk::Extent2D outSize,
     uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     ImageHandle ret;

@@ -7,30 +7,32 @@
 
 using namespace wheels;
 
-RtDirectIllumination::RtDirectIllumination(
+void RtDirectIllumination::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
-: _resources{resources}
-, _initialReservoirs{
-      scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
-      RtDiInitialReservoirs::InputDSLayouts{
-          .camera = camDSLayout,
-          .world = worldDSLayouts,
-      }}
-, _spatialReuse{
-      scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
-      RtDiSpatialReuse::InputDSLayouts{
-          .camera = camDSLayout,
-          .world = worldDSLayouts,
-      }}
-, _trace{
-      scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
-           camDSLayout,
-           worldDSLayouts
-     }
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _initialReservoirs.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+        RtDiInitialReservoirs::InputDSLayouts{
+            .camera = camDSLayout,
+            .world = worldDSLayouts,
+        });
+    _spatialReuse.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+        RtDiSpatialReuse::InputDSLayouts{
+            .camera = camDSLayout,
+            .world = worldDSLayouts,
+        });
+    _trace.init(
+        WHEELS_MOV(scopeAlloc), device, resources, staticDescriptorsAlloc,
+        camDSLayout, worldDSLayouts);
+
+    _initialized = true;
 }
 
 void RtDirectIllumination::recompileShaders(
@@ -38,6 +40,8 @@ void RtDirectIllumination::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     _resetAccumulation |= _initialReservoirs.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         RtDiInitialReservoirs::InputDSLayouts{
@@ -57,6 +61,8 @@ void RtDirectIllumination::recompileShaders(
 
 void RtDirectIllumination::drawUi()
 {
+    WHEELS_ASSERT(_initialized);
+
     ImGui::Checkbox("Spatial reuse", &_doSpatialReuse);
     _trace.drawUi();
 }
@@ -66,6 +72,8 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     const Camera &cam, const GBufferRendererOutput &gbuffer,
     bool resetAccumulation, uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "RtDirectIllumination");
@@ -107,4 +115,9 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     return ret;
 }
 
-void RtDirectIllumination::releasePreserved() { _trace.releasePreserved(); }
+void RtDirectIllumination::releasePreserved()
+{
+    WHEELS_ASSERT(_initialized);
+
+    _trace.releasePreserved();
+}

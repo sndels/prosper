@@ -69,19 +69,63 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 } // namespace
 
-App::App(const Settings &settings)
+App::App(const Settings &settings) noexcept
 : _generalAlloc{megabytes(16)}
 , _fileChangePollingAlloc{megabytes(1)}
+, _scenePath{settings.scene}
+, _device{std::make_unique<Device>(_generalAlloc, settings.device)}
+, _staticDescriptorsAlloc{std::make_unique<DescriptorAllocator>(_generalAlloc)}
+, _swapchain{std::make_unique<Swapchain>()}
+, _resources{std::make_unique<RenderResources>(_generalAlloc)}
+, _cam{std::make_unique<Camera>()}
+, _world{std::make_unique<World>(_generalAlloc)}
+, _lightClustering{std::make_unique<LightClustering>()}
+, _forwardRenderer{std::make_unique<ForwardRenderer>()}
+, _gbufferRenderer{std::make_unique<GBufferRenderer>()}
+, _deferredShading{std::make_unique<DeferredShading>()}
+, _rtDirectIllumination{std::make_unique<RtDirectIllumination>()}
+, _rtReference{std::make_unique<RtReference>()}
+, _skyboxRenderer{std::make_unique<SkyboxRenderer>()}
+, _debugRenderer{std::make_unique<DebugRenderer>()}
+, _toneMap{std::make_unique<ToneMap>()}
+, _imguiRenderer{std::make_unique<ImGuiRenderer>()}
+, _textureDebug{std::make_unique<TextureDebug>(_generalAlloc)}
+, _depthOfField{std::make_unique<DepthOfField>()}
+, _imageBasedLighting{std::make_unique<ImageBasedLighting>()}
+, _temporalAntiAliasing{std::make_unique<TemporalAntiAliasing>()}
+, _meshletCuller{std::make_unique<MeshletCuller>()}
+, _profiler{std::make_unique<Profiler>(_generalAlloc)}
 {
-    LinearAllocator scratchBacking{megabytes(16)};
-    ScopedScratch scopeAlloc{scratchBacking};
+}
 
+App::~App()
+{
+    if (_device != nullptr)
+    {
+        for (auto &semaphore : _renderFinishedSemaphores)
+        {
+            if (semaphore)
+                _device->logical().destroy(semaphore);
+        }
+        for (auto &semaphore : _imageAvailableSemaphores)
+        {
+            if (semaphore)
+                _device->logical().destroy(semaphore);
+        }
+    }
+}
+
+void App::init()
+{
     const auto &tl = [](const char *stage, std::function<void()> const &fn)
     {
         const Timer t;
         fn();
         printf("%s took %.2fs\n", stage, t.getSeconds());
     };
+
+    LinearAllocator scratchBacking{megabytes(16)};
+    ScopedScratch scopeAlloc{scratchBacking};
 
     tl("Window creation",
        [&]
@@ -90,22 +134,18 @@ App::App(const Settings &settings)
                Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper",
                &_inputHandler);
        });
-    tl("Device creation",
-       [&]
-       {
-           _device = std::make_unique<Device>(
-               _generalAlloc, scopeAlloc.child_scope(), _window->ptr(),
-               settings.device);
-       });
+    tl("Device init",
+       [&] { _device->init(scopeAlloc.child_scope(), _window->ptr()); });
 
-    _staticDescriptorsAlloc =
-        std::make_unique<DescriptorAllocator>(_generalAlloc, _device.get());
+    _staticDescriptorsAlloc->init(_device.get());
 
-    _swapchain = std::make_unique<Swapchain>(
-        _device.get(), SwapchainConfig{
-                           scopeAlloc.child_scope(),
-                           _device.get(),
-                           {_window->width(), _window->height()}});
+    {
+        const SwapchainConfig &config = SwapchainConfig{
+            scopeAlloc.child_scope(),
+            _device.get(),
+            {_window->width(), _window->height()}};
+        _swapchain->init(_device.get(), config);
+    }
 
     _commandBuffers = allocateCommandBuffers(_device.get());
 
@@ -113,22 +153,24 @@ App::App(const Settings &settings)
     // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
     _viewportExtent = _swapchain->config().extent;
 
-    _resources =
-        std::make_unique<RenderResources>(_generalAlloc, _device.get());
+    _resources->init(_device.get());
 
-    _cam = std::make_unique<Camera>(
+    _cam->init(
         scopeAlloc.child_scope(), _device.get(), &_resources->constantsRing,
         _staticDescriptorsAlloc.get());
-    _world = std::make_unique<World>(
-        _generalAlloc, scopeAlloc.child_scope(), _device.get(),
-        &_resources->constantsRing, settings.scene);
+
+    // TODO: Some VMA allocation in here gets left dangling if we throw
+    // immediately after the call
+    _world->init(
+        scopeAlloc.child_scope(), _device.get(), &_resources->constantsRing,
+        _scenePath);
 
     const Timer gpuPassesInitTimer;
-    _lightClustering = std::make_unique<LightClustering>(
+    _lightClustering->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
-    _forwardRenderer = std::make_unique<ForwardRenderer>(
+    _forwardRenderer->init(
         scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get(),
         _resources.get(),
         ForwardRenderer::InputDSLayouts{
@@ -136,10 +178,10 @@ App::App(const Settings &settings)
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->dsLayouts(),
         });
-    _gbufferRenderer = std::make_unique<GBufferRenderer>(
+    _gbufferRenderer->init(
         scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get(),
         _resources.get(), _cam->descriptorSetLayout(), _world->dsLayouts());
-    _deferredShading = std::make_unique<DeferredShading>(
+    _deferredShading->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(),
         DeferredShading::InputDSLayouts{
@@ -147,47 +189,48 @@ App::App(const Settings &settings)
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->dsLayouts(),
         });
-    _rtDirectIllumination = std::make_unique<RtDirectIllumination>(
+    _rtDirectIllumination->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
-    _rtReference = std::make_unique<RtReference>(
+    _rtReference->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
-    _skyboxRenderer = std::make_unique<SkyboxRenderer>(
+    _skyboxRenderer->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _cam->descriptorSetLayout(), _world->dsLayouts());
-    _debugRenderer = std::make_unique<DebugRenderer>(
+    _debugRenderer->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
-    _toneMap = std::make_unique<ToneMap>(
+    _toneMap->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
-    _imguiRenderer = std::make_unique<ImGuiRenderer>(
+    _imguiRenderer->init(
         _device.get(), _resources.get(), _swapchain->config().extent,
         _window->ptr(), _swapchain->config());
-    _textureDebug = std::make_unique<TextureDebug>(
-        _generalAlloc, scopeAlloc.child_scope(), _device.get(),
-        _resources.get(), _staticDescriptorsAlloc.get());
-    _depthOfField = std::make_unique<DepthOfField>(
+    _textureDebug->init(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get());
+    _depthOfField->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
-    _imageBasedLighting = std::make_unique<ImageBasedLighting>(
+    _imageBasedLighting->init(
         scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
-    _temporalAntiAliasing = std::make_unique<TemporalAntiAliasing>(
+    _temporalAntiAliasing->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
-    _meshletCuller = std::make_unique<MeshletCuller>(
+    _meshletCuller->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _world->dsLayouts(),
         _cam->descriptorSetLayout());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
-    _profiler = std::make_unique<Profiler>(_generalAlloc, _device.get());
+    _profiler->init(_device.get());
 
-    _cam->init(_sceneCameraTransform, _cameraParameters);
+    _cam->lookAt(_sceneCameraTransform);
+    _cam->setParameters(_cameraParameters);
     _cam->updateResolution(
         uvec2{_viewportExtent.width, _viewportExtent.height});
 
@@ -200,14 +243,6 @@ App::App(const Settings &settings)
     }
     _ctorScratchHighWatermark = asserted_cast<uint32_t>(
         scratchBacking.allocated_byte_count_high_watermark());
-}
-
-App::~App()
-{
-    for (auto &semaphore : _renderFinishedSemaphores)
-        _device->logical().destroy(semaphore);
-    for (auto &semaphore : _imageAvailableSemaphores)
-        _device->logical().destroy(semaphore);
 }
 
 void App::run()
@@ -700,7 +735,6 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
 uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
-
     const vk::Semaphore imageAvailable = _imageAvailableSemaphores[nextFrame];
     Optional<uint32_t> nextImage = _swapchain->acquireNextImage(imageAvailable);
     while (!nextImage.has_value())
@@ -882,7 +916,6 @@ void App::drawProfiling(
     ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
 
 {
-
     ImGui::SetNextWindowPos(
         ImVec2{static_cast<float>(WIDTH) - 300.f, 60.f},
         ImGuiCond_FirstUseEver);
@@ -1187,7 +1220,6 @@ bool App::drawCameraUi()
 
 void App::drawSceneStats(uint32_t nextFrame) const
 {
-
     uint32_t drawnMeshletCount = 0;
     uint32_t rasterizedTriangleCount = 0;
     if (_resources->buffers.isValidHandle(_drawStats[nextFrame]))

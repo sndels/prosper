@@ -140,39 +140,43 @@ cullerExternalDsLayouts(
 
 } // namespace
 
-MeshletCuller::MeshletCuller(
+void MeshletCuller::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
-    const WorldDSLayouts &worldDsLayouts, 
-vk::DescriptorSetLayout camDsLayout)
-: _device{device}
-, _resources{resources}
-, _drawListGenerator{
-      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
-      [&worldDsLayouts](Allocator &alloc)
-      { return generatorDefinitionCallback(alloc, worldDsLayouts); },
-      ComputePassOptions{
-          .storageSetIndex = GeneratorStorageBindingSet,
-          .perFrameRecordLimit = sMaxRecordsPerFrame,
-          .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
-      }}
-, _cullerArgumentsWriter{
-      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
-      argumentsWriterDefinitionCallback,
-      ComputePassOptions{
-          .perFrameRecordLimit = sMaxRecordsPerFrame,
-      }}
-, _drawListCuller{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      cullerDefinitionCallback,
-      ComputePassOptions{
-          .storageSetIndex = CullerStorageBindingSet,
-          .perFrameRecordLimit = sMaxRecordsPerFrame,
-          .externalDsLayouts = cullerExternalDsLayouts(worldDsLayouts, camDsLayout),
-      }}
+    const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
 {
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _device = device;
+    _resources = resources;
+    _drawListGenerator.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        [&worldDsLayouts](Allocator &alloc)
+        { return generatorDefinitionCallback(alloc, worldDsLayouts); },
+        ComputePassOptions{
+            .storageSetIndex = GeneratorStorageBindingSet,
+            .perFrameRecordLimit = sMaxRecordsPerFrame,
+            .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
+        });
+    _cullerArgumentsWriter.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        argumentsWriterDefinitionCallback,
+        ComputePassOptions{
+            .perFrameRecordLimit = sMaxRecordsPerFrame,
+        });
+    _drawListCuller.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        cullerDefinitionCallback,
+        ComputePassOptions{
+            .storageSetIndex = CullerStorageBindingSet,
+            .perFrameRecordLimit = sMaxRecordsPerFrame,
+            .externalDsLayouts =
+                cullerExternalDsLayouts(worldDsLayouts, camDsLayout),
+        });
+
+    _initialized = true;
 }
 
 void MeshletCuller::recompileShaders(
@@ -180,6 +184,8 @@ void MeshletCuller::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
 {
+    WHEELS_ASSERT(_initialized);
+
     _drawListGenerator.recompileShader(
         scopeAlloc.child_scope(), changedFiles,
         [&worldDsLayouts](Allocator &alloc)
@@ -195,6 +201,8 @@ void MeshletCuller::recompileShaders(
 
 void MeshletCuller::startFrame()
 {
+    WHEELS_ASSERT(_initialized);
+
     _drawListGenerator.startFrame();
     _cullerArgumentsWriter.startFrame();
     _drawListCuller.startFrame();
@@ -205,6 +213,8 @@ MeshletCullerOutput MeshletCuller::record(
     const World &world, const Camera &cam, uint32_t nextFrame,
     const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,
         sceneStats, profiler);

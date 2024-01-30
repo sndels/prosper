@@ -23,17 +23,19 @@ struct GBufferRendererOutput
 class GBufferRenderer
 {
   public:
-    GBufferRenderer(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
-        vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+    GBufferRenderer() = default;
     ~GBufferRenderer();
 
     GBufferRenderer(const GBufferRenderer &other) = delete;
     GBufferRenderer(GBufferRenderer &&other) = delete;
     GBufferRenderer &operator=(const GBufferRenderer &other) = delete;
     GBufferRenderer &operator=(GBufferRenderer &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
+        vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -77,6 +79,7 @@ class GBufferRenderer
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

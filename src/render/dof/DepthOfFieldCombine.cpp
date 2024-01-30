@@ -38,15 +38,17 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-DepthOfFieldCombine::DepthOfFieldCombine(
+void DepthOfFieldCombine::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
-: _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(_resources == nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        shaderDefinitionCallback);
 }
 
 void DepthOfFieldCombine::recompileShaders(
@@ -61,6 +63,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_resources != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;

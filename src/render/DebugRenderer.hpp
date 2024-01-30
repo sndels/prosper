@@ -22,16 +22,18 @@ class DebugRenderer
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    DebugRenderer(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout);
+    DebugRenderer() = default;
     ~DebugRenderer();
 
     DebugRenderer(const DebugRenderer &other) = delete;
     DebugRenderer(DebugRenderer &&other) = delete;
     DebugRenderer &operator=(const DebugRenderer &other) = delete;
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -67,6 +69,7 @@ class DebugRenderer
         DescriptorAllocator *staticDescriptorsAlloc);
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

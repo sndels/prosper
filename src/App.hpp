@@ -27,7 +27,7 @@ class App
         Device::Settings device;
     };
 
-    App(const Settings &settings);
+    App(const Settings &settings) noexcept;
     ~App();
 
     App(const App &other) = delete;
@@ -35,6 +35,7 @@ class App
     App &operator=(const App &other) = delete;
     App &operator=(App &&other) = delete;
 
+    void init();
     void run();
 
   private:
@@ -101,6 +102,7 @@ class App
     wheels::TlsfAllocator _generalAlloc;
     // Separate allocator for async polling as TlsfAllocator is not thread safe
     wheels::TlsfAllocator _fileChangePollingAlloc;
+    std::filesystem::path _scenePath;
 
     InputHandler _inputHandler;
     std::unique_ptr<Window>

@@ -18,7 +18,7 @@ class RenderImageCollection
       vk::ImageMemoryBarrier2, vk::Image, VkImage, vk::ObjectType::eImage>
 {
   public:
-    RenderImageCollection(wheels::Allocator &alloc, Device *device);
+    RenderImageCollection(wheels::Allocator &alloc) noexcept;
     ~RenderImageCollection() override;
 
     RenderImageCollection(RenderImageCollection &) = delete;

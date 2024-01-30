@@ -18,16 +18,18 @@ extern "C"
 class ImGuiRenderer
 {
   public:
-    ImGuiRenderer(
-        Device *device, RenderResources *resources,
-        const vk::Extent2D &renderExtent, GLFWwindow *window,
-        const SwapchainConfig &swapConfig);
+    ImGuiRenderer() = default;
     ~ImGuiRenderer();
 
     ImGuiRenderer(const ImGuiRenderer &other) = delete;
     ImGuiRenderer(ImGuiRenderer &&other) = delete;
     ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
+
+    void init(
+        Device *device, RenderResources *resources,
+        const vk::Extent2D &renderExtent, GLFWwindow *window,
+        const SwapchainConfig &swapConfig);
 
     void startFrame(Profiler *profiler);
     void endFrame(
@@ -44,6 +46,7 @@ class ImGuiRenderer
     void destroySwapchainRelated();
     void createDescriptorPool();
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     vk::DescriptorPool _descriptorPool;

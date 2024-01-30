@@ -34,17 +34,17 @@ using DescriptorInfo = std::variant<
 class ShaderReflection
 {
   public:
-    ShaderReflection(wheels::Allocator &alloc);
-    ShaderReflection(
-        wheels::ScopedScratch scopeAlloc, wheels::Allocator &alloc,
-        wheels::Span<const uint32_t> spvWords,
-        const wheels::HashSet<std::filesystem::path> &sourcefiles);
+    ShaderReflection(wheels::Allocator &alloc) noexcept;
     ~ShaderReflection() = default;
 
     ShaderReflection(const ShaderReflection &) = delete;
-    ShaderReflection(ShaderReflection &&) = default;
+    ShaderReflection(ShaderReflection &&other) noexcept;
     ShaderReflection &operator=(const ShaderReflection &) = delete;
-    ShaderReflection &operator=(ShaderReflection &&) = default;
+    ShaderReflection &operator=(ShaderReflection &&other) noexcept;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, wheels::Span<const uint32_t> spvWords,
+        const wheels::HashSet<std::filesystem::path> &sourcefiles);
 
     [[nodiscard]] uint32_t pushConstantsBytesize() const;
     [[nodiscard]] wheels::HashMap<
@@ -71,6 +71,8 @@ class ShaderReflection
         wheels::Span<const DescriptorInfo> descriptorInfos) const;
 
   private:
+    bool _initialized{false};
+    wheels::Allocator &_alloc;
     uint32_t _pushConstantsBytesize{0};
     wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>>
         _descriptorSetMetadatas;

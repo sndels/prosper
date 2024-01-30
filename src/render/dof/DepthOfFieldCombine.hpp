@@ -19,17 +19,18 @@
 class DepthOfFieldCombine
 {
   public:
-    DepthOfFieldCombine(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
-
+    DepthOfFieldCombine() = default;
     ~DepthOfFieldCombine() = default;
 
     DepthOfFieldCombine(const DepthOfFieldCombine &other) = delete;
     DepthOfFieldCombine(DepthOfFieldCombine &&other) = delete;
     DepthOfFieldCombine &operator=(const DepthOfFieldCombine &other) = delete;
     DepthOfFieldCombine &operator=(DepthOfFieldCombine &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

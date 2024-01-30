@@ -14,16 +14,17 @@
 class World
 {
   public:
-    World(
-        wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
-        Device *device, RingBuffer *constantsRing,
-        const std::filesystem::path &scene);
+    World(wheels::Allocator &generalAlloc) noexcept;
     ~World();
 
     World(const World &other) = delete;
     World(World &&other) = delete;
     World &operator=(const World &other) = delete;
     World &operator=(World &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RingBuffer *constantsRing, const std::filesystem::path &scene);
 
     void startFrame();
     void endFrame();
@@ -73,6 +74,7 @@ class World
     // Pimpl to isolate heavy includes within the World CU
     class Impl;
     std::unique_ptr<Impl> _impl;
+    bool _initialized{false};
 };
 
 #endif // PROSPER_SCENE_WORLD_HPP

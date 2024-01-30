@@ -81,10 +81,7 @@ struct MeshCacheHeader
 class DeferredLoadingContext
 {
   public:
-    DeferredLoadingContext(
-        Device *device, std::filesystem::path sceneDir,
-        std::filesystem::file_time_type sceneWriteTime,
-        const tinygltf::Model &gltfModel);
+    DeferredLoadingContext() noexcept;
     ~DeferredLoadingContext();
 
     DeferredLoadingContext(const DeferredLoadingContext &) = delete;
@@ -92,7 +89,13 @@ class DeferredLoadingContext
     DeferredLoadingContext &operator=(const DeferredLoadingContext &) = delete;
     DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
 
+    void init(
+        Device *inDevice, std::filesystem::path inSceneDir,
+        std::filesystem::file_time_type inSceneWriteTime,
+        const tinygltf::Model &inGltfModel);
+
     void launch();
+    void kill();
 
     UploadedGeometryData uploadGeometryData(
         const MeshCacheHeader &cacheHeader,
@@ -102,6 +105,7 @@ class DeferredLoadingContext
     // Make worker context private?
     // Make shared context private and access through methods that handle
     // mutexes?
+    bool initialized{false};
     Device *device{nullptr};
     std::filesystem::path sceneDir;
     std::filesystem::file_time_type sceneWriteTime;

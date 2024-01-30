@@ -398,11 +398,6 @@ vk::Format asVkFormat(DxgiFormat format)
 
 } // namespace
 
-Texture::Texture(Device *device)
-: _device{device}
-{
-}
-
 Texture::~Texture() { destroy(); }
 
 Texture::Texture(Texture &&other) noexcept
@@ -425,7 +420,19 @@ Texture &Texture::operator=(Texture &&other) noexcept
     return *this;
 }
 
-vk::Image Texture::nativeHandle() const { return _image.handle; }
+vk::Image Texture::nativeHandle() const
+{
+    WHEELS_ASSERT(_image.handle);
+    return _image.handle;
+}
+
+void Texture::init(Device *device)
+{
+    WHEELS_ASSERT(_device == nullptr);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
+}
 
 void Texture::destroy()
 {
@@ -433,12 +440,15 @@ void Texture::destroy()
         _device->destroy(_image);
 }
 
-Texture2D::Texture2D(
+void Texture2D::init(
     ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
     vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap,
     const bool skipPostTransition)
-: Texture(device)
 {
+    WHEELS_ASSERT(device != nullptr);
+
+    Texture::init(device);
+
     const std::filesystem::file_time_type sourceWriteTime =
         std::filesystem::last_write_time(path);
 
@@ -563,11 +573,12 @@ vk::DescriptorImageInfo Texture2D::imageInfo() const
     };
 }
 
-TextureCubemap::TextureCubemap(
+void TextureCubemap::init(
     ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path)
-: Texture(device)
 {
     WHEELS_ASSERT(device != nullptr);
+
+    Texture::init(device);
 
     const gli::texture_cube cube(gli::load(path.string()));
     WHEELS_ASSERT(!cube.empty());

@@ -21,7 +21,7 @@ struct Image;
 class Texture
 {
   public:
-    Texture(Device *device);
+    Texture() noexcept = default;
     virtual ~Texture();
 
     Texture(const Texture &other) = delete;
@@ -33,6 +33,8 @@ class Texture
     [[nodiscard]] virtual vk::Image nativeHandle() const;
 
   protected:
+    void init(Device *device);
+
     void destroy();
 
     // Texture with null device is invalid or moved
@@ -45,7 +47,7 @@ class Texture2D : public Texture
   public:
     // The image is ready and stagingBuffer can be freed once cb is submitted
     // and has finished executing.
-    Texture2D(
+    void init(
         wheels::ScopedScratch scopeAlloc, Device *device,
         const std::filesystem::path &path, vk::CommandBuffer cb,
         const Buffer &stagingBuffer, bool mipmap,
@@ -57,15 +59,17 @@ class Texture2D : public Texture
 class TextureCubemap : public Texture
 {
   public:
-    TextureCubemap(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        const std::filesystem::path &path);
+    TextureCubemap() noexcept = default;
     ~TextureCubemap() override;
 
     TextureCubemap(const TextureCubemap &other) = delete;
     TextureCubemap(TextureCubemap &&other) noexcept;
     TextureCubemap &operator=(const TextureCubemap &other) = delete;
     TextureCubemap &operator=(TextureCubemap &&other) noexcept;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const std::filesystem::path &path);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 

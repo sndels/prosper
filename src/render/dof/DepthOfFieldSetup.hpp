@@ -19,17 +19,18 @@
 class DepthOfFieldSetup
 {
   public:
-    DepthOfFieldSetup(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDsLayout);
-
+    DepthOfFieldSetup() = default;
     ~DepthOfFieldSetup() = default;
 
     DepthOfFieldSetup(const DepthOfFieldSetup &other) = delete;
     DepthOfFieldSetup(DepthOfFieldSetup &&other) = delete;
     DepthOfFieldSetup &operator=(const DepthOfFieldSetup &other) = delete;
     DepthOfFieldSetup &operator=(DepthOfFieldSetup &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDsLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -51,6 +52,7 @@ class DepthOfFieldSetup
         const Camera &cam, const Input &input, uint32_t nextFrame,
         Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };

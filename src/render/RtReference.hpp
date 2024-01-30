@@ -24,17 +24,19 @@ class RtReference
 
     static constexpr uint32_t sMaxBounces = 6;
 
-    RtReference(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+    RtReference() = default;
     ~RtReference();
 
     RtReference(const RtReference &other) = delete;
     RtReference(RtReference &&other) = delete;
     RtReference &operator=(const RtReference &other) = delete;
     RtReference &operator=(RtReference &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -78,6 +80,7 @@ class RtReference
         const WorldDSLayouts &worldDSLayouts);
     void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

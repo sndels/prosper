@@ -108,20 +108,24 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-TemporalAntiAliasing::TemporalAntiAliasing(
+void TemporalAntiAliasing::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
-: _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback,
-      ComputePassOptions{
-          .storageSetIndex = StorageBindingSet,
-          .externalDsLayouts = Span{&camDsLayout, 1},
-      }}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        shaderDefinitionCallback,
+        ComputePassOptions{
+            .storageSetIndex = StorageBindingSet,
+            .externalDsLayouts = Span{&camDsLayout, 1},
+        });
+
+    _initialized = true;
 }
 
 void TemporalAntiAliasing::recompileShaders(
@@ -129,6 +133,8 @@ void TemporalAntiAliasing::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout)
 {
+    WHEELS_ASSERT(_initialized);
+
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         Span{&camDSLayout, 1});
@@ -136,6 +142,8 @@ void TemporalAntiAliasing::recompileShaders(
 
 void TemporalAntiAliasing::drawUi()
 {
+    WHEELS_ASSERT(_initialized);
+
     enumDropdown("Color clipping", _colorClipping, sColorClippingTypeNames);
     enumDropdown(
         "Velocity sampling", _velocitySampling, sVelocitySamplingTypeNames);
@@ -148,6 +156,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
@@ -261,6 +270,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
 void TemporalAntiAliasing::releasePreserved()
 {
+    WHEELS_ASSERT(_initialized);
+
     if (_resources->images.isValidHandle(_previousResolveOutput))
         _resources->images.release(_previousResolveOutput);
 }

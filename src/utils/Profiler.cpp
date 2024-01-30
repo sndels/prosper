@@ -60,29 +60,37 @@ GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
     other._cb = vk::CommandBuffer{};
 }
 
-GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc, Device *device)
-: _device{device}
-, _timestampBuffer{device->createBuffer(BufferCreateInfo{
-      .desc =
-          BufferDescription{
-              .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
-              .usage = vk::BufferUsageFlagBits::eTransferDst,
-              .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                            vk::MemoryPropertyFlagBits::eHostCoherent,
-          },
-      .debugName = "GpuProfilerTimestampReadback"})}
-, _statisticsBuffer{device->createBuffer(BufferCreateInfo{
-      .desc =
-          BufferDescription{
-              .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
-              .usage = vk::BufferUsageFlagBits::eTransferDst,
-              .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                            vk::MemoryPropertyFlagBits::eHostCoherent,
-          },
-      .debugName = "GpuProfilerStatisticsReadback"})}
-, _queryScopeIndices{alloc, sMaxScopeCount}
+GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc) noexcept
+: _queryScopeIndices{alloc, sMaxScopeCount}
 , _scopeHasStats{alloc, sMaxScopeCount}
 {
+}
+
+void GpuFrameProfiler::init(Device *device)
+{
+    WHEELS_ASSERT(_device == nullptr);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
+
+    _timestampBuffer = device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
+                .usage = vk::BufferUsageFlagBits::eTransferDst,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .debugName = "GpuProfilerTimestampReadback"});
+    _statisticsBuffer = device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
+                .usage = vk::BufferUsageFlagBits::eTransferDst,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .debugName = "GpuProfilerStatisticsReadback"});
     _pools.timestamps =
         _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::eTimestamp,
@@ -226,7 +234,7 @@ CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other) noexcept
     other._output = nullptr;
 }
 
-CpuFrameProfiler::CpuFrameProfiler(wheels::Allocator &alloc)
+CpuFrameProfiler::CpuFrameProfiler(wheels::Allocator &alloc) noexcept
 : _nanos{alloc, sMaxScopeCount}
 {
 }
@@ -261,7 +269,7 @@ Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
     return times;
 }
 
-Profiler::Profiler(Allocator &alloc, Device *device)
+Profiler::Profiler(Allocator &alloc) noexcept
 : _alloc{alloc}
 , _cpuFrameProfiler{_alloc}
 , _gpuFrameProfilers{_alloc, MAX_FRAMES_IN_FLIGHT}
@@ -270,16 +278,24 @@ Profiler::Profiler(Allocator &alloc, Device *device)
 , _previousCpuScopeTimes{_alloc}
 , _previousGpuScopeData{_alloc, sMaxScopeCount}
 {
+}
+
+void Profiler::init(Device *device)
+{
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        _gpuFrameProfilers.emplace_back(_alloc, device);
+        _gpuFrameProfilers.emplace_back(_alloc);
+        _gpuFrameProfilers.back().init(device);
+
         _previousScopeNames.emplace_back(_alloc, sMaxScopeCount);
         _previousCpuScopeTimes.emplace_back(_alloc, sMaxScopeCount);
     }
+    _initialized = true;
 }
 
 void Profiler::startCpuFrame()
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_debugState == DebugState::NewFrame);
 
     // Only clear transients for this profiling frame. We'll figure out which
@@ -294,6 +310,7 @@ void Profiler::startCpuFrame()
 
 void Profiler::startGpuFrame(uint32_t frameIndex)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_debugState == DebugState::StartCpuCalled);
     WHEELS_ASSERT(frameIndex < _gpuFrameProfilers.size());
 
@@ -310,6 +327,7 @@ void Profiler::startGpuFrame(uint32_t frameIndex)
 
 void Profiler::endGpuFrame(vk::CommandBuffer cb)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
 
     _gpuFrameProfilers[_currentFrame].endFrame(cb);
@@ -319,6 +337,7 @@ void Profiler::endGpuFrame(vk::CommandBuffer cb)
 
 void Profiler::endCpuFrame()
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_debugState == DebugState::EndGpuCalled);
     WHEELS_ASSERT(_currentFrame < _previousScopeNames.size());
     WHEELS_ASSERT(_currentFrame < _previousCpuScopeTimes.size());
@@ -336,6 +355,7 @@ void Profiler::endCpuFrame()
 Profiler::Scope Profiler::createCpuGpuScope(
     vk::CommandBuffer cb, const char *name, bool includeStatistics)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
 
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
@@ -351,6 +371,7 @@ Profiler::Scope Profiler::createCpuGpuScope(
 
 Profiler::Scope Profiler::createCpuScope(const char *name)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(
         _debugState == DebugState::StartCpuCalled ||
         _debugState == DebugState::StartGpuCalled);
@@ -365,6 +386,7 @@ Profiler::Scope Profiler::createCpuScope(const char *name)
 
 Array<Profiler::ScopeData> Profiler::getPreviousData(Allocator &alloc)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
 
     const auto &scopeNames = _previousScopeNames[_currentFrame];

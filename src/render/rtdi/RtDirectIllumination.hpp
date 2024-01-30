@@ -21,17 +21,19 @@ class RtDirectIllumination
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    RtDirectIllumination(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+    RtDirectIllumination() = default;
     ~RtDirectIllumination() = default;
 
     RtDirectIllumination(const RtDirectIllumination &other) = delete;
     RtDirectIllumination(RtDirectIllumination &&other) = delete;
     RtDirectIllumination &operator=(const RtDirectIllumination &other) = delete;
     RtDirectIllumination &operator=(RtDirectIllumination &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -49,6 +51,7 @@ class RtDirectIllumination
     void releasePreserved();
 
   private:
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
 
     bool _doSpatialReuse{true};

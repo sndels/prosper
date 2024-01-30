@@ -50,13 +50,15 @@ struct SwapchainImage
 class Swapchain
 {
   public:
-    Swapchain(Device *device, const SwapchainConfig &config);
+    Swapchain() = default;
     ~Swapchain();
 
     Swapchain(const Swapchain &other) = delete;
     Swapchain(Swapchain &&other) = delete;
     Swapchain &operator=(const Swapchain &other) = delete;
     Swapchain &operator=(Swapchain &&other) = delete;
+
+    void init(Device *device, const SwapchainConfig &config);
 
     [[nodiscard]] SwapchainConfig const &config() const;
     [[nodiscard]] vk::Format format() const;
@@ -80,7 +82,7 @@ class Swapchain
     void createImages();
     void createFences();
 
-    // Swapchain with null device is invalid or moved
+    bool _initialized{false};
     Device *_device{nullptr};
     SwapchainConfig _config;
 

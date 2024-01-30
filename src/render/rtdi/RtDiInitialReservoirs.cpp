@@ -76,21 +76,25 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
 
 } // namespace
 
-RtDiInitialReservoirs::RtDiInitialReservoirs(
+void RtDiInitialReservoirs::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
-: _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      [&dsLayouts](Allocator &alloc)
-      { return shaderDefinitionCallback(alloc, dsLayouts.world); },
-      ComputePassOptions{
-          .storageSetIndex = StorageBindingSet,
-          .externalDsLayouts = externalDsLayouts(dsLayouts),
-      }}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        [&dsLayouts](Allocator &alloc)
+        { return shaderDefinitionCallback(alloc, dsLayouts.world); },
+        ComputePassOptions{
+            .storageSetIndex = StorageBindingSet,
+            .externalDsLayouts = externalDsLayouts(dsLayouts),
+        });
+
+    _initialized = true;
 }
 
 bool RtDiInitialReservoirs::recompileShaders(
@@ -98,6 +102,8 @@ bool RtDiInitialReservoirs::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     return _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles,
         [&dsLayouts](Allocator &alloc)
@@ -110,6 +116,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
     const Camera &cam, const GBufferRendererOutput &gbuffer,
     const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     _frameIndex = ++_frameIndex % sFramePeriod;

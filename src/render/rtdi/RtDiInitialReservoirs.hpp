@@ -15,16 +15,7 @@
 class RtDiInitialReservoirs
 {
   public:
-    struct InputDSLayouts
-    {
-        vk::DescriptorSetLayout camera;
-        const WorldDSLayouts &world;
-    };
-    RtDiInitialReservoirs(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        const InputDSLayouts &dsLayouts);
-
+    RtDiInitialReservoirs() = default;
     ~RtDiInitialReservoirs() = default;
 
     RtDiInitialReservoirs(const RtDiInitialReservoirs &other) = delete;
@@ -32,6 +23,16 @@ class RtDiInitialReservoirs
     RtDiInitialReservoirs &operator=(const RtDiInitialReservoirs &other) =
         delete;
     RtDiInitialReservoirs &operator=(RtDiInitialReservoirs &&other) = delete;
+
+    struct InputDSLayouts
+    {
+        vk::DescriptorSetLayout camera;
+        const WorldDSLayouts &world;
+    };
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        const InputDSLayouts &dsLayouts);
 
     // Returns true if recompile happened
     bool recompileShaders(
@@ -49,6 +50,7 @@ class RtDiInitialReservoirs
         const GBufferRendererOutput &gbuffer, uint32_t nextFrame,
         Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 

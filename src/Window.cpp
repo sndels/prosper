@@ -13,7 +13,7 @@ using namespace wheels;
 
 Window::Window(
     const Pair<uint32_t, uint32_t> &resolution, const char *title,
-    InputHandler *inputHandler)
+    InputHandler *inputHandler) noexcept
 : _inputHandler{inputHandler}
 , _width{resolution.first}
 , _height{resolution.second}

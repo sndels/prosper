@@ -101,27 +101,6 @@ vk::Extent2D getRenderExtent(
 
 } // namespace
 
-RtDiTrace::RtDiTrace(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
-: _device{device}
-, _resources{resources}
-{
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating RtDiTrace\n");
-
-    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
-        throw std::runtime_error("RtDiTrace shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createPipeline(camDSLayout, worldDSLayouts);
-    createShaderBindingTable(scopeAlloc.child_scope());
-}
-
 RtDiTrace::~RtDiTrace()
 {
     if (_device != nullptr)
@@ -135,11 +114,38 @@ RtDiTrace::~RtDiTrace()
     }
 }
 
+void RtDiTrace::init(
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+
+    _device = device;
+    _resources = resources;
+
+    printf("Creating RtDiTrace\n");
+
+    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
+        throw std::runtime_error("RtDiTrace shader compilation failed");
+
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createPipeline(camDSLayout, worldDSLayouts);
+    createShaderBindingTable(scopeAlloc.child_scope());
+
+    _initialized = true;
+}
+
 void RtDiTrace::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(_raygenReflection.has_value());
     WHEELS_ASSERT(_rayMissReflection.has_value());
     WHEELS_ASSERT(_closestHitReflection.has_value());
@@ -160,6 +166,8 @@ void RtDiTrace::recompileShaders(
 
 void RtDiTrace::drawUi()
 {
+    WHEELS_ASSERT(_initialized);
+
     _accumulationDirty |= enumDropdown("Draw type", _drawType, sDrawTypeNames);
 
     if (_drawType == DrawType::Default)
@@ -171,6 +179,7 @@ RtDiTrace::Output RtDiTrace::record(
     const Camera &cam, const Input &input, bool resetAccumulation,
     uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     _frameIndex = ++_frameIndex % sFramePeriod;
@@ -369,6 +378,8 @@ RtDiTrace::Output RtDiTrace::record(
 
 void RtDiTrace::releasePreserved()
 {
+    WHEELS_ASSERT(_initialized);
+
     if (_resources->images.isValidHandle(_previousIllumination))
         _resources->images.release(_previousIllumination);
 }

@@ -40,21 +40,27 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-DepthOfFieldFlatten::DepthOfFieldFlatten(
+void DepthOfFieldFlatten::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
-: _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        shaderDefinitionCallback);
+
+    _initialized = true;
 }
 
 void DepthOfFieldFlatten::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
+    WHEELS_ASSERT(_initialized);
+
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
@@ -64,6 +70,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
     ImageHandle halfResCircleOfConfusion, const uint32_t nextFrame,
     Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;

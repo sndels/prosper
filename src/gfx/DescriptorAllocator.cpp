@@ -69,26 +69,38 @@ constexpr StaticArray sDefaultPoolSizes{{
 
 } // namespace
 
-DescriptorAllocator::DescriptorAllocator(
-    Allocator &alloc, Device *device, vk::DescriptorPoolCreateFlags flags)
-: _device{device}
-, _pools{alloc}
-, _flags{flags}
+DescriptorAllocator::DescriptorAllocator(Allocator &alloc) noexcept
+: _pools{alloc}
 {
-    WHEELS_ASSERT(_device != nullptr);
-
-    nextPool();
 }
 
 DescriptorAllocator::~DescriptorAllocator()
 {
     if (_device != nullptr)
+    {
         for (auto &p : _pools)
             _device->logical().destroy(p);
+    }
+}
+
+void DescriptorAllocator::init(
+    Device *device, vk::DescriptorPoolCreateFlags flags)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
+    _flags = flags;
+
+    nextPool();
+
+    _initialized = true;
 }
 
 void DescriptorAllocator::resetPools()
 {
+    WHEELS_ASSERT(_initialized);
+
     for (auto &p : _pools)
         _device->logical().resetDescriptorPool(p);
     _activePool = 0;
@@ -97,6 +109,8 @@ void DescriptorAllocator::resetPools()
 vk::DescriptorSet DescriptorAllocator::allocate(
     const vk::DescriptorSetLayout &layout)
 {
+    WHEELS_ASSERT(_initialized);
+
     vk::DescriptorSet ret;
     allocate(Span{&layout, 1}, Span{&ret, 1}, nullptr);
     return ret;
@@ -105,6 +119,8 @@ vk::DescriptorSet DescriptorAllocator::allocate(
 vk::DescriptorSet DescriptorAllocator::allocate(
     const vk::DescriptorSetLayout &layout, uint32_t variableDescriptorCount)
 {
+    WHEELS_ASSERT(_initialized);
+
     const vk::DescriptorSetVariableDescriptorCountAllocateInfo variableCounts{
         .descriptorSetCount = 1,
         .pDescriptorCounts = &variableDescriptorCount,
@@ -114,6 +130,14 @@ vk::DescriptorSet DescriptorAllocator::allocate(
         Span{&layout, 1}, Span{&ret, 1},
         reinterpret_cast<const void *>(&variableCounts));
     return ret;
+}
+
+void DescriptorAllocator::allocate(
+    Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output)
+{
+    WHEELS_ASSERT(_initialized);
+
+    return allocate(layouts, output, nullptr);
 }
 
 void DescriptorAllocator::nextPool()
@@ -132,15 +156,10 @@ void DescriptorAllocator::nextPool()
 }
 
 void DescriptorAllocator::allocate(
-    Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output)
-{
-    return allocate(layouts, output, nullptr);
-}
-
-void DescriptorAllocator::allocate(
     Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output,
     const void *allocatePNext)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(layouts.size() == output.size());
 
     auto tryAllocate = [&]() -> vk::Result

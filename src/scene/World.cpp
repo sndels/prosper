@@ -26,20 +26,6 @@ using namespace wheels;
 namespace
 {
 
-std::unique_ptr<RingBuffer> createLightDataRing(Device *device)
-{
-    WHEELS_ASSERT(device != nullptr);
-
-    const uint32_t bufferSize =
-        (DirectionalLight::sBufferByteSize + RingBuffer::sAlignment +
-         PointLights::sBufferByteSize + RingBuffer::sAlignment +
-         SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
-        MAX_FRAMES_IN_FLIGHT;
-    return std::make_unique<RingBuffer>(
-        device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
-        "LightDataRing");
-}
-
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 bool relativeEq(float a, float b, float maxRelativeDiff)
 {
@@ -55,15 +41,17 @@ bool relativeEq(float a, float b, float maxRelativeDiff)
 class World::Impl
 {
   public:
-    Impl(
-        Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-        RingBuffer *constantsRing, const std::filesystem::path &scene);
+    Impl(Allocator &generalAlloc) noexcept;
     ~Impl();
 
     Impl(const Impl &other) = delete;
     Impl(Impl &&other) = delete;
     Impl &operator=(const Impl &other) = delete;
     Impl &operator=(Impl &&other) = delete;
+
+    void init(
+        ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+        const std::filesystem::path &scene);
 
     void startFrame();
     void endFrame();
@@ -106,9 +94,9 @@ class World::Impl
         vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
 
     Allocator &_generalAlloc;
-    RingBuffer *_constantsRing;
+    RingBuffer *_constantsRing{nullptr};
     Device *_device{nullptr};
-    std::unique_ptr<RingBuffer> _lightDataRing;
+    RingBuffer _lightDataRing;
     wheels::Optional<size_t> _nextScene;
     uint32_t _framesSinceFinalBlasBuilds{0};
     Timer _blasBuildTimer;
@@ -130,33 +118,52 @@ class World::Impl
     uint32_t _tlasInstancesUploadOffset{0};
 };
 
-World::Impl::Impl(
-    Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    RingBuffer *constantsRing, const std::filesystem::path &scene)
+World::Impl::Impl(Allocator &generalAlloc) noexcept
 : _generalAlloc{generalAlloc}
-, _constantsRing{constantsRing}
-, _device{device}
-, _lightDataRing{createLightDataRing(_device)}
-, _data{
-      generalAlloc, WHEELS_MOV(scopeAlloc), device,
-      WorldData::RingBuffers{
-          .constantsRing = _constantsRing,
-          .lightDataRing = _lightDataRing.get(),
-      },
-      scene}
+, _data{generalAlloc}
 {
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_constantsRing != nullptr);
-
-    // This creates the instance ring and startFrame() assumes it exists
-    reserveTlasInstances(1);
 }
 
 World::Impl::~Impl()
 {
-    for (auto &sb : _scratchBuffers)
-        _device->destroy(sb.buffer);
-    _device->destroy(_tlasInstancesBuffer);
+    if (_device != nullptr)
+    {
+        for (auto &sb : _scratchBuffers)
+            _device->destroy(sb.buffer);
+        _device->destroy(_tlasInstancesBuffer);
+    }
+}
+
+void World::Impl::init(
+    ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+    const std::filesystem::path &scene)
+{
+    WHEELS_ASSERT(_device == nullptr);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(constantsRing != nullptr);
+
+    _device = device;
+    _constantsRing = constantsRing;
+
+    const uint32_t lightDataBufferSize =
+        (DirectionalLight::sBufferByteSize + RingBuffer::sAlignment +
+         PointLights::sBufferByteSize + RingBuffer::sAlignment +
+         SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
+        MAX_FRAMES_IN_FLIGHT;
+    _lightDataRing.init(
+        _device, vk::BufferUsageFlagBits::eStorageBuffer, lightDataBufferSize,
+        "LightDataRing");
+
+    _data.init(
+        WHEELS_MOV(scopeAlloc), device,
+        WorldData::RingBuffers{
+            .constantsRing = _constantsRing,
+            .lightDataRing = &_lightDataRing,
+        },
+        scene);
+
+    // This creates the instance ring and startFrame() assumes it exists
+    reserveTlasInstances(1);
 }
 
 void World::Impl::startFrame()
@@ -178,8 +185,8 @@ void World::Impl::startFrame()
 
         _data._currentScene = _nextScene.take();
     }
-    _data._modelInstanceTransformsRing->startFrame();
-    _lightDataRing->startFrame();
+    _data._modelInstanceTransformsRing.startFrame();
+    _lightDataRing.startFrame();
     _tlasInstancesUploadRing->startFrame();
 
     for (size_t i = 0; i < _scratchBuffers.size();)
@@ -453,9 +460,9 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
         _byteOffsets.previousModelInstanceTransforms =
             _byteOffsets.modelInstanceTransforms;
         _byteOffsets.modelInstanceTransforms =
-            _data._modelInstanceTransformsRing->write_elements(transforms);
+            _data._modelInstanceTransformsRing.write_elements(transforms);
         _byteOffsets.modelInstanceScales =
-            _data._modelInstanceTransformsRing->write_elements(scales);
+            _data._modelInstanceTransformsRing.write_elements(scales);
 
         memcpy(
             scene.drawInstancesBuffer.mapped, drawInstances.data(),
@@ -465,9 +472,9 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
     updateTlasInstances(scopeAlloc.child_scope(), scene);
 
     _byteOffsets.directionalLight =
-        scene.lights.directionalLight.write(*_lightDataRing);
-    _byteOffsets.pointLights = scene.lights.pointLights.write(*_lightDataRing);
-    _byteOffsets.spotLights = scene.lights.spotLights.write(*_lightDataRing);
+        scene.lights.directionalLight.write(_lightDataRing);
+    _byteOffsets.pointLights = scene.lights.pointLights.write(_lightDataRing);
+    _byteOffsets.spotLights = scene.lights.spotLights.write(_lightDataRing);
 }
 
 bool World::Impl::buildAccelerationStructures(vk::CommandBuffer cb)
@@ -809,7 +816,8 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
 
         const uint32_t ringByteSize = asserted_cast<uint32_t>(
             (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
-        _tlasInstancesUploadRing = std::make_unique<RingBuffer>(
+        _tlasInstancesUploadRing = std::make_unique<RingBuffer>();
+        _tlasInstancesUploadRing->init(
             _device, vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
             "InstancesUploadBuffer");
         _tlasInstancesUploadRing->startFrame();
@@ -898,49 +906,87 @@ void World::Impl::createTlasBuildInfos(
         {rangeInfoOut.primitiveCount});
 }
 
-World::World(
-    Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    RingBuffer *constantsRing, const std::filesystem::path &scene)
-: _impl{std::make_unique<World::Impl>(
-      generalAlloc, WHEELS_MOV(scopeAlloc), device, constantsRing, scene)}
+World::World(Allocator &generalAlloc) noexcept
+: _impl{std::make_unique<World::Impl>(generalAlloc)}
 {
 }
 
 // Define here to have ~Impl defined
 World::~World() = default;
 
-void World::startFrame() { _impl->startFrame(); }
+void World::init(
+    wheels::ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+    const std::filesystem::path &scene)
+{
+    WHEELS_ASSERT(!_initialized);
+    _impl->init(WHEELS_MOV(scopeAlloc), device, constantsRing, scene);
+    _initialized = true;
+}
 
-void World::endFrame() { _impl->endFrame(); }
+void World::startFrame()
+{
+    WHEELS_ASSERT(_initialized);
+    _impl->startFrame();
+}
+
+void World::endFrame()
+{
+    WHEELS_ASSERT(_initialized);
+    _impl->endFrame();
+}
 
 bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data.handleDeferredLoading(cb, profiler);
 }
 
 void World::drawDeferredLoadingUi() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data.drawDeferredLoadingUi();
 }
 
-bool World::drawSceneUi() { return _impl->drawSceneUi(); }
+bool World::drawSceneUi()
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->drawSceneUi();
+}
 
-bool World::drawCameraUi() { return _impl->drawCameraUi(); }
+bool World::drawCameraUi()
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->drawCameraUi();
+}
 
-Scene &World::currentScene() { return _impl->currentScene(); }
+Scene &World::currentScene()
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->currentScene();
+}
 
-const Scene &World::currentScene() const { return _impl->currentScene(); }
+const Scene &World::currentScene() const
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->currentScene();
+}
 
-AccelerationStructure &World::currentTLAS() { return _impl->currentTLAS(); }
+AccelerationStructure &World::currentTLAS()
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->currentTLAS();
+}
 
 CameraParameters const &World::currentCamera() const
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_impl->_currentCamera < _impl->_data._cameras.size());
     return _impl->_data._cameras[_impl->_currentCamera];
 }
 
 bool World::isCurrentCameraDynamic() const
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_impl->_currentCamera < _impl->_data._cameraDynamic.size());
     return _impl->_data._cameraDynamic[_impl->_currentCamera];
 }
@@ -948,16 +994,19 @@ bool World::isCurrentCameraDynamic() const
 void World::uploadMeshDatas(
     wheels::ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
+    WHEELS_ASSERT(_initialized);
     _impl->uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
 }
 
 void World::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
 {
+    WHEELS_ASSERT(_initialized);
     _impl->uploadMaterialDatas(nextFrame, lodBias);
 }
 
 void World::updateAnimations(float timeS, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     _impl->updateAnimations(timeS, profiler);
 }
 
@@ -965,60 +1014,79 @@ void World::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
     SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     _impl->updateScene(
         WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats, profiler);
 }
 
 void World::updateBuffers(ScopedScratch scopeAlloc)
 {
+    WHEELS_ASSERT(_initialized);
     _impl->updateBuffers(WHEELS_MOV(scopeAlloc));
 }
 
 bool World::buildAccelerationStructures(vk::CommandBuffer cb)
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->buildAccelerationStructures(cb);
 }
 
-void World::drawSkybox(vk::CommandBuffer cb) const { _impl->drawSkybox(cb); }
+void World::drawSkybox(vk::CommandBuffer cb) const
+{
+    WHEELS_ASSERT(_initialized);
+    _impl->drawSkybox(cb);
+}
 
 const WorldDSLayouts &World::dsLayouts() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data._dsLayouts;
 }
 
 const WorldDescriptorSets &World::descriptorSets() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data._descriptorSets;
 }
 
 const WorldByteOffsets &World::byteOffsets() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_byteOffsets;
 }
 
-Span<const Model> World::models() const { return _impl->_data._models; }
+Span<const Model> World::models() const
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->_data._models;
+}
 
 Span<const Material> World::materials() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data._materials;
 }
 
 Span<const MeshInfo> World::meshInfos() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data._meshInfos;
 }
 
 SkyboxResources &World::skyboxResources()
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data._skyboxResources;
 }
 
 size_t World::deferredLoadingGeneralAllocatorHighWatermark() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data._deferredLoadingGeneralAllocatorHighWatermark;
 }
 
 size_t World::linearAllocatorHighWatermark() const
 {
+    WHEELS_ASSERT(_initialized);
     return _impl->_data.linearAllocatorHighWatermark();
 }

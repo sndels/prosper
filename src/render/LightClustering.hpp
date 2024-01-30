@@ -29,18 +29,19 @@ class LightClustering
         appendDefineStr(str, "LIGHT_CLUSTER_Z_SLICE_COUNT", zSlices);
     };
 
-    LightClustering(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
-
+    LightClustering() = default;
     ~LightClustering() = default;
 
     LightClustering(const LightClustering &other) = delete;
     LightClustering(LightClustering &&other) = delete;
     LightClustering &operator=(const LightClustering &other) = delete;
     LightClustering &operator=(LightClustering &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
 
@@ -59,6 +60,7 @@ class LightClustering
     [[nodiscard]] LightClusteringOutput createOutputs(
         const vk::Extent2D &renderExtent);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };

@@ -68,15 +68,15 @@ class Device
         bool robustAccess{false};
     };
 
-    Device(
-        wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
-        GLFWwindow *window, const Settings &settings);
+    Device(wheels::Allocator &generalAlloc, const Settings &settings) noexcept;
     ~Device();
 
     Device(const Device &other) = delete;
     Device(Device &&other) = delete;
     Device &operator=(const Device &other) = delete;
     Device &operator=(Device &&other) = delete;
+
+    void init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window);
 
     [[nodiscard]] vk::Instance instance() const;
     [[nodiscard]] vk::PhysicalDevice physical() const;
@@ -174,6 +174,7 @@ class Device
     void trackImage(const Image &image);
     void untrackImage(const Image &image);
 
+    bool _initialized{false};
     wheels::Allocator &_generalAlloc;
     Settings _settings;
 

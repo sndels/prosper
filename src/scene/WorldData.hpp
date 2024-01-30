@@ -34,16 +34,17 @@ class WorldData
         RingBuffer *constantsRing{nullptr};
         RingBuffer *lightDataRing{nullptr};
     };
-    WorldData(
-        wheels::Allocator &generalAlloc, wheels::ScopedScratch scopeAlloc,
-        Device *device, const RingBuffers &ringBuffers,
-        const std::filesystem::path &scene);
+    WorldData(wheels::Allocator &generalAlloc) noexcept;
     ~WorldData();
 
     WorldData(const WorldData &) = delete;
     WorldData(WorldData &&) = delete;
     WorldData &operator=(const WorldData &) = delete;
     WorldData &operator=(WorldData &&) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const RingBuffers &ringBuffers, const std::filesystem::path &scene);
 
     void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     void uploadMaterialDatas(uint32_t nextFrame);
@@ -56,6 +57,7 @@ class WorldData
   private:
     wheels::Allocator &_generalAlloc;
     wheels::LinearAllocator _linearAlloc;
+    bool _initialized{false};
     Device *_device{nullptr};
     DescriptorAllocator _descriptorAllocator;
 
@@ -102,7 +104,7 @@ class WorldData
     WorldDSLayouts _dsLayouts;
     WorldDescriptorSets _descriptorSets;
 
-    std::unique_ptr<RingBuffer> _modelInstanceTransformsRing;
+    RingBuffer _modelInstanceTransformsRing;
 
     wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
     uint32_t _deferredLoadingGeneralAllocatorHighWatermark{0};

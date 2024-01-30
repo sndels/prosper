@@ -7,7 +7,7 @@
 using namespace glm;
 
 TimeAccessor::TimeAccessor(
-    const float *data, uint32_t count, const Interval &interval)
+    const float *data, uint32_t count, const Interval &interval) noexcept
 : _data{data}
 , _count{count}
 , _interval{interval}
@@ -71,7 +71,7 @@ KeyFrameInterpolation TimeAccessor::interpolation(float timeS) const
 }
 
 template <>
-ValueAccessor<vec3>::ValueAccessor(const uint8_t *data, uint32_t count)
+ValueAccessor<vec3>::ValueAccessor(const uint8_t *data, uint32_t count) noexcept
 : _data{data}
 , _count{count}
 {
@@ -87,7 +87,7 @@ template <> vec3 ValueAccessor<vec3>::read(uint32_t index) const
 }
 
 template <>
-ValueAccessor<quat>::ValueAccessor(const uint8_t *data, uint32_t count)
+ValueAccessor<quat>::ValueAccessor(const uint8_t *data, uint32_t count) noexcept
 : _data{data}
 , _count{count}
 {

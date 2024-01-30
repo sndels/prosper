@@ -57,22 +57,30 @@ ComputePass::Shader foregroundDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-DepthOfFieldGather::DepthOfFieldGather(
+void DepthOfFieldGather::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
-: _resources{resources}
-, _backgroundPass{scopeAlloc.child_scope(), device, staticDescriptorsAlloc, backgroundDefinitionCallback}
-, _foregroundPass{
-      scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
-      foregroundDefinitionCallback}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _backgroundPass.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        backgroundDefinitionCallback);
+    _foregroundPass.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        foregroundDefinitionCallback);
+
+    _initialized = true;
 }
 
 void DepthOfFieldGather::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
+    WHEELS_ASSERT(_initialized);
+
     _backgroundPass.recompileShader(
         scopeAlloc.child_scope(), changedFiles, backgroundDefinitionCallback);
     _foregroundPass.recompileShader(
@@ -83,6 +91,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     GatherType gatherType, const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
     WHEELS_ASSERT(gatherType < GatherType_Count);
 

@@ -65,29 +65,40 @@ ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-ImageBasedLighting::ImageBasedLighting(
+void ImageBasedLighting::init(
     ScopedScratch scopeAlloc, Device *device,
     DescriptorAllocator *staticDescriptorsAlloc)
-
-: _device{device}
-, _sampleIrradiance{scopeAlloc.child_scope(), device, staticDescriptorsAlloc, sampleIrradianceShaderDefinitionCallback}
-, _integrateSpecularBrdf{scopeAlloc.child_scope(), device, staticDescriptorsAlloc, integrateSpecularBrdfShaderDefinitionCallback}
-, _prefilterRadiance{
-      scopeAlloc.child_scope(),
-      device,
-      staticDescriptorsAlloc,
-      prefilterRadianceShaderDefinitionCallback,
-  }
 {
-    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
+    _sampleIrradiance.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        sampleIrradianceShaderDefinitionCallback);
+    _integrateSpecularBrdf.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        integrateSpecularBrdfShaderDefinitionCallback);
+    _prefilterRadiance.init(
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        prefilterRadianceShaderDefinitionCallback);
+
+    _initialized = true;
 }
 
-bool ImageBasedLighting::isGenerated() const { return _generated; }
+bool ImageBasedLighting::isGenerated() const
+{
+    WHEELS_ASSERT(_initialized);
+
+    return _generated;
+}
 
 void ImageBasedLighting::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
+    WHEELS_ASSERT(_initialized);
+
     _sampleIrradiance.recompileShader(
         scopeAlloc.child_scope(), changedFiles,
         sampleIrradianceShaderDefinitionCallback);
@@ -103,6 +114,7 @@ void ImageBasedLighting::recordGeneration(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     SkyboxResources &skyboxResources = world.skyboxResources();

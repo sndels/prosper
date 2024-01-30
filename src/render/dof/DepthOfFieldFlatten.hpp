@@ -18,17 +18,18 @@
 class DepthOfFieldFlatten
 {
   public:
-    DepthOfFieldFlatten(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
-
+    DepthOfFieldFlatten() = default;
     ~DepthOfFieldFlatten() = default;
 
     DepthOfFieldFlatten(const DepthOfFieldFlatten &other) = delete;
     DepthOfFieldFlatten(DepthOfFieldFlatten &&other) = delete;
     DepthOfFieldFlatten &operator=(const DepthOfFieldFlatten &other) = delete;
     DepthOfFieldFlatten &operator=(DepthOfFieldFlatten &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -43,6 +44,7 @@ class DepthOfFieldFlatten
         ImageHandle halfResCircleOfConfusion, uint32_t nextFrame,
         Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };

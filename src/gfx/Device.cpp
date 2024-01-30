@@ -433,12 +433,42 @@ void FileIncluder::ReleaseInclude(shaderc_include_result *data)
 
 } // namespace
 
-Device::Device(
-    Allocator &generalAlloc, ScopedScratch scopeAlloc, GLFWwindow *window,
-    const Settings &settings)
+Device::Device(Allocator &generalAlloc, const Settings &settings) noexcept
 : _generalAlloc{generalAlloc}
 , _settings{settings}
 {
+}
+
+Device::~Device()
+{
+    // Don't check for initialized as we might be cleaning up after a partial
+    // init
+    _initialized = false;
+
+    if (_allocator != nullptr)
+        vmaDestroyAllocator(_allocator);
+
+    if (_logical)
+    {
+        // Also cleans up associated command buffers
+        _logical.destroy(_graphicsPool);
+        _logical.destroy(_transferPool);
+        // Implicitly cleans up associated queues as well
+        _logical.destroy();
+    }
+
+    if (_instance)
+    {
+        _instance.destroy(_surface);
+        DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
+        _instance.destroy();
+    }
+}
+
+void Device::init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window)
+{
+    WHEELS_ASSERT(!_initialized);
+
     printf("Creating Vulkan device\n");
 
     // Use general allocator since the include set is unbounded
@@ -541,36 +571,65 @@ Device::Device(
 
         printf("%s\n", _properties.device.deviceName.data());
     }
+
+    _initialized = true;
 }
 
-Device::~Device()
+vk::Instance Device::instance() const
 {
-    // Also cleans up associated command buffers
-    _logical.destroy(_graphicsPool);
-    _logical.destroy(_transferPool);
-    vmaDestroyAllocator(_allocator);
-    // Implicitly cleans up associated queues as well
-    _logical.destroy();
-    _instance.destroy(_surface);
-    DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
-    _instance.destroy();
+    WHEELS_ASSERT(_instance);
+
+    return _instance;
 }
 
-vk::Instance Device::instance() const { return _instance; }
+vk::PhysicalDevice Device::physical() const
+{
+    WHEELS_ASSERT(_physical);
 
-vk::PhysicalDevice Device::physical() const { return _physical; }
+    return _physical;
+}
 
-vk::Device Device::logical() const { return _logical; }
+vk::Device Device::logical() const
+{
+    WHEELS_ASSERT(_logical);
 
-vk::SurfaceKHR Device::surface() const { return _surface; }
+    return _logical;
+}
 
-vk::CommandPool Device::graphicsPool() const { return _graphicsPool; }
+vk::SurfaceKHR Device::surface() const
+{
+    WHEELS_ASSERT(_surface);
 
-vk::Queue Device::graphicsQueue() const { return _graphicsQueue; }
+    return _surface;
+}
 
-vk::CommandPool Device::transferPool() const { return _transferPool; }
+vk::CommandPool Device::graphicsPool() const
+{
+    WHEELS_ASSERT(_graphicsPool);
 
-vk::Queue Device::transferQueue() const { return _transferQueue; }
+    return _graphicsPool;
+}
+
+vk::Queue Device::graphicsQueue() const
+{
+    WHEELS_ASSERT(_graphicsQueue);
+
+    return _graphicsQueue;
+}
+
+vk::CommandPool Device::transferPool() const
+{
+    WHEELS_ASSERT(_transferPool);
+
+    return _transferPool;
+}
+
+vk::Queue Device::transferQueue() const
+{
+    WHEELS_ASSERT(_transferQueue);
+
+    return _transferQueue;
+}
 
 const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
 
@@ -579,6 +638,8 @@ const DeviceProperties &Device::properties() const { return _properties; }
 wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
@@ -644,8 +705,8 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     const Span<const uint32_t> spvWords{
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
-    ShaderReflection reflection{
-        scopeAlloc.child_scope(), _generalAlloc, spvWords, _uniqueIncludes};
+    ShaderReflection reflection{_generalAlloc};
+    reflection.init(scopeAlloc.child_scope(), spvWords, _uniqueIncludes);
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spvWords.size() * sizeof(uint32_t),
@@ -669,6 +730,8 @@ wheels::Optional<ShaderReflection> Device::reflectShader(
     ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info,
     bool add_dummy_compute_boilerplate)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
@@ -725,19 +788,23 @@ void main()
     const Span<const uint32_t> spvWords{
         result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
 
-    ShaderReflection reflection{
-        scopeAlloc.child_scope(), _generalAlloc, spvWords, _uniqueIncludes};
+    ShaderReflection reflection{_generalAlloc};
+    reflection.init(scopeAlloc.child_scope(), spvWords, _uniqueIncludes);
 
     return WHEELS_MOV(reflection);
 }
 
 Buffer Device::create(const BufferCreateInfo &info)
 {
+    WHEELS_ASSERT(_initialized);
+
     return createBuffer(info);
 }
 
 Buffer Device::createBuffer(const BufferCreateInfo &info)
 {
+    WHEELS_ASSERT(_initialized);
+
     const BufferDescription &desc = info.desc;
 
     const vk::BufferCreateInfo bufferInfo{
@@ -850,6 +917,8 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
 
 void Device::destroy(const Buffer &buffer)
 {
+    WHEELS_ASSERT(_initialized);
+
     untrackBuffer(buffer);
 
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
@@ -861,11 +930,15 @@ void Device::destroy(const Buffer &buffer)
 
 TexelBuffer Device::create(const TexelBufferCreateInfo &info)
 {
+    WHEELS_ASSERT(_initialized);
+
     return createTexelBuffer(info);
 }
 
 TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 {
+    WHEELS_ASSERT(_initialized);
+
     const TexelBufferDescription &desc = info.desc;
     const BufferDescription &bufferDesc = desc.bufferDesc;
 
@@ -923,6 +996,8 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 
 void Device::destroy(const TexelBuffer &buffer)
 {
+    WHEELS_ASSERT(_initialized);
+
     untrackTexelBuffer(buffer);
 
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
@@ -933,10 +1008,17 @@ void Device::destroy(const TexelBuffer &buffer)
     _logical.destroy(buffer.view);
 }
 
-Image Device::create(const ImageCreateInfo &info) { return createImage(info); }
+Image Device::create(const ImageCreateInfo &info)
+{
+    WHEELS_ASSERT(_initialized);
+
+    return createImage(info);
+}
 
 Image Device::createImage(const ImageCreateInfo &info)
 {
+    WHEELS_ASSERT(_initialized);
+
     const ImageDescription &desc = info.desc;
 
     const vk::Extent3D extent{
@@ -1051,6 +1133,8 @@ Image Device::createImage(const ImageCreateInfo &info)
 
 void Device::destroy(const Image &image)
 {
+    WHEELS_ASSERT(_initialized);
+
     untrackImage(image);
 
     auto *vkImage = static_cast<VkImage>(image.handle);
@@ -1064,6 +1148,8 @@ void Device::destroy(const Image &image)
 void Device::createSubresourcesViews(
     const Image &image, Span<vk::ImageView> outViews) const
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(
         image.subresourceRange.layerCount == 1 &&
         "Texture arrays not supported");
@@ -1108,12 +1194,16 @@ void Device::createSubresourcesViews(
 
 void Device::destroy(Span<const vk::ImageView> views) const
 {
+    WHEELS_ASSERT(_initialized);
+
     for (const vk::ImageView view : views)
         _logical.destroy(view);
 }
 
 vk::CommandBuffer Device::beginGraphicsCommands() const
 {
+    WHEELS_ASSERT(_initialized);
+
     const auto buffer =
         _logical.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
             .commandPool = _graphicsPool,
@@ -1130,6 +1220,8 @@ vk::CommandBuffer Device::beginGraphicsCommands() const
 
 void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
 {
+    WHEELS_ASSERT(_initialized);
+
     buffer.end();
 
     const vk::SubmitInfo submitInfo{
@@ -1144,6 +1236,8 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
 
 const MemoryAllocationBytes &Device::memoryAllocations() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _memoryAllocations;
 }
 

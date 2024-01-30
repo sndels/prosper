@@ -39,16 +39,18 @@ class TemporalAntiAliasing
         VELOCITY_SAMPLING_TYPES_AND_COUNT
     };
 
-    TemporalAntiAliasing(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDsLayout);
+    TemporalAntiAliasing() = default;
     ~TemporalAntiAliasing() = default;
 
     TemporalAntiAliasing(const TemporalAntiAliasing &other) = delete;
     TemporalAntiAliasing(TemporalAntiAliasing &&other) = delete;
     TemporalAntiAliasing &operator=(const TemporalAntiAliasing &other) = delete;
     TemporalAntiAliasing &operator=(TemporalAntiAliasing &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        vk::DescriptorSetLayout camDsLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -76,6 +78,7 @@ class TemporalAntiAliasing
   private:
     Output createOutputs(const vk::Extent2D &size);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 

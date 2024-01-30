@@ -17,7 +17,7 @@ class Window
   public:
     Window(
         const wheels::Pair<uint32_t, uint32_t> &resolution, const char *title,
-        InputHandler *inputHandler);
+        InputHandler *inputHandler) noexcept;
     ~Window();
 
     Window(const Window &other) = delete;

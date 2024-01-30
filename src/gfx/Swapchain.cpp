@@ -139,42 +139,71 @@ SwapchainConfig::SwapchainConfig(
         imageCount = support.capabilities.maxImageCount;
 }
 
-Swapchain::Swapchain(Device *device, const SwapchainConfig &config)
-: _device{device}
-, _config{config}
+Swapchain::~Swapchain() { destroy(); }
+
+void Swapchain::init(Device *device, const SwapchainConfig &config)
 {
-    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
 
     printf("Creating Swapchain\n");
 
     recreate(config);
+
+    _initialized = true;
 }
 
-Swapchain::~Swapchain() { destroy(); }
+SwapchainConfig const &Swapchain::config() const
+{
+    WHEELS_ASSERT(_initialized);
 
-SwapchainConfig const &Swapchain::config() const { return _config; }
+    return _config;
+}
 
-vk::Format Swapchain::format() const { return _config.surfaceFormat.format; }
+vk::Format Swapchain::format() const
+{
+    WHEELS_ASSERT(_initialized);
 
-const vk::Extent2D &Swapchain::extent() const { return _config.extent; }
+    return _config.surfaceFormat.format;
+}
+
+const vk::Extent2D &Swapchain::extent() const
+{
+    WHEELS_ASSERT(_initialized);
+
+    return _config.extent;
+}
 
 SwapchainImage Swapchain::image(size_t i) const
 {
+    WHEELS_ASSERT(_initialized);
+
     if (i < _images.size())
         return _images[i];
     throw std::runtime_error("Tried to index past swap image count");
 }
 
-size_t Swapchain::nextFrame() const { return _nextFrame; }
+size_t Swapchain::nextFrame() const
+{
+    WHEELS_ASSERT(_initialized);
+
+    return _nextFrame;
+}
 
 vk::Fence Swapchain::currentFence() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _inFlightFences[_nextFrame];
 }
 
 wheels::Optional<uint32_t> Swapchain::acquireNextImage(
     vk::Semaphore signalSemaphore)
 {
+    WHEELS_ASSERT(_initialized);
+
     const auto noTimeout = std::numeric_limits<uint64_t>::max();
     checkSuccess(
         _device->logical().waitForFences(
@@ -201,6 +230,8 @@ wheels::Optional<uint32_t> Swapchain::acquireNextImage(
 
 bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
 {
+    WHEELS_ASSERT(_initialized);
+
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
@@ -230,6 +261,7 @@ bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
 
 void Swapchain::recreate(const SwapchainConfig &config)
 {
+    // Called by init so no init assert
     destroy();
     _config = config;
     createSwapchain();

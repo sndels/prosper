@@ -162,25 +162,94 @@ const uint8_t *appendAccessorData(
 
 } // namespace
 
-WorldData::WorldData(
-    Allocator &generalAlloc, ScopedScratch scopeAlloc, Device *device,
-    const RingBuffers &ringBuffers, const std::filesystem::path &scene)
+WorldData::WorldData(Allocator &generalAlloc) noexcept
 : _generalAlloc{generalAlloc}
 , _linearAlloc{sWorldMemSize}
-, _device{device}
 // Use general for descriptors because because we don't know the required
 // storage up front and the internal array will be reallocated
-, _descriptorAllocator{_generalAlloc, device}
-, _sceneDir{resPath(scene.parent_path())}
+, _descriptorAllocator{_generalAlloc}
 , _skyboxResources{
-      .texture =
-          TextureCubemap{
-              scopeAlloc.child_scope(), device, resPath("env/storm.ktx")},
       .radianceViews = Array<vk::ImageView>{_generalAlloc},
-      .vertexBuffer = Buffer{createSkyboxVertexBuffer(device)},
   }
 {
-    WHEELS_ASSERT(_device != nullptr);
+}
+
+WorldData::~WorldData()
+{
+    // Make sure the deferred loader exits before we clean up any shared
+    // resources.
+    if (_deferredLoadingContext.has_value())
+    {
+        _deferredLoadingContext->kill();
+        // Copy over any new geometry buffers as ~WorldData is responsible of
+        // destroying them
+        while (_deferredLoadingContext->geometryBuffers.size() >
+               _geometryBuffers.size())
+        {
+            _geometryBuffers.push_back(
+                _deferredLoadingContext
+                    ->geometryBuffers[_geometryBuffers.size()]
+                    .clone());
+        }
+    }
+
+    if (_device != nullptr)
+    {
+        _device->logical().destroy(_dsLayouts.lights);
+        _device->logical().destroy(_dsLayouts.skybox);
+        _device->logical().destroy(_dsLayouts.rayTracing);
+        _device->logical().destroy(_dsLayouts.sceneInstances);
+        _device->logical().destroy(_dsLayouts.geometry);
+        _device->logical().destroy(_dsLayouts.materialTextures);
+        _device->logical().destroy(_dsLayouts.materialDatas);
+
+        _device->destroy(_skyboxResources.vertexBuffer);
+        for (const vk::ImageView view : _skyboxResources.radianceViews)
+            _device->logical().destroy(view);
+        _device->destroy(_skyboxResources.radiance);
+        _device->destroy(_skyboxResources.specularBrdfLut);
+        _device->destroy(_skyboxResources.irradiance);
+        _device->logical().destroy(_skyboxResources.sampler);
+
+        for (auto &buffer : _materialsBuffers)
+            _device->destroy(buffer);
+
+        for (auto &blas : _blases)
+        {
+            _device->logical().destroy(blas.handle);
+            _device->destroy(blas.buffer);
+        }
+        for (auto &tlas : _tlases)
+        {
+            _device->logical().destroy(tlas.handle);
+            _device->destroy(tlas.buffer);
+        }
+        for (auto &scene : _scenes)
+            _device->destroy(scene.drawInstancesBuffer);
+        for (auto &buffer : _geometryBuffers)
+            _device->destroy(buffer);
+        for (auto &buffer : _geometryMetadatasBuffers)
+            _device->destroy(buffer);
+        for (auto &buffer : _meshletCountsBuffers)
+            _device->destroy(buffer);
+        for (auto &sampler : _samplers)
+            _device->logical().destroy(sampler);
+    }
+}
+
+void WorldData::init(
+    ScopedScratch scopeAlloc, Device *device, const RingBuffers &ringBuffers,
+    const std::filesystem::path &scene)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
+    _descriptorAllocator.init(device);
+    _sceneDir = resPath(scene.parent_path());
+    _skyboxResources.vertexBuffer = Buffer{createSkyboxVertexBuffer(device)};
+    _skyboxResources.texture.init(
+        scopeAlloc.child_scope(), device, resPath("env/storm.ktx"));
 
     _skyboxResources.irradiance = _device->createImage(ImageCreateInfo{
         .desc =
@@ -292,7 +361,8 @@ WorldData::WorldData(
     const auto gltfModel = loadGLTFModel(fullScenePath);
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
-    _deferredLoadingContext.emplace(
+    _deferredLoadingContext.emplace();
+    _deferredLoadingContext->init(
         _device, _sceneDir, sourceWriteTime, gltfModel);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
@@ -328,53 +398,7 @@ WorldData::WorldData(
     createDescriptorSets(scopeAlloc.child_scope(), ringBuffers);
 
     _deferredLoadingContext->launch();
-}
-
-WorldData::~WorldData()
-{
-    // Make sure the deferred loader exits before we clean up any shared
-    // resources
-    _deferredLoadingContext.reset();
-
-    _device->logical().destroy(_dsLayouts.lights);
-    _device->logical().destroy(_dsLayouts.skybox);
-    _device->logical().destroy(_dsLayouts.rayTracing);
-    _device->logical().destroy(_dsLayouts.sceneInstances);
-    _device->logical().destroy(_dsLayouts.geometry);
-    _device->logical().destroy(_dsLayouts.materialTextures);
-    _device->logical().destroy(_dsLayouts.materialDatas);
-
-    _device->destroy(_skyboxResources.vertexBuffer);
-    for (const vk::ImageView view : _skyboxResources.radianceViews)
-        _device->logical().destroy(view);
-    _device->destroy(_skyboxResources.radiance);
-    _device->destroy(_skyboxResources.specularBrdfLut);
-    _device->destroy(_skyboxResources.irradiance);
-    _device->logical().destroy(_skyboxResources.sampler);
-
-    for (auto &buffer : _materialsBuffers)
-        _device->destroy(buffer);
-
-    for (auto &blas : _blases)
-    {
-        _device->logical().destroy(blas.handle);
-        _device->destroy(blas.buffer);
-    }
-    for (auto &tlas : _tlases)
-    {
-        _device->logical().destroy(tlas.handle);
-        _device->destroy(tlas.buffer);
-    }
-    for (auto &scene : _scenes)
-        _device->destroy(scene.drawInstancesBuffer);
-    for (auto &buffer : _geometryBuffers)
-        _device->destroy(buffer);
-    for (auto &buffer : _geometryMetadatasBuffers)
-        _device->destroy(buffer);
-    for (auto &buffer : _meshletCountsBuffers)
-        _device->destroy(buffer);
-    for (auto &sampler : _samplers)
-        _device->logical().destroy(sampler);
+    _initialized = true;
 }
 
 void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
@@ -624,7 +648,8 @@ void WorldData::loadTextures(
     _texture2Ds.reserve(gltfModel.images.size() + 1);
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
-        _texture2Ds.emplace_back(
+        _texture2Ds.emplace_back();
+        _texture2Ds.back().init(
             scopeAlloc.child_scope(), _device, resPath("texture/empty.png"), cb,
             stagingBuffer, false);
         _device->endGraphicsCommands(cb);
@@ -1511,7 +1536,7 @@ void WorldData::createBuffers()
              (maxModelInstanceTransforms * sizeof(float) +
               static_cast<size_t>(RingBuffer::sAlignment))) *
             MAX_FRAMES_IN_FLIGHT);
-        _modelInstanceTransformsRing = std::make_unique<RingBuffer>(
+        _modelInstanceTransformsRing.init(
             _device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
             "ModelInstanceTransformRing");
     }
@@ -1853,17 +1878,17 @@ void WorldData::createDescriptorSets(
 
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _modelInstanceTransformsRing->buffer(),
+                    .buffer = _modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _modelInstanceTransformsRing->buffer(),
+                    .buffer = _modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _modelInstanceTransformsRing->buffer(),
+                    .buffer = _modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() * sizeof(float),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
@@ -2110,7 +2135,8 @@ void WorldData::loadTextureSingleThreaded(
                                  "bin + textures.");
 
     WHEELS_ASSERT(ctx.stagingBuffers.size() > nextFrame);
-    _texture2Ds.emplace_back(
+    _texture2Ds.emplace_back();
+    _texture2Ds.back().init(
         scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
         ctx.stagingBuffers[nextFrame], true);
 }

@@ -54,9 +54,6 @@
     - Could get too messy and brittle
 - Pipeline cache
   - https://zeux.io/2019/07/17/serializing-pipeline-cache/
-- Fix init/load time crashes causing broken teardown and VMA asserts masking the
-  actual root cause throws
-  - Non-throwing ctors and separate init to make sure cleanup always happens?
 - Have texture and mesh cache both next to the scene instead of textures being
   next to the textures?
 - Compile time loops in mesh shader

@@ -22,23 +22,24 @@ class DeferredShading
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    struct InputDSLayouts
-    {
-        vk::DescriptorSetLayout camera;
-        vk::DescriptorSetLayout lightClusters;
-        const WorldDSLayouts &world;
-    };
-    DeferredShading(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        const InputDSLayouts &dsLayouts);
-
+    DeferredShading() = default;
     ~DeferredShading() = default;
 
     DeferredShading(const DeferredShading &other) = delete;
     DeferredShading(DeferredShading &&other) = delete;
     DeferredShading &operator=(const DeferredShading &other) = delete;
     DeferredShading &operator=(DeferredShading &&other) = delete;
+
+    struct InputDSLayouts
+    {
+        vk::DescriptorSetLayout camera;
+        vk::DescriptorSetLayout lightClusters;
+        const WorldDSLayouts &world;
+    };
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        const InputDSLayouts &dsLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -61,6 +62,7 @@ class DeferredShading
         const World &world, const Camera &cam, const Input &input,
         uint32_t nextFrame, bool applyIbl, Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 

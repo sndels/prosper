@@ -45,24 +45,6 @@ vk::Rect2D getRenderArea(
 
 } // namespace
 
-SkyboxRenderer::SkyboxRenderer(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
-: _device{device}
-, _resources{resources}
-{
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
-
-    printf("Creating SkyboxRenderer\n");
-
-    if (!compileShaders(scopeAlloc.child_scope()))
-        throw std::runtime_error("SkyboxRenderer shader compilation failed");
-
-    createGraphicsPipelines(camDSLayout, worldDSLayouts);
-}
-
 SkyboxRenderer::~SkyboxRenderer()
 {
     if (_device != nullptr)
@@ -74,12 +56,36 @@ SkyboxRenderer::~SkyboxRenderer()
     }
 }
 
+void SkyboxRenderer::init(
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    const vk::DescriptorSetLayout camDSLayout,
+    const WorldDSLayouts &worldDSLayouts)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _device = device;
+    _resources = resources;
+
+    printf("Creating SkyboxRenderer\n");
+
+    if (!compileShaders(scopeAlloc.child_scope()))
+        throw std::runtime_error("SkyboxRenderer shader compilation failed");
+
+    createGraphicsPipelines(camDSLayout, worldDSLayouts);
+
+    _initialized = true;
+}
+
 void SkyboxRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(_vertReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
     if (!_vertReflection->affected(changedFiles) &&
@@ -98,6 +104,7 @@ void SkyboxRenderer::record(
     const Camera &cam, const RecordInOut &inOutTargets,
     Profiler *profiler) const
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     {

@@ -45,17 +45,19 @@ struct PCBlock
 
 } // namespace
 
-GBufferRenderer::GBufferRenderer(
+void GBufferRenderer::init(
     ScopedScratch scopeAlloc, Device *device,
     DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
-: _device{device}
-, _resources{resources}
 {
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+
+    _device = device;
+    _resources = resources;
 
     printf("Creating GBufferRenderer\n");
 
@@ -64,6 +66,8 @@ GBufferRenderer::GBufferRenderer(
 
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
+
+    _initialized = true;
 }
 
 GBufferRenderer::~GBufferRenderer()
@@ -85,6 +89,8 @@ void GBufferRenderer::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(_meshReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
     if (!_meshReflection->affected(changedFiles) &&
@@ -104,6 +110,7 @@ GBufferRendererOutput GBufferRenderer::record(
     const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
     const uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);

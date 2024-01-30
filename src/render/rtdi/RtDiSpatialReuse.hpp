@@ -15,22 +15,23 @@
 class RtDiSpatialReuse
 {
   public:
-    struct InputDSLayouts
-    {
-        vk::DescriptorSetLayout camera;
-        const WorldDSLayouts &world;
-    };
-    RtDiSpatialReuse(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        const InputDSLayouts &dsLayouts);
-
+    RtDiSpatialReuse() = default;
     ~RtDiSpatialReuse() = default;
 
     RtDiSpatialReuse(const RtDiSpatialReuse &other) = delete;
     RtDiSpatialReuse(RtDiSpatialReuse &&other) = delete;
     RtDiSpatialReuse &operator=(const RtDiSpatialReuse &other) = delete;
     RtDiSpatialReuse &operator=(RtDiSpatialReuse &&other) = delete;
+
+    struct InputDSLayouts
+    {
+        vk::DescriptorSetLayout camera;
+        const WorldDSLayouts &world;
+    };
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        const InputDSLayouts &dsLayouts);
 
     // Returns true if recompile happened
     bool recompileShaders(
@@ -52,6 +53,7 @@ class RtDiSpatialReuse
         const World &world, const Camera &cam, const Input &input,
         uint32_t nextFrame, Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 

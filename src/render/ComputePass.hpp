@@ -33,19 +33,20 @@ class ComputePass
         glm::uvec3 groupSize{16, 16, 1};
     };
 
-    ComputePass(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        const std::function<Shader(wheels::Allocator &)>
-            &shaderDefinitionCallback,
-        const ComputePassOptions &options = ComputePassOptions{});
-
+    ComputePass() = default;
     ~ComputePass();
 
     ComputePass(const ComputePass &other) = delete;
     ComputePass(ComputePass &&other) = delete;
     ComputePass &operator=(const ComputePass &other) = delete;
     ComputePass &operator=(ComputePass &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        DescriptorAllocator *staticDescriptorsAlloc,
+        const std::function<Shader(wheels::Allocator &)>
+            &shaderDefinitionCallback,
+        const ComputePassOptions &options = ComputePassOptions{});
 
     // Returns true if recompile happened
     bool recompileShader(
@@ -112,6 +113,7 @@ class ComputePass
         wheels::ScopedScratch scopeAlloc,
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {});
 
+    bool _initialized{false};
     Device *_device{nullptr};
 
     vk::ShaderModule _shaderModule;

@@ -21,13 +21,15 @@ template <
 class RenderResourceCollection
 {
   public:
-    RenderResourceCollection(wheels::Allocator &alloc, Device *device);
+    RenderResourceCollection(wheels::Allocator &alloc) noexcept;
     virtual ~RenderResourceCollection();
 
     RenderResourceCollection(RenderResourceCollection &) = delete;
     RenderResourceCollection(RenderResourceCollection &&) = delete;
     RenderResourceCollection &operator=(RenderResourceCollection &) = delete;
     RenderResourceCollection &operator=(RenderResourceCollection &&) = delete;
+
+    void init(Device *device);
 
     void startFrame();
     virtual void destroyResources();
@@ -87,10 +89,9 @@ template <
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
 RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
-    CppNativeType, NativeType, ObjectType>::
-    RenderResourceCollection(wheels::Allocator &alloc, Device *device)
-: _device{device}
-, _alloc{alloc}
+    CppNativeType, NativeType,
+    ObjectType>::RenderResourceCollection(wheels::Allocator &alloc) noexcept
+: _alloc{alloc}
 , _resources{alloc}
 , _descriptions{alloc}
 , _aliasedDebugNames{alloc}
@@ -98,7 +99,6 @@ RenderResourceCollection<
 , _debugNames{alloc}
 , _preserved{alloc}
 {
-    WHEELS_ASSERT(device != nullptr);
 }
 
 template <
@@ -118,8 +118,24 @@ template <
     typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
 void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::init(Device *device)
+{
+    WHEELS_ASSERT(_device == nullptr);
+    WHEELS_ASSERT(device != nullptr);
+
+    _device = device;
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+void RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::startFrame()
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     const size_t resourceCount = _resources.size();
     WHEELS_ASSERT(resourceCount == _preserved.size());
     WHEELS_ASSERT(resourceCount == _aliasedDebugNames.size());
@@ -154,23 +170,27 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::destroyResources()
 {
-    for (const Resource &res : _resources)
-        _device->destroy(res);
-
-    _resources.clear();
-    _descriptions.clear();
-    _aliasedDebugNames.clear();
-    // Bump all generations to invalidate any stored handles
-    for (uint64_t &generation : _generations)
+    if (_device != nullptr)
     {
-        const uint64_t storedGeneration = generation & ~sNotInUseGenerationFlag;
-        generation = sNotInUseGenerationFlag | (storedGeneration + 1);
+        for (const Resource &res : _resources)
+            _device->destroy(res);
+
+        _resources.clear();
+        _descriptions.clear();
+        _aliasedDebugNames.clear();
+        // Bump all generations to invalidate any stored handles
+        for (uint64_t &generation : _generations)
+        {
+            const uint64_t storedGeneration =
+                generation & ~sNotInUseGenerationFlag;
+            generation = sNotInUseGenerationFlag | (storedGeneration + 1);
+        }
+        _debugNames.clear();
+        // _markedDebugName should be persistent and only cleared through an
+        // explicit call to clearDebug()
+        _markedDebugHandle.reset();
+        _preserved.clear();
     }
-    _debugNames.clear();
-    // _markedDebugName should be persistent and only cleared through an
-    // explicit call to clearDebug()
-    _markedDebugHandle.reset();
-    _preserved.clear();
 }
 
 template <
@@ -182,6 +202,8 @@ Handle RenderResourceCollection<
     CppNativeType, NativeType,
     ObjectType>::create(const Description &desc, const char *debugName)
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     const uint32_t descCount = asserted_cast<uint32_t>(_descriptions.size());
     for (uint32_t i = 0; i < descCount; ++i)
     {
@@ -268,6 +290,8 @@ bool RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::isValidHandle(Handle handle) const
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     // NOTE:
     // Any changes need to be mirrored in assertValidHandle().
     if (!handle.isValid())
@@ -300,6 +324,7 @@ CppNativeType RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::nativeHandle(Handle handle) const
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
 
     return _resources[handle.index].handle;
@@ -313,6 +338,7 @@ const Resource &RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::resource(Handle handle) const
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
 
     return _resources[handle.index];
@@ -327,6 +353,7 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::
     transition(vk::CommandBuffer cb, Handle handle, ResourceState state)
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
 
     _resources[handle.index].transition(cb, state);
@@ -341,6 +368,7 @@ wheels::Optional<Barrier> RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::
     transitionBarrier(Handle handle, ResourceState state, bool force_barrier)
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
 
     return _resources[handle.index].transitionBarrier(state, force_barrier);
@@ -355,6 +383,7 @@ void RenderResourceCollection<
     CppNativeType, NativeType,
     ObjectType>::appendDebugName(Handle handle, wheels::StrSpan debugName)
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
 
     wheels::String &aliasedName = _aliasedDebugNames[handle.index];
@@ -387,6 +416,7 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::release(Handle handle)
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
 
     // Releases on preserved resources are valid as no-ops so that the info
@@ -406,6 +436,7 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::preserve(Handle handle)
 {
+    WHEELS_ASSERT(_device != nullptr);
     assertValidHandle(handle);
     WHEELS_ASSERT(
         !_preserved[handle.index] &&
@@ -422,6 +453,8 @@ wheels::Span<const wheels::String> RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::debugNames() const
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     return _debugNames;
 }
 
@@ -433,6 +466,8 @@ Handle RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::activeDebugHandle() const
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     if (!_markedDebugHandle.has_value() || !isValidHandle(*_markedDebugHandle))
         return Handle{};
 
@@ -447,6 +482,8 @@ wheels::Optional<wheels::StrSpan> RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::activeDebugName() const
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     if (_markedDebugName.has_value())
         return wheels::Optional<wheels::StrSpan>{*_markedDebugName};
 
@@ -462,6 +499,8 @@ void RenderResourceCollection<
     CppNativeType, NativeType, ObjectType>::markForDebug(wheels::StrSpan
                                                              debugName)
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     _markedDebugName = wheels::String{_alloc, debugName};
     // Let's not worry about finding the resource immediately, we'll have it on
     // the next frame.
@@ -476,6 +515,8 @@ void RenderResourceCollection<
     Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
     CppNativeType, NativeType, ObjectType>::clearDebug()
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     _markedDebugName.reset();
     _markedDebugHandle.reset();
 }

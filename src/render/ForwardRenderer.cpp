@@ -53,26 +53,6 @@ constexpr StaticArray<
 
 } // namespace
 
-ForwardRenderer::ForwardRenderer(
-    ScopedScratch scopeAlloc, Device *device,
-    DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
-    const InputDSLayouts &dsLayouts)
-: _device{device}
-, _resources{resources}
-{
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating ForwardRenderer\n");
-
-    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
-        throw std::runtime_error("ForwardRenderer shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createGraphicsPipelines(dsLayouts);
-}
-
 ForwardRenderer::~ForwardRenderer()
 {
     if (_device != nullptr)
@@ -86,11 +66,37 @@ ForwardRenderer::~ForwardRenderer()
     }
 }
 
+void ForwardRenderer::init(
+    ScopedScratch scopeAlloc, Device *device,
+    DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
+    const InputDSLayouts &dsLayouts)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+
+    _device = device;
+    _resources = resources;
+
+    printf("Creating ForwardRenderer\n");
+
+    if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
+        throw std::runtime_error("ForwardRenderer shader compilation failed");
+
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createGraphicsPipelines(dsLayouts);
+
+    _initialized = true;
+}
+
 void ForwardRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const wheels::HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
+    WHEELS_ASSERT(!_initialized);
+
     WHEELS_ASSERT(_meshReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
     if (!_meshReflection->affected(changedFiles) &&
@@ -106,6 +112,8 @@ void ForwardRenderer::recompileShaders(
 
 void ForwardRenderer::drawUi()
 {
+    WHEELS_ASSERT(_initialized);
+
     enumDropdown("Draw type", _drawType, sDrawTypeNames);
 }
 
@@ -116,6 +124,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
     SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     OpaqueOutput ret;
     ret.illumination =
         createIllumination(*_resources, renderArea.extent, "illumination");
@@ -142,6 +152,8 @@ void ForwardRenderer::recordTransparent(
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
     uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     record(
         WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
         RecordInOut{

@@ -83,9 +83,7 @@ class Camera
   public:
     static constexpr const char *sCameraBindingName = "camera";
 
-    Camera(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RingBuffer *constantsRing, DescriptorAllocator *staticDescriptorsAlloc);
+    Camera() = default;
     ~Camera();
 
     Camera(const Camera &other) = delete;
@@ -93,7 +91,9 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void init(const CameraTransform &transform, const CameraParameters &params);
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RingBuffer *constantsRing, DescriptorAllocator *staticDescriptorsAlloc);
     void endFrame();
 
     void lookAt(const CameraTransform &transform);
@@ -133,6 +133,7 @@ class Camera
     void updateFrustumPlanes(const FrustumCorners &corners);
 
     Device *_device{nullptr};
+    bool _initialized{false};
     RingBuffer *_constantsRing{nullptr};
 
     CameraTransform _transform;

@@ -25,17 +25,18 @@ class DepthOfFieldGather
         GatherType_Count,
     };
 
-    DepthOfFieldGather(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
-
+    DepthOfFieldGather() = default;
     ~DepthOfFieldGather() = default;
 
     DepthOfFieldGather(const DepthOfFieldGather &other) = delete;
     DepthOfFieldGather(DepthOfFieldGather &&other) = delete;
     DepthOfFieldGather &operator=(const DepthOfFieldGather &other) = delete;
     DepthOfFieldGather &operator=(DepthOfFieldGather &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -56,6 +57,7 @@ class DepthOfFieldGather
         const Input &input, GatherType gatherType, uint32_t nextFrame,
         Profiler *profiler);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
 
     ComputePass _backgroundPass;

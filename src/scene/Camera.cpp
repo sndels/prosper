@@ -44,22 +44,6 @@ vec4 getPlane(vec3 p0, vec3 p1, vec3 p2)
 
 } // namespace
 
-Camera::Camera(
-    ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
-    DescriptorAllocator *staticDescriptorsAlloc)
-: _device{device}
-, _constantsRing{constantsRing}
-{
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_constantsRing != nullptr);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating Camera\n");
-
-    createBindingsReflection(scopeAlloc.child_scope());
-    createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-}
-
 Camera::~Camera()
 {
     if (_device != nullptr)
@@ -67,16 +51,28 @@ Camera::~Camera()
 }
 
 void Camera::init(
-    const CameraTransform &transform, const CameraParameters &params)
+    wheels::ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+    DescriptorAllocator *staticDescriptorsAlloc)
 {
-    _transform = transform;
-    _parameters = params;
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(constantsRing != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    updateWorldToCamera();
+    _device = device;
+    _constantsRing = constantsRing;
+
+    printf("Creating Camera\n");
+
+    createBindingsReflection(scopeAlloc.child_scope());
+    createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    _initialized = true;
 }
 
 void Camera::endFrame()
 {
+    WHEELS_ASSERT(_initialized);
+
     _changedThisFrame = false;
     _previousCameraToClip = _cameraToClip;
     _previousWorldToCamera = _worldToCamera;
@@ -86,6 +82,8 @@ void Camera::endFrame()
 
 void Camera::lookAt(const CameraTransform &transform)
 {
+    WHEELS_ASSERT(_initialized);
+
     _transform = transform;
 
     updateWorldToCamera();
@@ -93,13 +91,22 @@ void Camera::lookAt(const CameraTransform &transform)
 
 void Camera::setParameters(const CameraParameters &parameters)
 {
+    WHEELS_ASSERT(_initialized);
+
     _parameters = parameters;
 }
 
-void Camera::setJitter(bool applyJitter) { _applyJitter = applyJitter; }
+void Camera::setJitter(bool applyJitter)
+{
+    WHEELS_ASSERT(_initialized);
+
+    _applyJitter = applyJitter;
+}
 
 void Camera::perspective()
 {
+    WHEELS_ASSERT(_initialized);
+
     const auto fov = _parameters.fov;
     const auto ar =
         static_cast<float>(_resolution.x) / static_cast<float>(_resolution.y);
@@ -147,11 +154,15 @@ void Camera::perspective()
 
 void Camera::updateResolution(const uvec2 &resolution)
 {
+    WHEELS_ASSERT(_initialized);
+
     _resolution = resolution;
 }
 
 void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
 {
+    WHEELS_ASSERT(_initialized);
+
     if (gestureOffset.has_value())
     {
         updateWorldToCamera();
@@ -190,23 +201,52 @@ void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
     _parametersByteOffset = _constantsRing->write_value(uniforms);
 }
 
-uint32_t Camera::bufferOffset() const { return _parametersByteOffset; }
+uint32_t Camera::bufferOffset() const
+{
+    WHEELS_ASSERT(_initialized);
+
+    return _parametersByteOffset;
+}
 
 vk::DescriptorSetLayout Camera::descriptorSetLayout() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _descriptorSetLayout;
 }
 
-vk::DescriptorSet Camera::descriptorSet() const { return _descriptorSet; }
+vk::DescriptorSet Camera::descriptorSet() const
+{
+    WHEELS_ASSERT(_initialized);
 
-const CameraTransform &Camera::transform() const { return _transform; }
+    return _descriptorSet;
+}
 
-const CameraParameters &Camera::parameters() const { return _parameters; }
+const CameraTransform &Camera::transform() const
+{
+    WHEELS_ASSERT(_initialized);
 
-bool Camera::changedThisFrame() const { return _changedThisFrame; }
+    return _transform;
+}
+
+const CameraParameters &Camera::parameters() const
+{
+    WHEELS_ASSERT(_initialized);
+
+    return _parameters;
+}
+
+bool Camera::changedThisFrame() const
+{
+    WHEELS_ASSERT(_initialized);
+
+    return _changedThisFrame;
+}
 
 void Camera::applyGestureOffset()
 {
+    WHEELS_ASSERT(_initialized);
+
     if (gestureOffset.has_value())
     {
         _transform = _transform.apply(*gestureOffset);
@@ -218,6 +258,8 @@ void Camera::applyGestureOffset()
 
 void Camera::applyOffset(const CameraOffset &offset)
 {
+    WHEELS_ASSERT(_initialized);
+
     _transform = _transform.apply(offset);
 
     updateWorldToCamera();
@@ -225,6 +267,8 @@ void Camera::applyOffset(const CameraOffset &offset)
 
 FrustumCorners Camera::getFrustumCorners() const
 {
+    WHEELS_ASSERT(_initialized);
+
     const CameraTransform transform = gestureOffset.has_value()
                                           ? _transform.apply(*gestureOffset)
                                           : _transform;

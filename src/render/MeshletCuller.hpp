@@ -24,17 +24,19 @@ struct MeshletCullerOutput
 class MeshletCuller
 {
   public:
-    MeshletCuller(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
-        const WorldDSLayouts &worldDsLayouts,
-        vk::DescriptorSetLayout camDsLayout);
+    MeshletCuller() = default;
     ~MeshletCuller() = default;
 
     MeshletCuller(const MeshletCuller &other) = delete;
     MeshletCuller(MeshletCuller &&other) = delete;
     MeshletCuller &operator=(const MeshletCuller &other) = delete;
     MeshletCuller &operator=(MeshletCuller &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        const WorldDSLayouts &worldDsLayouts,
+        vk::DescriptorSetLayout camDsLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -75,6 +77,7 @@ class MeshletCuller
         const World &world, const Camera &cam, uint32_t nextFrame,
         const CullerInput &input, const char *debugPrefix, Profiler *profiler);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
         const App::Settings settings = parseCli(argc, argv);
 
         App app{settings};
+        app.init();
         app.run();
     }
     catch (std::exception &e)

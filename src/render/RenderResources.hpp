@@ -31,13 +31,15 @@ class RenderResources
         vk::Buffer, VkBuffer, vk::ObjectType::eBuffer>;
 
     // Both alloc and device need to live as long as this
-    RenderResources(wheels::Allocator &alloc, Device *device);
+    RenderResources(wheels::Allocator &alloc) noexcept;
     ~RenderResources();
 
     RenderResources(RenderResources &) = delete;
     RenderResources(RenderResources &&) = delete;
     RenderResources &operator=(RenderResources &) = delete;
     RenderResources &operator=(RenderResources &&) = delete;
+
+    void init(Device *d);
 
     // Should be called at the start of the frame so resources will get the
     // correct names set

@@ -14,16 +14,18 @@
 class ToneMap
 {
   public:
-    ToneMap(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    ToneMap() = default;
     ~ToneMap() = default;
 
     ToneMap(const ToneMap &other) = delete;
     ToneMap(ToneMap &&other) = delete;
     ToneMap &operator=(const ToneMap &other) = delete;
     ToneMap &operator=(ToneMap &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -42,6 +44,7 @@ class ToneMap
   private:
     Output createOutputs(const vk::Extent2D &size);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 

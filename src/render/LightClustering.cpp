@@ -67,27 +67,33 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
 
 } // namespace
 
-LightClustering::LightClustering(
+void LightClustering::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
-: _resources{resources}
-, _computePass{
-      WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
-      shaderDefinitionCallback,
-      ComputePassOptions{
-          .storageSetIndex = LightClustersBindingSet,
-          .externalDsLayouts = externalDsLayouts(camDSLayout, worldDSLayouts),
-          .storageStageFlags = vk::ShaderStageFlagBits::eCompute |
-                               vk::ShaderStageFlagBits::eFragment,
-      }}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _computePass.init(
+        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        shaderDefinitionCallback,
+        ComputePassOptions{
+            .storageSetIndex = LightClustersBindingSet,
+            .externalDsLayouts = externalDsLayouts(camDSLayout, worldDSLayouts),
+            .storageStageFlags = vk::ShaderStageFlagBits::eCompute |
+                                 vk::ShaderStageFlagBits::eFragment,
+        });
+
+    _initialized = true;
 }
 
 vk::DescriptorSetLayout LightClustering::descriptorSetLayout() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _computePass.storageSetLayout();
 }
 
@@ -97,6 +103,8 @@ void LightClustering::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         externalDsLayouts(camDSLayout, worldDSLayouts));
@@ -107,6 +115,8 @@ LightClusteringOutput LightClustering::record(
     const Camera &cam, const vk::Extent2D &renderExtent,
     const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     LightClusteringOutput ret;
     {
         ret = createOutputs(renderExtent);

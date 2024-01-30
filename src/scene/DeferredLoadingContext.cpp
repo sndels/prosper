@@ -922,14 +922,10 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 
     LinearAllocator scopeBacking{ctx->alloc, sLoadingScratchSize};
 
-    Texture2D tex{
-        ScopedScratch{scopeBacking},
-        ctx->device,
-        ctx->sceneDir / image.uri,
-        ctx->cb,
-        ctx->stagingBuffers[0],
-        true,
-        true};
+    Texture2D tex;
+    tex.init(
+        ScopedScratch{scopeBacking}, ctx->device, ctx->sceneDir / image.uri,
+        ctx->cb, ctx->stagingBuffers[0], true, true);
 
     const QueueFamilies &families = ctx->device->queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
@@ -1026,41 +1022,13 @@ Buffer createTextureStaging(Device *device)
     });
 }
 
-DeferredLoadingContext::DeferredLoadingContext(
-    Device *device, std::filesystem::path sceneDir,
-    std::filesystem::file_time_type sceneWriteTime,
-    const tinygltf::Model &gltfModel)
-: device{device}
-, sceneDir{WHEELS_MOV(sceneDir)}
-, sceneWriteTime{sceneWriteTime}
-, alloc{sLoadingAllocatorSize}
-, gltfModel{gltfModel}
-, cb{device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-      .commandPool = device->transferPool(),
-      .level = vk::CommandBufferLevel::ePrimary,
-      .commandBufferCount = 1})[0]}
+DeferredLoadingContext::DeferredLoadingContext() noexcept
+: alloc{sLoadingAllocatorSize}
 , meshes{alloc}
-, loadedMeshes{alloc, gltfModel.meshes.size()}
-, loadedTextures{alloc, gltfModel.images.size()}
-, materials{alloc, gltfModel.materials.size()}
+, loadedMeshes{alloc}
+, loadedTextures{alloc}
+, materials{alloc}
 {
-    WHEELS_ASSERT(device != nullptr);
-
-    // One of these is used by the worker implementation, all by the
-    // single threaded one
-    for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
-        stagingBuffers[i] = createTextureStaging(device);
-
-    geometryUploadBuffer = device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = sGeometryBufferSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "GeometryUploadBuffer",
-    });
 }
 
 DeferredLoadingContext::~DeferredLoadingContext()
@@ -1080,16 +1048,68 @@ DeferredLoadingContext::~DeferredLoadingContext()
     }
 }
 
+void DeferredLoadingContext::init(
+    Device *inDevice, std::filesystem::path inSceneDir,
+    std::filesystem::file_time_type inSceneWriteTime,
+    const tinygltf::Model &inGltfModel)
+{
+    WHEELS_ASSERT(!initialized);
+    WHEELS_ASSERT(inDevice != nullptr);
+
+    device = inDevice;
+    sceneDir = WHEELS_MOV(inSceneDir);
+    sceneWriteTime = inSceneWriteTime;
+    gltfModel = inGltfModel;
+    cb = device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+        .commandPool = device->transferPool(),
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1})[0];
+    loadedMeshes.reserve(gltfModel.meshes.size());
+    loadedTextures.reserve(gltfModel.images.size());
+    materials.reserve(gltfModel.materials.size());
+
+    // One of these is used by the worker implementation, all by the
+    // single threaded one
+    for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
+        stagingBuffers[i] = createTextureStaging(device);
+
+    geometryUploadBuffer = device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sGeometryBufferSize,
+                .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .debugName = "GeometryUploadBuffer",
+    });
+
+    initialized = true;
+}
+
 void DeferredLoadingContext::launch()
 {
+    WHEELS_ASSERT(initialized);
     WHEELS_ASSERT(
         !worker.has_value() && "Tried to launch deferred loading worker twice");
     worker = std::thread{&loadingWorker, this};
 }
 
+void DeferredLoadingContext::kill()
+{
+    // This is ok to call unconditionally even if init() hasn't been called
+    if (worker.has_value())
+    {
+        interruptLoading = true;
+        worker->join();
+        worker.reset();
+    }
+}
+
 UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
     const MeshCacheHeader &cacheHeader, const Array<uint8_t> &dataBlob)
 {
+    WHEELS_ASSERT(initialized);
     WHEELS_ASSERT(cacheHeader.blobByteCount > 0);
     WHEELS_ASSERT(cacheHeader.blobByteCount == dataBlob.size());
 

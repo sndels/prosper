@@ -32,17 +32,18 @@ class TextureDebug
         TEXTURE_DEBUG_CHANNEL_TYPES_AND_COUNT
     };
 
-    TextureDebug(
-        wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
-        Device *device, RenderResources *resources,
-        DescriptorAllocator *staticDescriptorsAlloc);
-
+    TextureDebug(wheels::Allocator &alloc) noexcept;
     ~TextureDebug() = default;
 
     TextureDebug(const TextureDebug &other) = delete;
     TextureDebug(TextureDebug &&other) = delete;
     TextureDebug &operator=(const TextureDebug &other) = delete;
     TextureDebug &operator=(TextureDebug &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -57,6 +58,7 @@ class TextureDebug
   private:
     ImageHandle createOutput(vk::Extent2D size);
 
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
 
     ComputePass _computePass;

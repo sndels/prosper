@@ -14,16 +14,18 @@
 class SkyboxRenderer
 {
   public:
-    SkyboxRenderer(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+    SkyboxRenderer() = default;
     ~SkyboxRenderer();
 
     SkyboxRenderer(const SkyboxRenderer &other) = delete;
     SkyboxRenderer(SkyboxRenderer &&other) = delete;
     SkyboxRenderer &operator=(const SkyboxRenderer &other) = delete;
     SkyboxRenderer &operator=(SkyboxRenderer &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        RenderResources *resources, const vk::DescriptorSetLayout camDSLayout,
+        const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -59,6 +61,7 @@ class SkyboxRenderer
         const vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

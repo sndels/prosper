@@ -1,8 +1,7 @@
 #include "RenderImageCollection.hpp"
 
-RenderImageCollection::RenderImageCollection(
-    wheels::Allocator &alloc, Device *device)
-: RenderResourceCollection{alloc, device}
+RenderImageCollection::RenderImageCollection(wheels::Allocator &alloc) noexcept
+: RenderResourceCollection{alloc}
 , _subresourceViews{alloc}
 {
 }
@@ -14,10 +13,13 @@ RenderImageCollection::~RenderImageCollection()
 
 void RenderImageCollection::destroyResources()
 {
-    for (auto &views : _subresourceViews)
+    if (_device != nullptr)
     {
-        _device->destroy(views);
-        views.clear();
+        for (auto &views : _subresourceViews)
+        {
+            _device->destroy(views);
+            views.clear();
+        }
     }
 
     RenderResourceCollection::destroyResources();
@@ -26,6 +28,8 @@ void RenderImageCollection::destroyResources()
 wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     ImageHandle handle)
 {
+    WHEELS_ASSERT(_device != nullptr);
+
     assertValidHandle(handle);
     if (_subresourceViews.size() <= handle.index)
         _subresourceViews.resize(handle.index + 1);

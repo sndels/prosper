@@ -46,27 +46,6 @@ vk::Rect2D getRenderArea(
 
 } // namespace
 
-DebugRenderer::DebugRenderer(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
-    const vk::DescriptorSetLayout camDSLayout)
-: _device{device}
-, _resources{resources}
-{
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating DebugRenderer\n");
-
-    if (!compileShaders(scopeAlloc.child_scope()))
-        throw std::runtime_error("DebugRenderer shader compilation failed");
-
-    createBuffers();
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createGraphicsPipeline(camDSLayout);
-}
-
 DebugRenderer::~DebugRenderer()
 {
     if (_device != nullptr)
@@ -83,11 +62,38 @@ DebugRenderer::~DebugRenderer()
     }
 }
 
+void DebugRenderer::init(
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
+    const vk::DescriptorSetLayout camDSLayout)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+
+    _device = device;
+    _resources = resources;
+
+    printf("Creating DebugRenderer\n");
+
+    if (!compileShaders(scopeAlloc.child_scope()))
+        throw std::runtime_error("DebugRenderer shader compilation failed");
+
+    createBuffers();
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createGraphicsPipeline(camDSLayout);
+
+    _initialized = true;
+}
+
 void DebugRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(_vertReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
     if (!_vertReflection->affected(changedFiles) &&
@@ -106,6 +112,7 @@ void DebugRenderer::record(
     const RecordInOut &inOutTargets, const uint32_t nextFrame,
     Profiler *profiler) const
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
     {

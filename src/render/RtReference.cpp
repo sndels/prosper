@@ -99,27 +99,6 @@ constexpr StaticArray<
 
 } // namespace
 
-RtReference::RtReference(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
-: _device{device}
-, _resources{resources}
-{
-    WHEELS_ASSERT(_device != nullptr);
-    WHEELS_ASSERT(_resources != nullptr);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    printf("Creating RtReference\n");
-
-    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
-        throw std::runtime_error("RtReference shader compilation failed");
-
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    createPipeline(camDSLayout, worldDSLayouts);
-    createShaderBindingTable(scopeAlloc.child_scope());
-}
-
 RtReference::~RtReference()
 {
     if (_device != nullptr)
@@ -133,11 +112,38 @@ RtReference::~RtReference()
     }
 }
 
+void RtReference::init(
+    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    DescriptorAllocator *staticDescriptorsAlloc,
+    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+{
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(resources != nullptr);
+    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
+
+    _device = device;
+    _resources = resources;
+
+    printf("Creating RtReference\n");
+
+    if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
+        throw std::runtime_error("RtReference shader compilation failed");
+
+    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createPipeline(camDSLayout, worldDSLayouts);
+    createShaderBindingTable(scopeAlloc.child_scope());
+
+    _initialized = true;
+}
+
 void RtReference::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
+    WHEELS_ASSERT(_initialized);
+
     WHEELS_ASSERT(_raygenReflection.has_value());
     WHEELS_ASSERT(_rayMissReflection.has_value());
     WHEELS_ASSERT(_closestHitReflection.has_value());
@@ -158,6 +164,8 @@ void RtReference::recompileShaders(
 
 void RtReference::drawUi()
 {
+    WHEELS_ASSERT(_initialized);
+
     _accumulationDirty |= enumDropdown("Draw type", _drawType, sDrawTypeNames);
 
     if (_drawType == DrawType::Default)
@@ -181,6 +189,8 @@ RtReference::Output RtReference::record(
     const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
     uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     _frameIndex = ++_frameIndex % sFramePeriod;
 
     Output ret;
@@ -392,6 +402,8 @@ RtReference::Output RtReference::record(
 
 void RtReference::releasePreserved()
 {
+    WHEELS_ASSERT(_initialized);
+
     if (_resources->images.isValidHandle(_previousIllumination))
         _resources->images.release(_previousIllumination);
 }

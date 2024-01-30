@@ -10,12 +10,19 @@ constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
 
 } // namespace
 
-RingBuffer::RingBuffer(
+RingBuffer::~RingBuffer()
+{
+    if (_device != nullptr)
+        _device->destroy(_buffer);
+}
+
+void RingBuffer::init(
     Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
     const char *debugName)
-: _device{device}
 {
-    WHEELS_ASSERT(_device != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
+    _device = device;
 
     // Implementation assumes these in allocate()
     WHEELS_ASSERT(byteSize > RingBuffer::sAlignment);
@@ -32,18 +39,21 @@ RingBuffer::RingBuffer(
         .debugName = debugName,
     });
     WHEELS_ASSERT(_buffer.mapped != nullptr);
+
+    _initialized = true;
 }
 
-RingBuffer::~RingBuffer()
+vk::Buffer RingBuffer::buffer() const
 {
-    if (_device != nullptr)
-        _device->destroy(_buffer);
-}
+    WHEELS_ASSERT(_initialized);
 
-vk::Buffer RingBuffer::buffer() const { return _buffer.handle; }
+    return _buffer.handle;
+}
 
 void RingBuffer::startFrame()
 {
+    WHEELS_ASSERT(_initialized);
+
     if (_frameStartOffsets.size() < _frameStartOffsets.capacity())
         _frameStartOffsets.push_back(_currentByteOffset);
     else
@@ -59,24 +69,29 @@ void RingBuffer::startFrame()
 
 void RingBuffer::reset()
 {
+    WHEELS_ASSERT(_initialized);
+
     _currentByteOffset = 0;
     _frameStartOffsets.clear();
 }
 
 uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
 {
+    WHEELS_ASSERT(_initialized);
+
     return write_internal(data, true);
 }
 
 void RingBuffer::write_unaligned(wheels::Span<const uint8_t> data)
 {
+    WHEELS_ASSERT(_initialized);
+
     write_internal(data, false);
 }
 
 uint32_t RingBuffer::write_internal(
     wheels::Span<const uint8_t> data, bool align)
 {
-    WHEELS_ASSERT(data.size() <= _buffer.byteSize);
 
     const uint32_t byteSize = asserted_cast<uint32_t>(data.size());
     WHEELS_ASSERT(byteSize + RingBuffer::sAlignment < sMaxAllocation);

@@ -5,19 +5,28 @@
 
 using namespace wheels;
 
-DepthOfField::DepthOfField(
+void DepthOfField::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout cameraDsLayout)
-: _resources{resources}
-, _setupPass{scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc, cameraDsLayout}
-, _flattenPass{scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc}
-, _dilatePass{scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc}
-, _gatherPass{scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc}
-, _combinePass{
-      scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc}
 {
-    WHEELS_ASSERT(_resources != nullptr);
+    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(resources != nullptr);
+
+    _resources = resources;
+    _setupPass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+        cameraDsLayout);
+    _flattenPass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+    _dilatePass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+    _gatherPass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+    _combinePass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+
+    _initialized = true;
 }
 
 void DepthOfField::recompileShaders(
@@ -25,6 +34,8 @@ void DepthOfField::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout cameraDsLayout)
 {
+    WHEELS_ASSERT(_initialized);
+
     _setupPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
     _flattenPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
@@ -37,6 +48,8 @@ DepthOfField::Output DepthOfField::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
     const DepthOfField::Input &input, uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
+
     Output ret;
     {
         const auto _s = profiler->createCpuGpuScope(cb, "DepthOfField");

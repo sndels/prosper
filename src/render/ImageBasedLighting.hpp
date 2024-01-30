@@ -12,15 +12,17 @@
 class ImageBasedLighting
 {
   public:
-    ImageBasedLighting(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    ImageBasedLighting() = default;
     ~ImageBasedLighting() = default;
 
     ImageBasedLighting(const ImageBasedLighting &other) = delete;
     ImageBasedLighting(ImageBasedLighting &&other) = delete;
     ImageBasedLighting &operator=(const ImageBasedLighting &other) = delete;
     ImageBasedLighting &operator=(ImageBasedLighting &&other) = delete;
+
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        DescriptorAllocator *staticDescriptorsAlloc);
 
     [[nodiscard]] bool isGenerated() const;
 
@@ -33,8 +35,7 @@ class ImageBasedLighting
         uint32_t nextFrame, Profiler *profiler);
 
   private:
-    void createOutputs();
-
+    bool _initialized{false};
     Device *_device{nullptr};
     ComputePass _sampleIrradiance;
     ComputePass _integrateSpecularBrdf;

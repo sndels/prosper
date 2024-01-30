@@ -23,22 +23,24 @@ class ForwardRenderer
         Count,
     };
 
-    struct InputDSLayouts
-    {
-        vk::DescriptorSetLayout camera;
-        vk::DescriptorSetLayout lightClusters;
-        const WorldDSLayouts &world;
-    };
-    ForwardRenderer(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
-        const InputDSLayouts &dsLayouts);
+    ForwardRenderer() = default;
     ~ForwardRenderer();
 
     ForwardRenderer(const ForwardRenderer &other) = delete;
     ForwardRenderer(ForwardRenderer &&other) = delete;
     ForwardRenderer &operator=(const ForwardRenderer &other) = delete;
     ForwardRenderer &operator=(ForwardRenderer &&other) = delete;
+
+    struct InputDSLayouts
+    {
+        vk::DescriptorSetLayout camera;
+        vk::DescriptorSetLayout lightClusters;
+        const WorldDSLayouts &world;
+    };
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
+        const InputDSLayouts &dsLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -125,6 +127,7 @@ class ForwardRenderer
         const RenderResources &resources,
         const ForwardRenderer::RecordInOut &inOutTargets);
 
+    bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 

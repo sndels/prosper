@@ -782,18 +782,43 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
 
 } // namespace
 
-ShaderReflection::ShaderReflection(Allocator &alloc)
-: _descriptorSetMetadatas{alloc}
-, _sourceFiles{alloc}
+ShaderReflection::ShaderReflection(Allocator &alloc) noexcept
+: _alloc{alloc}
+, _descriptorSetMetadatas{_alloc}
+, _sourceFiles{_alloc}
 {
 }
 
-ShaderReflection::ShaderReflection(
-    ScopedScratch scopeAlloc, Allocator &alloc, Span<const uint32_t> spvWords,
-    const wheels::HashSet<std::filesystem::path> &sourceFiles)
-: _descriptorSetMetadatas{alloc}
-, _sourceFiles{alloc}
+ShaderReflection::ShaderReflection(ShaderReflection &&other) noexcept
+: _initialized{other._initialized}
+, _alloc{other._alloc}
+, _pushConstantsBytesize{other._pushConstantsBytesize}
+, _descriptorSetMetadatas{WHEELS_MOV(other._descriptorSetMetadatas)}
+, _sourceFiles{WHEELS_MOV(other._sourceFiles)}
 {
+}
+
+ShaderReflection &ShaderReflection::operator=(ShaderReflection &&other) noexcept
+{
+    if (this != &other)
+    {
+        WHEELS_ASSERT(!_initialized);
+        WHEELS_ASSERT(&_alloc == &other._alloc);
+
+        _initialized = other._initialized;
+        _pushConstantsBytesize = other._pushConstantsBytesize;
+        _descriptorSetMetadatas = WHEELS_MOV(other._descriptorSetMetadatas);
+        _sourceFiles = WHEELS_MOV(other._sourceFiles);
+    }
+    return *this;
+}
+
+void ShaderReflection::init(
+    ScopedScratch scopeAlloc, Span<const uint32_t> spvWords,
+    const wheels::HashSet<std::filesystem::path> &sourceFiles)
+{
+    WHEELS_ASSERT(!_initialized);
+
     for (const std::filesystem::path &include : sourceFiles)
         _sourceFiles.insert(include);
 
@@ -811,7 +836,7 @@ ShaderReflection::ShaderReflection(
     const uint32_t idBound = words[3];
     // const uint32_t schema = words[4];
 
-    Array<SpvResult> results{alloc};
+    Array<SpvResult> results{scopeAlloc};
     results.resize(idBound);
 
     uint32_t pushConstantMetadataId = sUninitialized;
@@ -826,28 +851,38 @@ ShaderReflection::ShaderReflection(
             getPushConstantsBytesize(results, pushConstantMetadataId);
 
     _descriptorSetMetadatas =
-        fillDescriptorSetMetadatas(scopeAlloc.child_scope(), alloc, results);
+        fillDescriptorSetMetadatas(scopeAlloc.child_scope(), _alloc, results);
+
+    _initialized = true;
 }
 
 uint32_t ShaderReflection::pushConstantsBytesize() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _pushConstantsBytesize;
 }
 
 HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
     descriptorSetMetadatas() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _descriptorSetMetadatas;
 }
 
 const HashSet<std::filesystem::path> &ShaderReflection::sourceFiles() const
 {
+    WHEELS_ASSERT(_initialized);
+
     return _sourceFiles;
 }
 
 bool ShaderReflection::affected(
     const HashSet<std::filesystem::path> &changedFiles) const
 {
+    WHEELS_ASSERT(_initialized);
+
     bool found = false;
     for (const std::filesystem::path &file : changedFiles)
     {
@@ -865,6 +900,8 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
     vk::ShaderStageFlags stageFlags, wheels::Span<const uint32_t> dynamicCounts,
     wheels::Span<const vk::DescriptorBindingFlags> bindingFlags) const
 {
+    WHEELS_ASSERT(_initialized);
+
     const Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSet);
     WHEELS_ASSERT(metadatas != nullptr);
@@ -923,6 +960,8 @@ wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
         vk::DescriptorSet descriptorSetHandle,
         wheels::Span<const DescriptorInfo> descriptorInfos) const
 {
+    WHEELS_ASSERT(_initialized);
+
     const wheels::Array<DescriptorSetMetadata> *metadatas =
         _descriptorSetMetadatas.find(descriptorSetIndex);
     WHEELS_ASSERT(metadatas != nullptr);
