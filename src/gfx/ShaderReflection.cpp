@@ -145,7 +145,7 @@ const size_t firstOpOffset = 5;
 
 void firstPass(
     Allocator &alloc, const uint32_t *words, size_t wordCount,
-    Array<SpvResult> &results, uint32_t &pushConstantMetadataId)
+    Span<SpvResult> results, uint32_t &pushConstantMetadataId)
 {
     // Collect names and types
     size_t opFirstWord = firstOpOffset;
@@ -369,7 +369,7 @@ void firstPass(
 }
 
 void secondPass(
-    const uint32_t *words, size_t wordCount, Array<SpvResult> &results)
+    const uint32_t *words, size_t wordCount, Span<SpvResult> results)
 {
     // Collect decorations
     size_t opFirstWord = firstOpOffset;
@@ -440,7 +440,7 @@ void secondPass(
 // Returns the raw size of the member, without padding to alignment
 uint32_t memberBytesize(
     const Optional<SpvType> &type, const MemberDecorations &memberDecorations,
-    const Array<SpvResult> &results)
+    Span<const SpvResult> results)
 {
     WHEELS_ASSERT(
         type.has_value() && "Unimplemented member type, probably OpTypeArray");
@@ -488,7 +488,7 @@ uint32_t memberBytesize(
 }
 
 uint32_t getPushConstantsBytesize(
-    const Array<SpvResult> &results, uint32_t metadataId)
+    Span<const SpvResult> results, uint32_t metadataId)
 {
     const SpvResult &pcResult = results[metadataId];
 
@@ -537,7 +537,7 @@ Array<DescriptorSetMetadata> &getSetMetadatas(
 }
 
 const SpvResult &getType(
-    const SpvVariable &variable, const Array<SpvResult> &results)
+    const SpvVariable &variable, Span<const SpvResult> results)
 {
     const SpvResult &typePtrResult = results[variable.typeId];
     WHEELS_ASSERT(typePtrResult.type.has_value());
@@ -569,7 +569,7 @@ vk::DescriptorType intoArrayDescriptorType(const SpvResult &typeResult)
 }
 
 bool isDynamicStorageBuffer(
-    const SpvVariable &variable, const Array<SpvResult> &results)
+    const SpvVariable &variable, Span<const SpvResult> results)
 {
     const SpvResult &type = getType(variable, results);
     if (type.name == nullptr)
@@ -595,7 +595,7 @@ bool isDynamicStorageBuffer(
 
 void fillMetadata(
     String &&name, const Decorations &decorations, const SpvVariable &variable,
-    const Array<SpvResult> &results,
+    Span<const SpvResult> results,
     HashMap<uint32_t, Array<DescriptorSetMetadata>> &metadatas)
 {
     // TODO: Generalize the common parts, pull out case noise into
@@ -691,7 +691,7 @@ void fillMetadata(
 }
 
 HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
-    ScopedScratch scopeAlloc, Allocator &alloc, const Array<SpvResult> &results)
+    ScopedScratch scopeAlloc, Allocator &alloc, Span<const SpvResult> results)
 {
     // Get counts first so we can allocate return memory exactly
     HashMap<uint32_t, uint32_t> descriptorSetBindingCounts{scopeAlloc, 16};
