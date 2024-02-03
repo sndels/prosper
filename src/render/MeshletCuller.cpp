@@ -288,6 +288,14 @@ BufferHandle MeshletCuller::recordGenerateList(
                 _device->properties().meshShader.maxMeshWorkGroupCount[0] &&
             "Indirect mesh dispatch group count might not fit in the "
             "supported mesh work group count");
+        // TODO:
+        // Allocate a tight buffer? Need to add destroys for unused render
+        // resources so that async loading doesn't leave a bunch of unused
+        // buffers behind.
+        WHEELS_ASSERT(
+            drawListUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t)) <=
+                sMeshDrawListByteSize &&
+            "Draw list might not fit in the buffer");
     }
 
     String dataName{scopeAlloc};
@@ -511,11 +519,6 @@ MeshletCullerOutput MeshletCuller::recordCullList(
         worldByteOffsets.previousModelInstanceTransforms,
         worldByteOffsets.modelInstanceScales,
     }};
-
-    WHEELS_ASSERT(
-        scene.drawInstanceCount * 2u *
-            static_cast<uint32_t>(sizeof(uint32_t)) <=
-        sMeshDrawListByteSize);
 
     const vk::Buffer argumentsHandle =
         _resources->buffers.nativeHandle(input.argumentBuffer);
