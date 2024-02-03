@@ -81,6 +81,7 @@ class RenderResourceCollection
     wheels::Optional<wheels::String> _markedDebugName;
     wheels::Optional<Handle> _markedDebugHandle;
     wheels::Array<bool> _preserved;
+    wheels::Array<uint8_t> _framesSinceUsed;
 };
 
 template <
@@ -98,6 +99,7 @@ RenderResourceCollection<
 , _generations{alloc}
 , _debugNames{alloc}
 , _preserved{alloc}
+, _framesSinceUsed{alloc}
 {
 }
 
@@ -160,6 +162,36 @@ void RenderResourceCollection<
     for (wheels::String &str : _debugNames)
         str.clear();
     _debugNames.clear();
+
+    WHEELS_ASSERT(resourceCount == _framesSinceUsed.size());
+    // This seems like a sufficiently conservative bound to avoid pingpong
+    // destroys for resources that are needed on some frames
+    const uint8_t destroyDelayFrames =
+        asserted_cast<uint8_t>(2 * MAX_FRAMES_IN_FLIGHT);
+    static_assert(
+        destroyDelayFrames < 0xFF, "0xFF is marks destroyed resources");
+    for (uint32_t i = 0; i < resourceCount; ++i)
+    {
+        uint8_t &unusedFrames = _framesSinceUsed[i];
+        if (unusedFrames < 0xFF)
+        {
+            if (unusedFrames > destroyDelayFrames)
+            {
+                WHEELS_ASSERT(!_preserved[i]);
+
+                _device->destroy(_resources[i]);
+                _resources[i] = Resource{};
+                _descriptions[i] = Description{};
+                _aliasedDebugNames[i].clear();
+                // Generations should stay as is, we can reuse the handle for
+                // another resource
+                // Mark destroyed resource
+                unusedFrames = 0xFF;
+            }
+            else
+                unusedFrames++;
+        }
+    }
 }
 
 template <
@@ -190,6 +222,7 @@ void RenderResourceCollection<
         // explicit call to clearDebug()
         _markedDebugHandle.reset();
         _preserved.clear();
+        _framesSinceUsed.clear();
     }
 }
 
@@ -230,6 +263,7 @@ Handle RenderResourceCollection<
                 }
 
                 _generations[i] &= ~sNotInUseGenerationFlag;
+                _framesSinceUsed[i] = 0;
 
                 const Handle handle{
                     .index = i,
@@ -265,6 +299,7 @@ Handle RenderResourceCollection<
     }
 
     _preserved.push_back(false);
+    _framesSinceUsed.push_back((uint8_t)0);
 
     assertUniqueDebugName(debugName);
     _debugNames.emplace_back(_alloc, debugName);
@@ -443,6 +478,7 @@ void RenderResourceCollection<
         "Resource is being preseved in two places, ownership gets muddy.");
 
     _preserved[handle.index] = true;
+    _framesSinceUsed[handle.index] = 0;
 }
 
 template <
