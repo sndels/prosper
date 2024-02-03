@@ -92,9 +92,9 @@ int main(int argc, char *argv[])
 
     try
     {
-        const App::Settings settings = parseCli(argc, argv);
+        App::Settings settings = parseCli(argc, argv);
 
-        App app{settings};
+        App app{WHEELS_MOV(settings)};
         app.init();
         app.run();
     }

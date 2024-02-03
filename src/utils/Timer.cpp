@@ -1,6 +1,6 @@
 #include "Timer.hpp"
 
-Timer::Timer()
+Timer::Timer() noexcept
 : _start(std::chrono::system_clock::now())
 {
 }

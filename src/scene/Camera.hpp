@@ -83,7 +83,7 @@ class Camera
   public:
     static constexpr const char *sCameraBindingName = "camera";
 
-    Camera() = default;
+    Camera() noexcept = default;
     ~Camera();
 
     Camera(const Camera &other) = delete;

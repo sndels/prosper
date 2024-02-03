@@ -29,7 +29,7 @@ class LightClustering
         appendDefineStr(str, "LIGHT_CLUSTER_Z_SLICE_COUNT", zSlices);
     };
 
-    LightClustering() = default;
+    LightClustering() noexcept = default;
     ~LightClustering() = default;
 
     LightClustering(const LightClustering &other) = delete;

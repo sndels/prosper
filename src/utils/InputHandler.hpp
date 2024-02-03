@@ -61,7 +61,7 @@ struct MouseGesture
 class InputHandler
 {
   public:
-    InputHandler() = default;
+    InputHandler() noexcept = default;
     ~InputHandler() = default;
 
     InputHandler(const InputHandler &other) = delete;

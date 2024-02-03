@@ -14,7 +14,7 @@
 class ToneMap
 {
   public:
-    ToneMap() = default;
+    ToneMap() noexcept = default;
     ~ToneMap() = default;
 
     ToneMap(const ToneMap &other) = delete;

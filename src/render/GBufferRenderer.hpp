@@ -23,7 +23,7 @@ struct GBufferRendererOutput
 class GBufferRenderer
 {
   public:
-    GBufferRenderer() = default;
+    GBufferRenderer() noexcept = default;
     ~GBufferRenderer();
 
     GBufferRenderer(const GBufferRenderer &other) = delete;

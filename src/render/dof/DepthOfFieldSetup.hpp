@@ -19,7 +19,7 @@
 class DepthOfFieldSetup
 {
   public:
-    DepthOfFieldSetup() = default;
+    DepthOfFieldSetup() noexcept = default;
     ~DepthOfFieldSetup() = default;
 
     DepthOfFieldSetup(const DepthOfFieldSetup &other) = delete;

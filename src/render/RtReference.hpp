@@ -24,7 +24,7 @@ class RtReference
 
     static constexpr uint32_t sMaxBounces = 6;
 
-    RtReference() = default;
+    RtReference() noexcept = default;
     ~RtReference();
 
     RtReference(const RtReference &other) = delete;

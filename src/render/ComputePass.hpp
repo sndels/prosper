@@ -33,7 +33,7 @@ class ComputePass
         glm::uvec3 groupSize{16, 16, 1};
     };
 
-    ComputePass() = default;
+    ComputePass() noexcept = default;
     ~ComputePass();
 
     ComputePass(const ComputePass &other) = delete;

@@ -15,7 +15,7 @@
 class RtDiSpatialReuse
 {
   public:
-    RtDiSpatialReuse() = default;
+    RtDiSpatialReuse() noexcept = default;
     ~RtDiSpatialReuse() = default;
 
     RtDiSpatialReuse(const RtDiSpatialReuse &other) = delete;

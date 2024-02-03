@@ -14,7 +14,7 @@
 class SkyboxRenderer
 {
   public:
-    SkyboxRenderer() = default;
+    SkyboxRenderer() noexcept = default;
     ~SkyboxRenderer();
 
     SkyboxRenderer(const SkyboxRenderer &other) = delete;

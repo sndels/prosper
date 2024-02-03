@@ -34,7 +34,7 @@ struct SwapchainConfig
     vk::Extent2D extent;
     uint32_t imageCount{0};
 
-    SwapchainConfig() = default;
+    SwapchainConfig() noexcept = default;
     SwapchainConfig(
         wheels::ScopedScratch scopeAlloc, Device *device,
         const vk::Extent2D &preferredExtent);
@@ -50,7 +50,7 @@ struct SwapchainImage
 class Swapchain
 {
   public:
-    Swapchain() = default;
+    Swapchain() noexcept = default;
     ~Swapchain();
 
     Swapchain(const Swapchain &other) = delete;

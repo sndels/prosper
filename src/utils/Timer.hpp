@@ -6,7 +6,7 @@
 class Timer
 {
   public:
-    Timer();
+    Timer() noexcept;
 
     void reset();
     [[nodiscard]] float getSeconds() const;

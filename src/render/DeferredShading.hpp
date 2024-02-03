@@ -22,7 +22,7 @@ class DeferredShading
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    DeferredShading() = default;
+    DeferredShading() noexcept = default;
     ~DeferredShading() = default;
 
     DeferredShading(const DeferredShading &other) = delete;

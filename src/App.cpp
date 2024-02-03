@@ -69,10 +69,10 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 } // namespace
 
-App::App(const Settings &settings) noexcept
+App::App(Settings &&settings) noexcept
 : _generalAlloc{megabytes(16)}
 , _fileChangePollingAlloc{megabytes(1)}
-, _scenePath{settings.scene}
+, _scenePath{WHEELS_MOV(settings.scene)}
 , _device{std::make_unique<Device>(_generalAlloc, settings.device)}
 , _staticDescriptorsAlloc{std::make_unique<DescriptorAllocator>(_generalAlloc)}
 , _swapchain{std::make_unique<Swapchain>()}

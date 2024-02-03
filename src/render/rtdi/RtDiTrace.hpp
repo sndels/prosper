@@ -21,7 +21,7 @@ class RtDiTrace
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    RtDiTrace() = default;
+    RtDiTrace() noexcept = default;
     ~RtDiTrace();
 
     RtDiTrace(const RtDiTrace &other) = delete;

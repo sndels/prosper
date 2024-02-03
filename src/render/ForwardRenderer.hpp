@@ -23,7 +23,7 @@ class ForwardRenderer
         Count,
     };
 
-    ForwardRenderer() = default;
+    ForwardRenderer() noexcept = default;
     ~ForwardRenderer();
 
     ForwardRenderer(const ForwardRenderer &other) = delete;

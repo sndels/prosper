@@ -81,7 +81,8 @@ struct MeshCacheHeader
 class DeferredLoadingContext
 {
   public:
-    DeferredLoadingContext() noexcept;
+    // Not noexcept because std::filesystem::path ctor
+    DeferredLoadingContext();
     ~DeferredLoadingContext();
 
     DeferredLoadingContext(const DeferredLoadingContext &) = delete;

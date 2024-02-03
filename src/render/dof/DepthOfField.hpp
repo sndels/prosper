@@ -22,7 +22,7 @@
 class DepthOfField
 {
   public:
-    DepthOfField() = default;
+    DepthOfField() noexcept = default;
     ~DepthOfField() = default;
 
     DepthOfField(const DepthOfField &other) = delete;

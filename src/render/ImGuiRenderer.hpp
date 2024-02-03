@@ -18,7 +18,7 @@ extern "C"
 class ImGuiRenderer
 {
   public:
-    ImGuiRenderer() = default;
+    ImGuiRenderer() noexcept = default;
     ~ImGuiRenderer();
 
     ImGuiRenderer(const ImGuiRenderer &other) = delete;

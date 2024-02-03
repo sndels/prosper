@@ -15,7 +15,7 @@
 class RtDiInitialReservoirs
 {
   public:
-    RtDiInitialReservoirs() = default;
+    RtDiInitialReservoirs() noexcept = default;
     ~RtDiInitialReservoirs() = default;
 
     RtDiInitialReservoirs(const RtDiInitialReservoirs &other) = delete;

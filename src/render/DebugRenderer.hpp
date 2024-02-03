@@ -22,7 +22,7 @@ class DebugRenderer
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    DebugRenderer() = default;
+    DebugRenderer() noexcept = default;
     ~DebugRenderer();
 
     DebugRenderer(const DebugRenderer &other) = delete;

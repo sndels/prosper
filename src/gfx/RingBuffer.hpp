@@ -15,7 +15,7 @@ class RingBuffer
     // minUniformBufferOffsetAlignment
     static const uint32_t sAlignment = 256;
 
-    RingBuffer() = default;
+    RingBuffer() noexcept = default;
     ~RingBuffer();
 
     RingBuffer(const RingBuffer &) = delete;

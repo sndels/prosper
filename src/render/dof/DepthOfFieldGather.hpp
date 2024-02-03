@@ -25,7 +25,7 @@ class DepthOfFieldGather
         GatherType_Count,
     };
 
-    DepthOfFieldGather() = default;
+    DepthOfFieldGather() noexcept = default;
     ~DepthOfFieldGather() = default;
 
     DepthOfFieldGather(const DepthOfFieldGather &other) = delete;

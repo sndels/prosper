@@ -27,7 +27,7 @@ class App
         Device::Settings device;
     };
 
-    App(const Settings &settings) noexcept;
+    App(Settings &&settings) noexcept;
     ~App();
 
     App(const App &other) = delete;

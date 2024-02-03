@@ -9,7 +9,7 @@ struct Texture2DSampler
 {
     uint32_t packed{0};
 
-    Texture2DSampler() = default;
+    Texture2DSampler() noexcept = default;
     Texture2DSampler(uint32_t texture, uint32_t sampler)
     : packed{(sampler << 24) | texture} {};
 

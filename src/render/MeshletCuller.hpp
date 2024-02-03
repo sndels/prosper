@@ -24,7 +24,7 @@ struct MeshletCullerOutput
 class MeshletCuller
 {
   public:
-    MeshletCuller() = default;
+    MeshletCuller() noexcept = default;
     ~MeshletCuller() = default;
 
     MeshletCuller(const MeshletCuller &other) = delete;

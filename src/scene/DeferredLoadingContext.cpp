@@ -1026,7 +1026,7 @@ Buffer createTextureStaging(Device *device)
     });
 }
 
-DeferredLoadingContext::DeferredLoadingContext() noexcept
+DeferredLoadingContext::DeferredLoadingContext()
 : alloc{sLoadingAllocatorSize}
 , meshes{alloc}
 , loadedMeshes{alloc}

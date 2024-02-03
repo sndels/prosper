@@ -12,7 +12,7 @@
 class ImageBasedLighting
 {
   public:
-    ImageBasedLighting() = default;
+    ImageBasedLighting() noexcept = default;
     ~ImageBasedLighting() = default;
 
     ImageBasedLighting(const ImageBasedLighting &other) = delete;

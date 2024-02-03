@@ -18,7 +18,7 @@
 class DepthOfFieldFlatten
 {
   public:
-    DepthOfFieldFlatten() = default;
+    DepthOfFieldFlatten() noexcept = default;
     ~DepthOfFieldFlatten() = default;
 
     DepthOfFieldFlatten(const DepthOfFieldFlatten &other) = delete;

@@ -19,7 +19,7 @@
 class DepthOfFieldCombine
 {
   public:
-    DepthOfFieldCombine() = default;
+    DepthOfFieldCombine() noexcept = default;
     ~DepthOfFieldCombine() = default;
 
     DepthOfFieldCombine(const DepthOfFieldCombine &other) = delete;

@@ -184,12 +184,12 @@ struct Buffer
     VmaAllocation allocation{nullptr};
     // NOTE: Remember to amend clone() new members are added
 
-    Buffer() = default;
+    Buffer() noexcept = default;
     // Copying is probably a mistake so disable implicit copies
     Buffer(const Buffer &) = delete;
-    Buffer(Buffer &&) = default;
+    Buffer(Buffer &&) noexcept = default;
     Buffer &operator=(const Buffer &) = delete;
-    Buffer &operator=(Buffer &&) = default;
+    Buffer &operator=(Buffer &&) noexcept = default;
 
     // There are use cases for mirrored buffers in async loading so expose a
     // convenience clone
@@ -234,12 +234,12 @@ struct TexelBuffer
     BufferState state{BufferState::Unknown};
     VmaAllocation allocation{nullptr};
 
-    TexelBuffer() = default;
+    TexelBuffer() noexcept = default;
     // Copying is probably a mistake so disable implicit copies
     TexelBuffer(const TexelBuffer &) = delete;
-    TexelBuffer(TexelBuffer &&) = default;
+    TexelBuffer(TexelBuffer &&) noexcept = default;
     TexelBuffer &operator=(const TexelBuffer &) = delete;
-    TexelBuffer &operator=(TexelBuffer &&) = default;
+    TexelBuffer &operator=(TexelBuffer &&) noexcept = default;
 
     [[nodiscard]] wheels::Optional<vk::BufferMemoryBarrier2> transitionBarrier(
         BufferState newState, bool force_barrier = false);
@@ -308,12 +308,12 @@ struct Image
     VmaAllocation allocation{nullptr};
     vk::DeviceSize rawByteSize{0};
 
-    Image() = default;
+    Image() noexcept = default;
     // Copying is probably a mistake so disable implicit copies
     Image(const Image &) = delete;
-    Image(Image &&) = default;
+    Image(Image &&) noexcept = default;
     Image &operator=(const Image &) = delete;
-    Image &operator=(Image &&) = default;
+    Image &operator=(Image &&) noexcept = default;
 
     [[nodiscard]] wheels::Optional<vk::ImageMemoryBarrier2> transitionBarrier(
         ImageState newState, bool force_barrier = false);

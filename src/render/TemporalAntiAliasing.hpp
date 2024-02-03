@@ -39,7 +39,7 @@ class TemporalAntiAliasing
         VELOCITY_SAMPLING_TYPES_AND_COUNT
     };
 
-    TemporalAntiAliasing() = default;
+    TemporalAntiAliasing() noexcept = default;
     ~TemporalAntiAliasing() = default;
 
     TemporalAntiAliasing(const TemporalAntiAliasing &other) = delete;

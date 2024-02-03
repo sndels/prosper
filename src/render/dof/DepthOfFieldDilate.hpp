@@ -18,7 +18,7 @@
 class DepthOfFieldDilate
 {
   public:
-    DepthOfFieldDilate() = default;
+    DepthOfFieldDilate() noexcept = default;
     ~DepthOfFieldDilate() = default;
 
     DepthOfFieldDilate(const DepthOfFieldDilate &other) = delete;

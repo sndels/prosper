@@ -21,7 +21,7 @@ class RtDirectIllumination
         DEBUG_DRAW_TYPES_AND_COUNT
     };
 
-    RtDirectIllumination() = default;
+    RtDirectIllumination() noexcept = default;
     ~RtDirectIllumination() = default;
 
     RtDirectIllumination(const RtDirectIllumination &other) = delete;
