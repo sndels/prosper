@@ -993,12 +993,16 @@ void loadingWorker(DeferredLoadingContext *ctx)
     while (!ctx->interruptLoading)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
+        {
             loadNextMesh(ctx);
+
+            // Only update for meshes as textures will always allocate a big
+            // worst case tmp chunk for linear allocation
+            ctx->generalAllocatorHightWatermark = asserted_cast<uint32_t>(
+                ctx->alloc.stats().allocated_byte_count_high_watermark);
+        }
         else
             loadNextTexture(ctx);
-
-        ctx->generalAllocatorHightWatermark = asserted_cast<uint32_t>(
-            ctx->alloc.stats().allocated_byte_count_high_watermark);
     }
 }
 
