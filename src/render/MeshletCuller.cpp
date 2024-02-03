@@ -18,9 +18,6 @@ using namespace wheels;
 namespace
 {
 
-// Should be plenty for any scene that's realistically loaded in
-const uint32_t sMeshDrawListByteSize =
-    static_cast<uint32_t>(sizeof(uint32_t) + megabytes(5));
 const uint32_t sArgumentsByteSize = static_cast<uint32_t>(3 * sizeof(uint32_t));
 const uint32_t sGeneratorGroupSize = 16;
 const uint32_t sCullerGroupSize = 64;
@@ -242,6 +239,7 @@ BufferHandle MeshletCuller::recordGenerateList(
     const World &world, uint32_t nextFrame, const char *debugPrefix,
     SceneStats *sceneStats, Profiler *profiler)
 {
+    uint32_t meshletCountUpperBound = 0;
     {
         String scopeName{scopeAlloc};
         scopeName.extend(debugPrefix);
@@ -253,10 +251,6 @@ BufferHandle MeshletCuller::recordGenerateList(
         const Span<const Material> materials = world.materials();
         const Span<const MeshInfo> meshInfos = world.meshInfos();
 
-        // TODO:
-        // Stats from GPU instead? This might go out of sync with gpu draw list
-        // code
-        uint32_t drawListUpperBound = 0;
         for (const ModelInstance &instance : scene.modelInstances)
         {
             const Model &model = models[instance.modelID];
@@ -277,34 +271,30 @@ BufferHandle MeshletCuller::recordGenerateList(
                         sceneStats->totalMeshCount++;
                         sceneStats->totalTriangleCount += info.indexCount / 3;
                         sceneStats->totalMeshletCount += info.meshletCount;
-                        drawListUpperBound += info.meshletCount;
+                        meshletCountUpperBound += info.meshletCount;
                     }
                 }
             }
         }
 
         WHEELS_ASSERT(
-            drawListUpperBound <=
+            meshletCountUpperBound <=
                 _device->properties().meshShader.maxMeshWorkGroupCount[0] &&
             "Indirect mesh dispatch group count might not fit in the "
             "supported mesh work group count");
-        // TODO:
-        // Allocate a tight buffer? Need to add destroys for unused render
-        // resources so that async loading doesn't leave a bunch of unused
-        // buffers behind.
-        WHEELS_ASSERT(
-            drawListUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t)) <=
-                sMeshDrawListByteSize &&
-            "Draw list might not fit in the buffer");
     }
 
     String dataName{scopeAlloc};
     dataName.extend(debugPrefix);
     dataName.extend("MeshletDrawList");
 
+    const uint32_t drawListByteSize =
+        static_cast<uint32_t>(sizeof(uint32_t)) +
+        meshletCountUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t));
+
     const BufferHandle ret = _resources->buffers.create(
         BufferDescription{
-            .byteSize = sMeshDrawListByteSize,
+            .byteSize = drawListByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst |
                      vk::BufferUsageFlagBits::eStorageBuffer,
             .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
@@ -360,11 +350,6 @@ BufferHandle MeshletCuller::recordGenerateList(
         worldByteOffsets.modelInstanceScales,
         worldByteOffsets.globalMaterialConstants,
     }};
-
-    WHEELS_ASSERT(
-        scene.drawInstanceCount * 2u *
-            static_cast<uint32_t>(sizeof(uint32_t)) <=
-        sMeshDrawListByteSize);
 
     // We want group per instance so multiply the extent by thread count
     const uvec3 extent =
@@ -440,10 +425,12 @@ MeshletCullerOutput MeshletCuller::recordCullList(
     argumentsName.extend(debugPrefix);
     argumentsName.extend("MeshDiscpatchArguments");
 
+    const vk::DeviceSize drawListByteSize =
+        _resources->buffers.resource(input.dataBuffer).byteSize;
     const MeshletCullerOutput ret{
         .dataBuffer = _resources->buffers.create(
             BufferDescription{
-                .byteSize = sMeshDrawListByteSize,
+                .byteSize = drawListByteSize,
                 .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
             },
