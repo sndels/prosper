@@ -82,6 +82,9 @@ class RenderResourceCollection
     wheels::Optional<Handle> _markedDebugHandle;
     wheels::Array<bool> _preserved;
     wheels::Array<uint8_t> _framesSinceUsed;
+    // Indices of resource slots whose resource has been destroyed fully and so
+    // the slot can be reused
+    wheels::Array<uint32_t> _freelist;
 };
 
 template <
@@ -100,6 +103,7 @@ RenderResourceCollection<
 , _debugNames{alloc}
 , _preserved{alloc}
 , _framesSinceUsed{alloc}
+, _freelist{alloc}
 {
 }
 
@@ -187,6 +191,7 @@ void RenderResourceCollection<
                 // another resource
                 // Mark destroyed resource
                 unusedFrames = 0xFF;
+                _freelist.push_back(i);
             }
             else
                 unusedFrames++;
@@ -223,6 +228,7 @@ void RenderResourceCollection<
         _markedDebugHandle.reset();
         _preserved.clear();
         _framesSinceUsed.clear();
+        _freelist.clear();
     }
 }
 
@@ -277,32 +283,38 @@ Handle RenderResourceCollection<
         }
     }
 
-    _resources.push_back(_device->create(CreateInfo{
-        .desc = desc,
-        .debugName = debugName,
-    }));
-    const uint32_t index = asserted_cast<uint32_t>(_resources.size() - 1);
-
-    _descriptions.push_back(desc);
-    _aliasedDebugNames.emplace_back(_alloc, debugName);
-    // We might have handle generations from previously destroyed resources
-    if (_generations.size() < _resources.size())
-        // TODO:
-        // Allow implicit conversions on push_back since literal suffixes don't
-        // seem to be portable? Can conversions be supported for literals only?
-        _generations.push_back(static_cast<uint64_t>(0));
+    uint32_t index = 0xFFFFFFFF;
+    if (!_freelist.empty())
+        index = _freelist.pop_back();
     else
     {
-        WHEELS_ASSERT(!resourceInUse(index));
-        uint64_t &generation = _generations[index];
-        generation = generation & ~sNotInUseGenerationFlag;
+        _resources.emplace_back();
+        _descriptions.emplace_back();
+        _aliasedDebugNames.emplace_back(_alloc);
+        _debugNames.emplace_back(_alloc);
+        _preserved.push_back(false);
+        _framesSinceUsed.push_back((uint8_t)0);
+        // We might have handle generations from previously destroyed resources
+        if (_generations.size() < _resources.size())
+        {
+            _generations.push_back((uint64_t)sNotInUseGenerationFlag);
+        }
+        index = asserted_cast<uint32_t>(_resources.size() - 1);
     }
+    WHEELS_ASSERT(!resourceInUse(index));
+    WHEELS_ASSERT(_resources[index].handle == CppNativeType{});
 
-    _preserved.push_back(false);
-    _framesSinceUsed.push_back((uint8_t)0);
+    _resources[index] = _device->create(CreateInfo{
+        .desc = desc,
+        .debugName = debugName,
+    });
+    _descriptions[index] = desc;
+    _aliasedDebugNames[index].extend(debugName);
+    uint64_t &generation = _generations[index];
+    generation = generation & ~sNotInUseGenerationFlag;
 
-    assertUniqueDebugName(debugName);
-    _debugNames.emplace_back(_alloc, debugName);
+    _preserved[index] = false;
+    _framesSinceUsed[index] = 0;
 
     const Handle handle{
         .index = index,
@@ -310,6 +322,8 @@ Handle RenderResourceCollection<
     };
 
     assertValidHandle(handle);
+
+    appendDebugName(handle, debugName);
 
     if (_markedDebugName.has_value() && debugName == *_markedDebugName)
         _markedDebugHandle = handle;
