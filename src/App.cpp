@@ -1325,7 +1325,7 @@ void App::render(
     const UiChanges &uiChanges)
 {
     bool blasesAdded = false;
-    if (_referenceRt || _rtDirectIllumination)
+    if (_referenceRt || _deferredRt)
     {
         auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
         blasesAdded = _world->buildAccelerationStructures(cb);
