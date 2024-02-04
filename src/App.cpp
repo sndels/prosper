@@ -73,28 +73,29 @@ App::App(Settings &&settings) noexcept
 : _generalAlloc{megabytes(16)}
 , _fileChangePollingAlloc{megabytes(1)}
 , _scenePath{WHEELS_MOV(settings.scene)}
-, _device{std::make_unique<Device>(_generalAlloc, settings.device)}
-, _staticDescriptorsAlloc{std::make_unique<DescriptorAllocator>(_generalAlloc)}
-, _swapchain{std::make_unique<Swapchain>()}
-, _resources{std::make_unique<RenderResources>(_generalAlloc)}
-, _cam{std::make_unique<Camera>()}
-, _world{std::make_unique<World>(_generalAlloc)}
-, _lightClustering{std::make_unique<LightClustering>()}
-, _forwardRenderer{std::make_unique<ForwardRenderer>()}
-, _gbufferRenderer{std::make_unique<GBufferRenderer>()}
-, _deferredShading{std::make_unique<DeferredShading>()}
-, _rtDirectIllumination{std::make_unique<RtDirectIllumination>()}
-, _rtReference{std::make_unique<RtReference>()}
-, _skyboxRenderer{std::make_unique<SkyboxRenderer>()}
-, _debugRenderer{std::make_unique<DebugRenderer>()}
-, _toneMap{std::make_unique<ToneMap>()}
-, _imguiRenderer{std::make_unique<ImGuiRenderer>()}
-, _textureDebug{std::make_unique<TextureDebug>(_generalAlloc)}
-, _depthOfField{std::make_unique<DepthOfField>()}
-, _imageBasedLighting{std::make_unique<ImageBasedLighting>()}
-, _temporalAntiAliasing{std::make_unique<TemporalAntiAliasing>()}
-, _meshletCuller{std::make_unique<MeshletCuller>()}
-, _profiler{std::make_unique<Profiler>(_generalAlloc)}
+, _device{OwningPtr<Device>(_generalAlloc, _generalAlloc, settings.device)}
+, _staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>(
+      _generalAlloc, _generalAlloc)}
+, _swapchain{OwningPtr<Swapchain>(_generalAlloc)}
+, _resources{OwningPtr<RenderResources>(_generalAlloc, _generalAlloc)}
+, _cam{OwningPtr<Camera>(_generalAlloc)}
+, _world{OwningPtr<World>(_generalAlloc, _generalAlloc)}
+, _lightClustering{OwningPtr<LightClustering>(_generalAlloc)}
+, _forwardRenderer{OwningPtr<ForwardRenderer>(_generalAlloc)}
+, _gbufferRenderer{OwningPtr<GBufferRenderer>(_generalAlloc)}
+, _deferredShading{OwningPtr<DeferredShading>(_generalAlloc)}
+, _rtDirectIllumination{OwningPtr<RtDirectIllumination>(_generalAlloc)}
+, _rtReference{OwningPtr<RtReference>(_generalAlloc)}
+, _skyboxRenderer{OwningPtr<SkyboxRenderer>(_generalAlloc)}
+, _debugRenderer{OwningPtr<DebugRenderer>(_generalAlloc)}
+, _toneMap{OwningPtr<ToneMap>(_generalAlloc)}
+, _imguiRenderer{OwningPtr<ImGuiRenderer>(_generalAlloc)}
+, _textureDebug{OwningPtr<TextureDebug>(_generalAlloc, _generalAlloc)}
+, _depthOfField{OwningPtr<DepthOfField>(_generalAlloc)}
+, _imageBasedLighting{OwningPtr<ImageBasedLighting>(_generalAlloc)}
+, _temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>(_generalAlloc)}
+, _meshletCuller{OwningPtr<MeshletCuller>(_generalAlloc)}
+, _profiler{OwningPtr<Profiler>(_generalAlloc, _generalAlloc)}
 {
 }
 
@@ -130,9 +131,9 @@ void App::init()
     tl("Window creation",
        [&]
        {
-           _window = std::make_unique<Window>(
-               Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper",
-               &_inputHandler);
+           _window = OwningPtr<Window>(
+               _generalAlloc, Pair<uint32_t, uint32_t>{WIDTH, HEIGHT},
+               "prosper", &_inputHandler);
        });
     tl("Device init",
        [&] { _device->init(scopeAlloc.child_scope(), _window->ptr()); });

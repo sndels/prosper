@@ -17,6 +17,7 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/static_array.hpp>
+#include <wheels/owning_ptr.hpp>
 
 class App
 {
@@ -105,45 +106,45 @@ class App
     std::filesystem::path _scenePath;
 
     InputHandler _inputHandler;
-    std::unique_ptr<Window>
+    wheels::OwningPtr<Window>
         _window; // Needs to be valid before and after everything else
-    std::unique_ptr<Device>
+    wheels::OwningPtr<Device>
         _device; // Needs to be valid before and after all other vk resources
 
     // This allocator should only be used for the descriptors that can live
     // until the end of the program. As such, reset() shouldn't be called so
     // that users can rely on the descriptors being there once allocated.
-    std::unique_ptr<DescriptorAllocator> _staticDescriptorsAlloc;
+    wheels::OwningPtr<DescriptorAllocator> _staticDescriptorsAlloc;
 
-    std::unique_ptr<Swapchain> _swapchain;
+    wheels::OwningPtr<Swapchain> _swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
         _commandBuffers;
 
     vk::Extent2D _viewportExtent{};
 
     // Stored here, managed by (earliest) passes that write to them
-    std::unique_ptr<RenderResources> _resources;
+    wheels::OwningPtr<RenderResources> _resources;
 
-    std::unique_ptr<Camera> _cam;
-    std::unique_ptr<World> _world;
+    wheels::OwningPtr<Camera> _cam;
+    wheels::OwningPtr<World> _world;
 
-    std::unique_ptr<LightClustering> _lightClustering;
-    std::unique_ptr<ForwardRenderer> _forwardRenderer;
-    std::unique_ptr<GBufferRenderer> _gbufferRenderer;
-    std::unique_ptr<DeferredShading> _deferredShading;
-    std::unique_ptr<RtDirectIllumination> _rtDirectIllumination;
-    std::unique_ptr<RtReference> _rtReference;
-    std::unique_ptr<SkyboxRenderer> _skyboxRenderer;
-    std::unique_ptr<DebugRenderer> _debugRenderer;
-    std::unique_ptr<ToneMap> _toneMap;
-    std::unique_ptr<ImGuiRenderer> _imguiRenderer;
-    std::unique_ptr<TextureDebug> _textureDebug;
-    std::unique_ptr<DepthOfField> _depthOfField;
-    std::unique_ptr<ImageBasedLighting> _imageBasedLighting;
-    std::unique_ptr<TemporalAntiAliasing> _temporalAntiAliasing;
-    std::unique_ptr<MeshletCuller> _meshletCuller;
+    wheels::OwningPtr<LightClustering> _lightClustering;
+    wheels::OwningPtr<ForwardRenderer> _forwardRenderer;
+    wheels::OwningPtr<GBufferRenderer> _gbufferRenderer;
+    wheels::OwningPtr<DeferredShading> _deferredShading;
+    wheels::OwningPtr<RtDirectIllumination> _rtDirectIllumination;
+    wheels::OwningPtr<RtReference> _rtReference;
+    wheels::OwningPtr<SkyboxRenderer> _skyboxRenderer;
+    wheels::OwningPtr<DebugRenderer> _debugRenderer;
+    wheels::OwningPtr<ToneMap> _toneMap;
+    wheels::OwningPtr<ImGuiRenderer> _imguiRenderer;
+    wheels::OwningPtr<TextureDebug> _textureDebug;
+    wheels::OwningPtr<DepthOfField> _depthOfField;
+    wheels::OwningPtr<ImageBasedLighting> _imageBasedLighting;
+    wheels::OwningPtr<TemporalAntiAliasing> _temporalAntiAliasing;
+    wheels::OwningPtr<MeshletCuller> _meshletCuller;
 
-    std::unique_ptr<Profiler> _profiler;
+    wheels::OwningPtr<Profiler> _profiler;
 
     bool _useFpsLimit{true};
     int32_t _fpsLimit{140};

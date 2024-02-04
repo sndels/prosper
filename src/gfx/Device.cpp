@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 
 #ifdef _WIN32
@@ -15,6 +16,7 @@
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
+#include <wheels/owning_ptr.hpp>
 
 #include "../utils/ForEach.hpp"
 #include "../utils/Utils.hpp"
@@ -362,9 +364,9 @@ class FileIncluder : public shaderc::CompileOptions::IncluderInterface
     uint64_t _includeContentID{0};
     struct IncludeContent
     {
-        std::unique_ptr<shaderc_include_result> result{nullptr};
-        std::unique_ptr<wheels::String> content{nullptr};
-        std::unique_ptr<wheels::String> path{nullptr};
+        OwningPtr<shaderc_include_result> result;
+        OwningPtr<wheels::String> content;
+        OwningPtr<wheels::String> path;
     };
     wheels::HashMap<uint64_t, IncludeContent> _includeContent;
     wheels::HashSet<std::filesystem::path> &_uniqueIncludes;
@@ -403,14 +405,15 @@ shaderc_include_result *FileIncluder::GetInclude(
     _uniqueIncludes.insert(requestedSource);
 
     IncludeContent content;
-    content.path = std::make_unique<String>(
-        _alloc, requestedSource.generic_string().c_str());
+    content.path = OwningPtr<String>(
+        _alloc, _alloc, requestedSource.generic_string().c_str());
 
     content.content =
-        std::make_unique<String>(readFileString(_alloc, requestedSource));
+        OwningPtr<String>(_alloc, readFileString(_alloc, requestedSource));
 
-    content.result =
-        std::make_unique<shaderc_include_result>(shaderc_include_result{
+    content.result = OwningPtr<shaderc_include_result>(
+        _alloc,
+        shaderc_include_result{
             .source_name = content.path->c_str(),
             .source_name_length = content.path->size(),
             .content = content.content->c_str(),

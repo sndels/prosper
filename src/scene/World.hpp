@@ -6,10 +6,10 @@
 #include "Fwd.hpp"
 
 #include <filesystem>
-#include <memory>
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
+#include <wheels/owning_ptr.hpp>
 
 class World
 {
@@ -73,7 +73,7 @@ class World
   private:
     // Pimpl to isolate heavy includes within the World CU
     class Impl;
-    std::unique_ptr<Impl> _impl;
+    wheels::OwningPtr<Impl> _impl;
     bool _initialized{false};
 };
 

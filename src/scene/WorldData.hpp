@@ -14,7 +14,6 @@
 #include "Scene.hpp"
 #include "WorldRenderStructs.hpp"
 #include <cstdint>
-#include <memory>
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/linear_allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>

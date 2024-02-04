@@ -2,7 +2,6 @@
 
 #include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
-#include <memory>
 #include <wheels/allocators/utils.hpp>
 #include <wheels/containers/hash_set.hpp>
 
@@ -114,7 +113,7 @@ class World::Impl
     };
     Array<ScratchBuffer> _scratchBuffers{_generalAlloc};
     Buffer _tlasInstancesBuffer;
-    std::unique_ptr<RingBuffer> _tlasInstancesUploadRing;
+    OwningPtr<RingBuffer> _tlasInstancesUploadRing;
     uint32_t _tlasInstancesUploadOffset{0};
 };
 
@@ -816,7 +815,7 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
 
         const uint32_t ringByteSize = asserted_cast<uint32_t>(
             (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
-        _tlasInstancesUploadRing = std::make_unique<RingBuffer>();
+        _tlasInstancesUploadRing = OwningPtr<RingBuffer>(_generalAlloc);
         _tlasInstancesUploadRing->init(
             _device, vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
             "InstancesUploadBuffer");
@@ -907,7 +906,7 @@ void World::Impl::createTlasBuildInfos(
 }
 
 World::World(Allocator &generalAlloc) noexcept
-: _impl{std::make_unique<World::Impl>(generalAlloc)}
+: _impl{generalAlloc, generalAlloc}
 {
 }
 
