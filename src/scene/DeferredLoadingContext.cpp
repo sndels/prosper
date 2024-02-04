@@ -982,12 +982,9 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 
 void loadingWorker(DeferredLoadingContext *ctx)
 {
-    // TODO:
-    // Make clang-tidy treat WHEELS_ASSERT as assert so that it considers
-    // them valid null checks
-    WHEELS_ASSERT(
-        ctx != nullptr && ctx->device != nullptr &&
-        ctx->device->graphicsQueue() != ctx->device->transferQueue());
+    WHEELS_ASSERT(ctx != nullptr);
+    WHEELS_ASSERT(ctx->device != nullptr);
+    WHEELS_ASSERT(ctx->device->graphicsQueue() != ctx->device->transferQueue());
 
     ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
