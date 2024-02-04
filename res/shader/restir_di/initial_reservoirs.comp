@@ -72,18 +72,13 @@ void main()
 
     pcg_state = uvec3(px, PC.frameIndex);
 
-    // TODO: Move shared gbuffer VisibleSurface setup code to a header
-
-    vec4 albedoRoughness = imageLoad(inAlbedoRoughness, px);
-    vec4 normalMetallic = imageLoad(inNormalMetallic, px);
-
     float nonLinearDepth =
         texelFetch(sampler2D(inNonLinearDepth, depthSampler), px, 0).x;
 
     VisibleSurface surface;
     surface.positionWS = worldPos(uv, nonLinearDepth);
     surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
-    surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
+    surface.material = loadFromGbuffer(px, inAlbedoRoughness, inNormalMetallic);
     surface.normalWS = surface.material.normal;
     surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));

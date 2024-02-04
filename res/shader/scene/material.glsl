@@ -15,8 +15,13 @@ struct Material
     float alpha;
 };
 
-Material loadFromGbuffer(vec4 albedoRoughness, vec4 normalMetallic)
+Material loadFromGbuffer(
+    ivec2 coord, readonly image2D albedoRoughnessImage,
+    readonly image2D normalMetallicImage)
 {
+    vec4 albedoRoughness = imageLoad(albedoRoughnessImage, coord);
+    vec4 normalMetallic = imageLoad(normalMetallicImage, coord);
+
     Material m;
     m.albedo = albedoRoughness.xyz;
     m.roughness = albedoRoughness.w;

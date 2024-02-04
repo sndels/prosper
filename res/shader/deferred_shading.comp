@@ -37,16 +37,14 @@ void main()
     }
     vec2 uv = vec2(coord) / vec2(res);
 
-    vec4 albedoRoughness = imageLoad(inAlbedoRoughness, coord);
-    vec4 normalMetallic = imageLoad(inNormalMetallic, coord);
-
     float nonLinearDepth =
         texelFetch(sampler2D(inNonLinearDepth, depthSampler), coord, 0).x;
 
     VisibleSurface surface;
     surface.positionWS = worldPos(uv, nonLinearDepth);
     surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
-    surface.material = loadFromGbuffer(albedoRoughness, normalMetallic);
+    surface.material =
+        loadFromGbuffer(coord, inAlbedoRoughness, inNormalMetallic);
     surface.normalWS = surface.material.normal;
     surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
