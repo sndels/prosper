@@ -25,7 +25,7 @@ namespace
 {
 
 const vk::Format sAlbedoRoughnessFormat = vk::Format::eR8G8B8A8Unorm;
-const vk::Format sNormalMetalnessFormat = vk::Format::eR16G16B16A16Sfloat;
+const vk::Format sNormalMetalnessFormat = vk::Format::eA2R10G10B10UnormPack32;
 
 enum BindingSet : uint32_t
 {

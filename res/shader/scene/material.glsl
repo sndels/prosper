@@ -15,6 +15,21 @@ struct Material
     float alpha;
 };
 
+// Adapted from
+// nttps://johnwhite3d.blogspot.com/2017/10/signed-octahedron-normal-encoding.html
+vec3 signedOctDecode(vec3 n)
+{
+    vec3 OutN;
+
+    OutN.x = (n.x - n.y);
+    OutN.y = (n.x + n.y) - 1.0;
+    OutN.z = n.z * 2.0 - 1.0;
+    OutN.z = OutN.z * (1.0 - abs(OutN.x) - abs(OutN.y));
+
+    OutN = normalize(OutN);
+    return OutN;
+}
+
 Material loadFromGbuffer(
     ivec2 coord, readonly image2D albedoRoughnessImage,
     readonly image2D normalMetallicImage)
@@ -25,8 +40,8 @@ Material loadFromGbuffer(
     Material m;
     m.albedo = albedoRoughness.xyz;
     m.roughness = albedoRoughness.w;
-    m.normal = normalize(normalMetallic.xyz);
-    m.metallic = normalMetallic.w;
+    m.normal = signedOctDecode(vec3(normalMetallic.xy, normalMetallic.w));
+    m.metallic = normalMetallic.z;
     m.alpha = -1.0;
 
     return m;

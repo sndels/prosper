@@ -4,6 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : require
 
+#include "common/math.glsl"
 #include "scene/camera.glsl"
 #include "scene/instances.glsl"
 #include "scene/materials.glsl"
@@ -32,6 +33,23 @@ vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
     return normalize(vNt.x * vT + vNt.y * vB + vNt.z * vN);
 }
 
+// Adapted from
+// https://johnwhite3d.blogspot.com/2017/10/signed-octahedron-normal-encoding.html
+vec3 signedOctEncode(vec3 n)
+{
+    vec3 OutN;
+
+    n /= (abs(n.x) + abs(n.y) + abs(n.z));
+
+    OutN.y = n.y * 0.5 + 0.5;
+    OutN.x = n.x * 0.5 + OutN.y;
+    OutN.y = n.x * -0.5 + OutN.y;
+
+    const float fltMax = 3.40282e+38;
+    OutN.z = saturate(n.z * fltMax);
+    return OutN;
+}
+
 void main()
 {
     DrawInstance instance = drawInstances.instance[inDrawInstanceID];
@@ -48,6 +66,7 @@ void main()
             inTangentWorldSign.w);
     else
         normal = normalize(inNormalWorld);
+    vec3 encodedNormal = signedOctEncode(normal);
 
     // Store in NDC like in https://alextardif.com/TAA.html
     vec3 posNDC = inPositionNDC.xyz / inPositionNDC.w;
@@ -58,11 +77,9 @@ void main()
     // confusion.
     velocity.y = -velocity.y;
 
-    // TODO:
-    // Does GLSL support passing uniforms as parameters some way?
-    // G-Buffer packing should be a function/macro
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
-    outNormalMetallic = vec4(normal, material.metallic);
+    outNormalMetallic =
+        vec4(encodedNormal.xy, material.metallic, encodedNormal.z);
     outVelocity = clamp(velocity, vec2(-1), vec2(1));
     // No alpha needed as only opaque surfaces are in gbuffer
 }
