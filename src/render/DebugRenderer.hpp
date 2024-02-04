@@ -4,7 +4,6 @@
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
 #include "../gfx/ShaderReflection.hpp"
-#include "../scene/DebugDrawTypes.hpp"
 #include "../scene/Fwd.hpp"
 #include "../utils/Fwd.hpp"
 #include "Fwd.hpp"
@@ -17,11 +16,6 @@
 class DebugRenderer
 {
   public:
-    enum class DrawType : uint32_t
-    {
-        DEBUG_DRAW_TYPES_AND_COUNT
-    };
-
     DebugRenderer() noexcept = default;
     ~DebugRenderer();
 

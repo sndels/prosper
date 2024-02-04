@@ -3,7 +3,7 @@
 
 #include "../gfx/Fwd.hpp"
 #include "../gfx/ShaderReflection.hpp"
-#include "../scene/DebugDrawTypes.hpp"
+#include "../scene/DrawType.hpp"
 #include "../scene/Fwd.hpp"
 #include "../utils/Fwd.hpp"
 #include "Fwd.hpp"
@@ -43,13 +43,12 @@ class GBufferRenderer
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
-    void drawUi();
-
     [[nodiscard]] GBufferRendererOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler);
+        DrawType drawType, uint32_t nextFrame, SceneStats *sceneStats,
+        Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(

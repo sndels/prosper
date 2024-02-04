@@ -10,7 +10,6 @@
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
-#include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "GBufferRenderer.hpp"
 #include "LightClustering.hpp"
@@ -40,10 +39,6 @@ struct PCBlock
     uint drawType{0};
     uint ibl{0};
 };
-
-constexpr StaticArray<
-    const char *, static_cast<size_t>(DeferredShading::DrawType::Count)>
-    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
 
 vk::Extent2D getRenderExtent(
     const RenderResources &resources, const GBufferRendererOutput &gbuffer)
@@ -139,17 +134,10 @@ void DeferredShading::recompileShaders(
         externalDsLayouts(dsLayouts));
 }
 
-void DeferredShading::drawUi()
-{
-    WHEELS_ASSERT(_initialized);
-
-    enumDropdown("Draw type", _drawType, sDrawTypeNames);
-}
-
 DeferredShading::Output DeferredShading::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const Input &input, const uint32_t nextFrame,
-    bool applyIbl, Profiler *profiler)
+    bool applyIbl, DrawType drawType, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
@@ -216,7 +204,7 @@ DeferredShading::Output DeferredShading::record(
         const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
 
         const PCBlock pcBlock{
-            .drawType = static_cast<uint32_t>(_drawType),
+            .drawType = static_cast<uint32_t>(drawType),
             .ibl = static_cast<uint32_t>(applyIbl),
         };
 

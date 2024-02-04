@@ -7,6 +7,7 @@
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "scene/Camera.hpp"
+#include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/SceneStats.hpp"
@@ -162,6 +163,7 @@ class App
     bool _newSceneDataLoaded{false};
     bool _applyTaa{true};
     bool _applyJitter{true};
+    DrawType _drawType{DrawType::Default};
 
     bool _camFreeLook{false};
     CameraTransform _sceneCameraTransform;

@@ -2,9 +2,9 @@ set(PROSPER_SCENE_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Animations.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Accessors.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DebugDrawTypes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredLoadingContext.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/DrawType.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Material.hpp
@@ -23,6 +23,7 @@ set(PROSPER_SCENE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredLoadingContext.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/DrawType.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
     ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp

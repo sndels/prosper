@@ -64,18 +64,21 @@ void main()
     if (PC.ibl == 1)
         color += evalIBL(surface);
 
-    if (PC.DrawType >= DrawType_PrimitiveID)
+    if (PC.DrawType != DrawType_Default)
     {
-        DebugInputs di;
-        di.meshID = 0;      // TODO
-        di.primitiveID = 0; // TODO
-        di.materialID = 0;  // TODO
-        di.position = surface.positionWS;
-        di.shadingNormal = surface.normalWS;
-        di.texCoord0 = vec2(0); // TODO
-        imageStore(
-            outColor, coord,
-            vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1));
+        if (PC.DrawType == DrawType_Position)
+        {
+            DebugInputs di;
+            di.position = surface.positionWS;
+            imageStore(
+                outColor, coord,
+                vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1));
+        }
+        else
+        {
+            // GBuffer pass stores debug output in albedo
+            imageStore(outColor, coord, vec4(surface.material.albedo, 1));
+        }
         return;
     }
 

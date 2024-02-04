@@ -41,6 +41,7 @@ enum BindingSet : uint32_t
 struct PCBlock
 {
     uint32_t previousTransformValid{0};
+    uint32_t drawType{0};
 };
 
 } // namespace
@@ -108,7 +109,8 @@ GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
-    const uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
+    DrawType drawType, const uint32_t nextFrame, SceneStats *sceneStats,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
@@ -194,9 +196,12 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const PCBlock pcBlock{
             .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
+            .drawType = static_cast<uint32_t>(drawType),
         };
         cb.pushConstants(
-            _pipelineLayout, vk::ShaderStageFlagBits::eMeshEXT,
+            _pipelineLayout,
+            vk::ShaderStageFlagBits::eMeshEXT |
+                vk::ShaderStageFlagBits::eFragment,
             0, // offset
             sizeof(PCBlock), &pcBlock);
 
@@ -246,7 +251,7 @@ bool GBufferRenderer::compileShaders(
                                           .defines = meshDefines,
                                       });
 
-    const size_t fragDefsLen = 174;
+    const size_t fragDefsLen = 491;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
@@ -258,6 +263,9 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(
         fragDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(fragDefines, "USE_MATERIAL_LOD_BIAS");
+    appendEnumVariantsAsDefines(
+        fragDefines, "DrawType",
+        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
     Optional<Device::ShaderCompileResult> fragResult =
@@ -437,7 +445,8 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[DrawStatsBindingSet] = _meshSetLayout;
 
     const vk::PushConstantRange pcRange{
-        .stageFlags = vk::ShaderStageFlagBits::eMeshEXT,
+        .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
+                      vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
         .size = sizeof(PCBlock),
     };

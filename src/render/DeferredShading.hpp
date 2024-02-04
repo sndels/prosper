@@ -6,7 +6,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "../gfx/Fwd.hpp"
-#include "../scene/DebugDrawTypes.hpp"
+#include "../scene/DrawType.hpp"
 #include "../scene/Fwd.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
@@ -17,11 +17,6 @@
 class DeferredShading
 {
   public:
-    enum class DrawType : uint32_t
-    {
-        DEBUG_DRAW_TYPES_AND_COUNT
-    };
-
     DeferredShading() noexcept = default;
     ~DeferredShading() = default;
 
@@ -46,8 +41,6 @@ class DeferredShading
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         const InputDSLayouts &dsLayouts);
 
-    void drawUi();
-
     struct Input
     {
         const GBufferRendererOutput &gbuffer;
@@ -60,13 +53,12 @@ class DeferredShading
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const Input &input,
-        uint32_t nextFrame, bool applyIbl, Profiler *profiler);
+        uint32_t nextFrame, bool applyIbl, DrawType drawType,
+        Profiler *profiler);
 
     bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
-
-    DrawType _drawType{DrawType::Default};
 };
 
 #endif // PROSPER_RENDER_DEFERRED_SHADING_HPP

@@ -250,7 +250,8 @@ void main()
 
         VisibleSurface surface = evaluateSurface(ray, hit);
 
-        if (PC.drawType >= DrawType_PrimitiveID)
+        if (PC.drawType != DrawType_Default &&
+            PC.drawType != DrawType_MeshletID)
         {
             color = debugColor(hit, surface);
             break;

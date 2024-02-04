@@ -74,7 +74,8 @@ LightReservoir resampleReservoirSpatially(
             // Store in GBuffer in low bitdepth since we won't need high quality
             // for a discard heuristic?
             vec4 normalMetallic = imageLoad(inNormalMetallic, p);
-            vec3 pNormal = normalize(normalMetallic.xyz);
+            vec3 pNormal =
+                signedOctDecode(vec3(normalMetallic.xy, normalMetallic.w));
             // Allow a difference 25 degrees like in the original ReSTIR paper
             if (dot(pNormal, surface.normalWS) < 0.9)
             {

@@ -5,6 +5,8 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "common/math.glsl"
+#include "debug.glsl"
+#include "gbuffer_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/instances.glsl"
 #include "scene/materials.glsl"
@@ -76,6 +78,27 @@ void main()
     // Let's have positive motion be upward in the image to try and avoid
     // confusion.
     velocity.y = -velocity.y;
+
+    if (PC.drawType != DrawType_Default)
+    {
+        if (PC.drawType == DrawType_MeshletID)
+        {
+            outAlbedoRoughness = vec4(uintToColor(inMeshletID), 1);
+            outNormalMetallic = vec4(0);
+            return;
+        }
+
+        DebugInputs di;
+        di.meshID = instance.meshID;
+        di.primitiveID = gl_PrimitiveID;
+        di.materialID = instance.materialID;
+        di.shadingNormal = normal;
+        di.texCoord0 = inTexCoord0;
+        outAlbedoRoughness =
+            vec4(commonDebugDraw(PC.drawType, di, material), 1);
+        outNormalMetallic = vec4(0);
+        return;
+    }
 
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
     outNormalMetallic =

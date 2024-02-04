@@ -123,18 +123,21 @@ void main()
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
     surface.linearDepth = linearizeDepth(nonLinearDepth);
 
-    if (PC.drawType >= DrawType_PrimitiveID)
+    if (PC.drawType != DrawType_Default)
     {
-        DebugInputs di;
-        di.meshID = 0;      // TODO
-        di.primitiveID = 0; // TODO
-        di.materialID = 0;  // TODO
-        di.position = surface.positionWS;
-        di.shadingNormal = surface.normalWS;
-        di.texCoord0 = vec2(0); // TODO
-        imageStore(
-            outColor, px,
-            vec4(commonDebugDraw(PC.drawType, di, surface.material), 1));
+        if (PC.drawType == DrawType_Position)
+        {
+            DebugInputs di;
+            di.position = surface.positionWS;
+            imageStore(
+                outColor, px,
+                vec4(commonDebugDraw(PC.drawType, di, surface.material), 1));
+        }
+        else
+        {
+            // GBuffer pass stores debug output in albedo
+            imageStore(outColor, px, vec4(surface.material.albedo, 1));
+        }
         return;
     }
 

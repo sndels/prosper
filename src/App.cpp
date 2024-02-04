@@ -37,6 +37,7 @@
 #include "scene/Scene.hpp"
 #include "scene/World.hpp"
 #include "utils/InputHandler.hpp"
+#include "utils/Ui.hpp"
 #include "utils/Utils.hpp"
 
 using namespace glm;
@@ -893,6 +894,8 @@ void App::drawRendererSettings(UiChanges &uiChanges)
 
     if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        uiChanges.rtDirty |=
+            enumDropdown("Draw type", _drawType, sDrawTypeNames);
         if (_referenceRt)
             _rtReference->drawUi();
         else
@@ -901,11 +904,7 @@ void App::drawRendererSettings(UiChanges &uiChanges)
             {
                 if (_deferredRt)
                     _rtDirectIllumination->drawUi();
-                else
-                    _deferredShading->drawUi();
             }
-            else
-                _forwardRenderer->drawUi();
         }
         uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
     }
@@ -1364,6 +1363,7 @@ void App::render(
                         .depthOfField = _renderDoF,
                         .ibl = _applyIbl,
                         .colorDirty = uiChanges.rtDirty || blasesAdded,
+                        .drawType = _drawType,
                     },
                     indices.nextFrame, _profiler.get())
                 .illumination;
@@ -1380,7 +1380,7 @@ void App::render(
         {
             const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
-                *_cam, renderArea, drawStats, indices.nextFrame,
+                *_cam, renderArea, drawStats, _drawType, indices.nextFrame,
                 &_sceneStats[indices.nextFrame], _profiler.get());
 
             if (_deferredRt)
@@ -1389,7 +1389,7 @@ void App::render(
                         ->record(
                             scopeAlloc.child_scope(), cb, *_world, *_cam,
                             gbuffer, uiChanges.rtDirty || blasesAdded,
-                            indices.nextFrame, _profiler.get())
+                            _drawType, indices.nextFrame, _profiler.get())
                         .illumination;
             else
             {
@@ -1403,7 +1403,8 @@ void App::render(
                                 .gbuffer = gbuffer,
                                 .lightClusters = lightClusters,
                             },
-                            indices.nextFrame, _applyIbl, _profiler.get())
+                            indices.nextFrame, _applyIbl, _drawType,
+                            _profiler.get())
                         .illumination;
             }
 
@@ -1421,7 +1422,7 @@ void App::render(
                 _forwardRenderer->recordOpaque(
                     scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
                     *_cam, renderArea, lightClusters, drawStats,
-                    indices.nextFrame, _applyIbl,
+                    indices.nextFrame, _applyIbl, _drawType,
                     &_sceneStats[indices.nextFrame], _profiler.get());
             illumination = output.illumination;
             velocity = output.velocity;
@@ -1444,7 +1445,7 @@ void App::render(
                 .illumination = illumination,
                 .depth = depth,
             },
-            lightClusters, drawStats, indices.nextFrame,
+            lightClusters, drawStats, indices.nextFrame, _drawType,
             &_sceneStats[indices.nextFrame], _profiler.get());
 
         _debugRenderer->record(

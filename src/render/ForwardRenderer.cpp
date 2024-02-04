@@ -13,7 +13,6 @@
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/SceneStats.hpp"
-#include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
 #include "MeshletCuller.hpp"
@@ -46,10 +45,6 @@ struct PCBlock
     uint32_t ibl{0};
     uint32_t previousTransformValid{0};
 };
-
-constexpr StaticArray<
-    const char *, static_cast<size_t>(ForwardRenderer::DrawType::Count)>
-    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS "MeshletID"}};
 
 } // namespace
 
@@ -110,19 +105,12 @@ void ForwardRenderer::recompileShaders(
     }
 }
 
-void ForwardRenderer::drawUi()
-{
-    WHEELS_ASSERT(_initialized);
-
-    enumDropdown("Draw type", _drawType, sDrawTypeNames);
-}
-
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
     BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
-    SceneStats *sceneStats, Profiler *profiler)
+    DrawType drawType, SceneStats *sceneStats, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
 
@@ -139,8 +127,12 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .velocity = ret.velocity,
             .depth = ret.depth,
         },
-        lightClusters, inOutDrawStats, Options{.ibl = applyIbl}, sceneStats,
-        profiler, "OpaqueGeometry");
+        lightClusters, inOutDrawStats,
+        Options{
+            .ibl = applyIbl,
+            .drawType = drawType,
+        },
+        sceneStats, profiler, "OpaqueGeometry");
 
     return ret;
 }
@@ -150,7 +142,8 @@ void ForwardRenderer::recordTransparent(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler)
+    uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
 
@@ -160,7 +153,11 @@ void ForwardRenderer::recordTransparent(
             .illumination = inOutTargets.illumination,
             .depth = inOutTargets.depth,
         },
-        lightClusters, inOutDrawStats, Options{.transparents = true},
+        lightClusters, inOutDrawStats,
+        Options{
+            .transparents = true,
+            .drawType = drawType,
+        },
         sceneStats, profiler, "TransparentGeometry");
 }
 
@@ -480,7 +477,7 @@ void ForwardRenderer::record(
     setViewportScissor(cb, renderArea);
 
     const PCBlock pcBlock{
-        .drawType = static_cast<uint32_t>(_drawType),
+        .drawType = static_cast<uint32_t>(options.drawType),
         .ibl = static_cast<uint32_t>(options.ibl),
         .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
     };

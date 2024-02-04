@@ -4,7 +4,7 @@
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
 #include "../gfx/ShaderReflection.hpp"
-#include "../scene/DebugDrawTypes.hpp"
+#include "../scene/DrawType.hpp"
 #include "../scene/Fwd.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
@@ -17,11 +17,6 @@
 class RtReference
 {
   public:
-    enum class DrawType : uint32_t
-    {
-        DEBUG_DRAW_TYPES_AND_COUNT
-    };
-
     static constexpr uint32_t sMaxBounces = 6;
 
     RtReference() noexcept = default;
@@ -51,6 +46,7 @@ class RtReference
         bool depthOfField{false};
         bool ibl{false};
         bool colorDirty{false};
+        DrawType drawType{DrawType::Default};
     };
     struct Output
     {
@@ -102,7 +98,6 @@ class RtReference
     vk::DeviceSize _sbtGroupSize{0};
     Buffer _shaderBindingTable;
 
-    DrawType _drawType{DrawType::Default};
     bool _accumulationDirty{true};
     bool _accumulate{true};
     bool _clampIndirect{true};

@@ -93,10 +93,6 @@ uint32_t pcFlags(PCBlock::Flags flags)
     return ret;
 }
 
-constexpr StaticArray<
-    const char *, static_cast<size_t>(RtReference::DrawType::Count)>
-    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
-
 } // namespace
 
 RtReference::~RtReference()
@@ -166,22 +162,16 @@ void RtReference::drawUi()
 {
     WHEELS_ASSERT(_initialized);
 
-    _accumulationDirty |= enumDropdown("Draw type", _drawType, sDrawTypeNames);
+    ImGui::Checkbox("Accumulate", &_accumulate);
 
-    if (_drawType == DrawType::Default)
-    {
-        ImGui::Checkbox("Accumulate", &_accumulate);
+    _accumulationDirty |= ImGui::Checkbox("Clamp indirect", &_clampIndirect);
+    _accumulationDirty |=
+        sliderU32("Roulette Start", &_rouletteStartBounce, 0u, _maxBounces);
+    _accumulationDirty |=
+        sliderU32("Max bounces", &_maxBounces, 1u, sMaxBounces);
 
-        _accumulationDirty |=
-            ImGui::Checkbox("Clamp indirect", &_clampIndirect);
-        _accumulationDirty |=
-            sliderU32("Roulette Start", &_rouletteStartBounce, 0u, _maxBounces);
-        _accumulationDirty |=
-            sliderU32("Max bounces", &_maxBounces, 1u, sMaxBounces);
-
-        _maxBounces = std::min(_maxBounces, sMaxBounces);
-        _rouletteStartBounce = std::min(_rouletteStartBounce, _maxBounces);
-    }
+    _maxBounces = std::min(_maxBounces, sMaxBounces);
+    _rouletteStartBounce = std::min(_rouletteStartBounce, _maxBounces);
 }
 
 RtReference::Output RtReference::record(
@@ -296,7 +286,7 @@ RtReference::Output RtReference::record(
         const CameraParameters &camParams = cam.parameters();
 
         const PCBlock pcBlock{
-            .drawType = static_cast<uint32_t>(_drawType),
+            .drawType = static_cast<uint32_t>(options.drawType),
             .flags = pcFlags(PCBlock::Flags{
                 .skipHistory = cam.changedThisFrame() || options.colorDirty ||
                                _accumulationDirty,

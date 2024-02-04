@@ -2,6 +2,7 @@
 #define PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 
 #include "../../gfx/Fwd.hpp"
+#include "../../scene/DrawType.hpp"
 #include "../../scene/Fwd.hpp"
 #include "../../utils/Fwd.hpp"
 #include "../Fwd.hpp"
@@ -16,11 +17,6 @@
 class RtDirectIllumination
 {
   public:
-    enum class DrawType : uint32_t
-    {
-        DEBUG_DRAW_TYPES_AND_COUNT
-    };
-
     RtDirectIllumination() noexcept = default;
     ~RtDirectIllumination() = default;
 
@@ -47,7 +43,8 @@ class RtDirectIllumination
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
         const Camera &cam, const GBufferRendererOutput &gbuffer,
-        bool resetAccumulation, uint32_t nextFrame, Profiler *profiler);
+        bool resetAccumulation, DrawType drawType, uint32_t nextFrame,
+        Profiler *profiler);
     void releasePreserved();
 
   private:

@@ -4,7 +4,7 @@
 #include "../../gfx/Fwd.hpp"
 #include "../../gfx/Resources.hpp"
 #include "../../gfx/ShaderReflection.hpp"
-#include "../../scene/DebugDrawTypes.hpp"
+#include "../../scene/DrawType.hpp"
 #include "../../scene/Fwd.hpp"
 #include "../../utils/Fwd.hpp"
 #include "../Fwd.hpp"
@@ -16,11 +16,6 @@
 class RtDiTrace
 {
   public:
-    enum class DrawType : uint32_t
-    {
-        DEBUG_DRAW_TYPES_AND_COUNT
-    };
-
     RtDiTrace() noexcept = default;
     ~RtDiTrace();
 
@@ -41,8 +36,6 @@ class RtDiTrace
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
-    void drawUi();
-
     struct Input
     {
         const GBufferRendererOutput &gbuffer;
@@ -55,7 +48,7 @@ class RtDiTrace
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
         const Camera &cam, const Input &input, bool resetAccumulation,
-        uint32_t nextFrame, Profiler *profiler);
+        DrawType drawType, uint32_t nextFrame, Profiler *profiler);
     void releasePreserved();
 
   private:
@@ -98,7 +91,6 @@ class RtDiTrace
     vk::DeviceSize _sbtGroupSize{0};
     Buffer _shaderBindingTable;
 
-    DrawType _drawType{DrawType::Default};
     bool _accumulationDirty{true};
     bool _accumulate{false};
     uint32_t _frameIndex{0};

@@ -3,7 +3,7 @@
 
 #include "../gfx/Fwd.hpp"
 #include "../gfx/ShaderReflection.hpp"
-#include "../scene/DebugDrawTypes.hpp"
+#include "../scene/DrawType.hpp"
 #include "../scene/Fwd.hpp"
 #include "../utils/Fwd.hpp"
 #include "Fwd.hpp"
@@ -16,13 +16,6 @@
 class ForwardRenderer
 {
   public:
-    enum class DrawType : uint32_t
-    {
-        DEBUG_DRAW_TYPES,
-        MeshletID,
-        Count,
-    };
-
     ForwardRenderer() noexcept = default;
     ~ForwardRenderer();
 
@@ -47,8 +40,6 @@ class ForwardRenderer
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         const InputDSLayouts &dsLayouts);
 
-    void drawUi();
-
     struct OpaqueOutput
     {
         ImageHandle illumination;
@@ -60,8 +51,8 @@ class ForwardRenderer
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, bool applyIbl, SceneStats *sceneStats,
-        Profiler *profiler);
+        uint32_t nextFrame, bool applyIbl, DrawType drawType,
+        SceneStats *sceneStats, Profiler *profiler);
 
     struct TransparentInOut
     {
@@ -73,7 +64,8 @@ class ForwardRenderer
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, SceneStats *sceneStats, Profiler *profiler);
+        uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats,
+        Profiler *profiler);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -94,6 +86,7 @@ class ForwardRenderer
     {
         bool transparents{false};
         bool ibl{false};
+        DrawType drawType{DrawType::Default};
     };
     struct RecordInOut
     {
@@ -142,8 +135,6 @@ class ForwardRenderer
     // Separate sets for transparents and opaque
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT * 2> _meshSets{
         VK_NULL_HANDLE};
-
-    DrawType _drawType{DrawType::Default};
 };
 
 #endif // PROSPER_RENDER_FORWARD_RENDERER_HPP

@@ -7,7 +7,6 @@
 #include "../../scene/World.hpp"
 #include "../../scene/WorldRenderStructs.hpp"
 #include "../../utils/Profiler.hpp"
-#include "../../utils/Ui.hpp"
 #include "../../utils/Utils.hpp"
 #include "../GBufferRenderer.hpp"
 #include "../RenderResources.hpp"
@@ -81,10 +80,6 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
     return ret;
 }
-
-constexpr StaticArray<
-    const char *, static_cast<size_t>(RtDiTrace::DrawType::Count)>
-    sDrawTypeNames{{DEBUG_DRAW_TYPES_STRS}};
 
 vk::Extent2D getRenderExtent(
     const RenderResources &resources, const GBufferRendererOutput &gbuffer)
@@ -164,20 +159,10 @@ void RtDiTrace::recompileShaders(
     }
 }
 
-void RtDiTrace::drawUi()
-{
-    WHEELS_ASSERT(_initialized);
-
-    _accumulationDirty |= enumDropdown("Draw type", _drawType, sDrawTypeNames);
-
-    if (_drawType == DrawType::Default)
-        ImGui::Checkbox("Accumulate", &_accumulate);
-}
-
 RtDiTrace::Output RtDiTrace::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     const Camera &cam, const Input &input, bool resetAccumulation,
-    uint32_t nextFrame, Profiler *profiler)
+    DrawType drawType, uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
@@ -284,7 +269,7 @@ RtDiTrace::Output RtDiTrace::record(
             dynamicOffsets.data());
 
         const PCBlock pcBlock{
-            .drawType = static_cast<uint32_t>(_drawType),
+            .drawType = static_cast<uint32_t>(drawType),
             .frameIndex = _frameIndex,
             .flags = pcFlags(PCBlock::Flags{
                 .skipHistory = cam.changedThisFrame() || resetAccumulation ||

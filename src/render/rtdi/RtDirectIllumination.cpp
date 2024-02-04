@@ -64,13 +64,13 @@ void RtDirectIllumination::drawUi()
     WHEELS_ASSERT(_initialized);
 
     ImGui::Checkbox("Spatial reuse", &_doSpatialReuse);
-    _trace.drawUi();
 }
 
 RtDirectIllumination::Output RtDirectIllumination::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     const Camera &cam, const GBufferRendererOutput &gbuffer,
-    bool resetAccumulation, uint32_t nextFrame, Profiler *profiler)
+    bool resetAccumulation, DrawType drawType, uint32_t nextFrame,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
 
@@ -105,7 +105,8 @@ RtDirectIllumination::Output RtDirectIllumination::record(
                 .gbuffer = gbuffer,
                 .reservoirs = reservoirs,
             },
-            resetAccumulation || _resetAccumulation, nextFrame, profiler);
+            resetAccumulation || _resetAccumulation, drawType, nextFrame,
+            profiler);
 
         _resources->images.release(reservoirs);
     }
