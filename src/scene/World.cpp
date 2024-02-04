@@ -940,6 +940,12 @@ bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
     return _impl->_data.handleDeferredLoading(cb, profiler);
 }
 
+bool World::unbuiltBlases() const
+{
+    WHEELS_ASSERT(_initialized);
+    return _impl->_data._blases.size() < _impl->_data._meshInfos.size();
+}
+
 void World::drawDeferredLoadingUi() const
 {
     WHEELS_ASSERT(_initialized);

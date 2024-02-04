@@ -31,6 +31,7 @@ class World
 
     // Returns true if the visible scene was changed.
     bool handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler);
+    bool unbuiltBlases() const;
 
     void drawDeferredLoadingUi() const;
     // Returns true if the next frame will use a different scene
