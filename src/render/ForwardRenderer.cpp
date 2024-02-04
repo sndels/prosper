@@ -95,7 +95,7 @@ void ForwardRenderer::recompileShaders(
     const wheels::HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(_initialized);
 
     WHEELS_ASSERT(_meshReflection.has_value());
     WHEELS_ASSERT(_fragReflection.has_value());
