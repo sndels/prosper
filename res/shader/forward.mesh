@@ -110,7 +110,7 @@ void main()
 
     SetMeshOutputsEXT(meshletInfo.vertexCount, meshletInfo.triangleCount);
 
-    uint verticesPerThread = (meshletInfo.vertexCount - 1) / LOCAL_SIZE_X + 1;
+    const uint verticesPerThread = (MAX_MS_VERTS - 0) / LOCAL_SIZE_X + 1;
     for (uint i = 0; i < verticesPerThread; ++i)
     {
         uint meshletID = i * LOCAL_SIZE_X + threadID;
@@ -124,8 +124,7 @@ void main()
         }
     }
 
-    uint trianglesPerThread =
-        (meshletInfo.triangleCount - 1) / LOCAL_SIZE_X + 1;
+    const uint trianglesPerThread = (MAX_MS_PRIMS - 1) / LOCAL_SIZE_X + 1;
     for (uint i = 0; i < trianglesPerThread; ++i)
     {
         uint triangleID = i * LOCAL_SIZE_X + threadID;
