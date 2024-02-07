@@ -651,7 +651,8 @@ void WorldData::loadTextures(
         _texture2Ds.emplace_back();
         _texture2Ds.back().init(
             scopeAlloc.child_scope(), _device, resPath("texture/empty.png"), cb,
-            stagingBuffer, false);
+            stagingBuffer, false,
+            ImageState::FragmentShaderRead | ImageState::RayTracingRead);
         _device->endGraphicsCommands(cb);
 
         texture2DSamplers.emplace_back();
@@ -2138,7 +2139,8 @@ void WorldData::loadTextureSingleThreaded(
     _texture2Ds.emplace_back();
     _texture2Ds.back().init(
         scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
-        ctx.stagingBuffers[nextFrame], true);
+        ctx.stagingBuffers[nextFrame], true,
+        ImageState::FragmentShaderRead | ImageState::RayTracingRead);
 }
 
 void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)

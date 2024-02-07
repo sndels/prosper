@@ -925,7 +925,7 @@ void loadNextTexture(DeferredLoadingContext *ctx)
     Texture2D tex;
     tex.init(
         ScopedScratch{scopeBacking}, ctx->device, ctx->sceneDir / image.uri,
-        ctx->cb, ctx->stagingBuffers[0], true, true);
+        ctx->cb, ctx->stagingBuffers[0], true);
 
     const QueueFamilies &families = ctx->device->queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());

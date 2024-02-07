@@ -443,7 +443,7 @@ void Texture::destroy()
 void Texture2D::init(
     ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
     vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap,
-    const bool skipPostTransition)
+    const ImageState initialState)
 {
     WHEELS_ASSERT(device != nullptr);
 
@@ -560,9 +560,8 @@ void Texture2D::init(
         vk::ImageLayout::eTransferDstOptimal,
         asserted_cast<uint32_t>(regions.size()), regions.data());
 
-    if (!skipPostTransition)
-        _image.transition(
-            cb, ImageState::FragmentShaderRead | ImageState::RayTracingRead);
+    if (initialState != ImageState::Unknown)
+        _image.transition(cb, initialState);
 }
 
 vk::DescriptorImageInfo Texture2D::imageInfo() const
