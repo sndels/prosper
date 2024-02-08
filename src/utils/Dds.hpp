@@ -12,6 +12,7 @@ enum class DxgiFormat
 {
     Unknown = 0,
     R8G8B8A8Unorm = 28,
+    R9G9B9E5SharedExp = 67,
     BC7Unorm = 98,
 };
 
@@ -21,6 +22,7 @@ struct Dds
 {
     uint32_t width{0};
     uint32_t height{0};
+    uint32_t depth{1};
     DxgiFormat format{DxgiFormat::Unknown};
     uint32_t mipLevelCount{0};
     wheels::Array<uint8_t> data;
@@ -32,7 +34,7 @@ struct Dds
 
     // Allocates enough space in data and sets levelByteOffsets accordingly
     Dds(wheels::Allocator &alloc, uint32_t width, uint32_t height,
-        DxgiFormat format, uint32_t mipLevelCount);
+        uint32_t depth, DxgiFormat format, uint32_t mipLevelCount);
 
     // NOLINTEND(bugprone-easily-swappable-parameters)
 };

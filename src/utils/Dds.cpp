@@ -48,6 +48,7 @@ enum class D3d10ResourceDimension
 {
     Unknown = 0,
     Texture2d = 3,
+    Texture3d = 4,
 };
 
 // https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dds-header-dxt10
@@ -81,48 +82,67 @@ bool isFormatCompressed(DxgiFormat format)
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 Dds::Dds(
-    wheels::Allocator &alloc, uint32_t width, uint32_t height,
+    wheels::Allocator &alloc, uint32_t width, uint32_t height, uint32_t depth,
     DxgiFormat format, uint32_t mipLevelCount)
 // NOLINTEND(bugprone-easily-swappable-parameters)
 : width{width}
 , height{height}
+, depth{depth}
 , format{format}
 , mipLevelCount{mipLevelCount}
 , data{alloc}
 , levelByteOffsets{alloc}
 {
+    const uint32_t levelCount = std::max(mipLevelCount, depth);
     uint32_t totalByteSize = 0;
-    levelByteOffsets.reserve(mipLevelCount);
-    for (uint32_t i = 0; i < mipLevelCount; ++i)
+    if (depth <= 1)
     {
-        uint32_t levelWidth = 0;
-        uint32_t levelHeight = 0;
-        uint32_t levelByteSize = 0;
+        levelByteOffsets.reserve(levelCount);
+
+        for (uint32_t i = 0; i < mipLevelCount; ++i)
+        {
+            uint32_t levelWidth = 0;
+            uint32_t levelHeight = 0;
+            uint32_t levelByteSize = 0;
+            switch (format)
+            {
+            case DxgiFormat::R8G8B8A8Unorm:
+                levelWidth = std::max(width >> i, 1u);
+                levelHeight = std::max(height >> i, 1u);
+                levelByteSize = levelWidth * levelHeight * 4;
+                break;
+            case DxgiFormat::BC7Unorm:
+                // Each 4x4 block is 16bytes
+                levelWidth = std::max(width >> i, 1u);
+                levelHeight = std::max(height >> i, 1u);
+                WHEELS_ASSERT(
+                    levelWidth % 4 == 0 && levelHeight % 4 == 0 &&
+                    "BC7 mips should be divide evenly by 4x4");
+                WHEELS_ASSERT(
+                    levelWidth >= 4 && levelHeight >= 4 &&
+                    "BC7 mip dimensions should be at least 4x4");
+                levelByteSize = levelWidth / 4 * levelHeight / 4 * 16;
+                break;
+            default:
+                throw std::runtime_error("Unknown DxgiFormat");
+            }
+            levelByteOffsets.push_back(totalByteSize);
+            totalByteSize += levelByteSize;
+        }
+    }
+    else
+    {
+        WHEELS_ASSERT(
+            mipLevelCount == 1 &&
+            "Volume textures with mips are not implemented");
         switch (format)
         {
-        case DxgiFormat::R8G8B8A8Unorm:
-            levelWidth = std::max(width >> i, 1u);
-            levelHeight = std::max(height >> i, 1u);
-            levelByteSize = levelWidth * levelHeight * 4;
-            break;
-        case DxgiFormat::BC7Unorm:
-            // Each 4x4 block is 16bytes
-            levelWidth = std::max(width >> i, 1u);
-            levelHeight = std::max(height >> i, 1u);
-            WHEELS_ASSERT(
-                levelWidth % 4 == 0 && levelHeight % 4 == 0 &&
-                "BC7 mips should be divide evenly by 4x4");
-            WHEELS_ASSERT(
-                levelWidth >= 4 && levelHeight >= 4 &&
-                "BC7 mip dimensions should be at least 4x4");
-            levelByteSize = levelWidth / 4 * levelHeight / 4 * 16;
+        case DxgiFormat::R9G9B9E5SharedExp:
+            totalByteSize = width * height * depth * 4;
             break;
         default:
-            throw std::runtime_error("Unknown DxgiFormat");
+            throw std::runtime_error("Unimplemented DxgiFormat");
         }
-
-        levelByteOffsets.push_back(totalByteSize);
-        totalByteSize += levelByteSize;
     }
     data.resize(totalByteSize);
 }
@@ -158,6 +178,10 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
         // mipmapcount | uncompressed | required
         : 0x0002100Fu;
     // clang-format on
+
+    WHEELS_ASSERT(
+        dds.depth == 1 && "DDS writes for 3D textures are not implemented");
+
     // We don't use the legacy header so write it empty
     const DdsHeader ddsHeader{
         .dwFlags = flags,
@@ -225,10 +249,12 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     // Programming guide advises against checking 0x1, 0x1000 and 0x2000, but
     // gli was pedantic here so let's do that as well. This is for our cache
     // after all...
-    // mipmapcount | uncompressed | required
+    // https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dds-header
     WHEELS_ASSERT(
-        (ddsHeader.dwFlags == 0x0002100F) ||
-        (ddsHeader.dwFlags == 0x000A1007) && "Unexpexted DDS_FLAGS ");
+        ((ddsHeader.dwFlags == 0x0002100F) ||
+         (ddsHeader.dwFlags == 0x0080100F) ||
+         (ddsHeader.dwFlags == 0x000A1007)) &&
+        "Unexpexted DDS_FLAGS ");
     WHEELS_ASSERT(
         ddsHeader.ddspf.dwSize == 32 && "Unexpexted DDS_PIXEL_FORMAT size");
     WHEELS_ASSERT(ddsHeader.ddspf.dwFlags == 0x4 && "Expected valid FourCC");
@@ -255,24 +281,35 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
          ddsHeader.ddspf.dwABitMask == 0) &&
         "Expected A bit mask 0xFF000000 or 0");
     // gli had mipmaps tagged even for textures that had 1 mipmap, let's match
-    WHEELS_ASSERT(ddsHeader.dwCaps == 0x00401000 && "Unexpected DDS_CAPS");
+    // https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dds-header
+    WHEELS_ASSERT(
+        (ddsHeader.dwCaps == 0x00401000 || ddsHeader.dwCaps == 0x00001008) &&
+        "Unexpected DDS_CAPS");
 
     DdsHeaderDxt10 ddsHeaderDxt10;
     readRaw(inFile, ddsHeaderDxt10);
 
     WHEELS_ASSERT(
         (ddsHeaderDxt10.dxgiFormat == DxgiFormat::R8G8B8A8Unorm ||
+         ddsHeaderDxt10.dxgiFormat == DxgiFormat::R9G9B9E5SharedExp ||
          ddsHeaderDxt10.dxgiFormat == DxgiFormat::BC7Unorm) &&
         "Only R8G8B8A8Unorm and BC7Unorm DDS textures are supported");
     WHEELS_ASSERT(
-        ddsHeaderDxt10.resourceDimension == D3d10ResourceDimension::Texture2d &&
-        "Only Texture2d DDS resource dimension is supported");
+        (ddsHeaderDxt10.resourceDimension ==
+             D3d10ResourceDimension::Texture2d ||
+         ddsHeaderDxt10.resourceDimension ==
+             D3d10ResourceDimension::Texture3d) &&
+        "Only Texture2d and Texture3d DDS resource dimension is supported");
     WHEELS_ASSERT(
         ddsHeaderDxt10.arraySize == 1 &&
         "DDS texture arrays are not supported");
 
     Dds ret{
-        alloc, ddsHeader.dwWidth, ddsHeader.dwHeight, ddsHeaderDxt10.dxgiFormat,
+        alloc,
+        ddsHeader.dwWidth,
+        ddsHeader.dwHeight,
+        ddsHeader.dwDepth,
+        ddsHeaderDxt10.dxgiFormat,
         ddsHeader.dwMipMapCount};
 
     // TODO:

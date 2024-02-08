@@ -286,9 +286,8 @@ void compress(
         }
     }
 
-    Dds dds{
-        scopeAlloc, pixels.extent.width, pixels.extent.height, format,
-        mipLevelCount};
+    Dds dds{scopeAlloc, pixels.extent.width, pixels.extent.height, 1,
+            format,     mipLevelCount};
 
     if (format == DxgiFormat::BC7Unorm)
     {
