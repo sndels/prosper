@@ -67,6 +67,9 @@ template <typename T, typename V> constexpr T asserted_cast(V a)
 }
 
 std::filesystem::path resPath(const std::filesystem::path &path);
+// Returns the path relative from RES_PATH, or the path untouched if it's not
+// under it. Considers symlinks to be under the path like any other folder/file.
+std::filesystem::path relativePath(const std::filesystem::path &path);
 std::filesystem::path binPath(const std::filesystem::path &path);
 
 wheels::String readFileString(

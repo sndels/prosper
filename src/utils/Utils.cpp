@@ -9,6 +9,19 @@ std::filesystem::path resPath(const std::filesystem::path &path)
     return std::filesystem::path{RES_PATH} / path;
 }
 
+std::filesystem::path relativePath(const std::filesystem::path &path)
+{
+    const std::string pathStr = path.generic_string();
+
+    // Just compare the start because this specifically doesn't consider
+    // symlinks to be any different from normal folders within paths
+    if (pathStr.find(RES_PATH) != std::string::npos)
+        return std::filesystem::path{
+            pathStr.begin() + strlen(RES_PATH), pathStr.end()};
+
+    return path;
+}
+
 std::filesystem::path binPath(const std::filesystem::path &path)
 {
     if (path.is_absolute())
