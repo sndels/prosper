@@ -512,6 +512,8 @@ void Texture2D::init(
     // using unorm for snorm inputs. Having srgb data say it's unorm is
     // potentially confusing.
 
+    const std::filesystem::path relPath = relativePath(path);
+
     _image = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
@@ -524,7 +526,7 @@ void Texture2D::init(
                               vk::ImageUsageFlagBits::eTransferDst |
                               vk::ImageUsageFlagBits::eSampled,
             },
-        .debugName = "Texture2D",
+        .debugName = relPath.generic_string().c_str(),
     });
 
     _image.transition(cb, ImageState::TransferDst);
@@ -606,6 +608,8 @@ void Texture3D::init(
     WHEELS_ASSERT(dds.data.size() <= stagingBuffer.byteSize);
     memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
 
+    const std::filesystem::path relPath = relativePath(path);
+
     WHEELS_ASSERT(dds.mipLevelCount == 1);
     _image = _device->createImage(ImageCreateInfo{
         .desc =
@@ -620,7 +624,7 @@ void Texture3D::init(
                               vk::ImageUsageFlagBits::eTransferDst |
                               vk::ImageUsageFlagBits::eSampled,
             },
-        .debugName = "Texture3D",
+        .debugName = relPath.generic_string().c_str(),
     });
 
     // Just create an ad hoc cb here as Texture3D are only loaded in during load
@@ -683,6 +687,8 @@ void TextureCubemap::init(
     WHEELS_ASSERT(
         mipLevels > 4 && "Diffuse irradiance gather happens from mip 3");
 
+    const std::filesystem::path relPath = relativePath(path);
+
     _image = _device->createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
@@ -695,7 +701,7 @@ void TextureCubemap::init(
                 .usageFlags = vk::ImageUsageFlagBits::eTransferDst |
                               vk::ImageUsageFlagBits::eSampled,
             },
-        .debugName = "TextureCubemap",
+        .debugName = relPath.generic_string().c_str(),
     });
 
     copyPixels(scopeAlloc.child_scope(), cube, _image.subresourceRange);
