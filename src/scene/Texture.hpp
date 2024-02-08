@@ -56,6 +56,17 @@ class Texture2D : public Texture
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 };
 
+class Texture3D : public Texture
+{
+  public:
+    void init(
+        wheels::ScopedScratch scopeAlloc, Device *device,
+        const std::filesystem::path &path,
+        ImageState initialState = ImageState::Unknown);
+
+    [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
+};
+
 class TextureCubemap : public Texture
 {
   public:

@@ -387,6 +387,8 @@ vk::Format asVkFormat(DxgiFormat format)
     {
     case DxgiFormat::R8G8B8A8Unorm:
         return vk::Format::eR8G8B8A8Unorm;
+    case DxgiFormat::R9G9B9E5SharedExp:
+        return vk::Format::eE5B9G9R9UfloatPack32;
     case DxgiFormat::BC7Unorm:
         return vk::Format::eBc7UnormBlock;
     default:
@@ -564,6 +566,96 @@ void Texture2D::init(
 }
 
 vk::DescriptorImageInfo Texture2D::imageInfo() const
+{
+    return vk::DescriptorImageInfo{
+        .imageView = _image.view,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+}
+
+void Texture3D::init(
+    ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
+    const ImageState initialState)
+{
+    WHEELS_ASSERT(device != nullptr);
+
+    Texture::init(device);
+
+    Dds dds = readDds(scopeAlloc, path);
+    WHEELS_ASSERT(!dds.data.empty());
+
+    const vk::Extent3D extent{
+        asserted_cast<uint32_t>(dds.width),
+        asserted_cast<uint32_t>(dds.height),
+        asserted_cast<uint32_t>(dds.depth),
+    };
+
+    // Just create the staging here as Texture3D are only loaded in during load
+    // time so we can wait for upload to complete
+    const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = dds.data.size(),
+                .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                              vk::MemoryPropertyFlagBits::eHostCoherent,
+            },
+        .debugName = "Texture3DStaging",
+    });
+
+    WHEELS_ASSERT(dds.data.size() <= stagingBuffer.byteSize);
+    memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
+
+    WHEELS_ASSERT(dds.mipLevelCount == 1);
+    _image = _device->createImage(ImageCreateInfo{
+        .desc =
+            ImageDescription{
+                .imageType = vk::ImageType::e3D,
+                .format = asVkFormat(dds.format),
+                .width = extent.width,
+                .height = extent.height,
+                .depth = extent.depth,
+                .layerCount = 1,
+                .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
+                              vk::ImageUsageFlagBits::eTransferDst |
+                              vk::ImageUsageFlagBits::eSampled,
+            },
+        .debugName = "Texture3D",
+    });
+
+    // Just create an ad hoc cb here as Texture3D are only loaded in during load
+    // time so we can wait for upload to complete
+    const vk::CommandBuffer cb = device->beginGraphicsCommands();
+
+    _image.transition(cb, ImageState::TransferDst);
+
+    const vk::BufferImageCopy region{
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource =
+            vk::ImageSubresourceLayers{
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        .imageOffset = {0, 0, 0},
+        .imageExtent = extent,
+    };
+
+    cb.copyBufferToImage(
+        stagingBuffer.handle, _image.handle,
+        vk::ImageLayout::eTransferDstOptimal, 1, &region);
+
+    if (initialState != ImageState::Unknown)
+        _image.transition(cb, initialState);
+
+    device->endGraphicsCommands(cb);
+    device->destroy(stagingBuffer);
+}
+
+vk::DescriptorImageInfo Texture3D::imageInfo() const
 {
     return vk::DescriptorImageInfo{
         .imageView = _image.view,
