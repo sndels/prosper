@@ -53,8 +53,12 @@ void ToneMap::init(
 
     _resources = resources;
     _computePass.init(
-        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
         shaderDefinitionCallback);
+
+    _lut.init(
+        WHEELS_MOV(scopeAlloc), device, resPath("texture/tony_mc_mapface.dds"),
+        ImageState::ComputeShaderSampledRead);
 
     _initialized = true;
 }
@@ -94,6 +98,10 @@ ToneMap::Output ToneMap::record(
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = _resources->images.resource(inColor).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{_lut.imageInfo()},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = _resources->bilinearSampler,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = _resources->images.resource(ret.toneMapped).view,

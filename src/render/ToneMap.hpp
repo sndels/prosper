@@ -5,6 +5,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "../gfx/Fwd.hpp"
+#include "../scene/Texture.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "ComputePass.hpp"
@@ -47,6 +48,7 @@ class ToneMap
     bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
+    Texture3D _lut;
 
     float _exposure{1.f};
     bool _zoom{false};

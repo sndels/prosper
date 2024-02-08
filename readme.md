@@ -17,7 +17,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - Skybox
 - IBL
   - From the environment map with split sum approximation
-- 1D ACES-tonemap[^2]
+- LUT-based display transform
+  - [Tony McMapface](https://github.com/h3r2tic/tony-mc-mapface)
 - Deferred and forward rendering paths
   - Mesh shaders
   - Drawlist generation and meshlet culling in compute
@@ -105,4 +106,3 @@ Only when free look is toggled if camera is animated
 Much of the typical STL use is replaced by my own implementations, [wheels](https://github.com/sndels/wheels). I don't think STL was ever in any way a hindrance in this project, but I found it an interesting endeavor to try and come up with my own version of it. I also ended up having explicit allocators for the dynamic containers and this is already a non-trivial project where I can try how the choice affects the user code. Turns out having to juggle allocators and trying to use linear ones makes you much more concious of (re)allocations.
 
 [^1]: Scene modified from Crytek Sponza, originally by Frank Meinl with tweaks by Morgan McGuire, Alexandre Pestana and the authors of [glTF-Sample-Models](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Sponza)
-[^2]: From a blog post by [Krzysztof Narkowicz](https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve)
