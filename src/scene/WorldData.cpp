@@ -1531,12 +1531,14 @@ void WorldData::createBuffers()
             });
         }
 
+        // Make room for one extra frame because the previous frame's transforms
+        // are read for motion
         const uint32_t bufferSize = asserted_cast<uint32_t>(
             ((maxModelInstanceTransforms * sizeof(ModelInstance::Transforms) +
               static_cast<size_t>(RingBuffer::sAlignment)) +
              (maxModelInstanceTransforms * sizeof(float) +
               static_cast<size_t>(RingBuffer::sAlignment))) *
-            MAX_FRAMES_IN_FLIGHT);
+            (MAX_FRAMES_IN_FLIGHT + 1));
         _modelInstanceTransformsRing.init(
             _device, vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
             "ModelInstanceTransformRing");
