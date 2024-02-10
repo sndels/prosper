@@ -60,12 +60,11 @@ class MeshletCuller
     [[nodiscard]] BufferHandle recordGenerateList(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
         const World &world, uint32_t nextFrame, const char *debugPrefix,
-        SceneStats *sceneStats, Profiler *profiler);
+        SceneStats *sceneStats);
 
     [[nodiscard]] BufferHandle recordWriteCullerArgs(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        uint32_t nextFrame, BufferHandle drawList, const char *debugPrefix,
-        Profiler *profiler);
+        uint32_t nextFrame, BufferHandle drawList, const char *debugPrefix);
 
     struct CullerInput
     {
@@ -75,7 +74,7 @@ class MeshletCuller
     [[nodiscard]] MeshletCullerOutput recordCullList(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, uint32_t nextFrame,
-        const CullerInput &input, const char *debugPrefix, Profiler *profiler);
+        const CullerInput &input, const char *debugPrefix);
 
     bool _initialized{false};
     Device *_device{nullptr};

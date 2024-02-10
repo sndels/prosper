@@ -212,13 +212,17 @@ MeshletCullerOutput MeshletCuller::record(
 {
     WHEELS_ASSERT(_initialized);
 
+    String scopeName{scopeAlloc};
+    scopeName.extend(debugPrefix);
+    scopeName.extend("DrawList");
+    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
+
     const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,
-        sceneStats, profiler);
+        sceneStats);
 
     const BufferHandle cullerArgs = recordWriteCullerArgs(
-        scopeAlloc.child_scope(), cb, nextFrame, initialList, debugPrefix,
-        profiler);
+        scopeAlloc.child_scope(), cb, nextFrame, initialList, debugPrefix);
 
     const MeshletCullerOutput culledList = recordCullList(
         WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
@@ -226,7 +230,7 @@ MeshletCullerOutput MeshletCuller::record(
             .dataBuffer = initialList,
             .argumentBuffer = cullerArgs,
         },
-        debugPrefix, profiler);
+        debugPrefix);
 
     _resources->buffers.release(initialList);
     _resources->buffers.release(cullerArgs);
@@ -237,15 +241,10 @@ MeshletCullerOutput MeshletCuller::record(
 BufferHandle MeshletCuller::recordGenerateList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, uint32_t nextFrame, const char *debugPrefix,
-    SceneStats *sceneStats, Profiler *profiler)
+    SceneStats *sceneStats)
 {
     uint32_t meshletCountUpperBound = 0;
     {
-        String scopeName{scopeAlloc};
-        scopeName.extend(debugPrefix);
-        scopeName.extend("MeshletCullerStats");
-        const auto _s = profiler->createCpuScope(scopeName.c_str());
-
         const Scene &scene = world.currentScene();
         const Span<const Model> models = world.models();
         const Span<const Material> materials = world.materials();
@@ -319,11 +318,6 @@ BufferHandle MeshletCuller::recordGenerateList(
     _resources->buffers.transition(
         cb, ret, BufferState::ComputeShaderReadWrite);
 
-    String scopeName{scopeAlloc};
-    scopeName.extend(debugPrefix);
-    scopeName.extend("DrawListGeneration");
-    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
-
     const GeneratorPCBlock pcBlock{
         .matchTransparents = mode == Mode::Transparent ? 1u : 0u,
     };
@@ -363,7 +357,7 @@ BufferHandle MeshletCuller::recordGenerateList(
 
 BufferHandle MeshletCuller::recordWriteCullerArgs(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
-    BufferHandle drawList, const char *debugPrefix, Profiler *profiler)
+    BufferHandle drawList, const char *debugPrefix)
 {
     String argumentsName{scopeAlloc};
     argumentsName.extend(debugPrefix);
@@ -400,11 +394,6 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
             }},
         });
 
-    String scopeName{scopeAlloc};
-    scopeName.extend(debugPrefix);
-    scopeName.extend("DrawListCullerArgs");
-    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
-
     const vk::DescriptorSet ds = _cullerArgumentsWriter.storageSet(nextFrame);
 
     _cullerArgumentsWriter.record(cb, glm::uvec3{1, 1, 1}, Span{&ds, 1});
@@ -415,7 +404,7 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
 MeshletCullerOutput MeshletCuller::recordCullList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, uint32_t nextFrame, const CullerInput &input,
-    const char *debugPrefix, Profiler *profiler)
+    const char *debugPrefix)
 {
     String dataName{scopeAlloc};
     dataName.extend(debugPrefix);
@@ -481,11 +470,6 @@ MeshletCullerOutput MeshletCuller::recordCullList(
                 {ret.argumentBuffer, BufferState::ComputeShaderReadWrite},
             }},
         });
-
-    String scopeName{scopeAlloc};
-    scopeName.extend(debugPrefix);
-    scopeName.extend("DrawListCuller");
-    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
 
     const Scene &scene = world.currentScene();
     const WorldDescriptorSets &worldDSes = world.descriptorSets();
