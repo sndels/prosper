@@ -308,8 +308,6 @@ bool ComputePass::compileShader(
     WHEELS_ASSERT(all(greaterThan(shader.groupSize, uvec3{0})));
     _groupSize = shader.groupSize;
 
-    printf("Compiling %s\n", shader.debugName.c_str());
-
     const size_t len =
         56 + (shader.defines.has_value() ? shader.defines->size() : 0);
     String defines{scopeAlloc, len};

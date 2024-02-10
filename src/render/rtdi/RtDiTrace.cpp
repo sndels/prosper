@@ -384,8 +384,6 @@ void RtDiTrace::destroyPipeline()
 bool RtDiTrace::compileShaders(
     ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
-    printf("Compiling RtDiTrace shaders\n");
-
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
     appendDefineStr(raygenDefines, "CAMERA_SET", CameraBindingSet);

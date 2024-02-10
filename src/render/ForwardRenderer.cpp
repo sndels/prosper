@@ -164,8 +164,6 @@ void ForwardRenderer::recordTransparent(
 bool ForwardRenderer::compileShaders(
     ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
-    printf("Compiling ForwardRenderer shaders\n");
-
     const vk::PhysicalDeviceMeshShaderPropertiesEXT &meshShaderProps =
         _device->properties().meshShader;
 

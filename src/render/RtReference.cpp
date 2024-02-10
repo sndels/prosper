@@ -413,8 +413,6 @@ void RtReference::destroyPipeline()
 bool RtReference::compileShaders(
     ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
-    printf("Compiling RtReference shaders\n");
-
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
     appendDefineStr(raygenDefines, "MAX_BOUNCES", sMaxBounces);

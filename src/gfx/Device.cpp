@@ -665,6 +665,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     // Also push root file as reflection expects all sources to be included here
     _uniqueIncludes.insert(shaderPath.lexically_normal());
 
+    printf("Compiling %s\n", info.relPath.string().c_str());
     const auto result = _compiler.CompileGlslToSpv(
         fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
         shaderPath.string().c_str(), _compilerOptions);

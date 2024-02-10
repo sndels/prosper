@@ -163,8 +163,6 @@ void SkyboxRenderer::record(
 
 bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
-    printf("Compiling SkyboxRenderer shaders\n");
-
     const size_t len = 48;
     String defines{scopeAlloc, len};
     appendDefineStr(defines, "SKYBOX_SET", SkyboxBindingSet);

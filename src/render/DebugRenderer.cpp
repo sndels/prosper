@@ -168,8 +168,6 @@ void DebugRenderer::record(
 
 bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
 {
-    printf("Compiling DebugRenderer shaders\n");
-
     const size_t len = 48;
     String vertDefines{scopeAlloc, len};
     appendDefineStr(vertDefines, "CAMERA_SET", CameraBindingSet);

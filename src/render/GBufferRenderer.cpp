@@ -221,8 +221,6 @@ GBufferRendererOutput GBufferRenderer::record(
 bool GBufferRenderer::compileShaders(
     ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
-    printf("Compiling GBufferRenderer shaders\n");
-
     const vk::PhysicalDeviceMeshShaderPropertiesEXT &meshShaderProps =
         _device->properties().meshShader;
 
