@@ -1345,6 +1345,7 @@ void WorldData::gatherScene(
         // new node into roots
         scene.rootNodes.push_back(asserted_cast<uint32_t>(scene.nodes.size()));
         scene.nodes.emplace_back();
+        scene.fullNodeNames.emplace_back(_generalAlloc);
 
         // Start adding nodes from the new root
         nodeStack.clear();
@@ -1372,6 +1373,12 @@ void WorldData::gatherScene(
             sceneNode.firstChild = firstChild;
             sceneNode.lastChild = lastChild;
 
+            // Parent initialized this with the parent 'path'
+            scene.fullNodeNames[indices.sceneNode].extend(
+                StrSpan{tmpNode.gltfName.data(), tmpNode.gltfName.size()});
+            // This span is stable now even though the array of names is not
+            sceneNode.fullName = scene.fullNodeNames[indices.sceneNode];
+
             for (uint32_t i = 0; i < childCount; ++i)
             {
                 const uint32_t childIndex = sceneNode.firstChild + i;
@@ -1379,6 +1386,10 @@ void WorldData::gatherScene(
                 nodeStack.emplace_back(
                     asserted_cast<uint32_t>(tmpNode.children[i]),
                     asserted_cast<uint32_t>(childIndex));
+
+                scene.fullNodeNames.emplace_back(
+                    _generalAlloc, sceneNode.fullName);
+                scene.fullNodeNames.back().push_back('/');
             }
 
             sceneNode.translation = tmpNode.translation;
@@ -1396,6 +1407,7 @@ void WorldData::gatherScene(
                 scene.modelInstances.push_back(ModelInstance{
                     .id = *sceneNode.modelInstance,
                     .modelID = *sceneNode.modelID,
+                    .fullName = sceneNode.fullName,
                 });
                 scene.drawInstanceCount += asserted_cast<uint32_t>(
                     _models[*sceneNode.modelID].subModels.size());

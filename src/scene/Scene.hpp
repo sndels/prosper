@@ -36,6 +36,7 @@ struct Scene
         // True if either this node's or one of its parents' transform is
         // animated
         bool dynamicTransform{false};
+        wheels::StrSpan fullName;
     };
 
     struct Lights
@@ -46,6 +47,7 @@ struct Scene
     };
 
     wheels::Array<Node> nodes;
+    wheels::Array<wheels::String> fullNodeNames;
     wheels::Array<uint32_t> rootNodes;
     float endTimeS{0.f};
 
@@ -67,6 +69,7 @@ struct Scene
 
     Scene(wheels::Allocator &alloc)
     : nodes{alloc}
+    , fullNodeNames{alloc}
     , rootNodes{alloc}
     , modelInstances{alloc}
     {
