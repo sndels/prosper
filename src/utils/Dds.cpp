@@ -213,9 +213,7 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
     };
     writeRaw(outFile, ddsHeaderDxt10);
 
-    // TODO:
-    // Wheels: Array::span() defaults that return a full span
-    writeRawSpan(outFile, Span{dds.data.data(), dds.data.size()});
+    writeRawArray(outFile, dds.data);
 
     outFile.close();
 
@@ -312,9 +310,7 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
         ddsHeaderDxt10.dxgiFormat,
         ddsHeader.dwMipMapCount};
 
-    // TODO:
-    // Wheels: Array::span() defaults that return a full span
-    readRawSpan(inFile, Span{ret.data.data(), ret.data.size()});
+    readRawArray(inFile, ret.data);
 
     inFile.read(reinterpret_cast<char *>(ret.data.data()), ret.data.size());
 

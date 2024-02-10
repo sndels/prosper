@@ -81,30 +81,21 @@ template <typename T> void readRaw(std::ifstream &stream, T &value)
 }
 
 template <typename T>
-void readRawSpan(std::ifstream &stream, wheels::Span<T> span)
+void readRawArray(std::ifstream &stream, wheels::Array<T> &span)
 {
     stream.read(reinterpret_cast<char *>(span.data()), span.size() * sizeof(T));
+}
+
+template <typename T>
+void writeRawArray(std::ofstream &stream, const wheels::Array<T> &arr)
+{
+    stream.write(
+        reinterpret_cast<const char *>(arr.data()), arr.size() * sizeof(T));
 }
 
 template <typename T> void writeRaw(std::ofstream &stream, const T &value)
 {
     stream.write(reinterpret_cast<const char *>(&value), sizeof(value));
-}
-
-template <typename T>
-void writeRawSpan(std::ofstream &stream, wheels::Span<const T> span)
-{
-    stream.write(
-        reinterpret_cast<const char *>(span.data()), span.size() * sizeof(T));
-}
-
-// TODO:
-// Figure out deduction for Span<T> -> Span<const T> -> T
-template <typename T>
-void writeRawSpan(std::ofstream &stream, wheels::Span<T> span)
-{
-    stream.write(
-        reinterpret_cast<const char *>(span.data()), span.size() * sizeof(T));
 }
 
 inline void appendDefineStr(wheels::String &str, wheels::StrSpan name)

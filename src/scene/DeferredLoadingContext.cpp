@@ -528,7 +528,7 @@ Optional<MeshCacheHeader> readCache(
     if (dataBlobOut != nullptr)
     {
         dataBlobOut->resize(ret->blobByteCount);
-        readRawSpan(cacheFile, Span{dataBlobOut->data(), dataBlobOut->size()});
+        readRawArray(cacheFile, *dataBlobOut);
     }
 
     return ret;
@@ -731,30 +731,15 @@ void writeCache(
     writeRaw(cacheFile, header.blobByteCount);
 
     const std::streampos blobStart = cacheFile.tellp();
-    // TODO:
-    // Wheels: Array::span() defaults that return a full span
-    writeRawSpan(cacheFile, Span{packedIndices.data(), packedIndices.size()});
-    writeRawSpan(
-        cacheFile, Span{meshData.positions.data(), meshData.positions.size()});
-    writeRawSpan(
-        cacheFile, Span{meshData.normals.data(), meshData.normals.size()});
-    writeRawSpan(
-        cacheFile, Span{meshData.tangents.data(), meshData.tangents.size()});
-    writeRawSpan(
-        cacheFile,
-        Span{meshData.texCoord0s.data(), meshData.texCoord0s.size()});
-    writeRawSpan(
-        cacheFile, Span{meshData.meshlets.data(), meshData.meshlets.size()});
-    writeRawSpan(
-        cacheFile,
-        Span{meshData.meshletBounds.data(), meshData.meshletBounds.size()});
-    writeRawSpan(
-        cacheFile,
-        Span{packedMeshletVertices.data(), packedMeshletVertices.size()});
-    writeRawSpan(
-        cacheFile, Span{
-                       meshData.meshletTriangles.data(),
-                       meshData.meshletTriangles.size()});
+    writeRawArray(cacheFile, packedIndices);
+    writeRawArray(cacheFile, meshData.positions);
+    writeRawArray(cacheFile, meshData.normals);
+    writeRawArray(cacheFile, meshData.tangents);
+    writeRawArray(cacheFile, meshData.texCoord0s);
+    writeRawArray(cacheFile, meshData.meshlets);
+    writeRawArray(cacheFile, meshData.meshletBounds);
+    writeRawArray(cacheFile, packedMeshletVertices);
+    writeRawArray(cacheFile, meshData.meshletTriangles);
     const std::streampos blobEnd = cacheFile.tellp();
     const std::streamoff blobLen = blobEnd - blobStart;
     WHEELS_ASSERT(blobLen == header.blobByteCount);
