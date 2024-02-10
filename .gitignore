@@ -3,4 +3,5 @@ build-analysis/*
 imgui.ini
 prosper_imgui.ini
 scene.txt
+_scene.txt
 **/prosper_cache/*
