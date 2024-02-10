@@ -93,6 +93,18 @@ void writeRawArray(std::ofstream &stream, const wheels::Array<T> &arr)
         reinterpret_cast<const char *>(arr.data()), arr.size() * sizeof(T));
 }
 
+template <typename T>
+void writeRawSpan(std::ofstream &stream, wheels::Span<const T> span)
+{
+    stream.write(
+        reinterpret_cast<const char *>(span.data()), span.size() * sizeof(T));
+}
+
+inline void writeRawStrSpan(std::ofstream &stream, const wheels::StrSpan span)
+{
+    stream.write(span.data(), span.size());
+}
+
 template <typename T> void writeRaw(std::ofstream &stream, const T &value)
 {
     stream.write(reinterpret_cast<const char *>(&value), sizeof(value));
