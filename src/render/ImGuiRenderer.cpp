@@ -26,6 +26,9 @@ constexpr void checkSuccessImGui(VkResult err)
 
 const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 
+const char *const sIniFilename = "prosper_imgui.ini";
+const char *const sDefaultIniFilename = "default_prosper_imgui.ini";
+
 } // namespace
 
 ImGuiRenderer::~ImGuiRenderer()
@@ -62,6 +65,25 @@ void ImGuiRenderer::init(
     createRenderPass();
 
     ImGui::CreateContext();
+
+    if (!std::filesystem::exists(sIniFilename))
+    {
+        printf("ImGui ini not found, copying default ini into working dir\n");
+        try
+        {
+            std::filesystem::copy(resPath(sDefaultIniFilename), sIniFilename);
+        }
+        catch (...)
+        {
+            fprintf(
+                stderr, "Failed to copy default imgui config into working "
+                        "directory.\n");
+        }
+    }
+
+    ImGuiIO &io = ImGui::GetIO();
+    io.IniFilename = sIniFilename;
+
     ImGui::StyleColorsDark();
 
     ImGui_ImplGlfw_InitForVulkan(window, false);
