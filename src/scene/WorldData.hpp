@@ -93,6 +93,7 @@ class WorldData
     wheels::Array<Buffer> _geometryBuffers{_generalAlloc};
     wheels::Array<GeometryMetadata> _geometryMetadatas{_generalAlloc};
     wheels::Array<MeshInfo> _meshInfos{_generalAlloc};
+    wheels::Array<wheels::String> _meshNames{_generalAlloc};
     wheels::Array<AccelerationStructure> _blases{_generalAlloc};
     wheels::Array<AccelerationStructure> _tlases{_generalAlloc};
     wheels::Array<Model> _models{_generalAlloc};

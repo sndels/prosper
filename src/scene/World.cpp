@@ -682,6 +682,14 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
             .accelerationStructure = blas.handle,
         });
 
+    _device->logical().setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eAccelerationStructureKHR,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkAccelerationStructureKHR>(blas.handle)),
+            .pObjectName = _data._meshNames[targetMesh].c_str(),
+        });
+
     buildInfo.dstAccelerationStructure = blas.handle;
 
     Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);

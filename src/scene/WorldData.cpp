@@ -2044,6 +2044,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
 
             _geometryMetadatas[ctx.loadedMeshCount] = uploadedData.metadata;
             _meshInfos[ctx.loadedMeshCount] = info;
+            _meshNames.emplace_back(_generalAlloc, uploadedData.meshName);
             // Track the used (and ownership transferred) range
             _geometryBufferAllocatedByteCounts[targetBufferI] +=
                 uploadedData.byteCount;

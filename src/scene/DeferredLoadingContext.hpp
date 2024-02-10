@@ -53,6 +53,8 @@ struct UploadedGeometryData
     GeometryMetadata metadata;
     uint32_t byteOffset{0};
     uint32_t byteCount{0};
+    // This is valid while DeferredLoadingContext is
+    wheels::StrSpan meshName;
 };
 
 Buffer createTextureStaging(Device *device);
@@ -100,7 +102,7 @@ class DeferredLoadingContext
 
     UploadedGeometryData uploadGeometryData(
         const MeshCacheHeader &cacheHeader,
-        const wheels::Array<uint8_t> &dataBlob);
+        const wheels::Array<uint8_t> &dataBlob, const wheels::String &meshName);
 
     // TODO:
     // Make worker context private?
@@ -119,6 +121,7 @@ class DeferredLoadingContext
     vk::CommandBuffer cb;
     uint32_t workerLoadedImageCount{0};
     wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes;
+    wheels::Array<wheels::String> meshNames;
     Buffer geometryUploadBuffer;
     wheels::Array<uint32_t> geometryBufferRemainingByteCounts{alloc};
     uint32_t workerLoadedMeshCount{0};

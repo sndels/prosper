@@ -839,8 +839,13 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     info.vertexCount = cacheHeader->vertexCount;
     info.meshletCount = cacheHeader->meshletCount;
 
-    const UploadedGeometryData uploadData =
-        ctx->uploadGeometryData(*cacheHeader, dataBlob);
+    const std::string &meshName =
+        ctx->gltfModel.meshes[metadata.sourceMeshIndex].name;
+    ctx->meshNames.emplace_back(
+        ctx->alloc, StrSpan{meshName.data(), meshName.size()});
+
+    const UploadedGeometryData uploadData = ctx->uploadGeometryData(
+        *cacheHeader, dataBlob, ctx->meshNames[meshIndex]);
 
     if (*families.graphicsFamily != *families.transferFamily)
     {
@@ -1026,6 +1031,7 @@ Buffer createTextureStaging(Device *device)
 DeferredLoadingContext::DeferredLoadingContext()
 : alloc{sLoadingAllocatorSize}
 , meshes{alloc}
+, meshNames{alloc}
 , loadedMeshes{alloc}
 , loadedTextures{alloc}
 , materials{alloc}
@@ -1093,6 +1099,7 @@ void DeferredLoadingContext::launch()
     WHEELS_ASSERT(initialized);
     WHEELS_ASSERT(
         !worker.has_value() && "Tried to launch deferred loading worker twice");
+
     worker = std::thread{&loadingWorker, this};
 }
 
@@ -1108,7 +1115,8 @@ void DeferredLoadingContext::kill()
 }
 
 UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
-    const MeshCacheHeader &cacheHeader, const Array<uint8_t> &dataBlob)
+    const MeshCacheHeader &cacheHeader, const Array<uint8_t> &dataBlob,
+    const String &meshName)
 {
     WHEELS_ASSERT(initialized);
     WHEELS_ASSERT(cacheHeader.blobByteCount > 0);
@@ -1181,6 +1189,7 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
             },
         .byteOffset = startByteOffset,
         .byteCount = cacheHeader.blobByteCount,
+        .meshName = meshName,
     };
 
     return ret;
