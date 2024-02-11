@@ -55,6 +55,21 @@ struct MemoryAllocationBytes
     std::atomic<vk::DeviceSize> texelBuffers{0};
 };
 
+struct GraphicsPipelineInfo
+{
+    vk::PipelineLayout layout;
+    const vk::PipelineVertexInputStateCreateInfo *vertInputInfo{nullptr};
+    wheels::Span<const vk::PipelineColorBlendAttachmentState>
+        colorBlendAttachments;
+    wheels::Span<const vk::PipelineShaderStageCreateInfo> shaderStages;
+    const vk::PipelineRenderingCreateInfo &renderingInfo;
+    vk::PrimitiveTopology topology{vk::PrimitiveTopology::eTriangleList};
+    vk::CullModeFlags cullMode{vk::CullModeFlagBits::eBack};
+    vk::CompareOp depthCompareOp{vk::CompareOp::eGreater};
+    bool writeDepth{true};
+    const char *debugName{""};
+};
+
 // Interfaces not labelled thread-unsafe can be assumed to be thread safe.
 // TODO: Checks for races, UnnecessaryLock from Gregory or something
 class Device
@@ -147,6 +162,14 @@ class Device
     void createSubresourcesViews(
         const Image &image, wheels::Span<vk::ImageView> outViews) const;
     void destroy(wheels::Span<const vk::ImageView> views) const;
+
+    [[nodiscard]] vk::Pipeline create(const GraphicsPipelineInfo &info) const;
+    [[nodiscard]] vk::Pipeline create(
+        const vk::ComputePipelineCreateInfo &info, const char *debugName) const;
+    [[nodiscard]] vk::Pipeline create(
+        const vk::RayTracingPipelineCreateInfoKHR &info,
+        const char *debugName) const;
+    void destroy(vk::Pipeline pipeline) const;
 
     // This is not thread-safe
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;

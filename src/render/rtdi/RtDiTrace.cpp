@@ -377,7 +377,7 @@ void RtDiTrace::destroyShaders()
 
 void RtDiTrace::destroyPipeline()
 {
-    _device->logical().destroy(_pipeline);
+    _device->destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
 }
 
@@ -638,22 +638,7 @@ void RtDiTrace::createPipeline(
         .layout = _pipelineLayout,
     };
 
-    {
-        auto pipeline = _device->logical().createRayTracingPipelineKHR(
-            vk::DeferredOperationKHR{}, vk::PipelineCache{}, pipelineInfo);
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create rt pipeline");
-
-        _pipeline = pipeline.value;
-
-        _device->logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipeline)),
-                .pObjectName = "RtDiTrace",
-            });
-    }
+    _pipeline = _device->create(pipelineInfo, "RtDiTrace");
 }
 
 void RtDiTrace::createShaderBindingTable(ScopedScratch scopeAlloc)

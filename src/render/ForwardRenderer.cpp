@@ -306,7 +306,7 @@ void ForwardRenderer::updateDescriptorSet(
 void ForwardRenderer::destroyGraphicsPipelines()
 {
     for (auto &p : _pipelines)
-        _device->logical().destroy(p);
+        _device->destroy(p);
     _device->logical().destroy(_pipelineLayout);
 }
 
@@ -347,43 +347,38 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
             colorBlendAttachments{opaqueColorBlendAttachment()};
 
-        _pipelines[0] = createGraphicsPipeline(
-            _device->logical(),
-            GraphicsPipelineInfo{
-                .layout = _pipelineLayout,
-                .colorBlendAttachments = colorBlendAttachments,
-                .shaderStages = _shaderStages,
-                .renderingInfo =
-                    vk::PipelineRenderingCreateInfo{
-                        .colorAttachmentCount = asserted_cast<uint32_t>(
-                            colorAttachmentFormats.capacity()),
-                        .pColorAttachmentFormats =
-                            colorAttachmentFormats.data(),
-                        .depthAttachmentFormat = sDepthFormat,
-                    },
-                .debugName = "ForwardRenderer::Opaque",
-            });
+        _pipelines[0] = _device->create(GraphicsPipelineInfo{
+            .layout = _pipelineLayout,
+            .colorBlendAttachments = colorBlendAttachments,
+            .shaderStages = _shaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = asserted_cast<uint32_t>(
+                        colorAttachmentFormats.capacity()),
+                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .debugName = "ForwardRenderer::Opaque",
+        });
     }
 
     {
         const vk::PipelineColorBlendAttachmentState blendAttachment =
             transparentColorBlendAttachment();
 
-        _pipelines[1] = createGraphicsPipeline(
-            _device->logical(),
-            GraphicsPipelineInfo{
-                .layout = _pipelineLayout,
-                .colorBlendAttachments = Span{&blendAttachment, 1},
-                .shaderStages = _shaderStages,
-                .renderingInfo =
-                    vk::PipelineRenderingCreateInfo{
-                        .colorAttachmentCount = 1,
-                        .pColorAttachmentFormats = &sIlluminationFormat,
-                        .depthAttachmentFormat = sDepthFormat,
-                    },
-                .writeDepth = false,
-                .debugName = "ForwardRenderer::Transparent",
-            });
+        _pipelines[1] = _device->create(GraphicsPipelineInfo{
+            .layout = _pipelineLayout,
+            .colorBlendAttachments = Span{&blendAttachment, 1},
+            .shaderStages = _shaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = 1,
+                    .pColorAttachmentFormats = &sIlluminationFormat,
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .writeDepth = false,
+            .debugName = "ForwardRenderer::Transparent",
+        });
     }
 }
 void ForwardRenderer::record(

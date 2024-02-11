@@ -241,7 +241,7 @@ void ComputePass::record(
 
 void ComputePass::destroyPipelines()
 {
-    _device->logical().destroy(_pipeline);
+    _device->destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
 }
 
@@ -300,8 +300,7 @@ void ComputePass::createPipeline(
         .layout = _pipelineLayout,
     };
 
-    _pipeline =
-        createComputePipeline(_device->logical(), createInfo, debugName.data());
+    _pipeline = _device->create(createInfo, debugName.data());
 }
 
 bool ComputePass::compileShader(

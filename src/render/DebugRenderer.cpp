@@ -242,7 +242,7 @@ DebugRenderer::Attachments DebugRenderer::createAttachments(
 
 void DebugRenderer::destroyGraphicsPipeline()
 {
-    _device->logical().destroy(_pipeline);
+    _device->destroy(_pipeline);
     _device->logical().destroy(_pipelineLayout);
 }
 
@@ -318,20 +318,18 @@ void DebugRenderer::createGraphicsPipeline(
     // Empty as we'll load vertices manually from a buffer
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
-    _pipeline = ::createGraphicsPipeline(
-        _device->logical(),
-        GraphicsPipelineInfo{
-            .layout = _pipelineLayout,
-            .vertInputInfo = &vertInputInfo,
-            .colorBlendAttachments = Span{&blendAttachment, 1},
-            .shaderStages = _shaderStages,
-            .renderingInfo =
-                vk::PipelineRenderingCreateInfo{
-                    .colorAttachmentCount = 1,
-                    .pColorAttachmentFormats = &sIlluminationFormat,
-                    .depthAttachmentFormat = sDepthFormat,
-                },
-            .topology = vk::PrimitiveTopology::eLineList,
-            .debugName = "DebugRenderer::Lines",
-        });
+    _pipeline = _device->create(GraphicsPipelineInfo{
+        .layout = _pipelineLayout,
+        .vertInputInfo = &vertInputInfo,
+        .colorBlendAttachments = Span{&blendAttachment, 1},
+        .shaderStages = _shaderStages,
+        .renderingInfo =
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount = 1,
+                .pColorAttachmentFormats = &sIlluminationFormat,
+                .depthAttachmentFormat = sDepthFormat,
+            },
+        .topology = vk::PrimitiveTopology::eLineList,
+        .debugName = "DebugRenderer::Lines",
+    });
 }
