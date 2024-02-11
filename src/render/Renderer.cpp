@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 
 #include "Allocators.hpp"
+#include "gfx/Device.hpp"
 #include "gfx/Swapchain.hpp"
 #include "render/DebugRenderer.hpp"
 #include "render/DeferredShading.hpp"
@@ -166,6 +167,7 @@ void Renderer::init(
     const scene::WorldDSLayouts &worldDsLayouts)
 {
     const utils::Timer gpuPassesInitTimer;
+
     m_meshletCuller->init(
         scopeAlloc.child_scope(), worldDsLayouts, camDsLayout);
     m_hierarchicalDepthDownsampler->init(scopeAlloc.child_scope());
@@ -204,6 +206,9 @@ void Renderer::init(
     m_imageBasedLighting->init(scopeAlloc.child_scope());
     m_temporalAntiAliasing->init(scopeAlloc.child_scope(), camDsLayout);
     m_textureReadback->init(scopeAlloc.child_scope());
+
+    gfx::gDevice.writePipelineCache(scopeAlloc.child_scope());
+
     LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 }
 
@@ -274,6 +279,8 @@ void Renderer::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, worldDsLayouts, camDsLayout);
     m_hierarchicalDepthDownsampler->recompileShaders(
         scopeAlloc.child_scope(), changedFiles);
+
+    gfx::gDevice.writePipelineCache(scopeAlloc.child_scope());
 
     LOG_INFO("Shaders recompiled in %.2fs", t.getSeconds());
 }
