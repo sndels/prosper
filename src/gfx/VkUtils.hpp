@@ -2,7 +2,6 @@
 #define PROSPER_GFX_VKUTILS_HPP
 
 #include <vulkan/vulkan.hpp>
-#include <wheels/containers/span.hpp>
 
 constexpr void checkSuccess(vk::Result result, const char *source)
 {
@@ -46,29 +45,6 @@ constexpr vk::ImageAspectFlags aspectMask(vk::Format format)
 }
 
 void setViewportScissor(vk::CommandBuffer cb, const vk::Rect2D &area);
-
-// Creates a compute pipeline and assigns debugName to it. Throws on error.
-vk::Pipeline createComputePipeline(
-    vk::Device device, const vk::ComputePipelineCreateInfo &info,
-    const char *debugName);
-
-struct GraphicsPipelineInfo
-{
-    vk::PipelineLayout layout;
-    const vk::PipelineVertexInputStateCreateInfo *vertInputInfo{nullptr};
-    wheels::Span<const vk::PipelineColorBlendAttachmentState>
-        colorBlendAttachments;
-    wheels::Span<const vk::PipelineShaderStageCreateInfo> shaderStages;
-    const vk::PipelineRenderingCreateInfo &renderingInfo;
-    vk::PrimitiveTopology topology{vk::PrimitiveTopology::eTriangleList};
-    vk::CullModeFlags cullMode{vk::CullModeFlagBits::eBack};
-    vk::CompareOp depthCompareOp{vk::CompareOp::eGreater};
-    bool writeDepth{true};
-    const char *debugName{""};
-};
-// Creates a graphics pipeline and assigns debugName to it. Throws on error.
-vk::Pipeline createGraphicsPipeline(
-    vk::Device device, const GraphicsPipelineInfo &info);
 
 constexpr vk::PipelineColorBlendAttachmentState opaqueColorBlendAttachment()
 {

@@ -272,7 +272,7 @@ void ComputePass::record(
 
 void ComputePass::destroyPipelines()
 {
-    gDevice.logical().destroy(m_pipeline);
+    gDevice.destroy(m_pipeline);
     gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -333,8 +333,7 @@ void ComputePass::createPipeline(
         .layout = m_pipelineLayout,
     };
 
-    m_pipeline =
-        createComputePipeline(gDevice.logical(), createInfo, debugName.data());
+    m_pipeline = gDevice.create(createInfo, debugName.data());
 }
 
 bool ComputePass::compileShader(
