@@ -226,6 +226,7 @@ void App::init()
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _world->dsLayouts(),
         _cam->descriptorSetLayout());
+    _device->writePipelineCache(scopeAlloc.child_scope());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -455,6 +456,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     _meshletCuller->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, _world->dsLayouts(),
         _cam->descriptorSetLayout());
+
+    _device->writePipelineCache(scopeAlloc.child_scope());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 

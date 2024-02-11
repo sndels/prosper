@@ -64,6 +64,7 @@ using namespace wheels;
         vk::PhysicalDeviceVulkan13Features, synchronization2,                  \
         vk::PhysicalDeviceVulkan13Features, dynamicRendering,                  \
         vk::PhysicalDeviceVulkan13Features, maintenance4,                      \
+        vk::PhysicalDeviceVulkan13Features, pipelineCreationCacheControl,      \
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         accelerationStructure,                                                 \
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,   \
@@ -76,6 +77,32 @@ const uint64_t sShaderCacheMagic = 0x4448535250535250; // PRSPRSHD
 // This should be incremented when breaking changes are made to
 // what's cached
 const uint32_t sShaderCacheVersion = 1;
+
+const uint64_t sPipelineCacheMagic = 0x4C50505250535250; // PRSPRPPL
+// This should be incremented when breaking changes are made to
+// what's cached
+const uint32_t sPipelineCacheVersion = 1;
+const char *const sPipelineCacheRelPath = "shader/cache/blob.prosper_pipelines";
+// Adapted from https://zeux.io/2019/07/17/serializing-pipeline-cache/
+struct PipelineCacheHeader
+{
+    uint64_t magic{0};
+    uint32_t version{0};
+    // equal to *pDataSize returned by vkGetPipelineCacheData
+    uint32_t dataSize{0};
+    // a hash of pipeline cache data, including the header
+    uint64_t dataHash{0};
+    // equal to VkPhysicalDeviceProperties::vendorID
+    uint32_t vendorID{0};
+    // equal to VkPhysicalDeviceProperties::deviceID
+    uint32_t deviceID{0};
+    // equal to VkPhysicalDeviceProperties::driverVersion
+    uint32_t driverVersion{0};
+    // equal to sizeof(void*)
+    uint32_t driverABI{0};
+    // equal to VkPhysicalDeviceProperties::pipelineCacheUUID
+    uint8_t uuid[VK_UUID_SIZE]{};
+};
 
 constexpr std::array validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
@@ -480,6 +507,7 @@ Device::~Device()
         // Also cleans up associated command buffers
         _logical.destroy(_graphicsPool);
         _logical.destroy(_transferPool);
+        _logical.destroy(_pipelineCache);
         // Implicitly cleans up associated queues as well
         _logical.destroy();
     }
@@ -596,6 +624,8 @@ void Device::init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window)
 
         printf("%s\n", _properties.device.deviceName.data());
     }
+
+    initPipelineCache(WHEELS_MOV(scopeAlloc));
 
     _initialized = true;
 }
@@ -1243,9 +1273,11 @@ vk::Pipeline Device::create(const GraphicsPipelineInfo &info) const
             },
             info.renderingInfo};
 
+    // Not thread safe because pipeline cache is created with
+    // vk::PipelineCacheCreateFlagBits::eExternallySynchronized
     const vk::ResultValue<vk::Pipeline> pipeline =
         _logical.createGraphicsPipeline(
-            vk::PipelineCache{},
+            _pipelineCache,
             pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
     if (pipeline.result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to create pbr pipeline");
@@ -1263,8 +1295,10 @@ vk::Pipeline Device::create(const GraphicsPipelineInfo &info) const
 vk::Pipeline Device::create(
     const vk::ComputePipelineCreateInfo &info, const char *debugName) const
 {
+    // Not thread safe because pipeline cache is created with
+    // vk::PipelineCacheCreateFlagBits::eExternallySynchronized
     const vk::ResultValue<vk::Pipeline> pipeline =
-        _logical.createComputePipeline(vk::PipelineCache{}, info);
+        _logical.createComputePipeline(_pipelineCache, info);
     if (pipeline.result != vk::Result::eSuccess)
         throw std::runtime_error(
             std::string{"Failed to create pipeline '"} + debugName + "'");
@@ -1283,9 +1317,11 @@ vk::Pipeline Device::create(
     const vk::RayTracingPipelineCreateInfoKHR &info,
     const char *debugName) const
 {
+    // Not thread safe because pipeline cache is created with
+    // vk::PipelineCacheCreateFlagBits::eExternallySynchronized
     const vk::ResultValue<vk::Pipeline> pipeline =
         _logical.createRayTracingPipelineKHR(
-            vk::DeferredOperationKHR{}, vk::PipelineCache{}, info);
+            vk::DeferredOperationKHR{}, _pipelineCache, info);
     if (pipeline.result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to create rt pipeline");
 
@@ -1297,6 +1333,72 @@ vk::Pipeline Device::create(
     });
 
     return pipeline.value;
+}
+
+void Device::writePipelineCache(ScopedScratch scopeAlloc) const
+{
+    size_t dataByteSize = 0;
+    checkSuccess(
+        _logical.getPipelineCacheData(_pipelineCache, &dataByteSize, nullptr),
+        "getPipelineCacheData");
+    WHEELS_ASSERT(dataByteSize > 0);
+
+    Array<uint8_t> data{scopeAlloc};
+    data.resize(dataByteSize);
+    checkSuccess(
+        _logical.getPipelineCacheData(
+            _pipelineCache, &dataByteSize, data.data()),
+        "getPipelineCacheData");
+
+    const uint64_t dataHash =
+        wyhash(data.data(), dataByteSize, 0, (const uint64_t *)_wyp);
+
+    PipelineCacheHeader header{
+        .magic = sPipelineCacheMagic,
+        .version = sPipelineCacheVersion,
+        .dataSize = asserted_cast<uint32_t>(dataByteSize),
+        .dataHash = dataHash,
+        .vendorID = _properties.device.vendorID,
+        .deviceID = _properties.device.deviceID,
+        .driverVersion = _properties.device.driverVersion,
+        .driverABI = sizeof(void *),
+    };
+    memcpy(
+        &header.uuid, _properties.device.pipelineCacheUUID,
+        sizeof(header.uuid));
+
+    const std::filesystem::path cachePath = resPath(sPipelineCacheRelPath);
+
+    // Write into a tmp file and rename when done to minimize the potential for
+    // corrupted files
+    std::filesystem::path cacheTmpPath = cachePath;
+    cacheTmpPath.replace_extension("prosper_pipelines_TMP");
+
+    std::ofstream cacheFile{cacheTmpPath, std::ios_base::binary};
+
+    writeRaw(cacheFile, header.magic);
+    writeRaw(cacheFile, header.version);
+    writeRaw(cacheFile, header.dataSize);
+    writeRaw(cacheFile, header.dataHash);
+    writeRaw(cacheFile, header.vendorID);
+    writeRaw(cacheFile, header.deviceID);
+    writeRaw(cacheFile, header.driverVersion);
+    writeRaw(cacheFile, header.driverABI);
+    writeRawSpan(cacheFile, Span<const uint8_t>{header.uuid, VK_UUID_SIZE});
+    writeRawSpan(cacheFile, data.span());
+
+    cacheFile.close();
+
+    // Make sure we have rw permissions for the user to be nice
+    const std::filesystem::perms initialPerms =
+        std::filesystem::status(cacheTmpPath).permissions();
+    std::filesystem::permissions(
+        cacheTmpPath, initialPerms | std::filesystem::perms::owner_read |
+                          std::filesystem::perms::owner_write);
+
+    // Rename when the file is done to minimize the potential of a corrupted
+    // file
+    std::filesystem::rename(cacheTmpPath, cachePath);
 }
 
 void Device::destroy(vk::Pipeline pipeline) const
@@ -1663,6 +1765,78 @@ void Device::createCommandPools()
             .queueFamilyIndex = *_queueFamilies.transferFamily,
         };
         _transferPool = _logical.createCommandPool(poolInfo, nullptr);
+    }
+}
+
+void Device::initPipelineCache(ScopedScratch scopeAlloc)
+{
+    PipelineCacheHeader header;
+    Array<uint8_t> initialData{scopeAlloc};
+
+    // Try to read cache, checking validity along the way
+    const std::filesystem::path cachePath = resPath(sPipelineCacheRelPath);
+    if (std::filesystem::exists(cachePath))
+    {
+        std::ifstream cacheFile{cachePath, std::ios_base::binary};
+
+        readRaw(cacheFile, header.magic);
+        if (header.magic == sPipelineCacheMagic)
+        {
+            readRaw(cacheFile, header.version);
+            if (header.version == sPipelineCacheVersion)
+            {
+                readRaw(cacheFile, header.dataSize);
+                readRaw(cacheFile, header.dataHash);
+                readRaw(cacheFile, header.vendorID);
+                readRaw(cacheFile, header.deviceID);
+                readRaw(cacheFile, header.driverVersion);
+                readRaw(cacheFile, header.driverABI);
+                readRawSpan(
+                    cacheFile, Span<uint8_t>{header.uuid, VK_UUID_SIZE});
+
+                const bool vendorMatch =
+                    header.vendorID == _properties.device.vendorID;
+                const bool deviceMatch =
+                    header.deviceID == _properties.device.deviceID;
+                const bool driverVersionMatch =
+                    header.driverVersion == _properties.device.driverVersion;
+                const bool driverAbiMatch = header.driverABI == sizeof(void *);
+                const bool cacheUuidMatch =
+                    memcmp(
+                        header.uuid, _properties.device.pipelineCacheUUID,
+                        sizeof(header.uuid)) == 0;
+                if (vendorMatch && deviceMatch && driverVersionMatch &&
+                    driverAbiMatch && cacheUuidMatch)
+                {
+                    initialData.resize(header.dataSize);
+                    readRawSpan(cacheFile, initialData.mut_span());
+
+                    const uint64_t dataHash = wyhash(
+                        initialData.data(), header.dataSize, 0,
+                        (const uint64_t *)_wyp);
+                    if (dataHash != header.dataHash)
+                        initialData.clear();
+                }
+            }
+        }
+    }
+
+    vk::PipelineCacheCreateInfo cacheInfo{
+        .flags = vk::PipelineCacheCreateFlagBits::eExternallySynchronized,
+        .initialDataSize = initialData.size(),
+        .pInitialData = initialData.data(),
+    };
+    // Let's be safe and fall back to an empty cache if this still manages to
+    // fail after all the cache validation
+    vk::Result result =
+        _logical.createPipelineCache(&cacheInfo, nullptr, &_pipelineCache);
+    if (result != vk::Result::eSuccess)
+    {
+        cacheInfo.initialDataSize = 0;
+        cacheInfo.pInitialData = nullptr;
+        result =
+            _logical.createPipelineCache(&cacheInfo, nullptr, &_pipelineCache);
+        WHEELS_ASSERT(result == vk::Result::eSuccess);
     }
 }
 
