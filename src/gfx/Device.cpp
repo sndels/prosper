@@ -1255,6 +1255,135 @@ void Device::destroy(Span<const vk::ImageView> views) const
         m_logical.destroy(view);
 }
 
+vk::Pipeline Device::create(const GraphicsPipelineInfo &info) const
+{
+    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
+        .topology = info.topology,
+    };
+
+    // Dynamic state
+    const vk::PipelineViewportStateCreateInfo viewportState{
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
+
+    vk::PipelineRasterizationStateCreateInfo rasterizerState{
+        .lineWidth = 1.0,
+    };
+    if (info.topology == vk::PrimitiveTopology::eTriangleList)
+    {
+        rasterizerState.polygonMode = vk::PolygonMode::eFill;
+        rasterizerState.cullMode = info.cullMode;
+        rasterizerState.frontFace = vk::FrontFace::eCounterClockwise;
+    }
+    else
+        WHEELS_ASSERT(
+            info.topology == vk::PrimitiveTopology::eLineList &&
+            "Expected triangle list or line list");
+
+    const vk::PipelineMultisampleStateCreateInfo multisampleState{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+    };
+
+    const vk::PipelineDepthStencilStateCreateInfo depthStencilState{
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = info.writeDepth ? VK_TRUE : VK_FALSE,
+        .depthCompareOp = info.depthCompareOp,
+    };
+
+    const vk::PipelineColorBlendStateCreateInfo opaqueColorBlendState{
+        .attachmentCount =
+            asserted_cast<uint32_t>(info.colorBlendAttachments.size()),
+        .pAttachments = info.colorBlendAttachments.data(),
+    };
+
+    const StaticArray dynamicStates{
+        {vk::DynamicState::eViewport, vk::DynamicState::eScissor}};
+
+    const vk::PipelineDynamicStateCreateInfo dynamicState{
+        .dynamicStateCount = asserted_cast<uint32_t>(dynamicStates.size()),
+        .pDynamicStates = dynamicStates.data(),
+    };
+
+    const vk::StructureChain<
+        vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo>
+        pipelineChain{
+            vk::GraphicsPipelineCreateInfo{
+                .stageCount = asserted_cast<uint32_t>(info.shaderStages.size()),
+                .pStages = info.shaderStages.data(),
+                .pVertexInputState = info.vertInputInfo,
+                .pInputAssemblyState = &inputAssembly,
+                .pViewportState = &viewportState,
+                .pRasterizationState = &rasterizerState,
+                .pMultisampleState = &multisampleState,
+                .pDepthStencilState = &depthStencilState,
+                .pColorBlendState = &opaqueColorBlendState,
+                .pDynamicState = &dynamicState,
+                .layout = info.layout,
+            },
+            info.renderingInfo};
+
+    const vk::ResultValue<vk::Pipeline> pipeline =
+        _logical.createGraphicsPipeline(
+            vk::PipelineCache{},
+            pipelineChain.get<vk::GraphicsPipelineCreateInfo>());
+    if (pipeline.result != vk::Result::eSuccess)
+        throw std::runtime_error("Failed to create pbr pipeline");
+
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::ePipeline,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkPipeline>(pipeline.value)),
+        .pObjectName = info.debugName,
+    });
+
+    return pipeline.value;
+}
+
+vk::Pipeline Device::create(
+    const vk::ComputePipelineCreateInfo &info, const char *debugName) const
+{
+    const vk::ResultValue<vk::Pipeline> pipeline =
+        _logical.createComputePipeline(vk::PipelineCache{}, info);
+    if (pipeline.result != vk::Result::eSuccess)
+        throw std::runtime_error(
+            std::string{"Failed to create pipeline '"} + debugName + "'");
+
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::ePipeline,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkPipeline>(pipeline.value)),
+        .pObjectName = debugName,
+    });
+
+    return pipeline.value;
+}
+
+vk::Pipeline Device::create(
+    const vk::RayTracingPipelineCreateInfoKHR &info,
+    const char *debugName) const
+{
+    const vk::ResultValue<vk::Pipeline> pipeline =
+        _logical.createRayTracingPipelineKHR(
+            vk::DeferredOperationKHR{}, vk::PipelineCache{}, info);
+    if (pipeline.result != vk::Result::eSuccess)
+        throw std::runtime_error("Failed to create rt pipeline");
+
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::ePipeline,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkPipeline>(pipeline.value)),
+        .pObjectName = debugName,
+    });
+
+    return pipeline.value;
+}
+
+void Device::destroy(vk::Pipeline pipeline) const
+{
+    _logical.destroy(pipeline);
+}
+
 vk::CommandBuffer Device::beginGraphicsCommands() const
 {
     WHEELS_ASSERT(m_initialized);

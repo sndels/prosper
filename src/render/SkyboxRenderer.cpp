@@ -229,7 +229,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 
 void SkyboxRenderer::destroyGraphicsPipelines()
 {
-    gDevice.logical().destroy(m_pipeline);
+    gDevice.destroy(m_pipeline);
     gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -274,22 +274,20 @@ void SkyboxRenderer::createGraphicsPipelines(
     const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
         colorBlendAttachments{opaqueColorBlendAttachment()};
 
-    m_pipeline = createGraphicsPipeline(
-        gDevice.logical(),
-        GraphicsPipelineInfo{
-            .layout = m_pipelineLayout,
-            .vertInputInfo = &vertInputInfo,
-            .colorBlendAttachments = colorBlendAttachments,
-            .shaderStages = m_shaderStages,
-            .renderingInfo =
-                vk::PipelineRenderingCreateInfo{
-                    .colorAttachmentCount = asserted_cast<uint32_t>(
-                        colorAttachmentFormats.capacity()),
-                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
-                    .depthAttachmentFormat = sDepthFormat,
-                },
-            .cullMode = vk::CullModeFlagBits::eNone,
-            .depthCompareOp = vk::CompareOp::eGreaterOrEqual,
-            .debugName = "SkyboxRenderer",
-        });
+    m_pipeline = gDevice.create(GraphicsPipelineInfo{
+        .layout = m_pipelineLayout,
+        .vertInputInfo = &vertInputInfo,
+        .colorBlendAttachments = colorBlendAttachments,
+        .shaderStages = m_shaderStages,
+        .renderingInfo =
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount =
+                    asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
+                .pColorAttachmentFormats = colorAttachmentFormats.data(),
+                .depthAttachmentFormat = sDepthFormat,
+            },
+        .cullMode = vk::CullModeFlagBits::eNone,
+        .depthCompareOp = vk::CompareOp::eGreaterOrEqual,
+        .debugName = "SkyboxRenderer",
+    });
 }
