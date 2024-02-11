@@ -71,6 +71,8 @@ App::Settings parseCli(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    const Timer t;
+
 #ifdef LIVEPP_PATH
     // create a default agent, loading the Live++ agent from the given path
     lpp::LppDefaultAgent lppAgent =
@@ -96,6 +98,7 @@ int main(int argc, char *argv[])
 
         App app{WHEELS_MOV(settings)};
         app.init();
+        printf("run() called after %.2fs\n", t.getSeconds());
         app.run();
     }
     catch (std::exception &e)
