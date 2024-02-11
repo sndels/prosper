@@ -157,13 +157,19 @@ class Device
         wheels::Span<vk::ImageView> outViews) const;
     void destroy(wheels::Span<const vk::ImageView> views) const;
 
+    // This is not thread-safe
     [[nodiscard]] vk::Pipeline create(const GraphicsPipelineInfo &info) const;
+    // This is not thread-safe
     [[nodiscard]] vk::Pipeline create(
         const vk::ComputePipelineCreateInfo &info, const char *debugName) const;
+    // This is not thread-safe
     [[nodiscard]] vk::Pipeline create(
         const vk::RayTracingPipelineCreateInfoKHR &info,
         const char *debugName) const;
     void destroy(vk::Pipeline pipeline) const;
+
+    // This is not thread-safe
+    void writePipelineCache(wheels::ScopedScratch scopeAlloc) const;
 
     // This is not thread-safe
     [[nodiscard]] vk::CommandBuffer beginGraphicsCommands() const;
@@ -183,6 +189,7 @@ class Device
     void createLogicalDevice(wheels::ScopedScratch scopeAlloc);
     void createAllocator();
     void createCommandPools();
+    void initPipelineCache(wheels::ScopedScratch scopeAlloc);
 
     void trackBuffer(const Buffer &buffer);
     void untrackBuffer(const Buffer &buffer);
@@ -226,6 +233,8 @@ class Device
     vk::DebugUtilsMessengerEXT m_debugMessenger;
 
     MemoryAllocationBytes m_memoryAllocations;
+
+    vk::PipelineCache m_pipelineCache;
 };
 
 // This is depended on by Device and init()/destroy() order relative to other
