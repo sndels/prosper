@@ -51,14 +51,16 @@ void ComputePass::init(
     for (auto &sets : _storageSets)
         sets.resize(options.perFrameRecordLimit);
 
-    printf("Creating ComputePass\n");
-    if (!compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
+    const Shader shader = shaderDefinitionCallback(scopeAlloc);
+    printf("Creating %s\n", shader.debugName.c_str());
+    if (!compileShader(scopeAlloc.child_scope(), shader))
         throw std::runtime_error("Shader compilation failed");
 
     createDescriptorSets(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         options.storageStageFlags);
-    createPipeline(scopeAlloc.child_scope(), options.externalDsLayouts);
+    createPipeline(
+        scopeAlloc.child_scope(), options.externalDsLayouts, shader.debugName);
 
     _initialized = true;
 }
@@ -75,10 +77,12 @@ bool ComputePass::recompileShader(
     if (!_shaderReflection->affected(changedFiles))
         return false;
 
-    if (compileShader(scopeAlloc.child_scope(), shaderDefinitionCallback))
+    const Shader shader = shaderDefinitionCallback(scopeAlloc);
+    if (compileShader(scopeAlloc.child_scope(), shader))
     {
         destroyPipelines();
-        createPipeline(scopeAlloc.child_scope(), externalDsLayouts);
+        createPipeline(
+            scopeAlloc.child_scope(), externalDsLayouts, shader.debugName);
         return true;
     }
     return false;
@@ -259,7 +263,7 @@ void ComputePass::createDescriptorSets(
 
 void ComputePass::createPipeline(
     wheels::ScopedScratch scopeAlloc,
-    Span<const vk::DescriptorSetLayout> externalDsLayouts)
+    Span<const vk::DescriptorSetLayout> externalDsLayouts, StrSpan debugName)
 {
     WHEELS_ASSERT(_shaderReflection.has_value());
 
@@ -297,14 +301,12 @@ void ComputePass::createPipeline(
     };
 
     _pipeline =
-        createComputePipeline(_device->logical(), createInfo, "ComputePass");
+        createComputePipeline(_device->logical(), createInfo, debugName.data());
 }
 
 bool ComputePass::compileShader(
-    wheels::ScopedScratch scopeAlloc,
-    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback)
+    wheels::ScopedScratch scopeAlloc, const Shader &shader)
 {
-    Shader shader = shaderDefinitionCallback(scopeAlloc);
     WHEELS_ASSERT(all(greaterThan(shader.groupSize, uvec3{0})));
     _groupSize = shader.groupSize;
 

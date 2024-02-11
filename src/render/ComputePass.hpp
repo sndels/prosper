@@ -93,8 +93,7 @@ class ComputePass
   private:
     [[nodiscard]] bool compileShader(
         wheels::ScopedScratch scopeAlloc,
-        const std::function<Shader(wheels::Allocator &)>
-            &shaderDefinitionCallback);
+        const Shader &shaderDefinitionCallback);
 
     void record(
         vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
@@ -111,7 +110,8 @@ class ComputePass
 
     void createPipeline(
         wheels::ScopedScratch scopeAlloc,
-        wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {});
+        wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts,
+        wheels::StrSpan debugName);
 
     bool _initialized{false};
     Device *_device{nullptr};
