@@ -240,7 +240,7 @@ void ComputePass::record(
 void ComputePass::destroyPipelines()
 {
     for (const vk::Pipeline pipeline : m_pipelines)
-        gfx::gDevice.logical().destroy(pipeline);
+        gfx::gDevice.destroy(pipeline);
     m_pipelines.clear();
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
@@ -306,8 +306,8 @@ void ComputePass::createPipelines(
             .layout = m_pipelineLayout,
         };
 
-        m_pipelines.push_back(gfx::createComputePipeline(
-            gfx::gDevice.logical(), createInfo, debugName.data()));
+        m_pipelines.push_back(
+            gfx::gDevice.create(createInfo, debugName.data()));
 
         return;
     }
@@ -337,8 +337,8 @@ void ComputePass::createPipelines(
         snprintf(
             fullDebugName.c_str() + debugName.size(), maxCountLen + 1, "_%d",
             i);
-        m_pipelines.push_back(gfx::createComputePipeline(
-            gfx::gDevice.logical(), createInfo, fullDebugName.data()));
+        m_pipelines.push_back(
+            gfx::gDevice.create(createInfo, debugName.data()));
     }
 }
 

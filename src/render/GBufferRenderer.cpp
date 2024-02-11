@@ -374,7 +374,7 @@ void GBufferRenderer::updateDescriptorSet(
 
 void GBufferRenderer::destroyGraphicsPipeline()
 {
-    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.destroy(m_pipeline);
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -414,21 +414,19 @@ void GBufferRenderer::createGraphicsPipelines(
     const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
         colorBlendAttachments{gfx::opaqueColorBlendAttachment()};
 
-    m_pipeline = gfx::createGraphicsPipeline(
-        gfx::gDevice.logical(),
-        gfx::GraphicsPipelineInfo{
-            .layout = m_pipelineLayout,
-            .colorBlendAttachments = colorBlendAttachments,
-            .shaderStages = m_shaderStages,
-            .renderingInfo =
-                vk::PipelineRenderingCreateInfo{
-                    .colorAttachmentCount = asserted_cast<uint32_t>(
-                        colorAttachmentFormats.capacity()),
-                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
-                    .depthAttachmentFormat = sDepthFormat,
-                },
-            .debugName = "GBufferRenderer",
-        });
+    m_pipeline = gfx::gDevice.create(gfx::GraphicsPipelineInfo{
+        .layout = m_pipelineLayout,
+        .colorBlendAttachments = colorBlendAttachments,
+        .shaderStages = m_shaderStages,
+        .renderingInfo =
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount =
+                    asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
+                .pColorAttachmentFormats = colorAttachmentFormats.data(),
+                .depthAttachmentFormat = sDepthFormat,
+            },
+        .debugName = "GBufferRenderer",
+    });
 }
 
 void GBufferRenderer::recordDraw(

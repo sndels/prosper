@@ -237,7 +237,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
 
 void DebugRenderer::destroyGraphicsPipeline()
 {
-    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.destroy(m_pipeline);
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -296,22 +296,20 @@ void DebugRenderer::createGraphicsPipeline(
     // Empty as we'll load vertices manually from a buffer
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
-    m_pipeline = gfx::createGraphicsPipeline(
-        gfx::gDevice.logical(),
-        gfx::GraphicsPipelineInfo{
-            .layout = m_pipelineLayout,
-            .vertInputInfo = &vertInputInfo,
-            .colorBlendAttachments = Span{&blendAttachment, 1},
-            .shaderStages = m_shaderStages,
-            .renderingInfo =
-                vk::PipelineRenderingCreateInfo{
-                    .colorAttachmentCount = 1,
-                    .pColorAttachmentFormats = &sIlluminationFormat,
-                    .depthAttachmentFormat = sDepthFormat,
-                },
-            .topology = vk::PrimitiveTopology::eLineList,
-            .debugName = "DebugRenderer::Lines",
-        });
+    m_pipeline = gfx::gDevice.create(gfx::GraphicsPipelineInfo{
+        .layout = m_pipelineLayout,
+        .vertInputInfo = &vertInputInfo,
+        .colorBlendAttachments = Span{&blendAttachment, 1},
+        .shaderStages = m_shaderStages,
+        .renderingInfo =
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount = 1,
+                .pColorAttachmentFormats = &sIlluminationFormat,
+                .depthAttachmentFormat = sDepthFormat,
+            },
+        .topology = vk::PrimitiveTopology::eLineList,
+        .debugName = "DebugRenderer::Lines",
+    });
 }
 
 } // namespace render

@@ -259,7 +259,7 @@ void Render::updateDescriptorSet(
 
 void Render::destroyGraphicsPipelines()
 {
-    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.destroy(m_pipeline);
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -290,22 +290,20 @@ void Render::createGraphicsPipelines(vk::DescriptorSetLayout cameraDSLayout)
         // Empty as we'll load vertices manually from a buffer
         const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
-        m_pipeline = gfx::createGraphicsPipeline(
-            gfx::gDevice.logical(),
-            gfx::GraphicsPipelineInfo{
-                .layout = m_pipelineLayout,
-                .vertInputInfo = &vertInputInfo,
-                .colorBlendAttachments = colorBlendAttachments,
-                .shaderStages = m_shaderStages,
-                .renderingInfo =
-                    vk::PipelineRenderingCreateInfo{
-                        .colorAttachmentCount = 1,
-                        .pColorAttachmentFormats = &sIlluminationFormat,
-                        .depthAttachmentFormat = sDepthFormat,
-                    },
-                .topology = vk::PrimitiveTopology::eTriangleStrip,
-                .debugName = "Particles::Render",
-            });
+        m_pipeline = gfx::gDevice.create(gfx::GraphicsPipelineInfo{
+            .layout = m_pipelineLayout,
+            .vertInputInfo = &vertInputInfo,
+            .colorBlendAttachments = colorBlendAttachments,
+            .shaderStages = m_shaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = 1,
+                    .pColorAttachmentFormats = &sIlluminationFormat,
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .topology = vk::PrimitiveTopology::eTriangleStrip,
+            .debugName = "Particles::Render",
+        });
     }
 }
 

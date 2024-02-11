@@ -362,7 +362,7 @@ void Trace::destroyShaders()
 
 void Trace::destroyPipeline()
 {
-    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.destroy(m_pipeline);
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -630,22 +630,7 @@ void Trace::createPipeline(
         .layout = m_pipelineLayout,
     };
 
-    {
-        auto pipeline = gfx::gDevice.logical().createRayTracingPipelineKHR(
-            vk::DeferredOperationKHR{}, vk::PipelineCache{}, pipelineInfo);
-        if (pipeline.result != vk::Result::eSuccess)
-            throw std::runtime_error("Failed to create rt pipeline");
-
-        m_pipeline = pipeline.value;
-
-        gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
-            vk::DebugUtilsObjectNameInfoEXT{
-                .objectType = vk::ObjectType::ePipeline,
-                .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(m_pipeline)),
-                .pObjectName = "RtDiTrace",
-            });
-    }
+    m_pipeline = gfx::gDevice.create(pipelineInfo, "RtDiTrace");
 }
 
 void Trace::createShaderBindingTable(ScopedScratch scopeAlloc)

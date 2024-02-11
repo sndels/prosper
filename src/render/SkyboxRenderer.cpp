@@ -233,7 +233,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
 
 void SkyboxRenderer::destroyGraphicsPipelines()
 {
-    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.destroy(m_pipeline);
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -278,24 +278,22 @@ void SkyboxRenderer::createGraphicsPipelines(
     const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
         colorBlendAttachments{gfx::opaqueColorBlendAttachment()};
 
-    m_pipeline = gfx::createGraphicsPipeline(
-        gfx::gDevice.logical(),
-        gfx::GraphicsPipelineInfo{
-            .layout = m_pipelineLayout,
-            .vertInputInfo = &vertInputInfo,
-            .colorBlendAttachments = colorBlendAttachments,
-            .shaderStages = m_shaderStages,
-            .renderingInfo =
-                vk::PipelineRenderingCreateInfo{
-                    .colorAttachmentCount = asserted_cast<uint32_t>(
-                        colorAttachmentFormats.capacity()),
-                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
-                    .depthAttachmentFormat = sDepthFormat,
-                },
-            .cullMode = vk::CullModeFlagBits::eNone,
-            .depthCompareOp = vk::CompareOp::eGreaterOrEqual,
-            .debugName = "SkyboxRenderer",
-        });
+    m_pipeline = gfx::gDevice.create(gfx::GraphicsPipelineInfo{
+        .layout = m_pipelineLayout,
+        .vertInputInfo = &vertInputInfo,
+        .colorBlendAttachments = colorBlendAttachments,
+        .shaderStages = m_shaderStages,
+        .renderingInfo =
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount =
+                    asserted_cast<uint32_t>(colorAttachmentFormats.capacity()),
+                .pColorAttachmentFormats = colorAttachmentFormats.data(),
+                .depthAttachmentFormat = sDepthFormat,
+            },
+        .cullMode = vk::CullModeFlagBits::eNone,
+        .depthCompareOp = vk::CompareOp::eGreaterOrEqual,
+        .debugName = "SkyboxRenderer",
+    });
 }
 
 } // namespace render

@@ -437,7 +437,7 @@ void ForwardRenderer::updateDescriptorSet(
 void ForwardRenderer::destroyGraphicsPipelines()
 {
     for (auto &p : m_pipelines)
-        gfx::gDevice.logical().destroy(p);
+        gfx::gDevice.destroy(p);
     gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -478,43 +478,38 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
             colorBlendAttachments{gfx::opaqueColorBlendAttachment()};
 
-        m_pipelines[0] = gfx::createGraphicsPipeline(
-            gfx::gDevice.logical(),
-            gfx::GraphicsPipelineInfo{
-                .layout = m_pipelineLayout,
-                .colorBlendAttachments = colorBlendAttachments,
-                .shaderStages = m_opaqueShaderStages,
-                .renderingInfo =
-                    vk::PipelineRenderingCreateInfo{
-                        .colorAttachmentCount = asserted_cast<uint32_t>(
-                            colorAttachmentFormats.capacity()),
-                        .pColorAttachmentFormats =
-                            colorAttachmentFormats.data(),
-                        .depthAttachmentFormat = sDepthFormat,
-                    },
-                .debugName = "ForwardRenderer::Opaque",
-            });
+        m_pipelines[0] = gfx::gDevice.create(gfx::GraphicsPipelineInfo{
+            .layout = m_pipelineLayout,
+            .colorBlendAttachments = colorBlendAttachments,
+            .shaderStages = m_opaqueShaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = asserted_cast<uint32_t>(
+                        colorAttachmentFormats.capacity()),
+                    .pColorAttachmentFormats = colorAttachmentFormats.data(),
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .debugName = "ForwardRenderer::Opaque",
+        });
     }
 
     {
         const vk::PipelineColorBlendAttachmentState blendAttachment =
             gfx::transparentColorBlendAttachment();
 
-        m_pipelines[1] = gfx::createGraphicsPipeline(
-            gfx::gDevice.logical(),
-            gfx::GraphicsPipelineInfo{
-                .layout = m_pipelineLayout,
-                .colorBlendAttachments = Span{&blendAttachment, 1},
-                .shaderStages = m_transparentShaderStages,
-                .renderingInfo =
-                    vk::PipelineRenderingCreateInfo{
-                        .colorAttachmentCount = 1,
-                        .pColorAttachmentFormats = &sIlluminationFormat,
-                        .depthAttachmentFormat = sDepthFormat,
-                    },
-                .writeDepth = false,
-                .debugName = "ForwardRenderer::Transparent",
-            });
+        m_pipelines[1] = gfx::gDevice.create(gfx::GraphicsPipelineInfo{
+            .layout = m_pipelineLayout,
+            .colorBlendAttachments = Span{&blendAttachment, 1},
+            .shaderStages = m_transparentShaderStages,
+            .renderingInfo =
+                vk::PipelineRenderingCreateInfo{
+                    .colorAttachmentCount = 1,
+                    .pColorAttachmentFormats = &sIlluminationFormat,
+                    .depthAttachmentFormat = sDepthFormat,
+                },
+            .writeDepth = false,
+            .debugName = "ForwardRenderer::Transparent",
+        });
     }
 }
 void ForwardRenderer::recordDraw(
