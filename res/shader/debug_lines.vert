@@ -1,7 +1,6 @@
 #pragma shader_stage(vertex)
 
 #extension GL_ARB_separate_shader_objects : enable
-#extension GL_GOOGLE_include_directive : require
 
 #include "scene/camera.glsl"
 
