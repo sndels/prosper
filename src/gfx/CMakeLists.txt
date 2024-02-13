@@ -4,6 +4,7 @@ set(PROSPER_GFX_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RingBuffer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/ShaderIncludes.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ShaderReflection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.hpp
     ${CMAKE_CURRENT_LIST_DIR}/VkUtils.hpp
@@ -14,6 +15,7 @@ set(PROSPER_GFX_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Device.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Resources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RingBuffer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ShaderIncludes.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ShaderReflection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Swapchain.cpp
     ${CMAKE_CURRENT_LIST_DIR}/VkUtils.cpp
