@@ -174,6 +174,10 @@ class Device
     void trackImage(const Image &image);
     void untrackImage(const Image &image);
 
+    wheels::Optional<shaderc::SpvCompilationResult> compileShader(
+        const std::filesystem::path &sourcePath,
+        wheels::StrSpan topLevelSource);
+
     bool _initialized{false};
     wheels::Allocator &_generalAlloc;
     Settings _settings;

@@ -643,6 +643,8 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
 {
     WHEELS_ASSERT(_initialized);
 
+    printf("Compiling %s\n", info.relPath.string().c_str());
+
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
@@ -654,60 +656,20 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
 
     const size_t fullSize = versionLine.size() - 1 + line1Tag.size() - 1 +
                             info.defines.size() + source.size();
-    String fullSource{scopeAlloc, fullSize};
-    fullSource.extend(versionLine.data());
-    fullSource.extend(info.defines);
-    fullSource.extend(line1Tag.data());
-    fullSource.extend(source);
+    String topLevelSource{scopeAlloc, fullSize};
+    topLevelSource.extend(versionLine.data());
+    topLevelSource.extend(info.defines);
+    topLevelSource.extend(line1Tag.data());
+    topLevelSource.extend(source);
 
-    // Includer will fill includes here
-    _uniqueIncludes.clear();
-    // Also push root file as reflection expects all sources to be included here
-    _uniqueIncludes.insert(shaderPath.lexically_normal());
-
-    printf("Compiling %s\n", info.relPath.string().c_str());
-    const auto result = _compiler.CompileGlslToSpv(
-        fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
-        shaderPath.string().c_str(), _compilerOptions);
-
-    if (const auto status = result.GetCompilationStatus(); status)
-    {
-        const auto err = result.GetErrorMessage();
-        if (!err.empty())
-            fprintf(stderr, "%s\n", err.c_str());
-        fprintf(
-            stderr, "Compilation of '%s' failed\n",
-            shaderPath.string().c_str());
-        fprintf(stderr, "%s\n", statusString(status));
+    const Optional<shaderc::SpvCompilationResult> result =
+        compileShader(shaderPath, topLevelSource);
+    if (!result.has_value())
         return {};
-    }
-
-    if (_settings.dumpShaderDisassembly)
-    {
-        const shaderc::AssemblyCompilationResult resultAsm =
-            _compiler.CompileGlslToSpvAssembly(
-                fullSource.c_str(), fullSource.size(),
-                shaderc_glsl_infer_from_source, shaderPath.string().c_str(),
-                _compilerOptions);
-        if (const shaderc_compilation_status status =
-                result.GetCompilationStatus();
-            status == shaderc_compilation_status_success)
-            fprintf(stdout, "%s\n", resultAsm.begin());
-        else
-        {
-            const std::string err = result.GetErrorMessage();
-            if (!err.empty())
-                fprintf(stderr, "%s\n", err.c_str());
-            fprintf(
-                stderr, "Compilation of '%s' failed\n",
-                shaderPath.string().c_str());
-            fprintf(stderr, "%s\n", statusString(status));
-            return {};
-        }
-    }
 
     const Span<const uint32_t> spvWords{
-        result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
+        result->begin(),
+        asserted_cast<size_t>(result->end() - result->begin())};
 
     ShaderReflection reflection{_generalAlloc};
     reflection.init(scopeAlloc.child_scope(), spvWords, _uniqueIncludes);
@@ -736,6 +698,8 @@ wheels::Optional<ShaderReflection> Device::reflectShader(
 {
     WHEELS_ASSERT(_initialized);
 
+    printf("Reflecting %s\n", info.relPath.string().c_str());
+
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
@@ -760,37 +724,24 @@ void main()
         (add_dummy_compute_boilerplate
              ? (computeBoilerplate1.size() + computeBoilerplate2.size() - 2)
              : 0);
-    String fullSource{scopeAlloc, fullSize};
-    fullSource.extend(versionLine.data());
+    String topLevelSource{scopeAlloc, fullSize};
+    topLevelSource.extend(versionLine.data());
     if (add_dummy_compute_boilerplate)
-        fullSource.extend(computeBoilerplate1.data());
-    fullSource.extend(info.defines);
-    fullSource.extend(line1Tag.data());
-    fullSource.extend(source);
+        topLevelSource.extend(computeBoilerplate1.data());
+    topLevelSource.extend(info.defines);
+    topLevelSource.extend(line1Tag.data());
+    topLevelSource.extend(source);
     if (add_dummy_compute_boilerplate)
-        fullSource.extend(computeBoilerplate2.data());
+        topLevelSource.extend(computeBoilerplate2.data());
 
-    // Includer will fill this
-    _uniqueIncludes.clear();
-
-    const auto result = _compiler.CompileGlslToSpv(
-        fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
-        shaderPath.string().c_str(), _compilerOptions);
-
-    if (const auto status = result.GetCompilationStatus(); status)
-    {
-        const auto err = result.GetErrorMessage();
-        if (!err.empty())
-            fprintf(stderr, "%s\n", err.c_str());
-        fprintf(
-            stderr, "Compilation of '%s' failed\n",
-            shaderPath.string().c_str());
-        fprintf(stderr, "%s\n", statusString(status));
+    const Optional<shaderc::SpvCompilationResult> result =
+        compileShader(shaderPath, topLevelSource);
+    if (!result.has_value())
         return {};
-    }
 
     const Span<const uint32_t> spvWords{
-        result.begin(), asserted_cast<size_t>(result.end() - result.begin())};
+        result->begin(),
+        asserted_cast<size_t>(result->end() - result->begin())};
 
     ShaderReflection reflection{_generalAlloc};
     reflection.init(scopeAlloc.child_scope(), spvWords, _uniqueIncludes);
@@ -1639,4 +1590,56 @@ void Device::untrackImage(const Image &image)
     }
 
     _memoryAllocations.images -= info.size;
+}
+
+Optional<shaderc::SpvCompilationResult> Device::compileShader(
+    const std::filesystem::path &sourcePath, StrSpan topLevelSource)
+{
+    // Includer will fill includes here
+    _uniqueIncludes.clear();
+    // Also push root file as reflection expects all sources to be included here
+    _uniqueIncludes.insert(sourcePath.lexically_normal());
+
+    shaderc::SpvCompilationResult result = _compiler.CompileGlslToSpv(
+        topLevelSource.data(), topLevelSource.size(),
+        shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
+        _compilerOptions);
+
+    if (const auto status = result.GetCompilationStatus(); status)
+    {
+        const auto err = result.GetErrorMessage();
+        if (!err.empty())
+            fprintf(stderr, "%s\n", err.c_str());
+        fprintf(
+            stderr, "Compilation of '%s' failed\n",
+            sourcePath.string().c_str());
+        fprintf(stderr, "%s\n", statusString(status));
+        return {};
+    }
+
+    if (_settings.dumpShaderDisassembly)
+    {
+        const shaderc::AssemblyCompilationResult resultAsm =
+            _compiler.CompileGlslToSpvAssembly(
+                topLevelSource.data(), topLevelSource.size(),
+                shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
+                _compilerOptions);
+        if (const shaderc_compilation_status status =
+                result.GetCompilationStatus();
+            status == shaderc_compilation_status_success)
+            fprintf(stdout, "%s\n", resultAsm.begin());
+        else
+        {
+            const std::string err = result.GetErrorMessage();
+            if (!err.empty())
+                fprintf(stderr, "%s\n", err.c_str());
+            fprintf(
+                stderr, "Compilation of '%s' failed\n",
+                sourcePath.string().c_str());
+            fprintf(stderr, "%s\n", statusString(status));
+            return {};
+        }
+    }
+
+    return result;
 }
