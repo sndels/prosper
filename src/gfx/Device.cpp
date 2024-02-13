@@ -20,6 +20,7 @@
 
 #include "../utils/ForEach.hpp"
 #include "../utils/Utils.hpp"
+#include "ShaderIncludes.hpp"
 #include "ShaderReflection.hpp"
 #include "Swapchain.hpp"
 #include "VkUtils.hpp"
@@ -343,97 +344,6 @@ const char *statusString(shaderc_compilation_status status)
     }
 }
 
-class FileIncluder : public shaderc::CompileOptions::IncluderInterface
-{
-  public:
-    FileIncluder(
-        wheels::Allocator &alloc,
-        wheels::HashSet<std::filesystem::path> &uniqueIncludes);
-
-    shaderc_include_result *GetInclude(
-        const char *requested_source, shaderc_include_type type,
-        const char *requesting_source, size_t include_depth) override;
-
-    void ReleaseInclude(shaderc_include_result *data) override;
-
-  private:
-    wheels::Allocator &_alloc;
-
-    std::filesystem::path _includePath;
-
-    uint64_t _includeContentID{0};
-    struct IncludeContent
-    {
-        OwningPtr<shaderc_include_result> result;
-        OwningPtr<wheels::String> content;
-        OwningPtr<wheels::String> path;
-    };
-    wheels::HashMap<uint64_t, IncludeContent> _includeContent;
-    wheels::HashSet<std::filesystem::path> &_uniqueIncludes;
-};
-
-FileIncluder::FileIncluder(
-    Allocator &alloc, HashSet<std::filesystem::path> &uniqueIncludes)
-: _alloc{alloc}
-, _includePath{resPath("shader")}
-, _includeContent{alloc}
-, _uniqueIncludes{uniqueIncludes}
-{
-}
-
-shaderc_include_result *FileIncluder::GetInclude(
-    const char *requested_source, shaderc_include_type type,
-    const char *requesting_source, size_t include_depth)
-{
-    if (include_depth > 100)
-    {
-        throw std::runtime_error(
-            std::string{
-                "Deep shader include recursion with requested source '"} +
-            requested_source + "'. Cycle?");
-    }
-
-    WHEELS_ASSERT(type == shaderc_include_type_relative);
-    (void)type;
-
-    const auto requestingDir =
-        std::filesystem::path{requesting_source}.parent_path();
-    const auto requestedSource =
-        (requestingDir / requested_source).lexically_normal();
-    WHEELS_ASSERT(std::filesystem::exists(requestedSource));
-
-    _uniqueIncludes.insert(requestedSource);
-
-    IncludeContent content;
-    content.path = OwningPtr<String>(
-        _alloc, _alloc, requestedSource.generic_string().c_str());
-
-    content.content =
-        OwningPtr<String>(_alloc, readFileString(_alloc, requestedSource));
-
-    content.result = OwningPtr<shaderc_include_result>(
-        _alloc,
-        shaderc_include_result{
-            .source_name = content.path->c_str(),
-            .source_name_length = content.path->size(),
-            .content = content.content->c_str(),
-            .content_length = content.content->size(),
-            .user_data = reinterpret_cast<void *>(_includeContentID), // NOLINT
-        });
-    auto *result_ptr = content.result.get();
-
-    static_assert(sizeof(_includeContentID) == sizeof(void *));
-    _includeContent.insert_or_assign(_includeContentID++, WHEELS_MOV(content));
-
-    return result_ptr;
-}
-
-void FileIncluder::ReleaseInclude(shaderc_include_result *data)
-{
-    auto id = reinterpret_cast<uint64_t>(data->user_data);
-    _includeContent.remove(id);
-}
-
 } // namespace
 
 Device::Device(Allocator &generalAlloc, const Settings &settings) noexcept
@@ -474,9 +384,7 @@ void Device::init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window)
 
     printf("Creating Vulkan device\n");
 
-    // Use general allocator since the include set is unbounded
-    _compilerOptions.SetIncluder(
-        std::make_unique<FileIncluder>(_generalAlloc, _uniqueIncludes));
+    // No includer as we expand those ourselves
     _compilerOptions.SetGenerateDebugInfo();
     _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
     _compilerOptions.SetTargetEnvironment(
@@ -662,17 +570,17 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     topLevelSource.extend(line1Tag.data());
     topLevelSource.extend(source);
 
-    const Optional<shaderc::SpvCompilationResult> result =
-        compileShader(shaderPath, topLevelSource);
+    const Optional<SpvCompilationResult> result =
+        compileShader(scopeAlloc, shaderPath, topLevelSource);
     if (!result.has_value())
         return {};
 
     const Span<const uint32_t> spvWords{
-        result->begin(),
-        asserted_cast<size_t>(result->end() - result->begin())};
+        result->spv.begin(),
+        asserted_cast<size_t>(result->spv.end() - result->spv.begin())};
 
     ShaderReflection reflection{_generalAlloc};
-    reflection.init(scopeAlloc.child_scope(), spvWords, _uniqueIncludes);
+    reflection.init(scopeAlloc.child_scope(), spvWords, result->uniqueIncludes);
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spvWords.size() * sizeof(uint32_t),
@@ -734,17 +642,17 @@ void main()
     if (add_dummy_compute_boilerplate)
         topLevelSource.extend(computeBoilerplate2.data());
 
-    const Optional<shaderc::SpvCompilationResult> result =
-        compileShader(shaderPath, topLevelSource);
+    const Optional<SpvCompilationResult> result =
+        compileShader(scopeAlloc, shaderPath, topLevelSource);
     if (!result.has_value())
         return {};
 
     const Span<const uint32_t> spvWords{
-        result->begin(),
-        asserted_cast<size_t>(result->end() - result->begin())};
+        result->spv.begin(),
+        asserted_cast<size_t>(result->spv.end() - result->spv.begin())};
 
     ShaderReflection reflection{_generalAlloc};
-    reflection.init(scopeAlloc.child_scope(), spvWords, _uniqueIncludes);
+    reflection.init(scopeAlloc.child_scope(), spvWords, result->uniqueIncludes);
 
     return WHEELS_MOV(reflection);
 }
@@ -1592,18 +1500,22 @@ void Device::untrackImage(const Image &image)
     _memoryAllocations.images -= info.size;
 }
 
-Optional<shaderc::SpvCompilationResult> Device::compileShader(
-    const std::filesystem::path &sourcePath, StrSpan topLevelSource)
+Optional<Device::SpvCompilationResult> Device::compileShader(
+    Allocator &alloc, const std::filesystem::path &sourcePath,
+    StrSpan topLevelSource)
 {
-    // Includer will fill includes here
-    _uniqueIncludes.clear();
+    HashSet<std::filesystem::path> uniqueIncludes{alloc};
     // Also push root file as reflection expects all sources to be included here
-    _uniqueIncludes.insert(sourcePath.lexically_normal());
+    uniqueIncludes.insert(sourcePath.lexically_normal());
+
+    String fullSource{alloc};
+    expandIncludes(
+        alloc, sourcePath.string().c_str(), topLevelSource, &fullSource,
+        &uniqueIncludes, 0);
 
     shaderc::SpvCompilationResult result = _compiler.CompileGlslToSpv(
-        topLevelSource.data(), topLevelSource.size(),
-        shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
-        _compilerOptions);
+        fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
+        sourcePath.string().c_str(), _compilerOptions);
 
     if (const auto status = result.GetCompilationStatus(); status)
     {
@@ -1621,7 +1533,7 @@ Optional<shaderc::SpvCompilationResult> Device::compileShader(
     {
         const shaderc::AssemblyCompilationResult resultAsm =
             _compiler.CompileGlslToSpvAssembly(
-                topLevelSource.data(), topLevelSource.size(),
+                fullSource.c_str(), fullSource.size(),
                 shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
                 _compilerOptions);
         if (const shaderc_compilation_status status =
@@ -1641,5 +1553,8 @@ Optional<shaderc::SpvCompilationResult> Device::compileShader(
         }
     }
 
-    return result;
+    return SpvCompilationResult{
+        .spv = WHEELS_MOV(result),
+        .uniqueIncludes = WHEELS_MOV(uniqueIncludes),
+    };
 }
