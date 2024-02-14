@@ -843,8 +843,10 @@ void ShaderReflection::init(
 
     // Run in two passes because type definitons come after decorations.
     // Data relations are simpler this way.
-    firstPass(scopeAlloc, words, wordCount, results, pushConstantMetadataId);
-    secondPass(words, wordCount, results);
+    firstPass(
+        scopeAlloc, words, wordCount, results.mut_span(),
+        pushConstantMetadataId);
+    secondPass(words, wordCount, results.mut_span());
 
     if (pushConstantMetadataId != sUninitialized)
         _pushConstantsBytesize =

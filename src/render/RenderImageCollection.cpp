@@ -40,7 +40,7 @@ wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     {
         const Image &image = resource(handle);
         views.resize(image.subresourceRange.levelCount);
-        _device->createSubresourcesViews(image, views);
+        _device->createSubresourcesViews(image, views.mut_span());
     }
     else
     {

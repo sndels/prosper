@@ -275,7 +275,7 @@ void DebugRenderer::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _linesDSLayout};
-    staticDescriptorsAlloc->allocate(layouts, _linesDescriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _linesDescriptorSets.mut_span());
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {

@@ -253,7 +253,7 @@ void ComputePass::createDescriptorSets(
     {
         InlineArray<vk::DescriptorSetLayout, sPerFrameRecordLimit> layouts;
         layouts.resize(sets.size(), _storageSetLayout);
-        staticDescriptorsAlloc->allocate(layouts, sets);
+        staticDescriptorsAlloc->allocate(layouts, sets.mut_span());
     }
 }
 

@@ -575,7 +575,7 @@ void RtReference::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _descriptorSets);
+    staticDescriptorsAlloc->allocate(layouts, _descriptorSets.mut_span());
 }
 
 void RtReference::updateDescriptorSet(

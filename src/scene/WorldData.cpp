@@ -1661,7 +1661,7 @@ void WorldData::createDescriptorSets(
         const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
             materialDatasLayouts{_dsLayouts.materialDatas};
         _descriptorAllocator.allocate(
-            materialDatasLayouts, _descriptorSets.materialDatas);
+            materialDatasLayouts, _descriptorSets.materialDatas.mut_span());
     }
 
     WHEELS_ASSERT(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
