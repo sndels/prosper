@@ -81,16 +81,9 @@ template <typename T> void readRaw(std::ifstream &stream, T &value)
 }
 
 template <typename T>
-void readRawArray(std::ifstream &stream, wheels::Array<T> &arr)
+void readRawSpan(std::ifstream &stream, wheels::Span<T> span)
 {
-    stream.read(reinterpret_cast<char *>(arr.data()), arr.size() * sizeof(T));
-}
-
-template <typename T>
-void writeRawArray(std::ofstream &stream, const wheels::Array<T> &arr)
-{
-    stream.write(
-        reinterpret_cast<const char *>(arr.data()), arr.size() * sizeof(T));
+    stream.read(reinterpret_cast<char *>(span.data()), span.size() * sizeof(T));
 }
 
 template <typename T>

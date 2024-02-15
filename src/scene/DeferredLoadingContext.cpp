@@ -528,7 +528,7 @@ Optional<MeshCacheHeader> readCache(
     if (dataBlobOut != nullptr)
     {
         dataBlobOut->resize(ret->blobByteCount);
-        readRawArray(cacheFile, *dataBlobOut);
+        readRawSpan(cacheFile, dataBlobOut->mut_span());
     }
 
     return ret;
@@ -731,15 +731,15 @@ void writeCache(
     writeRaw(cacheFile, header.blobByteCount);
 
     const std::streampos blobStart = cacheFile.tellp();
-    writeRawArray(cacheFile, packedIndices);
-    writeRawArray(cacheFile, meshData.positions);
-    writeRawArray(cacheFile, meshData.normals);
-    writeRawArray(cacheFile, meshData.tangents);
-    writeRawArray(cacheFile, meshData.texCoord0s);
-    writeRawArray(cacheFile, meshData.meshlets);
-    writeRawArray(cacheFile, meshData.meshletBounds);
-    writeRawArray(cacheFile, packedMeshletVertices);
-    writeRawArray(cacheFile, meshData.meshletTriangles);
+    writeRawSpan(cacheFile, packedIndices.span());
+    writeRawSpan(cacheFile, meshData.positions.span());
+    writeRawSpan(cacheFile, meshData.normals.span());
+    writeRawSpan(cacheFile, meshData.tangents.span());
+    writeRawSpan(cacheFile, meshData.texCoord0s.span());
+    writeRawSpan(cacheFile, meshData.meshlets.span());
+    writeRawSpan(cacheFile, meshData.meshletBounds.span());
+    writeRawSpan(cacheFile, packedMeshletVertices.span());
+    writeRawSpan(cacheFile, meshData.meshletTriangles.span());
     const std::streampos blobEnd = cacheFile.tellp();
     const std::streamoff blobLen = blobEnd - blobStart;
     WHEELS_ASSERT(blobLen == header.blobByteCount);
