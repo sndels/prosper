@@ -1,5 +1,6 @@
 #include "Device.hpp"
 
+#include <cinttypes>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -70,6 +71,11 @@ using namespace wheels;
 
 namespace
 {
+
+const uint64_t sShaderCacheMagic = 0x4448535250535250; // PRSPRSHD
+// This should be incremented when breaking changes are made to
+// what's cached
+const uint32_t sShaderCacheVersion = 1;
 
 constexpr std::array validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
@@ -344,6 +350,114 @@ const char *statusString(shaderc_compilation_status status)
     }
 }
 
+// Returns true if the cache is valid
+// No ScopedScratch because spvWords is already scoped in the upper scope and a
+// child scope would stomp it.
+bool readCache(
+    Allocator &alloc, const std::filesystem::path &cachePath,
+    Array<uint32_t> *spvWords = nullptr,
+    HashSet<std::filesystem::path> *uniqueIncludes = nullptr)
+{
+    if (!std::filesystem::exists(cachePath))
+        return false;
+
+    std::ifstream cacheFile{cachePath, std::ios_base::binary};
+
+    uint64_t magic{0};
+    static_assert(sizeof(magic) == sizeof(sShaderCacheMagic));
+
+    readRaw(cacheFile, magic);
+    if (magic != sShaderCacheMagic)
+        throw std::runtime_error(
+            "Expected a valid shader cache in file '" + cachePath.string() +
+            "'");
+
+    uint32_t version{0};
+    static_assert(sizeof(version) == sizeof(sShaderCacheVersion));
+    readRaw(cacheFile, version);
+    if (version != sShaderCacheVersion)
+        return false;
+
+    WHEELS_ASSERT(
+        (spvWords == nullptr && uniqueIncludes == nullptr) ||
+        (spvWords != nullptr && uniqueIncludes != nullptr));
+    if (spvWords == nullptr)
+        return true;
+
+    uint32_t includeCount{0};
+    readRaw(cacheFile, includeCount);
+    for (uint32_t i = 0; i < includeCount; ++i)
+    {
+        uint32_t includeLength{0};
+        readRaw(cacheFile, includeLength);
+
+        // Reserve room for null terminated but read without null
+        Array<char> include{alloc, includeLength + 1};
+        include.resize(includeLength);
+        readRawSpan(cacheFile, include.mut_span());
+        include.push_back('\0');
+
+        uniqueIncludes->insert(std::filesystem::path{include.data()});
+    }
+
+    uint32_t spvWordCount{0};
+    readRaw(cacheFile, spvWordCount);
+
+    spvWords->resize(spvWordCount);
+    readRawSpan(cacheFile, spvWords->mut_span());
+
+    return true;
+}
+
+void writeCache(
+    const std::filesystem::path &cachePath,
+    const shaderc::SpvCompilationResult &compilationResult,
+    const HashSet<std::filesystem::path> &uniqueIncludes)
+{
+    const std::filesystem::path parentFolder = cachePath.parent_path();
+    if (!std::filesystem::exists(parentFolder))
+        std::filesystem::create_directories(parentFolder);
+
+    std::filesystem::remove(cachePath);
+
+    // Write into a tmp file and rename when done to minimize the potential for
+    // corrupted files
+    std::filesystem::path cacheTmpPath = cachePath;
+    cacheTmpPath.replace_extension("prosper_shader_TMP");
+
+    std::ofstream cacheFile{cacheTmpPath, std::ios_base::binary};
+
+    writeRaw(cacheFile, sShaderCacheMagic);
+    writeRaw(cacheFile, sShaderCacheVersion);
+    writeRaw(cacheFile, asserted_cast<uint32_t>(uniqueIncludes.size()));
+    for (const std::filesystem::path &include : uniqueIncludes)
+    {
+        // This has to match what recompiles compare against because of how path
+        // hashing works
+        const std::string genericPath = include.lexically_normal().string();
+        writeRaw(cacheFile, asserted_cast<uint32_t>(genericPath.size()));
+        writeRawStrSpan(
+            cacheFile, StrSpan{genericPath.c_str(), genericPath.size()});
+    }
+    const size_t spvWordCount =
+        compilationResult.end() - compilationResult.begin();
+    writeRaw(cacheFile, asserted_cast<uint32_t>(spvWordCount));
+    writeRawSpan(cacheFile, Span{compilationResult.begin(), spvWordCount});
+
+    cacheFile.close();
+
+    // Make sure we have rw permissions for the user to be nice
+    const std::filesystem::perms initialPerms =
+        std::filesystem::status(cacheTmpPath).permissions();
+    std::filesystem::permissions(
+        cacheTmpPath, initialPerms | std::filesystem::perms::owner_read |
+                          std::filesystem::perms::owner_write);
+
+    // Rename when the file is done to minimize the potential of a corrupted
+    // file
+    std::filesystem::rename(cacheTmpPath, cachePath);
+}
+
 } // namespace
 
 Device::Device(Allocator &generalAlloc, const Settings &settings) noexcept
@@ -551,8 +665,6 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
 {
     WHEELS_ASSERT(_initialized);
 
-    printf("Compiling %s\n", info.relPath.string().c_str());
-
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
 
@@ -570,17 +682,17 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     topLevelSource.extend(line1Tag.data());
     topLevelSource.extend(source);
 
-    const Optional<SpvCompilationResult> result =
-        compileShader(scopeAlloc, shaderPath, topLevelSource);
-    if (!result.has_value())
-        return {};
+    const std::filesystem::path cachePath = updateShaderCache(
+        scopeAlloc, shaderPath, topLevelSource, &info.relPath);
 
-    const Span<const uint32_t> spvWords{
-        result->spv.begin(),
-        asserted_cast<size_t>(result->spv.end() - result->spv.begin())};
+    // Always read from the cache to make caching issues always visible
+    HashSet<std::filesystem::path> uniqueIncludes{scopeAlloc};
+    Array<uint32_t> spvWords{scopeAlloc};
+    readCache(scopeAlloc, cachePath, &spvWords, &uniqueIncludes);
+    WHEELS_ASSERT(!spvWords.empty());
 
     ShaderReflection reflection{_generalAlloc};
-    reflection.init(scopeAlloc.child_scope(), spvWords, result->uniqueIncludes);
+    reflection.init(scopeAlloc.child_scope(), spvWords, uniqueIncludes);
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spvWords.size() * sizeof(uint32_t),
@@ -642,17 +754,17 @@ void main()
     if (add_dummy_compute_boilerplate)
         topLevelSource.extend(computeBoilerplate2.data());
 
-    const Optional<SpvCompilationResult> result =
-        compileShader(scopeAlloc, shaderPath, topLevelSource);
-    if (!result.has_value())
-        return {};
+    const std::filesystem::path cachePath =
+        updateShaderCache(scopeAlloc, shaderPath, topLevelSource);
 
-    const Span<const uint32_t> spvWords{
-        result->spv.begin(),
-        asserted_cast<size_t>(result->spv.end() - result->spv.begin())};
+    // Always read from the cache to make caching issues always visible
+    HashSet<std::filesystem::path> uniqueIncludes{scopeAlloc};
+    Array<uint32_t> spvWords{scopeAlloc};
+    readCache(scopeAlloc, cachePath, &spvWords, &uniqueIncludes);
+    WHEELS_ASSERT(!spvWords.empty());
 
     ShaderReflection reflection{_generalAlloc};
-    reflection.init(scopeAlloc.child_scope(), spvWords, result->uniqueIncludes);
+    reflection.init(scopeAlloc.child_scope(), spvWords, uniqueIncludes);
 
     return WHEELS_MOV(reflection);
 }
@@ -1500,9 +1612,9 @@ void Device::untrackImage(const Image &image)
     _memoryAllocations.images -= info.size;
 }
 
-Optional<Device::SpvCompilationResult> Device::compileShader(
+std::filesystem::path Device::updateShaderCache(
     Allocator &alloc, const std::filesystem::path &sourcePath,
-    StrSpan topLevelSource)
+    StrSpan topLevelSource, const std::filesystem::path *relPath)
 {
     HashSet<std::filesystem::path> uniqueIncludes{alloc};
     // Also push root file as reflection expects all sources to be included here
@@ -1510,39 +1622,33 @@ Optional<Device::SpvCompilationResult> Device::compileShader(
 
     String fullSource{alloc};
     expandIncludes(
-        alloc, sourcePath.string().c_str(), topLevelSource, &fullSource,
-        &uniqueIncludes, 0);
+        alloc, sourcePath, topLevelSource, &fullSource, &uniqueIncludes, 0);
 
-    shaderc::SpvCompilationResult result = _compiler.CompileGlslToSpv(
-        fullSource.c_str(), fullSource.size(), shaderc_glsl_infer_from_source,
-        sourcePath.string().c_str(), _compilerOptions);
+    // wyhash should be fine here, it's effectively 62bit for collisions
+    // https://github.com/Cyan4973/xxHash/issues/236#issuecomment-522051621
+    const uint64_t sourceHash =
+        wyhash(fullSource.data(), fullSource.size(), 0, (uint64_t const *)_wyp);
+    StaticArray<char, sizeof(uint64_t) * 2 + 1> hashStr;
+    snprintf(hashStr.data(), hashStr.size(), "%" PRIX64, sourceHash);
 
-    if (const auto status = result.GetCompilationStatus(); status)
+    std::filesystem::path cachePath =
+        resPath(std::filesystem::path("shader") / "cache" / hashStr.data());
+    cachePath.replace_extension("prosper_shader");
+
+    const bool cacheValid = readCache(alloc, cachePath);
+    if (!cacheValid || _settings.dumpShaderDisassembly)
     {
-        const auto err = result.GetErrorMessage();
-        if (!err.empty())
-            fprintf(stderr, "%s\n", err.c_str());
-        fprintf(
-            stderr, "Compilation of '%s' failed\n",
-            sourcePath.string().c_str());
-        fprintf(stderr, "%s\n", statusString(status));
-        return {};
-    }
+        if (relPath != nullptr)
+            printf("Compiling %s\n", relPath->string().c_str());
 
-    if (_settings.dumpShaderDisassembly)
-    {
-        const shaderc::AssemblyCompilationResult resultAsm =
-            _compiler.CompileGlslToSpvAssembly(
-                fullSource.c_str(), fullSource.size(),
-                shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
-                _compilerOptions);
-        if (const shaderc_compilation_status status =
-                result.GetCompilationStatus();
-            status == shaderc_compilation_status_success)
-            fprintf(stdout, "%s\n", resultAsm.begin());
-        else
+        const shaderc::SpvCompilationResult result = _compiler.CompileGlslToSpv(
+            fullSource.c_str(), fullSource.size(),
+            shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
+            _compilerOptions);
+
+        if (const auto status = result.GetCompilationStatus(); status)
         {
-            const std::string err = result.GetErrorMessage();
+            const auto err = result.GetErrorMessage();
             if (!err.empty())
                 fprintf(stderr, "%s\n", err.c_str());
             fprintf(
@@ -1551,10 +1657,33 @@ Optional<Device::SpvCompilationResult> Device::compileShader(
             fprintf(stderr, "%s\n", statusString(status));
             return {};
         }
+
+        writeCache(cachePath, result, uniqueIncludes);
+
+        if (_settings.dumpShaderDisassembly)
+        {
+            const shaderc::AssemblyCompilationResult resultAsm =
+                _compiler.CompileGlslToSpvAssembly(
+                    fullSource.c_str(), fullSource.size(),
+                    shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
+                    _compilerOptions);
+            if (const shaderc_compilation_status status =
+                    result.GetCompilationStatus();
+                status == shaderc_compilation_status_success)
+                fprintf(stdout, "%s\n", resultAsm.begin());
+            else
+            {
+                const std::string err = result.GetErrorMessage();
+                if (!err.empty())
+                    fprintf(stderr, "%s\n", err.c_str());
+                fprintf(
+                    stderr, "Compilation of '%s' failed\n",
+                    sourcePath.string().c_str());
+                fprintf(stderr, "%s\n", statusString(status));
+                return {};
+            }
+        }
     }
 
-    return SpvCompilationResult{
-        .spv = WHEELS_MOV(result),
-        .uniqueIncludes = WHEELS_MOV(uniqueIncludes),
-    };
+    return cachePath;
 }

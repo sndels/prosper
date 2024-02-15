@@ -5,3 +5,4 @@ prosper_imgui.ini
 scene.txt
 _scene.txt
 **/prosper_cache/*
+res/shader/cache/*

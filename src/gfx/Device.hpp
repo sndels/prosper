@@ -174,14 +174,10 @@ class Device
     void trackImage(const Image &image);
     void untrackImage(const Image &image);
 
-    struct SpvCompilationResult
-    {
-        shaderc::SpvCompilationResult spv;
-        wheels::HashSet<std::filesystem::path> uniqueIncludes;
-    };
-    wheels::Optional<SpvCompilationResult> compileShader(
+    std::filesystem::path updateShaderCache(
         wheels::Allocator &alloc, const std::filesystem::path &sourcePath,
-        wheels::StrSpan topLevelSource);
+        wheels::StrSpan topLevelSource,
+        const std::filesystem::path *relPath = nullptr);
 
     bool _initialized{false};
     wheels::Allocator &_generalAlloc;
