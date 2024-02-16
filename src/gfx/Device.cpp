@@ -684,6 +684,8 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
 
     const std::filesystem::path cachePath = updateShaderCache(
         scopeAlloc, shaderPath, topLevelSource, &info.relPath);
+    if (cachePath.empty())
+        return {};
 
     // Always read from the cache to make caching issues always visible
     HashSet<std::filesystem::path> uniqueIncludes{scopeAlloc};
