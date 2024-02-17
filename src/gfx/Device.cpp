@@ -1631,8 +1631,17 @@ std::filesystem::path Device::updateShaderCache(
     uniqueIncludes.insert(sourcePath.lexically_normal());
 
     String fullSource{alloc};
-    expandIncludes(
-        alloc, sourcePath, topLevelSource, &fullSource, &uniqueIncludes, 0);
+    try
+    {
+        expandIncludes(
+            alloc, sourcePath, topLevelSource, &fullSource, &uniqueIncludes, 0);
+    }
+    catch (const std::exception &e)
+    {
+        // Just log so that the calling code can skip without error on recompile
+        fprintf(stderr, "%s\n", e.what());
+        return {};
+    }
 
     // wyhash should be fine here, it's effectively 62bit for collisions
     // https://github.com/Cyan4973/xxHash/issues/236#issuecomment-522051621

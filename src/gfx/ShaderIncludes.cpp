@@ -8,9 +8,8 @@
 
 using namespace wheels;
 
-// TODO:
-// Log parsing errors with proper formatting for vscode file links.
-// Asserts should not fire with invalid input glsl.
+// This not the most robust parser but it handles many common error cases and
+// shaderc catches some more
 
 namespace
 {
@@ -31,7 +30,10 @@ Pair<std::filesystem::path, String> getInclude(
     const std::filesystem::path requestingDir = requesting_source.parent_path();
     const std::filesystem::path requestedSource =
         (requestingDir / requested_source.c_str()).lexically_normal();
-    WHEELS_ASSERT(std::filesystem::exists(requestedSource));
+    if (!std::filesystem::exists(requestedSource))
+        throw std::runtime_error(
+            std::string{"Could not find '"} + requestedSource.generic_string() +
+            '\'');
 
     uniqueIncludes->insert(requestedSource);
 
@@ -80,20 +82,33 @@ uint32_t parseLineNumber(StrSpan span)
     size_t front = sLinePrefix.size();
     while (std::isspace(span[front]) != 0 && front < span.size())
     {
-        WHEELS_ASSERT(
-            !isAtNewline(StrSpan{span.data() + front, span.size() - front}));
+        if (isAtNewline(StrSpan{span.data() + front, span.size() - front}))
+            throw std::runtime_error("Unexpected newline");
+
         front++;
     }
-    WHEELS_ASSERT(front < span.size());
-
-    // TODO: Check that no source file index or path is given as those are
-    // ignored
+    WHEELS_ASSERT(front != span.size());
 
     uint32_t ret = 0;
     const std::from_chars_result result =
         std::from_chars(span.data() + front, span.data() + span.size(), ret);
-    WHEELS_ASSERT(result.ec == std::errc());
-    WHEELS_ASSERT(ret > 0 && "Line number should be greater than 0");
+    if (result.ec != std::errc())
+        throw std::runtime_error("Failed to parse line number");
+
+    if (ret == 0)
+        throw std::runtime_error("Line number should be greater than 0");
+
+    // Check that the second potential componnt is not there
+    StrSpan tailSpan{span.data() + front, span.size() - front};
+    // First go through the number part
+    while (!tailSpan.empty() && std::isspace(tailSpan[0]) == 0)
+        tailSpan = StrSpan{tailSpan.data() + 1, tailSpan.size() - 1};
+    // Then try to find the newline
+    while (!tailSpan.empty() && std::isspace(tailSpan[0]) != 0 &&
+           !isAtNewline(tailSpan))
+        tailSpan = StrSpan{tailSpan.data() + 1, tailSpan.size() - 1};
+    if (!isAtNewline(tailSpan))
+        throw std::runtime_error("Line directives support line number only");
 
     return ret;
 }
@@ -110,8 +125,8 @@ void expandIncludes(
 
     if (includeDepth > 100)
         throw std::runtime_error(
-            std::string{"Deep shader include recursion at '"} +
-            currentPath.string() + "'. Cycle?");
+            currentPath.generic_string() +
+            " Deep shader include recursion, cycle?");
 
     const size_t currentLength = currentSource.size();
 
@@ -158,10 +173,22 @@ void expandIncludes(
         {
             // Keep line count on track
             if (tailSpan.starts_with(sLinePrefix))
-                // Subtract one because the following newline will increment
-                lineNumber = parseLineNumber(tailSpan) - 1;
+            {
+                try
+                {
+                    // Subtract one because the following newline will increment
+                    lineNumber = parseLineNumber(tailSpan) - 1;
+                }
+                catch (const std::exception &e)
+                {
+                    throw std::runtime_error(
+                        currentPath.generic_string() + ':' +
+                        std::to_string(lineNumber) + ' ' + e.what());
+                }
+            }
 
-            // Continue until we have the full uninterrupted block we can memcpy
+            // Continue until we have the full uninterrupted block we can
+            // memcpy
             backCursor++;
             continue;
         }
@@ -176,8 +203,8 @@ void expandIncludes(
             tailSpan.find_first('"');
         if (!includePathFrontQuatation.has_value())
             throw std::runtime_error(
-                std::string("Malformed shader include in '") +
-                currentPath.string() + "'. Parser expects paths in '\"'s.");
+                currentPath.generic_string() + ':' +
+                std::to_string(lineNumber) + " Parser expects relative paths.");
         const size_t includePathStart = *includePathFrontQuatation + 1;
 
         const Optional<size_t> includePathNextQuotation =
@@ -187,8 +214,8 @@ void expandIncludes(
                 .find_first('"');
         if (!includePathNextQuotation.has_value())
             throw std::runtime_error(
-                std::string("Malformed shader include in '") +
-                currentPath.string() + "'. Parser expects paths in '\"'s.");
+                currentPath.generic_string() + ':' +
+                std::to_string(lineNumber) + " Parser expects relative paths.");
         const size_t includePathLength = *includePathNextQuotation + 1;
 
         const StrSpan includeSpan{
@@ -196,10 +223,21 @@ void expandIncludes(
         // Need null-termination for path conversion
         const String includeRelPath{alloc, includeSpan};
 
-        const Pair<std::filesystem::path, String> include =
-            getInclude(alloc, currentPath, includeRelPath, uniqueIncludes);
+        Optional<Pair<std::filesystem::path, String>> include;
+        try
+        {
+            include =
+                getInclude(alloc, currentPath, includeRelPath, uniqueIncludes);
+        }
+        catch (const std::exception &e)
+        {
+            throw std::runtime_error(
+                currentPath.generic_string() + ':' +
+                std::to_string(lineNumber) + ' ' + e.what());
+        }
+        WHEELS_ASSERT(include.has_value());
 
-        const std::string genericIncludePath = include.first.generic_string();
+        const std::string genericIncludePath = include->first.generic_string();
         const StrSpan genericIncludeSpan{
             genericIncludePath.data(), genericIncludePath.size()};
 
@@ -210,7 +248,7 @@ void expandIncludes(
         fullSource->push_back('\n');
 
         expandIncludes(
-            alloc, include.first.string().c_str(), include.second, fullSource,
+            alloc, include->first.string().c_str(), include->second, fullSource,
             uniqueIncludes, includeDepth + 1);
 
         WHEELS_ASSERT(lineNumber < 999999);
