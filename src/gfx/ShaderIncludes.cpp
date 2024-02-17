@@ -137,18 +137,29 @@ void expandIncludes(
     size_t frontCursor = 0;
     size_t backCursor = 0;
     uint32_t lineNumber = 1;
+    bool hashFoundOnLine = false;
     while (frontCursor < currentLength)
     {
         // Find next potential include
         while (backCursor < currentLength)
         {
             if (currentSource[backCursor] == '#')
+            {
+                if (hashFoundOnLine)
+                    throw std::runtime_error(
+                        currentPath.generic_string() + ':' +
+                        std::to_string(lineNumber) +
+                        " Two #'s found on one line. Invalid preprocessor "
+                        "directives?");
+                hashFoundOnLine = true;
                 break;
+            }
 
             const StrSpan tailSpan{
                 &currentSource[backCursor], currentLength - backCursor};
             if (isAtNewline(tailSpan))
             {
+                hashFoundOnLine = false;
                 lineNumber++;
                 backCursor += skipNewline(tailSpan);
             }
