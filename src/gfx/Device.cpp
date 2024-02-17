@@ -77,6 +77,10 @@ const uint64_t sShaderCacheMagic = 0x4448535250535250; // PRSPRSHD
 // what's cached
 const uint32_t sShaderCacheVersion = 1;
 
+const char *const sCppStyleLineDirectiveCStr =
+    "#extension GL_GOOGLE_cpp_style_line_directive : require\n";
+const StrSpan sCppStyleLineDirective{sCppStyleLineDirectiveCStr};
+
 constexpr std::array validationLayers = {
     //"VK_LAYER_LUNARG_api_dump",
     "VK_LAYER_KHRONOS_validation",
@@ -678,6 +682,8 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
                             info.defines.size() + source.size();
     String topLevelSource{scopeAlloc, fullSize};
     topLevelSource.extend(versionLine.data());
+    // The custom includer uses these to make errors work
+    topLevelSource.extend(sCppStyleLineDirective);
     topLevelSource.extend(info.defines);
     topLevelSource.extend(line1Tag.data());
     topLevelSource.extend(source);
@@ -748,6 +754,8 @@ void main()
              : 0);
     String topLevelSource{scopeAlloc, fullSize};
     topLevelSource.extend(versionLine.data());
+    // The custom includer uses these to make errors work
+    topLevelSource.extend(sCppStyleLineDirective);
     if (add_dummy_compute_boilerplate)
         topLevelSource.extend(computeBoilerplate1.data());
     topLevelSource.extend(info.defines);
