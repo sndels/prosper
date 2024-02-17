@@ -9,6 +9,9 @@ using namespace wheels;
 namespace
 {
 
+const char *const sIncludePrefixCStr = "#include ";
+const StrSpan sIncludePrefix{sIncludePrefixCStr};
+
 Pair<std::filesystem::path, String> getInclude(
     Allocator &alloc, const std::filesystem::path &requesting_source,
     const String &requested_source,
@@ -46,11 +49,7 @@ void expandIncludes(
             std::string{"Deep shader include recursion at '"} +
             currentPath.string() + "'. Cycle?");
 
-    const char *const includePrefix = "#include \"";
-    const size_t includePrefixLength = 10;
     const size_t currentLength = currentSource.size();
-    // Make sure we can avoid underflow checks on size - includePrefixLength
-    WHEELS_ASSERT(currentLength > includePrefixLength);
 
     size_t frontCursor = 0;
     size_t backCursor = 0;
@@ -60,76 +59,82 @@ void expandIncludes(
         while (backCursor < currentLength && currentSource[backCursor] != '#')
             backCursor++;
 
-        bool includeFound = false;
-        if (backCursor < (currentLength - includePrefixLength))
-            // Safe to do this instead of strncmp as we know we're within bounds
-            includeFound = memcmp(
-                               &currentSource[backCursor], includePrefix,
-                               includePrefixLength) == 0;
-
-        // Skip copy until we have the full uninterrupted block we can
-        // memcpy
-        if (backCursor != currentLength && !includeFound)
+        if (backCursor == currentLength)
         {
+            // Reached the end so copy the remaning span
+            const StrSpan frontSpan{
+                &currentSource[frontCursor], backCursor - frontCursor};
+            fullSource->extend(frontSpan);
+            frontCursor = backCursor;
+            break;
+        }
+
+        const StrSpan tailSpan{
+            &currentSource[backCursor], currentLength - backCursor};
+
+        if (!tailSpan.starts_with(sIncludePrefix))
+        {
+            // Continue until we have the full uninterrupted block we can memcpy
             backCursor++;
             continue;
         }
 
-        // We're either at the '#' of an include or one past the end of the
-        // source so let's copy what's between the cursors
-        const size_t copySize = backCursor - frontCursor;
-        fullSource->extend(StrSpan{&currentSource[frontCursor], copySize});
+        // Let's copy what's between the cursors before the include
+        const StrSpan frontSpan{
+            &currentSource[frontCursor], backCursor - frontCursor};
+        fullSource->extend(frontSpan);
 
-        if (includeFound)
-        {
+        // Parse the include path
+        const Optional<size_t> includePathFrontQuatation =
+            tailSpan.find_first('"');
+        if (!includePathFrontQuatation.has_value())
+            throw std::runtime_error(
+                std::string("Malformed shader include in '") +
+                currentPath.string() + "'. Parser expects paths in '\"'s.");
+        const size_t includePathStart = *includePathFrontQuatation + 1;
 
-            const size_t includeFrontCursor = backCursor + includePrefixLength;
-            size_t includeBackCursor = includeFrontCursor;
-            while (includeBackCursor < currentLength &&
-                   currentSource[includeBackCursor] != '"')
-                includeBackCursor++;
+        const Optional<size_t> includePathNextQuotation =
+            StrSpan{
+                &tailSpan[includePathStart + 1],
+                tailSpan.size() - includePathStart}
+                .find_first('"');
+        if (!includePathNextQuotation.has_value())
+            throw std::runtime_error(
+                std::string("Malformed shader include in '") +
+                currentPath.string() + "'. Parser expects paths in '\"'s.");
+        const size_t includePathLength = *includePathNextQuotation + 1;
 
-            // Only test for \n or the first half of \r\n for simplicity, let's
-            // check for the full \r\n if it becomes an issue
-            if (includeBackCursor >= currentLength - 1 ||
-                currentSource[includeBackCursor] != '"' ||
-                (currentSource[includeBackCursor + 1] != '\n' &&
-                 (currentSource[includeBackCursor + 1] != '\r')))
-                throw std::runtime_error(
-                    std::string("Malformed shader include in '") +
-                    currentPath.string() + "'. Parser expects paths in '\"'s.");
+        const StrSpan includeSpan{
+            &tailSpan[includePathStart], includePathLength};
+        // Need null-termination for path conversion
+        const String includeRelPath{alloc, includeSpan};
 
-            // Need null-termination
-            const String includeRelPath{
-                alloc, StrSpan{
-                           &currentSource[includeFrontCursor],
-                           includeBackCursor - includeFrontCursor}};
+        const Pair<std::filesystem::path, String> include =
+            getInclude(alloc, currentPath, includeRelPath, uniqueIncludes);
 
-            const Pair<std::filesystem::path, String> include =
-                getInclude(alloc, currentPath, includeRelPath, uniqueIncludes);
+        // Move cursors past the include path
+        frontCursor = backCursor + includePathStart + includePathLength + 1;
+        backCursor = frontCursor;
 
-            // Move cursors past the include line
-            frontCursor = includeBackCursor + 2;
-            backCursor = frontCursor;
+        const StrSpan fSpan{
+            &currentSource[frontCursor], currentLength - backCursor};
 
-            const std::string genericPath = include.first.generic_string();
-            const StrSpan genericSpan{genericPath.data(), genericPath.size()};
+        const std::string genericPath = include.first.generic_string();
+        const StrSpan genericSpan{genericPath.data(), genericPath.size()};
 
-            fullSource->extend("\n// Begin : ");
-            fullSource->extend(genericSpan);
-            fullSource->push_back('\n');
-            fullSource->push_back('\n');
+        fullSource->extend("\n// Begin : ");
+        fullSource->extend(genericSpan);
+        fullSource->push_back('\n');
+        fullSource->push_back('\n');
 
-            expandIncludes(
-                alloc, include.first.string().c_str(), include.second,
-                fullSource, uniqueIncludes, includeDepth + 1);
+        expandIncludes(
+            alloc, include.first.string().c_str(), include.second, fullSource,
+            uniqueIncludes, includeDepth + 1);
 
-            fullSource->extend("\n// End: ");
-            fullSource->extend(genericSpan);
-            fullSource->push_back('\n');
-            fullSource->push_back('\n');
-        }
-        else
-            frontCursor = backCursor;
+        fullSource->extend("\n// End: ");
+        fullSource->extend(genericSpan);
+        fullSource->push_back('\n');
+        // Second \n comes from the include newline we don't skip
     }
+    WHEELS_ASSERT(frontCursor == backCursor);
 }
