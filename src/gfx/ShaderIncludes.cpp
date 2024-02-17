@@ -45,6 +45,30 @@ Pair<std::filesystem::path, String> getInclude(
     };
 }
 
+bool startsLineComment(StrSpan span)
+{
+    if (span.size() < 2)
+        return false;
+
+    return span[0] == '/' && span[1] == '/';
+}
+
+bool startsBlockComment(StrSpan span)
+{
+    if (span.size() < 2)
+        return false;
+
+    return span[0] == '/' && span[1] == '*';
+}
+
+bool endsBlockComment(StrSpan span)
+{
+    if (span.size() < 2)
+        return false;
+
+    return span[0] == '*' && span[1] == '/';
+}
+
 bool isAtNewline(StrSpan span)
 {
     if (span.empty())
@@ -138,12 +162,15 @@ void expandIncludes(
     size_t backCursor = 0;
     uint32_t lineNumber = 1;
     bool hashFoundOnLine = false;
+    bool insideLineComment = false;
+    bool insideBlockComment = false;
     while (frontCursor < currentLength)
     {
         // Find next potential include
         while (backCursor < currentLength)
         {
-            if (currentSource[backCursor] == '#')
+            if (!insideLineComment && !insideBlockComment &&
+                currentSource[backCursor] == '#')
             {
                 if (hashFoundOnLine)
                     throw std::runtime_error(
@@ -157,9 +184,19 @@ void expandIncludes(
 
             const StrSpan tailSpan{
                 &currentSource[backCursor], currentLength - backCursor};
+
+            if (!insideBlockComment && startsLineComment(tailSpan))
+                insideLineComment = true;
+            else if (!insideLineComment && startsBlockComment(tailSpan))
+                insideBlockComment = true;
+            else if (endsBlockComment(tailSpan))
+                // Shaderc will complain if this is unmatched
+                insideBlockComment = false;
+
             if (isAtNewline(tailSpan))
             {
                 hashFoundOnLine = false;
+                insideLineComment = false;
                 lineNumber++;
                 backCursor += skipNewline(tailSpan);
             }
