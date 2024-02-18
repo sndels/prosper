@@ -41,6 +41,7 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Texture cache with BC7 compression
   - Mesh cache with mesh data optimization and tangent generation
   - Missing or stale cache entries generated during loading
+- SPIR-V shader cache
 
 ### Under the hood
 
@@ -82,7 +83,13 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Should be 1:1 mapping between the GPU frame and the CPU frame that recorded it
 - Error handling through custom asserts in all build targets
   - This is my own toy and experiment base so no need to complicate things with
-    more graceful handling for wrong inputs etc.
+    more graceful handling for wrong inputs etc. where it doesn't hurt my workflows
+  - Currently still using throws for things that need to report runtime strings
+- Custom shader include parser
+  - Needed to get cache hashes for the full shader source
+  - Basic include expansion with line tags for shaderc
+  - Handles comments
+  - Bare minimum validation of things that shaderc would not complain about in the expanded source
 
 Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and, on Linux, `xorg-dev`. Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [meshoptimizer](https://github.com/zeux/meshoptimizer), [mikktspace](https://github.com/mmikk/MikkTSpace), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
 
