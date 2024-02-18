@@ -688,8 +688,8 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     topLevelSource.extend(line1Tag.data());
     topLevelSource.extend(source);
 
-    const std::filesystem::path cachePath = updateShaderCache(
-        scopeAlloc, shaderPath, topLevelSource, &info.relPath);
+    const std::filesystem::path cachePath =
+        updateShaderCache(scopeAlloc, shaderPath, topLevelSource, info.relPath);
     if (cachePath.empty())
         return {};
 
@@ -765,7 +765,7 @@ void main()
         topLevelSource.extend(computeBoilerplate2.data());
 
     const std::filesystem::path cachePath =
-        updateShaderCache(scopeAlloc, shaderPath, topLevelSource);
+        updateShaderCache(scopeAlloc, shaderPath, topLevelSource, info.relPath);
 
     // Always read from the cache to make caching issues always visible
     HashSet<std::filesystem::path> uniqueIncludes{scopeAlloc};
@@ -1624,7 +1624,7 @@ void Device::untrackImage(const Image &image)
 
 std::filesystem::path Device::updateShaderCache(
     Allocator &alloc, const std::filesystem::path &sourcePath,
-    StrSpan topLevelSource, const std::filesystem::path *relPath)
+    StrSpan topLevelSource, const std::filesystem::path &relPath)
 {
     HashSet<std::filesystem::path> uniqueIncludes{alloc};
     // Also push root file as reflection expects all sources to be included here
@@ -1657,8 +1657,7 @@ std::filesystem::path Device::updateShaderCache(
     const bool cacheValid = readCache(alloc, cachePath);
     if (!cacheValid || _settings.dumpShaderDisassembly)
     {
-        if (relPath != nullptr)
-            printf("Compiling %s\n", relPath->string().c_str());
+        printf("Compiling %s\n", relPath.string().c_str());
 
         const shaderc::SpvCompilationResult result = _compiler.CompileGlslToSpv(
             fullSource.c_str(), fullSource.size(),
@@ -1703,6 +1702,8 @@ std::filesystem::path Device::updateShaderCache(
             }
         }
     }
+    else
+        printf("Loading '%s' from cache\n", relPath.string().c_str());
 
     return cachePath;
 }

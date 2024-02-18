@@ -176,8 +176,7 @@ class Device
 
     std::filesystem::path updateShaderCache(
         wheels::Allocator &alloc, const std::filesystem::path &sourcePath,
-        wheels::StrSpan topLevelSource,
-        const std::filesystem::path *relPath = nullptr);
+        wheels::StrSpan topLevelSource, const std::filesystem::path &relPath);
 
     bool _initialized{false};
     wheels::Allocator &_generalAlloc;
