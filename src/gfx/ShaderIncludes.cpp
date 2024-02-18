@@ -21,15 +21,18 @@ const char *const sLinePrefixCStr = "#line ";
 const StrSpan sLinePrefix{sLinePrefixCStr};
 
 Pair<std::filesystem::path, String> getInclude(
-    Allocator &alloc, const std::filesystem::path &requesting_source,
-    const String &requested_source,
+    Allocator &alloc, const std::filesystem::path &requestingSource,
+    StrSpan requestedSourceRelative,
     HashSet<std::filesystem::path> *uniqueIncludes)
 {
     WHEELS_ASSERT(uniqueIncludes != nullptr);
 
-    const std::filesystem::path requestingDir = requesting_source.parent_path();
+    const std::filesystem::path requestingDir = requestingSource.parent_path();
     const std::filesystem::path requestedSource =
-        (requestingDir / requested_source.c_str()).lexically_normal();
+        (requestingDir /
+         std::filesystem::path(
+             requestedSourceRelative.begin(), requestedSourceRelative.end()))
+            .lexically_normal();
     if (!std::filesystem::exists(requestedSource))
         throw std::runtime_error(
             std::string{"Could not find '"} + requestedSource.generic_string() +
@@ -135,6 +138,29 @@ uint32_t parseLineNumber(StrSpan span)
         throw std::runtime_error("Line directives support line number only");
 
     return ret;
+}
+
+StrSpan parseIncludePath(
+    StrSpan span, size_t *includePathStart, size_t *includePathLength)
+{
+    WHEELS_ASSERT(span.starts_with(sIncludePrefix));
+    WHEELS_ASSERT(includePathStart != nullptr);
+    WHEELS_ASSERT(includePathLength != nullptr);
+
+    // Parse the include path
+    const Optional<size_t> includePathFrontQuatation = span.find_first('"');
+    if (!includePathFrontQuatation.has_value())
+        throw std::runtime_error("Parser expects relative paths.");
+    *includePathStart = *includePathFrontQuatation + 1;
+
+    const Optional<size_t> includePathNextQuotation =
+        StrSpan{&span[*includePathStart + 1], span.size() - *includePathStart}
+            .find_first('"');
+    if (!includePathNextQuotation.has_value())
+        throw std::runtime_error("Parser expects relative paths.");
+    *includePathLength = *includePathNextQuotation + 1;
+
+    return StrSpan{&span[*includePathStart], *includePathLength};
 }
 
 } // namespace
@@ -246,34 +272,14 @@ void expandIncludes(
             &currentSource[frontCursor], backCursor - frontCursor};
         fullSource->extend(frontSpan);
 
-        // Parse the include path
-        const Optional<size_t> includePathFrontQuatation =
-            tailSpan.find_first('"');
-        if (!includePathFrontQuatation.has_value())
-            throw std::runtime_error(
-                currentPath.generic_string() + ':' +
-                std::to_string(lineNumber) + " Parser expects relative paths.");
-        const size_t includePathStart = *includePathFrontQuatation + 1;
-
-        const Optional<size_t> includePathNextQuotation =
-            StrSpan{
-                &tailSpan[includePathStart + 1],
-                tailSpan.size() - includePathStart}
-                .find_first('"');
-        if (!includePathNextQuotation.has_value())
-            throw std::runtime_error(
-                currentPath.generic_string() + ':' +
-                std::to_string(lineNumber) + " Parser expects relative paths.");
-        const size_t includePathLength = *includePathNextQuotation + 1;
-
-        const StrSpan includeSpan{
-            &tailSpan[includePathStart], includePathLength};
-        // Need null-termination for path conversion
-        const String includeRelPath{alloc, includeSpan};
-
+        size_t includePathStart = 0;
+        size_t includePathLength = 0;
         Optional<Pair<std::filesystem::path, String>> include;
         try
         {
+            const StrSpan includeRelPath = parseIncludePath(
+                tailSpan, &includePathStart, &includePathLength);
+
             include =
                 getInclude(alloc, currentPath, includeRelPath, uniqueIncludes);
         }
