@@ -56,6 +56,7 @@ target_compile_features(imgui
 target_sources(imgui
     PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_demo.cpp
     ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_draw.cpp
     ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_tables.cpp
     ${CMAKE_CURRENT_LIST_DIR}/imgui/imgui_widgets.cpp
