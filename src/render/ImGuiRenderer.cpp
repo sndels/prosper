@@ -29,6 +29,16 @@ const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 const char *const sIniFilename = "prosper_imgui.ini";
 const char *const sDefaultIniFilename = "default_prosper_imgui.ini";
 
+// Copied from imgui.h, let's not pollute the whole project with these
+ImVec4 operator+(const ImVec4 &lhs, const ImVec4 &rhs)
+{
+    return ImVec4{lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w};
+}
+ImVec4 operator*(const ImVec4 &lhs, const ImVec4 &rhs)
+{
+    return ImVec4{lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z, lhs.w * rhs.w};
+}
+
 } // namespace
 
 ImGuiRenderer::~ImGuiRenderer()
@@ -115,15 +125,7 @@ void ImGuiRenderer::init(
 
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    {
-        ImGuiStyle &style = ImGui::GetStyle();
-
-        // TODO: Dark grayish theme?
-
-        // Let's be pointy
-        style.TabRounding = 0.f;
-        style.ScrollbarRounding = 0.f;
-    }
+    setStyle();
 
     _initialized = true;
 }
@@ -332,4 +334,90 @@ void ImGuiRenderer::createDescriptorPool()
             .poolSizeCount = asserted_cast<uint32_t>(poolSizes.size()),
             .pPoolSizes = poolSizes.data(),
         });
+}
+
+void ImGuiRenderer::setStyle()
+{
+    ImGuiStyle &style = ImGui::GetStyle();
+
+    // Let's be pointy
+    style.TabRounding = 0.f;
+    style.ScrollbarRounding = 0.f;
+    style.WindowMenuButtonPosition = ImGuiDir_None;
+
+    ImVec4 *colors = reinterpret_cast<ImVec4 *>(style.Colors);
+
+    // Lighter dark mode, closer to what most apps are doing these days
+    const ImVec4 colorBg{0.12f, 0.12f, 0.12f, 0.90f};
+    const ImVec4 colorBgLight{0.16f, 0.16f, 0.16f, 0.90f};
+    const ImVec4 colorTransparent{0.00f, 0.00f, 0.00f, 0.00f};
+    const ImVec4 colorItemDark{0.09f, 0.09f, 0.09f, 0.90f};
+    const ImVec4 colorItemDelta{0.12f, 0.12f, 0.12f, 0.90f};
+    const ImVec4 colorItem = colorItemDark + colorItemDelta;
+    const ImVec4 colorItemHighlight = colorItem + colorItemDelta;
+    const ImVec4 colorItemBrightHighlight = colorItemHighlight + colorItemDelta;
+    const ImVec4 colorAccent = ImVec4{0.13f, 0.33f, 0.58f, 1.00f};
+    const ImVec4 colorAccentDark =
+        colorAccent * ImVec4{0.85f, 0.85f, 0.85f, 1.f};
+    const ImVec4 colorAccentBright =
+        colorAccent * ImVec4{1.15f, 1.15f, 1.15f, 1.f};
+
+    colors[ImGuiCol_Text] = ImVec4{0.90f, 0.90f, 0.90f, 1.00f};
+    colors[ImGuiCol_TextDisabled] = ImVec4{0.50f, 0.50f, 0.50f, 1.00f};
+    colors[ImGuiCol_WindowBg] = colorBg;
+    colors[ImGuiCol_ChildBg] = colorTransparent;
+    colors[ImGuiCol_PopupBg] = colorBg;
+    colors[ImGuiCol_Border] = ImVec4{0.43f, 0.43f, 0.43f, 0.50f};
+    colors[ImGuiCol_BorderShadow] = colorTransparent;
+    colors[ImGuiCol_FrameBg] = colorItemDark;
+    colors[ImGuiCol_FrameBgHovered] = colorItem;
+    colors[ImGuiCol_FrameBgActive] = colorItemHighlight;
+    colors[ImGuiCol_TitleBg] = colorItem;
+    colors[ImGuiCol_TitleBgActive] = colorItem;
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
+    colors[ImGuiCol_MenuBarBg] = colorBgLight;
+    colors[ImGuiCol_ScrollbarBg] = colorItemDark;
+    colors[ImGuiCol_ScrollbarGrab] = colorItem;
+    colors[ImGuiCol_ScrollbarGrabHovered] = colorItemHighlight;
+    colors[ImGuiCol_ScrollbarGrabActive] = colorItem;
+    colors[ImGuiCol_CheckMark] = colorAccentBright;
+    colors[ImGuiCol_SliderGrab] = colorItemHighlight;
+    colors[ImGuiCol_SliderGrabActive] = colorItemBrightHighlight;
+    colors[ImGuiCol_Button] = colorAccentDark;
+    colors[ImGuiCol_ButtonHovered] = colorAccent;
+    colors[ImGuiCol_ButtonActive] = colorAccentBright;
+    colors[ImGuiCol_Header] = colorItem;
+    colors[ImGuiCol_HeaderHovered] = colorItemHighlight;
+    colors[ImGuiCol_HeaderActive] = colorItemBrightHighlight;
+    colors[ImGuiCol_Separator] = colorItem;
+    colors[ImGuiCol_SeparatorHovered] = colorItemHighlight;
+    colors[ImGuiCol_SeparatorActive] = colorItem;
+    colors[ImGuiCol_ResizeGrip] = colorItem;
+    colors[ImGuiCol_ResizeGripHovered] = colorItemHighlight;
+    colors[ImGuiCol_ResizeGripActive] = colorItemBrightHighlight;
+    colors[ImGuiCol_Tab] = colorItem;
+    colors[ImGuiCol_TabHovered] = colorItemHighlight;
+    colors[ImGuiCol_TabActive] = colorItemHighlight;
+    colors[ImGuiCol_TabUnfocused] = colorItem;
+    colors[ImGuiCol_TabUnfocusedActive] = colorItemHighlight;
+    colors[ImGuiCol_DockingPreview] =
+        colors[ImGuiCol_HeaderHovered] * ImVec4(1.0f, 1.0f, 1.0f, 0.7f);
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
+    colors[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
+    colors[ImGuiCol_PlotHistogram] = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
+    colors[ImGuiCol_TableHeaderBg] = ImVec4(0.19f, 0.19f, 0.20f, 1.00f);
+    colors[ImGuiCol_TableBorderStrong] =
+        ImVec4(0.31f, 0.31f, 0.35f, 1.00f); // Prefer using Alpha=1.0 here
+    colors[ImGuiCol_TableBorderLight] =
+        ImVec4(0.23f, 0.23f, 0.25f, 1.00f); // Prefer using Alpha=1.0 here
+    colors[ImGuiCol_TableRowBg] = colorTransparent;
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
+    colors[ImGuiCol_TextSelectedBg] = colorItemBrightHighlight;
+    colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
+    colors[ImGuiCol_NavHighlight] = colorItemBrightHighlight;
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
 }

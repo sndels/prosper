@@ -46,6 +46,8 @@ class ImGuiRenderer
     void destroySwapchainRelated();
     void createDescriptorPool();
 
+    static void setStyle();
+
     bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
