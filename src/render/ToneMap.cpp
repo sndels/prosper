@@ -77,7 +77,7 @@ void ToneMap::drawUi()
 {
     WHEELS_ASSERT(_initialized);
 
-    ImGui::DragFloat("Exposure", &_exposure, 0.5f, 0.001f, 10000.f);
+    ImGui::DragFloat("Exposure", &_exposure, 0.01f, 0.001f, 10000.f);
     ImGui::Checkbox("4x zoom", &_zoom);
 }
 
