@@ -9,6 +9,14 @@
 #include "utils/InputHandler.hpp"
 #include "utils/Utils.hpp"
 
+#ifdef _WIN32
+
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <dwmapi.h>
+
+#endif // _WIN32
+
 using namespace wheels;
 
 Window::Window(
@@ -40,6 +48,24 @@ Window::Window(
     glfwSetScrollCallback(_window, Window::scrollCallback);
     glfwSetMouseButtonCallback(_window, Window::mouseButtonCallback);
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
+
+#ifdef _WIN32
+    // Try to set dark mode to match the inactive title bar color to the ui
+    // color scheme
+    // https://stackoverflow.com/a/70693198
+    HWND hwnd = glfwGetWin32Window(_window);
+    const BOOL use_dark_mode = TRUE;
+    // These aren't exposed in older SDKs but might still work
+    const WORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    const WORD DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1 = 19;
+    // It's ok if these fail so let's not bother checking for success
+    DwmSetWindowAttribute(
+        hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &use_dark_mode,
+        sizeof(use_dark_mode));
+    DwmSetWindowAttribute(
+        hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1, &use_dark_mode,
+        sizeof(use_dark_mode));
+#endif // _WIN32
 }
 
 Window::~Window()

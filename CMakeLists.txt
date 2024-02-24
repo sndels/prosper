@@ -108,6 +108,14 @@ target_link_libraries(prosper
     vulkan
     wheels
 )
+
+if(WIN32)
+    target_link_libraries(prosper
+        PRIVATE
+        Dwmapi
+    )
+endif() # WIN32
+
 target_compile_definitions(prosper
     PRIVATE
     VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
