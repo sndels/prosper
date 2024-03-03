@@ -29,14 +29,20 @@ float octawebRingSpacing(float kernelRadius, int ringCount)
     return kernelRadius / float(ringCount - 1);
 }
 
-vec2 octawebSample(
-    int ring, int s, int ringSampleCount, int ringCount, float kernelRadius)
+float octawebRingRadius(float ring, float kernelRadius, int ringCount)
 {
-    // Need to place n-1 rings along the radius since center is ring 0
-    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
-    float r = float(ring) * ringSpacing;
+    return ring * octawebRingSpacing(kernelRadius, ringCount);
+}
 
-    float rimSpacing = 2.0 * PI / float(ringSampleCount);
+float octawebRimSpacing(int ringSampleCount)
+{
+    return 2.0 * PI / float(ringSampleCount);
+}
+
+vec2 octawebSample(
+    int ring, int s, int ringSampleCount, float ringRadius, float rimSpacing)
+{
+    float r = ringRadius;
     float phi = float(s) * rimSpacing;
     // Rings are 'interleaved', probably to make the pattern less obviously
     // repeating
@@ -92,10 +98,12 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     for (int ring = 0; ring < ringCount; ++ring)
     {
         int ringSampleCount = octawebRingSampleCount(ring);
+        float ringRadius = octawebRingRadius(ring, kernelRadius, ringCount);
+        float rimSpacing = octawebRimSpacing(ringSampleCount);
         for (int si = 0; si < ringSampleCount; ++si)
         {
             vec2 s = octawebSample(
-                ring, si, ringSampleCount, ringCount, kernelRadius);
+                ring, si, ringSampleCount, ringRadius, rimSpacing);
 
             // TODO: Just use a nearest sampler that clamps?
             ivec2 sampleCoord = ivec2(coord + s);
@@ -172,11 +180,13 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     for (int ring = 0; ring < ringCount; ++ring)
     {
         int ringSampleCount = octawebRingSampleCount(ring);
+        float ringRadius = octawebRingRadius(ring, kernelRadius, ringCount);
+        float rimSpacing = octawebRimSpacing(ringSampleCount);
         sampleCount += ringSampleCount;
         for (int si = 0; si < ringSampleCount; ++si)
         {
             vec2 s = octawebSample(
-                ring, si, ringSampleCount, ringCount, kernelRadius);
+                ring, si, ringSampleCount, ringRadius, rimSpacing);
 
             // TODO: Just use a nearest sampler that clamps?
             ivec2 sampleCoord = ivec2(coord + s);
