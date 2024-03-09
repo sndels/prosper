@@ -16,7 +16,6 @@ struct BilateralInput
     vec4 illuminationWeight11;
     vec4 illuminationWeight10;
     vec4 illuminationWeight00;
-    float outputWeight;
 };
 
 vec4 bilateralFilter(BilateralInput inputs)
