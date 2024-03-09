@@ -69,10 +69,15 @@ void main()
     vec4 inColorAlpha = imageLoad(inIllumination, coord);
     vec3 outColor = inColorAlpha.rgb;
 
-    vec4 bgColorWeight = upscaleBackground(coord, coc);
-    // Stored CoC is in half res pixels
-    float bgFactor = coc > .5 ? saturate(log(bgColorWeight.a)) : 0;
-    outColor = mix(outColor, bgColorWeight.rgb, bgFactor);
+    // TODO:
+    // This is missing CoCs that are [1,2] full res pixels. Gather here as it
+    // requires less samples than bg gather? or do in gather as a special
+    // fastpath?
+    vec3 bgColor = upscaleBackground(coord, coc).rgb;
+    float bgFactor = saturate(coc - 1);
+    if (bgFactor > 0)
+        // TODO: Why does this fail without the if? bgFactor should be [0,1]
+        outColor = mix(outColor, bgColor, bgFactor);
 
     vec4 fgColorWeight = upscaleForeground(coord, coc);
     // TODO:
