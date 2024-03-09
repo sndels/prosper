@@ -96,6 +96,11 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - [Vulkan SDK](https://vulkan.lunarg.com/)
 - `xorg-dev` and `libxkbcommon-dev` on Linux
 
+#### Inline dependencies
+
+- [ffx-spd](https://github.com/GPUOpen-Effects/FidelityFX-SPD)
+- [Tony McMapface](https://github.com/h3r2tic/tony-mc-mapface)
+
 #### Submodules
 
 - [cgltf](https://github.com/jkuhlmann/cgltf)
