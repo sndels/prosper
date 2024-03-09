@@ -16,6 +16,9 @@ class DepthOfFieldFlatten;
 // DepthOfFieldGather.hpp
 class DepthOfFieldGather;
 
+// DepthOfFieldReduce.hpp
+class DepthOfFieldReduce;
+
 // DepthOfFieldSetup.hpp
 class DepthOfFieldSetup;
 
