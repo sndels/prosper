@@ -1,6 +1,8 @@
 #ifndef DOF_BILATERAL_GLSL
 #define DOF_BILATERAL_GLSL
 
+#include "../common/math.glsl"
+
 float bilateralWeight(float outputCoC, float sampleCoC)
 {
     // return saturate(1 - abs(outputCoC - sampleCoC));
