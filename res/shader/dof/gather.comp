@@ -8,13 +8,19 @@
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
-layout(set = 0, binding = 0) uniform readonly image2D inHalfResIllumination;
-layout(set = 0, binding = 1) uniform readonly image2D inHalfResCoC;
+layout(set = 0, binding = 0) uniform texture2D inHalfResIllumination;
+layout(set = 0, binding = 1) uniform texture2D inHalfResCoC;
 layout(set = 0, binding = 2) uniform readonly image2D inDilatedTileMinMaxCoC;
 layout(set = 0, binding = 3) uniform writeonly image2D
     outHalfResBokehColorWeight;
+layout(set = 0, binding = 4) uniform sampler nearestSampler;
 
-layout(push_constant) uniform GatherPC { uint frameIndex; }
+layout(push_constant) uniform GatherPC
+{
+    ivec2 halfResolution;
+    vec2 invHalfResolution;
+    uint frameIndex;
+}
 PC;
 
 int octawebRingSampleCount(int ring)
@@ -74,13 +80,11 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
     float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
 
-    ivec2 res = imageSize(inHalfResIllumination);
-
+    float spacingJitterScale = ringSpacing * .5;
+    spacingJitterScale = 0.;
     vec2 jitter = rnd2d01() * 2 - 1;
-    jitter *= ringSpacing;
+    jitter *= spacingJitterScale;
     coord += jitter;
-    coord = max(coord, vec2(0));
-    coord = min(coord, vec2(res - 1));
 
     // TODO: Fastpath?
     // - Criteria just abs(tileMaxCoC - tileMinCoC) > (1 - MAX_COC_ERROR) *
@@ -106,12 +110,11 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
             vec2 s = octawebSample(
                 ring, si, ringSampleCount, ringRadius, rimSpacing);
 
-            // TODO: Just use a nearest sampler that clamps?
-            ivec2 sampleCoord = ivec2(coord + s);
-            sampleCoord = max(sampleCoord, ivec2(0));
-            sampleCoord = min(sampleCoord, res - 1);
+            vec2 sampleUv = (coord + s) * PC.invHalfResolution;
 
-            float sampleCoC = imageLoad(inHalfResCoC, sampleCoord).x;
+            float sampleCoC =
+                textureLod(sampler2D(inHalfResCoC, nearestSampler), sampleUv, 0)
+                    .x;
             if (sampleCoC < minCoC)
                 continue;
 
@@ -121,8 +124,12 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 // Scheumerman(?) via Sousa: weigh samples with max CoC
                 // TODO: Is this what was meant? What does it do?
                 float sampleWeight = sampleCoC;
-                colorSum += imageLoad(inHalfResIllumination, sampleCoord).rgb *
-                            sampleWeight;
+                colorSum +=
+                    textureLod(
+                        sampler2D(inHalfResIllumination, nearestSampler),
+                        sampleUv, 0)
+                        .rgb *
+                    sampleWeight;
                 cocSum += sampleCoC;
                 totalWeight += sampleWeight;
                 totalSamples++;
@@ -161,13 +168,9 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
     float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
 
-    ivec2 res = imageSize(inHalfResIllumination);
-
     vec2 jitter = rnd2d01() * 2 - 1;
     jitter *= ringSpacing;
     coord += jitter;
-    coord = max(coord, vec2(0));
-    coord = min(coord, vec2(res - 1));
 
     // TODO: Fastpath?
     // - Criteria just (tileMinCoC - tileMaxCoC) < 0.95 * tileMinCoC?
@@ -189,13 +192,13 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
             vec2 s = octawebSample(
                 ring, si, ringSampleCount, ringRadius, rimSpacing);
 
-            // TODO: Just use a nearest sampler that clamps?
-            ivec2 sampleCoord = ivec2(coord + s);
-            sampleCoord = max(sampleCoord, ivec2(0));
-            sampleCoord = min(sampleCoord, res - 1);
+            vec2 sampleUv = vec2(coord + s) * PC.invHalfResolution;
 
             // Foreground CoC is negative
-            float sampleCoC = -imageLoad(inHalfResCoC, sampleCoord).x;
+            float sampleCoC =
+                -textureLod(
+                     sampler2D(inHalfResCoC, nearestSampler), sampleUv, 0)
+                     .x;
             if (sampleCoC < -maxCoC)
                 continue;
 
@@ -208,8 +211,12 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 // Is this what was meant? Seems to add blending between
                 // 'layers' in foreground
                 float sampleWeight = kernelRadius / sampleCoC;
-                colorSum += imageLoad(inHalfResIllumination, sampleCoord).rgb *
-                            sampleWeight;
+                colorSum +=
+                    textureLod(
+                        sampler2D(inHalfResIllumination, nearestSampler),
+                        sampleUv, 0)
+                        .rgb *
+                    sampleWeight;
                 alphaSum += sampleAlpha(sampleCoC);
                 totalWeight += sampleWeight;
             }
@@ -233,8 +240,7 @@ layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 res = imageSize(inHalfResIllumination);
-    if (any(greaterThanEqual(coord, res)))
+    if (any(greaterThanEqual(coord, PC.halfResolution)))
         return;
 
     pcg_state = uvec3(coord, PC.frameIndex);

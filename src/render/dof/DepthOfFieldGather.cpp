@@ -17,6 +17,8 @@ namespace
 
 struct PCBlock
 {
+    ivec2 halfResolution{};
+    vec2 invHalfResolution{};
     uint frameIndex{0};
 };
 
@@ -144,6 +146,9 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .sampler = _resources->nearestSampler,
+                }},
             }});
 
         transition(
@@ -163,6 +168,14 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                                                     : "  GatherForeground");
 
         const PCBlock pcBlock{
+            .halfResolution =
+                ivec2{
+                    asserted_cast<int32_t>(renderExtent.width),
+                    asserted_cast<int32_t>(renderExtent.height)},
+            .invHalfResolution = 1.f /
+                                 vec2{
+                                     static_cast<float>(renderExtent.width),
+                                     static_cast<float>(renderExtent.height)},
             .frameIndex = _frameIndex,
         };
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
