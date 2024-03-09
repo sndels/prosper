@@ -14,6 +14,7 @@
 #include "DepthOfFieldDilate.hpp"
 #include "DepthOfFieldFlatten.hpp"
 #include "DepthOfFieldGather.hpp"
+#include "DepthOfFieldReduce.hpp"
 #include "DepthOfFieldSetup.hpp"
 
 // Based on A Life of a Bokeh by Guillaume Abadie
@@ -54,6 +55,7 @@ class DepthOfField
     RenderResources *_resources{nullptr};
 
     DepthOfFieldSetup _setupPass;
+    DepthOfFieldReduce _reducePass;
     DepthOfFieldFlatten _flattenPass;
     DepthOfFieldDilate _dilatePass;
     DepthOfFieldGather _gatherPass;

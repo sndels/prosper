@@ -17,6 +17,8 @@ void DepthOfField::init(
     _setupPass.init(
         scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
         cameraDsLayout);
+    _reducePass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
     _flattenPass.init(
         scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
     _dilatePass.init(
@@ -38,6 +40,7 @@ void DepthOfField::recompileShaders(
 
     _setupPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
+    _reducePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _flattenPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _dilatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _gatherPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
@@ -56,6 +59,10 @@ DepthOfField::Output DepthOfField::record(
 
         const DepthOfFieldSetup::Output setupOutput = _setupPass.record(
             scopeAlloc.child_scope(), cb, cam, input, nextFrame, profiler);
+
+        _reducePass.record(
+            scopeAlloc.child_scope(), cb, setupOutput.halfResIllumination,
+            nextFrame, profiler);
 
         const DepthOfFieldFlatten::Output flattenOutput = _flattenPass.record(
             scopeAlloc.child_scope(), cb, setupOutput.halfResCircleOfConfusion,

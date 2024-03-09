@@ -102,8 +102,22 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
         const vk::Extent2D renderExtent =
             getRenderExtent(*_resources, input.illumination);
 
-        ret.halfResIllumination = createIllumination(
-            *_resources, renderExtent, "HalfResIllumination");
+        const uint32_t mipCount =
+            static_cast<uint32_t>(floor(log2(static_cast<float>(
+                std::max(renderExtent.width, renderExtent.height))))) +
+            1;
+        ret.halfResIllumination = _resources->images.create(
+            ImageDescription{
+                .format = sIlluminationFormat,
+                .width = renderExtent.width,
+                .height = renderExtent.height,
+                .mipCount = mipCount,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+
+            },
+            "HalfResIllumination");
+
         ret.halfResCircleOfConfusion = _resources->images.create(
             ImageDescription{
                 .format = vk::Format::eR16Sfloat,
