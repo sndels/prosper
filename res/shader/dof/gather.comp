@@ -14,6 +14,7 @@ layout(set = 0, binding = 2) uniform readonly image2D inDilatedTileMinMaxCoC;
 layout(set = 0, binding = 3) uniform writeonly image2D
     outHalfResBokehColorWeight;
 layout(set = 0, binding = 4) uniform sampler nearestSampler;
+layout(set = 0, binding = 5) uniform sampler bilinearSampler;
 
 layout(push_constant) uniform GatherPC
 {
@@ -73,6 +74,12 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     if (tileMaxCoC < minCoC)
         return vec4(0);
 
+    // TODO: Fastpath?
+    // - Criteria just abs(tileMaxCoC - tileMinCoC) > (1 - MAX_COC_ERROR) *
+    // tileMaxCoC?
+    //   - Just average over all kernel samples?
+    //   - Use bilinear sampling?
+
     // The center sample counts as a ring, so ringCount should be at least 2
     int ringCount = 4;
     float kernelRadius = tileMaxCoC;
@@ -85,12 +92,6 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     vec2 jitter = rnd2d01() * 2 - 1;
     jitter *= spacingJitterScale;
     coord += jitter;
-
-    // TODO: Fastpath?
-    // - Criteria just abs(tileMaxCoC - tileMinCoC) > (1 - MAX_COC_ERROR) *
-    // tileMaxCoC?
-    //   - Just average over all kernel samples?
-    //   - Use bilinear sampling?
 
     // TODO:
     // Collect rings moving from the edges toward the center to approximate
@@ -121,13 +122,14 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
             float sampleDistance = length(s);
             if (sampleCoC >= sampleDistance - ringSpacing)
             {
+                float mip = max(floor(log2(sampleCoC)) - 1, 0);
                 // Scheumerman(?) via Sousa: weigh samples with max CoC
                 // TODO: Is this what was meant? What does it do?
                 float sampleWeight = sampleCoC;
                 colorSum +=
                     textureLod(
-                        sampler2D(inHalfResIllumination, nearestSampler),
-                        sampleUv, 0)
+                        sampler2D(inHalfResIllumination, bilinearSampler),
+                        sampleUv, mip)
                         .rgb *
                     sampleWeight;
                 cocSum += sampleCoC;

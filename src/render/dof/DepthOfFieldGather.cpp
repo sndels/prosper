@@ -149,6 +149,9 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = _resources->nearestSampler,
                 }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .sampler = _resources->bilinearSampler,
+                }},
             }});
 
         transition(
