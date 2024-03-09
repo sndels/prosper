@@ -4,6 +4,7 @@ set(PROSPER_DOF_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldReduce.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     PARENT_SCOPE
@@ -15,6 +16,7 @@ set(PROSPER_DOF_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldReduce.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.cpp
     PARENT_SCOPE
 )
