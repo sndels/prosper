@@ -61,6 +61,7 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
 {
     // TODO:
     // Larger, smaller early out?
+    // This is 2px in full res
     float minCoC = 1.;
 
     if (tileMaxCoC < minCoC)
@@ -130,9 +131,9 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     }
 
     vec3 color = colorSum / max(totalWeight, 1);
-    float weight = cocSum / max(totalSamples, 1);
 
-    return vec4(color, weight);
+    // Background blending will happen based on the full res pixel CoC
+    return vec4(color, 0);
 }
 
 float sampleAlpha(float sampleCoC)
