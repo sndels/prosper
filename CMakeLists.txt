@@ -4,6 +4,8 @@ project(prosper)
 option(PROSPER_USE_PCH "Use pre-compiled headers" ON)
 option(PROSPER_SETUP_DEPENDENCIES "Pull the in-tree dependencies and correct submodule commits" ON)
 option(PROSPER_ALWAYS_O2_DEPENDENCIES "Always build dependencies as optimized" ON)
+option(PROSPER_MSVC_CRT_LEAK_CHECK "Leak checks on the MSVC CRT" OFF)
+option(PROSPER_ALLOCATOR_DEBUG "Debug allocations" OFF)
 
 if(MSVC)
     add_compile_options(/MP)
@@ -13,7 +15,16 @@ if(MSVC)
         string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
         string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
     endif()
+
+    if(PROSPER_MSVC_CRT_LEAK_CHECK)
+        # note that glslang has a leaky glslang_mutex_
+        add_compile_definitions(_CRTDBG_MAP_ALLOC)
+    endif() # PROSPER_MSVC_CRT_LEAK_CHECK
 endif() # MSVC
+
+if(PROSPER_ALLOCATOR_DEBUG)
+    add_compile_definitions(WHEELS_ALLOCATION_DEBUG)
+endif() # PROSPER_ALLOCATOR_DEBUG
 
 # Set up sub-builds and sources
 add_subdirectory(ext)

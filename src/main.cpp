@@ -15,6 +15,10 @@
 #include "API/x64/LPP_API_x64_CPP.h"
 #endif // LIVEPP_PATH
 
+#ifdef _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+#endif // _CRTDBG_MAP_ALLOC
+
 using namespace wheels;
 
 namespace
@@ -71,6 +75,12 @@ App::Settings parseCli(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+#ifdef _CRTDBG_MAP_ALLOC
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    // Set to the allocation index given by the dump
+    // _CrtSetBreakAlloc(0);
+#endif // _CRTDBG_MAP_ALLOC
+
     const Timer t;
 
 #ifdef LIVEPP_PATH
