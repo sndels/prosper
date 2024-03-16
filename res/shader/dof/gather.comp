@@ -36,9 +36,9 @@ float octawebRingSpacing(float kernelRadius, int ringCount)
     return kernelRadius / float(ringCount - 1);
 }
 
-float octawebRingRadius(float ring, float kernelRadius, int ringCount)
+float octawebRingRadius(float ring, float ringSpacing)
 {
-    return ring * octawebRingSpacing(kernelRadius, ringCount);
+    return ring * ringSpacing;
 }
 
 float octawebRimSpacing(int ringSampleCount)
@@ -64,6 +64,73 @@ vec2 octawebSample(
 
 #define MAX_COC_ERROR 0.05
 
+struct BackgroundBucket
+{
+    vec4 colorWeightSum;
+    float cocSum;
+    float sampleCount;
+};
+
+BackgroundBucket blendBuckets(
+    BackgroundBucket previousBucket, BackgroundBucket currentBucket,
+    uint ringSampleCount)
+{
+    float currentOpacity =
+        saturate(float(currentBucket.sampleCount) / float(ringSampleCount));
+
+    float occludingCoC = saturate(
+        (previousBucket.cocSum / previousBucket.sampleCount) -
+        (currentBucket.cocSum / currentBucket.sampleCount));
+    float blendFactor = (previousBucket.colorWeightSum.a == 0.)
+                            ? 0.
+                            : (1. - currentOpacity * occludingCoC);
+
+    BackgroundBucket ret;
+    ret.colorWeightSum = previousBucket.colorWeightSum * blendFactor +
+                         currentBucket.colorWeightSum;
+    ret.cocSum = previousBucket.cocSum * blendFactor + currentBucket.cocSum;
+    ret.sampleCount =
+        previousBucket.sampleCount * blendFactor + currentBucket.sampleCount;
+
+    return ret;
+}
+
+#define DOF_SINGLE_PIXEL_RADIUS 0.7071 // length(vec2(0.5, 0.5))
+float sampleAlpha(float sampleCoC)
+{
+    // Real-Time Depth-of-Field Rendering Using Point Splatting on Per-Pixel
+    // Layers
+    // by Lee et al.
+    // and
+    // Next Generation Post Processing in Call of Duty
+    // Advanced Warfare by Jimenez
+    // Lee has 4./ but we use the same weighing function for all so changing the
+    // constant numerator should be ok like Jimenez had rcp
+    return min(
+        1. / (PI * sampleCoC * sampleCoC),
+        1. / (PI * DOF_SINGLE_PIXEL_RADIUS * DOF_SINGLE_PIXEL_RADIUS));
+}
+
+void addBucketSample(
+    vec2 sampleUv, float sampleCoC, inout BackgroundBucket bucket)
+{
+    // TODO:
+    // Figure out how to properly combat the extra blur and noticeable boundary
+    // between the depth slices that sample from different mips
+    float mip = max(floor(log2(sampleCoC)) - 1, 0);
+    // TODO:
+    // Pre-calc alongside the CoC
+    float sampleWeight = sampleAlpha(sampleCoC);
+    bucket.colorWeightSum += vec4(
+        textureLod(
+            sampler2D(inHalfResIllumination, bilinearSampler), sampleUv, mip)
+                .rgb *
+            sampleWeight,
+        sampleWeight);
+    bucket.cocSum += sampleCoC;
+    bucket.sampleCount++;
+}
+
 vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
 {
     // TODO:
@@ -80,31 +147,46 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     //   - Just average over all kernel samples?
     //   - Use bilinear sampling?
 
-    // The center sample counts as a ring, so ringCount should be at least 2
-    int ringCount = 4;
-    float kernelRadius = tileMaxCoC;
-    // Jitter radius to get rid of tile artifacts
-    kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
-    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
-
-    float spacingJitterScale = ringSpacing * .5;
-    spacingJitterScale = 0.;
-    vec2 jitter = rnd2d01() * 2 - 1;
-    jitter *= spacingJitterScale;
-    coord += jitter;
-
-    // TODO:
     // Collect rings moving from the edges toward the center to approximate
     // occlusion. Smaller background CoCs are for surfaces that are in front of
     // surfaces that have larger ones.
-    vec3 colorSum = vec3(0);
-    float cocSum = 0;
-    float totalWeight = 0;
-    int totalSamples = 0;
-    for (int ring = 0; ring < ringCount; ++ring)
+    // From Abadie
+
+    // The center sample counts as a ring, so ringCount should be at least 2
+    int ringCount = 5;
+    float kernelRadius = tileMaxCoC;
+    float radiusJitterScale = .5;
+    // float radiusJitterScale = 0.;
+    float radiusJitter = rnd01() * 2. - 1.;
+    radiusJitter *= radiusJitterScale;
+    // Jitter radius to get rid of tile artifacts
+    kernelRadius += radiusJitter;
+
+    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
+    float spacingJitterScale = ringSpacing * .5;
+    // float spacingJitterScale = 0.;
+
+    vec2 coordJitter = rnd2d01() * 2. - 1.;
+    coordJitter *= spacingJitterScale;
+    coord += coordJitter;
+
+    // TODO:
+    // The Abadie slides have error=1. but it had a mention of tweaks based
+    // on other factors. Probably need to account for jitter at least.
+    // float cocRadiusError = (1. + radiusJitterScale + spacingJitterScale) *
+    // .5;
+    float cocRadiusError = 1.;
+
+    BackgroundBucket previousBucket = BackgroundBucket(vec4(0), 0., 0.);
+    for (int ring = ringCount - 1; ring >= 0; --ring)
     {
+        // Different from Abadie, but feels right
+        float borderingRadius =
+            octawebRingRadius(float(ring) + .5 + cocRadiusError, ringSpacing);
+
+        BackgroundBucket currentBucket = BackgroundBucket(vec4(0), 0., 0.);
         int ringSampleCount = octawebRingSampleCount(ring);
-        float ringRadius = octawebRingRadius(ring, kernelRadius, ringCount);
+        float ringRadius = octawebRingRadius(ring, ringSpacing);
         float rimSpacing = octawebRimSpacing(ringSampleCount);
         for (int si = 0; si < ringSampleCount; ++si)
         {
@@ -116,41 +198,27 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
             float sampleCoC =
                 textureLod(sampler2D(inHalfResCoC, nearestSampler), sampleUv, 0)
                     .x;
-            if (sampleCoC < minCoC)
-                continue;
-
-            float sampleDistance = length(s);
-            if (sampleCoC >= sampleDistance - ringSpacing)
+            // Jitter not applied per sample so all samples in a given ring have
+            // the same radius
+            if (sampleCoC >= ringRadius)
             {
-                float mip = max(floor(log2(sampleCoC)) - 1, 0);
-                // Scheumerman(?) via Sousa: weigh samples with max CoC
-                // TODO: Is this what was meant? What does it do?
-                float sampleWeight = sampleCoC;
-                colorSum +=
-                    textureLod(
-                        sampler2D(inHalfResIllumination, bilinearSampler),
-                        sampleUv, mip)
-                        .rgb *
-                    sampleWeight;
-                cocSum += sampleCoC;
-                totalWeight += sampleWeight;
-                totalSamples++;
+                // Sort into previous and current to approximate occlusion
+                if (sampleCoC < borderingRadius)
+                    addBucketSample(sampleUv, sampleCoC, currentBucket);
+                else
+                    addBucketSample(sampleUv, sampleCoC, previousBucket);
             }
         }
+
+        previousBucket =
+            blendBuckets(previousBucket, currentBucket, ringSampleCount);
     }
 
-    vec3 color = colorSum / max(totalWeight, 1);
+    vec3 color = previousBucket.colorWeightSum.rgb /
+                 max(previousBucket.colorWeightSum.w, 0.00001);
 
     // Background blending will happen based on the full res pixel CoC
     return vec4(color, 0);
-}
-
-float sampleAlpha(float sampleCoC)
-{
-    // From Next Generation Post Processing in Call of Duty Advanced
-    // Warfare
-    // by Jimenez
-    return min(1.0 / (PI * sampleCoC * sampleCoC), PI);
 }
 
 vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
@@ -186,7 +254,7 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     for (int ring = 0; ring < ringCount; ++ring)
     {
         int ringSampleCount = octawebRingSampleCount(ring);
-        float ringRadius = octawebRingRadius(ring, kernelRadius, ringCount);
+        float ringRadius = octawebRingRadius(ring, ringSpacing);
         float rimSpacing = octawebRimSpacing(ringSampleCount);
         sampleCount += ringSampleCount;
         for (int si = 0; si < ringSampleCount; ++si)
@@ -245,7 +313,7 @@ void main()
     if (any(greaterThanEqual(coord, PC.halfResolution)))
         return;
 
-    pcg_state = uvec3(coord, PC.frameIndex);
+    pcg_state = uvec3(coord, 0);
 
     ivec2 tileCoord = coord / 8;
     vec2 tileMinMaxCoC = imageLoad(inDilatedTileMinMaxCoC, tileCoord).xy;
