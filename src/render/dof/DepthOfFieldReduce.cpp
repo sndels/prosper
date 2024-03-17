@@ -172,6 +172,7 @@ void DepthOfFieldReduce::record(
         // dispatch exits
         cb.fillBuffer(_atomicCounter.handle, 0, _atomicCounter.byteSize, 0);
         _atomicCounter.transition(cb, BufferState::ComputeShaderReadWrite);
+        _counterNotCleared = false;
     }
 
     const auto _s = profiler->createCpuGpuScope(cb, "  Reduce");
