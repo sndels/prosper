@@ -109,17 +109,6 @@ void Window::keyCallback(
 
     if (!ImGui::IsAnyItemActive())
     {
-        if (action == GLFW_PRESS)
-        {
-            switch (key)
-            {
-            case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(window, GLFW_TRUE);
-                break;
-            default:
-                break;
-            }
-        }
         auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
         thisPtr->_inputHandler->handleKey(key, scancode, action, mods);
     }
