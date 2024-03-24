@@ -279,6 +279,7 @@ void App::run()
             _resources->startFrame();
             _world->startFrame();
             _meshletCuller->startFrame();
+            _depthOfField->startFrame();
 
             drawFrame(
                 scopeAlloc.child_scope(),
