@@ -25,6 +25,8 @@ void DepthOfField::init(
         scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
     _gatherPass.init(
         scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+    _filterPass.init(
+        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
     _combinePass.init(
         scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
 
@@ -44,6 +46,7 @@ void DepthOfField::recompileShaders(
     _flattenPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _dilatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _gatherPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    _filterPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     _combinePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
 }
 
@@ -83,22 +86,27 @@ DepthOfField::Output DepthOfField::record(
             scopeAlloc.child_scope(), cb, gatherInput,
             DepthOfFieldGather::GatherType_Foreground, nextFrame, profiler);
         const DepthOfFieldGather::Output bgGatherOutput = _gatherPass.record(
-
             scopeAlloc.child_scope(), cb, gatherInput,
             DepthOfFieldGather::GatherType_Background, nextFrame, profiler);
+
+        // TODO: Wrap in a struct for consistency?
+        ImageHandle halfResBgBokehColorWeightFiltered = _filterPass.record(
+            scopeAlloc.child_scope(), cb,
+            bgGatherOutput.halfResBokehColorWeight, nextFrame, profiler);
+        _resources->images.release(bgGatherOutput.halfResBokehColorWeight);
 
         ret = _combinePass.record(
             scopeAlloc.child_scope(), cb,
             DepthOfFieldCombine::Input{
                 .halfResFgBokehWeight = fgGatherOutput.halfResBokehColorWeight,
-                .halfResBgBokehWeight = bgGatherOutput.halfResBokehColorWeight,
+                .halfResBgBokehWeight = halfResBgBokehColorWeightFiltered,
                 .halfResCircleOfConfusion =
                     setupOutput.halfResCircleOfConfusion,
                 .illumination = input.illumination,
             },
             nextFrame, profiler);
 
-        _resources->images.release(bgGatherOutput.halfResBokehColorWeight);
+        _resources->images.release(halfResBgBokehColorWeightFiltered);
         _resources->images.release(fgGatherOutput.halfResBokehColorWeight);
         _resources->images.release(dilateOutput.dilatedTileMinMaxCoC);
         _resources->images.release(setupOutput.halfResIllumination);

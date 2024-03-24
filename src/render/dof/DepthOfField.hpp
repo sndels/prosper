@@ -12,6 +12,7 @@
 #include "../RenderResourceHandle.hpp"
 #include "DepthOfFieldCombine.hpp"
 #include "DepthOfFieldDilate.hpp"
+#include "DepthOfFieldFilter.hpp"
 #include "DepthOfFieldFlatten.hpp"
 #include "DepthOfFieldGather.hpp"
 #include "DepthOfFieldReduce.hpp"
@@ -59,6 +60,7 @@ class DepthOfField
     DepthOfFieldFlatten _flattenPass;
     DepthOfFieldDilate _dilatePass;
     DepthOfFieldGather _gatherPass;
+    DepthOfFieldFilter _filterPass;
     DepthOfFieldCombine _combinePass;
 };
 
