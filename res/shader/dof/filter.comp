@@ -1,0 +1,111 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_arithmetic : require
+
+#include "../common/math.glsl"
+
+layout(set = 0, binding = 0) uniform texture2D inColorWeight;
+layout(set = 0, binding = 1) uniform writeonly image2D outColorWeight;
+layout(set = 0, binding = 2) uniform sampler nearestSampler;
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 res = imageSize(outColorWeight);
+    if (any(greaterThanEqual(coord, res)))
+        return;
+
+    // 3x3 median filter based on luminance
+
+    // TODO:
+    // Sample into groupshared
+    // TODO:
+    // Clamp to edge problematic? Skip outside pixels and pick median from the
+    // tail of sorted things (0s sort to the front)?
+    vec4 colorWeights[9];
+    float luminances[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    float maxLuminance = 0;
+    int maxLuminanceI = 0;
+    {
+        int sampleI = 0;
+        for (int i = -1; i <= 1; ++i)
+        {
+            for (int j = -1; j <= 1; ++j)
+            {
+                vec2 uv = (vec2(coord + ivec2(i, j)) + .5) / vec2(res);
+                // vec2 uv = vec2(coord + .5) / vec2(res);
+                vec4 colorWeight =
+                    texture(sampler2D(inColorWeight, nearestSampler), uv);
+                colorWeights[sampleI] = colorWeight;
+                float lum = luminance(colorWeight.rgb);
+                luminances[sampleI] = lum;
+                if (maxLuminance < lum)
+                {
+                    maxLuminance = lum;
+                    maxLuminanceI = sampleI;
+                }
+                sampleI++;
+            }
+        }
+    }
+
+    // Indirect sort to avoid sorting two arrays
+    int indices[9] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    // Move biggest value to the end so we can sort a power of two number of
+    // elements
+    if (maxLuminanceI < 8)
+    {
+        int tmp = indices[8];
+        indices[8] = indices[maxLuminanceI];
+        indices[maxLuminanceI] = tmp;
+    }
+    // maxLuminanceI is now invalid
+
+    // Use a bitonic network sort for the bottom eight elements
+    // TODO:
+    // This could run in parallel on four threads as the work per iteration in
+    // the loops is independent
+    for (int i = 0; i < 4; ++i)
+    {
+        int first = i;
+        int second = i + 4;
+        if (luminances[indices[first]] < luminances[indices[second]])
+        {
+            int tmp = indices[first];
+            indices[first] = indices[second];
+            indices[second] = tmp;
+        }
+    }
+    for (int i = 0; i < 4; ++i)
+    {
+        // First two iterations are in the bottom half, second two at the top
+        int offset = (i / 2) * 4;
+        int first = i + offset;
+        int second = i + offset + 2;
+        if (luminances[indices[first]] < luminances[indices[second]])
+        {
+            int tmp = indices[first];
+            indices[first] = indices[second];
+            indices[second] = tmp;
+        }
+    }
+    for (int i = 0; i < 4; ++i)
+    {
+        int first = i * 2;
+        int second = i * 2 + 1;
+        if (luminances[indices[first]] < luminances[indices[second]])
+        {
+            int tmp = indices[first];
+            indices[first] = indices[second];
+            indices[second] = tmp;
+        }
+    }
+
+    vec4 medianColorWeight = colorWeights[indices[4]];
+
+    imageStore(outColorWeight, coord, medianColorWeight);
+}
