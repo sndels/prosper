@@ -168,6 +168,7 @@ void DepthOfFieldReduce::record(
 
     if (_counterNotCleared)
     {
+        _atomicCounter.transition(cb, BufferState::TransferDst);
         // Only need to clear once as SPD will leave this zeroed when the
         // dispatch exits
         cb.fillBuffer(_atomicCounter.handle, 0, _atomicCounter.byteSize, 0);
