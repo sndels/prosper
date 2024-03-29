@@ -574,7 +574,7 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
     }
     else
     {
-        ret.color = {
+        ret.color = InlineArray{
             vk::RenderingAttachmentInfo{
                 .imageView =
                     _resources->images.resource(inOutTargets.illumination).view,

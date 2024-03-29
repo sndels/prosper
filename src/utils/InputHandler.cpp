@@ -181,5 +181,5 @@ void InputHandler::handleKeyStateUpdate()
                 state = KeyState::Neutral;
         }
     }
-    _keyboardUpdated = {false};
+    _keyboardUpdated = StaticArray<bool, KeyCount>{false};
 }
