@@ -109,6 +109,7 @@ class Camera
     [[nodiscard]] vk::DescriptorSet descriptorSet() const;
     [[nodiscard]] const CameraTransform &transform() const;
     [[nodiscard]] const CameraParameters &parameters() const;
+    [[nodiscard]] const glm::mat4 &clipToCamera() const;
 
     [[nodiscard]] static float sensorWidth() { return 0.035f; }
 
@@ -143,6 +144,7 @@ class Camera
     glm::mat4 _worldToCamera{1.f};
     glm::mat4 _cameraToWorld{1.f};
     glm::mat4 _cameraToClip{1.f};
+    glm::mat4 _clipToCamera{1.f};
     glm::mat4 _clipToWorld{1.f};
     glm::mat4 _previousWorldToCamera{1.f};
     glm::mat4 _previousCameraToClip{1.f};

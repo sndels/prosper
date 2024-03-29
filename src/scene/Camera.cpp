@@ -145,6 +145,7 @@ void Camera::perspective()
                                            0.f,              0.f, 2 * zF * zN / (zN - zF),  0.f};
     // clang-format on
 
+    _clipToCamera = inverse(_cameraToClip);
     _clipToWorld = inverse(_cameraToClip * _worldToCamera);
 
     const float sensorHeight = sensorWidth() / ar;
@@ -235,6 +236,8 @@ const CameraParameters &Camera::parameters() const
 
     return _parameters;
 }
+
+const mat4 &Camera::clipToCamera() const { return _clipToCamera; }
 
 bool Camera::changedThisFrame() const
 {
@@ -377,6 +380,7 @@ void Camera::updateWorldToCamera()
              -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
     _cameraToWorld = inverse(_worldToCamera);
 
+    _clipToCamera = inverse(_cameraToClip);
     _clipToWorld = inverse(_cameraToClip * _worldToCamera);
 
     _changedThisFrame = true;
