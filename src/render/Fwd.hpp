@@ -52,6 +52,9 @@ class TemporalAntiAliasing;
 // TextureDebug.hpp
 class TextureDebug;
 
+// TextureReadback.hpp
+class TextureReadback;
+
 // ToneMap.hpp
 class ToneMap;
 

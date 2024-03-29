@@ -22,6 +22,7 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/TemporalAntiAliasing.hpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/TextureReadback.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.hpp
     PARENT_SCOPE
 )
@@ -45,6 +46,7 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TemporalAntiAliasing.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/TextureReadback.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.cpp
     PARENT_SCOPE
 )

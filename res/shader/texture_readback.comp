@@ -1,0 +1,15 @@
+#pragma shader_stage(compute)
+
+layout(push_constant) uniform TextureReadbackPC { vec2 uv; }
+PC;
+
+layout(binding = 0) uniform texture2D inTexture;
+layout(binding = 1) uniform sampler nearestSampler;
+layout(std430, binding = 2) buffer Color { vec4 data; }
+outColor;
+
+layout(local_size_x = 1) in;
+void main()
+{
+    outColor.data = texture(sampler2D(inTexture, nearestSampler), PC.uv).rgba;
+}
