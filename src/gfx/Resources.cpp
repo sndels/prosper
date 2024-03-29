@@ -93,7 +93,7 @@ vk::AccessFlags2 nativeAccesses(ImageState state)
     if (contains(state, ImageState::AccessDepthAttachmentRead))
         flags |= vk::AccessFlagBits2::eDepthStencilAttachmentRead;
     if (contains(state, ImageState::AccessDepthAttachmentWrite))
-        flags |= vk::AccessFlagBits2::eDepthStencilAttachmentRead;
+        flags |= vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
 
     return flags;
 }
