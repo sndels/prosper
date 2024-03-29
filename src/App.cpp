@@ -377,7 +377,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
                 }
                 WHEELS_ASSERT(changedFiles.capacity() == shaderFileBound);
 
-                if (checkTime.getSeconds() > 0.01f)
+                if (checkTime.getSeconds() > 0.2f)
                     fprintf(
                         stderr, "Shader timestamp check is laggy: %.1fms\n",
                         checkTime.getSeconds() * 1000.f);
