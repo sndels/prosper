@@ -252,39 +252,51 @@ void App::run()
     LinearAllocator scopeBackingAlloc{megabytes(16)};
     Timer updateDelta;
     _lastTimeChange = std::chrono::high_resolution_clock::now();
-    while (_window->open())
+
+    try
     {
-        _profiler->startCpuFrame();
-
-        scopeBackingAlloc.reset();
-        ScopedScratch scopeAlloc{scopeBackingAlloc};
-
+        while (_window->open())
         {
-            const auto _s = _profiler->createCpuScope("Window::startFrame");
-            _window->startFrame();
+            _profiler->startCpuFrame();
+
+            scopeBackingAlloc.reset();
+            ScopedScratch scopeAlloc{scopeBackingAlloc};
+
+            {
+                const auto _s = _profiler->createCpuScope("Window::startFrame");
+                _window->startFrame();
+            }
+
+            handleMouseGestures();
+            handleKeyboardInput(updateDelta.getSeconds());
+            updateDelta.reset();
+
+            recompileShaders(scopeAlloc.child_scope());
+
+            _resources->startFrame();
+            _world->startFrame();
+            _meshletCuller->startFrame();
+
+            drawFrame(
+                scopeAlloc.child_scope(),
+                asserted_cast<uint32_t>(
+                    scopeBackingAlloc.allocated_byte_count_high_watermark()));
+
+            _inputHandler.clearSingleFrameGestures();
+            _cam->endFrame();
+
+            _world->endFrame();
+
+            _profiler->endCpuFrame();
         }
-
-        handleMouseGestures();
-        handleKeyboardInput(updateDelta.getSeconds());
-        updateDelta.reset();
-
-        recompileShaders(scopeAlloc.child_scope());
-
-        _resources->startFrame();
-        _world->startFrame();
-        _meshletCuller->startFrame();
-
-        drawFrame(
-            scopeAlloc.child_scope(),
-            asserted_cast<uint32_t>(
-                scopeBackingAlloc.allocated_byte_count_high_watermark()));
-
-        _inputHandler.clearSingleFrameGestures();
-        _cam->endFrame();
-
-        _world->endFrame();
-
-        _profiler->endCpuFrame();
+    }
+    catch (std::exception &)
+    {
+        // Wait for in flight rendering actions to finish to make app cleanup
+        // valid. Don't wait for device idle as async loading might be using the
+        // transfer queue simultaneously
+        _device->graphicsQueue().waitIdle();
+        throw;
     }
 
     // Wait for in flight rendering actions to finish
