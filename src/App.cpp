@@ -1690,7 +1690,12 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
         *_resources->finalComposite.transitionBarrier(
             ImageState::TransferSrc, true),
         vk::ImageMemoryBarrier2{
-            .srcStageMask = vk::PipelineStageFlagBits2::eTopOfPipe,
+            // TODO:
+            // What's the tight stage for this? Synchronization validation
+            // complained about a hazard after color attachment write which
+            // seems like an oddly specific stage for present source access to
+            // happen in.
+            .srcStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
             .srcAccessMask = vk::AccessFlags2{},
             .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
@@ -1747,6 +1752,8 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
         const vk::ImageMemoryBarrier2 barrier{
             .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            // TODO:
+            // What's the tight stage and correct access for this?
             .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
             .oldLayout = vk::ImageLayout::eTransferDstOptimal,
