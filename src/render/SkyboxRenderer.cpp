@@ -115,8 +115,9 @@ void SkyboxRenderer::record(
             Transitions{
                 .images = StaticArray<ImageTransition, 3>{{
                     {inOutTargets.illumination,
-                     ImageState::ColorAttachmentWrite},
-                    {inOutTargets.velocity, ImageState::ColorAttachmentWrite},
+                     ImageState::ColorAttachmentReadWrite},
+                    {inOutTargets.velocity,
+                     ImageState::ColorAttachmentReadWrite},
                     {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                 }},
             });

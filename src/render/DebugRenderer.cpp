@@ -122,7 +122,7 @@ void DebugRenderer::record(
             WHEELS_MOV(scopeAlloc), *_resources, cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {inOutTargets.color, ImageState::ColorAttachmentWrite},
+                    {inOutTargets.color, ImageState::ColorAttachmentReadWrite},
                     {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
                 }},
             });
