@@ -52,6 +52,7 @@ class DepthOfFieldSetup
         const Camera &cam, const Input &input, uint32_t nextFrame,
         Profiler *profiler);
 
+  private:
     bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

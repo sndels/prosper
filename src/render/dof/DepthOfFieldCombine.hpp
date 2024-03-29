@@ -52,8 +52,7 @@ class DepthOfFieldCombine
         const Input &input, uint32_t nextFrame, Profiler *profiler);
 
   private:
-    [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
-
+    bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };

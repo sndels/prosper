@@ -57,6 +57,7 @@ class DepthOfFieldGather
         const Input &input, GatherType gatherType, uint32_t nextFrame,
         Profiler *profiler);
 
+  private:
     bool _initialized{false};
     RenderResources *_resources{nullptr};
 

@@ -46,6 +46,7 @@ class DepthOfFieldFilter
         ImageHandle inIlluminationWeight, uint32_t nextFrame,
         const DebugNames &debugNames, Profiler *profiler);
 
+  private:
     bool _initialized{false};
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};

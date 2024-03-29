@@ -42,6 +42,7 @@ void DepthOfFieldCombine::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
+    WHEELS_ASSERT(!_initialized);
     WHEELS_ASSERT(_resources == nullptr);
     WHEELS_ASSERT(resources != nullptr);
 
@@ -49,12 +50,16 @@ void DepthOfFieldCombine::init(
     _computePass.init(
         WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
         shaderDefinitionCallback);
+
+    _initialized = true;
 }
 
 void DepthOfFieldCombine::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
+    WHEELS_ASSERT(_initialized);
+
     _computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
@@ -63,6 +68,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     const uint32_t nextFrame, Profiler *profiler)
 {
+    WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(_resources != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 

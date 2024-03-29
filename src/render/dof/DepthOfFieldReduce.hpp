@@ -41,8 +41,9 @@ class DepthOfFieldReduce
         const ImageHandle &inOutIlluminationMips, uint32_t nextFrame,
         Profiler *profiler);
 
+  private:
     bool _initialized{false};
-    Device*_device{nullptr};
+    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
     Buffer _atomicCounter;

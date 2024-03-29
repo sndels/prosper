@@ -43,6 +43,7 @@ class DepthOfFieldDilate
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         ImageHandle tileMinMaxCoC, uint32_t nextFrame, Profiler *profiler);
 
+  private:
     bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;

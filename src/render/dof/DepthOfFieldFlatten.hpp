@@ -44,6 +44,7 @@ class DepthOfFieldFlatten
         ImageHandle halfResCircleOfConfusion, uint32_t nextFrame,
         Profiler *profiler);
 
+  private:
     bool _initialized{false};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
