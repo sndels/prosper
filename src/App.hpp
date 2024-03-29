@@ -146,6 +146,7 @@ class App
     wheels::OwningPtr<ImageBasedLighting> _imageBasedLighting;
     wheels::OwningPtr<TemporalAntiAliasing> _temporalAntiAliasing;
     wheels::OwningPtr<MeshletCuller> _meshletCuller;
+    wheels::OwningPtr<TextureReadback> _textureReadback;
 
     wheels::OwningPtr<Profiler> _profiler;
 
@@ -172,6 +173,9 @@ class App
     CameraParameters _cameraParameters;
     wheels::Optional<FrustumCorners> _debugFrustum;
     glm::vec3 _frustumDebugColor{1.f, 1.f, 1.f};
+    bool _pickFocusDistance{false};
+    glm::vec2 _pickedFocusPx{-1.f, -1.f};
+    bool _waitFocusDistance{false};
 
     wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> _sceneStats;
     wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> _drawStats;

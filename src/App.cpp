@@ -35,6 +35,7 @@
 #include "render/SkyboxRenderer.hpp"
 #include "render/TemporalAntiAliasing.hpp"
 #include "render/TextureDebug.hpp"
+#include "render/TextureReadback.hpp"
 #include "render/ToneMap.hpp"
 #include "render/dof/DepthOfField.hpp"
 #include "render/rtdi/RtDirectIllumination.hpp"
@@ -100,6 +101,7 @@ App::App(Settings &&settings) noexcept
 , _imageBasedLighting{OwningPtr<ImageBasedLighting>(_generalAlloc)}
 , _temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>(_generalAlloc)}
 , _meshletCuller{OwningPtr<MeshletCuller>(_generalAlloc)}
+, _textureReadback{OwningPtr<TextureReadback>(_generalAlloc)}
 , _profiler{OwningPtr<Profiler>(_generalAlloc, _generalAlloc)}
 {
 }
@@ -229,6 +231,9 @@ void App::init()
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get(), _world->dsLayouts(),
         _cam->descriptorSetLayout());
+    _textureReadback->init(
+        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -280,6 +285,7 @@ void App::run()
             _world->startFrame();
             _meshletCuller->startFrame();
             _depthOfField->startFrame();
+            _textureReadback->startFrame();
 
             drawFrame(
                 scopeAlloc.child_scope(),
@@ -568,7 +574,10 @@ void App::handleMouseGestures()
         }
         else if (gesture->type == MouseGestureType::SelectPoint)
         {
-            ;
+            // Reference RT write a depth buffer so can't use the texture
+            // readback
+            if (_renderDoF && !_referenceRt && !_waitFocusDistance)
+                _pickFocusDistance = true;
         }
         else
             throw std::runtime_error("Unknown mouse gesture");
@@ -755,6 +764,34 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _profiler->endGpuFrame(cb);
 
     cb.end();
+
+    if (_waitFocusDistance)
+    {
+        const Optional<vec4> nonLinearDepth = _textureReadback->readback();
+        if (nonLinearDepth.has_value())
+        {
+            // First we get the projected direction and linear depth
+            const ImVec2 viewportArea = _imguiRenderer->centerAreaSize();
+            const vec2 uv =
+                (_pickedFocusPx + 0.5f) / vec2{viewportArea.x, viewportArea.y};
+            const vec2 clipXy = uv * 2.f - 1.f;
+            const vec4 projected =
+                _cam->clipToCamera() * vec4{clipXy, nonLinearDepth->x, 1.f};
+            vec3 projectedDir = vec3{projected} / projected.w;
+            const float projectedDepth = length(projectedDir);
+            projectedDir /= projectedDepth;
+
+            // Camera looks at -Z in view space
+            const float cosTheta = dot(vec3{0.f, 0.f, -1.f}, projectedDir);
+
+            CameraParameters params = _cam->parameters();
+            params.focusDistance = projectedDepth * cosTheta;
+            _cam->setParameters(params);
+
+            _pickedFocusPx = vec2{-1.f, -1.f};
+            _waitFocusDistance = false;
+        }
+    }
 
     const bool shouldResizeSwapchain = !submitAndPresent(cb, nextFrame);
 
@@ -1481,6 +1518,24 @@ void App::render(
                 .depth = depth,
             },
             indices.nextFrame, _profiler.get());
+
+        if (_pickFocusDistance)
+        {
+            const Optional<MouseGesture> &gesture =
+                _inputHandler.mouseGesture();
+            WHEELS_ASSERT(gesture.has_value());
+
+            const ImVec2 offset = _imguiRenderer->centerAreaOffset();
+            const vec2 px = gesture->currentPos - vec2{offset.x, offset.y};
+
+            _textureReadback->record(
+                scopeAlloc.child_scope(), cb, depth, px, indices.nextFrame,
+                _profiler.get());
+
+            _pickFocusDistance = false;
+            _pickedFocusPx = px;
+            _waitFocusDistance = true;
+        }
 
         if (_applyTaa)
         {
