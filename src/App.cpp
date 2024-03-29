@@ -566,6 +566,10 @@ void App::handleMouseGestures()
                 }
             }
         }
+        else if (gesture->type == MouseGestureType::SelectPoint)
+        {
+            ;
+        }
         else
             throw std::runtime_error("Unknown mouse gesture");
     }

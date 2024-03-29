@@ -48,6 +48,7 @@ enum class MouseGestureType
     TrackBall,
     TrackPlane,
     TrackZoom,
+    SelectPoint,
 };
 
 struct MouseGesture

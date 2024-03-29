@@ -135,6 +135,16 @@ void InputHandler::handleMouseButton(
                 if (glfwRawMouseMotionSupported() == GLFW_TRUE)
                     glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
             }
+            else if (
+                button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS &&
+                _keyboard[KeyCtrl] == KeyState::Held)
+            {
+                _mouseGesture = MouseGesture{
+                    .startPos = _cursor.position,
+                    .currentPos = _cursor.position,
+                    .type = MouseGestureType::SelectPoint,
+                };
+            }
         }
     }
 }
