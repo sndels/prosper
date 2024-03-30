@@ -234,13 +234,20 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     int ringCount = 5;
     // Foreground CoC is negative
     float kernelRadius = -tileMinCoC;
+    float radiusJitterScale = .5;
+    // float radiusJitterScale = 0.;
+    float radiusJitter = rnd01() * 2. - 1.;
+    radiusJitter *= radiusJitterScale;
     // Jitter radius to get rid of tile artifacts
-    kernelRadius *= 1 + (rnd01() * 2 - 1) * MAX_COC_ERROR;
-    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
+    kernelRadius += radiusJitter;
 
-    vec2 jitter = rnd2d01() * 2 - 1;
-    jitter *= ringSpacing;
-    coord += jitter;
+    float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
+    float spacingJitterScale = ringSpacing * .5;
+    // float spacingJitterScale = 0.;
+
+    vec2 coordJitter = rnd2d01() * 2. - 1.;
+    coordJitter *= spacingJitterScale;
+    coord += coordJitter;
 
     // TODO: Fastpath?
     // - Criteria just (tileMinCoC - tileMaxCoC) < 0.95 * tileMinCoC?
