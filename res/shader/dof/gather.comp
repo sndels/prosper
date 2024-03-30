@@ -225,7 +225,7 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
 {
     // TODO:
     // Larger, smaller early out?
-    float maxCoC = -1.;
+    float maxCoC = -0.5;
 
     if (tileMinCoC > maxCoC)
         return vec4(0);
@@ -279,7 +279,8 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 // against near CoC
                 // TODO:
                 // Is this what was meant? Seems to add blending between
-                // 'layers' in foreground
+                // 'layers' in foreground. Or should sampleAlpha() be used as
+                // weight too?
                 float sampleWeight = kernelRadius / sampleCoC;
                 colorSum +=
                     textureLod(
@@ -287,7 +288,7 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                         sampleUv, 0)
                         .rgb *
                     sampleWeight;
-                alphaSum += sampleAlpha(sampleCoC);
+                alphaSum += sampleAlpha(sampleCoC) * saturate(sampleCoC - .5);
                 totalWeight += sampleWeight;
             }
         }
