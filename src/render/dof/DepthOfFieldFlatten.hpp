@@ -18,6 +18,8 @@
 class DepthOfFieldFlatten
 {
   public:
+    static const uint32_t sFlattenFactor = 8;
+
     DepthOfFieldFlatten() noexcept = default;
     ~DepthOfFieldFlatten() = default;
 

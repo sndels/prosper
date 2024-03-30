@@ -14,8 +14,6 @@ using namespace wheels;
 namespace
 {
 
-const uint32_t sFlattenFactor = 8;
-
 vk::Extent2D getInputExtent(
     const RenderResources &resources, ImageHandle illumination)
 {
@@ -34,7 +32,10 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     return ComputePass::Shader{
         .relPath = "shader/dof/flatten.comp",
         .debugName = String{alloc, "DepthOfFieldFlattenCS"},
-        .groupSize = uvec3{sFlattenFactor, sFlattenFactor, 1u},
+        .groupSize =
+            uvec3{
+                DepthOfFieldFlatten::sFlattenFactor,
+                DepthOfFieldFlatten::sFlattenFactor, 1u},
     };
 }
 
@@ -81,8 +82,12 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
         ret.tileMinMaxCircleOfConfusion = _resources->images.create(
             ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
-                .width = (inputExtent.width - 1) / sFlattenFactor + 1,
-                .height = (inputExtent.height - 1) / sFlattenFactor + 1,
+                .width = (inputExtent.width - 1) /
+                             DepthOfFieldFlatten::sFlattenFactor +
+                         1,
+                .height = (inputExtent.height - 1) /
+                              DepthOfFieldFlatten::sFlattenFactor +
+                          1,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
             },
