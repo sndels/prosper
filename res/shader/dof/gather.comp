@@ -282,6 +282,11 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
             float sampleDistance = length(s);
             if (sampleCoC >= sampleDistance - ringSpacing)
             {
+                // TODO:
+                // Figure out how to properly combat the extra blur and
+                // noticeable boundary between the depth slices that sample from
+                // different mips
+                float mip = max(floor(log2(sampleCoC)) - 1, 0);
                 // Sousa: weigh samples with tile max CoC
                 // against near CoC
                 // TODO:
@@ -292,7 +297,7 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 colorSum +=
                     textureLod(
                         sampler2D(inHalfResIllumination, nearestSampler),
-                        sampleUv, 0)
+                        sampleUv, mip)
                         .rgb *
                     sampleWeight;
                 alphaSum += sampleAlpha(sampleCoC) * saturate(sampleCoC - .5);
