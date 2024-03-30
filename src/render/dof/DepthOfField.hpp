@@ -24,6 +24,10 @@
 class DepthOfField
 {
   public:
+    // Foreground can have an (almost?) infinitely larger bokeh so let's clamp
+    // to a smaller but still plausible looking factor
+    static constexpr float sMaxFgCoCFactor = 2.f;
+
     DepthOfField() noexcept = default;
     ~DepthOfField() = default;
 

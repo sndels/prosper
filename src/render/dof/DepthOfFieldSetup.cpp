@@ -8,6 +8,7 @@
 #include "../../utils/Utils.hpp"
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
+#include "DepthOfField.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -26,6 +27,7 @@ struct PCBlock
 {
     float focusDistance{0.f};
     float maxBackgroundCoC{0.f};
+    float maxCoC{0.f};
 };
 
 vk::Extent2D getRenderExtent(
@@ -183,12 +185,14 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             (camParams.apertureDiameter * camParams.focalLength) /
             (camParams.focusDistance - camParams.focalLength);
 
+        // Similar math is also in Dilate
         const float maxBgCoCInHalfResPixels =
             (maxBgCoCInUnits / cam.sensorWidth()) * renderExtent.width;
 
         const PCBlock pcBlock{
             .focusDistance = camParams.focusDistance,
             .maxBackgroundCoC = maxBgCoCInHalfResPixels,
+            .maxCoC = maxBgCoCInHalfResPixels * DepthOfField::sMaxFgCoCFactor,
         };
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
         _computePass.record(

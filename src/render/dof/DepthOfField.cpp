@@ -75,7 +75,8 @@ DepthOfField::Output DepthOfField::record(
 
         const DepthOfFieldDilate::Output dilateOutput = _dilatePass.record(
             scopeAlloc.child_scope(), cb,
-            flattenOutput.tileMinMaxCircleOfConfusion, nextFrame, profiler);
+            flattenOutput.tileMinMaxCircleOfConfusion, cam, nextFrame,
+            profiler);
 
         _resources->images.release(flattenOutput.tileMinMaxCircleOfConfusion);
 

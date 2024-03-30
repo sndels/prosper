@@ -22,12 +22,15 @@ layout(push_constant) uniform SetupPC
 {
     float focusDistance;
     float maxBackgroundCoC;
+    float maxCoC;
 }
 PC;
 
 float circleOfConfusion(float viewDepth)
 {
-    return (1 - (PC.focusDistance / viewDepth)) * PC.maxBackgroundCoC;
+    // No need to clamp positive values as they approach maxBackgroundCoC
+    return max(
+        (1 - (PC.focusDistance / viewDepth)) * PC.maxBackgroundCoC, -PC.maxCoC);
 }
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
