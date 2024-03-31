@@ -330,6 +330,12 @@ void main()
 
     ivec2 tileCoord = coord / 8;
     vec2 tileMinMaxCoC = imageLoad(inDilatedTileMinMaxCoC, tileCoord).xy;
+    float ditherScale = 0.075;
+    // TODO:
+    // This hides banding in radii above 20 but it feels weird that fp16 would
+    // band that visibly. Does something else magnify it?
+    tileMinMaxCoC += mix(-ditherScale, ditherScale, rnd01());
+
     float tileMinCoC = tileMinMaxCoC[0];
     float tileMaxCoC = tileMinMaxCoC[1];
 
