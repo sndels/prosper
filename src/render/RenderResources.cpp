@@ -17,6 +17,7 @@ RenderResources::~RenderResources()
     {
         device->logical().destroy(nearestSampler);
         device->logical().destroy(bilinearSampler);
+        device->logical().destroy(trilinearSampler);
     }
 }
 
@@ -50,6 +51,18 @@ void RenderResources::init(Device *d)
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eNearest,
+        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        .anisotropyEnable = VK_FALSE,
+        .maxAnisotropy = 1,
+        .minLod = 0,
+        .maxLod = VK_LOD_CLAMP_NONE,
+    });
+    trilinearSampler = device->logical().createSampler(vk::SamplerCreateInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
         .addressModeU = vk::SamplerAddressMode::eClampToEdge,
         .addressModeV = vk::SamplerAddressMode::eClampToEdge,
         .addressModeW = vk::SamplerAddressMode::eClampToEdge,

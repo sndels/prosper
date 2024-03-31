@@ -59,6 +59,7 @@ class RenderResources
 
     vk::Sampler nearestSampler;
     vk::Sampler bilinearSampler;
+    vk::Sampler trilinearSampler;
 
     // One lines buffer per frame to leave mapped
     wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
