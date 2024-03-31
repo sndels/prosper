@@ -41,6 +41,7 @@ struct CursorState
 {
     glm::vec2 position{0.f, 0.f};
     bool inside{false};
+    bool shown{true};
 };
 
 enum class MouseGestureType
@@ -84,6 +85,10 @@ class InputHandler
     void handleMouseMove(double xpos, double ypos);
     void handleKey(int glfwKey, int scancode, int action, int mods);
     void handleKeyStateUpdate();
+
+    void hideCursor(GLFWwindow *window);
+    // This doesn't override hidden cursor when gesture is active
+    void showCursor(GLFWwindow *window);
 
   private:
     CursorState _cursor;

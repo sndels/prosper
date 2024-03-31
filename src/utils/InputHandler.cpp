@@ -98,9 +98,7 @@ void InputHandler::handleMouseButton(
             {
                 _mouseGesture.reset();
                 // Restore normal mouse input
-                if (glfwRawMouseMotionSupported() == GLFW_TRUE)
-                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                showCursor(window);
             }
         }
         else
@@ -128,12 +126,7 @@ void InputHandler::handleMouseButton(
                 // Constrain mouse so that drags aren't bounded by the window
                 // size
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                // Non-raw input virtual mouse position seems to jump aroud much
-                // more on Win10. First callback after disabling cursor could be
-                // 100s of px away from the click position if drag is initiated
-                // during a fast move.
-                if (glfwRawMouseMotionSupported() == GLFW_TRUE)
-                    glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+                _cursor.shown = false;
             }
             else if (
                 button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS &&
@@ -192,4 +185,28 @@ void InputHandler::handleKeyStateUpdate()
         }
     }
     _keyboardUpdated = StaticArray<bool, KeyCount>{false};
+}
+
+void InputHandler::hideCursor(GLFWwindow *window)
+{
+    if (_cursor.shown)
+    {
+        // No need to check for active gesture as cursor is always hidden during
+        // gestures
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+        _cursor.shown = false;
+    }
+}
+
+void InputHandler::showCursor(GLFWwindow *window)
+{
+    if (!_cursor.shown)
+    {
+        // Gestures' disabled cursor have precedence
+        if (!_mouseGesture.has_value())
+        {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            _cursor.shown = true;
+        }
+    }
 }

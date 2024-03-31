@@ -49,6 +49,12 @@ Window::Window(
     glfwSetMouseButtonCallback(_window, Window::mouseButtonCallback);
     glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
 
+    // Non-raw input virtual mouse position seems to jump aroud much more on
+    // Win10. First callback after disabling cursor could be 100s of px away
+    // from the click position if drag is initiated during a fast move.
+    if (glfwRawMouseMotionSupported() == GLFW_TRUE)
+        glfwSetInputMode(_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+
 #ifdef _WIN32
     // Try to set dark mode to match the inactive title bar color to the ui
     // color scheme
@@ -93,6 +99,15 @@ void Window::startFrame()
 
     glfwPollEvents();
     _inputHandler->handleKeyStateUpdate();
+}
+
+void Window::pollCursorPosition() const
+{
+    const CursorState cursor = _inputHandler->cursor();
+    double x = static_cast<double>(cursor.position.x);
+    double y = static_cast<double>(cursor.position.y);
+    glfwGetCursorPos(_window, &x, &y);
+    _inputHandler->handleMouseMove(x, y);
 }
 
 void Window::errorCallback(int error, const char *description)

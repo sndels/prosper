@@ -116,7 +116,11 @@ void ImGuiRenderer::init(
 
     ImGui_ImplVulkan_CreateFontsTexture();
 
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // ImGui glfw toggles cursor visibility in its handling so let's turn that
+    // off to have our own.
+    // TODO: Implement different cursor shapes like the glfw backend had them.
+    ImGui::GetIO().ConfigFlags |=
+        ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_NoMouseCursorChange;
 
     setStyle();
 

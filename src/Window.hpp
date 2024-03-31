@@ -32,6 +32,7 @@ class Window
     [[nodiscard]] bool resized() const;
 
     void startFrame();
+    void pollCursorPosition() const;
 
     static void errorCallback(int error, const char *description);
     static void keyCallback(
