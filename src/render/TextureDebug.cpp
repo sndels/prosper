@@ -75,17 +75,43 @@ TextureDebug::TextureDebug(Allocator &alloc) noexcept
 {
 }
 
+TextureDebug::~TextureDebug()
+{
+    if (_device != nullptr)
+    {
+        for (const Buffer &b : _readbackBuffers)
+            _device->destroy(b);
+    }
+}
+
 void TextureDebug::init(
     ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
 
+    _device = device;
     _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
         shaderDefinitionCallback);
+
+    for (Buffer &b : _readbackBuffers)
+    {
+        b = device->createBuffer(BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = sizeof(vec4),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "TextureDebugReadback",
+        });
+        memset(b.mapped, 0, b.byteSize);
+    }
 
     _initialized = true;
 }
@@ -100,7 +126,7 @@ void TextureDebug::recompileShaders(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
-void TextureDebug::drawUi()
+void TextureDebug::drawUi(uint32_t nextFrame)
 {
     WHEELS_ASSERT(_initialized);
 
@@ -203,6 +229,22 @@ void TextureDebug::drawUi()
         settings->range[1] = std::max(settings->range[0], settings->range[1]);
     }
 
+    {
+        const float *value =
+            reinterpret_cast<const float *>(_readbackBuffers[nextFrame].mapped);
+        ImVec4 imVec{
+            value[0],
+            value[1],
+            value[2],
+            value[3],
+        };
+        ImGui::ColorButton(
+            "##peekedValueButton", imVec,
+            ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+        ImGui::SameLine();
+        ImGui::InputFloat4("##peekedValue", &imVec.x, "%.5f");
+    }
+
     ImGui::Checkbox("Abs before range", &settings->absBeforeRange);
     ImGui::Checkbox("Bilinear sampler", &settings->useBilinearSampler);
     ImGui::Checkbox("Zoom", &_zoom);
@@ -240,6 +282,15 @@ ImageHandle TextureDebug::record(
             const Optional<StrSpan> activeName =
                 _resources->images.activeDebugName();
 
+            const BufferHandle deviceReadback = _resources->buffers.create(
+                BufferDescription{
+                    .byteSize = _readbackBuffers[nextFrame].byteSize,
+                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                             vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+                "TextureDebugReadbackDeviceBuffer");
+
             TargetSettings settings;
             if (activeName.has_value())
             {
@@ -266,6 +317,14 @@ ImageHandle TextureDebug::record(
                                        ? _resources->bilinearSampler
                                        : _resources->nearestSampler,
                     }},
+                    DescriptorInfo{vk::DescriptorImageInfo{
+                        .sampler = _resources->nearestSampler,
+                    }},
+                    DescriptorInfo{vk::DescriptorBufferInfo{
+                        .buffer =
+                            _resources->buffers.nativeHandle(deviceReadback),
+                        .range = VK_WHOLE_SIZE,
+                    }},
                 }});
 
             transition(
@@ -275,6 +334,12 @@ ImageHandle TextureDebug::record(
                         {inColor, ImageState::ComputeShaderRead},
                         {ret, ImageState::ComputeShaderWrite},
                     }},
+                    .buffers =
+                        StaticArray<BufferTransition, 1>{
+                            BufferTransition{
+                                deviceReadback,
+                                BufferState::ComputeShaderWrite},
+                        },
                 });
 
             const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
@@ -315,6 +380,22 @@ ImageHandle TextureDebug::record(
             const vk::DescriptorSet storageSet =
                 _computePass.storageSet(nextFrame);
             _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
+
+            _resources->buffers.transition(
+                cb, deviceReadback, BufferState::TransferSrc);
+            // We know the host readback buffer is not used this frame so no
+            // need for a barrier here
+
+            const vk::BufferCopy region{
+                .srcOffset = 0,
+                .dstOffset = 0,
+                .size = _readbackBuffers[nextFrame].byteSize,
+            };
+            cb.copyBuffer(
+                _resources->buffers.nativeHandle(deviceReadback),
+                _readbackBuffers[nextFrame].handle, 1, &region);
+
+            _resources->buffers.release(deviceReadback);
         }
     }
 

@@ -7,6 +7,7 @@
 #include <wheels/containers/static_array.hpp>
 
 #include "../gfx/Fwd.hpp"
+#include "../gfx/Resources.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "ComputePass.hpp"
@@ -33,7 +34,7 @@ class TextureDebug
     };
 
     TextureDebug(wheels::Allocator &alloc) noexcept;
-    ~TextureDebug() = default;
+    ~TextureDebug();
 
     TextureDebug(const TextureDebug &other) = delete;
     TextureDebug(TextureDebug &&other) = delete;
@@ -49,7 +50,7 @@ class TextureDebug
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles);
 
-    void drawUi();
+    void drawUi(uint32_t nextFrame);
 
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
@@ -62,7 +63,9 @@ class TextureDebug
     ImageHandle createOutput(vk::Extent2D size);
 
     bool _initialized{false};
+    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _readbackBuffers;
 
     ComputePass _computePass;
 

@@ -8,6 +8,9 @@
 layout(binding = 0) uniform texture2D inColor;
 layout(binding = 1) uniform writeonly image2D outColor;
 layout(binding = 2) uniform sampler inSampler;
+layout(binding = 3) uniform sampler nearestSampler;
+layout(std430, binding = 4) buffer Color { vec4 color; }
+outPeekColor;
 
 layout(push_constant) uniform TextureDebugPC
 {
@@ -52,6 +55,35 @@ vec2 aspectCorrectedUv(vec2 uv)
             float scaledWidth = PC.outRes.y * inAspectRatio;
             float leftColumn = (PC.outRes.x - scaledWidth) / 2;
             uv.x = (outCoord.x - leftColumn) / scaledWidth;
+        }
+    }
+    return uv;
+}
+
+vec2 unAspectCorrectedUv(vec2 uv)
+{
+    ivec2 outCoord = ivec2(uv * PC.outRes + .5);
+    float inAspectRatio = float(inRes().x) / float(inRes().y);
+    float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
+    if (!any(equal(inRes(), PC.outRes)))
+    {
+        if (inAspectRatio > outAspectRatio)
+        {
+            // Scale limited by height
+            float scaledHeight = PC.outRes.x / inAspectRatio;
+            float bottomRow = (PC.outRes.y - scaledHeight) / 2;
+            // 1.8 is a hack here but result lines up better than with 2
+            float offset = (bottomRow * 1.8) / scaledHeight;
+            uv.y -= (uv.y - .5) * offset;
+        }
+        else
+        {
+            // Scale limited by width
+            float scaledWidth = PC.outRes.y * inAspectRatio;
+            float leftColumn = (PC.outRes.x - scaledWidth) / 2;
+            // 1.8 is a hack here but result lines up better than with 2
+            float offset = (leftColumn * 1.8) / scaledWidth;
+            uv.x -= (uv.x - .5) * offset;
         }
     }
     return uv;
@@ -142,6 +174,45 @@ void main()
         color = abs(color);
 
     vec3 scaledColor = (color - PC.range.x) / (PC.range.y - PC.range.x);
+
+    // Handle magnifier peek sample and cursor separate from the magnify area to
+    // keep smooth movement for the magnifier area and still snap the sample to
+    // nearest texel
+    if (flagMagnifier())
+    {
+        // Snap sample point in source resolution
+        vec2 sampleUv = PC.cursorUv;
+        sampleUv = aspectCorrectedUv(sampleUv);
+        if (flagZoom())
+            sampleUv = zoom4xUv(sampleUv);
+
+        // Move to the nearest input texel center
+        sampleUv *= inRes();
+        vec2 sampleFract = fract(sampleUv);
+        sampleUv = floor(sampleUv) + .5;
+        sampleUv /= inRes();
+
+        if (all(equal(outCoord, ivec2(0, 0))))
+            outPeekColor.color = textureLod(
+                sampler2D(inColor, nearestSampler), sampleUv, float(PC.lod));
+
+        // Snap cursor in output resolution to tie it to the correct texel
+        // visually
+        vec2 cursorUv = sampleUv;
+        if (flagZoom())
+            cursorUv = unzoom4xUv(cursorUv);
+        cursorUv = unAspectCorrectedUv(cursorUv);
+
+        vec2 cursorCoord = cursorUv * PC.outRes;
+
+        vec2 fromSample = cursorCoord - vec2(outCoord);
+        float markerOuterRadius = 3;
+        float markerInnerRadius = 2;
+        if (all(lessThan(abs(fromSample), vec2(markerOuterRadius))))
+            scaledColor = vec3(0);
+        if (all(lessThan(abs(fromSample), vec2(markerInnerRadius))))
+            scaledColor = vec3(1);
+    }
 
     imageStore(outColor, outCoord, vec4(scaledColor, 1));
 }

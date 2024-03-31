@@ -1648,7 +1648,7 @@ void App::render(
             // Draw this after so that the first frame debug is active for a new
             // texture, we draw black instead of a potentially wrong output from
             // the shared texture that wasn't protected yet
-            _textureDebug->drawUi();
+            _textureDebug->drawUi(indices.nextFrame);
 
         const vk::Rect2D backbufferArea{
             .offset = {0, 0},
