@@ -14,7 +14,7 @@ layout(set = 0, binding = 2) uniform readonly image2D inDilatedTileMinMaxCoC;
 layout(set = 0, binding = 3) uniform writeonly image2D
     outHalfResBokehColorWeight;
 layout(set = 0, binding = 4) uniform sampler nearestSampler;
-layout(set = 0, binding = 5) uniform sampler bilinearSampler;
+layout(set = 0, binding = 5) uniform sampler trilinearSampler;
 
 layout(push_constant) uniform GatherPC
 {
@@ -117,13 +117,13 @@ void addBucketSample(
     // TODO:
     // Figure out how to properly combat the extra blur and noticeable boundary
     // between the depth slices that sample from different mips
-    float mip = max(floor(log2(sampleCoC)) - 1, 0);
+    float mip = max(log2(sampleCoC) - 1, 0);
     // TODO:
     // Pre-calc alongside the CoC
     float sampleWeight = sampleAlpha(sampleCoC);
     bucket.colorWeightSum += vec4(
         textureLod(
-            sampler2D(inHalfResIllumination, bilinearSampler), sampleUv, mip)
+            sampler2D(inHalfResIllumination, trilinearSampler), sampleUv, mip)
                 .rgb *
             sampleWeight,
         sampleWeight);
@@ -296,7 +296,7 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 float sampleWeight = kernelRadius / sampleCoC;
                 colorSum +=
                     textureLod(
-                        sampler2D(inHalfResIllumination, nearestSampler),
+                        sampler2D(inHalfResIllumination, trilinearSampler),
                         sampleUv, mip)
                         .rgb *
                     sampleWeight;
