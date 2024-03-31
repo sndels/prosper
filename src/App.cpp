@@ -275,6 +275,10 @@ void App::run()
                 _window->startFrame();
             }
 
+            // The cursor position callback doesn't get called on every frame
+            // that has cursor movement if the cursor is hidden so let's poll
+            // the position
+            _window->pollCursorPosition();
             handleMouseGestures();
             handleKeyboardInput(updateDelta.getSeconds());
             updateDelta.reset();
@@ -1591,9 +1595,39 @@ void App::render(
     ImageHandle finalComposite;
     if (_textureDebugActive)
     {
+        const ImVec2 size = _imguiRenderer->centerAreaSize();
+        const ImVec2 offset = _imguiRenderer->centerAreaOffset();
+        const CursorState cursor = _inputHandler.cursor();
+
+        // Have magnifier when mouse is on (an active) debug view
+        const bool uiHovered = ImGui::IsAnyItemHovered();
+        const bool activeTexture = _textureDebug->textureSelected();
+        const bool cursorWithinArea =
+            all(greaterThan(cursor.position, vec2(offset.x, offset.y))) &&
+            all(lessThan(
+                cursor.position, vec2(offset.x + size.x, offset.y + size.y)));
+
+        Optional<vec2> cursorCoord;
+        // Don't have debug magnifier when using ui that overlaps the render
+        // area
+        if (!uiHovered && activeTexture && cursorWithinArea)
+        {
+            // Also don't have magnifier when e.g. mouse look is active. Let
+            // InputHandler figure out if mouse should be visible or not.
+            if (!_inputHandler.mouseGesture().has_value())
+            {
+                // The magnifier has its own pointer so let's not mask the view
+                // with the OS one.
+                _inputHandler.hideCursor(_window->ptr());
+                cursorCoord = cursor.position - vec2(offset.x, offset.y);
+            }
+        }
+        else
+            _inputHandler.showCursor(_window->ptr());
+
         const ImageHandle debugOutput = _textureDebug->record(
-            scopeAlloc.child_scope(), cb, renderArea.extent, indices.nextFrame,
-            _profiler.get());
+            scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,
+            indices.nextFrame, _profiler.get());
 
         finalComposite = blitColorToFinalComposite(
             scopeAlloc.child_scope(), cb, debugOutput);

@@ -53,7 +53,10 @@ class TextureDebug
 
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        vk::Extent2D outSize, uint32_t nextFrame, Profiler *profiler);
+        vk::Extent2D outSize, wheels::Optional<glm::vec2> cursorCoord,
+        uint32_t nextFrame, Profiler *profiler);
+
+    [[nodiscard]] bool textureSelected() const;
 
   private:
     ImageHandle createOutput(vk::Extent2D size);

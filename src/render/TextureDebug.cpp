@@ -29,11 +29,14 @@ struct PCBlock
     uint32_t lod{0};
     uint32_t flags{0};
 
+    vec2 cursorUv{};
+
     struct Flags
     {
         TextureDebug::ChannelType channelType{TextureDebug::ChannelType::RGB};
         bool absBeforeRange{false};
         bool zoom{false};
+        bool magnifier{false};
     };
 };
 
@@ -46,6 +49,7 @@ uint32_t pcFlags(PCBlock::Flags flags)
     static_assert((uint32_t)TextureDebug::ChannelType::Count - 1 < 0b111);
     ret |= (uint32_t)flags.absBeforeRange << 3;
     ret |= (uint32_t)flags.zoom << 4;
+    ret |= (uint32_t)flags.magnifier << 5;
 
     return ret;
 }
@@ -208,7 +212,8 @@ void TextureDebug::drawUi()
 
 ImageHandle TextureDebug::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, vk::Extent2D outSize,
-    uint32_t nextFrame, Profiler *profiler)
+    wheels::Optional<glm::vec2> cursorCoord, uint32_t nextFrame,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
@@ -279,6 +284,11 @@ ImageHandle TextureDebug::record(
             const vk::Extent3D outExtent =
                 _resources->images.resource(ret).extent;
 
+            const vec2 cursorUv =
+                cursorCoord.has_value()
+                    ? (vec2(*cursorCoord) + 0.5f) /
+                          vec2(outExtent.width, outExtent.height)
+                    : vec2{};
             const PCBlock pcBlock{
                 .inRes =
                     uvec2{
@@ -296,7 +306,10 @@ ImageHandle TextureDebug::record(
                     .channelType = settings.channelType,
                     .absBeforeRange = settings.absBeforeRange,
                     .zoom = _zoom,
-                })};
+                    .magnifier = cursorCoord.has_value(),
+                }),
+                .cursorUv = cursorUv,
+            };
 
             const uvec3 extent = uvec3{outSize.width, outSize.height, 1u};
             const vk::DescriptorSet storageSet =
@@ -306,6 +319,11 @@ ImageHandle TextureDebug::record(
     }
 
     return ret;
+}
+
+bool TextureDebug::textureSelected() const
+{
+    return _resources->images.activeDebugName().has_value();
 }
 
 ImageHandle TextureDebug::createOutput(vk::Extent2D size)

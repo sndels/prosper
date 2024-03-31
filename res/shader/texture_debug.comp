@@ -17,12 +17,91 @@ layout(push_constant) uniform TextureDebugPC
     vec2 range;
     uint lod;
     uint flags;
+
+    vec2 cursorUv;
 }
 PC;
 
 uint flagChannelType() { return bitfieldExtract(PC.flags, 0, 3); }
 bool flagAbsBeforeRange() { return bitfieldExtract(PC.flags, 3, 1) == 1; }
 bool flagZoom() { return bitfieldExtract(PC.flags, 4, 1) == 1; }
+bool flagMagnifier() { return bitfieldExtract(PC.flags, 5, 1) == 1; }
+
+vec2 zoom4xUv(vec2 uv) { return uv * .25 + .375; }
+vec2 unzoom4xUv(vec2 uv) { return (uv - .375) * 4.; }
+
+ivec2 inRes() { return PC.inRes / (1 << PC.lod); }
+
+vec2 aspectCorrectedUv(vec2 uv)
+{
+    vec2 outCoord = uv * PC.outRes;
+    float inAspectRatio = float(inRes().x) / float(inRes().y);
+    float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
+    if (!any(equal(inRes(), PC.outRes)))
+    {
+        if (inAspectRatio > outAspectRatio)
+        {
+            // Scale limited by height
+            float scaledHeight = PC.outRes.x / inAspectRatio;
+            float bottomRow = (PC.outRes.y - scaledHeight) / 2;
+            uv.y = (outCoord.y - bottomRow) / scaledHeight;
+        }
+        else
+        {
+            // Scale limited by width
+            float scaledWidth = PC.outRes.y * inAspectRatio;
+            float leftColumn = (PC.outRes.x - scaledWidth) / 2;
+            uv.x = (outCoord.x - leftColumn) / scaledWidth;
+        }
+    }
+    return uv;
+}
+
+// Size of a magnified pixel in output resolution
+#define MAGNIFIER_PX_DIM 12
+#define MAGNIFIER_RADIUS_OUT 75.
+#define MAGNIFIER_RATIO (MAGNIFIER_RADIUS_OUT / MAGNIFIER_PX_DIM)
+
+vec2 magnifierUv(vec2 uv)
+{
+    // Some of this math is replicated for cursor alignment
+    vec2 outCoord = uv * PC.outRes;
+
+    vec2 cursorUv = PC.cursorUv;
+    vec2 cursorCoordOut = cursorUv * PC.outRes;
+    vec2 cursorCoordIn = cursorUv * inRes();
+
+    vec2 fromMagnifierCenter = outCoord - cursorCoordOut;
+    float distMagnifier = length(fromMagnifierCenter) / MAGNIFIER_RADIUS_OUT;
+
+    if (distMagnifier < 1.)
+    {
+        // Zoom inside the magnifier area
+        float magnifierRatio = MAGNIFIER_RATIO;
+        if (flagZoom())
+            magnifierRatio *= 4.;
+        vec2 magnifierCoordIn =
+            distMagnifier < .001
+                ? cursorCoordIn
+                : cursorCoordIn + normalize(fromMagnifierCenter) *
+                                      distMagnifier * magnifierRatio;
+        magnifierCoordIn = floor(magnifierCoordIn) + .5;
+
+        // Have a distortion blend between the view resolution and magnifier
+        // center area. It seems to make it easier to navigate with the
+        // magnifier.
+        // [0,1] from the edge of the magnifier area to the blend radius
+        float magnifierBlendInnerRadius = .75;
+        float magnifierBlendOuterRadius = 1. - magnifierBlendInnerRadius;
+        float borderBlend =
+            1. - saturate(
+                     (distMagnifier - magnifierBlendInnerRadius) /
+                     magnifierBlendOuterRadius);
+        uv = mix(uv, magnifierCoordIn / inRes(), borderBlend);
+    }
+
+    return uv;
+}
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
@@ -31,54 +110,31 @@ void main()
     if (any(greaterThanEqual(outCoord, PC.outRes)))
         return;
 
-    float inAspectRatio = float(PC.inRes.x) / float(PC.inRes.y);
-    float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
-    vec2 inUv = (vec2(outCoord) + .5) / vec2(PC.outRes);
-    if (!any(equal(PC.inRes, PC.outRes)))
-    {
-        if (inAspectRatio > outAspectRatio)
-        {
-            // Scale limited by height
-            int scaledHeight = int(PC.outRes.x / inAspectRatio);
-            int bottomRow = int(PC.outRes.y - scaledHeight) / 2;
-            inUv.y = float(outCoord.y - bottomRow) / float(scaledHeight);
-        }
-        else
-        {
-            // Scale limited by width
-            int scaledWidth = int(PC.outRes.y * inAspectRatio);
-            int leftColumn = (PC.outRes.x - scaledWidth) / 2;
-            inUv.x = float(outCoord.x - leftColumn) / float(scaledWidth);
-        }
-    }
+    vec2 outUv = (vec2(outCoord) + .5) / vec2(PC.outRes);
+    vec2 uv = aspectCorrectedUv(outUv);
+
+    // Have most of the magnifier math happen relative to the output resolution
+    float outInRatio = float(PC.outRes.x) / float(inRes().x);
+    if (flagZoom())
+        outInRatio *= 4;
+
+    if (flagMagnifier() && outInRatio < MAGNIFIER_PX_DIM)
+        uv = magnifierUv(uv);
 
     if (flagZoom())
-    {
-        inUv *= PC.inRes;
-        inUv = floor(inUv - .5) + .5;
-
-        // Zoom in a quarter res windoe approximately at the center of the full
-        // render view
-        ivec2 center = PC.inRes / 2;
-        ivec2 topLeft = center - PC.inRes / 8;
-        inUv = topLeft + inUv / 4;
-
-        inUv /= PC.inRes;
-    }
+        uv = zoom4xUv(uv);
 
     vec3 color = vec3(0);
-    if (all(greaterThanEqual(inUv, vec2(0))) &&
-        all(lessThanEqual(inUv, vec2(1))))
+    if (all(greaterThanEqual(uv, vec2(0))) && all(lessThanEqual(uv, vec2(1))))
     {
         uint channel = flagChannelType();
         if (channel > 3)
-            color =
-                textureLod(sampler2D(inColor, inSampler), inUv, float(PC.lod))
-                    .xyz;
+            color = textureLod(sampler2D(inColor, inSampler), uv, float(PC.lod))
+                        .xyz;
         else
         {
             color = vec3(textureLod(
-                sampler2D(inColor, inSampler), inUv, float(PC.lod))[channel]);
+                sampler2D(inColor, inSampler), uv, float(PC.lod))[channel]);
         }
     }
 
