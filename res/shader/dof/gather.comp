@@ -153,22 +153,9 @@ vec4 gatherBackground(vec2 coord, float tileMinCoC, float tileMaxCoC)
     // From Abadie
 
     // The center sample counts as a ring, so ringCount should be at least 2
-    int ringCount = 5;
+    int ringCount = 6;
     float kernelRadius = tileMaxCoC;
-    float radiusJitterScale = .5;
-    // float radiusJitterScale = 0.;
-    float radiusJitter = rnd01() * 2. - 1.;
-    radiusJitter *= radiusJitterScale;
-    // Jitter radius to get rid of tile artifacts
-    kernelRadius += radiusJitter;
-
     float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
-    float spacingJitterScale = ringSpacing * .5;
-    // float spacingJitterScale = 0.;
-
-    vec2 coordJitter = rnd2d01() * 2. - 1.;
-    coordJitter *= spacingJitterScale;
-    coord += coordJitter;
 
     // TODO:
     // The Abadie slides have error=1. but it had a mention of tweaks based
@@ -231,23 +218,11 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
         return vec4(0);
 
     // The center sample counts as a ring, so ringCount should be at least 2
-    int ringCount = 5;
+    int ringCount = 6;
     // Foreground CoC is negative
     float kernelRadius = -tileMinCoC;
-    float radiusJitterScale = .5;
-    // float radiusJitterScale = 0.;
-    float radiusJitter = rnd01() * 2. - 1.;
-    radiusJitter *= radiusJitterScale;
-    // Jitter radius to get rid of tile artifacts
-    kernelRadius += radiusJitter;
 
     float ringSpacing = octawebRingSpacing(kernelRadius, ringCount);
-    float spacingJitterScale = ringSpacing * .5;
-    // float spacingJitterScale = 0.;
-
-    vec2 coordJitter = rnd2d01() * 2. - 1.;
-    coordJitter *= spacingJitterScale;
-    coord += coordJitter;
 
     // TODO: Fastpath?
     // - Criteria just (tileMinCoC - tileMaxCoC) < 0.95 * tileMinCoC?
@@ -294,6 +269,9 @@ vec4 gatherForeground(vec2 coord, float tileMinCoC, float tileMaxCoC)
                 // 'layers' in foreground. Or should sampleAlpha() be used as
                 // weight too?
                 float sampleWeight = kernelRadius / sampleCoC;
+                // TODO:
+                // Need different filtered foreground and background to get
+                // proper occlusion in both?
                 colorSum +=
                     textureLod(
                         sampler2D(inHalfResIllumination, trilinearSampler),
@@ -334,7 +312,7 @@ void main()
     // TODO:
     // This hides banding in radii above 20 but it feels weird that fp16 would
     // band that visibly. Does something else magnify it?
-    tileMinMaxCoC += mix(-ditherScale, ditherScale, rnd01());
+    // tileMinMaxCoC += mix(-ditherScale, ditherScale, rnd01());
 
     float tileMinCoC = tileMinMaxCoC[0];
     float tileMaxCoC = tileMinMaxCoC[1];
