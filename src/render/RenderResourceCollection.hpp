@@ -197,6 +197,8 @@ void RenderResourceCollection<
                 unusedFrames++;
         }
     }
+
+    _markedDebugHandle.reset();
 }
 
 template <
