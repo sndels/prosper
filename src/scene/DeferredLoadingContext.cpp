@@ -360,7 +360,8 @@ void generateTangents(Allocator &alloc, MeshData *meshData)
 
 // alloc needs to be the same as the one used for meshData
 void optimizeMeshData(
-    Allocator &alloc, MeshData *meshData, const std::string &meshName)
+    Allocator &alloc, MeshData *meshData, MeshInfo *meshInfo,
+    const std::string &meshName)
 {
     WHEELS_ASSERT(meshData != nullptr);
 
@@ -399,6 +400,8 @@ void optimizeMeshData(
         alloc, meshData->tangents, remapIndices, uniqueVertexCount);
     remapVertexAttribute(
         alloc, meshData->texCoord0s, remapIndices, uniqueVertexCount);
+
+    meshInfo->vertexCount = uniqueVertexCount;
 }
 
 void generateMeshlets(MeshData *meshData)
@@ -804,7 +807,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
         }
 
         optimizeMeshData(
-            ctx->alloc, &meshData,
+            ctx->alloc, &meshData, &info,
             ctx->gltfModel.meshes[metadata.sourceMeshIndex].name);
 
         generateMeshlets(&meshData);
