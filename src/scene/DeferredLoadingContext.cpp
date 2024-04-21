@@ -43,7 +43,8 @@ void copyInputData(
 
     const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
     const size_t byteCount = dst.size() * sizeof(T);
-    WHEELS_ASSERT(byteCount == srcBuffer.byteCount);
+    // Source might have padding, some models quite a lot of it apparently
+    WHEELS_ASSERT(byteCount <= srcBuffer.byteCount);
 
     memcpy(
         dst.data(), gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
@@ -128,12 +129,11 @@ MeshData getMeshData(
     {
         const tinygltf::Buffer &gltfBuffer =
             gltfModel.buffers[metadata.indices.index];
-        // Don't fail if there's padding in source data
+        // Don't fail if there's padding in source data. Some models might have
+        // a lot of it.
         WHEELS_ASSERT(
-            sizeof(uint16_t) * meshInfo.indexCount ==
-                metadata.indices.byteCount ||
-            sizeof(uint16_t) * (meshInfo.indexCount + 1) ==
-                metadata.indices.byteCount);
+            sizeof(uint16_t) * meshInfo.indexCount <=
+            metadata.indices.byteCount);
 
         const uint16_t *src = reinterpret_cast<const uint16_t *>(
             gltfBuffer.data.data() + metadata.indices.byteOffset);
