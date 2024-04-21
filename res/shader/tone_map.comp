@@ -2,11 +2,7 @@
 
 #extension GL_EXT_shader_image_load_formatted : require
 
-layout(push_constant) uniform ToneMapPC
-{
-    float exposure;
-    uint zoom;
-}
+layout(push_constant) uniform ToneMapPC { float exposure; }
 PC;
 
 layout(binding = 0) uniform readonly image2D inColor;
@@ -45,16 +41,6 @@ void main()
         return;
     }
 
-    ivec2 inCoord = coord;
-    if (PC.zoom == 1)
-    {
-        // Zoom in a quarter res windoe approximately at the center of the full
-        // render view
-        ivec2 center = res / 2;
-        ivec2 topLeft = center - res / 8;
-        inCoord = topLeft + coord / 4;
-    }
-
-    vec3 color = imageLoad(inColor, inCoord).xyz;
+    vec3 color = imageLoad(inColor, coord).xyz;
     imageStore(outColor, coord, vec4(tonemap(color), 1));
 }

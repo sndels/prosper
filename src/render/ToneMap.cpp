@@ -19,7 +19,6 @@ namespace
 struct PCBlock
 {
     float exposure{1.f};
-    uint32_t zoom{0};
 };
 
 vk::Extent2D getRenderExtent(
@@ -78,7 +77,6 @@ void ToneMap::drawUi()
     WHEELS_ASSERT(_initialized);
 
     ImGui::DragFloat("Exposure", &_exposure, 0.01f, 0.001f, 10000.f);
-    ImGui::Checkbox("4x zoom", &_zoom);
 }
 
 ToneMap::Output ToneMap::record(
@@ -129,7 +127,6 @@ ToneMap::Output ToneMap::record(
             cb,
             PCBlock{
                 .exposure = _exposure,
-                .zoom = _zoom ? 1u : 0u,
             },
             extent, Span{&storageSet, 1});
     }
