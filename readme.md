@@ -91,7 +91,24 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Handles comments
   - Bare minimum validation of things that shaderc would not complain about in the expanded source
 
-Depends externally on [Vulkan SDK](https://vulkan.lunarg.com/) and, on Linux, `xorg-dev`. Includes [cxxopts](https://github.com/jarro2783/cxxopts), [glfw](https://github.com/glfw/glfw), [gli](https://github.com/g-truc/gli), [glm](https://github.com/g-truc/glm), [imgui](https://github.com/ocornut/imgui), [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor), [libshaderc](https://github.com/google/shaderc), [meshoptimizer](https://github.com/zeux/meshoptimizer), [mikktspace](https://github.com/mmikk/MikkTSpace), [tinygltf](https://github.com/syoyo/tinygltf) and [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) as submodules.
+External dependencies
+- [Vulkan SDK](https://vulkan.lunarg.com/)
+- `xorg-dev` on linux
+
+Submodules
+- [cgltf](https://github.com/jkuhlmann/cgltf)
+- [cxxopts](https://github.com/jarro2783/cxxopts)
+- [glfw](https://github.com/glfw/glfw)
+- [gli](https://github.com/g-truc/gli)
+- [glm](https://github.com/g-truc/glm)
+- [imgui](https://github.com/ocornut/imgui)
+- [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor)
+- [meshoptimizer](https://github.com/zeux/meshoptimizer)
+- [mikktspace](https://github.com/mmikk/MikkTSpace)
+- [shaderc](https://github.com/google/shaderc)
+- [stb](https://github.com/nothings/stb)
+- [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- [wheels](https://github.com/sndels/wheels)
 
 ## Building
 

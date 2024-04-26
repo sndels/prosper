@@ -10,24 +10,17 @@
 #include "Mesh.hpp"
 #include "Texture.hpp"
 #include <atomic>
+#include <cgltf.h>
 #include <condition_variable>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <mutex>
 #include <thread>
-#include <tiny_gltf.h>
 #include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
-
-struct InputBuffer
-{
-    uint32_t index{0xFFFFFFFF};
-    uint32_t byteOffset{0};
-    uint32_t byteCount{0};
-};
 
 enum class IndicesType
 {
@@ -38,12 +31,11 @@ enum class IndicesType
 
 struct InputGeometryMetadata
 {
-    InputBuffer indices;
-    InputBuffer positions;
-    InputBuffer normals;
-    InputBuffer tangents;
-    InputBuffer texCoord0s;
-    uint8_t indexByteWidth{0};
+    cgltf_accessor *indices{nullptr};
+    cgltf_accessor *positions{nullptr};
+    cgltf_accessor *normals{nullptr};
+    cgltf_accessor *tangents{nullptr};
+    cgltf_accessor *texCoord0s{nullptr};
     uint32_t sourceMeshIndex{0xFFFFFFFF};
     uint32_t sourcePrimitiveIndex{0xFFFFFFFF};
 };
@@ -95,7 +87,7 @@ class DeferredLoadingContext
     void init(
         Device *inDevice, std::filesystem::path inSceneDir,
         std::filesystem::file_time_type inSceneWriteTime,
-        const tinygltf::Model &inGltfModel);
+        cgltf_data *inGltfData);
 
     void launch();
     void kill();
@@ -117,7 +109,7 @@ class DeferredLoadingContext
 
     // Worker context
     wheels::TlsfAllocator alloc;
-    tinygltf::Model gltfModel;
+    cgltf_data *gltfData{nullptr};
     vk::CommandBuffer cb;
     uint32_t workerLoadedImageCount{0};
     wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes;

@@ -21,12 +21,13 @@ set(PROSPER_SCENE_INCLUDES
 set(PROSPER_SCENE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Accessors.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Camera.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/cgltfImplementation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugGeometry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredLoadingContext.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DrawType.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Light.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Texture.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/tinyglTFImplementation.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/stbImplementation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/World.cpp
     ${CMAKE_CURRENT_LIST_DIR}/WorldData.cpp
     PARENT_SCOPE

@@ -34,23 +34,6 @@ const float sConeWeight = 0.5f;
 Allocator *sMeshoptAllocator = nullptr;
 
 template <typename T>
-void copyInputData(
-    Array<T> &dst, const tinygltf::Model &gltfModel,
-    const InputBuffer &srcBuffer)
-{
-    if (dst.size() == 0)
-        return;
-
-    const tinygltf::Buffer &gltfBuffer = gltfModel.buffers[srcBuffer.index];
-    const size_t byteCount = dst.size() * sizeof(T);
-    // Source might have padding, some models quite a lot of it apparently
-    WHEELS_ASSERT(byteCount <= srcBuffer.byteCount);
-
-    memcpy(
-        dst.data(), gltfBuffer.data.data() + srcBuffer.byteOffset, byteCount);
-}
-
-template <typename T>
 void remapVertexAttribute(
     Allocator &alloc, Array<T> &src, const Array<uint32_t> &remapIndices,
     size_t uniqueVertexCount)
@@ -95,9 +78,20 @@ static_assert(
     offsetof(MeshData::Bounds, coneCutoffS8) ==
     4 * sizeof(uint32_t) + 3 * sizeof(int8_t));
 
+template <int N>
+void unpackVector(
+    const cgltf_accessor *accessor, Array<vec<N, float, defaultp>> &out)
+{
+    WHEELS_ASSERT(accessor != nullptr);
+    out.resize(accessor->count);
+    const cgltf_size unpackedCount = cgltf_accessor_unpack_floats(
+        accessor, &out.data()[0][0], out.size() * N);
+    WHEELS_ASSERT(unpackedCount == out.size() * N);
+}
+
 MeshData getMeshData(
-    Allocator &alloc, const tinygltf::Model &gltfModel,
-    const InputGeometryMetadata &metadata, const MeshInfo &meshInfo)
+    Allocator &alloc, const InputGeometryMetadata &metadata,
+    const MeshInfo &meshInfo)
 {
     MeshData ret{
         .indices = Array<uint32_t>{alloc},
@@ -111,60 +105,22 @@ MeshData getMeshData(
         .meshletTriangles = Array<uint8_t>{alloc},
     };
 
-    ret.indices.resize(meshInfo.indexCount);
-    if (metadata.indexByteWidth == sizeof(uint8_t))
     {
-        const tinygltf::Buffer &gltfBuffer =
-            gltfModel.buffers[metadata.indices.index];
-        WHEELS_ASSERT(
-            sizeof(uint8_t) * meshInfo.indexCount ==
-            metadata.indices.byteCount);
-
-        const uint8_t *src = reinterpret_cast<const uint8_t *>(
-            gltfBuffer.data.data() + metadata.indices.byteOffset);
-        for (uint32_t i = 0; i < meshInfo.indexCount; ++i)
-            ret.indices[i] = static_cast<uint32_t>(src[i]);
-    }
-    else if (metadata.indexByteWidth == sizeof(uint16_t))
-    {
-        const tinygltf::Buffer &gltfBuffer =
-            gltfModel.buffers[metadata.indices.index];
-        // Don't fail if there's padding in source data. Some models might have
-        // a lot of it.
-        WHEELS_ASSERT(
-            sizeof(uint16_t) * meshInfo.indexCount <=
-            metadata.indices.byteCount);
-
-        const uint16_t *src = reinterpret_cast<const uint16_t *>(
-            gltfBuffer.data.data() + metadata.indices.byteOffset);
-        for (uint32_t i = 0; i < meshInfo.indexCount; ++i)
-            ret.indices[i] = static_cast<uint32_t>(src[i]);
-    }
-    else
-    {
-        WHEELS_ASSERT(metadata.indexByteWidth == sizeof(uint32_t));
-        copyInputData(ret.indices, gltfModel, metadata.indices);
+        WHEELS_ASSERT(metadata.indices != nullptr);
+        WHEELS_ASSERT(meshInfo.indexCount == metadata.indices->count);
+        ret.indices.resize(meshInfo.indexCount);
+        const cgltf_size unpackedCount = cgltf_accessor_unpack_indices(
+            metadata.indices, ret.indices.data(), sizeof(ret.indices[0]),
+            ret.indices.size());
+        WHEELS_ASSERT(unpackedCount == meshInfo.indexCount);
     }
 
-    ret.positions.resize(meshInfo.vertexCount);
-    copyInputData(ret.positions, gltfModel, metadata.positions);
-
-    ret.normals.resize(meshInfo.vertexCount);
-    copyInputData(ret.normals, gltfModel, metadata.normals);
-
-    const bool hasTangents = metadata.tangents.index < 0xFFFFFFFF;
-    if (hasTangents)
-    {
-        ret.tangents.resize(meshInfo.vertexCount);
-        copyInputData(ret.tangents, gltfModel, metadata.tangents);
-    }
-
-    const bool hasTexCoord0s = metadata.texCoord0s.index < 0xFFFFFFFF;
-    if (hasTexCoord0s)
-    {
-        ret.texCoord0s.resize(meshInfo.vertexCount);
-        copyInputData(ret.texCoord0s, gltfModel, metadata.texCoord0s);
-    }
+    unpackVector(metadata.positions, ret.positions);
+    unpackVector(metadata.normals, ret.normals);
+    if (metadata.tangents != nullptr)
+        unpackVector(metadata.tangents, ret.tangents);
+    if (metadata.texCoord0s != nullptr)
+        unpackVector(metadata.texCoord0s, ret.texCoord0s);
 
     return ret;
 }
@@ -796,8 +752,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
         getCachePath(ctx->sceneDir, meshIndex);
     if (!cacheValid(cachePath, ctx->sceneWriteTime))
     {
-        MeshData meshData =
-            getMeshData(ctx->alloc, ctx->gltfModel, metadata, info);
+        MeshData meshData = getMeshData(ctx->alloc, metadata, info);
 
         if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
         {
@@ -808,7 +763,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
 
         optimizeMeshData(
             ctx->alloc, &meshData, &info,
-            ctx->gltfModel.meshes[metadata.sourceMeshIndex].name);
+            ctx->gltfData->meshes[metadata.sourceMeshIndex].name);
 
         generateMeshlets(&meshData);
 
@@ -828,7 +783,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     info.meshletCount = cacheHeader->meshletCount;
 
     const std::string &meshName =
-        ctx->gltfModel.meshes[metadata.sourceMeshIndex].name;
+        ctx->gltfData->meshes[metadata.sourceMeshIndex].name;
     ctx->meshNames.emplace_back(
         ctx->alloc, StrSpan{meshName.data(), meshName.size()});
 
@@ -893,20 +848,19 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
 
-    if (ctx->workerLoadedImageCount == ctx->gltfModel.images.size())
+    if (ctx->workerLoadedImageCount == ctx->gltfData->images_count)
     {
         printf("Texture loading took %.2fs\n", ctx->textureTimer.getSeconds());
         ctx->interruptLoading = true;
         return;
     }
 
-    WHEELS_ASSERT(ctx->gltfModel.images.size() > ctx->workerLoadedImageCount);
-    const tinygltf::Image &image =
-        ctx->gltfModel.images[ctx->workerLoadedImageCount];
-    if (image.uri.empty())
+    WHEELS_ASSERT(ctx->gltfData->images_count > ctx->workerLoadedImageCount);
+    const cgltf_image &image =
+        ctx->gltfData->images[ctx->workerLoadedImageCount];
+    if (image.uri == nullptr)
         throw std::runtime_error("Embedded glTF textures aren't supported. "
-                                 "Scene should be glTF + "
-                                 "bin + textures.");
+                                 "Scene should be glTF + bin + textures.");
 
     ctx->cb.reset();
     ctx->cb.begin(vk::CommandBufferBeginInfo{
@@ -1040,28 +994,29 @@ DeferredLoadingContext::~DeferredLoadingContext()
             device->destroy(buffer);
 
         device->destroy(geometryUploadBuffer);
+        cgltf_free(gltfData);
     }
 }
 
 void DeferredLoadingContext::init(
     Device *inDevice, std::filesystem::path inSceneDir,
-    std::filesystem::file_time_type inSceneWriteTime,
-    const tinygltf::Model &inGltfModel)
+    std::filesystem::file_time_type inSceneWriteTime, cgltf_data *inGltfData)
 {
     WHEELS_ASSERT(!initialized);
     WHEELS_ASSERT(inDevice != nullptr);
+    WHEELS_ASSERT(inGltfData != nullptr);
 
     device = inDevice;
     sceneDir = WHEELS_MOV(inSceneDir);
     sceneWriteTime = inSceneWriteTime;
-    gltfModel = inGltfModel;
+    gltfData = inGltfData;
     cb = device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
         .commandPool = device->transferPool(),
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1})[0];
-    loadedMeshes.reserve(gltfModel.meshes.size());
-    loadedTextures.reserve(gltfModel.images.size());
-    materials.reserve(gltfModel.materials.size());
+    loadedMeshes.reserve(gltfData->meshes_count);
+    loadedTextures.reserve(gltfData->images_count);
+    materials.reserve(gltfData->materials_count);
 
     // One of these is used by the worker implementation, all by the
     // single threaded one

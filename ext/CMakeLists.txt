@@ -75,13 +75,13 @@ target_link_libraries(imgui
     vulkan
 )
 
-# stb_image is header only
-add_library(stb_image INTERFACE)
-target_include_directories(stb_image SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
+# stb is header only
+add_library(stb INTERFACE)
+target_include_directories(stb SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/stb)
 
-# tinygltf is header only
-add_library(tinygltf INTERFACE)
-target_include_directories(tinygltf SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/tinygltf)
+# cgltf is header only
+add_library(cgltf INTERFACE)
+target_include_directories(cgltf SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/cgltf)
 
 # vulkan memory allocator is header only
 add_library(vma INTERFACE)

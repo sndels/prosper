@@ -105,6 +105,7 @@ target_include_directories(prosper
 target_link_libraries(prosper
     PRIVATE
     cxxopts
+    cgltf
     glfw
     gli
     glm
@@ -114,7 +115,7 @@ target_link_libraries(prosper
     mikktspace
     shaderc
     spirv_headers
-    stb_image
+    stb
     vma
     vulkan
     wheels
@@ -135,7 +136,6 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SMART_HANDLE
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
-    TINYGLTF_NO_EXTERNAL_IMAGE
     ${LIVEPP_DEFINE}
 
     # Set up absolute path to resources and binaries

@@ -71,7 +71,7 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 } // namespace
 
 App::App(Settings &&settings) noexcept
-: _generalAlloc{megabytes(16)}
+: _generalAlloc{megabytes(512)}
 , _fileChangePollingAlloc{megabytes(1)}
 , _scenePath{WHEELS_MOV(settings.scene)}
 , _device{OwningPtr<Device>(_generalAlloc, _generalAlloc, settings.device)}
@@ -1069,9 +1069,9 @@ void App::drawMemory(uint32_t scopeHighWatermark)
         "  world: %uKB\n",
         asserted_cast<uint32_t>(_world->linearAllocatorHighWatermark() / 1000));
     ImGui::Text(
-        "  general: %uKB\n",
+        "  general: %uMB\n",
         asserted_cast<uint32_t>(
-            allocStats.allocated_byte_count_high_watermark / 1000));
+            allocStats.allocated_byte_count_high_watermark / 1000 / 1000));
     ImGui::Text("  frame scope: %uKB\n", scopeHighWatermark / 1000);
 
     ImGui::Text("General allocator stats:\n");

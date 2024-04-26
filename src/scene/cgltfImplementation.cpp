@@ -5,13 +5,8 @@
 
 // NOLINTBEGIN
 
-#define TINYGLTF_IMPLEMENTATION
-#ifdef _WIN32
-#define STBI_MSC_SECURE_CRT
-#endif // _WIN32
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <tiny_gltf.h>
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
 
 // NOLINTEND
 

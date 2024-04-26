@@ -111,13 +111,13 @@ class WorldData
 
   private:
     void loadTextures(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        wheels::ScopedScratch scopeAlloc, const cgltf_data &gltfData,
         wheels::Array<Texture2DSampler> &texture2DSamplers);
     void loadMaterials(
-        const tinygltf::Model &gltfModel,
+        const cgltf_data &gltfData,
         const wheels::Array<Texture2DSampler> &texture2DSamplers);
     void loadModels(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel);
+        wheels::ScopedScratch scopeAlloc, const cgltf_data &gltfData);
 
     struct NodeAnimations
     {
@@ -130,10 +130,10 @@ class WorldData
     };
     wheels::HashMap<uint32_t, NodeAnimations> loadAnimations(
         wheels::Allocator &alloc, wheels::ScopedScratch scopeAlloc,
-        const tinygltf::Model &gltfModel);
+        const cgltf_data &gltfData);
 
     void loadScenes(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+        wheels::ScopedScratch scopeAlloc, const cgltf_data &gltfData,
         const wheels::HashMap<uint32_t, NodeAnimations> &nodeAnimations);
 
     struct TmpNode
@@ -154,8 +154,8 @@ class WorldData
         }
     };
     void gatherScene(
-        wheels::ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-        const tinygltf::Scene &gltfScene, const wheels::Array<TmpNode> &nodes);
+        wheels::ScopedScratch scopeAlloc, const cgltf_data &gltfData,
+        const cgltf_scene &gltfScene, const wheels::Array<TmpNode> &nodes);
 
     void createBlases();
     void createBuffers();

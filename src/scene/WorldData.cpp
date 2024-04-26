@@ -37,29 +37,100 @@ constexpr int s_gl_clamp_to_edge = 0x812F;
 constexpr int s_gl_mirrored_repeat = 0x8370;
 constexpr int s_gl_repeat = 0x2901;
 
-tinygltf::Model loadGLTFModel(const std::filesystem::path &path)
+void *cgltf_alloc_func(void *user, cgltf_size size)
 {
-    tinygltf::Model model;
-    tinygltf::TinyGLTF loader;
-    std::string warn;
-    std::string err;
+    Allocator *alloc = reinterpret_cast<Allocator *>(user);
+    return alloc->allocate(size);
+}
 
-    bool ret = false;
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) lib interface
+void cgltf_free_func(void *user, void *ptr)
+{
+    Allocator *alloc = reinterpret_cast<Allocator *>(user);
+    return alloc->deallocate(ptr);
+}
+
+const StaticArray sCgltfResultStr{{
+    "cgltf_result_success",
+    "cgltf_result_data_too_short",
+    "cgltf_result_unknown_format",
+    "cgltf_result_invalid_json",
+    "cgltf_result_invalid_gltf",
+    "cgltf_result_invalid_options",
+    "cgltf_result_file_not_found",
+    "cgltf_result_io_error",
+    "cgltf_result_out_of_memory",
+    "cgltf_result_legacy_gltf",
+}};
+// TODO:
+// StaticArray<const char*, cgltf_result_max_enum> ctor should also complain at
+// compile time
+static_assert(
+    sCgltfResultStr.size() == cgltf_result_max_enum,
+    "Missing cgltf_result strings");
+
+const StaticArray sCgltfAlphaModeStr{{
+    "cgltf_alpha_mode_opaque",
+    "cgltf_alpha_mode_mask",
+    "cgltf_alpha_mode_blend",
+}};
+static_assert(
+    sCgltfAlphaModeStr.size() == cgltf_alpha_mode_max_enum,
+    "Missing cgltf_alpha_mode strings");
+
+const StaticArray sCgltfLightTypeStr{{
+    "cgltf_light_type_invalid",
+    "cgltf_light_type_directional",
+    "cgltf_light_type_point",
+    "cgltf_light_type_spot",
+}};
+static_assert(
+    sCgltfLightTypeStr.size() == cgltf_light_type_max_enum,
+    "Missing cgltf_light_type strings");
+
+const StaticArray sCgltfCameraTypeStr{{
+    "cgltf_camera_type_invalid",
+    "cgltf_camera_type_perspective",
+    "cgltf_camera_type_orthographic",
+}};
+static_assert(
+    sCgltfCameraTypeStr.size() == cgltf_camera_type_max_enum,
+    "Missing cgltf_camera_type strings");
+
+cgltf_data *loadGltf(Allocator &alloc, const std::filesystem::path &path)
+{
+    cgltf_file_type gltfType = cgltf_file_type_invalid;
     if (path.extension() == ".gltf")
-        ret = loader.LoadASCIIFromFile(&model, &err, &warn, path.string());
+        gltfType = cgltf_file_type_gltf;
     else if (path.extension() == ".glb")
-        ret = loader.LoadBinaryFromFile(&model, &err, &warn, path.string());
+        gltfType = cgltf_file_type_glb;
     else
         throw std::runtime_error(
             "Unknown extension '" + path.extension().string() + "'");
-    if (!warn.empty())
-        printf("TinyGLTF warning: %s\n", warn.c_str());
-    if (!err.empty())
-        fprintf(stderr, "TinyGLTF error : %s\n", err.c_str());
-    if (!ret)
-        throw std::runtime_error("Parising glTF failed");
 
-    return model;
+    const cgltf_options options{
+        .type = gltfType,
+        .memory = cgltf_memory_options{
+            .alloc_func = cgltf_alloc_func,
+            .free_func = cgltf_free_func,
+            .user_data = &alloc,
+        }};
+
+    cgltf_data *data = nullptr;
+    cgltf_result result =
+        cgltf_parse_file(&options, path.string().c_str(), &data);
+    if (result != cgltf_result_success)
+        throw std::runtime_error(
+            "Failed to parse gltf '" + path.string() +
+            "': " + sCgltfResultStr[result]);
+
+    result = cgltf_load_buffers(&options, data, path.string().c_str());
+    if (result != cgltf_result_success)
+        throw std::runtime_error(
+            std::string("Failed to load glTF buffers: ") +
+            sCgltfResultStr[result]);
+
+    return data;
 }
 
 Buffer createSkyboxVertexBuffer(Device *device)
@@ -106,7 +177,7 @@ Buffer createSkyboxVertexBuffer(Device *device)
     });
 }
 
-constexpr vk::Filter getVkFilterMode(int glEnum)
+constexpr vk::Filter getVkFilterMode(cgltf_int glEnum)
 {
     switch (glEnum)
     {
@@ -124,7 +195,7 @@ constexpr vk::Filter getVkFilterMode(int glEnum)
     return vk::Filter::eLinear;
 }
 
-constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
+constexpr vk::SamplerAddressMode getVkAddressMode(cgltf_int glEnum)
 {
     switch (glEnum)
     {
@@ -140,22 +211,23 @@ constexpr vk::SamplerAddressMode getVkAddressMode(int glEnum)
 }
 
 // Appends data used by accessor to rawData and returns the pointer to it
-const uint8_t *appendAccessorData(
-    Array<uint8_t> &rawData, const tinygltf::Accessor &accessor,
-    const tinygltf::Model &model)
+const void *appendAccessorData(
+    Array<uint8_t> &rawData, const cgltf_accessor &accessor)
 {
-
-    const tinygltf::BufferView &view = model.bufferViews[accessor.bufferView];
+    WHEELS_ASSERT(accessor.buffer_view != nullptr);
+    const cgltf_buffer_view &view = *accessor.buffer_view;
     const uint32_t offset =
-        asserted_cast<uint32_t>(accessor.byteOffset + view.byteOffset);
+        asserted_cast<uint32_t>(accessor.offset + view.offset);
 
-    WHEELS_ASSERT(view.buffer >= 0);
-    const tinygltf::Buffer buffer = model.buffers[view.buffer];
+    WHEELS_ASSERT(accessor.buffer_view->buffer != nullptr);
+    const cgltf_buffer &buffer = *view.buffer;
 
-    const uint8_t *ret = rawData.data() + rawData.size();
+    const void *ret = rawData.data() + rawData.size();
 
-    const uint8_t *source = &buffer.data[offset];
-    rawData.extend(Span<const uint8_t>{source, view.byteLength});
+    WHEELS_ASSERT(offset < buffer.size && view.size <= buffer.size - offset);
+    const uint8_t *source =
+        reinterpret_cast<const uint8_t *>(buffer.data) + offset;
+    rawData.extend(Span<const uint8_t>{source, view.size});
 
     return ret;
 }
@@ -358,12 +430,16 @@ void WorldData::init(
         std::filesystem::last_write_time(fullScenePath);
 
     Timer t;
-    const auto gltfModel = loadGLTFModel(fullScenePath);
+    cgltf_data *gltfData = loadGltf(_generalAlloc, fullScenePath);
+    WHEELS_ASSERT(gltfData != nullptr);
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
     _deferredLoadingContext.emplace();
+    // Deferred context is responsible for freeing gltfData. Dispatch happens
+    // after other loading finishes and WorldData will then always go through
+    // the deferred context when it needs gltfData.
     _deferredLoadingContext->init(
-        _device, _sceneDir, sourceWriteTime, gltfModel);
+        _device, _sceneDir, sourceWriteTime, gltfData);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -373,22 +449,22 @@ void WorldData::init(
     };
 
     Array<Texture2DSampler> texture2DSamplers{
-        _generalAlloc, gltfModel.textures.size() + 1};
+        _generalAlloc, gltfData->images_count + 1};
     tl("Texture loading",
        [&]() {
-           loadTextures(scopeAlloc.child_scope(), gltfModel, texture2DSamplers);
+           loadTextures(scopeAlloc.child_scope(), *gltfData, texture2DSamplers);
        });
     tl("Material loading",
-       [&]() { loadMaterials(gltfModel, texture2DSamplers); });
+       [&]() { loadMaterials(*gltfData, texture2DSamplers); });
     tl("Model loading ",
-       [&]() { loadModels(scopeAlloc.child_scope(), gltfModel); });
+       [&]() { loadModels(scopeAlloc.child_scope(), *gltfData); });
     tl("Animation and scene loading ",
        [&]()
        {
            const HashMap<uint32_t, NodeAnimations> nodeAnimations =
                loadAnimations(
-                   _generalAlloc, scopeAlloc.child_scope(), gltfModel);
-           loadScenes(scopeAlloc.child_scope(), gltfModel, nodeAnimations);
+                   _generalAlloc, scopeAlloc.child_scope(), *gltfData);
+           loadScenes(scopeAlloc.child_scope(), *gltfData, nodeAnimations);
        });
     tl("Buffer creation", [&]() { createBuffers(); });
 
@@ -552,15 +628,15 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
         // All materials loaded implies all images loaded
         WHEELS_ASSERT(!allMaterialsLoaded);
 
-        if (ctx.loadedImageCount < ctx.gltfModel.images.size())
+        if (ctx.loadedImageCount < ctx.gltfData->images_count)
         {
             newTexturesAvailable = pollTextureWorker(cb);
         }
         else
             // We should not get here if the model has any images
             WHEELS_ASSERT(
-                ctx.gltfModel.images.empty() &&
-                ctx.loadedMaterialCount < ctx.gltfModel.materials.size());
+                ctx.gltfData->images_count == 0 &&
+                ctx.loadedMaterialCount < ctx.gltfData->materials_count);
         shouldUpdateMaterials = true;
     }
 
@@ -593,7 +669,7 @@ void WorldData::drawDeferredLoadingUi() const
                 "Images loaded: %u/%u",
                 _deferredLoadingContext->loadedImageCount,
                 asserted_cast<uint32_t>(
-                    _deferredLoadingContext->gltfModel.images.size()));
+                    _deferredLoadingContext->gltfData->textures_count));
         }
         ImGui::End();
     }
@@ -605,7 +681,7 @@ size_t WorldData::linearAllocatorHighWatermark() const
 }
 
 void WorldData::loadTextures(
-    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+    ScopedScratch scopeAlloc, const cgltf_data &gltfData,
     Array<Texture2DSampler> &texture2DSamplers)
 {
     {
@@ -624,16 +700,17 @@ void WorldData::loadTextures(
         _samplers.push_back(_device->logical().createSampler(info));
     }
     WHEELS_ASSERT(
-        gltfModel.samplers.size() < 0xFE &&
+        gltfData.samplers_count < 0xFE &&
         "Too many samplers to pack in u32 texture index");
-    for (const auto &sampler : gltfModel.samplers)
+    for (const cgltf_sampler &sampler :
+         Span{gltfData.samplers, gltfData.samplers_count})
     {
         const vk::SamplerCreateInfo info{
-            .magFilter = getVkFilterMode(sampler.magFilter),
-            .minFilter = getVkFilterMode(sampler.minFilter),
+            .magFilter = getVkFilterMode(sampler.mag_filter),
+            .minFilter = getVkFilterMode(sampler.min_filter),
             .mipmapMode = vk::SamplerMipmapMode::eLinear, // TODO
-            .addressModeU = getVkAddressMode(sampler.wrapS),
-            .addressModeV = getVkAddressMode(sampler.wrapT),
+            .addressModeU = getVkAddressMode(sampler.wrap_s),
+            .addressModeV = getVkAddressMode(sampler.wrap_t),
             .addressModeW = vk::SamplerAddressMode::eClampToEdge,
             .anisotropyEnable = VK_TRUE, // TODO: Is there a gltf flag?
             .maxAnisotropy = 16,
@@ -645,7 +722,7 @@ void WorldData::loadTextures(
 
     const Buffer stagingBuffer = createTextureStaging(_device);
 
-    _texture2Ds.reserve(gltfModel.images.size() + 1);
+    _texture2Ds.reserve(gltfData.images_count + 1);
     {
         const vk::CommandBuffer cb = _device->beginGraphicsCommands();
         _texture2Ds.emplace_back();
@@ -659,82 +736,91 @@ void WorldData::loadTextures(
     }
 
     WHEELS_ASSERT(
-        gltfModel.images.size() < 0xFFFFFE &&
+        gltfData.images_count < 0xFFFFFE &&
         "Too many textures to pack in u32 texture index");
 
     _device->destroy(stagingBuffer);
 
-    for (const auto &texture : gltfModel.textures)
-        texture2DSamplers.emplace_back(
-            asserted_cast<uint32_t>(texture.source + 1),
-            asserted_cast<uint32_t>(texture.sampler + 1));
+    for (const cgltf_texture &texture :
+         Span{gltfData.textures, gltfData.textures_count})
+    {
+        WHEELS_ASSERT(texture.image != nullptr);
+
+        const uint32_t imageIndex = asserted_cast<uint32_t>(
+            cgltf_image_index(&gltfData, texture.image) + 1);
+        const uint32_t samplerIndex =
+            texture.sampler == nullptr
+                ? 0
+                : asserted_cast<uint32_t>(
+                      cgltf_sampler_index(&gltfData, texture.sampler) + 1);
+        texture2DSamplers.emplace_back(imageIndex, samplerIndex);
+    }
 }
 
 void WorldData::loadMaterials(
-    const tinygltf::Model &gltfModel,
+    const cgltf_data &gltfData,
     const Array<Texture2DSampler> &texture2DSamplers)
 {
     _materials.push_back(Material{});
 
-    for (const auto &material : gltfModel.materials)
+    for (const cgltf_material &material :
+         Span{gltfData.materials, gltfData.materials_count})
     {
         Material mat;
-        if (const auto &elem = material.values.find("baseColorTexture");
-            elem != material.values.end())
+        if (material.has_pbr_metallic_roughness == 0)
         {
-            mat.baseColor = texture2DSamplers[elem->second.TextureIndex() + 1];
-            if (elem->second.TextureTexCoord() != 0)
-                fprintf(
-                    stderr, "%s: Base color TexCoord isn't 0\n",
-                    material.name.c_str());
+            fprintf(
+                stderr, "'%s' doesn't have pbr metallic roughness components\n",
+                material.name);
+            continue;
         }
-        if (const auto &elem = material.values.find("metallicRoughnessTexture");
-            elem != material.values.end())
+
+        auto const getTexture2dSampler =
+            [&](cgltf_texture_view const &tv,
+                const char *channelName) -> Texture2DSampler
         {
-            mat.metallicRoughness =
-                texture2DSamplers[elem->second.TextureIndex() + 1];
-            if (elem->second.TextureTexCoord() != 0)
-                fprintf(
-                    stderr, "%s: Metallic roughness TexCoord isn't 0\n",
-                    material.name.c_str());
-        }
-        if (const auto &elem = material.additionalValues.find("normalTexture");
-            elem != material.additionalValues.end())
-        {
-            mat.normal = texture2DSamplers[elem->second.TextureIndex() + 1];
-            if (elem->second.TextureTexCoord() != 0)
-                fprintf(
-                    stderr, "%s: Normal TexCoord isn't 0\n",
-                    material.name.c_str());
-        }
-        if (const auto &elem = material.values.find("baseColorFactor");
-            elem != material.values.end())
-        {
-            mat.baseColorFactor = make_vec4(elem->second.ColorFactor().data());
-        }
-        if (const auto &elem = material.values.find("metallicFactor");
-            elem != material.values.end())
-        {
-            mat.metallicFactor = static_cast<float>(elem->second.Factor());
-        }
-        if (const auto &elem = material.values.find("roughnessFactor");
-            elem != material.values.end())
-        {
-            mat.roughnessFactor = static_cast<float>(elem->second.Factor());
-        }
-        if (const auto &elem = material.additionalValues.find("alphaMode");
-            elem != material.additionalValues.end())
-        {
-            if (elem->second.string_value == "MASK")
-                mat.alphaMode = Material::AlphaMode::Mask;
-            else if (elem->second.string_value == "BLEND")
-                mat.alphaMode = Material::AlphaMode::Blend;
-        }
-        if (const auto &elem = material.additionalValues.find("alphaCutoff");
-            elem != material.additionalValues.end())
-        {
-            mat.alphaCutoff = static_cast<float>(elem->second.Factor());
-        }
+            if (tv.texture != nullptr)
+            {
+                if (tv.has_transform == 1)
+                    fprintf(
+                        stderr, "%s: %s has a transform\n", material.name,
+                        channelName);
+                if (tv.scale != 1.f)
+                    fprintf(
+                        stderr, "%s: %s Scale isn't 1\n", material.name,
+                        channelName);
+                if (tv.texcoord != 0)
+                    fprintf(
+                        stderr, "%s: %s TexCoord isn't 0\n", material.name,
+                        channelName);
+
+                const cgltf_size index =
+                    cgltf_texture_index(&gltfData, tv.texture);
+                return texture2DSamplers[index + 1];
+            }
+            return Texture2DSampler{};
+        };
+
+        const cgltf_pbr_metallic_roughness &pbrParams =
+            material.pbr_metallic_roughness;
+
+        mat.baseColor =
+            getTexture2dSampler(pbrParams.base_color_texture, "base color");
+        mat.baseColorFactor = make_vec4(&pbrParams.base_color_factor[0]);
+        mat.metallicRoughness = getTexture2dSampler(
+            pbrParams.metallic_roughness_texture, "metallic roughness");
+        mat.metallicFactor = pbrParams.metallic_factor;
+        mat.roughnessFactor = pbrParams.roughness_factor;
+        mat.normal = getTexture2dSampler(material.normal_texture, "normal");
+        if (material.alpha_mode == cgltf_alpha_mode_mask)
+            mat.alphaMode = Material::AlphaMode::Mask;
+        else if (material.alpha_mode == cgltf_alpha_mode_blend)
+            mat.alphaMode = Material::AlphaMode::Blend;
+        else if (material.alpha_mode != cgltf_alpha_mode_opaque)
+            fprintf(
+                stderr, "%s: Unsupported alpha mode '%s'\n", material.name,
+                sCgltfAlphaModeStr[material.alpha_mode]);
+        mat.alphaCutoff = material.alpha_cutoff;
 
         // Copy the alpha mode of the real material because that's used to
         // set opaque flag in rt
@@ -746,131 +832,74 @@ void WorldData::loadMaterials(
     }
 }
 
-void WorldData::loadModels(
-    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel)
+void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
 {
-    _models.reserve(gltfModel.meshes.size());
+    _models.reserve(gltfData.meshes_count);
 
     size_t totalPrimitiveCount = 0;
-    for (const auto &mesh : gltfModel.meshes)
-        totalPrimitiveCount += mesh.primitives.size();
+    for (const cgltf_mesh &mesh : Span{gltfData.meshes, gltfData.meshes_count})
+        totalPrimitiveCount += mesh.primitives_count;
     _geometryMetadatas.resize(totalPrimitiveCount);
     _meshInfos.resize(totalPrimitiveCount);
 
     uint32_t meshID = 0;
-    const size_t sourceMeshCount = gltfModel.meshes.size();
-    for (size_t mi = 0; mi < sourceMeshCount; ++mi)
+    for (cgltf_size mi = 0; mi < gltfData.meshes_count; ++mi)
     {
-        const tinygltf::Mesh &mesh = gltfModel.meshes[mi];
+        const cgltf_mesh &mesh = gltfData.meshes[mi];
 
         _models.emplace_back(_linearAlloc);
         Model &model = _models.back();
 
-        const size_t sourcePrimitiveCount = mesh.primitives.size();
-        model.subModels.reserve(sourcePrimitiveCount);
-        for (size_t pi = 0; pi < sourcePrimitiveCount; ++pi)
+        model.subModels.reserve(mesh.primitives_count);
+        for (cgltf_size pi = 0; pi < mesh.primitives_count; ++pi)
         {
-            const tinygltf::Primitive &primitive = mesh.primitives[pi];
+            const cgltf_primitive &primitive = mesh.primitives[pi];
+            WHEELS_ASSERT(primitive.indices != nullptr);
 
-            auto assertedGetAttr = [&](const std::string &name,
-                                       bool shouldHave =
-                                           false) -> Pair<InputBuffer, uint32_t>
-            {
-                const auto &attribute = primitive.attributes.find(name);
-                if (attribute == primitive.attributes.end())
-                {
-                    if (shouldHave)
-                        throw std::runtime_error(
-                            "Primitive attribute '" + name + "' missing");
-                    return make_pair(InputBuffer{}, 0u);
-                }
-
-                const auto &accessor = gltfModel.accessors[attribute->second];
-                const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto offset = asserted_cast<uint32_t>(
-                    accessor.byteOffset + view.byteOffset);
-                WHEELS_ASSERT(
-                    offset % sizeof(uint32_t) == 0 &&
-                    "Shader binds buffers as uint");
-
-                return make_pair(
-                    InputBuffer{
-                        .index = asserted_cast<uint32_t>(view.buffer),
-                        .byteOffset = offset,
-                        .byteCount = asserted_cast<uint32_t>(view.byteLength),
-                    },
-                    asserted_cast<uint32_t>(accessor.count));
-            };
-
-            // Retrieve attribute buffers
-            const auto [positions, positionsCount] =
-                assertedGetAttr("POSITION", true);
-            const auto [normals, normalsCount] =
-                assertedGetAttr("NORMAL", true);
-            const auto [tangents, tangentsCount] = assertedGetAttr("TANGENT");
-            const auto [texCoord0s, texCoord0sCount] =
-                assertedGetAttr("TEXCOORD_0");
-            WHEELS_ASSERT(positionsCount == normalsCount);
-            WHEELS_ASSERT(
-                tangentsCount == 0 || tangentsCount == positionsCount);
-            WHEELS_ASSERT(
-                texCoord0sCount == 0 || texCoord0sCount == positionsCount);
-
-            const auto [indices, indexCount, indexByteWidth] = [&]
-            {
-                WHEELS_ASSERT(primitive.indices > -1);
-                const auto &accessor = gltfModel.accessors[primitive.indices];
-                const auto &view = gltfModel.bufferViews[accessor.bufferView];
-                const auto offset = asserted_cast<uint32_t>(
-                    accessor.byteOffset + view.byteOffset);
-                WHEELS_ASSERT(
-                    offset % sizeof(uint32_t) == 0 &&
-                    "Shader binds buffers as uint");
-
-                uint8_t indexByteWidth = 0;
-                switch (accessor.componentType)
-                {
-                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-                    indexByteWidth = sizeof(uint32_t);
-                    break;
-                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-                    indexByteWidth = sizeof(uint16_t);
-                    break;
-                case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-                    indexByteWidth = sizeof(uint8_t);
-                    break;
-                default:
-                    WHEELS_ASSERT(!"Unknown index component type");
-                }
-
-                return std::make_tuple(
-                    InputBuffer{
-                        .index = asserted_cast<uint32_t>(view.buffer),
-                        .byteOffset = offset,
-                        .byteCount = asserted_cast<uint32_t>(view.byteLength),
-                    },
-                    asserted_cast<uint32_t>(accessor.count), indexByteWidth);
-            }();
-
-            // -1 is mapped to the default material
-            WHEELS_ASSERT(primitive.material > -2);
-            const uint32_t material = primitive.material + 1;
-
-            const MeshInfo meshInfo = MeshInfo{
-                .vertexCount = positionsCount,
-                .indexCount = indexCount,
-                .materialID = material,
-            };
-
-            const InputGeometryMetadata inputMetadata{
-                .indices = indices,
-                .positions = positions,
-                .normals = normals,
-                .tangents = tangents,
-                .texCoord0s = texCoord0s,
-                .indexByteWidth = indexByteWidth,
+            InputGeometryMetadata inputMetadata{
+                .indices = primitive.indices,
                 .sourceMeshIndex = asserted_cast<uint32_t>(mi),
                 .sourcePrimitiveIndex = asserted_cast<uint32_t>(pi),
+            };
+
+            for (cgltf_size ai = 0; ai < primitive.attributes_count; ++ai)
+            {
+                const cgltf_attribute &attr = primitive.attributes[ai];
+                WHEELS_ASSERT(attr.data != nullptr);
+
+                if (strcmp("POSITION", attr.name) == 0)
+                    inputMetadata.positions = attr.data;
+                else if (strcmp("NORMAL", attr.name) == 0)
+                    inputMetadata.normals = attr.data;
+                else if (strcmp("TANGENT", attr.name) == 0)
+                    inputMetadata.tangents = attr.data;
+                else if (strcmp("TEXCOORD_0", attr.name) == 0)
+                    inputMetadata.texCoord0s = attr.data;
+            }
+            WHEELS_ASSERT(inputMetadata.positions != nullptr);
+            WHEELS_ASSERT(inputMetadata.normals != nullptr);
+            WHEELS_ASSERT(
+                inputMetadata.positions->count == inputMetadata.normals->count);
+            WHEELS_ASSERT(
+                inputMetadata.tangents == nullptr ||
+                inputMetadata.tangents->count ==
+                    inputMetadata.positions->count);
+            WHEELS_ASSERT(
+                inputMetadata.texCoord0s == nullptr ||
+                inputMetadata.texCoord0s->count ==
+                    inputMetadata.positions->count);
+
+            // -1 is mapped to the default material
+            WHEELS_ASSERT(primitive.material != nullptr);
+            const uint32_t material = asserted_cast<uint32_t>(
+                cgltf_material_index(&gltfData, primitive.material) + 1);
+
+            const MeshInfo meshInfo = MeshInfo{
+                .vertexCount =
+                    asserted_cast<uint32_t>(inputMetadata.positions->count),
+                .indexCount =
+                    asserted_cast<uint32_t>(inputMetadata.indices->count),
+                .materialID = material,
             };
 
             WHEELS_ASSERT(
@@ -928,8 +957,7 @@ void WorldData::loadModels(
 }
 
 HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
-    Allocator &alloc, ScopedScratch scopeAlloc,
-    const tinygltf::Model &gltfModel)
+    Allocator &alloc, ScopedScratch scopeAlloc, const cgltf_data &gltfData)
 {
     // First find out the amount of memory we need to copy over all the
     // animation data. We need to do that before parsing animations because
@@ -940,26 +968,28 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
     uint32_t totalAnimationBytes = 0;
     uint32_t totalVec3Animations = 0;
     uint32_t totalQuatAnimations = 0;
-    for (const tinygltf::Animation &animation : gltfModel.animations)
+    for (const cgltf_animation &animation :
+         Span{gltfData.animations, gltfData.animations_count})
     {
-        for (const tinygltf::AnimationSampler &sampler : animation.samplers)
+        for (const cgltf_animation_sampler &sampler :
+             Span{animation.samplers, animation.samplers_count})
         {
             {
-                const tinygltf::Accessor &accessor =
-                    gltfModel.accessors[sampler.input];
-                const tinygltf::BufferView &view =
-                    gltfModel.bufferViews[accessor.bufferView];
-                totalAnimationBytes += asserted_cast<uint32_t>(view.byteLength);
+                WHEELS_ASSERT(sampler.input != nullptr);
+                const cgltf_accessor &accessor = *sampler.input;
+                WHEELS_ASSERT(accessor.buffer_view != nullptr);
+                const cgltf_buffer_view &view = *accessor.buffer_view;
+                totalAnimationBytes += asserted_cast<uint32_t>(view.size);
             }
             {
-                const tinygltf::Accessor &accessor =
-                    gltfModel.accessors[sampler.output];
-                const tinygltf::BufferView &view =
-                    gltfModel.bufferViews[accessor.bufferView];
-                totalAnimationBytes += asserted_cast<uint32_t>(view.byteLength);
-                if (accessor.type == TINYGLTF_TYPE_VEC3)
+                WHEELS_ASSERT(sampler.output != nullptr);
+                const cgltf_accessor &accessor = *sampler.output;
+                WHEELS_ASSERT(accessor.buffer_view != nullptr);
+                const cgltf_buffer_view &view = *accessor.buffer_view;
+                totalAnimationBytes += asserted_cast<uint32_t>(view.size);
+                if (accessor.type == cgltf_type_vec3)
                     totalVec3Animations++;
-                else if (accessor.type == TINYGLTF_TYPE_VEC4)
+                else if (accessor.type == cgltf_type_vec4)
                     // Only quaternion animations are currently sampled from
                     // vec4 outputs
                     totalQuatAnimations++;
@@ -968,11 +998,9 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
     }
 
     // Init empty animations for all nodes and avoid resizes by safe upper bound
-    const uint32_t gltfNodeCount =
-        asserted_cast<uint32_t>(gltfModel.nodes.size());
-    HashMap<uint32_t, NodeAnimations> ret{
-        alloc, asserted_cast<size_t>(gltfNodeCount) * 2};
-    for (uint32_t i = 0; i < gltfNodeCount; ++i)
+    // TODO: Why is this a map and not a vector?
+    HashMap<uint32_t, NodeAnimations> ret{alloc, gltfData.nodes_count * 2};
+    for (uint32_t i = 0; i < gltfData.nodes_count; ++i)
         ret.insert_or_assign(i, NodeAnimations{});
 
     // Now reserve the data so that our pointers are stable when we push the
@@ -980,62 +1008,61 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
     _rawAnimationData.reserve(totalAnimationBytes);
     _animations._vec3.reserve(totalVec3Animations);
     _animations._quat.reserve(totalQuatAnimations);
-    for (const tinygltf::Animation &animation : gltfModel.animations)
+    for (const cgltf_animation &animation :
+         Span{gltfData.animations, gltfData.animations_count})
     {
         // Map loaded animations to indices in gltf samplers
         // We know the types of these based on the target property so let's do
         // the dirty casts to void and back to store them
-        Array<void *> concreteAnimations{scopeAlloc, animation.channels.size()};
-        const size_t samplerCount = animation.samplers.size();
-        for (size_t si = 0; si < samplerCount; ++si)
+        Array<void *> concreteAnimations{scopeAlloc, animation.channels_count};
+        for (cgltf_size si = 0; si < animation.samplers_count; ++si)
         {
-            const tinygltf::AnimationSampler &sampler = animation.samplers[si];
+            const cgltf_animation_sampler &sampler = animation.samplers[si];
 
             InterpolationType interpolation{InterpolationType::Step};
-            if (sampler.interpolation == "STEP")
+            if (sampler.interpolation == cgltf_interpolation_type_step)
                 interpolation = InterpolationType::Step;
-            else if (sampler.interpolation == "LINEAR")
+            else if (sampler.interpolation == cgltf_interpolation_type_linear)
                 interpolation = InterpolationType::Linear;
-            else if (sampler.interpolation == "CUBICSPLINE")
+            else if (
+                sampler.interpolation == cgltf_interpolation_type_cubic_spline)
                 interpolation = InterpolationType::CubicSpline;
             else
                 WHEELS_ASSERT(!"Unsupported interpolation type");
 
-            const tinygltf::Accessor &inputAccessor =
-                gltfModel.accessors[sampler.input];
-            WHEELS_ASSERT(!inputAccessor.sparse.isSparse);
+            WHEELS_ASSERT(sampler.input != nullptr);
+            const cgltf_accessor &inputAccessor = *sampler.input;
+            WHEELS_ASSERT(!inputAccessor.is_sparse);
             WHEELS_ASSERT(
-                inputAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
-            WHEELS_ASSERT(inputAccessor.type == TINYGLTF_TYPE_SCALAR);
+                inputAccessor.component_type == cgltf_component_type_r_32f);
+            WHEELS_ASSERT(inputAccessor.type == cgltf_type_scalar);
 
             // TODO:
             // Share data for accessors that use the same bytes?
-            const float *timesPtr =
-                reinterpret_cast<const float *>(appendAccessorData(
-                    _rawAnimationData, inputAccessor, gltfModel));
+            const float *timesPtr = reinterpret_cast<const float *>(
+                appendAccessorData(_rawAnimationData, inputAccessor));
 
-            WHEELS_ASSERT(inputAccessor.minValues.size() == 1);
-            WHEELS_ASSERT(inputAccessor.maxValues.size() == 1);
+            WHEELS_ASSERT(inputAccessor.has_min);
+            WHEELS_ASSERT(inputAccessor.has_max);
             TimeAccessor timeFrames{
                 timesPtr, asserted_cast<uint32_t>(inputAccessor.count),
                 TimeAccessor::Interval{
-                    .startTimeS =
-                        static_cast<float>(inputAccessor.minValues[0]),
-                    .endTimeS = static_cast<float>(inputAccessor.maxValues[0]),
+                    .startTimeS = static_cast<float>(inputAccessor.min[0]),
+                    .endTimeS = static_cast<float>(inputAccessor.max[0]),
                 }};
 
-            const tinygltf::Accessor &outputAccessor =
-                gltfModel.accessors[sampler.output];
-            WHEELS_ASSERT(!outputAccessor.sparse.isSparse);
+            WHEELS_ASSERT(sampler.output != nullptr);
+            const cgltf_accessor &outputAccessor = *sampler.output;
+            WHEELS_ASSERT(!outputAccessor.is_sparse);
             WHEELS_ASSERT(
-                outputAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT);
+                outputAccessor.component_type == cgltf_component_type_r_32f);
 
             // TODO:
             // Share data for accessors that use the same bytes?
-            const uint8_t *valuesPtr = appendAccessorData(
-                _rawAnimationData, outputAccessor, gltfModel);
+            const uint8_t *valuesPtr = reinterpret_cast<const uint8_t *>(
+                appendAccessorData(_rawAnimationData, outputAccessor));
 
-            if (outputAccessor.type == TINYGLTF_TYPE_VEC3)
+            if (outputAccessor.type == cgltf_type_vec3)
             {
                 ValueAccessor<vec3> valueFrames{
                     valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
@@ -1047,7 +1074,7 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
                 concreteAnimations.push_back(
                     static_cast<void *>(&_animations._vec3.back()));
             }
-            else if (outputAccessor.type == TINYGLTF_TYPE_VEC4)
+            else if (outputAccessor.type == cgltf_type_vec4)
             {
                 ValueAccessor<quat> valueFrames{
                     valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
@@ -1063,24 +1090,29 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
                 WHEELS_ASSERT(!"Unsupported animation output type");
         }
 
-        for (const tinygltf::AnimationChannel &channel : animation.channels)
+        for (const cgltf_animation_channel &channel :
+             Span{animation.channels, animation.channels_count})
         {
-            NodeAnimations *targetAnimations = ret.find(channel.target_node);
+            WHEELS_ASSERT(channel.target_node != nullptr);
+            const uint32_t nodeIndex = asserted_cast<uint32_t>(
+                cgltf_node_index(&gltfData, channel.target_node));
+
+            WHEELS_ASSERT(channel.sampler != nullptr);
+            const uint32_t samplerIndex = asserted_cast<uint32_t>(
+                cgltf_animation_sampler_index(&animation, channel.sampler));
+
+            NodeAnimations *targetAnimations = ret.find(nodeIndex);
             // These should have been initialized earlier
             WHEELS_ASSERT(targetAnimations != nullptr);
-            if (channel.target_path == "translation")
+            if (channel.target_path == cgltf_animation_path_type_translation)
                 targetAnimations->translation = static_cast<Animation<vec3> *>(
-                    concreteAnimations[channel.sampler]);
-            else if (channel.target_path == "rotation")
+                    concreteAnimations[samplerIndex]);
+            else if (channel.target_path == cgltf_animation_path_type_rotation)
                 targetAnimations->rotation = static_cast<Animation<quat> *>(
-                    concreteAnimations[channel.sampler]);
-            else if (channel.target_path == "scale")
+                    concreteAnimations[samplerIndex]);
+            else if (channel.target_path == cgltf_animation_path_type_scale)
                 targetAnimations->scale = static_cast<Animation<vec3> *>(
-                    concreteAnimations[channel.sampler]);
-            else
-                fprintf(
-                    stderr, "Unknown channel path'%s'\n",
-                    channel.target_path.c_str());
+                    concreteAnimations[samplerIndex]);
         }
     }
 
@@ -1088,28 +1120,37 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
 }
 
 void WorldData::loadScenes(
-    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
+    ScopedScratch scopeAlloc, const cgltf_data &gltfData,
     const HashMap<uint32_t, NodeAnimations> &nodeAnimations)
 {
     // Parse raw nodes first so conversion to internal format happens only once
     // for potential instances
-    Array<TmpNode> nodes{scopeAlloc, gltfModel.nodes.size()};
-    for (const tinygltf::Node &gltfNode : gltfModel.nodes)
+    Array<TmpNode> nodes{scopeAlloc, gltfData.nodes_count};
+    for (const cgltf_node &gltfNode :
+         Span{gltfData.nodes, gltfData.nodes_count})
     {
-        nodes.emplace_back(_linearAlloc, gltfNode.name);
+        nodes.emplace_back(
+            _linearAlloc, gltfNode.name != nullptr ? gltfNode.name : "");
         TmpNode &node = nodes.back();
 
-        node.children.reserve(gltfNode.children.size());
-        for (const int child : gltfNode.children)
-            node.children.push_back(asserted_cast<uint32_t>(child));
-
-        if (gltfNode.mesh > -1)
-            node.modelID = gltfNode.mesh;
-        if (gltfNode.camera > -1)
+        node.children.reserve(gltfNode.children_count);
+        for (const cgltf_node *child :
+             Span{gltfNode.children, gltfNode.children_count})
         {
-            const uint32_t cameraIndex = gltfNode.camera;
-            const auto &cam = gltfModel.cameras[cameraIndex];
-            if (cam.type == "perspective")
+            WHEELS_ASSERT(child != nullptr);
+            const cgltf_size index = cgltf_node_index(&gltfData, child);
+            node.children.push_back(asserted_cast<uint32_t>(index));
+        }
+
+        if (gltfNode.mesh != nullptr)
+            node.modelID = asserted_cast<uint32_t>(
+                cgltf_mesh_index(&gltfData, gltfNode.mesh));
+        if (gltfNode.camera != nullptr)
+        {
+            const uint32_t cameraIndex =
+                cgltf_camera_index(&gltfData, gltfNode.camera);
+            const cgltf_camera &cam = *gltfNode.camera;
+            if (cam.type == cgltf_camera_type_perspective)
             {
                 if (_cameras.size() <= cameraIndex)
                 {
@@ -1118,47 +1159,38 @@ void WorldData::loadScenes(
                 }
 
                 _cameras[cameraIndex] = CameraParameters{
-                    .fov = static_cast<float>(cam.perspective.yfov),
-                    .zN = static_cast<float>(cam.perspective.znear),
-                    .zF = static_cast<float>(cam.perspective.zfar),
+                    .fov = static_cast<float>(cam.data.perspective.yfov),
+                    .zN = static_cast<float>(cam.data.perspective.znear),
+                    .zF = static_cast<float>(cam.data.perspective.zfar),
                 };
 
                 node.camera = cameraIndex;
             }
             else
                 fprintf(
-                    stderr, "Camera type '%s' is not supported\n",
-                    cam.type.c_str());
+                    stderr, "Unsupported camera type '%s'\n",
+                    sCgltfCameraTypeStr[cam.type]);
         }
-        if (gltfNode.extensions.contains("KHR_lights_punctual"))
-        {
-            // operator[] doesn't work for some reason
-            const auto &ext = gltfNode.extensions.at("KHR_lights_punctual");
-            const auto &obj = ext.Get<tinygltf::Value::Object>();
-
-            const auto &light = obj.find("light")->second;
-            WHEELS_ASSERT(light.IsInt());
-
-            node.light = asserted_cast<uint32_t>(light.GetNumberAsInt());
-        }
+        if (gltfNode.light != nullptr)
+            node.light = cgltf_light_index(&gltfData, gltfNode.light);
 
         vec3 translation{0.f};
         vec3 scale{1.f};
         quat rotation{1.f, 0.f, 0.f, 0.f};
-        if (gltfNode.matrix.size() == 16)
+        if (gltfNode.has_matrix == 1)
         {
             // Spec defines the matrix to be decomposeable to T * R * S
-            const auto matrix = mat4{make_mat4(gltfNode.matrix.data())};
+            const mat4 matrix = make_mat4(&gltfNode.matrix[0]);
             vec3 skew;
             vec4 perspective;
             decompose(matrix, scale, rotation, translation, skew, perspective);
         }
-        if (gltfNode.translation.size() == 3)
-            translation = vec3{make_vec3(gltfNode.translation.data())};
-        if (gltfNode.rotation.size() == 4)
-            rotation = make_quat(gltfNode.rotation.data());
-        if (gltfNode.scale.size() == 3)
-            scale = vec3{make_vec3(gltfNode.scale.data())};
+        if (gltfNode.has_translation == 1)
+            translation = make_vec3(&gltfNode.translation[0]);
+        if (gltfNode.has_rotation == 1)
+            rotation = make_quat(&gltfNode.rotation[0]);
+        if (gltfNode.has_scale == 1)
+            scale = make_vec3(&gltfNode.scale[0]);
 
         // Skip transform components that are close to identity
         const float srtThreshold = 0.001f;
@@ -1177,15 +1209,18 @@ void WorldData::loadScenes(
             node.scale = scale;
     }
 
-    _currentScene = max(gltfModel.defaultScene, 0);
+    const cgltf_size defaultScene =
+        cgltf_scene_index(&gltfData, gltfData.scene);
+    _currentScene = std::max(defaultScene, (size_t)0);
 
     // Traverse scene trees and generate actual scene datas
-    _scenes.reserve(gltfModel.scenes.size());
-    for (const tinygltf::Scene &gltfScene : gltfModel.scenes)
+    _scenes.reserve(gltfData.scenes_count);
+    for (const cgltf_scene &gltfScene :
+         Span{gltfData.scenes, gltfData.scenes_count})
     {
         _scenes.emplace_back(_linearAlloc);
 
-        gatherScene(scopeAlloc.child_scope(), gltfModel, gltfScene, nodes);
+        gatherScene(scopeAlloc.child_scope(), gltfData, gltfScene, nodes);
 
         Scene &scene = _scenes.back();
 
@@ -1325,8 +1360,8 @@ void WorldData::loadScenes(
 }
 
 void WorldData::gatherScene(
-    ScopedScratch scopeAlloc, const tinygltf::Model &gltfModel,
-    const tinygltf::Scene &gltfScene, const Array<TmpNode> &nodes)
+    ScopedScratch scopeAlloc, const cgltf_data &gltfData,
+    const cgltf_scene &gltfScene, const Array<TmpNode> &nodes)
 {
     struct NodePair
     {
@@ -1339,8 +1374,11 @@ void WorldData::gatherScene(
 
     bool directionalLightFound = false;
 
-    for (const int nodeIndex : gltfScene.nodes)
+    for (const cgltf_node *node : Span{gltfScene.nodes, gltfScene.nodes_count})
     {
+        WHEELS_ASSERT(node != nullptr);
+        const cgltf_size nodeIndex = cgltf_node_index(&gltfData, node);
+
         // Our node indices don't match gltf's anymore, push index of the
         // new node into roots
         scene.rootNodes.push_back(asserted_cast<uint32_t>(scene.nodes.size()));
@@ -1415,8 +1453,8 @@ void WorldData::gatherScene(
 
             if (tmpNode.light.has_value())
             {
-                const tinygltf::Light &light = gltfModel.lights[*tmpNode.light];
-                if (light.type == "directional")
+                const cgltf_light &light = gltfData.lights[*tmpNode.light];
+                if (light.type == cgltf_light_type_directional)
                 {
                     if (directionalLightFound)
                     {
@@ -1437,7 +1475,7 @@ void WorldData::gatherScene(
                     sceneNode.directionalLight = true;
                     directionalLightFound = true;
                 }
-                else if (light.type == "point")
+                else if (light.type == cgltf_light_type_point)
                 {
                     auto radiance =
                         vec3{
@@ -1461,7 +1499,7 @@ void WorldData::gatherScene(
 
                     sceneLight.radianceAndRadius = vec4{radiance, radius};
                 }
-                else if (light.type == "spot")
+                else if (light.type == cgltf_light_type_spot)
                 {
                     sceneNode.spotLight = asserted_cast<uint32_t>(
                         scene.lights.spotLights.data.size());
@@ -1470,11 +1508,12 @@ void WorldData::gatherScene(
 
                     // Angular attenuation rom gltf spec
                     const auto angleScale =
-                        1.f / max(0.001f, static_cast<float>(
-                                              cos(light.spot.innerConeAngle) -
-                                              cos(light.spot.outerConeAngle)));
+                        1.f /
+                        max(0.001f, static_cast<float>(
+                                        cos(light.spot_inner_cone_angle) -
+                                        cos(light.spot_outer_cone_angle)));
                     const auto angleOffset =
-                        static_cast<float>(-cos(light.spot.outerConeAngle)) *
+                        static_cast<float>(-cos(light.spot_outer_cone_angle)) *
                         angleScale;
 
                     sceneLight.radianceAndAngleScale =
@@ -1490,11 +1529,9 @@ void WorldData::gatherScene(
                     sceneLight.positionAndAngleOffset.w = angleOffset;
                 }
                 else
-                {
                     fprintf(
-                        stderr, "Unknown light type '%s'\n",
-                        light.type.c_str());
-                }
+                        stderr, "Unsupported light type '%s'\n",
+                        sCgltfLightTypeStr[light.type]);
             }
         }
     }
@@ -2074,7 +2111,7 @@ size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
     WHEELS_ASSERT(_deferredLoadingContext.has_value());
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfModel.images.size());
+    WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfData->images_count);
 
     size_t newTexturesLoaded = 0;
     const size_t maxTexturesPerFrame = 10;
@@ -2133,29 +2170,6 @@ size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
     }
 
     return newTexturesLoaded;
-}
-
-void WorldData::loadTextureSingleThreaded(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame)
-{
-    WHEELS_ASSERT(_deferredLoadingContext.has_value());
-
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfModel.images.size());
-
-    WHEELS_ASSERT(ctx.gltfModel.images.size() > ctx.loadedImageCount);
-    const tinygltf::Image &image = ctx.gltfModel.images[ctx.loadedImageCount];
-    if (image.uri.empty())
-        throw std::runtime_error("Embedded glTF textures aren't "
-                                 "supported. Scene should be glTF + "
-                                 "bin + textures.");
-
-    WHEELS_ASSERT(ctx.stagingBuffers.size() > nextFrame);
-    _texture2Ds.emplace_back();
-    _texture2Ds.back().init(
-        scopeAlloc.child_scope(), _device, _sceneDir / image.uri, cb,
-        ctx.stagingBuffers[nextFrame], true,
-        ImageState::FragmentShaderRead | ImageState::RayTracingRead);
 }
 
 void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
