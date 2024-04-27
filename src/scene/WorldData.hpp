@@ -167,10 +167,6 @@ class WorldData
     // Returns the count of newly loaded textures
     [[nodiscard]] size_t pollTextureWorker(vk::CommandBuffer cb);
 
-    void loadTextureSingleThreaded(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        uint32_t nextFrame);
-
     void updateDescriptorsWithNewTextures(size_t newTextureCount);
     bool updateMaterials();
 };
