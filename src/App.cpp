@@ -30,6 +30,7 @@
 #include "render/LightClustering.hpp"
 #include "render/MeshletCuller.hpp"
 #include "render/RenderResources.hpp"
+#include "render/RenderTargets.hpp"
 #include "render/RtReference.hpp"
 #include "render/SkyboxRenderer.hpp"
 #include "render/TemporalAntiAliasing.hpp"
@@ -212,8 +213,7 @@ void App::init()
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
     _imguiRenderer->init(
-        _device.get(), _resources.get(), _swapchain->config().extent,
-        _window->ptr(), _swapchain->config());
+        _device.get(), _resources.get(), _window->ptr(), _swapchain->config());
     _textureDebug->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
@@ -353,8 +353,6 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
             {_window->width(), _window->height()}};
         _swapchain->recreate(config);
     }
-
-    _imguiRenderer->recreate(_swapchain->config().extent);
 }
 
 void App::recompileShaders(ScopedScratch scopeAlloc)
@@ -1530,18 +1528,21 @@ void App::render(
 
     _resources->images.release(illumination);
 
+    ImageHandle finalComposite;
     if (_textureDebugActive)
     {
         const ImageHandle debugOutput = _textureDebug->record(
             scopeAlloc.child_scope(), cb, renderArea.extent, indices.nextFrame,
             _profiler.get());
 
-        blitColorToFinalComposite(cb, debugOutput);
+        finalComposite = blitColorToFinalComposite(
+            scopeAlloc.child_scope(), cb, debugOutput);
 
         _resources->images.release(debugOutput);
     }
     else
-        blitColorToFinalComposite(cb, toneMapped);
+        finalComposite =
+            blitColorToFinalComposite(scopeAlloc.child_scope(), cb, toneMapped);
 
     _resources->images.release(toneMapped);
 
@@ -1559,10 +1560,13 @@ void App::render(
             .offset = {0, 0},
             .extent = _swapchain->config().extent,
         };
-        _imguiRenderer->endFrame(cb, backbufferArea, _profiler.get());
+        _imguiRenderer->endFrame(
+            cb, backbufferArea, finalComposite, _profiler.get());
     }
 
-    blitFinalComposite(cb, indices.nextImage);
+    blitFinalComposite(cb, finalComposite, indices.nextImage);
+
+    _resources->images.release(finalComposite);
 
     readbackDrawStats(cb, indices.nextFrame, drawStats);
 
@@ -1577,23 +1581,32 @@ void App::render(
     }
 }
 
-void App::blitColorToFinalComposite(
-    vk::CommandBuffer cb, ImageHandle toneMapped)
+ImageHandle App::blitColorToFinalComposite(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle toneMapped)
 {
-    // Blit tonemapped into cleared final composite before drawing ui on top
-    {
-        const StaticArray barriers{{
-            *_resources->images.transitionBarrier(
-                toneMapped, ImageState::TransferSrc, true),
-            *_resources->finalComposite.transitionBarrier(
-                ImageState::TransferDst, true),
-        }};
+    const SwapchainConfig &swapConfig = _swapchain->config();
+    const ImageHandle finalComposite = _resources->images.create(
+        ImageDescription{
+            .format = sFinalCompositeFormat,
+            .width = swapConfig.extent.width,
+            .height = swapConfig.extent.height,
+            .usageFlags =
+                vk::ImageUsageFlagBits::eColorAttachment | // Render
+                vk::ImageUsageFlagBits::eTransferDst |     // Blit from tone
+                                                           // mapped
+                vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
+        },
+        "finalComposite");
 
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-            .pImageMemoryBarriers = barriers.data(),
+    // Blit tonemapped into cleared final composite before drawing ui on top
+    transition(
+        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        Transitions{
+            .images = StaticArray<ImageTransition, 2>{{
+                {toneMapped, ImageState::TransferSrc},
+                {finalComposite, ImageState::TransferDst},
+            }},
         });
-    }
 
     // This scope has a barrier, but that's intentional as it should contain
     // both the clear and the blit
@@ -1609,8 +1622,9 @@ void App::blitColorToFinalComposite(
         .layerCount = 1,
     };
     cb.clearColorImage(
-        _resources->finalComposite.handle, vk::ImageLayout::eTransferDstOptimal,
-        &clearColor, 1, &subresourceRange);
+        _resources->images.nativeHandle(finalComposite),
+        vk::ImageLayout::eTransferDstOptimal, &clearColor, 1,
+        &subresourceRange);
 
     // Memory barrier for finalComposite, layout is already correct
     cb.pipelineBarrier(
@@ -1686,11 +1700,15 @@ void App::blitColorToFinalComposite(
     };
     cb.blitImage(
         _resources->images.nativeHandle(toneMapped),
-        vk::ImageLayout::eTransferSrcOptimal, _resources->finalComposite.handle,
+        vk::ImageLayout::eTransferSrcOptimal,
+        _resources->images.nativeHandle(finalComposite),
         vk::ImageLayout::eTransferDstOptimal, 1, &blit, vk::Filter::eLinear);
+
+    return finalComposite;
 }
 
-void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
+void App::blitFinalComposite(
+    vk::CommandBuffer cb, ImageHandle finalComposite, uint32_t nextImage)
 {
     // Blit to support different internal rendering resolution (and color
     // format?) the future
@@ -1698,8 +1716,8 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
     const auto &swapImage = _swapchain->image(nextImage);
 
     const StaticArray barriers{{
-        *_resources->finalComposite.transitionBarrier(
-            ImageState::TransferSrc, true),
+        *_resources->images.transitionBarrier(
+            finalComposite, ImageState::TransferSrc, true),
         vk::ImageMemoryBarrier2{
             // TODO:
             // What's the tight stage for this? Synchronization validation
@@ -1733,11 +1751,10 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        WHEELS_ASSERT(
-            _resources->finalComposite.extent.width == swapImage.extent.width);
-        WHEELS_ASSERT(
-            _resources->finalComposite.extent.height ==
-            swapImage.extent.height);
+        const vk::Extent3D &finalCompositeExtent =
+            _resources->images.resource(finalComposite).extent;
+        WHEELS_ASSERT(finalCompositeExtent.width == swapImage.extent.width);
+        WHEELS_ASSERT(finalCompositeExtent.height == swapImage.extent.height);
         const std::array offsets{
             vk::Offset3D{0, 0, 0},
             vk::Offset3D{
@@ -1753,7 +1770,7 @@ void App::blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage)
             .dstOffsets = offsets,
         };
         cb.blitImage(
-            _resources->finalComposite.handle,
+            _resources->images.nativeHandle(finalComposite),
             vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
             vk::Filter::eLinear);

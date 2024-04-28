@@ -3,6 +3,7 @@
 #define PROSPER_RENDER_IMGUI_RENDERER_HPP
 
 #include "../gfx/Fwd.hpp"
+#include "../render/RenderResourceHandle.hpp"
 #include "../utils/Fwd.hpp"
 #include "Fwd.hpp"
 #include <imgui.h>
@@ -27,23 +28,18 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
     void init(
-        Device *device, RenderResources *resources,
-        const vk::Extent2D &renderExtent, GLFWwindow *window,
+        Device *device, RenderResources *resources, GLFWwindow *window,
         const SwapchainConfig &swapConfig);
 
     void startFrame(Profiler *profiler);
     void endFrame(
-        vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler);
+        vk::CommandBuffer cb, const vk::Rect2D &renderArea,
+        ImageHandle inOutColor, Profiler *profiler);
 
     [[nodiscard]] ImVec2 centerAreaOffset() const;
     [[nodiscard]] ImVec2 centerAreaSize() const;
 
-    void recreate(const vk::Extent2D &renderExtent);
-
   private:
-    void createRenderPass();
-
-    void destroySwapchainRelated();
     void createDescriptorPool();
 
     static void setStyle();
@@ -52,8 +48,6 @@ class ImGuiRenderer
     Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     vk::DescriptorPool _descriptorPool;
-    vk::RenderPass _renderpass;
-    vk::Framebuffer _fbo;
     ImGuiID _dockAreaID{0};
 };
 

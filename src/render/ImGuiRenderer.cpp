@@ -13,6 +13,7 @@
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
+#include "RenderTargets.hpp"
 
 using namespace wheels;
 
@@ -23,8 +24,6 @@ constexpr void checkSuccessImGui(VkResult err)
 {
     checkSuccess(static_cast<vk::Result>(err), "ImGui");
 }
-
-const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 
 const char *const sIniFilename = "prosper_imgui.ini";
 const char *const sDefaultIniFilename = "default_prosper_imgui.ini";
@@ -43,22 +42,18 @@ ImVec4 operator*(const ImVec4 &lhs, const ImVec4 &rhs)
 
 ImGuiRenderer::~ImGuiRenderer()
 {
-    destroySwapchainRelated();
-
     if (_device != nullptr)
     {
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
-        _device->logical().destroy(_renderpass);
         _device->logical().destroy(_descriptorPool);
     }
 }
 
 void ImGuiRenderer::init(
-    Device *device, RenderResources *resources,
-    const vk::Extent2D &renderExtent, GLFWwindow *window,
+    Device *device, RenderResources *resources, GLFWwindow *window,
     const SwapchainConfig &swapConfig)
 {
     WHEELS_ASSERT(!_initialized);
@@ -72,7 +67,6 @@ void ImGuiRenderer::init(
     printf("Creating ImGuiRenderer\n");
 
     createDescriptorPool();
-    createRenderPass();
 
     ImGui::CreateContext();
 
@@ -104,19 +98,21 @@ void ImGuiRenderer::init(
         .QueueFamily = *_device->queueFamilies().graphicsFamily,
         .Queue = _device->graphicsQueue(),
         .DescriptorPool = _descriptorPool,
-        .RenderPass = _renderpass,
         .MinImageCount = swapConfig.imageCount,
         .ImageCount = swapConfig.imageCount,
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
         .PipelineCache = vk::PipelineCache{},
-        // TODO: Pass in VMA callbacks?
+        .UseDynamicRendering = true,
+        .PipelineRenderingCreateInfo =
+            vk::PipelineRenderingCreateInfo{
+                .colorAttachmentCount = 1,
+                .pColorAttachmentFormats = &sFinalCompositeFormat,
+            }, // TODO: Pass in VMA callbacks?
         .CheckVkResultFn = checkSuccessImGui,
         .MinAllocationSize =
             static_cast<VkDeviceSize>(1024) * static_cast<VkDeviceSize>(1024),
     };
     ImGui_ImplVulkan_Init(&init_info);
-
-    recreate(renderExtent);
 
     ImGui_ImplVulkan_CreateFontsTexture();
 
@@ -146,7 +142,8 @@ void ImGuiRenderer::startFrame(Profiler *profiler)
 }
 
 void ImGuiRenderer::endFrame(
-    vk::CommandBuffer cb, const vk::Rect2D &renderArea, Profiler *profiler)
+    vk::CommandBuffer cb, const vk::Rect2D &renderArea, ImageHandle inOutColor,
+    Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
@@ -158,22 +155,28 @@ void ImGuiRenderer::endFrame(
     ImDrawData *drawData = ImGui::GetDrawData();
 
     {
-        _resources->finalComposite.transition(
-            cb, ImageState::ColorAttachmentReadWrite);
+        _resources->images.transition(
+            cb, inOutColor, ImageState::ColorAttachmentReadWrite);
 
         const auto _s = profiler->createCpuGpuScope(cb, "ImGui::draw", true);
 
-        cb.beginRenderPass(
-            vk::RenderPassBeginInfo{
-                .renderPass = _renderpass,
-                .framebuffer = _fbo,
-                .renderArea = renderArea,
-            },
-            vk::SubpassContents::eInline);
+        const vk::RenderingAttachmentInfo attachment{
+            .imageView = _resources->images.resource(inOutColor).view,
+            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eLoad,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        };
+
+        cb.beginRendering(vk::RenderingInfo{
+            .renderArea = renderArea,
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &attachment,
+        });
 
         ImGui_ImplVulkan_RenderDrawData(drawData, cb);
 
-        cb.endRenderPass();
+        cb.endRendering();
     }
 }
 
@@ -195,85 +198,6 @@ ImVec2 ImGuiRenderer::centerAreaSize() const
     WHEELS_ASSERT(node != nullptr);
 
     return node->Size;
-}
-
-void ImGuiRenderer::createRenderPass()
-{
-    const vk::AttachmentDescription attachment = {
-        .format = sFinalCompositeFormat,
-        .samples = vk::SampleCountFlagBits::e1,
-        // Assume this works on a populated target
-        .loadOp = vk::AttachmentLoadOp::eLoad,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-        .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
-        .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
-        .initialLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .finalLayout = vk::ImageLayout::eColorAttachmentOptimal,
-    };
-    const vk::AttachmentReference color_attachment = {
-        .attachment = 0,
-        .layout = vk::ImageLayout::eColorAttachmentOptimal,
-    };
-    const vk::SubpassDescription subpass = {
-        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &color_attachment,
-    };
-    _renderpass = _device->logical().createRenderPass(vk::RenderPassCreateInfo{
-        .attachmentCount = 1,
-        .pAttachments = &attachment,
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
-    });
-
-    _device->logical().setDebugUtilsObjectNameEXT(
-        vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::eRenderPass,
-            .objectHandle = reinterpret_cast<uint64_t>(
-                static_cast<VkRenderPass>(_renderpass)),
-            .pObjectName = "ImGui",
-        });
-}
-
-void ImGuiRenderer::destroySwapchainRelated()
-{
-    if (_device != nullptr)
-    {
-        _device->logical().destroy(_fbo);
-        _device->destroy(_resources->finalComposite);
-    }
-}
-
-void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
-{
-    WHEELS_ASSERT(_device != nullptr);
-
-    destroySwapchainRelated();
-
-    auto &image = _resources->finalComposite;
-    image = _device->createImage(ImageCreateInfo{
-        .desc =
-            ImageDescription{
-                .format = sFinalCompositeFormat,
-                .width = renderExtent.width,
-                .height = renderExtent.height,
-                .usageFlags =
-                    vk::ImageUsageFlagBits::eColorAttachment | // Render
-                    vk::ImageUsageFlagBits::eTransferDst |     // Blit from tone
-                                                               // mapped
-                    vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap image
-            },
-        .debugName = "ui",
-    });
-
-    _fbo = _device->logical().createFramebuffer(vk::FramebufferCreateInfo{
-        .renderPass = _renderpass,
-        .attachmentCount = 1,
-        .pAttachments = &image.view,
-        .width = image.extent.width,
-        .height = image.extent.height,
-        .layers = 1,
-    });
 }
 
 void ImGuiRenderer::createDescriptorPool()

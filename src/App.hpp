@@ -90,9 +90,11 @@ class App
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const vk::Rect2D &renderArea, const RenderIndices &indices,
         const UiChanges &uiChanges);
-    void blitColorToFinalComposite(
-        vk::CommandBuffer cb, ImageHandle toneMapped);
-    void blitFinalComposite(vk::CommandBuffer cb, uint32_t nextImage);
+    [[nodiscard]] ImageHandle blitColorToFinalComposite(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        ImageHandle toneMapped);
+    void blitFinalComposite(
+        vk::CommandBuffer cb, ImageHandle finalComposite, uint32_t nextImage);
     void readbackDrawStats(
         vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer);
     // Returns true if present succeeded, false if swapchain should be recreated

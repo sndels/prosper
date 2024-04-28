@@ -57,11 +57,6 @@ class RenderResources
 
     RingBuffer constantsRing;
 
-    // Have this be static because ImGuiRenderer uses it in its framebuffer.
-    // Don't want to reallocate FBs each frame if this ends up ping-ponging with
-    // some other resource
-    Image finalComposite;
-
     vk::Sampler nearestSampler;
     vk::Sampler bilinearSampler;
 
