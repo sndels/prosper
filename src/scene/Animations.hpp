@@ -6,7 +6,7 @@
 
 #include <cmath>
 #include <glm/glm.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <wheels/containers/array.hpp>
 
 enum class InterpolationType

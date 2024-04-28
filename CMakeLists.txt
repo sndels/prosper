@@ -148,10 +148,8 @@ if(PROSPER_USE_PCH)
 
         [["glm/glm.hpp"]]
         [["glm/gtc/type_ptr.hpp"]]
-        [["glm/gtx/component_wise.hpp"]]
-        [["glm/gtx/matrix_decompose.hpp"]]
-        [["glm/gtx/quaternion.hpp"]]
-        [["glm/gtx/transform.hpp"]]
+
+        # TODO: Get rid of gli (GLM_ENABLE_EXPERIMENTAL redefinition )and put glm/gtx things here
         [["chrono"]]
         [["filesystem"]]
         [["fstream"]]

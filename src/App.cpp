@@ -8,6 +8,9 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif // GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/transform.hpp>
 #include <imgui.h>
