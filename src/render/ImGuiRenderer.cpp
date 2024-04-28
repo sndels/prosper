@@ -47,12 +47,12 @@ ImGuiRenderer::~ImGuiRenderer()
 
     if (_device != nullptr)
     {
-        _device->logical().destroy(_renderpass);
-        _device->logical().destroy(_descriptorPool);
-
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
+
+        _device->logical().destroy(_renderpass);
+        _device->logical().destroy(_descriptorPool);
     }
 }
 
@@ -103,25 +103,22 @@ void ImGuiRenderer::init(
         .Device = _device->logical(),
         .QueueFamily = *_device->queueFamilies().graphicsFamily,
         .Queue = _device->graphicsQueue(),
-        .PipelineCache = vk::PipelineCache{},
         .DescriptorPool = _descriptorPool,
+        .RenderPass = _renderpass,
         .MinImageCount = swapConfig.imageCount,
         .ImageCount = swapConfig.imageCount,
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+        .PipelineCache = vk::PipelineCache{},
         // TODO: Pass in VMA callbacks?
         .CheckVkResultFn = checkSuccessImGui,
+        .MinAllocationSize =
+            static_cast<VkDeviceSize>(1024) * static_cast<VkDeviceSize>(1024),
     };
-    ImGui_ImplVulkan_Init(&init_info, _renderpass);
+    ImGui_ImplVulkan_Init(&init_info);
 
     recreate(renderExtent);
 
-    auto buffer = _device->beginGraphicsCommands();
-
-    ImGui_ImplVulkan_CreateFontsTexture(static_cast<VkCommandBuffer>(buffer));
-
-    _device->endGraphicsCommands(buffer);
-
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
+    ImGui_ImplVulkan_CreateFontsTexture();
 
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
@@ -281,58 +278,18 @@ void ImGuiRenderer::recreate(const vk::Extent2D &renderExtent)
 
 void ImGuiRenderer::createDescriptorPool()
 {
-    const uint32_t maxSets = 1000;
-    const StaticArray poolSizes{{
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eSampler,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eSampledImage,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eStorageImage,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eUniformTexelBuffer,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eStorageTexelBuffer,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eStorageBuffer,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eUniformBufferDynamic,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eStorageBufferDynamic,
-            .descriptorCount = maxSets,
-        },
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eInputAttachment,
-            .descriptorCount = maxSets,
-        },
-    }};
+    // One descriptor for the font. More are needed if things like textures are
+    // loaded into imgui itselfe
+    const vk::DescriptorPoolSize poolSize{
+        .type = vk::DescriptorType::eCombinedImageSampler,
+        .descriptorCount = 1,
+    };
     _descriptorPool =
         _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
-            .maxSets = maxSets * asserted_cast<uint32_t>(poolSizes.size()),
-            .poolSizeCount = asserted_cast<uint32_t>(poolSizes.size()),
-            .pPoolSizes = poolSizes.data(),
+            .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+            .maxSets = 1,
+            .poolSizeCount = 1,
+            .pPoolSizes = &poolSize,
         });
 }
 
