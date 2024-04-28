@@ -73,9 +73,9 @@ namespace
 {
 
 const uint64_t sShaderCacheMagic = 0x4448535250535250; // PRSPRSHD
-// This should be incremented when breaking changes are made to
-// what's cached
-const uint32_t sShaderCacheVersion = 1;
+// This should be incremented when breaking changes are made to what's cached or
+// when the shader compiler is updated
+const uint32_t sShaderCacheVersion = 2;
 
 const char *const sCppStyleLineDirectiveCStr =
     "#extension GL_GOOGLE_cpp_style_line_directive : require\n";
