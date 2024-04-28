@@ -693,16 +693,24 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     if (_isPlaying || _forceCamUpdate || uiChanges.timeTweaked)
     {
-        _cam->lookAt(_sceneCameraTransform);
+        // Don't needlessly reset free look movement
+        // TODO:
+        // Add a button to reset non-animated camera to scene defined position?
+        if (_forceCamUpdate || !_camFreeLook)
+        {
+            _cam->lookAt(_sceneCameraTransform);
 
-        const CameraParameters &params = _world->currentCamera();
-        // This makes sure we copy the new params over when a camera is
-        // changed, or for the first camera
-        _cameraParameters = params;
-        _cam->setParameters(params);
-        _forceCamUpdate = false;
-        // Disable free look for animated cameras
-        _camFreeLook = !_world->isCurrentCameraDynamic();
+            const CameraParameters &params = _world->currentCamera();
+            // This makes sure we copy the new params over when a camera is
+            // changed, or for the first camera
+            _cameraParameters = params;
+            _cam->setParameters(params);
+            if (_forceCamUpdate)
+                // Disable free look for animated cameras when update is forced
+                // (camera changed)
+                _camFreeLook = !_world->isCurrentCameraDynamic();
+            _forceCamUpdate = false;
+        }
     }
 
     WHEELS_ASSERT(
