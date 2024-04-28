@@ -22,7 +22,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Get dependencies
-        run: sudo apt update && sudo apt install xorg-dev clang-tidy-15
+        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-tidy-15
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
@@ -55,7 +55,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Get dependencies
-        run: sudo apt update && sudo apt install xorg-dev clang-tidy-15
+        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-tidy-15
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0

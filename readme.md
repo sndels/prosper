@@ -91,11 +91,13 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Handles comments
   - Bare minimum validation of things that shaderc would not complain about in the expanded source
 
-External dependencies
-- [Vulkan SDK](https://vulkan.lunarg.com/)
-- `xorg-dev` on linux
+#### External dependencies
 
-Submodules
+- [Vulkan SDK](https://vulkan.lunarg.com/)
+- `xorg-dev` and `libxkbcommon-dev` on Linux
+
+#### Submodules
+
 - [cgltf](https://github.com/jkuhlmann/cgltf)
 - [cxxopts](https://github.com/jarro2783/cxxopts)
 - [glfw](https://github.com/glfw/glfw)
