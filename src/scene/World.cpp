@@ -73,12 +73,14 @@ class World::Impl
     void updateBuffers(ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
-    bool buildAccelerationStructures(vk::CommandBuffer cb);
+    bool buildAccelerationStructures(
+        ScopedScratch scopeAlloc, vk::CommandBuffer cb);
     void drawSkybox(vk::CommandBuffer cb) const;
 
   private:
     Buffer &reserveScratch(vk::DeviceSize byteSize);
-    void buildNextBlas(vk::CommandBuffer cb);
+    // Returns true if a blas build was queued
+    bool buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb);
     void buildCurrentTlas(vk::CommandBuffer cb);
     void reserveTlasInstances(uint32_t instanceCount);
     [[nodiscard]] AccelerationStructure createTlas(
@@ -444,6 +446,10 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
                 uniformScale = scale.x;
             scales.push_back(uniformScale);
 
+            // Submodels are pushed one after another and TLAS instance update
+            // assumes this as it uses the flattened index of the first submodel
+            // as the custom index for each instance. RT shaders then access
+            // each submodel from that using the geometry index of the hit.
             for (const auto &model : _data._models[instance.modelID].subModels)
             {
                 drawInstances.push_back(Scene::DrawInstance{
@@ -476,7 +482,8 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
     _byteOffsets.spotLights = scene.lights.spotLights.write(_lightDataRing);
 }
 
-bool World::Impl::buildAccelerationStructures(vk::CommandBuffer cb)
+bool World::Impl::buildAccelerationStructures(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 {
     if (_framesSinceFinalBlasBuilds > MAX_FRAMES_IN_FLIGHT)
     {
@@ -491,19 +498,22 @@ bool World::Impl::buildAccelerationStructures(vk::CommandBuffer cb)
         _framesSinceFinalBlasBuilds++;
 
     bool blasAdded = false;
-    WHEELS_ASSERT(_data._geometryMetadatas.size() == _data._meshInfos.size());
-    if (_data._geometryMetadatas.size() > _data._blases.size())
+    if (_data._models.size() > _data._blases.size())
     {
         const size_t maxBlasBuildsPerFrame = 10;
         const size_t unbuiltBlasCount =
-            _data._geometryMetadatas.size() - _data._blases.size();
+            _data._models.size() - _data._blases.size();
         const size_t blasBuildCount =
             std::min(unbuiltBlasCount, maxBlasBuildsPerFrame);
-        for (size_t i = 0; i < blasBuildCount; ++i)
-            buildNextBlas(cb);
-        if (blasBuildCount == unbuiltBlasCount)
+        size_t blasesBuilt = 0;
+        for (; blasesBuilt < blasBuildCount; ++blasesBuilt)
+        {
+            if (!buildNextBlas(scopeAlloc.child_scope(), cb))
+                break;
+        }
+        if (blasesBuilt == blasBuildCount && blasBuildCount == unbuiltBlasCount)
             _framesSinceFinalBlasBuilds = 1;
-        blasAdded = true;
+        blasAdded = blasesBuilt > 0;
     }
 
     buildCurrentTlas(cb);
@@ -585,78 +595,100 @@ void World::Impl::drawSkybox(vk::CommandBuffer cb) const
     cb.draw(asserted_cast<uint32_t>(WorldData::sSkyboxVertsCount), 1, 0, 0);
 }
 
-void World::Impl::buildNextBlas(vk::CommandBuffer cb)
+bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 {
-    WHEELS_ASSERT(_data._geometryMetadatas.size() > _data._blases.size());
+    WHEELS_ASSERT(_data._models.size() > _data._blases.size());
 
-    const size_t targetMesh = _data._blases.size();
-    if (targetMesh == 0)
+    const size_t modelIndex = _data._blases.size();
+    if (modelIndex == 0)
         // TODO: This will continue to reset until the first blas is built.
         // Reset at the start of the first frame instead? Same for the material
         // timer?
         _blasBuildTimer.reset();
 
-    const GeometryMetadata &metadata = _data._geometryMetadatas[targetMesh];
-    if (metadata.bufferIndex == 0xFFFFFFFF)
-        // Mesh is hasn't been uploaded yet
-        return;
-
-    _data._blases.push_back(AccelerationStructure{});
-    auto &blas = _data._blases.back();
-
-    const MeshInfo &info = _data._meshInfos[targetMesh];
+    const Model &model = _data._models[modelIndex];
+    // Quick search through the submodels so we can early out if some of them
+    // are not loaded in yet
+    for (const Model::SubModel &sm : model.subModels)
+    {
+        const GeometryMetadata &metadata = _data._geometryMetadatas[sm.meshID];
+        if (metadata.bufferIndex == 0xFFFFFFFF)
+            // Mesh is hasn't been uploaded yet
+            return false;
+    }
 
     // Basics from RT Gems II chapter 16
 
-    const Buffer &dataBuffer = _data._geometryBuffers[metadata.bufferIndex];
-    WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
+    Array<vk::AccelerationStructureGeometryKHR> geometries{scopeAlloc};
+    Array<vk::AccelerationStructureBuildRangeInfoKHR> rangeInfos{scopeAlloc};
+    // vkGetAccelerationStructureBuildSizesKHR takes in just primitive counts
+    // instead of the full range infos and there is no associated stride
+    Array<uint32_t> maxPrimitiveCounts{scopeAlloc};
+    geometries.reserve(model.subModels.size());
+    rangeInfos.reserve(model.subModels.size());
+    maxPrimitiveCounts.reserve(model.subModels.size());
+    for (const Model::SubModel &sm : model.subModels)
+    {
+        const GeometryMetadata &metadata = _data._geometryMetadatas[sm.meshID];
+        const MeshInfo &info = _data._meshInfos[sm.meshID];
 
-    const vk::DeviceSize positionsOffset =
-        metadata.positionsOffset * sizeof(uint32_t);
-    const vk::DeviceSize indicesOffset =
-        metadata.indicesOffset *
-        (metadata.usesShortIndices == 1 ? sizeof(uint16_t) : sizeof(uint32_t));
+        const Buffer &dataBuffer = _data._geometryBuffers[metadata.bufferIndex];
+        WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
 
-    const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
-        .vertexFormat = vk::Format::eR32G32B32Sfloat,
-        .vertexData = dataBuffer.deviceAddress + positionsOffset,
-        .vertexStride = 3 * sizeof(float),
-        .maxVertex = info.vertexCount,
-        .indexType = metadata.usesShortIndices == 1u ? vk::IndexType::eUint16
-                                                     : vk::IndexType::eUint32,
-        .indexData = dataBuffer.deviceAddress + indicesOffset,
-    };
+        const vk::DeviceSize positionsOffset =
+            metadata.positionsOffset * sizeof(uint32_t);
+        const vk::DeviceSize indicesOffset =
+            metadata.indicesOffset * (metadata.usesShortIndices == 1
+                                          ? sizeof(uint16_t)
+                                          : sizeof(uint32_t));
 
-    const auto &material = _data._materials[info.materialID];
-    const vk::GeometryFlagsKHR geomFlags =
-        material.alphaMode == Material::AlphaMode::Opaque
-            ? vk::GeometryFlagBitsKHR::eOpaque
-            : vk::GeometryFlagsKHR{};
-    const vk::AccelerationStructureGeometryKHR geometry{
-        .geometryType = vk::GeometryTypeKHR::eTriangles,
-        .geometry = triangles,
-        .flags = geomFlags,
-    };
-    const vk::AccelerationStructureBuildRangeInfoKHR rangeInfo{
-        .primitiveCount = info.indexCount / 3,
-        .primitiveOffset = 0,
-        .firstVertex = 0,
-        .transformOffset = 0,
-    };
+        const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
+            .vertexFormat = vk::Format::eR32G32B32Sfloat,
+            .vertexData = dataBuffer.deviceAddress + positionsOffset,
+            .vertexStride = 3 * sizeof(float),
+            .maxVertex = info.vertexCount,
+            .indexType = metadata.usesShortIndices == 1u
+                             ? vk::IndexType::eUint16
+                             : vk::IndexType::eUint32,
+            .indexData = dataBuffer.deviceAddress + indicesOffset,
+        };
+
+        const Material &material = _data._materials[info.materialID];
+        const vk::GeometryFlagsKHR geomFlags =
+            material.alphaMode == Material::AlphaMode::Opaque
+                ? vk::GeometryFlagBitsKHR::eOpaque
+                : vk::GeometryFlagsKHR{};
+        geometries.push_back(vk::AccelerationStructureGeometryKHR{
+            .geometryType = vk::GeometryTypeKHR::eTriangles,
+            .geometry = triangles,
+            .flags = geomFlags,
+        });
+        rangeInfos.push_back(vk::AccelerationStructureBuildRangeInfoKHR{
+            .primitiveCount = info.indexCount / 3,
+            .primitiveOffset = 0,
+            .firstVertex = 0,
+            .transformOffset = 0,
+        });
+        maxPrimitiveCounts.push_back(rangeInfos.back().primitiveCount);
+    }
+
     // dst and scratch will be set once allocated
     vk::AccelerationStructureBuildGeometryInfoKHR buildInfo{
         .type = vk::AccelerationStructureTypeKHR::eBottomLevel,
         .flags = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace,
         .mode = vk::BuildAccelerationStructureModeKHR::eBuild,
-        .geometryCount = 1,
-        .pGeometries = &geometry,
+        .geometryCount = asserted_cast<uint32_t>(geometries.size()),
+        .pGeometries = geometries.data(),
     };
 
-    // TODO: This stuff is ~the same for TLAS and BLAS
-    const auto sizeInfo =
+    const vk::AccelerationStructureBuildSizesInfoKHR sizeInfo =
         _device->logical().getAccelerationStructureBuildSizesKHR(
             vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
-            {rangeInfo.primitiveCount});
+            {asserted_cast<uint32_t>(maxPrimitiveCounts.size()),
+             maxPrimitiveCounts.data()});
+
+    _data._blases.push_back(AccelerationStructure{});
+    AccelerationStructure &blas = _data._blases.back();
 
     blas.buffer = _device->createBuffer(BufferCreateInfo{
         .desc =
@@ -682,12 +714,20 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
             .accelerationStructure = blas.handle,
         });
 
+    // Let's just concatenate all the mesh names for the full debug name
+    String blasName{scopeAlloc};
+    for (const Model::SubModel &sm : model.subModels)
+    {
+        const String &smName = _data._meshNames[sm.meshID];
+        blasName.extend(smName);
+        blasName.push_back('|');
+    }
     _device->logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eAccelerationStructureKHR,
             .objectHandle = reinterpret_cast<uint64_t>(
                 static_cast<VkAccelerationStructureKHR>(blas.handle)),
-            .pObjectName = _data._meshNames[targetMesh].c_str(),
+            .pObjectName = blasName.c_str(),
         });
 
     buildInfo.dstAccelerationStructure = blas.handle;
@@ -700,13 +740,16 @@ void World::Impl::buildNextBlas(vk::CommandBuffer cb)
     // Make sure we can use the scratch
     scratchBuffer.transition(cb, BufferState::AccelerationStructureBuild);
 
-    const auto *pRangeInfo = &rangeInfo;
+    const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo =
+        rangeInfos.data();
     // TODO: Build multiple blas at a time
     cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
 
     // Make sure the following TLAS build waits until the BLAS is ready
     // TODO: Batch these barriers right before the tlas build
     blas.buffer.transition(cb, BufferState::AccelerationStructureBuild);
+
+    return true;
 }
 
 void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
@@ -841,7 +884,7 @@ void World::Impl::updateTlasInstances(
     // Need to be careful to not cause read ops by accident, probably still use
     // memcpy for the write into the buffer.
     Array<vk::AccelerationStructureInstanceKHR> instances{
-        scopeAlloc, scene.drawInstanceCount};
+        scopeAlloc, scene.modelInstances.size()};
     uint32_t rti = 0;
     for (const auto &mi : scene.modelInstances)
     {
@@ -853,28 +896,30 @@ void World::Impl::updateTlasInstances(
         const vk::TransformMatrixKHR *trfn_cast =
             reinterpret_cast<const vk::TransformMatrixKHR *>(trfn);
 
-        for (const auto &sm : model.subModels)
+        // Zero as accelerationStructureReference marks an inactive instance
+        // according to the vk spec
+        uint64_t asReference = 0;
+        if (_data._blases.size() > mi.modelID)
         {
-            // Zero as accelerationStructureReference marks an inactive instance
-            // according to the vk spec
-            uint64_t asReference = 0;
-            if (_data._blases.size() > sm.meshID)
-            {
-                const auto &blas = _data._blases[sm.meshID];
-                asReference = blas.address;
-            }
-
-            instances.push_back(vk::AccelerationStructureInstanceKHR{
-                .transform = *trfn_cast,
-                .instanceCustomIndex = rti++,
-                .mask = 0xFF,
-                .accelerationStructureReference = asReference,
-            });
+            const auto &blas = _data._blases[mi.modelID];
+            asReference = blas.address;
         }
-    }
-    WHEELS_ASSERT(instances.size() == scene.drawInstanceCount);
 
-    reserveTlasInstances(scene.drawInstanceCount);
+        instances.push_back(vk::AccelerationStructureInstanceKHR{
+            .transform = *trfn_cast,
+            .instanceCustomIndex = rti,
+            .mask = 0xFF,
+            .accelerationStructureReference = asReference,
+        });
+        // Draw instances pack all submodels of a model instance tightly so
+        // let's use the index of the first one as the TLAS instance index. RT
+        // shaders can then access each submodel from that using the geometry
+        // index of the hit.
+        rti += asserted_cast<uint32_t>(model.subModels.size());
+    }
+    WHEELS_ASSERT(instances.size() == scene.modelInstances.size());
+
+    reserveTlasInstances(asserted_cast<uint32_t>(scene.modelInstances.size()));
 
     _tlasInstancesUploadOffset =
         _tlasInstancesUploadRing->write_elements(instances);
@@ -888,7 +933,7 @@ void World::Impl::createTlasBuildInfos(
     vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut)
 {
     rangeInfoOut = vk::AccelerationStructureBuildRangeInfoKHR{
-        .primitiveCount = scene.drawInstanceCount,
+        .primitiveCount = asserted_cast<uint32_t>(scene.modelInstances.size()),
         .primitiveOffset = 0,
     };
 
@@ -951,7 +996,7 @@ bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 bool World::unbuiltBlases() const
 {
     WHEELS_ASSERT(_initialized);
-    return _impl->_data._blases.size() < _impl->_data._meshInfos.size();
+    return _impl->_data._blases.size() < _impl->_data._models.size();
 }
 
 void World::drawDeferredLoadingUi() const
@@ -1038,10 +1083,11 @@ void World::updateBuffers(ScopedScratch scopeAlloc)
     _impl->updateBuffers(WHEELS_MOV(scopeAlloc));
 }
 
-bool World::buildAccelerationStructures(vk::CommandBuffer cb)
+bool World::buildAccelerationStructures(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 {
     WHEELS_ASSERT(_initialized);
-    return _impl->buildAccelerationStructures(cb);
+    return _impl->buildAccelerationStructures(WHEELS_MOV(scopeAlloc), cb);
 }
 
 void World::drawSkybox(vk::CommandBuffer cb) const

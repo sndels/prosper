@@ -9,7 +9,7 @@ hitAttributeEXT vec2 baryCoord;
 
 void main()
 {
-    payload.instanceCustomIndex = gl_InstanceCustomIndexEXT;
+    payload.drawInstanceIndex = gl_InstanceCustomIndexEXT + gl_GeometryIndexEXT;
     payload.primitiveID = gl_PrimitiveID;
     payload.baryCoord = baryCoord;
 }

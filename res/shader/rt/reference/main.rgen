@@ -44,12 +44,12 @@ float shadow(vec3 p, vec3 l, float tMin, float lDist)
     const uint mask = 0xFF;
     const uint flags = gl_RayFlagsTerminateOnFirstHitEXT;
 
-    payload.instanceCustomIndex = MISS_INDEX;
+    payload.drawInstanceIndex = MISS_INDEX;
     payload.randomSeed = pcg(pcg_state.x ^ pcg_state.y);
 
     traceRayEXT(as, flags, mask, 0, 0, 0, p, tMin, l, lDist, 0);
 
-    return payload.instanceCustomIndex == MISS_INDEX ? 1. : 0.;
+    return payload.drawInstanceIndex == MISS_INDEX ? 1. : 0.;
 }
 
 RayPayload traceClosest(Ray ray)
@@ -58,7 +58,7 @@ RayPayload traceClosest(Ray ray)
     const uint flags = gl_RayFlagsNoneEXT; // We want anyhit here
 
     // Tight scope for payload use as having it dangle seems to prevent reuse
-    payload.instanceCustomIndex = MISS_INDEX;
+    payload.drawInstanceIndex = MISS_INDEX;
     payload.primitiveID = MISS_INDEX;
     payload.baryCoord = vec2(0);
     payload.randomSeed = pcg(pcg_state.x ^ pcg_state.z);
@@ -66,7 +66,7 @@ RayPayload traceClosest(Ray ray)
     traceRayEXT(as, flags, mask, 0, 0, 0, ray.o, ray.tMin, ray.d, ray.tMax, 0);
 
     RayPayload ret;
-    ret.instanceCustomIndex = payload.instanceCustomIndex;
+    ret.drawInstanceIndex = payload.drawInstanceIndex;
     ret.primitiveID = payload.primitiveID;
     ret.baryCoord = payload.baryCoord;
 
@@ -138,7 +138,7 @@ void importanceSampleBounce(
 
 VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 {
-    DrawInstance instance = drawInstances.instance[hit.instanceCustomIndex];
+    DrawInstance instance = drawInstances.instance[hit.drawInstanceIndex];
 
     Transforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceID];
@@ -173,7 +173,7 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 
 vec3 debugColor(RayPayload hit, VisibleSurface surface)
 {
-    DrawInstance instance = drawInstances.instance[hit.instanceCustomIndex];
+    DrawInstance instance = drawInstances.instance[hit.drawInstanceIndex];
 
     DebugInputs di;
     di.meshID = instance.meshID;
@@ -237,7 +237,7 @@ void main()
             break;
 
         RayPayload hit = traceClosest(ray);
-        if (hit.instanceCustomIndex == MISS_INDEX)
+        if (hit.drawInstanceIndex == MISS_INDEX)
         {
             if (flagIBL())
             {

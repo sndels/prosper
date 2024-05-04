@@ -57,7 +57,8 @@ class World
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
-    bool buildAccelerationStructures(vk::CommandBuffer cb);
+    bool buildAccelerationStructures(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb);
     void drawSkybox(vk::CommandBuffer cb) const;
 
     [[nodiscard]] const WorldDSLayouts &dsLayouts() const;

@@ -1395,7 +1395,8 @@ void App::render(
     if (_referenceRt || _deferredRt || _world->unbuiltBlases())
     {
         auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
-        blasesAdded = _world->buildAccelerationStructures(cb);
+        blasesAdded =
+            _world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
     }
 
     const LightClusteringOutput lightClusters = _lightClustering->record(

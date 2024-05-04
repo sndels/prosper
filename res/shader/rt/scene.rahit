@@ -17,7 +17,8 @@ hitAttributeEXT vec2 baryCoord;
 
 void main()
 {
-    DrawInstance instance = drawInstances.instance[gl_InstanceCustomIndexEXT];
+    DrawInstance instance =
+        drawInstances.instance[gl_InstanceCustomIndexEXT + gl_GeometryIndexEXT];
 
     vec2 uv0 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 0);
     vec2 uv1 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 1);

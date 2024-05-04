@@ -653,8 +653,7 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 
 void WorldData::drawDeferredLoadingUi() const
 {
-    if (_deferredLoadingContext.has_value() ||
-        _blases.size() < _meshInfos.size())
+    if (_deferredLoadingContext.has_value() || _blases.size() < _models.size())
     {
         ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_Appearing);
         ImGui::Begin(

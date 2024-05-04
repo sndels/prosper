@@ -252,6 +252,7 @@ BufferHandle MeshletCuller::recordGenerateList(
 
         for (const ModelInstance &instance : scene.modelInstances)
         {
+            bool modelDrawn = false;
             const Model &model = models[instance.modelID];
             for (const Model::SubModel &subModel : model.subModels)
             {
@@ -271,6 +272,11 @@ BufferHandle MeshletCuller::recordGenerateList(
                         sceneStats->totalTriangleCount += info.indexCount / 3;
                         sceneStats->totalMeshletCount += info.meshletCount;
                         meshletCountUpperBound += info.meshletCount;
+                        if (!modelDrawn)
+                        {
+                            sceneStats->totalModelCount++;
+                            modelDrawn = true;
+                        }
                     }
                 }
             }

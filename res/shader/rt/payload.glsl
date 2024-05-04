@@ -3,7 +3,7 @@
 
 struct RayPayload
 {
-    uint instanceCustomIndex;
+    uint drawInstanceIndex;
     uint primitiveID;
     vec2 baryCoord;
     uint randomSeed;
