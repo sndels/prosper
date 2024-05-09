@@ -357,7 +357,7 @@ void optimizeMeshData(
     remapVertexAttribute(
         alloc, meshData->texCoord0s, remapIndices, uniqueVertexCount);
 
-    meshInfo->vertexCount = uniqueVertexCount;
+    meshInfo->vertexCount = asserted_cast<uint32_t>(uniqueVertexCount);
 }
 
 void generateMeshlets(MeshData *meshData)

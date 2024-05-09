@@ -1148,8 +1148,8 @@ void WorldData::loadScenes(
                 cgltf_mesh_index(&gltfData, gltfNode.mesh));
         if (gltfNode.camera != nullptr)
         {
-            const uint32_t cameraIndex =
-                cgltf_camera_index(&gltfData, gltfNode.camera);
+            const uint32_t cameraIndex = asserted_cast<uint32_t>(
+                cgltf_camera_index(&gltfData, gltfNode.camera));
             const cgltf_camera &cam = *gltfNode.camera;
             if (cam.type == cgltf_camera_type_perspective)
             {
@@ -1173,7 +1173,8 @@ void WorldData::loadScenes(
                     sCgltfCameraTypeStr[cam.type]);
         }
         if (gltfNode.light != nullptr)
-            node.light = cgltf_light_index(&gltfData, gltfNode.light);
+            node.light = asserted_cast<uint32_t>(
+                cgltf_light_index(&gltfData, gltfNode.light));
 
         vec3 translation{0.f};
         vec3 scale{1.f};
