@@ -890,10 +890,12 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
                 inputMetadata.texCoord0s->count ==
                     inputMetadata.positions->count);
 
-            // -1 is mapped to the default material
-            WHEELS_ASSERT(primitive.material != nullptr);
-            const uint32_t material = asserted_cast<uint32_t>(
-                cgltf_material_index(&gltfData, primitive.material) + 1);
+            const uint32_t material =
+                primitive.material != nullptr
+                    ? asserted_cast<uint32_t>(
+                          cgltf_material_index(&gltfData, primitive.material) +
+                          1)
+                    : 0;
 
             const MeshInfo meshInfo = MeshInfo{
                 .vertexCount =
