@@ -138,7 +138,7 @@ class WorldData
 
     struct TmpNode
     {
-        const std::string &gltfName;
+        wheels::String gltfName;
         wheels::Array<uint32_t> children;
         wheels::Optional<glm::vec3> translation;
         wheels::Optional<glm::quat> rotation;
@@ -147,8 +147,8 @@ class WorldData
         wheels::Optional<uint32_t> camera;
         wheels::Optional<uint32_t> light;
 
-        TmpNode(wheels::Allocator &alloc, const std::string &gltfName)
-        : gltfName{gltfName}
+        TmpNode(wheels::Allocator &alloc, const char *gltfName)
+        : gltfName{alloc, gltfName}
         , children{alloc}
         {
         }

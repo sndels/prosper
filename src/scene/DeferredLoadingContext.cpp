@@ -317,7 +317,7 @@ void generateTangents(Allocator &alloc, MeshData *meshData)
 // alloc needs to be the same as the one used for meshData
 void optimizeMeshData(
     Allocator &alloc, MeshData *meshData, MeshInfo *meshInfo,
-    const std::string &meshName)
+    const char *meshName)
 {
     WHEELS_ASSERT(meshData != nullptr);
 
@@ -340,7 +340,7 @@ void optimizeMeshData(
     const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
         remapIndices.data(), meshData->indices.data(), indexCount, vertexCount);
     if (uniqueVertexCount < vertexCount)
-        fprintf(stderr, "Mesh '%s' has unused vertices\n", meshName.c_str());
+        fprintf(stderr, "Mesh '%s' has unused vertices\n", meshName);
 
     // Reuse tmpIndices as it's not required after optimizeOverdraw
     meshopt_remapIndexBuffer(
@@ -748,6 +748,9 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     const InputGeometryMetadata &metadata = nextMesh.first;
     MeshInfo info = nextMesh.second;
 
+    const char *meshName = ctx->gltfData->meshes[metadata.sourceMeshIndex].name;
+    ctx->meshNames.emplace_back(ctx->alloc, meshName);
+
     const std::filesystem::path cachePath =
         getCachePath(ctx->sceneDir, meshIndex);
     if (!cacheValid(cachePath, ctx->sceneWriteTime))
@@ -761,9 +764,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
                 asserted_cast<uint32_t>(meshData.positions.size());
         }
 
-        optimizeMeshData(
-            ctx->alloc, &meshData, &info,
-            ctx->gltfData->meshes[metadata.sourceMeshIndex].name);
+        optimizeMeshData(ctx->alloc, &meshData, &info, meshName);
 
         generateMeshlets(&meshData);
 
@@ -781,11 +782,6 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     // Tangent generation can change vertex count
     info.vertexCount = cacheHeader->vertexCount;
     info.meshletCount = cacheHeader->meshletCount;
-
-    const std::string &meshName =
-        ctx->gltfData->meshes[metadata.sourceMeshIndex].name;
-    ctx->meshNames.emplace_back(
-        ctx->alloc, StrSpan{meshName.data(), meshName.size()});
 
     const UploadedGeometryData uploadData = ctx->uploadGeometryData(
         *cacheHeader, dataBlob, ctx->meshNames[meshIndex]);
