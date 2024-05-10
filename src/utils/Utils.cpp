@@ -17,7 +17,8 @@ std::filesystem::path relativePath(const std::filesystem::path &path)
     // symlinks to be any different from normal folders within paths
     if (pathStr.find(RES_PATH) != std::string::npos)
         return std::filesystem::path{
-            pathStr.begin() + strlen(RES_PATH), pathStr.end()};
+            pathStr.begin() + asserted_cast<std::ptrdiff_t>(strlen(RES_PATH)),
+            pathStr.end()};
 
     return path;
 }
@@ -44,7 +45,9 @@ String readFileString(Allocator &alloc, const std::filesystem::path &path)
 
     // Seek to beginning and read
     file.seekg(0);
-    file.read(reinterpret_cast<char *>(buffer.data()), fileSize);
+    file.read(
+        reinterpret_cast<char *>(buffer.data()),
+        asserted_cast<std::streamsize>(fileSize));
 
     file.close();
     return buffer;

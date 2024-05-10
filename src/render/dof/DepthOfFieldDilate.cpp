@@ -131,7 +131,8 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
         // This is in the flattened tile resolution but it should cover the half
         // res CoC as it's calculated from an on-sensor size.
         const int32_t maxBgCoCInPixels = asserted_cast<int32_t>(std::ceil(
-            (maxBgCoCInUnits / cam.sensorWidth()) * inputExtent.width));
+            (maxBgCoCInUnits / cam.sensorWidth()) *
+            static_cast<float>(inputExtent.width)));
         // TODO:
         // This can be significantly larger than any actual CoC in the image.
         // Track maxCoC in a GPU buffer instead and use that?

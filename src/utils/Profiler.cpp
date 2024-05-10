@@ -193,9 +193,10 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
     for (auto i = 0u; i < scopeCount; ++i)
     {
         // All bits valid should have been asserted on device creation
-        const auto start = timestamps[static_cast<size_t>(i) * 2];
-        const auto end = timestamps[static_cast<size_t>(i) * 2 + 1];
-        const auto nanos = (end - start) * timestampPeriodNanos;
+        const uint64_t start = timestamps[static_cast<size_t>(i) * 2];
+        const uint64_t end = timestamps[static_cast<size_t>(i) * 2 + 1];
+        const double nanos =
+            static_cast<double>(end - start) * timestampPeriodNanos;
         const float millis = static_cast<float>(nanos * 1e-6);
         const bool hasStats = _scopeHasStats[i];
 

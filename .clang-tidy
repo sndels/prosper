@@ -2,8 +2,6 @@
 # Why disable some?
 # blanket disables:
 #    mostly very specific warnings, rarely actionable here
-# bugprone-narrowing-conversions,cppcoreguidelines-narrowing-conversions:
-#    A good warning but I'd like a debug only 'asserted cast'. TODO.
 # cert-err33-c
 #    Only fprintf is used for debug output
 # cppcoreguidelines-avoid-const-or-ref-data-members
@@ -54,13 +52,11 @@ Checks: "*,
         -hicpp-*,
         -llvm*,
         -zircon-*,
-        -bugprone-narrowing-conversions,
         -cert-err33-c,
         -cppcoreguidelines-avoid-const-or-ref-data-members,
         -cppcoreguidelines-avoid-do-while,
         -cppcoreguidelines-avoid-magic-numbers,
         -cppcoreguidelines-macro-usage,
-        -cppcoreguidelines-narrowing-conversions,
         -cppcoreguidelines-non-private-member-variables-in-classes,
         -cppcoreguidelines-pro-bounds-constant-array-index,
         -cppcoreguidelines-pro-bounds-pointer-arithmetic,

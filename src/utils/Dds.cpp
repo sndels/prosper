@@ -312,7 +312,9 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
 
     readRawSpan(inFile, ret.data.mut_span());
 
-    inFile.read(reinterpret_cast<char *>(ret.data.data()), ret.data.size());
+    inFile.read(
+        reinterpret_cast<char *>(ret.data.data()),
+        asserted_cast<std::streamsize>(ret.data.size()));
 
     return ret;
 }

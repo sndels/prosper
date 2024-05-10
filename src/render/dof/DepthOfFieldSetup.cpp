@@ -187,7 +187,8 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
         // Similar math is also in Dilate
         const float maxBgCoCInHalfResPixels =
-            (maxBgCoCInUnits / cam.sensorWidth()) * renderExtent.width;
+            (maxBgCoCInUnits / cam.sensorWidth()) *
+            static_cast<float>(renderExtent.width);
 
         const PCBlock pcBlock{
             .focusDistance = camParams.focusDistance,
