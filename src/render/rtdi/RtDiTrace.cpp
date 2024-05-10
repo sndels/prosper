@@ -690,7 +690,7 @@ void RtDiTrace::createShaderBindingTable(ScopedScratch scopeAlloc)
         .debugName = "RtDiffuseIlluminationSBT",
     });
 
-    auto *pData = reinterpret_cast<uint8_t *>(_shaderBindingTable.mapped);
+    auto *pData = static_cast<uint8_t *>(_shaderBindingTable.mapped);
     for (size_t i = 0; i < groupCount; ++i)
     {
         memcpy(

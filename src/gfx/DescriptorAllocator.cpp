@@ -126,9 +126,7 @@ vk::DescriptorSet DescriptorAllocator::allocate(
         .pDescriptorCounts = &variableDescriptorCount,
     };
     vk::DescriptorSet ret;
-    allocate(
-        Span{&layout, 1}, Span{&ret, 1},
-        reinterpret_cast<const void *>(&variableCounts));
+    allocate(Span{&layout, 1}, Span{&ret, 1}, &variableCounts);
     return ret;
 }
 

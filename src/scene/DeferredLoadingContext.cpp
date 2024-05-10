@@ -134,7 +134,7 @@ int mikkTGetNumFaces(const SMikkTSpaceContext *pContext)
     WHEELS_ASSERT(pContext->m_pUserData != nullptr);
 
     const MeshData *meshData =
-        reinterpret_cast<const MeshData *>(pContext->m_pUserData);
+        static_cast<const MeshData *>(pContext->m_pUserData);
 
     WHEELS_ASSERT(
         meshData->positions.size() % 3 == 0 &&
@@ -167,7 +167,7 @@ void mikkTGetPosition(
     WHEELS_ASSERT(pContext->m_pUserData != nullptr);
 
     const MeshData *meshData =
-        reinterpret_cast<const MeshData *>(pContext->m_pUserData);
+        static_cast<const MeshData *>(pContext->m_pUserData);
 
     const int vertexI = mikkTVertexIndex(iFace, iVert);
     const vec3 &pos = meshData->positions[vertexI];
@@ -183,7 +183,7 @@ void mikkTGetNormal(
     WHEELS_ASSERT(pContext->m_pUserData != nullptr);
 
     const MeshData *meshData =
-        reinterpret_cast<const MeshData *>(pContext->m_pUserData);
+        static_cast<const MeshData *>(pContext->m_pUserData);
 
     const int vertexI = mikkTVertexIndex(iFace, iVert);
     const vec3 &normal = meshData->normals[vertexI];
@@ -199,7 +199,7 @@ void mikkTGetTexCoord(
     WHEELS_ASSERT(pContext->m_pUserData != nullptr);
 
     const MeshData *meshData =
-        reinterpret_cast<const MeshData *>(pContext->m_pUserData);
+        static_cast<const MeshData *>(pContext->m_pUserData);
 
     const int vertexI = mikkTVertexIndex(iFace, iVert);
     const vec2 &texCoord0 = meshData->texCoord0s[vertexI];
@@ -214,7 +214,7 @@ void mikkTSetTSpaceBasic(
     WHEELS_ASSERT(pContext != nullptr);
     WHEELS_ASSERT(pContext->m_pUserData != nullptr);
 
-    MeshData *meshData = reinterpret_cast<MeshData *>(pContext->m_pUserData);
+    MeshData *meshData = static_cast<MeshData *>(pContext->m_pUserData);
 
     const int vertexI = mikkTVertexIndex(iFace, iVert);
     meshData->tangents[vertexI] =
@@ -1071,8 +1071,7 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
         startByteOffset % sizeof(uint32_t) == 0 &&
         "Mesh data should be aligned for u32");
 
-    uint32_t *dstPtr =
-        reinterpret_cast<uint32_t *>(geometryUploadBuffer.mapped);
+    uint32_t *dstPtr = static_cast<uint32_t *>(geometryUploadBuffer.mapped);
     memcpy(dstPtr, dataBlob.data(), cacheHeader.blobByteCount);
 
     const vk::BufferCopy copyRegion{

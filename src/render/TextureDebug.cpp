@@ -231,7 +231,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
 
     {
         const float *value =
-            reinterpret_cast<const float *>(_readbackBuffers[nextFrame].mapped);
+            static_cast<const float *>(_readbackBuffers[nextFrame].mapped);
         ImVec4 imVec{
             value[0],
             value[1],

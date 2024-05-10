@@ -41,14 +41,14 @@ constexpr int s_gl_repeat = 0x2901;
 
 void *cgltf_alloc_func(void *user, cgltf_size size)
 {
-    Allocator *alloc = reinterpret_cast<Allocator *>(user);
+    Allocator *alloc = static_cast<Allocator *>(user);
     return alloc->allocate(size);
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) lib interface
 void cgltf_free_func(void *user, void *ptr)
 {
-    Allocator *alloc = reinterpret_cast<Allocator *>(user);
+    Allocator *alloc = static_cast<Allocator *>(user);
     return alloc->deallocate(ptr);
 }
 
@@ -227,8 +227,7 @@ const void *appendAccessorData(
     const void *ret = rawData.data() + rawData.size();
 
     WHEELS_ASSERT(offset < buffer.size && view.size <= buffer.size - offset);
-    const uint8_t *source =
-        reinterpret_cast<const uint8_t *>(buffer.data) + offset;
+    const uint8_t *source = static_cast<const uint8_t *>(buffer.data) + offset;
     rawData.extend(Span<const uint8_t>{source, view.size});
 
     return ret;
@@ -489,8 +488,8 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
         return;
 
     {
-        uint8_t *mapped = reinterpret_cast<uint8_t *>(
-            _geometryMetadatasBuffers[nextFrame].mapped);
+        uint8_t *mapped =
+            static_cast<uint8_t *>(_geometryMetadatasBuffers[nextFrame].mapped);
         memcpy(
             mapped, _geometryMetadatas.data(),
             _geometryMetadatas.size() * sizeof(_geometryMetadatas[0]));
@@ -504,8 +503,8 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
             else
                 meshletCounts.push_back(0u);
         }
-        uint32_t *mapped = reinterpret_cast<uint32_t *>(
-            _meshletCountsBuffers[nextFrame].mapped);
+        uint32_t *mapped =
+            static_cast<uint32_t *>(_meshletCountsBuffers[nextFrame].mapped);
         memcpy(
             mapped, meshletCounts.data(),
             meshletCounts.size() * sizeof(meshletCounts[0]));
@@ -573,7 +572,7 @@ void WorldData::uploadMaterialDatas(uint32_t nextFrame)
         return;
 
     Material *mapped =
-        reinterpret_cast<Material *>(_materialsBuffers[nextFrame].mapped);
+        static_cast<Material *>(_materialsBuffers[nextFrame].mapped);
     memcpy(
         mapped, _materials.data(), _materials.size() * sizeof(_materials[0]));
 
@@ -1042,7 +1041,7 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
 
             // TODO:
             // Share data for accessors that use the same bytes?
-            const float *timesPtr = reinterpret_cast<const float *>(
+            const float *timesPtr = static_cast<const float *>(
                 appendAccessorData(_rawAnimationData, inputAccessor));
 
             WHEELS_ASSERT(inputAccessor.has_min);
@@ -1062,7 +1061,7 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
 
             // TODO:
             // Share data for accessors that use the same bytes?
-            const uint8_t *valuesPtr = reinterpret_cast<const uint8_t *>(
+            const uint8_t *valuesPtr = static_cast<const uint8_t *>(
                 appendAccessorData(_rawAnimationData, outputAccessor));
 
             if (outputAccessor.type == cgltf_type_vec3)

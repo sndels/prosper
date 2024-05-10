@@ -1291,7 +1291,7 @@ void App::drawSceneStats(uint32_t nextFrame) const
     uint32_t rasterizedTriangleCount = 0;
     if (_resources->buffers.isValidHandle(_drawStats[nextFrame]))
     {
-        const uint32_t *readbackPtr = reinterpret_cast<const uint32_t *>(
+        const uint32_t *readbackPtr = static_cast<const uint32_t *>(
             _resources->buffers.resource(_drawStats[nextFrame]).mapped);
         WHEELS_ASSERT(readbackPtr != nullptr);
 

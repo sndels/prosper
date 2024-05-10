@@ -183,9 +183,8 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
 
     // This is garbage if no frame has been completed with this profiler yet
     // Caller should make sure that isn't an issue.
-    const auto *timestamps =
-        reinterpret_cast<uint64_t *>(_timestampBuffer.mapped);
-    const auto *stats = reinterpret_cast<uint32_t *>(_statisticsBuffer.mapped);
+    const auto *timestamps = static_cast<uint64_t *>(_timestampBuffer.mapped);
+    const auto *stats = static_cast<uint32_t *>(_statisticsBuffer.mapped);
 
     const size_t scopeCount = _queryScopeIndices.size();
     WHEELS_ASSERT(scopeCount == _scopeHasStats.size());

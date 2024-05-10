@@ -259,7 +259,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     (void)messageType;
 
     const bool breakOnError =
-        reinterpret_cast<Device::Settings *>(pUserData)->breakOnValidationError;
+        static_cast<Device::Settings *>(pUserData)->breakOnValidationError;
 
     // VK_TRUE is reserved
     constexpr auto ret = VK_FALSE;
