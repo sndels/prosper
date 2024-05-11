@@ -139,8 +139,9 @@ void App::init()
        [&]
        {
            _window = OwningPtr<Window>(
-               _generalAlloc, Pair<uint32_t, uint32_t>{WIDTH, HEIGHT},
-               "prosper", &_inputHandler);
+               _generalAlloc, _generalAlloc,
+               Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper",
+               &_inputHandler);
        });
     tl("Device init",
        [&] { _device->init(scopeAlloc.child_scope(), _window->ptr()); });

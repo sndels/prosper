@@ -19,16 +19,52 @@
 
 using namespace wheels;
 
+namespace
+{
+
+void *allocatefun(size_t size, void *user)
+{
+    WHEELS_ASSERT(user != nullptr);
+    TlsfAllocator *alloc = static_cast<TlsfAllocator *>(user);
+    return alloc->allocate(size);
+}
+
+void *reallocatefun(void *block, size_t size, void *user)
+{
+    WHEELS_ASSERT(user != nullptr);
+    TlsfAllocator *alloc = static_cast<TlsfAllocator *>(user);
+    return alloc->reallocate(block, size);
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) glfw interface
+void deallocatefun(void *block, void *user)
+{
+    WHEELS_ASSERT(user != nullptr);
+    TlsfAllocator *alloc = static_cast<TlsfAllocator *>(user);
+    return alloc->deallocate(block);
+}
+
+} // namespace
+
 Window::Window(
-    const Pair<uint32_t, uint32_t> &resolution, const char *title,
-    InputHandler *inputHandler) noexcept
-: _inputHandler{inputHandler}
+    TlsfAllocator &alloc, const Pair<uint32_t, uint32_t> &resolution,
+    const char *title, InputHandler *inputHandler) noexcept
+: _alloc{alloc}
+, _inputHandler{inputHandler}
 , _width{resolution.first}
 , _height{resolution.second}
 {
     WHEELS_ASSERT(_inputHandler != nullptr);
 
     printf("Creating window\n");
+
+    GLFWallocator allocator;
+    allocator.allocate = allocatefun;
+    allocator.reallocate = reallocatefun;
+    allocator.deallocate = deallocatefun;
+    allocator.user = &_alloc;
+
+    glfwInitAllocator(&allocator);
 
     glfwSetErrorCallback(Window::errorCallback);
 
