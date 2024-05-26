@@ -15,9 +15,9 @@ namespace
 vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     Span<const vk::SurfaceFormatKHR> availableFormats)
 {
-    // We're free to take our pick (sRGB output with "regular" 8bit rgba buffer)
     if (availableFormats.size() == 1 &&
         availableFormats[0].format == vk::Format::eUndefined)
+        // We're free to take our pick
         return {
             vk::Format::eB8G8R8A8Unorm,
             vk::ColorSpaceKHR::eSrgbNonlinear,
@@ -26,13 +26,20 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
     // Check if preferred sRGB format is present
     for (const auto &format : availableFormats)
     {
-        if (format.format == vk::Format::eB8G8R8A8Unorm &&
-            format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+        bool const bgra8OrRgba8 = format.format == vk::Format::eB8G8R8A8Unorm ||
+                                  format.format == vk::Format::eR8G8B8A8Unorm;
+        bool const srgbNonlinear =
+            format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
+        if (bgra8OrRgba8 && srgbNonlinear)
             return format;
     }
 
-    // Default to the first one if preferred was not present
-    // Picking "best one" is also an option here
+    // At least one of the 8bit unorm surface formats is supported by rdna,
+    // non-tegra nvidia and intel
+    fprintf(
+        stderr, "Linear 8bit rgba surface not supported. Output might look "
+                "incorrect.\n");
+
     return availableFormats[0];
 }
 
