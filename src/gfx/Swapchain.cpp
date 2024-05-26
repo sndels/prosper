@@ -46,12 +46,20 @@ vk::PresentModeKHR selectSwapPresentMode(
     {
         // We'd like mailbox to implement triple buffering
         if (mode == vk::PresentModeKHR::eMailbox)
+        {
+            printf("Using present mode 'Mailbox'\n");
             return mode;
+        }
         // fifo is not properly supported by some drivers so use immediate if
         // available
         if (mode == vk::PresentModeKHR::eImmediate)
             bestMode = mode;
     }
+
+    if (bestMode == vk::PresentModeKHR::eFifo)
+        printf("Using present mode 'Fifo'\n");
+    else if (bestMode == vk::PresentModeKHR::eImmediate)
+        printf("Using present mode 'Immediate'\n");
 
     return bestMode;
 }
