@@ -12,7 +12,7 @@ layout(binding = 3) uniform image2D outColor;
 
 // From https://github.com/h3r2tic/tony-mc-mapface
 // Under MIT
-vec3 tony_mc_mapface(vec3 stimulus)
+vec3 tonyMcMapface(vec3 stimulus)
 {
     // Apply a non-linear transform that the LUT is encoded with.
     const vec3 encoded = stimulus / (stimulus + 1.0);
@@ -22,13 +22,6 @@ vec3 tony_mc_mapface(vec3 stimulus)
     vec3 uv = encoded * ((LUT_DIMS - 1.0) / LUT_DIMS) + 0.5 / LUT_DIMS;
 
     return textureLod(sampler3D(inLut, inLutSampler), uv, 0).xyz;
-}
-
-vec3 tonemap(vec3 color)
-{
-    float gamma = 2.2;
-    vec3 outColor = tony_mc_mapface(color * PC.exposure);
-    return pow(outColor, vec3(1 / gamma));
 }
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
@@ -42,5 +35,14 @@ void main()
     }
 
     vec3 color = imageLoad(inColor, coord).xyz;
-    imageStore(outColor, coord, vec4(tonemap(color), 1));
+
+    color *= PC.exposure;
+
+    color = tonyMcMapface(color);
+
+    // Apply the inverse sRGB EOTF as we expect to write into a unorm target
+    float gamma = 2.2;
+    color = pow(color, vec3(1. / gamma));
+
+    imageStore(outColor, coord, vec4(color, 1));
 }
