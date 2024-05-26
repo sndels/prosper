@@ -2,7 +2,13 @@
 
 #extension GL_EXT_shader_image_load_formatted : require
 
-layout(push_constant) uniform ToneMapPC { float exposure; }
+#include "common/math.glsl"
+
+layout(push_constant) uniform ToneMapPC
+{
+    float exposure;
+    float contrast;
+}
 PC;
 
 layout(binding = 0) uniform readonly image2D inColor;
@@ -36,7 +42,18 @@ void main()
 
     vec3 color = imageLoad(inColor, coord).xyz;
 
+    // Exposure before contrast to keep the usable exposure values from
+    // exploding with high contrast
     color *= PC.exposure;
+
+    vec3 hsv = rgbToHsv(color);
+
+    // TODO:
+    // A nicer contrast function? Though, adding a shoulder moves into
+    // tonemapper territory and into Tony McMapface's turf.
+    hsv.b = pow(hsv.b, PC.contrast);
+
+    color = hsvToRgb(hsv);
 
     color = tonyMcMapface(color);
 

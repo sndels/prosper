@@ -19,6 +19,7 @@ namespace
 struct PCBlock
 {
     float exposure{1.f};
+    float contrast{1.f};
 };
 
 vk::Extent2D getRenderExtent(
@@ -77,6 +78,7 @@ void ToneMap::drawUi()
     WHEELS_ASSERT(_initialized);
 
     ImGui::DragFloat("Exposure", &_exposure, 0.01f, 0.001f, 10000.f);
+    ImGui::DragFloat("Contrast", &_contrast, 0.01f, 0.001f, 10000.f);
 }
 
 ToneMap::Output ToneMap::record(
@@ -127,6 +129,7 @@ ToneMap::Output ToneMap::record(
             cb,
             PCBlock{
                 .exposure = _exposure,
+                .contrast = _contrast,
             },
             extent, Span{&storageSet, 1});
     }
