@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <variant>
 
+#include "../Allocators.hpp"
 #include "../utils/Hashes.hpp"
 #include "../utils/Utils.hpp"
 #include "Fwd.hpp"
@@ -34,7 +35,7 @@ using DescriptorInfo = std::variant<
 class ShaderReflection
 {
   public:
-    ShaderReflection(wheels::Allocator &alloc) noexcept;
+    ShaderReflection() noexcept = default;
     ~ShaderReflection() = default;
 
     ShaderReflection(const ShaderReflection &) = delete;
@@ -72,11 +73,10 @@ class ShaderReflection
 
   private:
     bool _initialized{false};
-    wheels::Allocator &_alloc;
     uint32_t _pushConstantsBytesize{0};
     wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>>
-        _descriptorSetMetadatas;
-    wheels::HashSet<std::filesystem::path> _sourceFiles;
+        _descriptorSetMetadatas{gAllocators.general};
+    wheels::HashSet<std::filesystem::path> _sourceFiles{gAllocators.general};
 };
 
 #endif // PROSPER_GFX_SHADER_REFLECTION_HPP

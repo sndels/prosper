@@ -8,7 +8,6 @@ using namespace wheels;
 namespace
 {
 
-constexpr uint32_t sMaxScopeCount = 512;
 // Each scope has a query for start and end
 constexpr uint32_t sMaxTimestampCount = sMaxScopeCount * 2;
 // TODO: Mesh shader stats
@@ -58,12 +57,6 @@ GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
 , _hasStatistics{other._hasStatistics}
 {
     other._cb = vk::CommandBuffer{};
-}
-
-GpuFrameProfiler::GpuFrameProfiler(wheels::Allocator &alloc) noexcept
-: _queryScopeIndices{alloc, sMaxScopeCount}
-, _scopeHasStats{alloc, sMaxScopeCount}
-{
 }
 
 void GpuFrameProfiler::init(Device *device)
@@ -234,11 +227,6 @@ CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other) noexcept
     other._output = nullptr;
 }
 
-CpuFrameProfiler::CpuFrameProfiler(wheels::Allocator &alloc) noexcept
-: _nanos{alloc, sMaxScopeCount}
-{
-}
-
 void CpuFrameProfiler::startFrame() { _nanos.clear(); }
 
 [[nodiscard]] CpuFrameProfiler::Scope CpuFrameProfiler::createScope(
@@ -269,26 +257,16 @@ Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
     return times;
 }
 
-Profiler::Profiler(Allocator &alloc) noexcept
-: _alloc{alloc}
-, _cpuFrameProfiler{_alloc}
-, _gpuFrameProfilers{_alloc, MAX_FRAMES_IN_FLIGHT}
-, _currentFrameScopeNames{_alloc, sMaxScopeCount}
-, _previousScopeNames{_alloc}
-, _previousCpuScopeTimes{_alloc}
-, _previousGpuScopeData{_alloc, sMaxScopeCount}
-{
-}
-
 void Profiler::init(Device *device)
 {
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        _gpuFrameProfilers.emplace_back(_alloc);
+        _gpuFrameProfilers.emplace_back();
         _gpuFrameProfilers.back().init(device);
 
-        _previousScopeNames.emplace_back(_alloc, sMaxScopeCount);
-        _previousCpuScopeTimes.emplace_back(_alloc, sMaxScopeCount);
+        _previousScopeNames.emplace_back(gAllocators.general, sMaxScopeCount);
+        _previousCpuScopeTimes.emplace_back(
+            gAllocators.general, sMaxScopeCount);
     }
     _initialized = true;
 }
@@ -318,7 +296,8 @@ void Profiler::startGpuFrame(uint32_t frameIndex)
 
     // Store data from the previous iteration of this gpu frame index. We need
     // to read these before startFrame as that will reset the queries.
-    _previousGpuScopeData = _gpuFrameProfilers[_currentFrame].getData(_alloc);
+    _previousGpuScopeData =
+        _gpuFrameProfilers[_currentFrame].getData(gAllocators.general);
 
     _gpuFrameProfilers[_currentFrame].startFrame();
 
@@ -346,8 +325,10 @@ void Profiler::endCpuFrame()
     // overwrite them
     _previousScopeNames[_currentFrame].clear();
     for (const auto &name : _currentFrameScopeNames)
-        _previousScopeNames[_currentFrame].emplace_back(_alloc, name);
-    _previousCpuScopeTimes[_currentFrame] = _cpuFrameProfiler.getTimes(_alloc);
+        _previousScopeNames[_currentFrame].emplace_back(
+            gAllocators.general, name);
+    _previousCpuScopeTimes[_currentFrame] =
+        _cpuFrameProfiler.getTimes(gAllocators.general);
 
     _debugState = DebugState::NewFrame;
 }
@@ -361,7 +342,7 @@ Profiler::Scope Profiler::createCpuGpuScope(
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
     WHEELS_ASSERT(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _currentFrameScopeNames.emplace_back(_alloc, name);
+    _currentFrameScopeNames.emplace_back(gAllocators.general, name);
 
     return Scope{
         _gpuFrameProfilers[_currentFrame].createScope(
@@ -379,7 +360,7 @@ Profiler::Scope Profiler::createCpuScope(const char *name)
     const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
     WHEELS_ASSERT(index < sMaxScopeCount && "Ran out of per-frame scopes");
 
-    _currentFrameScopeNames.emplace_back(_alloc, name);
+    _currentFrameScopeNames.emplace_back(gAllocators.general, name);
 
     return Scope{_cpuFrameProfiler.createScope(index)};
 }

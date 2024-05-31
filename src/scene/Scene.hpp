@@ -1,6 +1,7 @@
 #ifndef PROSPER_SCENE_HPP
 #define PROSPER_SCENE_HPP
 
+#include "../Allocators.hpp"
 #include "../gfx/Resources.hpp"
 #include "Light.hpp"
 #include "Model.hpp"
@@ -46,12 +47,12 @@ struct Scene
         SpotLights spotLights;
     };
 
-    wheels::Array<Node> nodes;
-    wheels::Array<wheels::String> fullNodeNames;
-    wheels::Array<uint32_t> rootNodes;
+    wheels::Array<Node> nodes{gAllocators.world};
+    wheels::Array<wheels::String> fullNodeNames{gAllocators.world};
+    wheels::Array<uint32_t> rootNodes{gAllocators.world};
     float endTimeS{0.f};
 
-    wheels::Array<ModelInstance> modelInstances;
+    wheels::Array<ModelInstance> modelInstances{gAllocators.world};
     bool previousTransformsValid{false};
 
     struct DrawInstance
@@ -66,14 +67,6 @@ struct Scene
     vk::DescriptorSet rtDescriptorSet;
 
     Lights lights;
-
-    Scene(wheels::Allocator &alloc)
-    : nodes{alloc}
-    , fullNodeNames{alloc}
-    , rootNodes{alloc}
-    , modelInstances{alloc}
-    {
-    }
 };
 
 #endif // PROSPER_SCENENODE_HPP

@@ -1,6 +1,8 @@
 #ifndef PROSPER_SCENE_MODEL_HPP
 #define PROSPER_SCENE_MODEL_HPP
 
+#include "../Allocators.hpp"
+
 #include <glm/glm.hpp>
 
 #include <wheels/allocators/allocator.hpp>
@@ -14,12 +16,7 @@ struct Model
         uint32_t materialID{0xFFFFFFFF};
     };
 
-    wheels::Array<SubModel> subModels;
-
-    Model(wheels::Allocator &alloc)
-    : subModels{alloc}
-    {
-    }
+    wheels::Array<SubModel> subModels{gAllocators.world};
 };
 
 struct ModelInstance

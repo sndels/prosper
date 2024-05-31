@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_IMAGE_COLLECTION_HPP
 #define PROSPER_RENDER_IMAGE_COLLECTION_HPP
 
+#include "../Allocators.hpp"
 #include "../gfx/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResourceCollection.hpp"
@@ -18,7 +19,7 @@ class RenderImageCollection
       vk::ImageMemoryBarrier2, vk::Image, VkImage, vk::ObjectType::eImage>
 {
   public:
-    RenderImageCollection(wheels::Allocator &alloc) noexcept;
+    RenderImageCollection() noexcept = default;
     ~RenderImageCollection() override;
 
     RenderImageCollection(RenderImageCollection &) = delete;
@@ -37,7 +38,7 @@ class RenderImageCollection
     // TODO:
     // Is the sparsity of this array a memory usage problem?
     wheels::Array<wheels::InlineArray<vk::ImageView, sMaxMipCount>>
-        _subresourceViews;
+        _subresourceViews{gAllocators.general};
 };
 
 #endif // PROSPER_RENDER_IMAGE_COLLECTION_HPP

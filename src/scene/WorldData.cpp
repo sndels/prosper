@@ -23,8 +23,6 @@ constexpr uint32_t sSceneInstancesReflectionSet = 0;
 constexpr uint32_t sLightsReflectionSet = 0;
 constexpr uint32_t sSkyboxReflectionSet = 0;
 
-constexpr size_t sWorldMemSize = megabytes(16);
-
 // This should be plenty while not being a ridiculously heavy descriptor set
 // Need to know the limit up front to create the ds layout
 constexpr size_t sMaxGeometryBuffersCount = 100;
@@ -99,7 +97,7 @@ static_assert(
     sCgltfCameraTypeStr.size() == cgltf_camera_type_max_enum,
     "Missing cgltf_camera_type strings");
 
-cgltf_data *loadGltf(Allocator &alloc, const std::filesystem::path &path)
+cgltf_data *loadGltf(const std::filesystem::path &path)
 {
     cgltf_file_type gltfType = cgltf_file_type_invalid;
     if (path.extension() == ".gltf")
@@ -110,12 +108,13 @@ cgltf_data *loadGltf(Allocator &alloc, const std::filesystem::path &path)
         throw std::runtime_error(
             "Unknown extension '" + path.extension().string() + "'");
 
+    static_assert(std::is_same_v<decltype(gAllocators.general), TlsfAllocator>);
     const cgltf_options options{
         .type = gltfType,
         .memory = cgltf_memory_options{
             .alloc_func = cgltf_alloc_func,
             .free_func = cgltf_free_func,
-            .user_data = &alloc,
+            .user_data = &gAllocators.general,
         }};
 
     cgltf_data *data = nullptr;
@@ -234,18 +233,6 @@ const void *appendAccessorData(
 }
 
 } // namespace
-
-WorldData::WorldData(Allocator &generalAlloc) noexcept
-: _generalAlloc{generalAlloc}
-, _linearAlloc{sWorldMemSize}
-// Use general for descriptors because because we don't know the required
-// storage up front and the internal array will be reallocated
-, _descriptorAllocator{_generalAlloc}
-, _skyboxResources{
-      .radianceViews = Array<vk::ImageView>{_generalAlloc},
-  }
-{
-}
 
 WorldData::~WorldData()
 {
@@ -431,7 +418,7 @@ void WorldData::init(
         std::filesystem::last_write_time(fullScenePath);
 
     Timer t;
-    cgltf_data *gltfData = loadGltf(_generalAlloc, fullScenePath);
+    cgltf_data *gltfData = loadGltf(fullScenePath);
     WHEELS_ASSERT(gltfData != nullptr);
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
@@ -450,7 +437,7 @@ void WorldData::init(
     };
 
     Array<Texture2DSampler> texture2DSamplers{
-        _generalAlloc, gltfData->images_count + 1};
+        gAllocators.general, gltfData->images_count + 1};
     tl("Texture loading",
        [&]() {
            loadTextures(scopeAlloc.child_scope(), *gltfData, texture2DSamplers);
@@ -463,8 +450,7 @@ void WorldData::init(
        [&]()
        {
            const HashMap<uint32_t, NodeAnimations> nodeAnimations =
-               loadAnimations(
-                   _generalAlloc, scopeAlloc.child_scope(), *gltfData);
+               loadAnimations(scopeAlloc.child_scope(), *gltfData);
            loadScenes(scopeAlloc.child_scope(), *gltfData, nodeAnimations);
        });
     tl("Buffer creation", [&]() { createBuffers(); });
@@ -587,9 +573,6 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
 
     DeferredLoadingContext &ctx = *_deferredLoadingContext;
 
-    _deferredLoadingGeneralAllocatorHighWatermark =
-        ctx.generalAllocatorHightWatermark.load();
-
     const bool allMeshesLoaded = ctx.loadedMeshCount == ctx.meshes.size();
     const bool allMaterialsLoaded =
         ctx.loadedMaterialCount == ctx.materials.size();
@@ -673,11 +656,6 @@ void WorldData::drawDeferredLoadingUi() const
         }
         ImGui::End();
     }
-}
-
-size_t WorldData::linearAllocatorHighWatermark() const
-{
-    return _linearAlloc.allocated_byte_count_high_watermark();
 }
 
 void WorldData::loadTextures(
@@ -847,7 +825,7 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
     {
         const cgltf_mesh &mesh = gltfData.meshes[mi];
 
-        _models.emplace_back(_linearAlloc);
+        _models.emplace_back(gAllocators.world);
         Model &model = _models.back();
 
         model.subModels.reserve(mesh.primitives_count);
@@ -959,7 +937,7 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
 }
 
 HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
-    Allocator &alloc, ScopedScratch scopeAlloc, const cgltf_data &gltfData)
+    ScopedScratch scopeAlloc, const cgltf_data &gltfData)
 {
     // First find out the amount of memory we need to copy over all the
     // animation data. We need to do that before parsing animations because
@@ -1001,7 +979,8 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
 
     // Init empty animations for all nodes and avoid resizes by safe upper bound
     // TODO: Why is this a map and not a vector?
-    HashMap<uint32_t, NodeAnimations> ret{alloc, gltfData.nodes_count * 2};
+    HashMap<uint32_t, NodeAnimations> ret{
+        gAllocators.general, gltfData.nodes_count * 2};
     for (uint32_t i = 0; i < gltfData.nodes_count; ++i)
         ret.insert_or_assign(i, NodeAnimations{});
 
@@ -1070,7 +1049,7 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
                     valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
 
                 _animations._vec3.emplace_back(
-                    _generalAlloc, interpolation, WHEELS_MOV(timeFrames),
+                    interpolation, WHEELS_MOV(timeFrames),
                     WHEELS_MOV(valueFrames));
 
                 concreteAnimations.push_back(
@@ -1082,7 +1061,7 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
                     valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
 
                 _animations._quat.emplace_back(
-                    _generalAlloc, interpolation, WHEELS_MOV(timeFrames),
+                    interpolation, WHEELS_MOV(timeFrames),
                     WHEELS_MOV(valueFrames));
 
                 concreteAnimations.push_back(
@@ -1131,8 +1110,7 @@ void WorldData::loadScenes(
     for (const cgltf_node &gltfNode :
          Span{gltfData.nodes, gltfData.nodes_count})
     {
-        nodes.emplace_back(
-            _linearAlloc, gltfNode.name != nullptr ? gltfNode.name : "");
+        nodes.emplace_back(gltfNode.name != nullptr ? gltfNode.name : "");
         TmpNode &node = nodes.back();
 
         node.children.reserve(gltfNode.children_count);
@@ -1221,7 +1199,7 @@ void WorldData::loadScenes(
     for (const cgltf_scene &gltfScene :
          Span{gltfData.scenes, gltfData.scenes_count})
     {
-        _scenes.emplace_back(_linearAlloc);
+        _scenes.emplace_back();
 
         gatherScene(scopeAlloc.child_scope(), gltfData, gltfScene, nodes);
 
@@ -1386,7 +1364,7 @@ void WorldData::gatherScene(
         // new node into roots
         scene.rootNodes.push_back(asserted_cast<uint32_t>(scene.nodes.size()));
         scene.nodes.emplace_back();
-        scene.fullNodeNames.emplace_back(_generalAlloc);
+        scene.fullNodeNames.emplace_back(gAllocators.general);
 
         // Start adding nodes from the new root
         nodeStack.clear();
@@ -1429,7 +1407,7 @@ void WorldData::gatherScene(
                     asserted_cast<uint32_t>(childIndex));
 
                 scene.fullNodeNames.emplace_back(
-                    _generalAlloc, sceneNode.fullName);
+                    gAllocators.general, sceneNode.fullName);
                 scene.fullNodeNames.back().push_back('/');
             }
 
@@ -2096,7 +2074,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
 
             _geometryMetadatas[ctx.loadedMeshCount] = uploadedData.metadata;
             _meshInfos[ctx.loadedMeshCount] = info;
-            _meshNames.emplace_back(_generalAlloc, uploadedData.meshName);
+            _meshNames.emplace_back(gAllocators.general, uploadedData.meshName);
             // Track the used (and ownership transferred) range
             _geometryBufferAllocatedByteCounts[targetBufferI] +=
                 uploadedData.byteCount;

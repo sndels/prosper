@@ -70,11 +70,6 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-TextureDebug::TextureDebug(Allocator &alloc) noexcept
-: _targetSettings{alloc}
-{
-}
-
 TextureDebug::~TextureDebug()
 {
     if (_device != nullptr)

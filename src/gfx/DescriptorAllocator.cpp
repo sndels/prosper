@@ -69,11 +69,6 @@ constexpr StaticArray sDefaultPoolSizes{{
 
 } // namespace
 
-DescriptorAllocator::DescriptorAllocator(Allocator &alloc) noexcept
-: _pools{alloc}
-{
-}
-
 DescriptorAllocator::~DescriptorAllocator()
 {
     if (_device != nullptr)

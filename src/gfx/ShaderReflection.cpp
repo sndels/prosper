@@ -691,7 +691,7 @@ void fillMetadata(
 }
 
 HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
-    ScopedScratch scopeAlloc, Allocator &alloc, Span<const SpvResult> results)
+    ScopedScratch scopeAlloc, Span<const SpvResult> results)
 {
     // Get counts first so we can allocate return memory exactly
     HashMap<uint32_t, uint32_t> descriptorSetBindingCounts{scopeAlloc, 16};
@@ -715,10 +715,11 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
     }
 
     HashMap<uint32_t, Array<DescriptorSetMetadata>> ret{
-        alloc, descriptorSetBindingCounts.size() * 2};
+        gAllocators.general, descriptorSetBindingCounts.size() * 2};
     for (const auto &iter : descriptorSetBindingCounts)
         ret.insert_or_assign(
-            *iter.first, Array<DescriptorSetMetadata>{alloc, *iter.second});
+            *iter.first,
+            Array<DescriptorSetMetadata>{gAllocators.general, *iter.second});
 
     // Fill the metadata
     for (const SpvResult &result : results)
@@ -735,8 +736,8 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
             variable != nullptr)
         {
             fillMetadata(
-                String{alloc, result.name}, result.decorations, *variable,
-                results, ret);
+                String{gAllocators.general, result.name}, result.decorations,
+                *variable, results, ret);
         }
     }
 
@@ -782,16 +783,8 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
 
 } // namespace
 
-ShaderReflection::ShaderReflection(Allocator &alloc) noexcept
-: _alloc{alloc}
-, _descriptorSetMetadatas{_alloc}
-, _sourceFiles{_alloc}
-{
-}
-
 ShaderReflection::ShaderReflection(ShaderReflection &&other) noexcept
 : _initialized{other._initialized}
-, _alloc{other._alloc}
 , _pushConstantsBytesize{other._pushConstantsBytesize}
 , _descriptorSetMetadatas{WHEELS_MOV(other._descriptorSetMetadatas)}
 , _sourceFiles{WHEELS_MOV(other._sourceFiles)}
@@ -803,7 +796,6 @@ ShaderReflection &ShaderReflection::operator=(ShaderReflection &&other) noexcept
     if (this != &other)
     {
         WHEELS_ASSERT(!_initialized);
-        WHEELS_ASSERT(&_alloc == &other._alloc);
 
         _initialized = other._initialized;
         _pushConstantsBytesize = other._pushConstantsBytesize;
@@ -853,7 +845,7 @@ void ShaderReflection::init(
             getPushConstantsBytesize(results, pushConstantMetadataId);
 
     _descriptorSetMetadatas =
-        fillDescriptorSetMetadatas(scopeAlloc.child_scope(), _alloc, results);
+        fillDescriptorSetMetadatas(scopeAlloc.child_scope(), results);
 
     _initialized = true;
 }

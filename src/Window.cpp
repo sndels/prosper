@@ -6,6 +6,7 @@
 
 #include <iostream>
 
+#include "Allocators.hpp"
 #include "utils/InputHandler.hpp"
 #include "utils/Utils.hpp"
 
@@ -47,10 +48,9 @@ void deallocatefun(void *block, void *user)
 } // namespace
 
 Window::Window(
-    TlsfAllocator &alloc, const Pair<uint32_t, uint32_t> &resolution,
-    const char *title, InputHandler *inputHandler) noexcept
-: _alloc{alloc}
-, _inputHandler{inputHandler}
+    const Pair<uint32_t, uint32_t> &resolution, const char *title,
+    InputHandler *inputHandler) noexcept
+: _inputHandler{inputHandler}
 , _width{resolution.first}
 , _height{resolution.second}
 {
@@ -62,7 +62,8 @@ Window::Window(
     allocator.allocate = allocatefun;
     allocator.reallocate = reallocatefun;
     allocator.deallocate = deallocatefun;
-    allocator.user = &_alloc;
+    static_assert(std::is_same_v<decltype(gAllocators.general), TlsfAllocator>);
+    allocator.user = &gAllocators.general;
 
     glfwInitAllocator(&allocator);
 

@@ -19,6 +19,7 @@
 #include <wheels/containers/string.hpp>
 #include <wheels/owning_ptr.hpp>
 
+#include "../Allocators.hpp"
 #include "../utils/ForEach.hpp"
 #include "../utils/Utils.hpp"
 #include "ShaderIncludes.hpp"
@@ -464,9 +465,8 @@ void writeCache(
 
 } // namespace
 
-Device::Device(Allocator &generalAlloc, const Settings &settings) noexcept
-: _generalAlloc{generalAlloc}
-, _settings{settings}
+Device::Device(const Settings &settings) noexcept
+: _settings{settings}
 {
 }
 
@@ -699,7 +699,7 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     readCache(scopeAlloc, cachePath, &spvWords, &uniqueIncludes);
     WHEELS_ASSERT(!spvWords.empty());
 
-    ShaderReflection reflection{_generalAlloc};
+    ShaderReflection reflection;
     reflection.init(scopeAlloc.child_scope(), spvWords, uniqueIncludes);
 
     const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
@@ -773,7 +773,7 @@ void main()
     readCache(scopeAlloc, cachePath, &spvWords, &uniqueIncludes);
     WHEELS_ASSERT(!spvWords.empty());
 
-    ShaderReflection reflection{_generalAlloc};
+    ShaderReflection reflection;
     reflection.init(scopeAlloc.child_scope(), spvWords, uniqueIncludes);
 
     return WHEELS_MOV(reflection);
@@ -860,7 +860,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     {
         const StaticArray postfix = "StagingBuffer";
         String stagingDebugName{
-            _generalAlloc, strlen(info.debugName) + postfix.size() - 1};
+            gAllocators.general, strlen(info.debugName) + postfix.size() - 1};
         stagingDebugName.extend(info.debugName);
         stagingDebugName.extend(postfix.data());
 

@@ -17,7 +17,6 @@ class Window
 {
   public:
     Window(
-        wheels::TlsfAllocator &alloc,
         const wheels::Pair<uint32_t, uint32_t> &resolution, const char *title,
         InputHandler *inputHandler) noexcept;
     ~Window();
@@ -51,7 +50,6 @@ class Window
         GLFWwindow *window, int width, int height);
 
   private:
-    wheels::TlsfAllocator &_alloc;
     InputHandler *_inputHandler{nullptr};
 
     GLFWwindow *_window{nullptr};

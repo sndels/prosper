@@ -12,13 +12,6 @@ using namespace wheels;
 namespace
 {
 
-// Enough for 4K textures, it seems. Should also be plenty for meshes as we
-// have a hard limit of 64MB for a single mesh from the default geometry
-// buffer size.
-const size_t sLoadingScratchSize = megabytes(256);
-// Extra mem for things outside the ctx loading loop
-const size_t sLoadingAllocatorSize = sLoadingScratchSize + megabytes(16);
-
 constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
 
 const uint64_t sMeshCacheMagic = 0x48534D5250535250; // PRSPRMSH
@@ -35,10 +28,10 @@ Allocator *sMeshoptAllocator = nullptr;
 
 template <typename T>
 void remapVertexAttribute(
-    Allocator &alloc, Array<T> &src, const Array<uint32_t> &remapIndices,
+    Array<T> &src, const Array<uint32_t> &remapIndices,
     size_t uniqueVertexCount)
 {
-    Array<T> remapped{alloc};
+    Array<T> remapped{gAllocators.loadingWorker};
     remapped.resize(uniqueVertexCount);
     meshopt_remapVertexBuffer(
         remapped.data(), src.data(), src.size(), sizeof(T),
@@ -90,19 +83,18 @@ void unpackVector(
 }
 
 MeshData getMeshData(
-    Allocator &alloc, const InputGeometryMetadata &metadata,
-    const MeshInfo &meshInfo)
+    const InputGeometryMetadata &metadata, const MeshInfo &meshInfo)
 {
     MeshData ret{
-        .indices = Array<uint32_t>{alloc},
-        .positions = Array<vec3>{alloc},
-        .normals = Array<vec3>{alloc},
-        .tangents = Array<vec4>{alloc},
-        .texCoord0s = Array<vec2>{alloc},
-        .meshlets = Array<meshopt_Meshlet>{alloc},
-        .meshletBounds = Array<MeshData::Bounds>{alloc},
-        .meshletVertices = Array<uint32_t>{alloc},
-        .meshletTriangles = Array<uint8_t>{alloc},
+        .indices = Array<uint32_t>{gAllocators.loadingWorker},
+        .positions = Array<vec3>{gAllocators.loadingWorker},
+        .normals = Array<vec3>{gAllocators.loadingWorker},
+        .tangents = Array<vec4>{gAllocators.loadingWorker},
+        .texCoord0s = Array<vec2>{gAllocators.loadingWorker},
+        .meshlets = Array<meshopt_Meshlet>{gAllocators.loadingWorker},
+        .meshletBounds = Array<MeshData::Bounds>{gAllocators.loadingWorker},
+        .meshletVertices = Array<uint32_t>{gAllocators.loadingWorker},
+        .meshletTriangles = Array<uint8_t>{gAllocators.loadingWorker},
     };
 
     {
@@ -224,18 +216,16 @@ void mikkTSetTSpaceBasic(
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,bugprone-easily-swappable-parameters)
 
 template <typename T>
-void flattenAttribute(
-    Allocator &alloc, Array<T> &attribute, const Array<uint32_t> &indices)
+void flattenAttribute(Array<T> &attribute, const Array<uint32_t> &indices)
 {
-    Array<T> flattened{alloc, indices.size()};
+    Array<T> flattened{gAllocators.loadingWorker, indices.size()};
     for (const uint32_t i : indices)
         flattened.push_back(attribute[i]);
 
     attribute = WHEELS_MOV(flattened);
 }
 
-// alloc needs to be the same as the one used for meshData
-void generateTangents(Allocator &alloc, MeshData *meshData)
+void generateTangents(MeshData *meshData)
 {
     WHEELS_ASSERT(meshData != nullptr);
     WHEELS_ASSERT(meshData->tangents.empty());
@@ -245,9 +235,9 @@ void generateTangents(Allocator &alloc, MeshData *meshData)
     // Flatten data first as instructed in the mikktspace header
     // TODO: tmp buffers here
     const size_t flattenedVertexCount = meshData->indices.size();
-    flattenAttribute(alloc, meshData->positions, meshData->indices);
-    flattenAttribute(alloc, meshData->normals, meshData->indices);
-    flattenAttribute(alloc, meshData->texCoord0s, meshData->indices);
+    flattenAttribute(meshData->positions, meshData->indices);
+    flattenAttribute(meshData->normals, meshData->indices);
+    flattenAttribute(meshData->texCoord0s, meshData->indices);
     meshData->indices.clear();
 
     meshData->tangents.resize(flattenedVertexCount);
@@ -293,7 +283,7 @@ void generateTangents(Allocator &alloc, MeshData *meshData)
         },
     }};
 
-    Array<uint32_t> remapTable{alloc};
+    Array<uint32_t> remapTable{gAllocators.loadingWorker};
     remapTable.resize(flattenedVertexCount);
     const size_t uniqueVertexCount = meshopt_generateVertexRemapMulti(
         remapTable.data(), nullptr, flattenedVertexCount, flattenedVertexCount,
@@ -304,27 +294,21 @@ void generateTangents(Allocator &alloc, MeshData *meshData)
         meshData->indices.data(), nullptr, flattenedVertexCount,
         remapTable.data());
 
-    remapVertexAttribute(
-        alloc, meshData->positions, remapTable, uniqueVertexCount);
-    remapVertexAttribute(
-        alloc, meshData->normals, remapTable, uniqueVertexCount);
-    remapVertexAttribute(
-        alloc, meshData->tangents, remapTable, uniqueVertexCount);
-    remapVertexAttribute(
-        alloc, meshData->texCoord0s, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData->positions, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData->normals, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData->tangents, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData->texCoord0s, remapTable, uniqueVertexCount);
 }
 
-// alloc needs to be the same as the one used for meshData
 void optimizeMeshData(
-    Allocator &alloc, MeshData *meshData, MeshInfo *meshInfo,
-    const char *meshName)
+    MeshData *meshData, MeshInfo *meshInfo, const char *meshName)
 {
     WHEELS_ASSERT(meshData != nullptr);
 
     const size_t indexCount = meshData->indices.size();
     const size_t vertexCount = meshData->positions.size();
 
-    Array<uint32_t> tmpIndices{alloc};
+    Array<uint32_t> tmpIndices{gAllocators.loadingWorker};
     tmpIndices.resize(meshData->indices.size());
     meshopt_optimizeVertexCache(
         tmpIndices.data(), meshData->indices.data(), indexCount, vertexCount);
@@ -335,7 +319,7 @@ void optimizeMeshData(
         &meshData->positions.data()[0].x, vertexCount, sizeof(vec3),
         vertexCacheDegradationThreshod);
 
-    Array<uint32_t> remapIndices{alloc};
+    Array<uint32_t> remapIndices{gAllocators.loadingWorker};
     remapIndices.resize(vertexCount);
     const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
         remapIndices.data(), meshData->indices.data(), indexCount, vertexCount);
@@ -348,14 +332,10 @@ void optimizeMeshData(
         remapIndices.data());
     meshData->indices = WHEELS_MOV(tmpIndices);
 
-    remapVertexAttribute(
-        alloc, meshData->positions, remapIndices, uniqueVertexCount);
-    remapVertexAttribute(
-        alloc, meshData->normals, remapIndices, uniqueVertexCount);
-    remapVertexAttribute(
-        alloc, meshData->tangents, remapIndices, uniqueVertexCount);
-    remapVertexAttribute(
-        alloc, meshData->texCoord0s, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData->positions, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData->normals, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData->tangents, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData->texCoord0s, remapIndices, uniqueVertexCount);
 
     meshInfo->vertexCount = asserted_cast<uint32_t>(uniqueVertexCount);
 }
@@ -510,7 +490,7 @@ bool cacheValid(
 }
 
 void writeCache(
-    Allocator &alloc, const std::filesystem::path &sceneDir,
+    const std::filesystem::path &sceneDir,
     std::filesystem::file_time_type sceneWriteTime, uint32_t meshIndex,
     MeshData &&meshData, const MeshInfo &meshInfo)
 {
@@ -529,8 +509,8 @@ void writeCache(
 
     const bool usesShortIndices = meshInfo.vertexCount <= 0xFFFF;
     // TODO: Also pack meshlet vertices if short indices are used
-    Array<uint8_t> packedIndices{alloc};
-    Array<uint8_t> packedMeshletVertices{alloc};
+    Array<uint8_t> packedIndices{gAllocators.loadingWorker};
+    Array<uint8_t> packedMeshletVertices{gAllocators.loadingWorker};
     if (usesShortIndices)
     {
         {
@@ -723,7 +703,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
 
     // Set up a custom allocator for meshopt, let's keep track of allocations
     // there too
-    sMeshoptAllocator = &ctx->alloc;
+    sMeshoptAllocator = &gAllocators.loadingWorker;
     auto meshoptAllocate = [](size_t byteCount) -> void *
     { return sMeshoptAllocator->allocate(byteCount); };
     auto meshoptDeallocate = [](void *ptr)
@@ -749,32 +729,32 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     MeshInfo info = nextMesh.second;
 
     const char *meshName = ctx->gltfData->meshes[metadata.sourceMeshIndex].name;
-    ctx->meshNames.emplace_back(ctx->alloc, meshName);
+    ctx->meshNames.emplace_back(gAllocators.loadingWorker, meshName);
 
     const std::filesystem::path cachePath =
         getCachePath(ctx->sceneDir, meshIndex);
     if (!cacheValid(cachePath, ctx->sceneWriteTime))
     {
-        MeshData meshData = getMeshData(ctx->alloc, metadata, info);
+        MeshData meshData = getMeshData(metadata, info);
 
         if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
         {
-            generateTangents(ctx->alloc, &meshData);
+            generateTangents(&meshData);
             info.vertexCount =
                 asserted_cast<uint32_t>(meshData.positions.size());
         }
 
-        optimizeMeshData(ctx->alloc, &meshData, &info, meshName);
+        optimizeMeshData(&meshData, &info, meshName);
 
         generateMeshlets(&meshData);
 
         writeCache(
-            ctx->alloc, ctx->sceneDir, ctx->sceneWriteTime, meshIndex,
-            WHEELS_MOV(meshData), info);
+            ctx->sceneDir, ctx->sceneWriteTime, meshIndex, WHEELS_MOV(meshData),
+            info);
     }
 
     // Always read from the cache to make caching issues always visible
-    Array<uint8_t> dataBlob{ctx->alloc};
+    Array<uint8_t> dataBlob{gAllocators.loadingWorker};
     const Optional<MeshCacheHeader> cacheHeader =
         readCache(cachePath, &dataBlob);
     WHEELS_ASSERT(cacheHeader.has_value());
@@ -863,7 +843,8 @@ void loadNextTexture(DeferredLoadingContext *ctx)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    LinearAllocator scopeBacking{ctx->alloc, sLoadingScratchSize};
+    LinearAllocator scopeBacking{
+        gAllocators.loadingWorker, Allocators::sLoadingScratchSize};
 
     Texture2D tex;
     tex.init(
@@ -938,8 +919,9 @@ void loadingWorker(DeferredLoadingContext *ctx)
 
             // Only update for meshes as textures will always allocate a big
             // worst case tmp chunk for linear allocation
-            ctx->generalAllocatorHightWatermark = asserted_cast<uint32_t>(
-                ctx->alloc.stats().allocated_byte_count_high_watermark);
+            gAllocators.loadingWorkerHighWatermark =
+                gAllocators.loadingWorker.stats()
+                    .allocated_byte_count_high_watermark;
         }
         else
             loadNextTexture(ctx);
@@ -964,16 +946,6 @@ Buffer createTextureStaging(Device *device)
             },
         .debugName = "Texture2DStaging",
     });
-}
-
-DeferredLoadingContext::DeferredLoadingContext()
-: alloc{sLoadingAllocatorSize}
-, meshes{alloc}
-, meshNames{alloc}
-, loadedMeshes{alloc}
-, loadedTextures{alloc}
-, materials{alloc}
-{
 }
 
 DeferredLoadingContext::~DeferredLoadingContext()

@@ -40,7 +40,7 @@ bool relativeEq(float a, float b, float maxRelativeDiff)
 class World::Impl
 {
   public:
-    Impl(Allocator &generalAlloc) noexcept;
+    Impl() noexcept = default;
     ~Impl();
 
     Impl(const Impl &other) = delete;
@@ -94,7 +94,6 @@ class World::Impl
         vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
         vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
 
-    Allocator &_generalAlloc;
     RingBuffer *_constantsRing{nullptr};
     Device *_device{nullptr};
     RingBuffer _lightDataRing;
@@ -113,17 +112,11 @@ class World::Impl
         uint32_t framesSinceLastUsed{0};
         Buffer buffer;
     };
-    Array<ScratchBuffer> _scratchBuffers{_generalAlloc};
+    Array<ScratchBuffer> _scratchBuffers{gAllocators.general};
     Buffer _tlasInstancesBuffer;
     OwningPtr<RingBuffer> _tlasInstancesUploadRing;
     uint32_t _tlasInstancesUploadOffset{0};
 };
-
-World::Impl::Impl(Allocator &generalAlloc) noexcept
-: _generalAlloc{generalAlloc}
-, _data{generalAlloc}
-{
-}
 
 World::Impl::~Impl()
 {
@@ -866,7 +859,7 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
 
         const uint32_t ringByteSize = asserted_cast<uint32_t>(
             (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
-        _tlasInstancesUploadRing = OwningPtr<RingBuffer>(_generalAlloc);
+        _tlasInstancesUploadRing = OwningPtr<RingBuffer>(gAllocators.general);
         _tlasInstancesUploadRing->init(
             _device, vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
             "InstancesUploadBuffer");
@@ -958,8 +951,8 @@ void World::Impl::createTlasBuildInfos(
         {rangeInfoOut.primitiveCount});
 }
 
-World::World(Allocator &generalAlloc) noexcept
-: _impl{generalAlloc, generalAlloc}
+World::World() noexcept
+: _impl{gAllocators.general}
 {
 }
 
@@ -1136,16 +1129,4 @@ SkyboxResources &World::skyboxResources()
 {
     WHEELS_ASSERT(_initialized);
     return _impl->_data._skyboxResources;
-}
-
-size_t World::deferredLoadingGeneralAllocatorHighWatermark() const
-{
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._deferredLoadingGeneralAllocatorHighWatermark;
-}
-
-size_t World::linearAllocatorHighWatermark() const
-{
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data.linearAllocatorHighWatermark();
 }

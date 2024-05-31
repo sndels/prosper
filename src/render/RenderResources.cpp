@@ -4,13 +4,6 @@
 
 using namespace wheels;
 
-RenderResources::RenderResources(wheels::Allocator &alloc) noexcept
-: images{alloc}
-, texelBuffers{alloc}
-, buffers{alloc}
-{
-}
-
 RenderResources::~RenderResources()
 {
     if (device != nullptr)

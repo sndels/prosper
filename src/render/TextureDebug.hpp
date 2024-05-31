@@ -6,6 +6,7 @@
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/static_array.hpp>
 
+#include "../Allocators.hpp"
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
 #include "../utils/Fwd.hpp"
@@ -33,7 +34,7 @@ class TextureDebug
         TEXTURE_DEBUG_CHANNEL_TYPES_AND_COUNT
     };
 
-    TextureDebug(wheels::Allocator &alloc) noexcept;
+    TextureDebug() noexcept = default;
     ~TextureDebug();
 
     TextureDebug(const TextureDebug &other) = delete;
@@ -80,7 +81,8 @@ class TextureDebug
     // TODO:
     // Not a String because type conversions and allocations from StrSpan. Is
     // there a better universal solution?
-    wheels::HashMap<uint64_t, TargetSettings> _targetSettings;
+    wheels::HashMap<uint64_t, TargetSettings> _targetSettings{
+        gAllocators.general};
     bool _zoom{false};
 };
 

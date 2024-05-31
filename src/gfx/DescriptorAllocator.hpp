@@ -1,6 +1,7 @@
 #ifndef PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP
 #define PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP
 
+#include "../Allocators.hpp"
 #include "Fwd.hpp"
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>
@@ -13,8 +14,7 @@
 class DescriptorAllocator
 {
   public:
-    // alloc needs to live as long as this
-    DescriptorAllocator(wheels::Allocator &alloc) noexcept;
+    DescriptorAllocator() noexcept = default;
     // Descriptors allocated by this allocator are implicitly freed when the
     // pools are destroyed
     ~DescriptorAllocator();
@@ -52,7 +52,7 @@ class DescriptorAllocator
     bool _initialized{false};
     Device *_device{nullptr};
     int32_t _activePool{-1};
-    wheels::Array<vk::DescriptorPool> _pools;
+    wheels::Array<vk::DescriptorPool> _pools{gAllocators.general};
     vk::DescriptorPoolCreateFlags _flags;
 };
 

@@ -2,6 +2,7 @@
 #ifndef PROSPER_SCENE_ANIMATIONS_HPP
 #define PROSPER_SCENE_ANIMATIONS_HPP
 
+#include "../Allocators.hpp"
 #include "Accessors.hpp"
 
 #include <cmath>
@@ -20,8 +21,8 @@ template <typename T> class Animation
 {
   public:
     Animation(
-        wheels::Allocator &alloc, InterpolationType interpolation,
-        TimeAccessor &&timeFrames, ValueAccessor<T> &&valueFrames);
+        InterpolationType interpolation, TimeAccessor &&timeFrames,
+        ValueAccessor<T> &&valueFrames);
 
     float endTimeS() const;
 
@@ -29,7 +30,9 @@ template <typename T> class Animation
     void update(float timeS);
 
   private:
-    wheels::Array<T *> _targets;
+    // General because we don't know how many of these we'll have beforehand
+    // TODO: tlsf and linear allocators for diffrent world use cases?
+    wheels::Array<T *> _targets{gAllocators.general};
 
     InterpolationType _interpolation{InterpolationType::Step};
     TimeAccessor _timeFrames;
@@ -38,22 +41,15 @@ template <typename T> class Animation
 
 struct Animations
 {
-    wheels::Array<Animation<glm::vec3>> _vec3;
-    wheels::Array<Animation<glm::quat>> _quat;
-
-    Animations(wheels::Allocator &alloc)
-    : _vec3{alloc}
-    , _quat{alloc}
-    {
-    }
+    wheels::Array<Animation<glm::vec3>> _vec3{gAllocators.world};
+    wheels::Array<Animation<glm::quat>> _quat{gAllocators.world};
 };
 
 template <typename T>
 Animation<T>::Animation(
-    wheels::Allocator &alloc, InterpolationType interpolation,
-    TimeAccessor &&timeFrames, ValueAccessor<T> &&valueFrames)
-: _targets{alloc}
-, _interpolation{interpolation}
+    InterpolationType interpolation, TimeAccessor &&timeFrames,
+    ValueAccessor<T> &&valueFrames)
+: _interpolation{interpolation}
 , _timeFrames{WHEELS_FWD(timeFrames)}
 , _valueFrames{WHEELS_FWD(valueFrames)}
 {

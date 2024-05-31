@@ -14,7 +14,7 @@
 class World
 {
   public:
-    World(wheels::Allocator &generalAlloc) noexcept;
+    World() noexcept;
     ~World();
 
     World(const World &other) = delete;
@@ -68,9 +68,6 @@ class World
     [[nodiscard]] wheels::Span<const Material> materials() const;
     [[nodiscard]] wheels::Span<const MeshInfo> meshInfos() const;
     [[nodiscard]] SkyboxResources &skyboxResources();
-
-    [[nodiscard]] size_t deferredLoadingGeneralAllocatorHighWatermark() const;
-    [[nodiscard]] size_t linearAllocatorHighWatermark() const;
 
   private:
     // Pimpl to isolate heavy includes within the World CU

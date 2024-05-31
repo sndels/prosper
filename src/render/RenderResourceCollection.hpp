@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_RESOURCE_COLLECTION_HPP
 #define PROSPER_RENDER_RESOURCE_COLLECTION_HPP
 
+#include "../Allocators.hpp"
 #include "../gfx/Device.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResourceHandle.hpp"
@@ -21,7 +22,7 @@ template <
 class RenderResourceCollection
 {
   public:
-    RenderResourceCollection(wheels::Allocator &alloc) noexcept;
+    RenderResourceCollection() noexcept = default;
     virtual ~RenderResourceCollection();
 
     RenderResourceCollection(RenderResourceCollection &) = delete;
@@ -60,7 +61,6 @@ class RenderResourceCollection
 
   protected:
     Device *_device{nullptr};
-    wheels::Allocator &_alloc;
 
     void assertValidHandle(Handle handle) const;
 
@@ -73,39 +73,19 @@ class RenderResourceCollection
 
     // RenderImageCollection depends on returned handle indices being
     // contiguous.
-    wheels::Array<Resource> _resources;
-    wheels::Array<Description> _descriptions;
-    wheels::Array<wheels::String> _aliasedDebugNames;
-    wheels::Array<uint64_t> _generations;
-    wheels::Array<wheels::String> _debugNames;
+    wheels::Array<Resource> _resources{gAllocators.general};
+    wheels::Array<Description> _descriptions{gAllocators.general};
+    wheels::Array<wheels::String> _aliasedDebugNames{gAllocators.general};
+    wheels::Array<uint64_t> _generations{gAllocators.general};
+    wheels::Array<wheels::String> _debugNames{gAllocators.general};
     wheels::Optional<wheels::String> _markedDebugName;
     wheels::Optional<Handle> _markedDebugHandle;
-    wheels::Array<bool> _preserved;
-    wheels::Array<uint8_t> _framesSinceUsed;
+    wheels::Array<bool> _preserved{gAllocators.general};
+    wheels::Array<uint8_t> _framesSinceUsed{gAllocators.general};
     // Indices of resource slots whose resource has been destroyed fully and so
     // the slot can be reused
-    wheels::Array<uint32_t> _freelist;
+    wheels::Array<uint32_t> _freelist{gAllocators.general};
 };
-
-template <
-    typename Handle, typename Resource, typename Description,
-    typename CreateInfo, typename ResourceState, typename Barrier,
-    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
-RenderResourceCollection<
-    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
-    CppNativeType, NativeType,
-    ObjectType>::RenderResourceCollection(wheels::Allocator &alloc) noexcept
-: _alloc{alloc}
-, _resources{alloc}
-, _descriptions{alloc}
-, _aliasedDebugNames{alloc}
-, _generations{alloc}
-, _debugNames{alloc}
-, _preserved{alloc}
-, _framesSinceUsed{alloc}
-, _freelist{alloc}
-{
-}
 
 template <
     typename Handle, typename Resource, typename Description,
@@ -292,8 +272,8 @@ Handle RenderResourceCollection<
     {
         _resources.emplace_back();
         _descriptions.emplace_back();
-        _aliasedDebugNames.emplace_back(_alloc);
-        _debugNames.emplace_back(_alloc);
+        _aliasedDebugNames.emplace_back(gAllocators.general);
+        _debugNames.emplace_back(gAllocators.general);
         _preserved.push_back(false);
         _framesSinceUsed.push_back((uint8_t)0);
         // We might have handle generations from previously destroyed resources
@@ -453,7 +433,7 @@ void RenderResourceCollection<
         });
 
     assertUniqueDebugName(debugName);
-    _debugNames.emplace_back(_alloc, debugName);
+    _debugNames.emplace_back(gAllocators.general, debugName);
 
     if (_markedDebugName.has_value() && debugName == *_markedDebugName)
         _markedDebugHandle = handle;
@@ -553,7 +533,7 @@ void RenderResourceCollection<
 {
     WHEELS_ASSERT(_device != nullptr);
 
-    _markedDebugName = wheels::String{_alloc, debugName};
+    _markedDebugName = wheels::String{gAllocators.general, debugName};
     // Let's not worry about finding the resource immediately, we'll have it on
     // the next frame.
     _markedDebugHandle.reset();

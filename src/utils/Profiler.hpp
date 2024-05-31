@@ -1,16 +1,19 @@
 #ifndef PROSPER_UTILS_PROFILER_HPP
 #define PROSPER_UTILS_PROFILER_HPP
 
+#include "../Allocators.hpp"
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
+#include "../utils/Utils.hpp"
 
-#include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/string.hpp>
 
 #include <chrono>
+
+constexpr uint32_t sMaxScopeCount = 512;
 
 struct PipelineStatistics
 {
@@ -59,7 +62,7 @@ class GpuFrameProfiler
         wheels::Optional<PipelineStatistics> stats;
     };
 
-    GpuFrameProfiler(wheels::Allocator &alloc) noexcept;
+    GpuFrameProfiler() noexcept = default;
     ~GpuFrameProfiler();
 
     GpuFrameProfiler(GpuFrameProfiler const &) = delete;
@@ -85,8 +88,9 @@ class GpuFrameProfiler
     Buffer _timestampBuffer;
     Buffer _statisticsBuffer;
     QueryPools _pools;
-    wheels::Array<uint32_t> _queryScopeIndices;
-    wheels::Array<bool> _scopeHasStats;
+    wheels::Array<uint32_t> _queryScopeIndices{
+        gAllocators.general, sMaxScopeCount};
+    wheels::Array<bool> _scopeHasStats{gAllocators.general, sMaxScopeCount};
 
     friend class Profiler;
 };
@@ -122,7 +126,7 @@ class CpuFrameProfiler
         float millis{0.f};
     };
 
-    CpuFrameProfiler(wheels::Allocator &alloc) noexcept;
+    CpuFrameProfiler() noexcept = default;
     ~CpuFrameProfiler() = default;
 
     CpuFrameProfiler(CpuFrameProfiler const &) = delete;
@@ -138,7 +142,8 @@ class CpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeTime> getTimes(wheels::Allocator &alloc);
 
   private:
-    wheels::Array<std::chrono::nanoseconds> _nanos;
+    wheels::Array<std::chrono::nanoseconds> _nanos{
+        gAllocators.general, sMaxScopeCount};
 
     friend class Profiler;
 };
@@ -185,7 +190,7 @@ class Profiler
         wheels::Optional<PipelineStatistics> gpuStats;
     };
 
-    Profiler(wheels::Allocator &alloc) noexcept;
+    Profiler() noexcept = default;
     ~Profiler() = default;
 
     // Assume one profiler that is initialized in place
@@ -238,22 +243,24 @@ class Profiler
     bool _initialized{false};
     DebugState _debugState{DebugState::NewFrame};
 
-    wheels::Allocator &_alloc;
-
     CpuFrameProfiler _cpuFrameProfiler;
-    wheels::Array<GpuFrameProfiler> _gpuFrameProfilers;
+    wheels::Array<GpuFrameProfiler> _gpuFrameProfilers{
+        gAllocators.general, MAX_FRAMES_IN_FLIGHT};
 
     // There should be a 1:1 mapping between swap images and profiler frames so
     // that we know our gpu data has been filled when we read it back the next
     // time the same index comes up. We should also have 1:1 mapping between gpu
     // frames and the cpu frames that recorded them.
     uint32_t _currentFrame{0};
-    wheels::Array<wheels::String> _currentFrameScopeNames;
+    wheels::Array<wheels::String> _currentFrameScopeNames{
+        gAllocators.general, sMaxScopeCount};
 
-    wheels::Array<wheels::Array<wheels::String>> _previousScopeNames;
+    wheels::Array<wheels::Array<wheels::String>> _previousScopeNames{
+        gAllocators.general};
     wheels::Array<wheels::Array<CpuFrameProfiler::ScopeTime>>
-        _previousCpuScopeTimes;
-    wheels::Array<GpuFrameProfiler::ScopeData> _previousGpuScopeData;
+        _previousCpuScopeTimes{gAllocators.general};
+    wheels::Array<GpuFrameProfiler::ScopeData> _previousGpuScopeData{
+        gAllocators.general, sMaxScopeCount};
 };
 
 #endif // PROSPER_UTILS_PROFILER_HPP

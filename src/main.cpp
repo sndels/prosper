@@ -5,8 +5,8 @@
 #include <stdexcept>
 
 #include <cxxopts.hpp>
-#include <wheels/allocators/linear_allocator.hpp>
 
+#include "Allocators.hpp"
 #include "App.hpp"
 #include "gfx/Device.hpp"
 #include "utils/Utils.hpp"
@@ -102,6 +102,13 @@ int main(int argc, char *argv[])
         lpp::LPP_MODULES_OPTION_ALL_IMPORT_MODULES, nullptr, nullptr);
 #endif // LIVEPP_PATH
 
+    // Globals
+    // Only one of these exist, and passing them around or storing pointers to
+    // them in classes adds needless noise. This style of global avoids many
+    // issues in initialization order. More in Game Engine Architecture 3rd ed.
+    // section 6.1.2
+    gAllocators.init();
+
     try
     {
         App::Settings settings = parseCli(argc, argv);
@@ -115,6 +122,8 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Exception thrown: %s\n", e.what());
     }
+
+    gAllocators.destroy();
 
 #ifdef LIVEPP_PATH
     // destroy the Live++ agent

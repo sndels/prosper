@@ -1,6 +1,7 @@
 #ifndef PROSPER_SCENE_DEFERRED_LOADING_CONTEXT
 #define PROSPER_SCENE_DEFERRED_LOADING_CONTEXT
 
+#include "../Allocators.hpp"
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
 #include "../utils/Timer.hpp"
@@ -76,7 +77,7 @@ class DeferredLoadingContext
 {
   public:
     // Not noexcept because std::filesystem::path ctor
-    DeferredLoadingContext();
+    DeferredLoadingContext() noexcept = default;
     ~DeferredLoadingContext();
 
     DeferredLoadingContext(const DeferredLoadingContext &) = delete;
@@ -108,14 +109,15 @@ class DeferredLoadingContext
     wheels::Optional<std::thread> worker;
 
     // Worker context
-    wheels::TlsfAllocator alloc;
     cgltf_data *gltfData{nullptr};
     vk::CommandBuffer cb;
     uint32_t workerLoadedImageCount{0};
-    wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes;
-    wheels::Array<wheels::String> meshNames;
+    wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes{
+        gAllocators.loadingWorker};
+    wheels::Array<wheels::String> meshNames{gAllocators.loadingWorker};
     Buffer geometryUploadBuffer;
-    wheels::Array<uint32_t> geometryBufferRemainingByteCounts{alloc};
+    wheels::Array<uint32_t> geometryBufferRemainingByteCounts{
+        gAllocators.loadingWorker};
     uint32_t workerLoadedMeshCount{0};
     Timer meshTimer;
     Timer textureTimer;
@@ -126,15 +128,15 @@ class DeferredLoadingContext
     // them. The managing thread is assumed to copy the buffers from here and is
     // responsible for their destruction. This array should only be read from
     // outside this class, write ops are not allowed.
-    wheels::Array<Buffer> geometryBuffers{alloc};
+    wheels::Array<Buffer> geometryBuffers{gAllocators.loadingWorker};
     std::mutex loadedMeshesMutex;
-    wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes;
+    wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes{
+        gAllocators.loadingWorker};
 
     std::mutex loadedTexturesMutex;
-    wheels::Array<Texture2D> loadedTextures;
+    wheels::Array<Texture2D> loadedTextures{gAllocators.loadingWorker};
 
     std::atomic<bool> interruptLoading{false};
-    std::atomic<uint32_t> generalAllocatorHightWatermark{0};
 
     // Main context
     uint32_t geometryGeneration{0};
@@ -144,7 +146,7 @@ class DeferredLoadingContext
     uint32_t loadedMeshCount{0};
     uint32_t loadedImageCount{0};
     uint32_t loadedMaterialCount{0};
-    wheels::Array<Material> materials{alloc};
+    wheels::Array<Material> materials{gAllocators.loadingWorker};
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
 
   private:

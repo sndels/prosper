@@ -19,6 +19,7 @@
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/string.hpp>
 
+#include "Allocators.hpp"
 #include "gfx/DescriptorAllocator.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/DebugRenderer.hpp"
@@ -76,33 +77,31 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 } // namespace
 
 App::App(Settings &&settings) noexcept
-: _generalAlloc{megabytes(512)}
-, _fileChangePollingAlloc{megabytes(1)}
+: _fileChangePollingAlloc{megabytes(1)}
 , _scenePath{WHEELS_MOV(settings.scene)}
-, _device{OwningPtr<Device>(_generalAlloc, _generalAlloc, settings.device)}
-, _staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>(
-      _generalAlloc, _generalAlloc)}
-, _swapchain{OwningPtr<Swapchain>(_generalAlloc)}
-, _resources{OwningPtr<RenderResources>(_generalAlloc, _generalAlloc)}
-, _cam{OwningPtr<Camera>(_generalAlloc)}
-, _world{OwningPtr<World>(_generalAlloc, _generalAlloc)}
-, _lightClustering{OwningPtr<LightClustering>(_generalAlloc)}
-, _forwardRenderer{OwningPtr<ForwardRenderer>(_generalAlloc)}
-, _gbufferRenderer{OwningPtr<GBufferRenderer>(_generalAlloc)}
-, _deferredShading{OwningPtr<DeferredShading>(_generalAlloc)}
-, _rtDirectIllumination{OwningPtr<RtDirectIllumination>(_generalAlloc)}
-, _rtReference{OwningPtr<RtReference>(_generalAlloc)}
-, _skyboxRenderer{OwningPtr<SkyboxRenderer>(_generalAlloc)}
-, _debugRenderer{OwningPtr<DebugRenderer>(_generalAlloc)}
-, _toneMap{OwningPtr<ToneMap>(_generalAlloc)}
-, _imguiRenderer{OwningPtr<ImGuiRenderer>(_generalAlloc)}
-, _textureDebug{OwningPtr<TextureDebug>(_generalAlloc, _generalAlloc)}
-, _depthOfField{OwningPtr<DepthOfField>(_generalAlloc)}
-, _imageBasedLighting{OwningPtr<ImageBasedLighting>(_generalAlloc)}
-, _temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>(_generalAlloc)}
-, _meshletCuller{OwningPtr<MeshletCuller>(_generalAlloc)}
-, _textureReadback{OwningPtr<TextureReadback>(_generalAlloc)}
-, _profiler{OwningPtr<Profiler>(_generalAlloc, _generalAlloc)}
+, _device{OwningPtr<Device>{gAllocators.general, settings.device}}
+, _staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>{gAllocators.general}}
+, _swapchain{OwningPtr<Swapchain>{gAllocators.general}}
+, _resources{OwningPtr<RenderResources>{gAllocators.general}}
+, _cam{OwningPtr<Camera>{gAllocators.general}}
+, _world{OwningPtr<World>{gAllocators.general}}
+, _lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
+, _forwardRenderer{OwningPtr<ForwardRenderer>{gAllocators.general}}
+, _gbufferRenderer{OwningPtr<GBufferRenderer>{gAllocators.general}}
+, _deferredShading{OwningPtr<DeferredShading>{gAllocators.general}}
+, _rtDirectIllumination{OwningPtr<RtDirectIllumination>{gAllocators.general}}
+, _rtReference{OwningPtr<RtReference>{gAllocators.general}}
+, _skyboxRenderer{OwningPtr<SkyboxRenderer>{gAllocators.general}}
+, _debugRenderer{OwningPtr<DebugRenderer>{gAllocators.general}}
+, _toneMap{OwningPtr<ToneMap>{gAllocators.general}}
+, _imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
+, _textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
+, _depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
+, _imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
+, _temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
+, _meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
+, _textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
+, _profiler{OwningPtr<Profiler>{gAllocators.general}}
 {
 }
 
@@ -139,9 +138,8 @@ void App::init()
        [&]
        {
            _window = OwningPtr<Window>(
-               _generalAlloc, _generalAlloc,
-               Pair<uint32_t, uint32_t>{WIDTH, HEIGHT}, "prosper",
-               &_inputHandler);
+               gAllocators.general, Pair<uint32_t, uint32_t>{WIDTH, HEIGHT},
+               "prosper", &_inputHandler);
        });
     tl("Device init",
        [&] { _device->init(scopeAlloc.child_scope(), _window->ptr()); });
@@ -1088,7 +1086,7 @@ void App::drawProfiling(
     ImGui::End();
 }
 
-void App::drawMemory(uint32_t scopeHighWatermark)
+void App::drawMemory(uint32_t scopeHighWatermark) const
 {
     ImGui::SetNextWindowPos(
         ImVec2{
@@ -1110,7 +1108,7 @@ void App::drawMemory(uint32_t scopeHighWatermark)
         "  Images: %uMB\n",
         asserted_cast<uint32_t>(allocs.images / 1024 / 1024));
 
-    TlsfAllocator::Stats const &allocStats = _generalAlloc.stats();
+    TlsfAllocator::Stats const &allocStats = gAllocators.general.stats();
 
     ImGui::Text("High watermarks:\n");
     ImGui::Text(
@@ -1119,11 +1117,11 @@ void App::drawMemory(uint32_t scopeHighWatermark)
     ImGui::Text(
         "  deferred general: %uMB\n",
         asserted_cast<uint32_t>(
-            _world->deferredLoadingGeneralAllocatorHighWatermark() / 1024 /
-            1024));
+            gAllocators.loadingWorkerHighWatermark / 1024 / 1024));
     ImGui::Text(
         "  world: %uKB\n",
-        asserted_cast<uint32_t>(_world->linearAllocatorHighWatermark() / 1024));
+        asserted_cast<uint32_t>(
+            gAllocators.world.allocated_byte_count_high_watermark() / 1024));
     ImGui::Text(
         "  general: %uMB\n",
         asserted_cast<uint32_t>(

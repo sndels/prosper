@@ -72,7 +72,7 @@ class App
     void drawProfiling(
         wheels::ScopedScratch scopeAlloc,
         const wheels::Array<Profiler::ScopeData> &profilerDatas);
-    void drawMemory(uint32_t scopeHighWatermark);
+    void drawMemory(uint32_t scopeHighWatermark) const;
     // Returns true if time was tweaked
     bool drawTimeline();
     // Returns true if settings changed
@@ -103,7 +103,6 @@ class App
     void handleResizes(
         wheels::ScopedScratch scopeAlloc, bool shouldResizeSwapchain);
 
-    wheels::TlsfAllocator _generalAlloc;
     // Separate allocator for async polling as TlsfAllocator is not thread safe
     wheels::TlsfAllocator _fileChangePollingAlloc;
     std::filesystem::path _scenePath;

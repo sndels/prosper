@@ -68,7 +68,7 @@ class Device
         bool robustAccess{false};
     };
 
-    Device(wheels::Allocator &generalAlloc, const Settings &settings) noexcept;
+    Device(const Settings &settings) noexcept;
     ~Device();
 
     Device(const Device &other) = delete;
@@ -179,7 +179,6 @@ class Device
         wheels::StrSpan topLevelSource, const std::filesystem::path &relPath);
 
     bool _initialized{false};
-    wheels::Allocator &_generalAlloc;
     Settings _settings;
 
     vk::Instance _instance;

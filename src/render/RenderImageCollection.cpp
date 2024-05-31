@@ -1,11 +1,5 @@
 #include "RenderImageCollection.hpp"
 
-RenderImageCollection::RenderImageCollection(wheels::Allocator &alloc) noexcept
-: RenderResourceCollection{alloc}
-, _subresourceViews{alloc}
-{
-}
-
 RenderImageCollection::~RenderImageCollection()
 {
     RenderImageCollection::destroyResources();

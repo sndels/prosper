@@ -31,7 +31,7 @@ class RenderResources
         vk::Buffer, VkBuffer, vk::ObjectType::eBuffer>;
 
     // Both alloc and device need to live as long as this
-    RenderResources(wheels::Allocator &alloc) noexcept;
+    RenderResources() noexcept = default;
     ~RenderResources();
 
     RenderResources(RenderResources &) = delete;
