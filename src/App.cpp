@@ -1102,33 +1102,33 @@ void App::drawMemory(uint32_t scopeHighWatermark)
     ImGui::Text("Active GPU allocations:\n");
     ImGui::Text(
         "  Buffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.buffers / 1000 / 1000));
+        asserted_cast<uint32_t>(allocs.buffers / 1024 / 1024));
     ImGui::Text(
         "  TexelBuffers: %uMB\n",
-        asserted_cast<uint32_t>(allocs.texelBuffers / 1000 / 1000));
+        asserted_cast<uint32_t>(allocs.texelBuffers / 1024 / 1024));
     ImGui::Text(
         "  Images: %uMB\n",
-        asserted_cast<uint32_t>(allocs.images / 1000 / 1000));
+        asserted_cast<uint32_t>(allocs.images / 1024 / 1024));
 
     TlsfAllocator::Stats const &allocStats = _generalAlloc.stats();
 
     ImGui::Text("High watermarks:\n");
     ImGui::Text(
         "  ctors : %uKB\n",
-        asserted_cast<uint32_t>(_ctorScratchHighWatermark) / 1000);
+        asserted_cast<uint32_t>(_ctorScratchHighWatermark) / 1024);
     ImGui::Text(
         "  deferred general: %uMB\n",
         asserted_cast<uint32_t>(
-            _world->deferredLoadingGeneralAllocatorHighWatermark() / 1000 /
-            1000));
+            _world->deferredLoadingGeneralAllocatorHighWatermark() / 1024 /
+            1024));
     ImGui::Text(
         "  world: %uKB\n",
-        asserted_cast<uint32_t>(_world->linearAllocatorHighWatermark() / 1000));
+        asserted_cast<uint32_t>(_world->linearAllocatorHighWatermark() / 1024));
     ImGui::Text(
         "  general: %uMB\n",
         asserted_cast<uint32_t>(
-            allocStats.allocated_byte_count_high_watermark / 1000 / 1000));
-    ImGui::Text("  frame scope: %uKB\n", scopeHighWatermark / 1000);
+            allocStats.allocated_byte_count_high_watermark / 1024 / 1024));
+    ImGui::Text("  frame scope: %uKB\n", scopeHighWatermark / 1024);
 
     ImGui::Text("General allocator stats:\n");
 
@@ -1139,10 +1139,10 @@ void App::drawMemory(uint32_t scopeHighWatermark)
         asserted_cast<uint32_t>(allocStats.small_allocation_count));
     ImGui::Text(
         "  size: %uKB\n",
-        asserted_cast<uint32_t>(allocStats.allocated_byte_count / 1000));
+        asserted_cast<uint32_t>(allocStats.allocated_byte_count / 1024));
     ImGui::Text(
         "  free size: %uKB\n",
-        asserted_cast<uint32_t>(allocStats.free_byte_count / 1000));
+        asserted_cast<uint32_t>(allocStats.free_byte_count / 1024));
 
     ImGui::End();
 }
