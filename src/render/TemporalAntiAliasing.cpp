@@ -109,7 +109,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void TemporalAntiAliasing::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 {
@@ -118,7 +118,7 @@ void TemporalAntiAliasing::init(
 
     _resources = resources;
     _computePass.init(
-        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = StorageBindingSet,

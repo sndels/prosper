@@ -34,6 +34,72 @@ bool relativeEq(float a, float b, float maxRelativeDiff)
     return diff < scaledEpsilon;
 }
 
+AccelerationStructure createTlas(
+    const Scene &scene, vk::AccelerationStructureBuildSizesInfoKHR sizeInfo,
+    vk::AccelerationStructureBuildGeometryInfoKHR buildInfo)
+{
+    AccelerationStructure tlas;
+    tlas.buffer = gDevice.createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = sizeInfo.accelerationStructureSize,
+                .usage =
+                    vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
+                    vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                    vk::BufferUsageFlagBits::eStorageBuffer,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
+        .debugName = "TLASBuffer",
+    });
+
+    const vk::AccelerationStructureCreateInfoKHR createInfo{
+        .buffer = tlas.buffer.handle,
+        .size = sizeInfo.accelerationStructureSize,
+        .type = buildInfo.type,
+    };
+    tlas.handle = gDevice.logical().createAccelerationStructureKHR(createInfo);
+    tlas.address = gDevice.logical().getAccelerationStructureAddressKHR(
+        vk::AccelerationStructureDeviceAddressInfoKHR{
+            .accelerationStructure = tlas.handle,
+        });
+
+    const vk::DescriptorBufferInfo instanceInfo{
+        .buffer = scene.drawInstancesBuffer.handle, .range = VK_WHOLE_SIZE};
+
+    StaticArray descriptorWrites{{
+        vk::WriteDescriptorSet{
+            .dstSet = scene.rtDescriptorSet,
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
+        },
+        vk::WriteDescriptorSet{
+            .dstSet = scene.rtDescriptorSet,
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &instanceInfo,
+        },
+    }};
+
+    // TODO:
+    // This seems potentially messy to support with the
+    // common reflection interface
+    const vk::WriteDescriptorSetAccelerationStructureKHR asWrite{
+        .accelerationStructureCount = 1,
+        .pAccelerationStructures = &tlas.handle,
+    };
+    descriptorWrites[0].pNext = &asWrite;
+
+    gDevice.logical().updateDescriptorSets(
+        asserted_cast<uint32_t>(descriptorWrites.size()),
+        descriptorWrites.data(), 0, nullptr);
+
+    return tlas;
+}
+
 } // namespace
 
 // TODO: Split scene loading and runtime scene into separate classes, CUs
@@ -49,7 +115,7 @@ class World::Impl
     Impl &operator=(Impl &&other) = delete;
 
     void init(
-        ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+        ScopedScratch scopeAlloc, RingBuffer *constantsRing,
         const std::filesystem::path &scene);
 
     void startFrame();
@@ -83,9 +149,6 @@ class World::Impl
     bool buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb);
     void buildCurrentTlas(vk::CommandBuffer cb);
     void reserveTlasInstances(uint32_t instanceCount);
-    [[nodiscard]] AccelerationStructure createTlas(
-        const Scene &scene, vk::AccelerationStructureBuildSizesInfoKHR sizeInfo,
-        vk::AccelerationStructureBuildGeometryInfoKHR buildInfo);
     void updateTlasInstances(ScopedScratch scopeAlloc, const Scene &scene);
     void createTlasBuildInfos(
         const Scene &scene,
@@ -95,7 +158,6 @@ class World::Impl
         vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
 
     RingBuffer *_constantsRing{nullptr};
-    Device *_device{nullptr};
     RingBuffer _lightDataRing;
     wheels::Optional<size_t> _nextScene;
     uint32_t _framesSinceFinalBlasBuilds{0};
@@ -120,23 +182,19 @@ class World::Impl
 
 World::Impl::~Impl()
 {
-    if (_device != nullptr)
-    {
-        for (auto &sb : _scratchBuffers)
-            _device->destroy(sb.buffer);
-        _device->destroy(_tlasInstancesBuffer);
-    }
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    for (auto &sb : _scratchBuffers)
+        gDevice.destroy(sb.buffer);
+    gDevice.destroy(_tlasInstancesBuffer);
 }
 
 void World::Impl::init(
-    ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+    ScopedScratch scopeAlloc, RingBuffer *constantsRing,
     const std::filesystem::path &scene)
 {
-    WHEELS_ASSERT(_device == nullptr);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(constantsRing != nullptr);
 
-    _device = device;
     _constantsRing = constantsRing;
 
     const uint32_t lightDataBufferSize =
@@ -145,11 +203,11 @@ void World::Impl::init(
          SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
         MAX_FRAMES_IN_FLIGHT;
     _lightDataRing.init(
-        _device, vk::BufferUsageFlagBits::eStorageBuffer, lightDataBufferSize,
+        vk::BufferUsageFlagBits::eStorageBuffer, lightDataBufferSize,
         "LightDataRing");
 
     _data.init(
-        WHEELS_MOV(scopeAlloc), device,
+        WHEELS_MOV(scopeAlloc),
         WorldData::RingBuffers{
             .constantsRing = _constantsRing,
             .lightDataRing = &_lightDataRing,
@@ -192,7 +250,7 @@ void World::Impl::startFrame()
         {
             // No in-flight frames are using the buffer so it can be safely
             // destroyed
-            _device->destroy(sb.buffer);
+            gDevice.destroy(sb.buffer);
             // The reference held by sb is invalid after this
             _scratchBuffers.erase(i);
         }
@@ -514,72 +572,6 @@ bool World::Impl::buildAccelerationStructures(
     return blasAdded;
 }
 
-AccelerationStructure World::Impl::createTlas(
-    const Scene &scene, vk::AccelerationStructureBuildSizesInfoKHR sizeInfo,
-    vk::AccelerationStructureBuildGeometryInfoKHR buildInfo)
-{
-    AccelerationStructure tlas;
-    tlas.buffer = _device->createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = sizeInfo.accelerationStructureSize,
-                .usage =
-                    vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
-                    vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                    vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-        .debugName = "TLASBuffer",
-    });
-
-    const vk::AccelerationStructureCreateInfoKHR createInfo{
-        .buffer = tlas.buffer.handle,
-        .size = sizeInfo.accelerationStructureSize,
-        .type = buildInfo.type,
-    };
-    tlas.handle = _device->logical().createAccelerationStructureKHR(createInfo);
-    tlas.address = _device->logical().getAccelerationStructureAddressKHR(
-        vk::AccelerationStructureDeviceAddressInfoKHR{
-            .accelerationStructure = tlas.handle,
-        });
-
-    const vk::DescriptorBufferInfo instanceInfo{
-        .buffer = scene.drawInstancesBuffer.handle, .range = VK_WHOLE_SIZE};
-
-    StaticArray descriptorWrites{{
-        vk::WriteDescriptorSet{
-            .dstSet = scene.rtDescriptorSet,
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eAccelerationStructureKHR,
-        },
-        vk::WriteDescriptorSet{
-            .dstSet = scene.rtDescriptorSet,
-            .dstBinding = 1,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eStorageBuffer,
-            .pBufferInfo = &instanceInfo,
-        },
-    }};
-
-    // TODO:
-    // This seems potentially messy to support with the
-    // common reflection interface
-    const vk::WriteDescriptorSetAccelerationStructureKHR asWrite{
-        .accelerationStructureCount = 1,
-        .pAccelerationStructures = &tlas.handle,
-    };
-    descriptorWrites[0].pNext = &asWrite;
-
-    _device->logical().updateDescriptorSets(
-        asserted_cast<uint32_t>(descriptorWrites.size()),
-        descriptorWrites.data(), 0, nullptr);
-
-    return tlas;
-}
-
 void World::Impl::drawSkybox(vk::CommandBuffer cb) const
 {
     const vk::DeviceSize offset = 0;
@@ -675,7 +667,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     };
 
     const vk::AccelerationStructureBuildSizesInfoKHR sizeInfo =
-        _device->logical().getAccelerationStructureBuildSizesKHR(
+        gDevice.logical().getAccelerationStructureBuildSizesKHR(
             vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
             {asserted_cast<uint32_t>(maxPrimitiveCounts.size()),
              maxPrimitiveCounts.data()});
@@ -683,7 +675,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     _data._blases.push_back(AccelerationStructure{});
     AccelerationStructure &blas = _data._blases.back();
 
-    blas.buffer = _device->createBuffer(BufferCreateInfo{
+    blas.buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeInfo.accelerationStructureSize,
@@ -701,8 +693,8 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
         .size = sizeInfo.accelerationStructureSize,
         .type = buildInfo.type,
     };
-    blas.handle = _device->logical().createAccelerationStructureKHR(createInfo);
-    blas.address = _device->logical().getAccelerationStructureAddressKHR(
+    blas.handle = gDevice.logical().createAccelerationStructureKHR(createInfo);
+    blas.address = gDevice.logical().getAccelerationStructureAddressKHR(
         vk::AccelerationStructureDeviceAddressInfoKHR{
             .accelerationStructure = blas.handle,
         });
@@ -715,7 +707,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
         blasName.extend(smName);
         blasName.push_back('|');
     }
-    _device->logical().setDebugUtilsObjectNameEXT(
+    gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eAccelerationStructureKHR,
             .objectHandle = reinterpret_cast<uint64_t>(
@@ -814,7 +806,7 @@ Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
 
     // Didn't find a viable buffer so allocate a new one
     _scratchBuffers.push_back(ScratchBuffer{
-        .buffer = _device->createBuffer(BufferCreateInfo{
+        .buffer = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = byteSize,
@@ -838,12 +830,12 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
     {
         // TODO: This destroy isn't safe until all frames in flight have
         // finished
-        _device->destroy(_tlasInstancesBuffer);
+        gDevice.destroy(_tlasInstancesBuffer);
         // TODO: This destroy isn't safe until all frames in flight have
         // finished
         _tlasInstancesUploadRing.reset();
 
-        _tlasInstancesBuffer = _device->createBuffer(BufferCreateInfo{
+        _tlasInstancesBuffer = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = byteSize,
@@ -861,7 +853,7 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
             (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
         _tlasInstancesUploadRing = OwningPtr<RingBuffer>(gAllocators.general);
         _tlasInstancesUploadRing->init(
-            _device, vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
+            vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
             "InstancesUploadBuffer");
         _tlasInstancesUploadRing->startFrame();
     }
@@ -946,7 +938,7 @@ void World::Impl::createTlasBuildInfos(
         .pGeometries = &geometryOut,
     };
 
-    sizeInfoOut = _device->logical().getAccelerationStructureBuildSizesKHR(
+    sizeInfoOut = gDevice.logical().getAccelerationStructureBuildSizesKHR(
         vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfoOut,
         {rangeInfoOut.primitiveCount});
 }
@@ -960,11 +952,11 @@ World::World() noexcept
 World::~World() = default;
 
 void World::init(
-    wheels::ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+    wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
     const std::filesystem::path &scene)
 {
     WHEELS_ASSERT(!_initialized);
-    _impl->init(WHEELS_MOV(scopeAlloc), device, constantsRing, scene);
+    _impl->init(WHEELS_MOV(scopeAlloc), constantsRing, scene);
     _initialized = true;
 }
 

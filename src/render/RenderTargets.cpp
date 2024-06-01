@@ -1,16 +1,17 @@
 #include "RenderTargets.hpp"
 
+#include "../gfx/Device.hpp"
 #include "../gfx/Resources.hpp"
 #include "RenderResources.hpp"
 
 ImageHandle createDepth(
-    Device &device, RenderResources &resources, const vk::Extent2D &size,
-    const char *debugName)
+    RenderResources &resources, const vk::Extent2D &size, const char *debugName)
 {
     // Check depth buffer without stencil is supported
     const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment |
                           vk::FormatFeatureFlagBits::eSampledImage;
-    const auto properties = device.physical().getFormatProperties(sDepthFormat);
+    const auto properties =
+        gDevice.physical().getFormatProperties(sDepthFormat);
     if ((properties.optimalTilingFeatures & features) != features)
         throw std::runtime_error("Depth format unsupported");
 

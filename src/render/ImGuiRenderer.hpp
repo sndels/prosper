@@ -20,9 +20,7 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
-    void init(
-        Device *device, RenderResources *resources,
-        const SwapchainConfig &swapConfig);
+    void init(RenderResources *resources, const SwapchainConfig &swapConfig);
 
     void startFrame(Profiler *profiler);
     void endFrame(
@@ -38,7 +36,6 @@ class ImGuiRenderer
     static void setStyle();
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     vk::DescriptorPool _descriptorPool;
     ImGuiID _dockAreaID{0};

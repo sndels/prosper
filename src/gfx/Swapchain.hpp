@@ -36,8 +36,7 @@ struct SwapchainConfig
 
     SwapchainConfig() noexcept = default;
     SwapchainConfig(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        const vk::Extent2D &preferredExtent);
+        wheels::ScopedScratch scopeAlloc, const vk::Extent2D &preferredExtent);
 };
 
 struct SwapchainImage
@@ -58,7 +57,7 @@ class Swapchain
     Swapchain &operator=(const Swapchain &other) = delete;
     Swapchain &operator=(Swapchain &&other) = delete;
 
-    void init(Device *device, const SwapchainConfig &config);
+    void init(const SwapchainConfig &config);
 
     [[nodiscard]] SwapchainConfig const &config() const;
     [[nodiscard]] vk::Format format() const;
@@ -83,7 +82,6 @@ class Swapchain
     void createFences();
 
     bool _initialized{false};
-    Device *_device{nullptr};
     SwapchainConfig _config;
 
     vk::SwapchainKHR _swapchain;

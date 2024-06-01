@@ -50,7 +50,7 @@ struct UploadedGeometryData
     wheels::StrSpan meshName;
 };
 
-Buffer createTextureStaging(Device *device);
+Buffer createTextureStaging();
 
 // Changes to this require changes to sMeshCacheVersion
 struct MeshCacheHeader
@@ -86,7 +86,7 @@ class DeferredLoadingContext
     DeferredLoadingContext &operator=(DeferredLoadingContext &&) = delete;
 
     void init(
-        Device *inDevice, std::filesystem::path inSceneDir,
+        std::filesystem::path inSceneDir,
         std::filesystem::file_time_type inSceneWriteTime,
         cgltf_data *inGltfData);
 
@@ -102,7 +102,6 @@ class DeferredLoadingContext
     // Make shared context private and access through methods that handle
     // mutexes?
     bool initialized{false};
-    Device *device{nullptr};
     std::filesystem::path sceneDir;
     std::filesystem::file_time_type sceneWriteTime;
     // If there's no worker, main thread handles loading

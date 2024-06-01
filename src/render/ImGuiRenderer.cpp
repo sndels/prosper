@@ -43,31 +43,31 @@ ImVec4 operator*(const ImVec4 &lhs, const ImVec4 &rhs)
 
 ImGuiRenderer::~ImGuiRenderer()
 {
-    if (_device != nullptr)
+    if (_initialized)
     {
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
-        _device->logical().destroy(_descriptorPool);
+        gDevice.logical().destroy(_descriptorPool);
     }
 }
 
 void ImGuiRenderer::init(
-    Device *device, RenderResources *resources,
-    const SwapchainConfig &swapConfig)
+    RenderResources *resources, const SwapchainConfig &swapConfig)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
 
     GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
 
-    _device = device;
     _resources = resources;
 
     printf("Creating ImGuiRenderer\n");
+
+    // TODO:
+    // If this init fails in some part, the dtor will not clean up anything
 
     createDescriptorPool();
 
@@ -95,11 +95,11 @@ void ImGuiRenderer::init(
 
     ImGui_ImplGlfw_InitForVulkan(window, false);
     ImGui_ImplVulkan_InitInfo init_info = {
-        .Instance = _device->instance(),
-        .PhysicalDevice = _device->physical(),
-        .Device = _device->logical(),
-        .QueueFamily = *_device->queueFamilies().graphicsFamily,
-        .Queue = _device->graphicsQueue(),
+        .Instance = gDevice.instance(),
+        .PhysicalDevice = gDevice.physical(),
+        .Device = gDevice.logical(),
+        .QueueFamily = *gDevice.queueFamilies().graphicsFamily,
+        .Queue = gDevice.graphicsQueue(),
         .DescriptorPool = _descriptorPool,
         .MinImageCount = swapConfig.imageCount,
         .ImageCount = swapConfig.imageCount,
@@ -216,7 +216,7 @@ void ImGuiRenderer::createDescriptorPool()
         .descriptorCount = 1,
     };
     _descriptorPool =
-        _device->logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+        gDevice.logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
             .maxSets = 1,
             .poolSizeCount = 1,

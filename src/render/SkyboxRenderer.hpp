@@ -23,8 +23,8 @@ class SkyboxRenderer
     SkyboxRenderer &operator=(SkyboxRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, const vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        const vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
@@ -62,7 +62,6 @@ class SkyboxRenderer
         const WorldDSLayouts &worldDSLayouts);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;

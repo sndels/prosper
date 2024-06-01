@@ -61,7 +61,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldSetup::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 {
@@ -70,7 +70,7 @@ void DepthOfFieldSetup::init(
 
     _resources = resources;
     _computePass.init(
-        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = StorageBindingSet,

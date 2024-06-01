@@ -12,23 +12,21 @@ constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
 
 RingBuffer::~RingBuffer()
 {
-    if (_device != nullptr)
-        _device->destroy(_buffer);
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.destroy(_buffer);
 }
 
 void RingBuffer::init(
-    Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
-    const char *debugName)
+    vk::BufferUsageFlags usage, uint32_t byteSize, const char *debugName)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
-    _device = device;
 
     // Implementation assumes these in allocate()
     WHEELS_ASSERT(byteSize > RingBuffer::sAlignment);
     WHEELS_ASSERT(byteSize <= sMaxAllocation);
 
-    _buffer = _device->createBuffer(BufferCreateInfo{
+    _buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = byteSize,

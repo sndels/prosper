@@ -43,8 +43,7 @@ class TextureDebug
     TextureDebug &operator=(TextureDebug &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -64,7 +63,6 @@ class TextureDebug
     ImageHandle createOutput(vk::Extent2D size);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _readbackBuffers;
 

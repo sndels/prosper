@@ -50,28 +50,24 @@ struct PCBlock
 
 ForwardRenderer::~ForwardRenderer()
 {
-    if (_device != nullptr)
-    {
-        destroyGraphicsPipelines();
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    destroyGraphicsPipelines();
 
-        _device->logical().destroy(_meshSetLayout);
+    gDevice.logical().destroy(_meshSetLayout);
 
-        for (auto const &stage : _shaderStages)
-            _device->logical().destroyShaderModule(stage.module);
-    }
+    for (auto const &stage : _shaderStages)
+        gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void ForwardRenderer::init(
-    ScopedScratch scopeAlloc, Device *device,
-    DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
-    const InputDSLayouts &dsLayouts)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
+    RenderResources *resources, const InputDSLayouts &dsLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    _device = device;
     _resources = resources;
 
     printf("Creating ForwardRenderer\n");
@@ -118,7 +114,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ret.illumination =
         createIllumination(*_resources, renderArea.extent, "illumination");
     ret.velocity = createVelocity(*_resources, renderArea.extent, "velocity");
-    ret.depth = createDepth(*_device, *_resources, renderArea.extent, "depth");
+    ret.depth = createDepth(*_resources, renderArea.extent, "depth");
 
     record(
         WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
@@ -165,7 +161,7 @@ bool ForwardRenderer::compileShaders(
     ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
 {
     const vk::PhysicalDeviceMeshShaderPropertiesEXT &meshShaderProps =
-        _device->properties().meshShader;
+        gDevice.properties().meshShader;
 
     const size_t meshDefsLen = 178;
     String meshDefines{scopeAlloc, meshDefsLen};
@@ -184,7 +180,7 @@ bool ForwardRenderer::compileShaders(
     WHEELS_ASSERT(meshDefines.size() <= meshDefsLen);
 
     Optional<Device::ShaderCompileResult> meshResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.mesh",
                                           .debugName = "geometryMS",
@@ -215,7 +211,7 @@ bool ForwardRenderer::compileShaders(
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
     Optional<Device::ShaderCompileResult> fragResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.frag",
                                           .debugName = "geometryPS",
@@ -225,7 +221,7 @@ bool ForwardRenderer::compileShaders(
     if (meshResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
-            _device->logical().destroyShaderModule(stage.module);
+            gDevice.logical().destroyShaderModule(stage.module);
 
         _meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
@@ -252,9 +248,9 @@ bool ForwardRenderer::compileShaders(
     }
 
     if (meshResult.has_value())
-        _device->logical().destroy(meshResult->module);
+        gDevice.logical().destroy(meshResult->module);
     if (fragResult.has_value())
-        _device->logical().destroy(fragResult->module);
+        gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
@@ -264,7 +260,7 @@ void ForwardRenderer::createDescriptorSets(
 {
     WHEELS_ASSERT(_meshReflection.has_value());
     _meshSetLayout = _meshReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), *_device, DrawStatsBindingSet,
+        WHEELS_MOV(scopeAlloc), DrawStatsBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT * 2>
@@ -298,7 +294,7 @@ void ForwardRenderer::updateDescriptorSet(
         _meshReflection->generateDescriptorWrites(
             scopeAlloc, DrawStatsBindingSet, ds, infos);
 
-    _device->logical().updateDescriptorSets(
+    gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
@@ -306,8 +302,8 @@ void ForwardRenderer::updateDescriptorSet(
 void ForwardRenderer::destroyGraphicsPipelines()
 {
     for (auto &p : _pipelines)
-        _device->logical().destroy(p);
-    _device->logical().destroy(_pipelineLayout);
+        gDevice.logical().destroy(p);
+    gDevice.logical().destroy(_pipelineLayout);
 }
 
 void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
@@ -331,7 +327,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         .size = sizeof(PCBlock),
     };
     _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
@@ -348,7 +344,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             colorBlendAttachments{opaqueColorBlendAttachment()};
 
         _pipelines[0] = createGraphicsPipeline(
-            _device->logical(),
+            gDevice.logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
                 .colorBlendAttachments = colorBlendAttachments,
@@ -370,7 +366,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             transparentColorBlendAttachment();
 
         _pipelines[1] = createGraphicsPipeline(
-            _device->logical(),
+            gDevice.logical(),
             GraphicsPipelineInfo{
                 .layout = _pipelineLayout,
                 .colorBlendAttachments = Span{&blendAttachment, 1},

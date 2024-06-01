@@ -46,26 +46,26 @@ vec4 getPlane(vec3 p0, vec3 p1, vec3 p2)
 
 Camera::~Camera()
 {
-    if (_device != nullptr)
-        _device->logical().destroy(_descriptorSetLayout);
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.logical().destroy(_descriptorSetLayout);
 }
 
 void Camera::init(
-    wheels::ScopedScratch scopeAlloc, Device *device, RingBuffer *constantsRing,
+    wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(constantsRing != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    _device = device;
     _constantsRing = constantsRing;
 
     printf("Creating Camera\n");
 
     createBindingsReflection(scopeAlloc.child_scope());
     createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+
     _initialized = true;
 }
 
@@ -319,7 +319,7 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
     WHEELS_ASSERT(defines.size() <= len);
 
-    Optional<ShaderReflection> compResult = _device->reflectShader(
+    Optional<ShaderReflection> compResult = gDevice.reflectShader(
         scopeAlloc.child_scope(),
         Device::CompileShaderModuleArgs{
             .relPath = "shader/scene/camera.glsl",
@@ -337,7 +337,7 @@ void Camera::createDescriptorSet(
 {
     WHEELS_ASSERT(_bindingsReflection.has_value());
     _descriptorSetLayout = _bindingsReflection->createDescriptorSetLayout(
-        scopeAlloc.child_scope(), *_device, 0,
+        scopeAlloc.child_scope(), 0,
         vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment |
             vk::ShaderStageFlagBits::eCompute |
             vk::ShaderStageFlagBits::eRaygenKHR |
@@ -355,7 +355,7 @@ void Camera::createDescriptorSet(
         _bindingsReflection->generateDescriptorWrites(
             scopeAlloc, sBindingSetIndex, _descriptorSet, descriptorInfos);
 
-    _device->logical().updateDescriptorSets(
+    gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }

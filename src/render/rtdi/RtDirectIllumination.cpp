@@ -8,7 +8,7 @@
 using namespace wheels;
 
 void RtDirectIllumination::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
@@ -17,20 +17,20 @@ void RtDirectIllumination::init(
 
     _resources = resources;
     _initialReservoirs.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc,
         RtDiInitialReservoirs::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
     _spatialReuse.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc,
         RtDiSpatialReuse::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
     _trace.init(
-        WHEELS_MOV(scopeAlloc), device, resources, staticDescriptorsAlloc,
-        camDSLayout, worldDSLayouts);
+        WHEELS_MOV(scopeAlloc), resources, staticDescriptorsAlloc, camDSLayout,
+        worldDSLayouts);
 
     _initialized = true;
 }

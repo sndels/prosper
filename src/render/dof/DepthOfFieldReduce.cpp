@@ -55,26 +55,25 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 DepthOfFieldReduce::~DepthOfFieldReduce()
 {
-    if (_device != nullptr)
-        _device->destroy(_atomicCounter);
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.destroy(_atomicCounter);
 }
 
 void DepthOfFieldReduce::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
 
-    _device = device;
     _resources = resources;
     _computePass.init(
-        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
-    _atomicCounter = device->createBuffer(BufferCreateInfo{
+    _atomicCounter = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeof(uint32_t),

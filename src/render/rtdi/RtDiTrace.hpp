@@ -25,8 +25,8 @@ class RtDiTrace
     RtDiTrace &operator=(RtDiTrace &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
@@ -70,7 +70,6 @@ class RtDiTrace
     void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages;

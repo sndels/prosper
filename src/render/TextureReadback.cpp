@@ -27,23 +27,23 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 TextureReadback::~TextureReadback()
 {
-    if (_device != nullptr)
-        _device->destroy(_buffer);
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.destroy(_buffer);
 }
 
 void TextureReadback::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
     WHEELS_ASSERT(resources != nullptr);
 
-    _device = device;
     _resources = resources;
     _computePass.init(
-        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
-    _buffer = device->createBuffer(BufferCreateInfo{
+    _buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeof(vec4),

@@ -29,7 +29,7 @@ class App
         Device::Settings device;
     };
 
-    App(Settings &&settings) noexcept;
+    App(std::filesystem::path scenePath) noexcept;
     ~App();
 
     App(const App &other) = delete;
@@ -106,9 +106,6 @@ class App
     // Separate allocator for async polling as TlsfAllocator is not thread safe
     wheels::TlsfAllocator _fileChangePollingAlloc;
     std::filesystem::path _scenePath;
-
-    wheels::OwningPtr<Device>
-        _device; // Needs to be valid before and after all other vk resources
 
     // This allocator should only be used for the descriptors that can live
     // until the end of the program. As such, reset() shouldn't be called so

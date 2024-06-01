@@ -48,31 +48,28 @@ vk::Rect2D getRenderArea(
 
 DebugRenderer::~DebugRenderer()
 {
-    if (_device != nullptr)
-    {
-        _device->logical().destroy(_linesDSLayout);
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.logical().destroy(_linesDSLayout);
 
-        for (auto &ls : _resources->debugLines)
-            _device->destroy(ls.buffer);
+    for (auto &ls : _resources->debugLines)
+        gDevice.destroy(ls.buffer);
 
-        destroyGraphicsPipeline();
+    destroyGraphicsPipeline();
 
-        for (auto const &stage : _shaderStages)
-            _device->logical().destroyShaderModule(stage.module);
-    }
+    for (auto const &stage : _shaderStages)
+        gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void DebugRenderer::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    _device = device;
     _resources = resources;
 
     printf("Creating DebugRenderer\n");
@@ -175,7 +172,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     WHEELS_ASSERT(vertDefines.size() <= len);
 
     Optional<Device::ShaderCompileResult> vertResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/debug_lines.vert",
                                           .debugName = "debugLinesVS",
@@ -183,7 +180,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
                                       });
 
     Optional<Device::ShaderCompileResult> fragResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/debug_color.frag",
                                           .debugName = "debugColorPS",
@@ -192,7 +189,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     if (vertResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
-            _device->logical().destroyShaderModule(stage.module);
+            gDevice.logical().destroyShaderModule(stage.module);
 
         _shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
@@ -213,9 +210,9 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     }
 
     if (vertResult.has_value())
-        _device->logical().destroy(vertResult->module);
+        gDevice.logical().destroy(vertResult->module);
     if (fragResult.has_value())
-        _device->logical().destroy(fragResult->module);
+        gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
@@ -242,15 +239,15 @@ DebugRenderer::Attachments DebugRenderer::createAttachments(
 
 void DebugRenderer::destroyGraphicsPipeline()
 {
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(_pipeline);
+    gDevice.logical().destroy(_pipelineLayout);
 }
 
 void DebugRenderer::createBuffers()
 {
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
         _resources->debugLines[i] = DebugLines{
-            .buffer = _device->createBuffer(BufferCreateInfo{
+            .buffer = gDevice.createBuffer(BufferCreateInfo{
                 .desc =
                     BufferDescription{
                         .byteSize =
@@ -270,7 +267,7 @@ void DebugRenderer::createDescriptorSets(
 {
     WHEELS_ASSERT(_vertReflection.has_value());
     _linesDSLayout = _vertReflection->createDescriptorSetLayout(
-        scopeAlloc.child_scope(), *_device, GeometryBuffersBindingSet,
+        scopeAlloc.child_scope(), GeometryBuffersBindingSet,
         vk::ShaderStageFlagBits::eVertex);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
@@ -292,7 +289,7 @@ void DebugRenderer::createDescriptorSets(
                 loopAlloc, GeometryBuffersBindingSet, _linesDescriptorSets[i],
                 descriptorInfos);
 
-        _device->logical().updateDescriptorSets(
+        gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
@@ -307,7 +304,7 @@ void DebugRenderer::createGraphicsPipeline(
     setLayouts[GeometryBuffersBindingSet] = _linesDSLayout;
 
     _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
         });
@@ -319,7 +316,7 @@ void DebugRenderer::createGraphicsPipeline(
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
     _pipeline = ::createGraphicsPipeline(
-        _device->logical(),
+        gDevice.logical(),
         GraphicsPipelineInfo{
             .layout = _pipelineLayout,
             .vertInputInfo = &vertInputInfo,

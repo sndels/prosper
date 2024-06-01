@@ -57,8 +57,8 @@ class ShaderReflection
         const wheels::HashSet<std::filesystem::path> &changedFiles) const;
 
     [[nodiscard]] vk::DescriptorSetLayout createDescriptorSetLayout(
-        wheels::ScopedScratch scopeAlloc, Device &device,
-        uint32_t descriptorSet, vk::ShaderStageFlags stageFlags,
+        wheels::ScopedScratch scopeAlloc, uint32_t descriptorSet,
+        vk::ShaderStageFlags stageFlags,
         wheels::Span<const uint32_t> dynamicCounts = {},
         wheels::Span<const vk::DescriptorBindingFlags> bindingFlags = {}) const;
 

@@ -21,31 +21,24 @@ const uint32_t sMaxDynamicOffsets = 8;
 
 ComputePass::~ComputePass()
 {
-    if (_device != nullptr)
-    {
-        destroyPipelines();
-
-        _device->logical().destroy(_storageSetLayout);
-
-        _device->logical().destroy(_shaderModule);
-    }
+    destroyPipelines();
+    gDevice.logical().destroy(_storageSetLayout);
+    gDevice.logical().destroy(_shaderModule);
 }
 
 void ComputePass::init(
-    wheels::ScopedScratch scopeAlloc, Device *device,
+    wheels::ScopedScratch scopeAlloc,
     DescriptorAllocator *staticDescriptorsAlloc,
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
     const ComputePassOptions &options)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
     WHEELS_ASSERT(
         (options.storageSetIndex == options.externalDsLayouts.size()) &&
         "Implementation assumes that the pass storage set is the last set and "
         "is placed right after the last external one");
 
-    _device = device;
     _storageSetIndex = options.storageSetIndex;
 
     for (auto &sets : _storageSets)
@@ -116,7 +109,7 @@ void ComputePass::updateDescriptorSet(
         _shaderReflection->generateDescriptorWrites(
             scopeAlloc, _storageSetIndex, ds, descriptorInfos);
 
-    _device->logical().updateDescriptorSets(
+    gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
@@ -241,8 +234,8 @@ void ComputePass::record(
 
 void ComputePass::destroyPipelines()
 {
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(_pipeline);
+    gDevice.logical().destroy(_pipelineLayout);
 }
 
 void ComputePass::createDescriptorSets(
@@ -251,7 +244,7 @@ void ComputePass::createDescriptorSets(
 {
     WHEELS_ASSERT(_shaderReflection.has_value());
     _storageSetLayout = _shaderReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), *_device, _storageSetIndex, storageStageFlags);
+        WHEELS_MOV(scopeAlloc), _storageSetIndex, storageStageFlags);
 
     for (auto &sets : _storageSets)
     {
@@ -283,7 +276,7 @@ void ComputePass::createPipeline(
     dsLayouts.back() = _storageSetLayout;
 
     _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(dsLayouts.size()),
             .pSetLayouts = dsLayouts.data(),
             .pushConstantRangeCount = pcRange.size > 0 ? 1u : 0u,
@@ -301,7 +294,7 @@ void ComputePass::createPipeline(
     };
 
     _pipeline =
-        createComputePipeline(_device->logical(), createInfo, debugName.data());
+        createComputePipeline(gDevice.logical(), createInfo, debugName.data());
 }
 
 bool ComputePass::compileShader(
@@ -321,7 +314,7 @@ bool ComputePass::compileShader(
     WHEELS_ASSERT(defines.size() <= len);
 
     wheels::Optional<Device::ShaderCompileResult> compResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = shader.relPath,
                                           .debugName = shader.debugName.c_str(),
@@ -330,7 +323,7 @@ bool ComputePass::compileShader(
 
     if (compResult.has_value())
     {
-        _device->logical().destroy(_shaderModule);
+        gDevice.logical().destroy(_shaderModule);
 
         ShaderReflection &reflection = compResult->reflection;
 

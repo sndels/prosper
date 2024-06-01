@@ -7,14 +7,12 @@ RenderImageCollection::~RenderImageCollection()
 
 void RenderImageCollection::destroyResources()
 {
-    if (_device != nullptr)
+    for (auto &views : _subresourceViews)
     {
-        for (auto &views : _subresourceViews)
-        {
-            _device->destroy(views);
-            views.clear();
-        }
+        gDevice.destroy(views);
+        views.clear();
     }
+    _subresourceViews.clear();
 
     RenderResourceCollection::destroyResources();
 }
@@ -22,8 +20,6 @@ void RenderImageCollection::destroyResources()
 wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     ImageHandle handle)
 {
-    WHEELS_ASSERT(_device != nullptr);
-
     assertValidHandle(handle);
     if (_subresourceViews.size() <= handle.index)
         _subresourceViews.resize(handle.index + 1);
@@ -34,7 +30,7 @@ wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     {
         const Image &image = resource(handle);
         views.resize(image.subresourceRange.levelCount);
-        _device->createSubresourcesViews(image, views.mut_span());
+        gDevice.createSubresourcesViews(image, views.mut_span());
     }
     else
     {

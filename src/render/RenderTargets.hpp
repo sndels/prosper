@@ -11,7 +11,7 @@ const vk::Format sVelocityFormat = vk::Format::eR16G16Snorm;
 const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 
 [[nodiscard]] ImageHandle createDepth(
-    Device &device, RenderResources &resources, const vk::Extent2D &size,
+    RenderResources &resources, const vk::Extent2D &size,
     const char *debugName);
 
 [[nodiscard]] ImageHandle createIllumination(

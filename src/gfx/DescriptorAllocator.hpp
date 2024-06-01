@@ -26,7 +26,6 @@ class DescriptorAllocator
 
     // device needs to live as long as this
     void init(
-        Device *device,
         vk::DescriptorPoolCreateFlags flags = vk::DescriptorPoolCreateFlags{});
 
     // Reset frees all allocated descriptors/sets and makes the pools available
@@ -50,7 +49,6 @@ class DescriptorAllocator
         wheels::Span<vk::DescriptorSet> output, const void *allocatePNext);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     int32_t _activePool{-1};
     wheels::Array<vk::DescriptorPool> _pools{gAllocators.general};
     vk::DescriptorPoolCreateFlags _flags;

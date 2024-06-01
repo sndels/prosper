@@ -138,18 +138,16 @@ cullerExternalDsLayouts(
 } // namespace
 
 void MeshletCuller::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
 
-    _device = device;
     _resources = resources;
     _drawListGenerator.init(
-        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         [&worldDsLayouts](Allocator &alloc)
         { return generatorDefinitionCallback(alloc, worldDsLayouts); },
         ComputePassOptions{
@@ -158,13 +156,13 @@ void MeshletCuller::init(
             .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
         });
     _cullerArgumentsWriter.init(
-        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         argumentsWriterDefinitionCallback,
         ComputePassOptions{
             .perFrameRecordLimit = sMaxRecordsPerFrame,
         });
     _drawListCuller.init(
-        WHEELS_MOV(scopeAlloc), device, staticDescriptorsAlloc,
+        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         cullerDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = CullerStorageBindingSet,
@@ -284,7 +282,7 @@ BufferHandle MeshletCuller::recordGenerateList(
 
         WHEELS_ASSERT(
             meshletCountUpperBound <=
-                _device->properties().meshShader.maxMeshWorkGroupCount[0] &&
+                gDevice.properties().meshShader.maxMeshWorkGroupCount[0] &&
             "Indirect mesh dispatch group count might not fit in the "
             "supported mesh work group count");
     }

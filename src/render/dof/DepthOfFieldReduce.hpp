@@ -28,8 +28,7 @@ class DepthOfFieldReduce
     DepthOfFieldReduce &operator=(DepthOfFieldReduce &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -43,7 +42,6 @@ class DepthOfFieldReduce
 
   private:
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
     Buffer _atomicCounter;

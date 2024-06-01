@@ -42,7 +42,7 @@ class ComputePass
     ComputePass &operator=(ComputePass &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         const std::function<Shader(wheels::Allocator &)>
             &shaderDefinitionCallback,
@@ -114,7 +114,6 @@ class ComputePass
         wheels::StrSpan debugName);
 
     bool _initialized{false};
-    Device *_device{nullptr};
 
     vk::ShaderModule _shaderModule;
     wheels::Optional<ShaderReflection> _shaderReflection;

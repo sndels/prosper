@@ -71,7 +71,8 @@ class GpuFrameProfiler
     GpuFrameProfiler &operator=(GpuFrameProfiler &&other) noexcept;
 
   protected:
-    void init(Device *device);
+    void init();
+    void destroy();
     void startFrame();
     void endFrame(vk::CommandBuffer cb);
 
@@ -84,7 +85,7 @@ class GpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeData> getData(wheels::Allocator &alloc);
 
   private:
-    Device *_device{nullptr};
+    bool _initialized{false};
     Buffer _timestampBuffer;
     Buffer _statisticsBuffer;
     QueryPools _pools;
@@ -199,7 +200,7 @@ class Profiler
     Profiler &operator=(Profiler const &) = delete;
     Profiler &operator=(Profiler &&) = delete;
 
-    void init(Device *device);
+    void init();
 
     // Should be called before startGpuFrame, whenever the cpu frame loop starts
     void startCpuFrame();

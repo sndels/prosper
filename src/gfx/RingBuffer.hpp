@@ -24,8 +24,7 @@ class RingBuffer
     RingBuffer &operator=(RingBuffer &&) = delete;
 
     void init(
-        Device *device, vk::BufferUsageFlags usage, uint32_t byteSize,
-        const char *debugName);
+        vk::BufferUsageFlags usage, uint32_t byteSize, const char *debugName);
 
     [[nodiscard]] vk::Buffer buffer() const;
 
@@ -68,7 +67,6 @@ class RingBuffer
     uint32_t write_internal(wheels::Span<const uint8_t> data, bool aligned);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     Buffer _buffer;
     uint32_t _currentByteOffset{0};
     wheels::InlineArray<uint32_t, MAX_FRAMES_IN_FLIGHT - 1> _frameStartOffsets;
@@ -78,8 +76,6 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 uint32_t RingBuffer::write_value(const T &data)
 {
-    WHEELS_ASSERT(_device != nullptr);
-
     return write_internal(
         wheels::Span{reinterpret_cast<const uint8_t *>(&data), sizeof(data)},
         true);

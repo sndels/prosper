@@ -25,8 +25,8 @@ class DebugRenderer
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout);
 
     void recompileShaders(
@@ -64,7 +64,6 @@ class DebugRenderer
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};

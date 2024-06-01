@@ -59,14 +59,50 @@ GpuFrameProfiler::Scope::Scope(GpuFrameProfiler::Scope &&other) noexcept
     other._cb = vk::CommandBuffer{};
 }
 
-void GpuFrameProfiler::init(Device *device)
+GpuFrameProfiler::~GpuFrameProfiler() { destroy(); }
+
+GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
+: _initialized{other._initialized}
+, _timestampBuffer{WHEELS_MOV(other._timestampBuffer)}
+, _statisticsBuffer{WHEELS_MOV(other._statisticsBuffer)}
+, _pools{other._pools}
+, _queryScopeIndices{WHEELS_MOV(other._queryScopeIndices)}
+, _scopeHasStats{WHEELS_MOV(other._scopeHasStats)}
 {
-    WHEELS_ASSERT(_device == nullptr);
-    WHEELS_ASSERT(device != nullptr);
+    // Avoid dtor destroying what we moved
+    other._timestampBuffer.handle = vk::Buffer{};
+    other._statisticsBuffer.handle = vk::Buffer{};
+    other._pools.statistics = vk::QueryPool{};
+    other._pools.timestamps = vk::QueryPool{};
+}
 
-    _device = device;
+GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
+{
+    if (this != &other)
+    {
+        destroy();
 
-    _timestampBuffer = device->createBuffer(BufferCreateInfo{
+        _initialized = other._initialized;
+        _timestampBuffer = WHEELS_MOV(other._timestampBuffer);
+        _statisticsBuffer = WHEELS_MOV(other._statisticsBuffer);
+        _pools = other._pools;
+        _queryScopeIndices = WHEELS_MOV(other._queryScopeIndices);
+        _scopeHasStats = WHEELS_MOV(other._scopeHasStats);
+
+        // Avoid dtor destroying what we moved
+        other._timestampBuffer.handle = vk::Buffer{};
+        other._statisticsBuffer.handle = vk::Buffer{};
+        other._pools.statistics = vk::QueryPool{};
+        other._pools.timestamps = vk::QueryPool{};
+    }
+    return *this;
+}
+
+void GpuFrameProfiler::init()
+{
+    WHEELS_ASSERT(_initialized == false);
+
+    _timestampBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
@@ -75,7 +111,7 @@ void GpuFrameProfiler::init(Device *device)
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
         .debugName = "GpuProfilerTimestampReadback"});
-    _statisticsBuffer = device->createBuffer(BufferCreateInfo{
+    _statisticsBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
@@ -85,61 +121,35 @@ void GpuFrameProfiler::init(Device *device)
             },
         .debugName = "GpuProfilerStatisticsReadback"});
     _pools.timestamps =
-        _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
+        gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::eTimestamp,
             .queryCount = sMaxTimestampCount});
     _pools.statistics =
-        _device->logical().createQueryPool(vk::QueryPoolCreateInfo{
+        gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::ePipelineStatistics,
             .queryCount = sMaxScopeCount,
             .pipelineStatistics = sPipelineStatisticsFlags,
         });
+
+    _initialized = true;
 }
 
-GpuFrameProfiler::~GpuFrameProfiler()
+void GpuFrameProfiler::destroy()
 {
-    if (_device != nullptr)
-    {
-        _device->logical().destroyQueryPool(_pools.statistics);
-        _device->logical().destroyQueryPool(_pools.timestamps);
-        _device->destroy(_statisticsBuffer);
-        _device->destroy(_timestampBuffer);
-    }
-}
-
-GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
-: _device{other._device}
-, _timestampBuffer{WHEELS_MOV(other._timestampBuffer)}
-, _statisticsBuffer{WHEELS_MOV(other._statisticsBuffer)}
-, _pools{other._pools}
-, _queryScopeIndices{WHEELS_MOV(other._queryScopeIndices)}
-, _scopeHasStats{WHEELS_MOV(other._scopeHasStats)}
-{
-    other._device = nullptr;
-}
-
-GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
-{
-    if (this != &other)
-    {
-        _device = other._device;
-        _timestampBuffer = WHEELS_MOV(other._timestampBuffer);
-        _statisticsBuffer = WHEELS_MOV(other._statisticsBuffer);
-        _pools = other._pools;
-        _queryScopeIndices = WHEELS_MOV(other._queryScopeIndices);
-        _scopeHasStats = WHEELS_MOV(other._scopeHasStats);
-
-        other._device = nullptr;
-    }
-    return *this;
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.logical().destroyQueryPool(_pools.statistics);
+    gDevice.logical().destroyQueryPool(_pools.timestamps);
+    gDevice.destroy(_statisticsBuffer);
+    gDevice.destroy(_timestampBuffer);
 }
 
 void GpuFrameProfiler::startFrame()
 {
     // Might be more optimal to do this in a command buffer if we had some other
     // use that was ensured to happen before all other command buffers.
-    _device->logical().resetQueryPool(_pools.timestamps, 0, sMaxTimestampCount);
-    _device->logical().resetQueryPool(_pools.statistics, 0, sMaxScopeCount);
+    gDevice.logical().resetQueryPool(_pools.timestamps, 0, sMaxTimestampCount);
+    gDevice.logical().resetQueryPool(_pools.statistics, 0, sMaxScopeCount);
     _queryScopeIndices.clear();
     _scopeHasStats.clear();
 }
@@ -171,8 +181,8 @@ GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
 
 Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
 {
-    const auto timestampPeriodNanos = static_cast<double>(
-        _device->properties().device.limits.timestampPeriod);
+    const auto timestampPeriodNanos =
+        static_cast<double>(gDevice.properties().device.limits.timestampPeriod);
 
     // This is garbage if no frame has been completed with this profiler yet
     // Caller should make sure that isn't an issue.
@@ -257,17 +267,18 @@ Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
     return times;
 }
 
-void Profiler::init(Device *device)
+void Profiler::init()
 {
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _gpuFrameProfilers.emplace_back();
-        _gpuFrameProfilers.back().init(device);
+        _gpuFrameProfilers.back().init();
 
         _previousScopeNames.emplace_back(gAllocators.general, sMaxScopeCount);
         _previousCpuScopeTimes.emplace_back(
             gAllocators.general, sMaxScopeCount);
     }
+
     _initialized = true;
 }
 

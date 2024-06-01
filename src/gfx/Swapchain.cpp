@@ -127,13 +127,10 @@ SwapchainSupport::SwapchainSupport(
 }
 
 SwapchainConfig::SwapchainConfig(
-    ScopedScratch scopeAlloc, Device *device,
-    const vk::Extent2D &preferredExtent)
+    ScopedScratch scopeAlloc, const vk::Extent2D &preferredExtent)
 {
-    WHEELS_ASSERT(device != nullptr);
-
     const SwapchainSupport support(
-        scopeAlloc, device->physical(), device->surface());
+        scopeAlloc, gDevice.physical(), gDevice.surface());
 
     // Needed to blit into, not supported by all implementations
     if (!(support.capabilities.supportedUsageFlags &
@@ -156,12 +153,9 @@ SwapchainConfig::SwapchainConfig(
 
 Swapchain::~Swapchain() { destroy(); }
 
-void Swapchain::init(Device *device, const SwapchainConfig &config)
+void Swapchain::init(const SwapchainConfig &config)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
-
-    _device = device;
 
     printf("Creating Swapchain\n");
 
@@ -221,15 +215,15 @@ wheels::Optional<uint32_t> Swapchain::acquireNextImage(
 
     const auto noTimeout = std::numeric_limits<uint64_t>::max();
     checkSuccess(
-        _device->logical().waitForFences(
+        gDevice.logical().waitForFences(
             1, &_inFlightFences[_nextFrame], VK_TRUE, noTimeout),
         "waitForFences");
     checkSuccess(
-        _device->logical().resetFences(1, &_inFlightFences[_nextFrame]),
+        gDevice.logical().resetFences(1, &_inFlightFences[_nextFrame]),
         "resetFences");
 
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
-    const auto result = _device->logical().acquireNextImageKHR(
+    const auto result = gDevice.logical().acquireNextImageKHR(
         _swapchain, noTimeout, signalSemaphore, vk::Fence{}, &_nextImage);
     WHEELS_ASSERT(_nextImage < _config.imageCount);
 
@@ -255,7 +249,7 @@ bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
         .pSwapchains = &_swapchain,
         .pImageIndices = &_nextImage,
     };
-    const vk::Result result = _device->graphicsQueue().presentKHR(&presentInfo);
+    const vk::Result result = gDevice.graphicsQueue().presentKHR(&presentInfo);
 
     // Swapchain should be recreated if out of date or suboptimal
     const bool good_swap = [&]
@@ -286,21 +280,18 @@ void Swapchain::recreate(const SwapchainConfig &config)
 
 void Swapchain::destroy()
 {
-    if (_device != nullptr)
-    {
-        for (auto fence : _inFlightFences)
-            _device->logical().destroy(fence);
-        _inFlightFences = {};
-        _images.clear();
-        _device->logical().destroy(_swapchain);
-    }
+    for (const vk::Fence f : _inFlightFences)
+        gDevice.logical().destroy(f);
+    _inFlightFences = {};
+    _images.clear();
+    gDevice.logical().destroy(_swapchain);
 }
 
 void Swapchain::createSwapchain()
 {
     _swapchain =
-        _device->logical().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
-            .surface = _device->surface(),
+        gDevice.logical().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
+            .surface = gDevice.surface(),
             .minImageCount = _config.imageCount,
             .imageFormat = _config.surfaceFormat.format,
             .imageColorSpace = _config.surfaceFormat.colorSpace,
@@ -316,7 +307,7 @@ void Swapchain::createSwapchain()
 
 void Swapchain::createImages()
 {
-    auto images = _device->logical().getSwapchainImagesKHR(_swapchain);
+    auto images = gDevice.logical().getSwapchainImagesKHR(_swapchain);
     for (auto &image : images)
     {
         _images.push_back(SwapchainImage{
@@ -342,5 +333,5 @@ void Swapchain::createFences()
         .flags = vk::FenceCreateFlagBits::eSignaled,
     };
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _inFlightFences[i] = _device->logical().createFence(fenceInfo);
+        _inFlightFences[i] = gDevice.logical().createFence(fenceInfo);
 }

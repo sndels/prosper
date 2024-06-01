@@ -719,7 +719,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    const QueueFamilies &families = ctx->device->queueFamilies();
+    const QueueFamilies &families = gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
     WHEELS_ASSERT(families.transferFamily.has_value());
 
@@ -794,7 +794,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
 
     ctx->cb.end();
 
-    const vk::Queue transferQueue = ctx->device->transferQueue();
+    const vk::Queue transferQueue = gDevice.transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
         .pCommandBuffers = &ctx->cb,
@@ -848,10 +848,10 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 
     Texture2D tex;
     tex.init(
-        ScopedScratch{scopeBacking}, ctx->device, ctx->sceneDir / image.uri,
-        ctx->cb, ctx->stagingBuffers[0], true);
+        ScopedScratch{scopeBacking}, ctx->sceneDir / image.uri, ctx->cb,
+        ctx->stagingBuffers[0], true);
 
-    const QueueFamilies &families = ctx->device->queueFamilies();
+    const QueueFamilies &families = gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
     WHEELS_ASSERT(families.transferFamily.has_value());
 
@@ -884,7 +884,7 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 
     ctx->cb.end();
 
-    const vk::Queue transferQueue = ctx->device->transferQueue();
+    const vk::Queue transferQueue = gDevice.transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
         .pCommandBuffers = &ctx->cb,
@@ -907,8 +907,7 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 void loadingWorker(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
-    WHEELS_ASSERT(ctx->device != nullptr);
-    WHEELS_ASSERT(ctx->device->graphicsQueue() != ctx->device->transferQueue());
+    WHEELS_ASSERT(gDevice.graphicsQueue() != gDevice.transferQueue());
 
     ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
@@ -930,13 +929,13 @@ void loadingWorker(DeferredLoadingContext *ctx)
 
 } // namespace
 
-Buffer createTextureStaging(Device *device)
+Buffer createTextureStaging()
 {
     // Assume at most 4k at 8bits per channel
     const vk::DeviceSize stagingSize = static_cast<size_t>(4096) *
                                        static_cast<size_t>(4096) *
                                        sizeof(uint32_t);
-    return device->createBuffer(BufferCreateInfo{
+    return gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = stagingSize,
@@ -950,36 +949,33 @@ Buffer createTextureStaging(Device *device)
 
 DeferredLoadingContext::~DeferredLoadingContext()
 {
-    if (device != nullptr)
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    if (worker.has_value())
     {
-        if (worker.has_value())
-        {
-            interruptLoading = true;
-            worker->join();
-        }
-
-        for (Buffer &buffer : stagingBuffers)
-            device->destroy(buffer);
-
-        device->destroy(geometryUploadBuffer);
-        cgltf_free(gltfData);
+        interruptLoading = true;
+        worker->join();
     }
+
+    for (Buffer &buffer : stagingBuffers)
+        gDevice.destroy(buffer);
+
+    gDevice.destroy(geometryUploadBuffer);
+    cgltf_free(gltfData);
 }
 
 void DeferredLoadingContext::init(
-    Device *inDevice, std::filesystem::path inSceneDir,
+    std::filesystem::path inSceneDir,
     std::filesystem::file_time_type inSceneWriteTime, cgltf_data *inGltfData)
 {
     WHEELS_ASSERT(!initialized);
-    WHEELS_ASSERT(inDevice != nullptr);
     WHEELS_ASSERT(inGltfData != nullptr);
 
-    device = inDevice;
     sceneDir = WHEELS_MOV(inSceneDir);
     sceneWriteTime = inSceneWriteTime;
     gltfData = inGltfData;
-    cb = device->logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-        .commandPool = device->transferPool(),
+    cb = gDevice.logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+        .commandPool = gDevice.transferPool(),
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1})[0];
     loadedMeshes.reserve(gltfData->meshes_count);
@@ -989,9 +985,9 @@ void DeferredLoadingContext::init(
     // One of these is used by the worker implementation, all by the
     // single threaded one
     for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
-        stagingBuffers[i] = createTextureStaging(device);
+        stagingBuffers[i] = createTextureStaging();
 
-    geometryUploadBuffer = device->createBuffer(BufferCreateInfo{
+    geometryUploadBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sGeometryBufferSize,
@@ -1127,7 +1123,7 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
 
     if (dstBufferI >= geometryBuffers.size())
     {
-        Buffer buffer = device->createBuffer(BufferCreateInfo{
+        Buffer buffer = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = sGeometryBufferSize,

@@ -30,8 +30,8 @@ class RtDiInitialReservoirs
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc,
         const InputDSLayouts &dsLayouts);
 
     // Returns true if recompile happened

@@ -45,7 +45,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void ToneMap::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
@@ -53,11 +53,11 @@ void ToneMap::init(
 
     _resources = resources;
     _computePass.init(
-        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         shaderDefinitionCallback);
 
     _lut.init(
-        WHEELS_MOV(scopeAlloc), device, resPath("texture/tony_mc_mapface.dds"),
+        WHEELS_MOV(scopeAlloc), resPath("texture/tony_mc_mapface.dds"),
         ImageState::ComputeShaderSampledRead);
 
     _initialized = true;

@@ -24,8 +24,7 @@ class TextureReadback
     TextureReadback &operator=(TextureReadback &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void startFrame();
@@ -47,7 +46,6 @@ class TextureReadback
 
   private:
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
     ComputePass _computePass;
     int32_t _framesUntilReady{-1};

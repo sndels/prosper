@@ -402,10 +402,9 @@ vk::Format asVkFormat(DxgiFormat format)
 Texture::~Texture() { destroy(); }
 
 Texture::Texture(Texture &&other) noexcept
-: _device{other._device}
-, _image{WHEELS_MOV(other._image)}
+: _image{WHEELS_MOV(other._image)}
 {
-    other._device = nullptr;
+    other._image = Image{};
 }
 
 Texture &Texture::operator=(Texture &&other) noexcept
@@ -413,10 +412,10 @@ Texture &Texture::operator=(Texture &&other) noexcept
     if (this != &other)
     {
         destroy();
-        _device = other._device;
+
         _image = WHEELS_MOV(other._image);
 
-        other._device = nullptr;
+        other._image = Image{};
     }
     return *this;
 }
@@ -427,29 +426,13 @@ vk::Image Texture::nativeHandle() const
     return _image.handle;
 }
 
-void Texture::init(Device *device)
-{
-    WHEELS_ASSERT(_device == nullptr);
-    WHEELS_ASSERT(device != nullptr);
-
-    _device = device;
-}
-
-void Texture::destroy()
-{
-    if (_device != nullptr)
-        _device->destroy(_image);
-}
+void Texture::destroy() { gDevice.destroy(_image); }
 
 void Texture2D::init(
-    ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
+    ScopedScratch scopeAlloc, const std::filesystem::path &path,
     vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap,
     const ImageState initialState)
 {
-    WHEELS_ASSERT(device != nullptr);
-
-    Texture::init(device);
-
     const std::filesystem::file_time_type sourceWriteTime =
         std::filesystem::last_write_time(path);
 
@@ -514,7 +497,7 @@ void Texture2D::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    _image = _device->createImage(ImageCreateInfo{
+    _image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = asVkFormat(dds.format),
@@ -576,13 +559,9 @@ vk::DescriptorImageInfo Texture2D::imageInfo() const
 }
 
 void Texture3D::init(
-    ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path,
+    ScopedScratch scopeAlloc, const std::filesystem::path &path,
     const ImageState initialState)
 {
-    WHEELS_ASSERT(device != nullptr);
-
-    Texture::init(device);
-
     Dds dds = readDds(scopeAlloc, path);
     WHEELS_ASSERT(!dds.data.empty());
 
@@ -594,7 +573,7 @@ void Texture3D::init(
 
     // Just create the staging here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
-    Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
+    Buffer stagingBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = dds.data.size(),
@@ -611,7 +590,7 @@ void Texture3D::init(
     const std::filesystem::path relPath = relativePath(path);
 
     WHEELS_ASSERT(dds.mipLevelCount == 1);
-    _image = _device->createImage(ImageCreateInfo{
+    _image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .imageType = vk::ImageType::e3D,
@@ -629,7 +608,7 @@ void Texture3D::init(
 
     // Just create an ad hoc cb here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
-    const vk::CommandBuffer cb = device->beginGraphicsCommands();
+    const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
 
     _image.transition(cb, ImageState::TransferDst);
 
@@ -655,8 +634,8 @@ void Texture3D::init(
     if (initialState != ImageState::Unknown)
         _image.transition(cb, initialState);
 
-    device->endGraphicsCommands(cb);
-    device->destroy(stagingBuffer);
+    gDevice.endGraphicsCommands(cb);
+    gDevice.destroy(stagingBuffer);
 }
 
 vk::DescriptorImageInfo Texture3D::imageInfo() const
@@ -668,12 +647,8 @@ vk::DescriptorImageInfo Texture3D::imageInfo() const
 }
 
 void TextureCubemap::init(
-    ScopedScratch scopeAlloc, Device *device, const std::filesystem::path &path)
+    ScopedScratch scopeAlloc, const std::filesystem::path &path)
 {
-    WHEELS_ASSERT(device != nullptr);
-
-    Texture::init(device);
-
     const gli::texture_cube cube(gli::load(path.string()));
     WHEELS_ASSERT(!cube.empty());
     WHEELS_ASSERT(cube.faces() == 6);
@@ -689,7 +664,7 @@ void TextureCubemap::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    _image = _device->createImage(ImageCreateInfo{
+    _image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
@@ -706,7 +681,7 @@ void TextureCubemap::init(
 
     copyPixels(scopeAlloc.child_scope(), cube, _image.subresourceRange);
 
-    _sampler = _device->logical().createSampler(vk::SamplerCreateInfo{
+    _sampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -720,11 +695,7 @@ void TextureCubemap::init(
     });
 }
 
-TextureCubemap::~TextureCubemap()
-{
-    if (_device != nullptr)
-        _device->logical().destroy(_sampler);
-}
+TextureCubemap::~TextureCubemap() { gDevice.logical().destroy(_sampler); }
 
 TextureCubemap::TextureCubemap(TextureCubemap &&other) noexcept
 : Texture{WHEELS_MOV(other)}
@@ -738,11 +709,12 @@ TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
     if (this != &other)
     {
         destroy();
-        _device = other._device;
+
         _image = WHEELS_MOV(other._image);
         _sampler = other._sampler;
 
-        other._device = nullptr;
+        other._image = Image{};
+        other._sampler = vk::Sampler{};
     }
     return *this;
 }
@@ -760,7 +732,7 @@ void TextureCubemap::copyPixels(
     ScopedScratch scopeAlloc, const gli::texture_cube &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
-    Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
+    Buffer stagingBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = cube.size(),
@@ -811,7 +783,7 @@ void TextureCubemap::copyPixels(
         return regions;
     }();
 
-    const auto copyBuffer = _device->beginGraphicsCommands();
+    const auto copyBuffer = gDevice.beginGraphicsCommands();
 
     transitionImageLayout(
         copyBuffer, _image.handle, subresourceRange,
@@ -833,7 +805,7 @@ void TextureCubemap::copyPixels(
         vk::PipelineStageFlagBits::eTransfer,
         vk::PipelineStageFlagBits::eFragmentShader);
 
-    _device->endGraphicsCommands(copyBuffer);
+    gDevice.endGraphicsCommands(copyBuffer);
 
-    _device->destroy(stagingBuffer);
+    gDevice.destroy(stagingBuffer);
 }

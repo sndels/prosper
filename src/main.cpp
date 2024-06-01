@@ -107,20 +107,32 @@ int main(int argc, char *argv[])
         lpp::LPP_MODULES_OPTION_ALL_IMPORT_MODULES, nullptr, nullptr);
 #endif // LIVEPP_PATH
 
-    // Globals
-    // Only one of these exist, and passing them around or storing pointers to
-    // them in classes adds needless noise. This style of global avoids many
-    // issues in initialization order. More in Game Engine Architecture 3rd ed.
-    // section 6.1.2
-    gAllocators.init();
-    // gInputHandler doesn't require calling init
-    gWindow.init(sStartupRes, sWindowTitle);
-
     try
     {
         App::Settings settings = parseCli(argc, argv);
 
-        App app{WHEELS_MOV(settings)};
+        LinearAllocator scratchBacking{megabytes(16)};
+        ScopedScratch scopeAlloc{scratchBacking};
+
+        const auto &tl = [](const char *stage, std::function<void()> const &fn)
+        {
+            const Timer t;
+            fn();
+            printf("%s took %.2fs\n", stage, t.getSeconds());
+        };
+
+        // Globals
+        // Only one of these exist, and passing them around or storing pointers
+        // to them in classes adds needless noise. This style of global avoids
+        // many issues in initialization order. More in Game Engine Architecture
+        // 3rd ed. section 6.1.2
+        tl("Allocators init", []() { gAllocators.init(); });
+        // gInputHandler doesn't require calling init
+        tl("Window init", []() { gWindow.init(sStartupRes, sWindowTitle); });
+        tl("Device init", [&scopeAlloc, &settings]()
+           { gDevice.init(scopeAlloc.child_scope(), settings.device); });
+
+        App app{settings.scene};
         app.init();
         printf("run() called after %.2fs\n", t.getSeconds());
         app.run();
@@ -130,6 +142,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Exception thrown: %s\n", e.what());
     }
 
+    gDevice.destroy();
     gWindow.destroy();
     gAllocators.destroy();
 

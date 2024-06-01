@@ -66,21 +66,18 @@ ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void ImageBasedLighting::init(
-    ScopedScratch scopeAlloc, Device *device,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
 
-    _device = device;
     _sampleIrradiance.init(
-        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         sampleIrradianceShaderDefinitionCallback);
     _integrateSpecularBrdf.init(
-        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         integrateSpecularBrdfShaderDefinitionCallback);
     _prefilterRadiance.init(
-        scopeAlloc.child_scope(), device, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         prefilterRadianceShaderDefinitionCallback);
 
     _initialized = true;

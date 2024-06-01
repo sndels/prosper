@@ -48,8 +48,8 @@ class TemporalAntiAliasing
     TemporalAntiAliasing &operator=(TemporalAntiAliasing &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources, DescriptorAllocator *staticDescriptorsAlloc,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDsLayout);
 
     void recompileShaders(

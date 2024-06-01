@@ -39,7 +39,7 @@ class RenderResources
     RenderResources &operator=(RenderResources &) = delete;
     RenderResources &operator=(RenderResources &&) = delete;
 
-    void init(Device *d);
+    void init();
 
     // Should be called at the start of the frame so resources will get the
     // correct names set
@@ -48,8 +48,6 @@ class RenderResources
     // Should be called e.g. when viewport is resized since the render resources
     // will be created with different sizes on the next frame
     void destroyResources();
-
-    Device *device{nullptr};
 
     RenderImageCollection images;
     RenderTexelBufferCollection texelBuffers;
@@ -63,6 +61,9 @@ class RenderResources
 
     // One lines buffer per frame to leave mapped
     wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
+
+  private:
+    bool _initialized{false};
 };
 
 struct Transitions

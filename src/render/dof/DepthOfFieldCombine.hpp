@@ -28,8 +28,7 @@ class DepthOfFieldCombine
     DepthOfFieldCombine &operator=(DepthOfFieldCombine &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(

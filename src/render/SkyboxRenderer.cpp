@@ -47,25 +47,22 @@ vk::Rect2D getRenderArea(
 
 SkyboxRenderer::~SkyboxRenderer()
 {
-    if (_device != nullptr)
-    {
-        destroyGraphicsPipelines();
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    destroyGraphicsPipelines();
 
-        for (auto const &stage : _shaderStages)
-            _device->logical().destroyShaderModule(stage.module);
-    }
+    for (auto const &stage : _shaderStages)
+        gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void SkyboxRenderer::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
 
-    _device = device;
     _resources = resources;
 
     printf("Creating SkyboxRenderer\n");
@@ -171,14 +168,14 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     WHEELS_ASSERT(defines.size() <= len);
 
     Optional<Device::ShaderCompileResult> vertResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.vert",
                                           .debugName = "skyboxVS",
                                           .defines = defines,
                                       });
     Optional<Device::ShaderCompileResult> fragResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.frag",
                                           .debugName = "skyboxPS",
@@ -188,7 +185,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     if (vertResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : _shaderStages)
-            _device->logical().destroyShaderModule(stage.module);
+            gDevice.logical().destroyShaderModule(stage.module);
 
         _vertReflection = WHEELS_MOV(vertResult->reflection);
         _fragReflection = WHEELS_MOV(fragResult->reflection);
@@ -210,9 +207,9 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     }
 
     if (vertResult.has_value())
-        _device->logical().destroy(vertResult->module);
+        gDevice.logical().destroy(vertResult->module);
     if (fragResult.has_value())
-        _device->logical().destroy(fragResult->module);
+        gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
@@ -250,8 +247,8 @@ SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(
 
 void SkyboxRenderer::destroyGraphicsPipelines()
 {
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(_pipeline);
+    gDevice.logical().destroy(_pipelineLayout);
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
@@ -282,7 +279,7 @@ void SkyboxRenderer::createGraphicsPipelines(
     setLayouts[CameraBindingSet] = camDSLayout;
 
     _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
         });
@@ -296,7 +293,7 @@ void SkyboxRenderer::createGraphicsPipelines(
         colorBlendAttachments{opaqueColorBlendAttachment()};
 
     _pipeline = createGraphicsPipeline(
-        _device->logical(),
+        gDevice.logical(),
         GraphicsPipelineInfo{
             .layout = _pipelineLayout,
             .vertInputInfo = &vertInputInfo,

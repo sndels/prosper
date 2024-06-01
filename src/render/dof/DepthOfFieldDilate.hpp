@@ -13,7 +13,6 @@
 #include "../Fwd.hpp"
 #include "../RenderResourceHandle.hpp"
 
-
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
@@ -29,8 +28,7 @@ class DepthOfFieldDilate
     DepthOfFieldDilate &operator=(DepthOfFieldDilate &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(

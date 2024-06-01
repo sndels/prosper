@@ -6,7 +6,7 @@
 using namespace wheels;
 
 void DepthOfField::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout cameraDsLayout)
 {
@@ -15,20 +15,20 @@ void DepthOfField::init(
 
     _resources = resources;
     _setupPass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc,
         cameraDsLayout);
     _reducePass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
     _flattenPass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
     _dilatePass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
     _gatherPass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
     _filterPass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
     _combinePass.init(
-        scopeAlloc.child_scope(), device, resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
 
     _initialized = true;
 }

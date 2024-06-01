@@ -466,48 +466,31 @@ void writeCache(
 
 } // namespace
 
-Device::Device(const Settings &settings) noexcept
-: _settings{settings}
-{
-}
+// This used everywhere and init()/destroy() order relative to other similar
+// globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+Device gDevice;
 
 Device::~Device()
 {
-    // Don't check for initialized as we might be cleaning up after a partial
-    // init
-    _initialized = false;
-
-    if (_allocator != nullptr)
-        vmaDestroyAllocator(_allocator);
-
-    if (_logical)
-    {
-        // Also cleans up associated command buffers
-        _logical.destroy(_graphicsPool);
-        _logical.destroy(_transferPool);
-        // Implicitly cleans up associated queues as well
-        _logical.destroy();
-    }
-
-    if (_instance)
-    {
-        _instance.destroy(_surface);
-        DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
-        _instance.destroy();
-    }
+    WHEELS_ASSERT((!_initialized || !_instance) && "destroy() not called");
 }
 
-void Device::init(wheels::ScopedScratch scopeAlloc)
+void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
 {
     WHEELS_ASSERT(!_initialized);
 
     printf("Creating Vulkan device\n");
+
+    _settings = settings;
 
     // No includer as we expand those ourselves
     _compilerOptions.SetGenerateDebugInfo();
     _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
     _compilerOptions.SetTargetEnvironment(
         shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+
+    _compiler = OwningPtr<shaderc::Compiler>(gAllocators.general);
 
     const vk::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
@@ -603,6 +586,36 @@ void Device::init(wheels::ScopedScratch scopeAlloc)
     }
 
     _initialized = true;
+}
+
+void Device::destroy()
+{
+    // Don't check for initialized as we might be cleaning up after a partial
+    // init that failed
+
+    if (_allocator != nullptr)
+        vmaDestroyAllocator(_allocator);
+
+    if (_logical)
+    {
+        // Also cleans up associated command buffers
+        _logical.destroy(_graphicsPool);
+        _logical.destroy(_transferPool);
+        // Implicitly cleans up associated queues as well
+        _logical.destroy();
+    }
+
+    if (_instance)
+    {
+        _instance.destroy(_surface);
+        DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
+        _instance.destroy();
+
+        // _initialized = true and null instance mark a destroyed Device
+        _instance = vk::Instance{};
+    }
+
+    _compiler.reset();
 }
 
 vk::Instance Device::instance() const
@@ -1676,10 +1689,11 @@ std::filesystem::path Device::updateShaderCache(
     {
         printf("Compiling %s\n", relPath.string().c_str());
 
-        const shaderc::SpvCompilationResult result = _compiler.CompileGlslToSpv(
-            fullSource.c_str(), fullSource.size(),
-            shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
-            _compilerOptions);
+        const shaderc::SpvCompilationResult result =
+            _compiler->CompileGlslToSpv(
+                fullSource.c_str(), fullSource.size(),
+                shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
+                _compilerOptions);
 
         if (const auto status = result.GetCompilationStatus(); status)
         {
@@ -1698,7 +1712,7 @@ std::filesystem::path Device::updateShaderCache(
         if (_settings.dumpShaderDisassembly)
         {
             const shaderc::AssemblyCompilationResult resultAsm =
-                _compiler.CompileGlslToSpvAssembly(
+                _compiler->CompileGlslToSpvAssembly(
                     fullSource.c_str(), fullSource.size(),
                     shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
                     _compilerOptions);

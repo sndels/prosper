@@ -23,8 +23,8 @@ class World
     World &operator=(World &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        RingBuffer *constantsRing, const std::filesystem::path &scene);
+        wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
+        const std::filesystem::path &scene);
 
     void startFrame();
     void endFrame();

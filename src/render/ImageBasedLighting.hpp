@@ -21,7 +21,7 @@ class ImageBasedLighting
     ImageBasedLighting &operator=(ImageBasedLighting &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     [[nodiscard]] bool isGenerated() const;
@@ -36,7 +36,6 @@ class ImageBasedLighting
 
   private:
     bool _initialized{false};
-    Device *_device{nullptr};
     ComputePass _sampleIrradiance;
     ComputePass _integrateSpecularBrdf;
     ComputePass _prefilterRadiance;

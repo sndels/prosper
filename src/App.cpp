@@ -55,18 +55,17 @@ namespace
 
 constexpr uint32_t sDrawStatsByteSize = 2 * sizeof(uint32_t);
 
-StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
-    Device *device)
+StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
 {
     StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> ret;
 
     const vk::CommandBufferAllocateInfo allocInfo{
-        .commandPool = device->graphicsPool(),
+        .commandPool = gDevice.graphicsPool(),
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
     };
     checkSuccess(
-        device->logical().allocateCommandBuffers(&allocInfo, ret.data()),
+        gDevice.logical().allocateCommandBuffers(&allocInfo, ret.data()),
         "Failed to allocate command buffers");
 
     return ret;
@@ -74,10 +73,9 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
 
 } // namespace
 
-App::App(Settings &&settings) noexcept
+App::App(std::filesystem::path scenePath) noexcept
 : _fileChangePollingAlloc{megabytes(1)}
 , _scenePath{WHEELS_MOV(settings.scene)}
-, _device{OwningPtr<Device>{gAllocators.general, settings.device}}
 , _staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>{gAllocators.general}}
 , _swapchain{OwningPtr<Swapchain>{gAllocators.general}}
 , _resources{OwningPtr<RenderResources>{gAllocators.general}}
@@ -105,70 +103,55 @@ App::App(Settings &&settings) noexcept
 
 App::~App()
 {
-    if (_device != nullptr)
+    for (auto &semaphore : _renderFinishedSemaphores)
     {
-        for (auto &semaphore : _renderFinishedSemaphores)
-        {
-            if (semaphore)
-                _device->logical().destroy(semaphore);
-        }
-        for (auto &semaphore : _imageAvailableSemaphores)
-        {
-            if (semaphore)
-                _device->logical().destroy(semaphore);
-        }
+        if (semaphore)
+            gDevice.logical().destroy(semaphore);
+    }
+    for (auto &semaphore : _imageAvailableSemaphores)
+    {
+        if (semaphore)
+            gDevice.logical().destroy(semaphore);
     }
 }
 
 void App::init()
 {
-    const auto &tl = [](const char *stage, std::function<void()> const &fn)
-    {
-        const Timer t;
-        fn();
-        printf("%s took %.2fs\n", stage, t.getSeconds());
-    };
-
     LinearAllocator scratchBacking{megabytes(16)};
     ScopedScratch scopeAlloc{scratchBacking};
 
-    tl("Device init", [&] { _device->init(scopeAlloc.child_scope()); });
-
-    _staticDescriptorsAlloc->init(_device.get());
+    _staticDescriptorsAlloc->init();
 
     {
         const SwapchainConfig &config = SwapchainConfig{
-            scopeAlloc.child_scope(),
-            _device.get(),
-            {gWindow.width(), gWindow.height()}};
-        _swapchain->init(_device.get(), config);
+            scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
+        _swapchain->init(config);
     }
 
-    _commandBuffers = allocateCommandBuffers(_device.get());
+    _commandBuffers = allocateCommandBuffers();
 
     // We don't know the extent in member inits
     // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
     _viewportExtent = _swapchain->config().extent;
 
-    _resources->init(_device.get());
+    _resources->init();
 
     _cam->init(
-        scopeAlloc.child_scope(), _device.get(), &_resources->constantsRing,
+        scopeAlloc.child_scope(), &_resources->constantsRing,
         _staticDescriptorsAlloc.get());
 
     // TODO: Some VMA allocation in here gets left dangling if we throw
     // immediately after the call
     _world->init(
-        scopeAlloc.child_scope(), _device.get(), &_resources->constantsRing,
-        _scenePath);
+        scopeAlloc.child_scope(), &_resources->constantsRing, _scenePath);
 
     const Timer gpuPassesInitTimer;
     _lightClustering->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
     _forwardRenderer->init(
-        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get(),
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
         _resources.get(),
         ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
@@ -176,10 +159,10 @@ void App::init()
             .world = _world->dsLayouts(),
         });
     _gbufferRenderer->init(
-        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get(),
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
         _resources.get(), _cam->descriptorSetLayout(), _world->dsLayouts());
     _deferredShading->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(),
         DeferredShading::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
@@ -187,45 +170,45 @@ void App::init()
             .world = _world->dsLayouts(),
         });
     _rtDirectIllumination->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
     _rtReference->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
     _skyboxRenderer->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
-        _cam->descriptorSetLayout(), _world->dsLayouts());
+        scopeAlloc.child_scope(), _resources.get(), _cam->descriptorSetLayout(),
+        _world->dsLayouts());
     _debugRenderer->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _toneMap->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get());
-    _imguiRenderer->init(_device.get(), _resources.get(), _swapchain->config());
+    _imguiRenderer->init(_resources.get(), _swapchain->config());
     _textureDebug->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get());
     _depthOfField->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _imageBasedLighting->init(
-        scopeAlloc.child_scope(), _device.get(), _staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
     _temporalAntiAliasing->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
     _meshletCuller->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get(), _world->dsLayouts(),
         _cam->descriptorSetLayout());
     _textureReadback->init(
-        scopeAlloc.child_scope(), _device.get(), _resources.get(),
+        scopeAlloc.child_scope(), _resources.get(),
         _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
-    _profiler->init(_device.get());
+    _profiler->init();
 
     _cam->lookAt(_sceneCameraTransform);
     _cam->setParameters(_cameraParameters);
@@ -235,9 +218,9 @@ void App::init()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         _imageAvailableSemaphores[i] =
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{});
+            gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
         _renderFinishedSemaphores[i] =
-            _device->logical().createSemaphore(vk::SemaphoreCreateInfo{});
+            gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
     }
     _ctorScratchHighWatermark = asserted_cast<uint32_t>(
         scratchBacking.allocated_byte_count_high_watermark());
@@ -297,14 +280,14 @@ void App::run()
         // Wait for in flight rendering actions to finish to make app cleanup
         // valid. Don't wait for device idle as async loading might be using the
         // transfer queue simultaneously
-        _device->graphicsQueue().waitIdle();
+        gDevice.graphicsQueue().waitIdle();
         throw;
     }
 
     // Wait for in flight rendering actions to finish
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    _device->graphicsQueue().waitIdle();
+    gDevice.graphicsQueue().waitIdle();
 }
 
 void App::recreateViewportRelated()
@@ -312,7 +295,7 @@ void App::recreateViewportRelated()
     // Wait for resources to be out of use
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    _device->graphicsQueue().waitIdle();
+    gDevice.graphicsQueue().waitIdle();
 
     _resources->destroyResources();
 
@@ -341,15 +324,13 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
     // Wait for resources to be out of use
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    _device->graphicsQueue().waitIdle();
+    gDevice.graphicsQueue().waitIdle();
 
     _resources->destroyResources();
 
     { // Drop the config as we should always use swapchain's active config
         const SwapchainConfig config{
-            scopeAlloc.child_scope(),
-            _device.get(),
-            {gWindow.width(), gWindow.height()}};
+            scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
         _swapchain->recreate(config);
     }
 }
@@ -414,7 +395,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     // Wait for resources to be out of use
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    _device->graphicsQueue().waitIdle();
+    gDevice.graphicsQueue().waitIdle();
 
     // We might get here before the changed shaders are retouched completely,
     // e.g. if clang-format takes a bit. Let's try to be safe with an extra
@@ -809,7 +790,7 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
         };
 
         checkSuccess(
-            _device->graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
+            gDevice.graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
             "recreate_swap_dummy_submit");
 
         // Recreate the swap chain as necessary
@@ -1079,7 +1060,7 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
 
     ImGui::Begin("Memory", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    const MemoryAllocationBytes &allocs = _device->memoryAllocations();
+    const MemoryAllocationBytes &allocs = gDevice.memoryAllocations();
     ImGui::Text("Active GPU allocations:\n");
     ImGui::Text(
         "  Buffers: %uMB\n",
@@ -1933,7 +1914,7 @@ bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
     };
 
     checkSuccess(
-        _device->graphicsQueue().submit(
+        gDevice.graphicsQueue().submit(
             1, &submitInfo, _swapchain->currentFence()),
         "submit");
 

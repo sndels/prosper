@@ -97,28 +97,25 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
 RtReference::~RtReference()
 {
-    if (_device != nullptr)
-    {
-        destroyPipeline();
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    destroyPipeline();
 
-        _device->logical().destroy(_descriptorSetLayout);
+    gDevice.logical().destroy(_descriptorSetLayout);
 
-        _device->destroy(_shaderBindingTable);
-        destroyShaders();
-    }
+    gDevice.destroy(_shaderBindingTable);
+    destroyShaders();
 }
 
 void RtReference::init(
-    ScopedScratch scopeAlloc, Device *device, RenderResources *resources,
+    ScopedScratch scopeAlloc, RenderResources *resources,
     DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    _device = device;
     _resources = resources;
 
     printf("Creating RtReference\n");
@@ -401,13 +398,13 @@ void RtReference::releasePreserved()
 void RtReference::destroyShaders()
 {
     for (auto const &stage : _shaderStages)
-        _device->logical().destroyShaderModule(stage.module);
+        gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void RtReference::destroyPipeline()
 {
-    _device->logical().destroy(_pipeline);
-    _device->logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(_pipeline);
+    gDevice.logical().destroy(_pipelineLayout);
 }
 
 bool RtReference::compileShaders(
@@ -457,7 +454,7 @@ bool RtReference::compileShaders(
     WHEELS_ASSERT(anyhitDefines.size() <= anyhitDefsLen);
 
     Optional<Device::ShaderCompileResult> raygenResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(),
             Device::CompileShaderModuleArgs{
                 .relPath = "shader/rt/reference/main.rgen",
@@ -465,19 +462,19 @@ bool RtReference::compileShaders(
                 .defines = raygenDefines,
             });
     Optional<Device::ShaderCompileResult> rayMissResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rmiss",
                                           .debugName = "sceneRMISS",
                                       });
     Optional<Device::ShaderCompileResult> closestHitResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rchit",
                                           .debugName = "sceneRCHIT",
                                       });
     Optional<Device::ShaderCompileResult> anyHitResult =
-        _device->compileShaderModule(
+        gDevice.compileShaderModule(
             scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rahit",
                                           .debugName = "sceneRAHIT",
@@ -555,13 +552,13 @@ bool RtReference::compileShaders(
     }
 
     if (raygenResult.has_value())
-        _device->logical().destroy(raygenResult->module);
+        gDevice.logical().destroy(raygenResult->module);
     if (rayMissResult.has_value())
-        _device->logical().destroy(rayMissResult->module);
+        gDevice.logical().destroy(rayMissResult->module);
     if (closestHitResult.has_value())
-        _device->logical().destroy(closestHitResult->module);
+        gDevice.logical().destroy(closestHitResult->module);
     if (anyHitResult.has_value())
-        _device->logical().destroy(anyHitResult->module);
+        gDevice.logical().destroy(anyHitResult->module);
 
     return false;
 }
@@ -570,7 +567,7 @@ void RtReference::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     _descriptorSetLayout = _raygenReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), *_device, OutputBindingSet,
+        WHEELS_MOV(scopeAlloc), OutputBindingSet,
         vk::ShaderStageFlagBits::eRaygenKHR);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
@@ -603,7 +600,7 @@ void RtReference::updateDescriptorSet(
         scopeAlloc, OutputBindingSet, _descriptorSets[nextFrame],
         descriptorInfos);
 
-    _device->logical().updateDescriptorSets(
+    gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
@@ -630,7 +627,7 @@ void RtReference::createPipeline(
         .size = sizeof(PCBlock),
     };
     _pipelineLayout =
-        _device->logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
@@ -647,14 +644,14 @@ void RtReference::createPipeline(
     };
 
     {
-        auto pipeline = _device->logical().createRayTracingPipelineKHR(
+        auto pipeline = gDevice.logical().createRayTracingPipelineKHR(
             vk::DeferredOperationKHR{}, vk::PipelineCache{}, pipelineInfo);
         if (pipeline.result != vk::Result::eSuccess)
             throw std::runtime_error("Failed to create rt pipeline");
 
         _pipeline = pipeline.value;
 
-        _device->logical().setDebugUtilsObjectNameEXT(
+        gDevice.logical().setDebugUtilsObjectNameEXT(
             vk::DebugUtilsObjectNameInfoEXT{
                 .objectType = vk::ObjectType::ePipeline,
                 .objectHandle = reinterpret_cast<uint64_t>(
@@ -669,9 +666,9 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
 
     const auto groupCount = asserted_cast<uint32_t>(_shaderGroups.size());
     const auto groupHandleSize =
-        _device->properties().rtPipeline.shaderGroupHandleSize;
+        gDevice.properties().rtPipeline.shaderGroupHandleSize;
     const auto groupBaseAlignment =
-        _device->properties().rtPipeline.shaderGroupBaseAlignment;
+        gDevice.properties().rtPipeline.shaderGroupBaseAlignment;
     _sbtGroupSize = static_cast<vk::DeviceSize>(
                         ((groupHandleSize - 1) / groupBaseAlignment) + 1) *
                     groupBaseAlignment;
@@ -680,11 +677,11 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
 
     Array<uint8_t> shaderHandleStorage{scopeAlloc, sbtSize};
     checkSuccess(
-        _device->logical().getRayTracingShaderGroupHandlesKHR(
+        gDevice.logical().getRayTracingShaderGroupHandlesKHR(
             _pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),
         "getRayTracingShaderGroupHandlesKHR");
 
-    _shaderBindingTable = _device->createBuffer(BufferCreateInfo{
+    _shaderBindingTable = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sbtSize,

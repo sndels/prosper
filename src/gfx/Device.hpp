@@ -10,6 +10,7 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/optional.hpp>
+#include <wheels/owning_ptr.hpp>
 
 #include <atomic>
 #include <filesystem>
@@ -61,7 +62,7 @@ class Device
         bool robustAccess{false};
     };
 
-    Device(const Settings &settings) noexcept;
+    Device() noexcept = default;
     ~Device();
 
     Device(const Device &other) = delete;
@@ -69,7 +70,8 @@ class Device
     Device &operator=(const Device &other) = delete;
     Device &operator=(Device &&other) = delete;
 
-    void init(wheels::ScopedScratch scopeAlloc);
+    void init(wheels::ScopedScratch scopeAlloc, const Settings &settings);
+    void destroy();
 
     [[nodiscard]] vk::Instance instance() const;
     [[nodiscard]] vk::PhysicalDevice physical() const;
@@ -171,6 +173,9 @@ class Device
         wheels::Allocator &alloc, const std::filesystem::path &sourcePath,
         wheels::StrSpan topLevelSource, const std::filesystem::path &relPath);
 
+    // All members should init (in ctor) without dynamic allocations or
+    // exceptions because this class is used in a extern global.
+
     bool _initialized{false};
     Settings _settings;
 
@@ -183,7 +188,9 @@ class Device
     VmaAllocator _allocator{nullptr};
 
     shaderc::CompileOptions _compilerOptions;
-    shaderc::Compiler _compiler;
+    // Put behind a ptr to control lifetime and make the leaky mutex visible in
+    // win crt debugging.
+    wheels::OwningPtr<shaderc::Compiler> _compiler;
 
     vk::SurfaceKHR _surface;
 
@@ -198,5 +205,7 @@ class Device
 
     MemoryAllocationBytes _memoryAllocations;
 };
+
+extern Device gDevice;
 
 #endif // PROSPER_GFX_DEVICE_HPP

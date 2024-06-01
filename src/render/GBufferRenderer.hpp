@@ -32,7 +32,7 @@ class GBufferRenderer
     GBufferRenderer &operator=(GBufferRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
@@ -79,7 +79,6 @@ class GBufferRenderer
         const WorldDSLayouts &worldDSLayouts);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;

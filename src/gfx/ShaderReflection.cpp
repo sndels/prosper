@@ -890,7 +890,7 @@ bool ShaderReflection::affected(
 }
 
 vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
-    ScopedScratch scopeAlloc, Device &device, uint32_t descriptorSet,
+    ScopedScratch scopeAlloc, uint32_t descriptorSet,
     vk::ShaderStageFlags stageFlags, wheels::Span<const uint32_t> dynamicCounts,
     wheels::Span<const vk::DescriptorBindingFlags> bindingFlags) const
 {
@@ -923,7 +923,7 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
         "Extra dynamic counts given");
 
     if (bindingFlags.empty())
-        return device.logical().createDescriptorSetLayout(
+        return gDevice.logical().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo{
                 .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
                 .pBindings = layoutBindings.data(),
@@ -944,7 +944,7 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
                 .bindingCount = asserted_cast<uint32_t>(bindingFlags.size()),
                 .pBindingFlags = bindingFlags.data(),
             }};
-    return device.logical().createDescriptorSetLayout(
+    return gDevice.logical().createDescriptorSetLayout(
         layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 }
 

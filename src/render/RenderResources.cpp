@@ -6,29 +6,21 @@ using namespace wheels;
 
 RenderResources::~RenderResources()
 {
-    if (device != nullptr)
-    {
-        device->logical().destroy(nearestSampler);
-        device->logical().destroy(bilinearSampler);
-        device->logical().destroy(trilinearSampler);
-    }
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.logical().destroy(nearestSampler);
+    gDevice.logical().destroy(bilinearSampler);
+    gDevice.logical().destroy(trilinearSampler);
 }
 
-void RenderResources::init(Device *d)
+void RenderResources::init()
 {
-    WHEELS_ASSERT(device == nullptr);
-    WHEELS_ASSERT(d != nullptr);
-
-    device = d;
-    images.init(device);
-    texelBuffers.init(device);
-    buffers.init(device);
     constantsRing.init(
-        device, vk::BufferUsageFlagBits::eStorageBuffer,
+        vk::BufferUsageFlagBits::eStorageBuffer,
         asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
 
     this->nearestSampler =
-        device->logical().createSampler(vk::SamplerCreateInfo{
+        gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
             .minFilter = vk::Filter::eNearest,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -40,7 +32,7 @@ void RenderResources::init(Device *d)
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         });
-    bilinearSampler = device->logical().createSampler(vk::SamplerCreateInfo{
+    bilinearSampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -52,7 +44,7 @@ void RenderResources::init(Device *d)
         .minLod = 0,
         .maxLod = VK_LOD_CLAMP_NONE,
     });
-    trilinearSampler = device->logical().createSampler(vk::SamplerCreateInfo{
+    trilinearSampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -64,11 +56,13 @@ void RenderResources::init(Device *d)
         .minLod = 0,
         .maxLod = VK_LOD_CLAMP_NONE,
     });
+
+    _initialized = true;
 }
 
 void RenderResources::startFrame()
 {
-    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(_initialized);
 
     images.startFrame();
     texelBuffers.startFrame();
@@ -78,7 +72,7 @@ void RenderResources::startFrame()
 
 void RenderResources::destroyResources()
 {
-    WHEELS_ASSERT(device != nullptr);
+    WHEELS_ASSERT(_initialized);
 
     images.destroyResources();
     texelBuffers.destroyResources();

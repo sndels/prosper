@@ -43,8 +43,8 @@ class WorldData
     WorldData &operator=(WorldData &&) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
-        const RingBuffers &ringBuffers, const std::filesystem::path &scene);
+        wheels::ScopedScratch scopeAlloc, const RingBuffers &ringBuffers,
+        const std::filesystem::path &scene);
 
     void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     void uploadMaterialDatas(uint32_t nextFrame);
@@ -55,7 +55,6 @@ class WorldData
 
   private:
     bool _initialized{false};
-    Device *_device{nullptr};
     // Use general for descriptors because because we don't know the required
     // storage up front and the internal array will be reallocated
     DescriptorAllocator _descriptorAllocator;

@@ -71,20 +71,16 @@ constexpr StaticArray sDefaultPoolSizes{{
 
 DescriptorAllocator::~DescriptorAllocator()
 {
-    if (_device != nullptr)
-    {
-        for (auto &p : _pools)
-            _device->logical().destroy(p);
-    }
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    for (const vk::DescriptorPool p : _pools)
+        gDevice.logical().destroy(p);
 }
 
-void DescriptorAllocator::init(
-    Device *device, vk::DescriptorPoolCreateFlags flags)
+void DescriptorAllocator::init(vk::DescriptorPoolCreateFlags flags)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(device != nullptr);
 
-    _device = device;
     _flags = flags;
 
     nextPool();
@@ -97,7 +93,7 @@ void DescriptorAllocator::resetPools()
     WHEELS_ASSERT(_initialized);
 
     for (auto &p : _pools)
-        _device->logical().resetDescriptorPool(p);
+        gDevice.logical().resetDescriptorPool(p);
     _activePool = 0;
 }
 
@@ -138,8 +134,8 @@ void DescriptorAllocator::nextPool()
     // initially -1 so this makes it 0 and allocates the first pool
     _activePool++;
     if (asserted_cast<size_t>(_activePool) >= _pools.size())
-        _pools.push_back(_device->logical().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo{
+        _pools.push_back(
+            gDevice.logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
                 .flags = _flags,
                 .maxSets = sDefaultDescriptorSetCount,
                 .poolSizeCount =
@@ -163,7 +159,7 @@ void DescriptorAllocator::allocate(
             .descriptorSetCount = asserted_cast<uint32_t>(layouts.size()),
             .pSetLayouts = layouts.data(),
         };
-        return _device->logical().allocateDescriptorSets(&info, output.data());
+        return gDevice.logical().allocateDescriptorSets(&info, output.data());
     };
 
     auto result = tryAllocate();

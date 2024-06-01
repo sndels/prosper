@@ -31,7 +31,7 @@ class ForwardRenderer
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc, Device *device,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
         const InputDSLayouts &dsLayouts);
 
@@ -121,7 +121,6 @@ class ForwardRenderer
         const ForwardRenderer::RecordInOut &inOutTargets);
 
     bool _initialized{false};
-    Device *_device{nullptr};
     RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
