@@ -119,7 +119,7 @@ class Device
     // graphicsPool and graphicsQueue.
     [[nodiscard]] Buffer createBuffer(const BufferCreateInfo &info);
     // buffer shouldn't be in use in other threads
-    void destroy(const Buffer &buffer);
+    void destroy(Buffer &buffer);
 
     // Initial data can only be given if the thread has exclusive access to
     // graphicsPool and graphicsQueue.
@@ -129,12 +129,12 @@ class Device
     [[nodiscard]] TexelBuffer createTexelBuffer(
         const TexelBufferCreateInfo &info);
     // buffer shouldn't be in use in other threads
-    void destroy(const TexelBuffer &buffer);
+    void destroy(TexelBuffer &buffer);
 
     [[nodiscard]] Image create(const ImageCreateInfo &info);
     [[nodiscard]] Image createImage(const ImageCreateInfo &info);
     // image shouldn't be in use in other threads
-    void destroy(const Image &image);
+    void destroy(Image &image);
     // Creates views to the individual subresources of the image
     // NOTE: Caller is responsible of destroying the views
     void createSubresourcesViews(

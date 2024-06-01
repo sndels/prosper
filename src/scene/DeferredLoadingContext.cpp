@@ -958,7 +958,7 @@ DeferredLoadingContext::~DeferredLoadingContext()
             worker->join();
         }
 
-        for (const Buffer &buffer : stagingBuffers)
+        for (Buffer &buffer : stagingBuffers)
             device->destroy(buffer);
 
         device->destroy(geometryUploadBuffer);

@@ -594,7 +594,7 @@ void Texture3D::init(
 
     // Just create the staging here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
-    const Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
+    Buffer stagingBuffer = device->createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = dds.data.size(),
@@ -760,7 +760,7 @@ void TextureCubemap::copyPixels(
     ScopedScratch scopeAlloc, const gli::texture_cube &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
-    const Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
+    Buffer stagingBuffer = _device->createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = cube.size(),

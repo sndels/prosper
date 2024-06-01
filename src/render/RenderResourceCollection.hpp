@@ -191,7 +191,7 @@ void RenderResourceCollection<
 {
     if (_device != nullptr)
     {
-        for (const Resource &res : _resources)
+        for (Resource &res : _resources)
             _device->destroy(res);
 
         _resources.clear();

@@ -74,7 +74,7 @@ TextureDebug::~TextureDebug()
 {
     if (_device != nullptr)
     {
-        for (const Buffer &b : _readbackBuffers)
+        for (Buffer &b : _readbackBuffers)
             _device->destroy(b);
     }
 }

@@ -698,7 +698,7 @@ void WorldData::loadTextures(
         _samplers.push_back(_device->logical().createSampler(info));
     }
 
-    const Buffer stagingBuffer = createTextureStaging(_device);
+    Buffer stagingBuffer = createTextureStaging(_device);
 
     _texture2Ds.reserve(gltfData.images_count + 1);
     {

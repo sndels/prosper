@@ -865,7 +865,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         stagingDebugName.extend(info.debugName);
         stagingDebugName.extend(postfix.data());
 
-        const auto stagingBuffer = createBuffer(BufferCreateInfo{
+        Buffer stagingBuffer = createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = desc.byteSize,
@@ -901,9 +901,12 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     return buffer;
 }
 
-void Device::destroy(const Buffer &buffer)
+void Device::destroy(Buffer &buffer)
 {
     WHEELS_ASSERT(_initialized);
+
+    if (buffer.handle == vk::Buffer{})
+        return;
 
     untrackBuffer(buffer);
 
@@ -912,6 +915,8 @@ void Device::destroy(const Buffer &buffer)
         const std::lock_guard _lock{_allocatorMutex};
         vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     }
+
+    buffer.handle = vk::Buffer{};
 }
 
 TexelBuffer Device::create(const TexelBufferCreateInfo &info)
@@ -980,9 +985,12 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
     return ret;
 }
 
-void Device::destroy(const TexelBuffer &buffer)
+void Device::destroy(TexelBuffer &buffer)
 {
     WHEELS_ASSERT(_initialized);
+
+    if (buffer.handle == vk::Buffer{})
+        return;
 
     untrackTexelBuffer(buffer);
 
@@ -992,6 +1000,8 @@ void Device::destroy(const TexelBuffer &buffer)
         vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
     }
     _logical.destroy(buffer.view);
+
+    buffer.handle = vk::Buffer{};
 }
 
 Image Device::create(const ImageCreateInfo &info)
@@ -1117,9 +1127,12 @@ Image Device::createImage(const ImageCreateInfo &info)
     return image;
 }
 
-void Device::destroy(const Image &image)
+void Device::destroy(Image &image)
 {
     WHEELS_ASSERT(_initialized);
+
+    if (image.handle == vk::Image{})
+        return;
 
     untrackImage(image);
 
@@ -1129,6 +1142,8 @@ void Device::destroy(const Image &image)
         vmaDestroyImage(_allocator, vkImage, image.allocation);
     }
     _logical.destroy(image.view);
+
+    image.handle = vk::Image{};
 }
 
 void Device::createSubresourcesViews(
