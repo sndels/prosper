@@ -42,6 +42,11 @@ Key convertKey(int glfwCode)
 
 } // namespace
 
+// This depended on by Window and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+InputHandler gInputHandler;
+
 void InputHandler::clearSingleFrameGestures()
 {
     if (_mouseGesture.has_value() &&

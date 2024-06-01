@@ -108,6 +108,7 @@ int main(int argc, char *argv[])
     // issues in initialization order. More in Game Engine Architecture 3rd ed.
     // section 6.1.2
     gAllocators.init();
+    // gInputHandler doesn't require calling init
 
     try
     {

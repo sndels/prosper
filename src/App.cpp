@@ -139,7 +139,7 @@ void App::init()
        {
            _window = OwningPtr<Window>(
                gAllocators.general, Pair<uint32_t, uint32_t>{WIDTH, HEIGHT},
-               "prosper", &_inputHandler);
+               "prosper");
        });
     tl("Device init",
        [&] { _device->init(scopeAlloc.child_scope(), _window->ptr()); });
@@ -295,7 +295,7 @@ void App::run()
                 asserted_cast<uint32_t>(
                     scopeBackingAlloc.allocated_byte_count_high_watermark()));
 
-            _inputHandler.clearSingleFrameGestures();
+            gInputHandler.clearSingleFrameGestures();
             _cam->endFrame();
 
             _world->endFrame();
@@ -491,7 +491,7 @@ void App::handleMouseGestures()
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
-    const auto &gesture = _inputHandler.mouseGesture();
+    const auto &gesture = gInputHandler.mouseGesture();
     if (gesture.has_value() && _camFreeLook)
     {
         if (gesture->type == MouseGestureType::TrackBall)
@@ -596,7 +596,7 @@ void App::handleMouseGestures()
 
 void App::handleKeyboardInput(float deltaS)
 {
-    const StaticArray<KeyState, KeyCount> &keyStates = _inputHandler.keyboard();
+    const StaticArray<KeyState, KeyCount> &keyStates = gInputHandler.keyboard();
 
     if (keyStates[KeyI] == KeyState::Pressed)
     {
@@ -1526,7 +1526,7 @@ void App::render(
         if (_pickFocusDistance)
         {
             const Optional<MouseGesture> &gesture =
-                _inputHandler.mouseGesture();
+                gInputHandler.mouseGesture();
             WHEELS_ASSERT(gesture.has_value());
 
             const ImVec2 offset = _imguiRenderer->centerAreaOffset();
@@ -1597,7 +1597,7 @@ void App::render(
     {
         const ImVec2 size = _imguiRenderer->centerAreaSize();
         const ImVec2 offset = _imguiRenderer->centerAreaOffset();
-        const CursorState cursor = _inputHandler.cursor();
+        const CursorState cursor = gInputHandler.cursor();
 
         // Have magnifier when mouse is on (an active) debug view
         const bool uiHovered = ImGui::IsAnyItemHovered();
@@ -1614,16 +1614,16 @@ void App::render(
         {
             // Also don't have magnifier when e.g. mouse look is active. Let
             // InputHandler figure out if mouse should be visible or not.
-            if (!_inputHandler.mouseGesture().has_value())
+            if (!gInputHandler.mouseGesture().has_value())
             {
                 // The magnifier has its own pointer so let's not mask the view
                 // with the OS one.
-                _inputHandler.hideCursor(_window->ptr());
+                gInputHandler.hideCursor(_window->ptr());
                 cursorCoord = cursor.position - vec2(offset.x, offset.y);
             }
         }
         else
-            _inputHandler.showCursor(_window->ptr());
+            gInputHandler.showCursor(_window->ptr());
 
         const ImageHandle debugOutput = _textureDebug->record(
             scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,

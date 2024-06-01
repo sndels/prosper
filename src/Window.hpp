@@ -17,8 +17,8 @@ class Window
 {
   public:
     Window(
-        const wheels::Pair<uint32_t, uint32_t> &resolution, const char *title,
-        InputHandler *inputHandler) noexcept;
+        const wheels::Pair<uint32_t, uint32_t> &resolution,
+        const char *title) noexcept;
     ~Window();
 
     Window(const Window &other) = delete;
@@ -50,8 +50,6 @@ class Window
         GLFWwindow *window, int width, int height);
 
   private:
-    InputHandler *_inputHandler{nullptr};
-
     GLFWwindow *_window{nullptr};
     uint32_t _width{0};
     uint32_t _height{0};

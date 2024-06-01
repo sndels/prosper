@@ -97,4 +97,6 @@ class InputHandler
     wheels::Optional<MouseGesture> _mouseGesture;
 };
 
+extern InputHandler gInputHandler;
+
 #endif // PROSPER_UTILS_INPUT_HANDLER_HPP
