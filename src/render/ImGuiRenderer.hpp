@@ -9,13 +9,6 @@
 #include <imgui.h>
 #include <vulkan/vulkan.hpp>
 
-extern "C"
-{
-    // Let's assume GLFW is stable enough that a fwd decl is not a problem
-    // The header is pretty thick
-    struct GLFWwindow;
-}
-
 class ImGuiRenderer
 {
   public:
@@ -28,7 +21,7 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
     void init(
-        Device *device, RenderResources *resources, GLFWwindow *window,
+        Device *device, RenderResources *resources,
         const SwapchainConfig &swapConfig);
 
     void startFrame(Profiler *profiler);

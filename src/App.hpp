@@ -107,8 +107,6 @@ class App
     wheels::TlsfAllocator _fileChangePollingAlloc;
     std::filesystem::path _scenePath;
 
-    wheels::OwningPtr<Window>
-        _window; // Needs to be valid before and after everything else
     wheels::OwningPtr<Device>
         _device; // Needs to be valid before and after all other vk resources
 

@@ -8,6 +8,7 @@
 
 #include <wheels/containers/static_array.hpp>
 
+#include "../Window.hpp"
 #include "../gfx/Swapchain.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Profiler.hpp"
@@ -53,12 +54,14 @@ ImGuiRenderer::~ImGuiRenderer()
 }
 
 void ImGuiRenderer::init(
-    Device *device, RenderResources *resources, GLFWwindow *window,
+    Device *device, RenderResources *resources,
     const SwapchainConfig &swapConfig)
 {
     WHEELS_ASSERT(!_initialized);
     WHEELS_ASSERT(device != nullptr);
     WHEELS_ASSERT(resources != nullptr);
+
+    GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
 
     _device = device;

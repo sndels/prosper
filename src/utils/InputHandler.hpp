@@ -6,13 +6,6 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
-extern "C"
-{
-    // Let's assume GLFW is stable enough that a fwd decl is not a problem
-    // The header is pretty thick
-    struct GLFWwindow;
-}
-
 enum class KeyState
 {
     Neutral,  // Key is just hangin'
@@ -80,15 +73,14 @@ class InputHandler
 
     void handleCursorEntered(bool entered);
     void handleMouseScroll(double xoffset, double yoffset);
-    void handleMouseButton(
-        GLFWwindow *window, int button, int action, int mods);
+    void handleMouseButton(int button, int action, int mods);
     void handleMouseMove(double xpos, double ypos);
     void handleKey(int glfwKey, int scancode, int action, int mods);
     void handleKeyStateUpdate();
 
-    void hideCursor(GLFWwindow *window);
+    void hideCursor();
     // This doesn't override hidden cursor when gesture is active
-    void showCursor(GLFWwindow *window);
+    void showCursor();
 
   private:
     CursorState _cursor;

@@ -1,5 +1,7 @@
 #include "InputHandler.hpp"
 
+#include "../Window.hpp"
+
 #include <GLFW/glfw3.h>
 
 using namespace glm;
@@ -90,11 +92,8 @@ void InputHandler::handleMouseScroll(double xoffset, double yoffset)
 }
 
 // NOLINTNEXTLINE mirrors the glfw interface
-void InputHandler::handleMouseButton(
-    GLFWwindow *window, int button, int action, int /*mods*/)
+void InputHandler::handleMouseButton(int button, int action, int /*mods*/)
 {
-    WHEELS_ASSERT(window != nullptr);
-
     if (_cursor.inside)
     {
         if (_mouseGesture.has_value())
@@ -103,7 +102,7 @@ void InputHandler::handleMouseButton(
             {
                 _mouseGesture.reset();
                 // Restore normal mouse input
-                showCursor(window);
+                showCursor();
             }
         }
         else
@@ -130,6 +129,8 @@ void InputHandler::handleMouseButton(
                 }
                 // Constrain mouse so that drags aren't bounded by the window
                 // size
+                GLFWwindow *window = gWindow.ptr();
+                WHEELS_ASSERT(window != nullptr);
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                 _cursor.shown = false;
             }
@@ -192,10 +193,12 @@ void InputHandler::handleKeyStateUpdate()
     _keyboardUpdated = StaticArray<bool, KeyCount>{false};
 }
 
-void InputHandler::hideCursor(GLFWwindow *window)
+void InputHandler::hideCursor()
 {
     if (_cursor.shown)
     {
+        GLFWwindow *window = gWindow.ptr();
+        WHEELS_ASSERT(window != nullptr);
         // No need to check for active gesture as cursor is always hidden during
         // gestures
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
@@ -203,13 +206,15 @@ void InputHandler::hideCursor(GLFWwindow *window)
     }
 }
 
-void InputHandler::showCursor(GLFWwindow *window)
+void InputHandler::showCursor()
 {
     if (!_cursor.shown)
     {
         // Gestures' disabled cursor have precedence
         if (!_mouseGesture.has_value())
         {
+            GLFWwindow *window = gWindow.ptr();
+            WHEELS_ASSERT(window != nullptr);
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             _cursor.shown = true;
         }

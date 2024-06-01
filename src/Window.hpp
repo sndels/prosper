@@ -16,15 +16,18 @@ extern "C"
 class Window
 {
   public:
-    Window(
-        const wheels::Pair<uint32_t, uint32_t> &resolution,
-        const char *title) noexcept;
+    Window() noexcept = default;
     ~Window();
 
     Window(const Window &other) = delete;
     Window(Window &&other) = delete;
     Window &operator=(const Window &other) = delete;
     Window &operator=(Window &&other) = delete;
+
+    void init(
+        const wheels::Pair<uint32_t, uint32_t> &resolution,
+        const char *title) noexcept;
+    void destroy() noexcept;
 
     [[nodiscard]] GLFWwindow *ptr() const;
     [[nodiscard]] bool open() const;
@@ -50,10 +53,16 @@ class Window
         GLFWwindow *window, int width, int height);
 
   private:
+    // All members should init (in ctor) without dynamic allocations or
+    // exceptions because this class is used in a extern global.
+
+    bool _initialized{false};
     GLFWwindow *_window{nullptr};
     uint32_t _width{0};
     uint32_t _height{0};
     bool _resized{false};
 };
+
+extern Window gWindow;
 
 #endif // PROSPER_WINDOW_HPP

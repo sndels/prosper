@@ -20,6 +20,7 @@
 #include <wheels/owning_ptr.hpp>
 
 #include "../Allocators.hpp"
+#include "../Window.hpp"
 #include "../utils/ForEach.hpp"
 #include "../utils/Utils.hpp"
 #include "ShaderIncludes.hpp"
@@ -496,7 +497,7 @@ Device::~Device()
     }
 }
 
-void Device::init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window)
+void Device::init(wheels::ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!_initialized);
 
@@ -533,7 +534,7 @@ void Device::init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window)
     }
 
     createDebugMessenger();
-    createSurface(window);
+    createSurface();
     selectPhysicalDevice(scopeAlloc.child_scope());
     _queueFamilies = findQueueFamilies(_physical, _surface);
 
@@ -1379,8 +1380,9 @@ void Device::createDebugMessenger()
         _instance, &createInfo, nullptr, &_debugMessenger);
 }
 
-void Device::createSurface(GLFWwindow *window)
+void Device::createSurface()
 {
+    GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
 
     auto *vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&_surface);

@@ -8,6 +8,7 @@
 
 #include "Allocators.hpp"
 #include "App.hpp"
+#include "Window.hpp"
 #include "gfx/Device.hpp"
 #include "utils/Utils.hpp"
 
@@ -23,6 +24,10 @@ using namespace wheels;
 
 namespace
 {
+
+const Pair<uint32_t, uint32_t> sStartupRes{1920u, 1080u};
+const char *const sWindowTitle = "prosper";
+
 const char *const s_default_scene_path =
     "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
 
@@ -109,6 +114,7 @@ int main(int argc, char *argv[])
     // section 6.1.2
     gAllocators.init();
     // gInputHandler doesn't require calling init
+    gWindow.init(sStartupRes, sWindowTitle);
 
     try
     {
@@ -124,6 +130,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Exception thrown: %s\n", e.what());
     }
 
+    gWindow.destroy();
     gAllocators.destroy();
 
 #ifdef LIVEPP_PATH

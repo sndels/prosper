@@ -15,13 +15,6 @@
 #include <filesystem>
 #include <mutex>
 
-extern "C"
-{
-    // Let's assume GLFW is stable enough that a fwd decl is not a problem
-    // The header is pretty thick
-    struct GLFWwindow;
-}
-
 struct QueueFamilies
 {
     wheels::Optional<uint32_t> graphicsFamily;
@@ -76,7 +69,7 @@ class Device
     Device &operator=(const Device &other) = delete;
     Device &operator=(Device &&other) = delete;
 
-    void init(wheels::ScopedScratch scopeAlloc, GLFWwindow *window);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     [[nodiscard]] vk::Instance instance() const;
     [[nodiscard]] vk::PhysicalDevice physical() const;
@@ -161,7 +154,7 @@ class Device
 
     void createInstance(wheels::ScopedScratch scopeAlloc);
     void createDebugMessenger();
-    void createSurface(GLFWwindow *window);
+    void createSurface();
     void selectPhysicalDevice(wheels::ScopedScratch scopeAlloc);
     void createLogicalDevice(wheels::ScopedScratch scopeAlloc);
     void createAllocator();

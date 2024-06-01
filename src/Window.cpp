@@ -47,12 +47,26 @@ void deallocatefun(void *block, void *user)
 
 } // namespace
 
-Window::Window(
-    const Pair<uint32_t, uint32_t> &resolution, const char *title) noexcept
-: _width{resolution.first}
-, _height{resolution.second}
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+Window gWindow;
+
+Window::~Window()
 {
+    WHEELS_ASSERT(
+        (!_initialized || _window == nullptr) && "destroy() not called");
+}
+
+void Window::init(
+    const Pair<uint32_t, uint32_t> &resolution, const char *title) noexcept
+{
+    WHEELS_ASSERT(!_initialized);
+
     printf("Creating window\n");
+
+    _width = resolution.first;
+    _height = resolution.second;
 
     GLFWallocator allocator;
     allocator.allocate = allocatefun;
@@ -105,12 +119,17 @@ Window::Window(
         hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1, &use_dark_mode,
         sizeof(use_dark_mode));
 #endif // _WIN32
+
+    _initialized = true;
 }
 
-Window::~Window()
+void Window::destroy() noexcept
 {
     glfwDestroyWindow(_window);
     glfwTerminate();
+
+    // _initialized = true and _window = nullptr mark a destroyed window
+    _window = nullptr;
 }
 
 GLFWwindow *Window::ptr() const { return _window; }
@@ -152,8 +171,8 @@ void Window::keyCallback(
     GLFWwindow *window, int32_t key, int32_t scancode, int32_t action,
     int32_t mods)
 {
-    (void)scancode;
-    (void)mods;
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
 
     if (!ImGui::IsAnyItemActive())
         gInputHandler.handleKey(key, scancode, action, mods);
@@ -162,22 +181,33 @@ void Window::keyCallback(
 
 void Window::charCallback(GLFWwindow *window, unsigned int c)
 {
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
+
     ImGui_ImplGlfw_CharCallback(window, c);
 }
 
-void Window::cursorPosCallback(
-    GLFWwindow * /*window*/, double xpos, double ypos)
+void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos)
 {
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
+
     gInputHandler.handleMouseMove(xpos, ypos);
 }
 
-void Window::cursorEnterCallback(GLFWwindow * /*window*/, int entered)
+void Window::cursorEnterCallback(GLFWwindow *window, int entered)
 {
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
+
     gInputHandler.handleCursorEntered(entered == GL_TRUE);
 }
 
 void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
+
     const ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse)
         ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
@@ -188,7 +218,8 @@ void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 void Window::mouseButtonCallback(
     GLFWwindow *window, int button, int action, int mods)
 {
-    (void)mods;
+    auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
 
     const ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse)
@@ -196,13 +227,15 @@ void Window::mouseButtonCallback(
     // Make sure we don't just drop camera drag end events when mouse moves over
     // a UI element
     if (!io.WantCaptureMouse || action == GLFW_RELEASE)
-        gInputHandler.handleMouseButton(window, button, action, mods);
+        gInputHandler.handleMouseButton(button, action, mods);
 }
 
 // NOLINTNEXTLINE mirrors the glfw interface
 void Window::framebufferSizeCallback(GLFWwindow *window, int width, int height)
 {
     auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
+    WHEELS_ASSERT(window == thisPtr->ptr());
+
     auto uw = asserted_cast<uint32_t>(width);
     auto uh = asserted_cast<uint32_t>(height);
     if (thisPtr->_width != uw || thisPtr->_height != uh)

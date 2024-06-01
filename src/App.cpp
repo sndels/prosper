@@ -53,8 +53,6 @@ using namespace std::chrono_literals;
 namespace
 {
 
-constexpr uint32_t WIDTH = 1920;
-constexpr uint32_t HEIGHT = 1080;
 constexpr uint32_t sDrawStatsByteSize = 2 * sizeof(uint32_t);
 
 StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers(
@@ -134,15 +132,7 @@ void App::init()
     LinearAllocator scratchBacking{megabytes(16)};
     ScopedScratch scopeAlloc{scratchBacking};
 
-    tl("Window creation",
-       [&]
-       {
-           _window = OwningPtr<Window>(
-               gAllocators.general, Pair<uint32_t, uint32_t>{WIDTH, HEIGHT},
-               "prosper");
-       });
-    tl("Device init",
-       [&] { _device->init(scopeAlloc.child_scope(), _window->ptr()); });
+    tl("Device init", [&] { _device->init(scopeAlloc.child_scope()); });
 
     _staticDescriptorsAlloc->init(_device.get());
 
@@ -150,7 +140,7 @@ void App::init()
         const SwapchainConfig &config = SwapchainConfig{
             scopeAlloc.child_scope(),
             _device.get(),
-            {_window->width(), _window->height()}};
+            {gWindow.width(), gWindow.height()}};
         _swapchain->init(_device.get(), config);
     }
 
@@ -213,8 +203,7 @@ void App::init()
     _toneMap->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
-    _imguiRenderer->init(
-        _device.get(), _resources.get(), _window->ptr(), _swapchain->config());
+    _imguiRenderer->init(_device.get(), _resources.get(), _swapchain->config());
     _textureDebug->init(
         scopeAlloc.child_scope(), _device.get(), _resources.get(),
         _staticDescriptorsAlloc.get());
@@ -262,7 +251,7 @@ void App::run()
 
     try
     {
-        while (_window->open())
+        while (gWindow.open())
         {
             _profiler->startCpuFrame();
 
@@ -271,13 +260,13 @@ void App::run()
 
             {
                 const auto _s = _profiler->createCpuScope("Window::startFrame");
-                _window->startFrame();
+                gWindow.startFrame();
             }
 
             // The cursor position callback doesn't get called on every frame
             // that has cursor movement if the cursor is hidden so let's poll
             // the position
-            _window->pollCursorPosition();
+            gWindow.pollCursorPosition();
             handleMouseGestures();
             handleKeyboardInput(updateDelta.getSeconds());
             updateDelta.reset();
@@ -344,7 +333,7 @@ void App::recreateViewportRelated()
 
 void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
 {
-    while (_window->width() == 0 && _window->height() == 0)
+    while (gWindow.width() == 0 && gWindow.height() == 0)
     {
         // Window is minimized so wait until its not
         glfwWaitEvents();
@@ -360,7 +349,7 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
         const SwapchainConfig config{
             scopeAlloc.child_scope(),
             _device.get(),
-            {_window->width(), _window->height()}};
+            {gWindow.width(), gWindow.height()}};
         _swapchain->recreate(config);
     }
 }
@@ -982,9 +971,7 @@ void App::drawProfiling(
     ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
 
 {
-    ImGui::SetNextWindowPos(
-        ImVec2{static_cast<float>(WIDTH) - 300.f, 60.f},
-        ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2{600.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Profiling", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     size_t longestNameLength = 0;
@@ -1088,11 +1075,7 @@ void App::drawProfiling(
 
 void App::drawMemory(uint32_t scopeHighWatermark) const
 {
-    ImGui::SetNextWindowPos(
-        ImVec2{
-            static_cast<float>(WIDTH) - 300.f,
-            static_cast<float>(HEIGHT) - 300.f},
-        ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2{1600.f, 600.f}, ImGuiCond_FirstUseEver);
 
     ImGui::Begin("Memory", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
@@ -1618,12 +1601,12 @@ void App::render(
             {
                 // The magnifier has its own pointer so let's not mask the view
                 // with the OS one.
-                gInputHandler.hideCursor(_window->ptr());
+                gInputHandler.hideCursor();
                 cursorCoord = cursor.position - vec2(offset.x, offset.y);
             }
         }
         else
-            gInputHandler.showCursor(_window->ptr());
+            gInputHandler.showCursor();
 
         const ImageHandle debugOutput = _textureDebug->record(
             scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,
@@ -1966,7 +1949,7 @@ void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
     // TODO: End gesture when mouse is released on top of imgui
 
     // Recreate swapchain if so indicated and explicitly handle resizes
-    if (shouldResizeSwapchain || _window->resized())
+    if (shouldResizeSwapchain || gWindow.resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
     else if (viewportResized || _forceViewportRecreate)
     { // Don't recreate viewport related on the same frame as swapchain is
