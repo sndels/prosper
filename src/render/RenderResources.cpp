@@ -15,10 +15,6 @@ RenderResources::~RenderResources()
 
 void RenderResources::init()
 {
-    constantsRing.init(
-        vk::BufferUsageFlagBits::eStorageBuffer,
-        asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
-
     this->nearestSampler =
         gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
@@ -67,7 +63,6 @@ void RenderResources::startFrame()
     images.startFrame();
     texelBuffers.startFrame();
     buffers.startFrame();
-    constantsRing.startFrame();
 }
 
 void RenderResources::destroyResources()

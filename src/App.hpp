@@ -3,6 +3,7 @@
 
 #include "Window.hpp"
 #include "gfx/Device.hpp"
+#include "gfx/RingBuffer.hpp"
 #include "gfx/Swapchain.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
@@ -120,6 +121,10 @@ class App
 
     // Stored here, managed by (earliest) passes that write to them
     wheels::OwningPtr<RenderResources> _resources;
+
+    // TODO:
+    // Should this be a global too?
+    RingBuffer _constantsRing;
 
     wheels::OwningPtr<Camera> _cam;
     wheels::OwningPtr<World> _world;

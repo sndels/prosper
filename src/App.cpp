@@ -136,14 +136,17 @@ void App::init()
 
     _resources->init();
 
+    _constantsRing.init(
+        vk::BufferUsageFlagBits::eStorageBuffer,
+        asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
+
     _cam->init(
-        scopeAlloc.child_scope(), &_resources->constantsRing,
+        scopeAlloc.child_scope(), &_constantsRing,
         _staticDescriptorsAlloc.get());
 
     // TODO: Some VMA allocation in here gets left dangling if we throw
     // immediately after the call
-    _world->init(
-        scopeAlloc.child_scope(), &_resources->constantsRing, _scenePath);
+    _world->init(scopeAlloc.child_scope(), &_constantsRing, _scenePath);
 
     const Timer gpuPassesInitTimer;
     _lightClustering->init(
@@ -257,6 +260,7 @@ void App::run()
             recompileShaders(scopeAlloc.child_scope());
 
             _resources->startFrame();
+            _constantsRing.startFrame();
             _world->startFrame();
             _meshletCuller->startFrame();
             _depthOfField->startFrame();

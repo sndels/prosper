@@ -53,8 +53,6 @@ class RenderResources
     RenderTexelBufferCollection texelBuffers;
     RenderBufferCollection buffers;
 
-    RingBuffer constantsRing;
-
     vk::Sampler nearestSampler;
     vk::Sampler bilinearSampler;
     vk::Sampler trilinearSampler;
