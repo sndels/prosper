@@ -79,13 +79,10 @@ TextureDebug::~TextureDebug()
 }
 
 void TextureDebug::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -128,10 +125,11 @@ void TextureDebug::drawUi(uint32_t nextFrame)
 
     TargetSettings *settings = nullptr;
     {
-        const Span<const String> debugNames = _resources->images.debugNames();
+        const Span<const String> debugNames =
+            gRenderResources.images->debugNames();
         int activeNameIndex = -1;
         const Optional<StrSpan> activeName =
-            _resources->images.activeDebugName();
+            gRenderResources.images->activeDebugName();
         if (activeName.has_value())
         {
             int i = 0;
@@ -156,7 +154,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
             if (ImGui::Selectable(emptySlotName, selected))
             {
                 activeNameIndex = -1;
-                _resources->images.clearDebug();
+                gRenderResources.images->clearDebug();
             }
             if (selected)
                 ImGui::SetItemDefaultFocus();
@@ -170,7 +168,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
                     if (ImGui::Selectable(name.c_str(), selected))
                     {
                         activeNameIndex = i;
-                        _resources->images.markForDebug(
+                        gRenderResources.images->markForDebug(
                             debugNames.data()[activeNameIndex]);
                     }
 
@@ -191,13 +189,14 @@ void TextureDebug::drawUi(uint32_t nextFrame)
     WHEELS_ASSERT(settings != nullptr);
 
     {
-        const ImageHandle activeHandle = _resources->images.activeDebugHandle();
+        const ImageHandle activeHandle =
+            gRenderResources.images->activeDebugHandle();
         int32_t maxLod = 0;
-        if (_resources->images.isValidHandle(activeHandle))
-            maxLod =
-                asserted_cast<int32_t>(_resources->images.resource(activeHandle)
-                                           .subresourceRange.levelCount) -
-                1;
+        if (gRenderResources.images->isValidHandle(activeHandle))
+            maxLod = asserted_cast<int32_t>(
+                         gRenderResources.images->resource(activeHandle)
+                             .subresourceRange.levelCount) -
+                     1;
         ImGui::DragInt("LoD##TextureDebug", &settings->lod, 0.02f, 0, maxLod);
         settings->lod = std::clamp(settings->lod, 0, maxLod);
     }
@@ -254,16 +253,30 @@ ImageHandle TextureDebug::record(
 
     ImageHandle ret;
     {
-        ret = createOutput(outSize);
-        const ImageHandle inColor = _resources->images.activeDebugHandle();
+        ret = gRenderResources.images->create(
+            ImageDescription{
+                .format = vk::Format::eR8G8B8A8Unorm,
+                .width = outSize.width,
+                .height = outSize.height,
+                .usageFlags =
+                    vk::ImageUsageFlagBits::eStorage |         // TextureDebug
+                    vk::ImageUsageFlagBits::eColorAttachment | // ImGui
+                    vk::ImageUsageFlagBits::eTransferSrc | // Blit to swap image
+                    vk::ImageUsageFlagBits::eTransferDst,  // Clear
+            },
+            sOutputDebugName);
 
-        if (!_resources->images.isValidHandle(inColor) ||
-            _resources->images.resource(inColor).imageType !=
+        const ImageHandle inColor =
+            gRenderResources.images->activeDebugHandle();
+
+        if (!gRenderResources.images->isValidHandle(inColor) ||
+            gRenderResources.images->resource(inColor).imageType !=
                 vk::ImageType::e2D)
         {
-            _resources->images.transition(cb, ret, ImageState::TransferDst);
+            gRenderResources.images->transition(
+                cb, ret, ImageState::TransferDst);
 
-            const Image &image = _resources->images.resource(ret);
+            const Image &image = gRenderResources.images->resource(ret);
             const vk::ClearColorValue clearValue{0.f, 0.f, 0.f, 1.f};
             cb.clearColorImage(
                 image.handle, vk::ImageLayout::eTransferDstOptimal, &clearValue,
@@ -272,16 +285,17 @@ ImageHandle TextureDebug::record(
         else
         {
             const Optional<StrSpan> activeName =
-                _resources->images.activeDebugName();
+                gRenderResources.images->activeDebugName();
 
-            const BufferHandle deviceReadback = _resources->buffers.create(
-                BufferDescription{
-                    .byteSize = _readbackBuffers[nextFrame].byteSize,
-                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eTransferSrc,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-                "TextureDebugReadbackDeviceBuffer");
+            const BufferHandle deviceReadback =
+                gRenderResources.buffers->create(
+                    BufferDescription{
+                        .byteSize = _readbackBuffers[nextFrame].byteSize,
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                                 vk::BufferUsageFlagBits::eTransferSrc,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                    "TextureDebugReadbackDeviceBuffer");
 
             TargetSettings settings;
             if (activeName.has_value())
@@ -297,30 +311,32 @@ ImageHandle TextureDebug::record(
                 scopeAlloc.child_scope(), nextFrame,
                 StaticArray{{
                     DescriptorInfo{vk::DescriptorImageInfo{
-                        .imageView = _resources->images.resource(inColor).view,
+                        .imageView =
+                            gRenderResources.images->resource(inColor).view,
                         .imageLayout = vk::ImageLayout::eGeneral,
                     }},
                     DescriptorInfo{vk::DescriptorImageInfo{
-                        .imageView = _resources->images.resource(ret).view,
+                        .imageView =
+                            gRenderResources.images->resource(ret).view,
                         .imageLayout = vk::ImageLayout::eGeneral,
                     }},
                     DescriptorInfo{vk::DescriptorImageInfo{
                         .sampler = settings.useBilinearSampler
-                                       ? _resources->bilinearSampler
-                                       : _resources->nearestSampler,
+                                       ? gRenderResources.bilinearSampler
+                                       : gRenderResources.nearestSampler,
                     }},
                     DescriptorInfo{vk::DescriptorImageInfo{
-                        .sampler = _resources->nearestSampler,
+                        .sampler = gRenderResources.nearestSampler,
                     }},
                     DescriptorInfo{vk::DescriptorBufferInfo{
-                        .buffer =
-                            _resources->buffers.nativeHandle(deviceReadback),
+                        .buffer = gRenderResources.buffers->nativeHandle(
+                            deviceReadback),
                         .range = VK_WHOLE_SIZE,
                     }},
                 }});
 
             transition(
-                WHEELS_MOV(scopeAlloc), *_resources, cb,
+                WHEELS_MOV(scopeAlloc), cb,
                 Transitions{
                     .images = StaticArray<ImageTransition, 2>{{
                         {inColor, ImageState::ComputeShaderRead},
@@ -337,9 +353,9 @@ ImageHandle TextureDebug::record(
             const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
 
             const vk::Extent3D inExtent =
-                _resources->images.resource(inColor).extent;
+                gRenderResources.images->resource(inColor).extent;
             const vk::Extent3D outExtent =
-                _resources->images.resource(ret).extent;
+                gRenderResources.images->resource(ret).extent;
 
             const vec2 cursorUv =
                 cursorCoord.has_value()
@@ -373,7 +389,7 @@ ImageHandle TextureDebug::record(
                 _computePass.storageSet(nextFrame);
             _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
 
-            _resources->buffers.transition(
+            gRenderResources.buffers->transition(
                 cb, deviceReadback, BufferState::TransferSrc);
             // We know the host readback buffer is not used this frame so no
             // need for a barrier here
@@ -384,33 +400,17 @@ ImageHandle TextureDebug::record(
                 .size = _readbackBuffers[nextFrame].byteSize,
             };
             cb.copyBuffer(
-                _resources->buffers.nativeHandle(deviceReadback),
+                gRenderResources.buffers->nativeHandle(deviceReadback),
                 _readbackBuffers[nextFrame].handle, 1, &region);
 
-            _resources->buffers.release(deviceReadback);
+            gRenderResources.buffers->release(deviceReadback);
         }
     }
 
     return ret;
 }
 
-bool TextureDebug::textureSelected() const
+bool TextureDebug::textureSelected()
 {
-    return _resources->images.activeDebugName().has_value();
-}
-
-ImageHandle TextureDebug::createOutput(vk::Extent2D size)
-{
-    return _resources->images.create(
-        ImageDescription{
-            .format = vk::Format::eR8G8B8A8Unorm,
-            .width = size.width,
-            .height = size.height,
-            .usageFlags =
-                vk::ImageUsageFlagBits::eStorage |         // TextureDebug
-                vk::ImageUsageFlagBits::eColorAttachment | // ImGui
-                vk::ImageUsageFlagBits::eTransferSrc |     // Blit to swap image
-                vk::ImageUsageFlagBits::eTransferDst,      // Clear
-        },
-        sOutputDebugName);
+    return gRenderResources.images->activeDebugName().has_value();
 }

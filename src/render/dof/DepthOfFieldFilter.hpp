@@ -22,7 +22,7 @@ class DepthOfFieldFilter
     DepthOfFieldFilter &operator=(DepthOfFieldFilter &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -47,7 +47,6 @@ class DepthOfFieldFilter
 
   private:
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };
 

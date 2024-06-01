@@ -29,7 +29,7 @@ class DepthOfFieldFlatten
     DepthOfFieldFlatten &operator=(DepthOfFieldFlatten &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -47,7 +47,6 @@ class DepthOfFieldFlatten
 
   private:
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };
 

@@ -28,7 +28,7 @@ class RtReference
     RtReference &operator=(RtReference &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
@@ -77,7 +77,6 @@ class RtReference
     void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages;
     wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>

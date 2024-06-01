@@ -30,11 +30,10 @@ struct PCBlock
     float maxCoC{0.f};
 };
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, ImageHandle illumination)
+vk::Extent2D getRenderExtent(ImageHandle illumination)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(illumination).extent;
+        gRenderResources.images->resource(illumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -61,14 +60,11 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldSetup::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
@@ -101,14 +97,13 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent =
-            getRenderExtent(*_resources, input.illumination);
+        const vk::Extent2D renderExtent = getRenderExtent(input.illumination);
 
         const uint32_t mipCount =
             static_cast<uint32_t>(floor(log2(static_cast<float>(
                 std::max(renderExtent.width, renderExtent.height))))) +
             1;
-        ret.halfResIllumination = _resources->images.create(
+        ret.halfResIllumination = gRenderResources.images->create(
             ImageDescription{
                 .format = sIlluminationFormat,
                 .width = renderExtent.width,
@@ -120,7 +115,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             },
             "HalfResIllumination");
 
-        ret.halfResCircleOfConfusion = _resources->images.create(
+        ret.halfResCircleOfConfusion = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR16Sfloat,
                 .width = renderExtent.width,
@@ -135,32 +130,34 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
-                        _resources->images.resource(input.illumination).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images.resource(input.depth).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(ret.halfResIllumination)
+                        gRenderResources.images->resource(input.illumination)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images
-                                     .resource(ret.halfResCircleOfConfusion)
+                    .imageView =
+                        gRenderResources.images->resource(input.depth).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(ret.halfResIllumination)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = _resources->nearestSampler,
+                    .imageView = gRenderResources.images
+                                     ->resource(ret.halfResCircleOfConfusion)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .sampler = gRenderResources.nearestSampler,
                 }},
             }});
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 4>{{
                     {input.illumination, ImageState::ComputeShaderRead},

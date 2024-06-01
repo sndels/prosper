@@ -48,7 +48,7 @@ class TemporalAntiAliasing
     TemporalAntiAliasing &operator=(TemporalAntiAliasing &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDsLayout);
 
@@ -76,10 +76,7 @@ class TemporalAntiAliasing
     void releasePreserved();
 
   private:
-    Output createOutputs(const vk::Extent2D &size);
-
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 
     ImageHandle _previousResolveOutput;

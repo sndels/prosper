@@ -10,6 +10,7 @@
 #include "App.hpp"
 #include "Window.hpp"
 #include "gfx/Device.hpp"
+#include "render/RenderResources.hpp"
 #include "utils/Utils.hpp"
 
 #ifdef LIVEPP_PATH
@@ -132,6 +133,8 @@ int main(int argc, char *argv[])
         tl("Device init", [&scopeAlloc, &settings]()
            { gDevice.init(scopeAlloc.child_scope(), settings.device); });
 
+        gRenderResources.init();
+
         App app{settings.scene};
         app.init();
         printf("run() called after %.2fs\n", t.getSeconds());
@@ -142,6 +145,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Exception thrown: %s\n", e.what());
     }
 
+    gRenderResources.destroy();
     gDevice.destroy();
     gWindow.destroy();
     gAllocators.destroy();

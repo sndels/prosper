@@ -24,7 +24,7 @@ class ToneMap
     ToneMap &operator=(ToneMap &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -42,10 +42,7 @@ class ToneMap
         ImageHandle inColor, uint32_t nextFrame, Profiler *profiler);
 
   private:
-    Output createOutputs(const vk::Extent2D &size);
-
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
     Texture3D _lut;
 

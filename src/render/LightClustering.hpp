@@ -38,7 +38,7 @@ class LightClustering
     LightClustering &operator=(LightClustering &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
@@ -57,11 +57,7 @@ class LightClustering
         uint32_t nextFrame, Profiler *profiler);
 
   private:
-    [[nodiscard]] LightClusteringOutput createOutputs(
-        const vk::Extent2D &renderExtent);
-
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };
 

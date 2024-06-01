@@ -6,29 +6,19 @@
 using namespace wheels;
 
 void DepthOfField::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout cameraDsLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _setupPass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc,
-        cameraDsLayout);
-    _reducePass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
-    _flattenPass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
-    _dilatePass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
-    _gatherPass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
-    _filterPass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
-    _combinePass.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc);
+        scopeAlloc.child_scope(), staticDescriptorsAlloc, cameraDsLayout);
+    _reducePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    _flattenPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    _dilatePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    _gatherPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    _filterPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    _combinePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
 
     _initialized = true;
 }
@@ -78,7 +68,8 @@ DepthOfField::Output DepthOfField::record(
             flattenOutput.tileMinMaxCircleOfConfusion, cam, nextFrame,
             profiler);
 
-        _resources->images.release(flattenOutput.tileMinMaxCircleOfConfusion);
+        gRenderResources.images->release(
+            flattenOutput.tileMinMaxCircleOfConfusion);
 
         const DepthOfFieldGather::Input gatherInput{
             .halfResIllumination = setupOutput.halfResIllumination,
@@ -100,7 +91,8 @@ DepthOfField::Output DepthOfField::record(
                 .outRes = "halfResFgColorWeightdFiltered",
             },
             profiler);
-        _resources->images.release(fgGatherOutput.halfResBokehColorWeight);
+        gRenderResources.images->release(
+            fgGatherOutput.halfResBokehColorWeight);
         const DepthOfFieldFilter::Output bgFilterOutput = _filterPass.record(
             scopeAlloc.child_scope(), cb,
             bgGatherOutput.halfResBokehColorWeight, nextFrame,
@@ -109,7 +101,8 @@ DepthOfField::Output DepthOfField::record(
                 .outRes = "halfResBgColorWeightdFiltered",
             },
             profiler);
-        _resources->images.release(bgGatherOutput.halfResBokehColorWeight);
+        gRenderResources.images->release(
+            bgGatherOutput.halfResBokehColorWeight);
 
         ret = _combinePass.record(
             scopeAlloc.child_scope(), cb,
@@ -124,11 +117,13 @@ DepthOfField::Output DepthOfField::record(
             },
             nextFrame, profiler);
 
-        _resources->images.release(bgFilterOutput.filteredIlluminationWeight);
-        _resources->images.release(fgFilterOutput.filteredIlluminationWeight);
-        _resources->images.release(dilateOutput.dilatedTileMinMaxCoC);
-        _resources->images.release(setupOutput.halfResIllumination);
-        _resources->images.release(setupOutput.halfResCircleOfConfusion);
+        gRenderResources.images->release(
+            bgFilterOutput.filteredIlluminationWeight);
+        gRenderResources.images->release(
+            fgFilterOutput.filteredIlluminationWeight);
+        gRenderResources.images->release(dilateOutput.dilatedTileMinMaxCoC);
+        gRenderResources.images->release(setupOutput.halfResIllumination);
+        gRenderResources.images->release(setupOutput.halfResCircleOfConfusion);
     }
     return ret;
 }

@@ -138,14 +138,11 @@ cullerExternalDsLayouts(
 } // namespace
 
 void MeshletCuller::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _drawListGenerator.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         [&worldDsLayouts](Allocator &alloc)
@@ -230,8 +227,8 @@ MeshletCullerOutput MeshletCuller::record(
         },
         debugPrefix);
 
-    _resources->buffers.release(initialList);
-    _resources->buffers.release(cullerArgs);
+    gRenderResources.buffers->release(initialList);
+    gRenderResources.buffers->release(cullerArgs);
 
     return culledList;
 }
@@ -295,7 +292,7 @@ BufferHandle MeshletCuller::recordGenerateList(
         static_cast<uint32_t>(sizeof(uint32_t)) +
         meshletCountUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t));
 
-    const BufferHandle ret = _resources->buffers.create(
+    const BufferHandle ret = gRenderResources.buffers->create(
         BufferDescription{
             .byteSize = drawListByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst |
@@ -308,18 +305,18 @@ BufferHandle MeshletCuller::recordGenerateList(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{DescriptorInfo{
             vk::DescriptorBufferInfo{
-                .buffer = _resources->buffers.nativeHandle(ret),
+                .buffer = gRenderResources.buffers->nativeHandle(ret),
                 .range = VK_WHOLE_SIZE,
             },
         }});
 
-    _resources->buffers.transition(cb, ret, BufferState::TransferDst);
+    gRenderResources.buffers->transition(cb, ret, BufferState::TransferDst);
 
     // Clear count as it will be used for atomic adds
     cb.fillBuffer(
-        _resources->buffers.nativeHandle(ret), 0, sizeof(uint32_t), 0u);
+        gRenderResources.buffers->nativeHandle(ret), 0, sizeof(uint32_t), 0u);
 
-    _resources->buffers.transition(
+    gRenderResources.buffers->transition(
         cb, ret, BufferState::ComputeShaderReadWrite);
 
     const GeneratorPCBlock pcBlock{
@@ -367,7 +364,7 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
     argumentsName.extend(debugPrefix);
     argumentsName.extend("DrawListCullerArguments");
 
-    const BufferHandle ret = _resources->buffers.create(
+    const BufferHandle ret = gRenderResources.buffers->create(
         BufferDescription{
             .byteSize = sArgumentsByteSize,
             .usage = vk::BufferUsageFlagBits::eStorageBuffer |
@@ -380,17 +377,17 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _resources->buffers.nativeHandle(drawList),
+                .buffer = gRenderResources.buffers->nativeHandle(drawList),
                 .range = VK_WHOLE_SIZE,
             }},
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _resources->buffers.nativeHandle(ret),
+                .buffer = gRenderResources.buffers->nativeHandle(ret),
                 .range = VK_WHOLE_SIZE,
             }},
         }});
 
     transition(
-        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .buffers = StaticArray<BufferTransition, 2>{{
                 {drawList, BufferState::ComputeShaderRead},
@@ -419,16 +416,16 @@ MeshletCullerOutput MeshletCuller::recordCullList(
     argumentsName.extend("MeshDiscpatchArguments");
 
     const vk::DeviceSize drawListByteSize =
-        _resources->buffers.resource(input.dataBuffer).byteSize;
+        gRenderResources.buffers->resource(input.dataBuffer).byteSize;
     const MeshletCullerOutput ret{
-        .dataBuffer = _resources->buffers.create(
+        .dataBuffer = gRenderResources.buffers->create(
             BufferDescription{
                 .byteSize = drawListByteSize,
                 .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
             },
             dataName.c_str()),
-        .argumentBuffer = _resources->buffers.create(
+        .argumentBuffer = gRenderResources.buffers->create(
             BufferDescription{
                 .byteSize = sArgumentsByteSize,
                 .usage = vk::BufferUsageFlagBits::eTransferDst |
@@ -443,29 +440,32 @@ MeshletCullerOutput MeshletCuller::recordCullList(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _resources->buffers.nativeHandle(input.dataBuffer),
+                .buffer =
+                    gRenderResources.buffers->nativeHandle(input.dataBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _resources->buffers.nativeHandle(ret.dataBuffer),
+                .buffer =
+                    gRenderResources.buffers->nativeHandle(ret.dataBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _resources->buffers.nativeHandle(ret.argumentBuffer),
+                .buffer =
+                    gRenderResources.buffers->nativeHandle(ret.argumentBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
         }});
 
-    _resources->buffers.transition(
+    gRenderResources.buffers->transition(
         cb, ret.argumentBuffer, BufferState::TransferDst);
 
     // Clear args first as X will be used for atomic adds
     cb.fillBuffer(
-        _resources->buffers.nativeHandle(ret.argumentBuffer), 0,
+        gRenderResources.buffers->nativeHandle(ret.argumentBuffer), 0,
         sArgumentsByteSize, 0u);
 
     transition(
-        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .buffers = StaticArray<BufferTransition, 4>{{
                 {input.dataBuffer, BufferState::ComputeShaderRead},
@@ -496,7 +496,7 @@ MeshletCullerOutput MeshletCuller::recordCullList(
     }};
 
     const vk::Buffer argumentsHandle =
-        _resources->buffers.nativeHandle(input.argumentBuffer);
+        gRenderResources.buffers->nativeHandle(input.argumentBuffer);
     _drawListCuller.record(cb, argumentsHandle, descriptorSets, dynamicOffsets);
 
     return ret;

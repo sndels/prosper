@@ -13,6 +13,7 @@
 #include <wheels/containers/concepts.hpp>
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
+#include <wheels/owning_ptr.hpp>
 
 using ImageTransition = wheels::Pair<ImageHandle, ImageState>;
 using BufferTransition = wheels::Pair<BufferHandle, BufferState>;
@@ -40,6 +41,7 @@ class RenderResources
     RenderResources &operator=(RenderResources &&) = delete;
 
     void init();
+    void destroy();
 
     // Should be called at the start of the frame so resources will get the
     // correct names set
@@ -49,9 +51,10 @@ class RenderResources
     // will be created with different sizes on the next frame
     void destroyResources();
 
-    RenderImageCollection images;
-    RenderTexelBufferCollection texelBuffers;
-    RenderBufferCollection buffers;
+    // Ptrs to control lifetime with init()/destroy()
+    wheels::OwningPtr<RenderImageCollection> images;
+    wheels::OwningPtr<RenderTexelBufferCollection> texelBuffers;
+    wheels::OwningPtr<RenderBufferCollection> buffers;
 
     vk::Sampler nearestSampler;
     vk::Sampler bilinearSampler;
@@ -64,6 +67,8 @@ class RenderResources
     bool _initialized{false};
 };
 
+extern RenderResources gRenderResources;
+
 struct Transitions
 {
     wheels::Span<const ImageTransition> images;
@@ -71,7 +76,7 @@ struct Transitions
     wheels::Span<const TexelBufferTransition> texelBuffers;
 };
 void transition(
-    wheels::ScopedScratch scopeAlloc, RenderResources &resources,
-    vk::CommandBuffer cb, const Transitions &transitions);
+    wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    const Transitions &transitions);
 
 #endif // PROSPER_RENDER_RESOURCES_HPP

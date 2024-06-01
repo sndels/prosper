@@ -11,15 +11,12 @@ const vk::Format sVelocityFormat = vk::Format::eR16G16Snorm;
 const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 
 [[nodiscard]] ImageHandle createDepth(
-    RenderResources &resources, const vk::Extent2D &size,
-    const char *debugName);
+    const vk::Extent2D &size, const char *debugName);
 
 [[nodiscard]] ImageHandle createIllumination(
-    RenderResources &resources, const vk::Extent2D &size,
-    const char *debugName);
+    const vk::Extent2D &size, const char *debugName);
 
 [[nodiscard]] ImageHandle createVelocity(
-    RenderResources &resources, const vk::Extent2D &size,
-    const char *debugName);
+    const vk::Extent2D &size, const char *debugName);
 
 #endif // PROSPER_RENDER_TARGETS_HPP

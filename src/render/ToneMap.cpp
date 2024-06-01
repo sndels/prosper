@@ -22,10 +22,10 @@ struct PCBlock
     float contrast{1.f};
 };
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, ImageHandle inColor)
+vk::Extent2D getRenderExtent(ImageHandle inColor)
 {
-    const vk::Extent3D extent = resources.images.resource(inColor).extent;
+    const vk::Extent3D extent =
+        gRenderResources.images->resource(inColor).extent;
     WHEELS_ASSERT(extent.depth == 1);
 
     return vk::Extent2D{
@@ -45,13 +45,10 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void ToneMap::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -90,21 +87,36 @@ ToneMap::Output ToneMap::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(*_resources, inColor);
+        const vk::Extent2D renderExtent = getRenderExtent(inColor);
 
-        ret = createOutputs(renderExtent);
+        ret = Output{
+            .toneMapped = gRenderResources.images->create(
+                ImageDescription{
+                    .format = vk::Format::eR8G8B8A8Unorm,
+                    .width = renderExtent.width,
+                    .height = renderExtent.height,
+                    .usageFlags =
+                        vk::ImageUsageFlagBits::eSampled |         // Debug
+                        vk::ImageUsageFlagBits::eStorage |         // ToneMap
+                        vk::ImageUsageFlagBits::eColorAttachment | // ImGui
+                        vk::ImageUsageFlagBits::eTransferSrc, // Blit to swap
+                                                              // image
+                },
+                "toneMapped"),
+        };
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = _resources->images.resource(inColor).view,
+                .imageView = gRenderResources.images->resource(inColor).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{_lut.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _resources->bilinearSampler,
+                .sampler = gRenderResources.bilinearSampler,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = _resources->images.resource(ret.toneMapped).view,
+                .imageView =
+                    gRenderResources.images->resource(ret.toneMapped).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }};
@@ -112,7 +124,7 @@ ToneMap::Output ToneMap::record(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {inColor, ImageState::ComputeShaderRead},
@@ -135,23 +147,4 @@ ToneMap::Output ToneMap::record(
     }
 
     return ret;
-}
-
-ToneMap::Output ToneMap::createOutputs(const vk::Extent2D &size)
-{
-    return Output{
-        .toneMapped = _resources->images.create(
-            ImageDescription{
-                .format = vk::Format::eR8G8B8A8Unorm,
-                .width = size.width,
-                .height = size.height,
-                .usageFlags =
-                    vk::ImageUsageFlagBits::eSampled |         // Debug
-                    vk::ImageUsageFlagBits::eStorage |         // ToneMap
-                    vk::ImageUsageFlagBits::eColorAttachment | // ImGui
-                    vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap
-                                                               // image
-            },
-            "toneMapped"),
-    };
 }

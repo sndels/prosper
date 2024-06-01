@@ -81,11 +81,10 @@ uint32_t pcFlags(PCBlock::Flags flags)
     return ret;
 }
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, const GBufferRendererOutput &gbuffer)
+vk::Extent2D getRenderExtent(const GBufferRendererOutput &gbuffer)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(gbuffer.albedoRoughness).extent;
+        gRenderResources.images->resource(gbuffer.albedoRoughness).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -109,15 +108,11 @@ RtDiTrace::~RtDiTrace()
 }
 
 void RtDiTrace::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    _resources = resources;
 
     printf("Creating RtDiTrace\n");
 
@@ -168,8 +163,7 @@ RtDiTrace::Output RtDiTrace::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent =
-            getRenderExtent(*_resources, input.gbuffer);
+        const vk::Extent2D renderExtent = getRenderExtent(input.gbuffer);
 
         const ImageDescription accumulateImageDescription = ImageDescription{
             .format = vk::Format::eR32G32B32A32Sfloat,
@@ -183,27 +177,27 @@ RtDiTrace::Output RtDiTrace::record(
         // This could be a 'normal' lower bitdepth illumination target when
         // accumulation is skipped. However, glsl needs explicit format for the
         // uniform.
-        ImageHandle illumination = _resources->images.create(
+        ImageHandle illumination = gRenderResources.images->create(
             accumulateImageDescription, "RtDiTrace32bit");
 
         vk::Extent3D previousExtent;
-        if (_resources->images.isValidHandle(_previousIllumination))
+        if (gRenderResources.images->isValidHandle(_previousIllumination))
             previousExtent =
-                _resources->images.resource(_previousIllumination).extent;
+                gRenderResources.images->resource(_previousIllumination).extent;
 
         if (resetAccumulation || renderExtent.width != previousExtent.width ||
             renderExtent.height != previousExtent.height)
         {
-            if (_resources->images.isValidHandle(_previousIllumination))
-                _resources->images.release(_previousIllumination);
+            if (gRenderResources.images->isValidHandle(_previousIllumination))
+                gRenderResources.images->release(_previousIllumination);
 
             // Create dummy texture that won't be read from to satisfy binds
-            _previousIllumination = _resources->images.create(
+            _previousIllumination = gRenderResources.images->create(
                 accumulateImageDescription, "previousRtDiTrace");
             _accumulationDirty = true;
         }
         else // We clear debug names each frame
-            _resources->images.appendDebugName(
+            gRenderResources.images->appendDebugName(
                 _previousIllumination, "previousRtDiTrace");
 
         updateDescriptorSet(
@@ -213,7 +207,7 @@ RtDiTrace::Output RtDiTrace::record(
             cb, BufferState::RayTracingAccelerationStructureRead);
 
         transition(
-            scopeAlloc.child_scope(), *_resources, cb,
+            scopeAlloc.child_scope(), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 6>{{
                     {input.gbuffer.albedoRoughness, ImageState::RayTracingRead},
@@ -308,17 +302,16 @@ RtDiTrace::Output RtDiTrace::record(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderExtent.width, renderExtent.height, 1);
 
-        _resources->images.release(_previousIllumination);
+        gRenderResources.images->release(_previousIllumination);
         _previousIllumination = illumination;
-        _resources->images.preserve(_previousIllumination);
+        gRenderResources.images->preserve(_previousIllumination);
 
         // Further passes expect 16bit illumination with pipelines created with
         // the attachment format
         {
-            ret.illumination =
-                createIllumination(*_resources, renderExtent, "RtDiTrace");
+            ret.illumination = createIllumination(renderExtent, "RtDiTrace");
             transition(
-                WHEELS_MOV(scopeAlloc), *_resources, cb,
+                WHEELS_MOV(scopeAlloc), cb,
                 Transitions{
                     .images = StaticArray<ImageTransition, 2>{{
                         {illumination, ImageState::TransferSrc},
@@ -345,9 +338,9 @@ RtDiTrace::Output RtDiTrace::record(
                 .dstOffsets = offsets,
             };
             cb.blitImage(
-                _resources->images.nativeHandle(illumination),
+                gRenderResources.images->nativeHandle(illumination),
                 vk::ImageLayout::eTransferSrcOptimal,
-                _resources->images.nativeHandle(ret.illumination),
+                gRenderResources.images->nativeHandle(ret.illumination),
                 vk::ImageLayout::eTransferDstOptimal, 1, &blit,
                 vk::Filter::eLinear);
         }
@@ -362,8 +355,8 @@ void RtDiTrace::releasePreserved()
 {
     WHEELS_ASSERT(_initialized);
 
-    if (_resources->images.isValidHandle(_previousIllumination))
-        _resources->images.release(_previousIllumination);
+    if (gRenderResources.images->isValidHandle(_previousIllumination))
+        gRenderResources.images->release(_previousIllumination);
 }
 
 void RtDiTrace::destroyShaders()
@@ -557,33 +550,37 @@ void RtDiTrace::updateDescriptorSet(
     const StaticArray descriptorInfos{{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                _resources->images.resource(input.gbuffer.albedoRoughness).view,
+                gRenderResources.images->resource(input.gbuffer.albedoRoughness)
+                    .view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                _resources->images.resource(input.gbuffer.normalMetalness).view,
-            .imageLayout = vk::ImageLayout::eGeneral,
-        }},
-        DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = _resources->images.resource(input.gbuffer.depth).view,
-            .imageLayout = vk::ImageLayout::eGeneral,
-        }},
-        DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = _resources->images.resource(input.reservoirs).view,
+                gRenderResources.images->resource(input.gbuffer.normalMetalness)
+                    .view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                _resources->images.resource(_previousIllumination).view,
+                gRenderResources.images->resource(input.gbuffer.depth).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = _resources->images.resource(illumination).view,
+            .imageView =
+                gRenderResources.images->resource(input.reservoirs).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
-            .sampler = _resources->nearestSampler,
+            .imageView =
+                gRenderResources.images->resource(_previousIllumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView = gRenderResources.images->resource(illumination).view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .sampler = gRenderResources.nearestSampler,
         }},
     }};
 

@@ -62,13 +62,10 @@ ForwardRenderer::~ForwardRenderer()
 
 void ForwardRenderer::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    RenderResources *resources, const InputDSLayouts &dsLayouts)
+    const InputDSLayouts &dsLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    _resources = resources;
 
     printf("Creating ForwardRenderer\n");
 
@@ -111,10 +108,9 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     WHEELS_ASSERT(_initialized);
 
     OpaqueOutput ret;
-    ret.illumination =
-        createIllumination(*_resources, renderArea.extent, "illumination");
-    ret.velocity = createVelocity(*_resources, renderArea.extent, "velocity");
-    ret.depth = createDepth(*_resources, renderArea.extent, "depth");
+    ret.illumination = createIllumination(renderArea.extent, "illumination");
+    ret.velocity = createVelocity(renderArea.extent, "velocity");
+    ret.depth = createDepth(renderArea.extent, "depth");
 
     record(
         WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
@@ -280,11 +276,12 @@ void ForwardRenderer::updateDescriptorSet(
 
     const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = _resources->buffers.nativeHandle(inOutDrawStats),
+            .buffer = gRenderResources.buffers->nativeHandle(inOutDrawStats),
             .range = VK_WHOLE_SIZE,
         }},
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = _resources->buffers.nativeHandle(cullerOutput.dataBuffer),
+            .buffer =
+                gRenderResources.buffers->nativeHandle(cullerOutput.dataBuffer),
             .range = VK_WHOLE_SIZE,
         }},
     }};
@@ -394,7 +391,7 @@ void ForwardRenderer::record(
     WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
-    const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
+    const vk::Rect2D renderArea = getRenderArea(inOutTargets);
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
@@ -411,9 +408,30 @@ void ForwardRenderer::record(
         scopeAlloc.child_scope(), nextFrame, options.transparents, cullerOutput,
         inOutDrawStats);
 
-    recordBarriers(
-        WHEELS_MOV(scopeAlloc), cb, inOutTargets, lightClusters, cullerOutput,
-        inOutDrawStats);
+    InlineArray<ImageTransition, 4> images;
+    images.emplace_back(
+        inOutTargets.illumination, ImageState::ColorAttachmentReadWrite);
+    images.emplace_back(
+        inOutTargets.depth, ImageState::DepthAttachmentReadWrite);
+    images.emplace_back(lightClusters.pointers, ImageState::FragmentShaderRead);
+    if (inOutTargets.velocity.isValid())
+        images.emplace_back(
+            inOutTargets.velocity, ImageState::ColorAttachmentReadWrite);
+
+    transition(
+        WHEELS_MOV(scopeAlloc), cb,
+        Transitions{
+            .images = images,
+            .buffers = StaticArray<BufferTransition, 3>{{
+                {inOutDrawStats, BufferState::MeshShaderReadWrite},
+                {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
+                {cullerOutput.argumentBuffer, BufferState::DrawIndirectRead},
+            }},
+            .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
+                {lightClusters.indicesCount, BufferState::FragmentShaderRead},
+                {lightClusters.indices, BufferState::FragmentShaderRead},
+            }},
+        });
 
     const Attachments attachments =
         createAttachments(inOutTargets, options.transparents);
@@ -482,87 +500,32 @@ void ForwardRenderer::record(
         sizeof(PCBlock), &pcBlock);
 
     const vk::Buffer argumentHandle =
-        _resources->buffers.nativeHandle(cullerOutput.argumentBuffer);
+        gRenderResources.buffers->nativeHandle(cullerOutput.argumentBuffer);
     cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
 
     cb.endRendering();
 
-    _resources->buffers.release(cullerOutput.dataBuffer);
-    _resources->buffers.release(cullerOutput.argumentBuffer);
-}
-
-void ForwardRenderer::recordBarriers(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const RecordInOut &inOutTargets, const LightClusteringOutput &lightClusters,
-    const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats) const
-{
-    if (inOutTargets.velocity.isValid())
-    {
-        transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
-            Transitions{
-                .images = StaticArray<ImageTransition, 4>{{
-                    {inOutTargets.illumination,
-                     ImageState::ColorAttachmentReadWrite},
-                    {inOutTargets.velocity,
-                     ImageState::ColorAttachmentReadWrite},
-                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-                    {lightClusters.pointers, ImageState::FragmentShaderRead},
-                }},
-                .buffers = StaticArray<BufferTransition, 3>{{
-                    {inOutDrawStats, BufferState::MeshShaderReadWrite},
-                    {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
-                    {cullerOutput.argumentBuffer,
-                     BufferState::DrawIndirectRead},
-                }},
-                .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
-                    {lightClusters.indicesCount,
-                     BufferState::FragmentShaderRead},
-                    {lightClusters.indices, BufferState::FragmentShaderRead},
-                }},
-            });
-    }
-    else
-    {
-        transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
-            Transitions{
-                .images = StaticArray<ImageTransition, 3>{{
-                    {inOutTargets.illumination,
-                     ImageState::ColorAttachmentReadWrite},
-                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
-                    {lightClusters.pointers, ImageState::FragmentShaderRead},
-                }},
-                .buffers = StaticArray<BufferTransition, 3>{{
-                    {inOutDrawStats, BufferState::MeshShaderReadWrite},
-                    {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
-                    {cullerOutput.argumentBuffer,
-                     BufferState::DrawIndirectRead},
-                }},
-                .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
-                    {lightClusters.indicesCount,
-                     BufferState::FragmentShaderRead},
-                    {lightClusters.indices, BufferState::FragmentShaderRead},
-                }},
-            });
-    }
+    gRenderResources.buffers->release(cullerOutput.dataBuffer);
+    gRenderResources.buffers->release(cullerOutput.argumentBuffer);
 }
 
 ForwardRenderer::Attachments ForwardRenderer::createAttachments(
-    const RecordInOut &inOutTargets, bool transparents) const
+    const RecordInOut &inOutTargets, bool transparents)
 {
     Attachments ret;
     if (transparents)
     {
         ret.color.push_back(vk::RenderingAttachmentInfo{
             .imageView =
-                _resources->images.resource(inOutTargets.illumination).view,
+                gRenderResources.images->resource(inOutTargets.illumination)
+                    .view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
         });
         ret.depth = vk::RenderingAttachmentInfo{
-            .imageView = _resources->images.resource(inOutTargets.depth).view,
+            .imageView =
+                gRenderResources.images->resource(inOutTargets.depth).view,
             .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
@@ -573,7 +536,8 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
         ret.color = InlineArray{
             vk::RenderingAttachmentInfo{
                 .imageView =
-                    _resources->images.resource(inOutTargets.illumination).view,
+                    gRenderResources.images->resource(inOutTargets.illumination)
+                        .view,
                 .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
                 .loadOp = vk::AttachmentLoadOp::eClear,
                 .storeOp = vk::AttachmentStoreOp::eStore,
@@ -581,7 +545,8 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
             },
             vk::RenderingAttachmentInfo{
                 .imageView =
-                    _resources->images.resource(inOutTargets.velocity).view,
+                    gRenderResources.images->resource(inOutTargets.velocity)
+                        .view,
                 .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
                 .loadOp = vk::AttachmentLoadOp::eClear,
                 .storeOp = vk::AttachmentStoreOp::eStore,
@@ -589,7 +554,8 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
             },
         };
         ret.depth = vk::RenderingAttachmentInfo{
-            .imageView = _resources->images.resource(inOutTargets.depth).view,
+            .imageView =
+                gRenderResources.images->resource(inOutTargets.depth).view,
             .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eClear,
             .storeOp = vk::AttachmentStoreOp::eStore,
@@ -601,14 +567,14 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
 }
 
 vk::Rect2D ForwardRenderer::getRenderArea(
-    const RenderResources &resources,
     const ForwardRenderer::RecordInOut &inOutTargets)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(inOutTargets.illumination).extent;
+        gRenderResources.images->resource(inOutTargets.illumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
     WHEELS_ASSERT(
-        targetExtent == resources.images.resource(inOutTargets.depth).extent);
+        targetExtent ==
+        gRenderResources.images->resource(inOutTargets.depth).extent);
 
     return vk::Rect2D{
         .offset = {0, 0},

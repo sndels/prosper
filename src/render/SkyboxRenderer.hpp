@@ -23,7 +23,7 @@ class SkyboxRenderer
     SkyboxRenderer &operator=(SkyboxRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         const vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
@@ -47,14 +47,6 @@ class SkyboxRenderer
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    struct Attachments
-    {
-        wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
-        vk::RenderingAttachmentInfo depth;
-    };
-    [[nodiscard]] Attachments createAttachments(
-        const RecordInOut &inOutTargets) const;
-
     void destroyGraphicsPipelines();
 
     void createGraphicsPipelines(
@@ -62,7 +54,6 @@ class SkyboxRenderer
         const WorldDSLayouts &worldDSLayouts);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
     wheels::Optional<ShaderReflection> _vertReflection;

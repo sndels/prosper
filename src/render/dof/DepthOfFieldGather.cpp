@@ -22,11 +22,10 @@ struct PCBlock
     uint frameIndex{0};
 };
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, ImageHandle halfResIllumination)
+vk::Extent2D getRenderExtent(ImageHandle halfResIllumination)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(halfResIllumination).extent;
+        gRenderResources.images->resource(halfResIllumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -60,13 +59,10 @@ ComputePass::Shader foregroundDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldGather::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _backgroundPass.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         backgroundDefinitionCallback);
@@ -107,9 +103,9 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     Output ret;
     {
         const vk::Extent2D renderExtent =
-            getRenderExtent(*_resources, input.halfResIllumination);
+            getRenderExtent(input.halfResIllumination);
 
-        ret.halfResBokehColorWeight = _resources->images.create(
+        ret.halfResBokehColorWeight = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
                 .width = renderExtent.width,
@@ -124,38 +120,39 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(input.halfResIllumination)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
-                        _resources->images.resource(input.halfResIllumination)
+                        gRenderResources.images->resource(input.halfResCoC)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.halfResCoC).view,
+                    .imageView = gRenderResources.images
+                                     ->resource(input.dilatedTileMinMaxCoC)
+                                     .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(input.dilatedTileMinMaxCoC)
-                            .view,
+                    .imageView = gRenderResources.images
+                                     ->resource(ret.halfResBokehColorWeight)
+                                     .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(ret.halfResBokehColorWeight)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
+                    .sampler = gRenderResources.nearestSampler,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = _resources->nearestSampler,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = _resources->trilinearSampler,
+                    .sampler = gRenderResources.trilinearSampler,
                 }},
             }});
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 4>{{
                     {input.halfResIllumination, ImageState::ComputeShaderRead},

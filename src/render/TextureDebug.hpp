@@ -43,7 +43,7 @@ class TextureDebug
     TextureDebug &operator=(TextureDebug &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -57,13 +57,10 @@ class TextureDebug
         vk::Extent2D outSize, wheels::Optional<glm::vec2> cursorCoord,
         uint32_t nextFrame, Profiler *profiler);
 
-    [[nodiscard]] bool textureSelected() const;
+    [[nodiscard]] static bool textureSelected();
 
   private:
-    ImageHandle createOutput(vk::Extent2D size);
-
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _readbackBuffers;
 
     ComputePass _computePass;

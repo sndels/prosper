@@ -16,11 +16,10 @@ using namespace wheels;
 namespace
 {
 
-vk::Extent2D getInputExtent(
-    const RenderResources &resources, ImageHandle illumination)
+vk::Extent2D getInputExtent(ImageHandle illumination)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(illumination).extent;
+        gRenderResources.images->resource(illumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -47,13 +46,10 @@ struct PcBlock
 } // namespace
 
 void DepthOfFieldDilate::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -80,10 +76,9 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
 
     Output ret;
     {
-        const vk::Extent2D inputExtent =
-            getInputExtent(*_resources, tileMinMaxCoC);
+        const vk::Extent2D inputExtent = getInputExtent(tileMinMaxCoC);
 
-        ret.dilatedTileMinMaxCoC = _resources->images.create(
+        ret.dilatedTileMinMaxCoC = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
                 .width = inputExtent.width,
@@ -98,22 +93,22 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
-                        _resources->images.resource(tileMinMaxCoC).view,
+                        gRenderResources.images->resource(tileMinMaxCoC).view,
                     .imageLayout = vk::ImageLayout::eReadOnlyOptimal,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(ret.dilatedTileMinMaxCoC)
-                            .view,
+                    .imageView = gRenderResources.images
+                                     ->resource(ret.dilatedTileMinMaxCoC)
+                                     .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = _resources->nearestSampler,
+                    .sampler = gRenderResources.nearestSampler,
                 }},
             }});
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {tileMinMaxCoC, ImageState::ComputeShaderSampledRead},

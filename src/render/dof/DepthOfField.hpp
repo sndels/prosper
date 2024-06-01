@@ -37,7 +37,7 @@ class DepthOfField
     DepthOfField &operator=(DepthOfField &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout cameraDsLayout);
 
@@ -57,7 +57,6 @@ class DepthOfField
 
   private:
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     DepthOfFieldSetup _setupPass;
     DepthOfFieldReduce _reducePass;

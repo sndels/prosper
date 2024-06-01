@@ -119,9 +119,6 @@ class App
 
     vk::Extent2D _viewportExtent{};
 
-    // Stored here, managed by (earliest) passes that write to them
-    wheels::OwningPtr<RenderResources> _resources;
-
     // TODO:
     // Should this be a global too?
     RingBuffer _constantsRing;

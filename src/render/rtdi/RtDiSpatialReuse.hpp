@@ -29,7 +29,7 @@ class RtDiSpatialReuse
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         const InputDSLayouts &dsLayouts);
 
@@ -54,7 +54,6 @@ class RtDiSpatialReuse
         uint32_t nextFrame, Profiler *profiler);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 
     uint32_t _frameIndex{0};

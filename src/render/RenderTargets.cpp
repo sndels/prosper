@@ -4,8 +4,7 @@
 #include "../gfx/Resources.hpp"
 #include "RenderResources.hpp"
 
-ImageHandle createDepth(
-    RenderResources &resources, const vk::Extent2D &size, const char *debugName)
+ImageHandle createDepth(const vk::Extent2D &size, const char *debugName)
 {
     // Check depth buffer without stencil is supported
     const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment |
@@ -15,7 +14,7 @@ ImageHandle createDepth(
     if ((properties.optimalTilingFeatures & features) != features)
         throw std::runtime_error("Depth format unsupported");
 
-    return resources.images.create(
+    return gRenderResources.images->create(
         ImageDescription{
             .format = sDepthFormat,
             .width = size.width,
@@ -27,10 +26,9 @@ ImageHandle createDepth(
         debugName);
 }
 
-ImageHandle createIllumination(
-    RenderResources &resources, const vk::Extent2D &size, const char *debugName)
+ImageHandle createIllumination(const vk::Extent2D &size, const char *debugName)
 {
-    return resources.images.create(
+    return gRenderResources.images->create(
         ImageDescription{
             .format = sIlluminationFormat,
             .width = size.width,
@@ -43,10 +41,9 @@ ImageHandle createIllumination(
         debugName);
 }
 
-ImageHandle createVelocity(
-    RenderResources &resources, const vk::Extent2D &size, const char *debugName)
+ImageHandle createVelocity(const vk::Extent2D &size, const char *debugName)
 {
-    return resources.images.create(
+    return gRenderResources.images->create(
         ImageDescription{
             .format = sVelocityFormat,
             .width = size.width,

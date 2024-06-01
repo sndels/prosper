@@ -34,7 +34,7 @@ class DepthOfFieldGather
     DepthOfFieldGather &operator=(DepthOfFieldGather &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -58,7 +58,6 @@ class DepthOfFieldGather
 
   private:
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     ComputePass _backgroundPass;
     ComputePass _foregroundPass;

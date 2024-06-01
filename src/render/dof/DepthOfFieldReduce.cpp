@@ -61,13 +61,10 @@ DepthOfFieldReduce::~DepthOfFieldReduce()
 }
 
 void DepthOfFieldReduce::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -104,7 +101,8 @@ void DepthOfFieldReduce::record(
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
-    const Image &inOutRes = _resources->images.resource(inOutIlluminationMips);
+    const Image &inOutRes =
+        gRenderResources.images->resource(inOutIlluminationMips);
     WHEELS_ASSERT(inOutRes.extent.depth == 1);
     // 0 mip is bound as source, rest as dst
     WHEELS_ASSERT(inOutRes.mipCount <= sMaxMips + 1);
@@ -125,7 +123,7 @@ void DepthOfFieldReduce::record(
     // This is 1+mips for SPD as mip 0 is bound as the source and mip 1 is the
     // first destination
     const Span<const vk::ImageView> mipViews =
-        _resources->images.subresourceViews(inOutIlluminationMips);
+        gRenderResources.images->subresourceViews(inOutIlluminationMips);
 
     StaticArray<vk::DescriptorImageInfo, sMaxMips> outputInfos;
     {
@@ -162,7 +160,7 @@ void DepthOfFieldReduce::record(
             }},
         }});
 
-    _resources->images.transition(
+    gRenderResources.images->transition(
         cb, inOutIlluminationMips, ImageState::ComputeShaderReadWrite);
 
     if (_counterNotCleared)

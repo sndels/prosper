@@ -24,15 +24,14 @@ enum BindingSet : uint32_t
     BindingSetCount,
 };
 
-vk::Rect2D getRenderArea(
-    const RenderResources &resources,
-    const DebugRenderer::RecordInOut &inOutTargets)
+vk::Rect2D getRenderArea(const DebugRenderer::RecordInOut &inOutTargets)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(inOutTargets.color).extent;
+        gRenderResources.images->resource(inOutTargets.color).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
     WHEELS_ASSERT(
-        targetExtent == resources.images.resource(inOutTargets.depth).extent);
+        targetExtent ==
+        gRenderResources.images->resource(inOutTargets.depth).extent);
 
     return vk::Rect2D{
         .offset = {0, 0},
@@ -44,6 +43,12 @@ vk::Rect2D getRenderArea(
     };
 }
 
+struct Attachments
+{
+    vk::RenderingAttachmentInfo color;
+    vk::RenderingAttachmentInfo depth;
+};
+
 } // namespace
 
 DebugRenderer::~DebugRenderer()
@@ -52,7 +57,7 @@ DebugRenderer::~DebugRenderer()
     // init.
     gDevice.logical().destroy(_linesDSLayout);
 
-    for (auto &ls : _resources->debugLines)
+    for (DebugLines &ls : gRenderResources.debugLines)
         gDevice.destroy(ls.buffer);
 
     destroyGraphicsPipeline();
@@ -62,22 +67,33 @@ DebugRenderer::~DebugRenderer()
 }
 
 void DebugRenderer::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    _resources = resources;
 
     printf("Creating DebugRenderer\n");
 
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
-    createBuffers();
+    for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
+        gRenderResources.debugLines[i] = DebugLines{
+            .buffer = gDevice.createBuffer(BufferCreateInfo{
+                .desc =
+                    BufferDescription{
+                        .byteSize =
+                            DebugLines::sMaxLineCount * DebugLines::sLineBytes,
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                        .properties =
+                            vk::MemoryPropertyFlagBits::eHostCoherent |
+                            vk::MemoryPropertyFlagBits::eHostVisible,
+                    },
+                .debugName = "DebugLines",
+            }),
+        };
+
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipeline(camDSLayout);
 
@@ -113,10 +129,10 @@ void DebugRenderer::record(
     WHEELS_ASSERT(profiler != nullptr);
 
     {
-        const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
+        const vk::Rect2D renderArea = getRenderArea(inOutTargets);
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {inOutTargets.color, ImageState::ColorAttachmentReadWrite},
@@ -124,7 +140,23 @@ void DebugRenderer::record(
                 }},
             });
 
-        const Attachments attachments = createAttachments(inOutTargets);
+        const Attachments attachments{
+            .color =
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        gRenderResources.images->resource(inOutTargets.color)
+                            .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eLoad,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                },
+            .depth = vk::RenderingAttachmentInfo{
+                .imageView =
+                    gRenderResources.images->resource(inOutTargets.depth).view,
+                .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::eLoad,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+            }};
 
         const auto _s = profiler->createCpuGpuScope(cb, "Debug", true);
 
@@ -154,7 +186,7 @@ void DebugRenderer::record(
 
         setViewportScissor(cb, renderArea);
 
-        const auto &lines = _resources->debugLines[nextFrame];
+        const auto &lines = gRenderResources.debugLines[nextFrame];
         // No need for lines barrier, writes are mapped
 
         cb.draw(lines.count * 2, 1, 0, 0);
@@ -217,49 +249,10 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     return false;
 }
 
-DebugRenderer::Attachments DebugRenderer::createAttachments(
-    const RecordInOut &inOutTargets) const
-{
-    return Attachments{
-        .color =
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    _resources->images.resource(inOutTargets.color).view,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eLoad,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-            },
-        .depth = vk::RenderingAttachmentInfo{
-            .imageView = _resources->images.resource(inOutTargets.depth).view,
-            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-        }};
-}
-
 void DebugRenderer::destroyGraphicsPipeline()
 {
     gDevice.logical().destroy(_pipeline);
     gDevice.logical().destroy(_pipelineLayout);
-}
-
-void DebugRenderer::createBuffers()
-{
-    for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _resources->debugLines[i] = DebugLines{
-            .buffer = gDevice.createBuffer(BufferCreateInfo{
-                .desc =
-                    BufferDescription{
-                        .byteSize =
-                            DebugLines::sMaxLineCount * DebugLines::sLineBytes,
-                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                        .properties =
-                            vk::MemoryPropertyFlagBits::eHostCoherent |
-                            vk::MemoryPropertyFlagBits::eHostVisible,
-                    },
-                .debugName = "DebugLines",
-            }),
-        };
 }
 
 void DebugRenderer::createDescriptorSets(
@@ -278,7 +271,7 @@ void DebugRenderer::createDescriptorSets(
     {
         const StaticArray descriptorInfos{
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _resources->debugLines[i].buffer.handle,
+                .buffer = gRenderResources.debugLines[i].buffer.handle,
                 .range = VK_WHOLE_SIZE,
             }},
         };

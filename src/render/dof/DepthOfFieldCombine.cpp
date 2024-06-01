@@ -15,11 +15,10 @@ using namespace wheels;
 namespace
 {
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, ImageHandle illumination)
+vk::Extent2D getRenderExtent(ImageHandle illumination)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(illumination).extent;
+        gRenderResources.images->resource(illumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -39,14 +38,10 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldCombine::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(_resources == nullptr);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -69,45 +64,43 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(_resources != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
     Output ret;
     {
-        const vk::Extent2D renderExtent =
-            getRenderExtent(*_resources, input.illumination);
+        const vk::Extent2D renderExtent = getRenderExtent(input.illumination);
 
-        ret.combinedIlluminationDoF = createIllumination(
-            *_resources, renderExtent, "CombinedIllumnationDoF");
+        ret.combinedIlluminationDoF =
+            createIllumination(renderExtent, "CombinedIllumnationDoF");
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    _resources->images.resource(input.halfResFgBokehWeight)
-                        .view,
+                .imageView = gRenderResources.images
+                                 ->resource(input.halfResFgBokehWeight)
+                                 .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(input.halfResBgBokehWeight)
+                                 .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(input.halfResCircleOfConfusion)
+                                 .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    _resources->images.resource(input.halfResBgBokehWeight)
-                        .view,
+                    gRenderResources.images->resource(input.illumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    _resources->images.resource(input.halfResCircleOfConfusion)
-                        .view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    _resources->images.resource(input.illumination).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    _resources->images.resource(ret.combinedIlluminationDoF)
-                        .view,
+                .imageView = gRenderResources.images
+                                 ->resource(ret.combinedIlluminationDoF)
+                                 .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }};
@@ -115,7 +108,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 5>{{
                     {input.halfResFgBokehWeight, ImageState::ComputeShaderRead},

@@ -4,17 +4,25 @@
 
 using namespace wheels;
 
+// This is used everywhere and init()/destroy() order relative to other similar
+// globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+RenderResources gRenderResources;
+
 RenderResources::~RenderResources()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
-    // init.
-    gDevice.logical().destroy(nearestSampler);
-    gDevice.logical().destroy(bilinearSampler);
-    gDevice.logical().destroy(trilinearSampler);
+    WHEELS_ASSERT(
+        (!_initialized || nearestSampler == vk::Sampler{}) &&
+        "destroy() not called?");
 }
 
 void RenderResources::init()
 {
+    this->images = OwningPtr<RenderImageCollection>(gAllocators.general);
+    this->buffers = OwningPtr<RenderBufferCollection>(gAllocators.general);
+    this->texelBuffers =
+        OwningPtr<RenderTexelBufferCollection>(gAllocators.general);
+
     this->nearestSampler =
         gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
@@ -56,34 +64,51 @@ void RenderResources::init()
     _initialized = true;
 }
 
+void RenderResources::destroy()
+{
+    // Don't check for _initialized as we might be cleaning up after a failed
+    // init.
+    gDevice.logical().destroy(nearestSampler);
+    gDevice.logical().destroy(bilinearSampler);
+    gDevice.logical().destroy(trilinearSampler);
+
+    nearestSampler = vk::Sampler{};
+    bilinearSampler = vk::Sampler{};
+    trilinearSampler = vk::Sampler{};
+
+    images.reset();
+    texelBuffers.reset();
+    buffers.reset();
+}
+
 void RenderResources::startFrame()
 {
     WHEELS_ASSERT(_initialized);
 
-    images.startFrame();
-    texelBuffers.startFrame();
-    buffers.startFrame();
+    images->startFrame();
+    texelBuffers->startFrame();
+    buffers->startFrame();
 }
 
 void RenderResources::destroyResources()
 {
     WHEELS_ASSERT(_initialized);
 
-    images.destroyResources();
-    texelBuffers.destroyResources();
-    buffers.destroyResources();
+    images->destroyResources();
+    texelBuffers->destroyResources();
+    buffers->destroyResources();
 }
 
 void transition(
-    wheels::ScopedScratch scopeAlloc, RenderResources &resources,
-    vk::CommandBuffer cb, const Transitions &transitions)
+    wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    const Transitions &transitions)
 {
     wheels::Array<vk::ImageMemoryBarrier2> imageBarriers{
         scopeAlloc, transitions.images.size()};
     for (const auto &image_state : transitions.images)
     {
         const wheels::Optional<vk::ImageMemoryBarrier2> barrier =
-            resources.images.transitionBarrier(
+            gRenderResources.images->transitionBarrier(
                 image_state.first, image_state.second);
         if (barrier.has_value())
             imageBarriers.push_back(*barrier);
@@ -95,7 +120,7 @@ void transition(
     for (const auto &buffer_state : transitions.buffers)
     {
         const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
-            resources.buffers.transitionBarrier(
+            gRenderResources.buffers->transitionBarrier(
                 buffer_state.first, buffer_state.second);
         if (barrier.has_value())
             bufferBarriers.push_back(*barrier);
@@ -103,7 +128,7 @@ void transition(
     for (const auto &buffer_state : transitions.texelBuffers)
     {
         const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
-            resources.texelBuffers.transitionBarrier(
+            gRenderResources.texelBuffers->transitionBarrier(
                 buffer_state.first, buffer_state.second);
         if (barrier.has_value())
             bufferBarriers.push_back(*barrier);

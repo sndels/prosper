@@ -75,10 +75,9 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
 
 App::App(std::filesystem::path scenePath) noexcept
 : _fileChangePollingAlloc{megabytes(1)}
-, _scenePath{WHEELS_MOV(settings.scene)}
+, _scenePath{WHEELS_MOV(scenePath)}
 , _staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>{gAllocators.general}}
 , _swapchain{OwningPtr<Swapchain>{gAllocators.general}}
-, _resources{OwningPtr<RenderResources>{gAllocators.general}}
 , _cam{OwningPtr<Camera>{gAllocators.general}}
 , _world{OwningPtr<World>{gAllocators.general}}
 , _lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
@@ -134,8 +133,6 @@ void App::init()
     // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
     _viewportExtent = _swapchain->config().extent;
 
-    _resources->init();
-
     _constantsRing.init(
         vk::BufferUsageFlagBits::eStorageBuffer,
         asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
@@ -150,12 +147,10 @@ void App::init()
 
     const Timer gpuPassesInitTimer;
     _lightClustering->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
-        _world->dsLayouts());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+        _cam->descriptorSetLayout(), _world->dsLayouts());
     _forwardRenderer->init(
         scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _resources.get(),
         ForwardRenderer::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
@@ -163,51 +158,43 @@ void App::init()
         });
     _gbufferRenderer->init(
         scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _resources.get(), _cam->descriptorSetLayout(), _world->dsLayouts());
+        _cam->descriptorSetLayout(), _world->dsLayouts());
     _deferredShading->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(),
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
         DeferredShading::InputDSLayouts{
             .camera = _cam->descriptorSetLayout(),
             .lightClusters = _lightClustering->descriptorSetLayout(),
             .world = _world->dsLayouts(),
         });
     _rtDirectIllumination->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
-        _world->dsLayouts());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+        _cam->descriptorSetLayout(), _world->dsLayouts());
     _rtReference->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout(),
-        _world->dsLayouts());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+        _cam->descriptorSetLayout(), _world->dsLayouts());
     _skyboxRenderer->init(
-        scopeAlloc.child_scope(), _resources.get(), _cam->descriptorSetLayout(),
+        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
         _world->dsLayouts());
     _debugRenderer->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
-    _toneMap->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get());
-    _imguiRenderer->init(_resources.get(), _swapchain->config());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+        _cam->descriptorSetLayout());
+    _toneMap->init(scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
+    _imguiRenderer->init(_swapchain->config());
     _textureDebug->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
     _depthOfField->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+        _cam->descriptorSetLayout());
     _imageBasedLighting->init(
         scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
     _temporalAntiAliasing->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _cam->descriptorSetLayout());
-    _meshletCuller->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get(), _world->dsLayouts(),
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
         _cam->descriptorSetLayout());
+    _meshletCuller->init(
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+        _world->dsLayouts(), _cam->descriptorSetLayout());
     _textureReadback->init(
-        scopeAlloc.child_scope(), _resources.get(),
-        _staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
     _recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
@@ -259,7 +246,7 @@ void App::run()
 
             recompileShaders(scopeAlloc.child_scope());
 
-            _resources->startFrame();
+            gRenderResources.startFrame();
             _constantsRing.startFrame();
             _world->startFrame();
             _meshletCuller->startFrame();
@@ -301,7 +288,7 @@ void App::recreateViewportRelated()
     // queue simultaneously
     gDevice.graphicsQueue().waitIdle();
 
-    _resources->destroyResources();
+    gRenderResources.destroyResources();
 
     if (_drawUi)
     {
@@ -330,7 +317,7 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
     // queue simultaneously
     gDevice.graphicsQueue().waitIdle();
 
-    _resources->destroyResources();
+    gRenderResources.destroyResources();
 
     { // Drop the config as we should always use swapchain's active config
         const SwapchainConfig config{
@@ -660,8 +647,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     }
     // Clear stats for new frame after UI was drawn
     _sceneStats[nextFrame] = SceneStats{};
-    if (_resources->buffers.isValidHandle(_drawStats[nextFrame]))
-        _resources->buffers.release(_drawStats[nextFrame]);
+    if (gRenderResources.buffers->isValidHandle(_drawStats[nextFrame]))
+        gRenderResources.buffers->release(_drawStats[nextFrame]);
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -890,7 +877,7 @@ void App::drawOptions()
 
     if (ImGui::Checkbox("Texture Debug", &_textureDebugActive) &&
         !_textureDebugActive)
-        _resources->images.clearDebug();
+        gRenderResources.images->clearDebug();
 
     ImGui::End();
 }
@@ -1256,10 +1243,10 @@ void App::drawSceneStats(uint32_t nextFrame) const
 {
     uint32_t drawnMeshletCount = 0;
     uint32_t rasterizedTriangleCount = 0;
-    if (_resources->buffers.isValidHandle(_drawStats[nextFrame]))
+    if (gRenderResources.buffers->isValidHandle(_drawStats[nextFrame]))
     {
         const uint32_t *readbackPtr = static_cast<const uint32_t *>(
-            _resources->buffers.resource(_drawStats[nextFrame]).mapped);
+            gRenderResources.buffers->resource(_drawStats[nextFrame]).mapped);
         WHEELS_ASSERT(readbackPtr != nullptr);
 
         drawnMeshletCount = readbackPtr[0];
@@ -1283,7 +1270,7 @@ void App::drawSceneStats(uint32_t nextFrame) const
 
 void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 {
-    auto &debugLines = _resources->debugLines[nextFrame];
+    auto &debugLines = gRenderResources.debugLines[nextFrame];
     debugLines.reset();
     { // Add debug geom for lights
         constexpr auto debugLineLength = 0.2f;
@@ -1371,7 +1358,7 @@ void App::render(
         indices.nextFrame, _profiler.get());
 
     ImageHandle illumination;
-    const BufferHandle drawStats = _resources->buffers.create(
+    const BufferHandle drawStats = gRenderResources.buffers->create(
         BufferDescription{
             .byteSize = sDrawStatsByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst |
@@ -1381,9 +1368,11 @@ void App::render(
         },
         "DrawStats");
 
-    _resources->buffers.transition(cb, drawStats, BufferState::TransferDst);
+    gRenderResources.buffers->transition(
+        cb, drawStats, BufferState::TransferDst);
     cb.fillBuffer(
-        _resources->buffers.nativeHandle(drawStats), 0, sDrawStatsByteSize, 0);
+        gRenderResources.buffers->nativeHandle(drawStats), 0,
+        sDrawStatsByteSize, 0);
 
     if (_referenceRt)
     {
@@ -1443,8 +1432,8 @@ void App::render(
                         .illumination;
             }
 
-            _resources->images.release(gbuffer.albedoRoughness);
-            _resources->images.release(gbuffer.normalMetalness);
+            gRenderResources.images->release(gbuffer.albedoRoughness);
+            gRenderResources.images->release(gbuffer.normalMetalness);
 
             velocity = gbuffer.velocity;
             depth = gbuffer.depth;
@@ -1521,7 +1510,7 @@ void App::render(
                     },
                     indices.nextFrame, _profiler.get());
 
-            _resources->images.release(illumination);
+            gRenderResources.images->release(illumination);
             illumination = taaOutput.resolvedIllumination;
         }
         else
@@ -1540,16 +1529,16 @@ void App::render(
                 },
                 indices.nextFrame, _profiler.get());
 
-            _resources->images.release(illumination);
+            gRenderResources.images->release(illumination);
             illumination = dofOutput.combinedIlluminationDoF;
         }
 
-        _resources->images.release(velocity);
-        _resources->images.release(depth);
+        gRenderResources.images->release(velocity);
+        gRenderResources.images->release(depth);
     }
-    _resources->images.release(lightClusters.pointers);
-    _resources->texelBuffers.release(lightClusters.indicesCount);
-    _resources->texelBuffers.release(lightClusters.indices);
+    gRenderResources.images->release(lightClusters.pointers);
+    gRenderResources.texelBuffers->release(lightClusters.indicesCount);
+    gRenderResources.texelBuffers->release(lightClusters.indices);
 
     const ImageHandle toneMapped =
         _toneMap
@@ -1558,7 +1547,7 @@ void App::render(
                 _profiler.get())
             .toneMapped;
 
-    _resources->images.release(illumination);
+    gRenderResources.images->release(illumination);
 
     ImageHandle finalComposite;
     if (_textureDebugActive)
@@ -1600,13 +1589,13 @@ void App::render(
         finalComposite = blitColorToFinalComposite(
             scopeAlloc.child_scope(), cb, debugOutput);
 
-        _resources->images.release(debugOutput);
+        gRenderResources.images->release(debugOutput);
     }
     else
         finalComposite =
             blitColorToFinalComposite(scopeAlloc.child_scope(), cb, toneMapped);
 
-    _resources->images.release(toneMapped);
+    gRenderResources.images->release(toneMapped);
 
     if (_drawUi)
     {
@@ -1628,18 +1617,18 @@ void App::render(
 
     blitFinalComposite(cb, finalComposite, indices.nextImage);
 
-    _resources->images.release(finalComposite);
+    gRenderResources.images->release(finalComposite);
 
     readbackDrawStats(cb, indices.nextFrame, drawStats);
 
-    _resources->buffers.release(drawStats);
+    gRenderResources.buffers->release(drawStats);
 
     // Need to preserve both the new and old readback buffers. Release happens
     // after the readback is read from when nextFrame wraps around.
     for (const BufferHandle buffer : _drawStats)
     {
-        if (_resources->buffers.isValidHandle(buffer))
-            _resources->buffers.preserve(buffer);
+        if (gRenderResources.buffers->isValidHandle(buffer))
+            gRenderResources.buffers->preserve(buffer);
     }
 }
 
@@ -1647,7 +1636,7 @@ ImageHandle App::blitColorToFinalComposite(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle toneMapped)
 {
     const SwapchainConfig &swapConfig = _swapchain->config();
-    const ImageHandle finalComposite = _resources->images.create(
+    const ImageHandle finalComposite = gRenderResources.images->create(
         ImageDescription{
             .format = sFinalCompositeFormat,
             .width = swapConfig.extent.width,
@@ -1662,7 +1651,7 @@ ImageHandle App::blitColorToFinalComposite(
 
     // Blit tonemapped into cleared final composite before drawing ui on top
     transition(
-        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
                 {toneMapped, ImageState::TransferSrc},
@@ -1684,7 +1673,7 @@ ImageHandle App::blitColorToFinalComposite(
         .layerCount = 1,
     };
     cb.clearColorImage(
-        _resources->images.nativeHandle(finalComposite),
+        gRenderResources.images->nativeHandle(finalComposite),
         vk::ImageLayout::eTransferDstOptimal, &clearColor, 1,
         &subresourceRange);
 
@@ -1761,9 +1750,9 @@ ImageHandle App::blitColorToFinalComposite(
         .dstOffsets = dstOffsets,
     };
     cb.blitImage(
-        _resources->images.nativeHandle(toneMapped),
+        gRenderResources.images->nativeHandle(toneMapped),
         vk::ImageLayout::eTransferSrcOptimal,
-        _resources->images.nativeHandle(finalComposite),
+        gRenderResources.images->nativeHandle(finalComposite),
         vk::ImageLayout::eTransferDstOptimal, 1, &blit, vk::Filter::eLinear);
 
     return finalComposite;
@@ -1778,7 +1767,7 @@ void App::blitFinalComposite(
     const auto &swapImage = _swapchain->image(nextImage);
 
     const StaticArray barriers{{
-        *_resources->images.transitionBarrier(
+        *gRenderResources.images->transitionBarrier(
             finalComposite, ImageState::TransferSrc, true),
         vk::ImageMemoryBarrier2{
             // TODO:
@@ -1814,7 +1803,7 @@ void App::blitFinalComposite(
             .layerCount = 1};
 
         const vk::Extent3D &finalCompositeExtent =
-            _resources->images.resource(finalComposite).extent;
+            gRenderResources.images->resource(finalComposite).extent;
         WHEELS_ASSERT(finalCompositeExtent.width == swapImage.extent.width);
         WHEELS_ASSERT(finalCompositeExtent.height == swapImage.extent.height);
         const std::array offsets{
@@ -1832,7 +1821,7 @@ void App::blitFinalComposite(
             .dstOffsets = offsets,
         };
         cb.blitImage(
-            _resources->images.nativeHandle(finalComposite),
+            gRenderResources.images->nativeHandle(finalComposite),
             vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
             vk::ImageLayout::eTransferDstOptimal, 1, &blit,
             vk::Filter::eLinear);
@@ -1865,8 +1854,8 @@ void App::readbackDrawStats(
     vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer)
 {
     BufferHandle &dstBuffer = _drawStats[nextFrame];
-    WHEELS_ASSERT(!_resources->buffers.isValidHandle(dstBuffer));
-    dstBuffer = _resources->buffers.create(
+    WHEELS_ASSERT(!gRenderResources.buffers->isValidHandle(dstBuffer));
+    dstBuffer = gRenderResources.buffers->create(
         BufferDescription{
             .byteSize = sDrawStatsByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst,
@@ -1875,13 +1864,13 @@ void App::readbackDrawStats(
         },
         "DrawStatsReadback");
     WHEELS_ASSERT(
-        _resources->buffers.resource(srcBuffer).byteSize ==
-        _resources->buffers.resource(dstBuffer).byteSize);
+        gRenderResources.buffers->resource(srcBuffer).byteSize ==
+        gRenderResources.buffers->resource(dstBuffer).byteSize);
 
     const StaticArray barriers{{
-        *_resources->buffers.transitionBarrier(
+        *gRenderResources.buffers->transitionBarrier(
             srcBuffer, BufferState::TransferSrc, true),
-        *_resources->buffers.transitionBarrier(
+        *gRenderResources.buffers->transitionBarrier(
             dstBuffer, BufferState::TransferDst, true),
     }};
 
@@ -1896,8 +1885,8 @@ void App::readbackDrawStats(
         .size = sDrawStatsByteSize,
     };
     cb.copyBuffer(
-        _resources->buffers.nativeHandle(srcBuffer),
-        _resources->buffers.nativeHandle(dstBuffer), 1, &region);
+        gRenderResources.buffers->nativeHandle(srcBuffer),
+        gRenderResources.buffers->nativeHandle(dstBuffer), 1, &region);
 }
 
 bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)

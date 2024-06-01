@@ -23,15 +23,14 @@ enum BindingSet : uint32_t
     BindingSetCount,
 };
 
-vk::Rect2D getRenderArea(
-    const RenderResources &resources,
-    const SkyboxRenderer::RecordInOut &inOutTargets)
+vk::Rect2D getRenderArea(const SkyboxRenderer::RecordInOut &inOutTargets)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(inOutTargets.illumination).extent;
+        gRenderResources.images->resource(inOutTargets.illumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
     WHEELS_ASSERT(
-        targetExtent == resources.images.resource(inOutTargets.depth).extent);
+        targetExtent ==
+        gRenderResources.images->resource(inOutTargets.depth).extent);
 
     return vk::Rect2D{
         .offset = {0, 0},
@@ -42,6 +41,12 @@ vk::Rect2D getRenderArea(
             },
     };
 }
+
+struct Attachments
+{
+    wheels::StaticArray<vk::RenderingAttachmentInfo, 2> color;
+    vk::RenderingAttachmentInfo depth;
+};
 
 } // namespace
 
@@ -56,14 +61,10 @@ SkyboxRenderer::~SkyboxRenderer()
 }
 
 void SkyboxRenderer::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
-
-    _resources = resources;
 
     printf("Creating SkyboxRenderer\n");
 
@@ -105,10 +106,10 @@ void SkyboxRenderer::record(
     WHEELS_ASSERT(profiler != nullptr);
 
     {
-        const vk::Rect2D renderArea = getRenderArea(*_resources, inOutTargets);
+        const vk::Rect2D renderArea = getRenderArea(inOutTargets);
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 3>{{
                     {inOutTargets.illumination,
@@ -119,7 +120,36 @@ void SkyboxRenderer::record(
                 }},
             });
 
-        const Attachments attachments = createAttachments(inOutTargets);
+        const Attachments attachments{
+            .color = {{
+                vk::RenderingAttachmentInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(inOutTargets.illumination)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eLoad,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                },
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        gRenderResources.images->resource(inOutTargets.velocity)
+                            .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eLoad,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                },
+            }},
+            .depth =
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        gRenderResources.images->resource(inOutTargets.depth)
+                            .view,
+                    .imageLayout =
+                        vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eLoad,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                },
+        };
 
         const auto _s = profiler->createCpuGpuScope(cb, "Skybox", true);
 
@@ -212,37 +242,6 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
         gDevice.logical().destroy(fragResult->module);
 
     return false;
-}
-
-SkyboxRenderer::Attachments SkyboxRenderer::createAttachments(
-    const RecordInOut &inOutTargets) const
-{
-    return Attachments{
-        .color = {{
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    _resources->images.resource(inOutTargets.illumination).view,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eLoad,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-            },
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    _resources->images.resource(inOutTargets.velocity).view,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eLoad,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-            },
-        }},
-        .depth =
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    _resources->images.resource(inOutTargets.depth).view,
-                .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eLoad,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-            },
-    };
 }
 
 void SkyboxRenderer::destroyGraphicsPipelines()

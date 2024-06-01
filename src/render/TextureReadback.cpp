@@ -33,13 +33,10 @@ TextureReadback::~TextureReadback()
 }
 
 void TextureReadback::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -86,7 +83,7 @@ void TextureReadback::record(
     WHEELS_ASSERT(profiler != nullptr);
 
     {
-        const BufferHandle deviceReadback = _resources->buffers.create(
+        const BufferHandle deviceReadback = gRenderResources.buffers->create(
             BufferDescription{
                 .byteSize = _buffer.byteSize,
                 .usage = vk::BufferUsageFlagBits::eStorageBuffer |
@@ -99,20 +96,22 @@ void TextureReadback::record(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images.resource(inTexture).view,
+                    .imageView =
+                        gRenderResources.images->resource(inTexture).view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = _resources->nearestSampler,
+                    .sampler = gRenderResources.nearestSampler,
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _resources->buffers.nativeHandle(deviceReadback),
+                    .buffer =
+                        gRenderResources.buffers->nativeHandle(deviceReadback),
                     .range = VK_WHOLE_SIZE,
                 }},
             }});
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images =
                     StaticArray<ImageTransition, 1>{
@@ -129,7 +128,7 @@ void TextureReadback::record(
         const auto _s = profiler->createCpuGpuScope(cb, "TextureReadback");
 
         const vk::Extent3D inRes =
-            _resources->images.resource(inTexture).extent;
+            gRenderResources.images->resource(inTexture).extent;
         const PCBlock pcBlock{
             .uv = px / vec2(inRes.width, inRes.height),
         };
@@ -138,7 +137,7 @@ void TextureReadback::record(
         const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
         _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
 
-        _resources->buffers.transition(
+        gRenderResources.buffers->transition(
             cb, deviceReadback, BufferState::TransferSrc);
         // We know the host readback buffer is not used this frame so no need
         // for a barrier here
@@ -149,10 +148,10 @@ void TextureReadback::record(
             .size = _buffer.byteSize,
         };
         cb.copyBuffer(
-            _resources->buffers.nativeHandle(deviceReadback), _buffer.handle, 1,
-            &region);
+            gRenderResources.buffers->nativeHandle(deviceReadback),
+            _buffer.handle, 1, &region);
 
-        _resources->buffers.release(deviceReadback);
+        gRenderResources.buffers->release(deviceReadback);
 
         _framesUntilReady = MAX_FRAMES_IN_FLIGHT;
     }

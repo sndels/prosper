@@ -108,15 +108,11 @@ RtReference::~RtReference()
 }
 
 void RtReference::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
-
-    _resources = resources;
 
     printf("Creating RtReference\n");
 
@@ -186,7 +182,7 @@ RtReference::Output RtReference::record(
         // TODO:
         // This happens to be the same physical image as last frame for now, but
         // resources should support this kind of accumulation use explicitly
-        ImageHandle illumination = _resources->images.create(
+        ImageHandle illumination = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR32G32B32A32Sfloat,
                 .width = renderArea.extent.width,
@@ -198,19 +194,19 @@ RtReference::Output RtReference::record(
             "rtIllumination");
 
         vk::Extent3D previousExtent;
-        if (_resources->images.isValidHandle(_previousIllumination))
+        if (gRenderResources.images->isValidHandle(_previousIllumination))
             previousExtent =
-                _resources->images.resource(_previousIllumination).extent;
+                gRenderResources.images->resource(_previousIllumination).extent;
 
         if (options.colorDirty ||
             renderArea.extent.width != previousExtent.width ||
             renderArea.extent.height != previousExtent.height)
         {
-            if (_resources->images.isValidHandle(_previousIllumination))
-                _resources->images.release(_previousIllumination);
+            if (gRenderResources.images->isValidHandle(_previousIllumination))
+                gRenderResources.images->release(_previousIllumination);
 
             // Create dummy texture that won't be read from to satisfy binds
-            _previousIllumination = _resources->images.create(
+            _previousIllumination = gRenderResources.images->create(
                 ImageDescription{
                     .format = vk::Format::eR32G32B32A32Sfloat,
                     .width = renderArea.extent.width,
@@ -223,7 +219,7 @@ RtReference::Output RtReference::record(
             _accumulationDirty = true;
         }
         else // We clear debug names each frame
-            _resources->images.appendDebugName(
+            gRenderResources.images->appendDebugName(
                 _previousIllumination, "previousRTIllumination");
 
         updateDescriptorSet(scopeAlloc.child_scope(), nextFrame, illumination);
@@ -232,7 +228,7 @@ RtReference::Output RtReference::record(
             cb, BufferState::RayTracingAccelerationStructureRead);
 
         transition(
-            scopeAlloc.child_scope(), *_resources, cb,
+            scopeAlloc.child_scope(), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {illumination, ImageState::RayTracingReadWrite},
@@ -334,18 +330,18 @@ RtReference::Output RtReference::record(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
 
-        _resources->images.release(_previousIllumination);
+        gRenderResources.images->release(_previousIllumination);
         _previousIllumination = illumination;
-        _resources->images.preserve(_previousIllumination);
+        gRenderResources.images->preserve(_previousIllumination);
 
         // Further passes expect 16bit illumination with pipelines created with
         // the attachment format
         {
-            ret.illumination = createIllumination(
-                *_resources, renderArea.extent, "illumination");
+            ret.illumination =
+                createIllumination(renderArea.extent, "illumination");
 
             transition(
-                WHEELS_MOV(scopeAlloc), *_resources, cb,
+                WHEELS_MOV(scopeAlloc), cb,
                 Transitions{
                     .images = StaticArray<ImageTransition, 2>{{
                         {illumination, ImageState::TransferSrc},
@@ -374,9 +370,9 @@ RtReference::Output RtReference::record(
                 .dstOffsets = offsets,
             };
             cb.blitImage(
-                _resources->images.nativeHandle(illumination),
+                gRenderResources.images->nativeHandle(illumination),
                 vk::ImageLayout::eTransferSrcOptimal,
-                _resources->images.nativeHandle(ret.illumination),
+                gRenderResources.images->nativeHandle(ret.illumination),
                 vk::ImageLayout::eTransferDstOptimal, 1, &blit,
                 vk::Filter::eLinear);
         }
@@ -391,8 +387,8 @@ void RtReference::releasePreserved()
 {
     WHEELS_ASSERT(_initialized);
 
-    if (_resources->images.isValidHandle(_previousIllumination))
-        _resources->images.release(_previousIllumination);
+    if (gRenderResources.images->isValidHandle(_previousIllumination))
+        gRenderResources.images->release(_previousIllumination);
 }
 
 void RtReference::destroyShaders()
@@ -586,11 +582,11 @@ void RtReference::updateDescriptorSet(
     const StaticArray descriptorInfos{{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                _resources->images.resource(_previousIllumination).view,
+                gRenderResources.images->resource(_previousIllumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = _resources->images.resource(illumination).view,
+            .imageView = gRenderResources.images->resource(illumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
     }};

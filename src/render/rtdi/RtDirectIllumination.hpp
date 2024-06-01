@@ -26,7 +26,7 @@ class RtDirectIllumination
     RtDirectIllumination &operator=(RtDirectIllumination &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
@@ -49,7 +49,6 @@ class RtDirectIllumination
 
   private:
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     bool _doSpatialReuse{true};
     bool _resetAccumulation{true};

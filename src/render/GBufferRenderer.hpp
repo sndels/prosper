@@ -33,7 +33,7 @@ class GBufferRenderer
 
     void init(
         wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
@@ -63,23 +63,11 @@ class GBufferRenderer
 
     void destroyGraphicsPipeline();
 
-    [[nodiscard]] GBufferRendererOutput createOutputs(
-        const vk::Extent2D &size) const;
-
-    struct Attachments
-    {
-        wheels::StaticArray<vk::RenderingAttachmentInfo, 3> color;
-        vk::RenderingAttachmentInfo depth;
-    };
-    [[nodiscard]] Attachments createAttachments(
-        const GBufferRendererOutput &output) const;
-
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
     wheels::Optional<ShaderReflection> _meshReflection;

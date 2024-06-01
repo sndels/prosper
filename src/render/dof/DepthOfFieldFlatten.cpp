@@ -14,11 +14,10 @@ using namespace wheels;
 namespace
 {
 
-vk::Extent2D getInputExtent(
-    const RenderResources &resources, ImageHandle illumination)
+vk::Extent2D getInputExtent(ImageHandle illumination)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(illumination).extent;
+        gRenderResources.images->resource(illumination).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -42,13 +41,10 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldFlatten::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
@@ -77,9 +73,9 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
     Output ret;
     {
         const vk::Extent2D inputExtent =
-            getInputExtent(*_resources, halfResCircleOfConfusion);
+            getInputExtent(halfResCircleOfConfusion);
 
-        ret.tileMinMaxCircleOfConfusion = _resources->images.create(
+        ret.tileMinMaxCircleOfConfusion = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
                 .width = (inputExtent.width - 1) /
@@ -97,21 +93,21 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(halfResCircleOfConfusion)
-                            .view,
+                    .imageView = gRenderResources.images
+                                     ->resource(halfResCircleOfConfusion)
+                                     .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images
-                                     .resource(ret.tileMinMaxCircleOfConfusion)
+                    .imageView = gRenderResources.images
+                                     ->resource(ret.tileMinMaxCircleOfConfusion)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
             }});
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {halfResCircleOfConfusion, ImageState::ComputeShaderRead},

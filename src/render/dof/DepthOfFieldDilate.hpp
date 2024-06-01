@@ -28,7 +28,7 @@ class DepthOfFieldDilate
     DepthOfFieldDilate &operator=(DepthOfFieldDilate &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
 
     void recompileShaders(
@@ -46,7 +46,6 @@ class DepthOfFieldDilate
 
   private:
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 };
 

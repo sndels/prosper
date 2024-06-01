@@ -32,7 +32,7 @@ class ForwardRenderer
     };
     void init(
         wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc, RenderResources *resources,
+        DescriptorAllocator *staticDescriptorsAlloc,
         const InputDSLayouts &dsLayouts);
 
     void recompileShaders(
@@ -101,27 +101,19 @@ class ForwardRenderer
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         const Options &options, SceneStats *sceneStats, Profiler *profiler,
         const char *debugName);
-    void recordBarriers(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const RecordInOut &inOutTargets,
-        const LightClusteringOutput &lightClusters,
-        const MeshletCullerOutput &cullerOutput,
-        BufferHandle inOutDrawStats) const;
 
     struct Attachments
     {
         wheels::InlineArray<vk::RenderingAttachmentInfo, 2> color;
         vk::RenderingAttachmentInfo depth;
     };
-    [[nodiscard]] Attachments createAttachments(
-        const RecordInOut &inOutTargets, bool transparents) const;
+    [[nodiscard]] static Attachments createAttachments(
+        const RecordInOut &inOutTargets, bool transparents);
 
     static vk::Rect2D getRenderArea(
-        const RenderResources &resources,
         const ForwardRenderer::RecordInOut &inOutTargets);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
     wheels::Optional<ShaderReflection> _meshReflection;

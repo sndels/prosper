@@ -8,28 +8,25 @@
 using namespace wheels;
 
 void RtDirectIllumination::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _initialReservoirs.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         RtDiInitialReservoirs::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
     _spatialReuse.init(
-        scopeAlloc.child_scope(), resources, staticDescriptorsAlloc,
+        scopeAlloc.child_scope(), staticDescriptorsAlloc,
         RtDiSpatialReuse::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
     _trace.init(
-        WHEELS_MOV(scopeAlloc), resources, staticDescriptorsAlloc, camDSLayout,
+        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc, camDSLayout,
         worldDSLayouts);
 
     _initialized = true;
@@ -95,7 +92,8 @@ RtDirectIllumination::Output RtDirectIllumination::record(
                     },
                     nextFrame, profiler);
 
-            _resources->images.release(initialReservoirsOutput.reservoirs);
+            gRenderResources.images->release(
+                initialReservoirsOutput.reservoirs);
             reservoirs = spatialReuseOutput.reservoirs;
         }
 
@@ -108,7 +106,7 @@ RtDirectIllumination::Output RtDirectIllumination::record(
             resetAccumulation || _resetAccumulation, drawType, nextFrame,
             profiler);
 
-        _resources->images.release(reservoirs);
+        gRenderResources.images->release(reservoirs);
     }
 
     _resetAccumulation = false;

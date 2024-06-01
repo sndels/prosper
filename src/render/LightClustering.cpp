@@ -65,18 +65,71 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
     return setLayouts;
 }
 
+LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
+{
+    const uint32_t pointersWidth =
+        ((renderExtent.width - 1u) / LightClustering::clusterDim) + 1u;
+    const uint32_t pointersHeight =
+        ((renderExtent.height - 1u) / LightClustering::clusterDim) + 1u;
+    const uint32_t pointersDepth = LightClustering::zSlices + 1;
+
+    LightClusteringOutput ret;
+
+    ret.pointers = gRenderResources.images->create(
+        ImageDescription{
+            .imageType = vk::ImageType::e3D,
+            .format = vk::Format::eR32G32Uint,
+            .width = pointersWidth,
+            .height = pointersHeight,
+            .depth = pointersDepth,
+            .usageFlags = vk::ImageUsageFlagBits::eSampled | // Debug
+                          vk::ImageUsageFlagBits::eStorage,
+        },
+        "lightClusterPointers");
+
+    ret.indicesCount = gRenderResources.texelBuffers->create(
+        TexelBufferDescription{
+            .bufferDesc =
+                BufferDescription{
+                    .byteSize = sizeof(uint32_t),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst |
+                             vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .format = vk::Format::eR32Uint,
+            .supportAtomics = true,
+        },
+        "LightClusteringIndicesCounter");
+
+    const vk::DeviceSize indicesSize =
+        static_cast<vk::DeviceSize>(
+            maxSpotIndicesPerTile + maxPointIndicesPerTile) *
+        pointersWidth * pointersHeight * pointersDepth;
+
+    ret.indices = gRenderResources.texelBuffers->create(
+        TexelBufferDescription{
+            .bufferDesc =
+                BufferDescription{
+                    .byteSize = indicesSize * sizeof(uint16_t),
+                    .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .format = vk::Format::eR16Uint,
+        },
+        "lightClusterIndices");
+
+    return ret;
+}
+
 } // namespace
 
 void LightClustering::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
@@ -125,18 +178,20 @@ LightClusteringOutput LightClustering::record(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = _resources->images.resource(ret.pointers).view,
+                    .imageView =
+                        gRenderResources.images->resource(ret.pointers).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{
-                    _resources->texelBuffers.resource(ret.indicesCount).view},
+                    gRenderResources.texelBuffers->resource(ret.indicesCount)
+                        .view},
                 DescriptorInfo{
-                    _resources->texelBuffers.resource(ret.indices).view},
+                    gRenderResources.texelBuffers->resource(ret.indices).view},
             }});
         ret.descriptorSet = _computePass.storageSet(nextFrame);
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 1>{{
                     {ret.pointers, ImageState::ComputeShaderWrite},
@@ -151,11 +206,11 @@ LightClusteringOutput LightClustering::record(
 
         { // Reset count
             const TexelBuffer &indicesCount =
-                _resources->texelBuffers.resource(ret.indicesCount);
+                gRenderResources.texelBuffers->resource(ret.indicesCount);
 
             cb.fillBuffer(indicesCount.handle, 0, indicesCount.size, 0);
 
-            _resources->texelBuffers.transition(
+            gRenderResources.texelBuffers->transition(
                 cb, ret.indicesCount, BufferState::ComputeShaderReadWrite);
         }
 
@@ -181,7 +236,7 @@ LightClusteringOutput LightClustering::record(
             }};
 
             const vk::Extent3D &outputExtent =
-                _resources->images.resource(ret.pointers).extent;
+                gRenderResources.images->resource(ret.pointers).extent;
             // Each cluster should have a separate compute group
             const uvec3 extent =
                 uvec3{
@@ -193,61 +248,6 @@ LightClusteringOutput LightClustering::record(
                 cb, pcBlock, extent, descriptorSets, dynamicOffsets);
         }
     }
-
-    return ret;
-}
-
-LightClusteringOutput LightClustering::createOutputs(
-    const vk::Extent2D &renderExtent)
-{
-    const auto pointersWidth = ((renderExtent.width - 1u) / clusterDim) + 1u;
-    const auto pointersHeight = ((renderExtent.height - 1u) / clusterDim) + 1u;
-    const auto pointersDepth = zSlices + 1;
-
-    LightClusteringOutput ret;
-
-    ret.pointers = _resources->images.create(
-        ImageDescription{
-            .imageType = vk::ImageType::e3D,
-            .format = vk::Format::eR32G32Uint,
-            .width = pointersWidth,
-            .height = pointersHeight,
-            .depth = pointersDepth,
-            .usageFlags = vk::ImageUsageFlagBits::eSampled | // Debug
-                          vk::ImageUsageFlagBits::eStorage,
-        },
-        "lightClusterPointers");
-
-    ret.indicesCount = _resources->texelBuffers.create(
-        TexelBufferDescription{
-            .bufferDesc =
-                BufferDescription{
-                    .byteSize = sizeof(uint32_t),
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eStorageTexelBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .format = vk::Format::eR32Uint,
-            .supportAtomics = true,
-        },
-        "LightClusteringIndicesCounter");
-
-    const vk::DeviceSize indicesSize =
-        static_cast<vk::DeviceSize>(
-            maxSpotIndicesPerTile + maxPointIndicesPerTile) *
-        pointersWidth * pointersHeight * pointersDepth;
-
-    ret.indices = _resources->texelBuffers.create(
-        TexelBufferDescription{
-            .bufferDesc =
-                BufferDescription{
-                    .byteSize = indicesSize * sizeof(uint16_t),
-                    .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .format = vk::Format::eR16Uint,
-        },
-        "lightClusterIndices");
 
     return ret;
 }

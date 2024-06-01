@@ -30,7 +30,7 @@ class RtDiInitialReservoirs
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         const InputDSLayouts &dsLayouts);
 
@@ -51,7 +51,6 @@ class RtDiInitialReservoirs
         Profiler *profiler);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     ComputePass _computePass;
 
     uint32_t _frameIndex{0};

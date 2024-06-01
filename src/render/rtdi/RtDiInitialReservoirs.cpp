@@ -30,11 +30,10 @@ struct PCBlock
     uint32_t frameIndex{0};
 };
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, const GBufferRendererOutput &gbuffer)
+vk::Extent2D getRenderExtent(const GBufferRendererOutput &gbuffer)
 {
     const vk::Extent3D targetExtent =
-        resources.images.resource(gbuffer.albedoRoughness).extent;
+        gRenderResources.images->resource(gbuffer.albedoRoughness).extent;
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     return vk::Extent2D{
@@ -77,14 +76,11 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
 } // namespace
 
 void RtDiInitialReservoirs::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         [&dsLayouts](Allocator &alloc)
@@ -123,9 +119,9 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(*_resources, gbuffer);
+        const vk::Extent2D renderExtent = getRenderExtent(gbuffer);
 
-        ret.reservoirs = _resources->images.create(
+        ret.reservoirs = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR32G32Sfloat,
                 .width = renderExtent.width,
@@ -139,34 +135,34 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(gbuffer.albedoRoughness)
-                            .view,
+                    .imageView = gRenderResources.images
+                                     ->resource(gbuffer.albedoRoughness)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(gbuffer.normalMetalness)
+                                     .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
-                        _resources->images.resource(gbuffer.normalMetalness)
-                            .view,
+                        gRenderResources.images->resource(gbuffer.depth).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
-                        _resources->images.resource(gbuffer.depth).view,
+                        gRenderResources.images->resource(ret.reservoirs).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        _resources->images.resource(ret.reservoirs).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
-                }},
-                DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = _resources->nearestSampler,
+                    .sampler = gRenderResources.nearestSampler,
                 }},
             }});
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 4>{{
                     {gbuffer.albedoRoughness, ImageState::ComputeShaderRead},

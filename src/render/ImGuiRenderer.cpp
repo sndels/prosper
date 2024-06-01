@@ -53,16 +53,12 @@ ImGuiRenderer::~ImGuiRenderer()
     }
 }
 
-void ImGuiRenderer::init(
-    RenderResources *resources, const SwapchainConfig &swapConfig)
+void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
     GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
-
-    _resources = resources;
 
     printf("Creating ImGuiRenderer\n");
 
@@ -150,7 +146,7 @@ void ImGuiRenderer::startFrame(Profiler *profiler)
 
 void ImGuiRenderer::endFrame(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea, ImageHandle inOutColor,
-    Profiler *profiler)
+    Profiler *profiler) const
 {
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
@@ -162,13 +158,13 @@ void ImGuiRenderer::endFrame(
     ImDrawData *drawData = ImGui::GetDrawData();
 
     {
-        _resources->images.transition(
+        gRenderResources.images->transition(
             cb, inOutColor, ImageState::ColorAttachmentReadWrite);
 
         const auto _s = profiler->createCpuGpuScope(cb, "ImGui::draw", true);
 
         const vk::RenderingAttachmentInfo attachment{
-            .imageView = _resources->images.resource(inOutColor).view,
+            .imageView = gRenderResources.images->resource(inOutColor).view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,

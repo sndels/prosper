@@ -25,7 +25,7 @@ class DebugRenderer
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout camDSLayout);
 
@@ -47,24 +47,14 @@ class DebugRenderer
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);
 
-    struct Attachments
-    {
-        vk::RenderingAttachmentInfo color;
-        vk::RenderingAttachmentInfo depth;
-    };
-    [[nodiscard]] Attachments createAttachments(
-        const RecordInOut &inOutTargets) const;
-
     void destroyGraphicsPipeline();
 
-    void createBuffers();
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc);
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
     wheels::Optional<ShaderReflection> _vertReflection;

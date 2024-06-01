@@ -33,7 +33,7 @@ class MeshletCuller
     MeshletCuller &operator=(MeshletCuller &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RenderResources *resources,
+        wheels::ScopedScratch scopeAlloc,
         DescriptorAllocator *staticDescriptorsAlloc,
         const WorldDSLayouts &worldDsLayouts,
         vk::DescriptorSetLayout camDsLayout);
@@ -77,7 +77,6 @@ class MeshletCuller
         const CullerInput &input, const char *debugPrefix);
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
 
     ComputePass _drawListGenerator;
     ComputePass _cullerArgumentsWriter;

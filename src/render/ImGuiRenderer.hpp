@@ -20,12 +20,12 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
-    void init(RenderResources *resources, const SwapchainConfig &swapConfig);
+    void init(const SwapchainConfig &swapConfig);
 
     void startFrame(Profiler *profiler);
     void endFrame(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea,
-        ImageHandle inOutColor, Profiler *profiler);
+        ImageHandle inOutColor, Profiler *profiler) const;
 
     [[nodiscard]] ImVec2 centerAreaOffset() const;
     [[nodiscard]] ImVec2 centerAreaSize() const;
@@ -36,7 +36,6 @@ class ImGuiRenderer
     static void setStyle();
 
     bool _initialized{false};
-    RenderResources *_resources{nullptr};
     vk::DescriptorPool _descriptorPool;
     ImGuiID _dockAreaID{0};
 };

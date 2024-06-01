@@ -22,13 +22,10 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldFilter::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc)
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
@@ -59,12 +56,13 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(profiler != nullptr);
 
-    const Image &inRes = _resources->images.resource(inIlluminationWeight);
+    const Image &inRes =
+        gRenderResources.images->resource(inIlluminationWeight);
     Output ret;
     // TODO:
     // Support querying description of a resource to create a new one from it?
     // Or have a dedicated create_matching()?
-    ret.filteredIlluminationWeight = _resources->images.create(
+    ret.filteredIlluminationWeight = gRenderResources.images->create(
         ImageDescription{
             .format = vk::Format::eR16G16B16A16Sfloat,
             .width = inRes.extent.width,
@@ -82,18 +80,18 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
                 .imageLayout = vk::ImageLayout::eReadOnlyOptimal,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    _resources->images.resource(ret.filteredIlluminationWeight)
-                        .view,
+                .imageView = gRenderResources.images
+                                 ->resource(ret.filteredIlluminationWeight)
+                                 .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _resources->nearestSampler,
+                .sampler = gRenderResources.nearestSampler,
             }},
         }});
 
     transition(
-        WHEELS_MOV(scopeAlloc), *_resources, cb,
+        WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
                 {inIlluminationWeight, ImageState::ComputeShaderSampledRead},

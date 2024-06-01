@@ -70,10 +70,10 @@ uint32_t pcFlags(PCBlock::Flags flags)
     return ret;
 }
 
-vk::Extent2D getRenderExtent(
-    const RenderResources &resources, ImageHandle inColor)
+vk::Extent2D getRenderExtent(ImageHandle inColor)
 {
-    const vk::Extent3D extent = resources.images.resource(inColor).extent;
+    const vk::Extent3D extent =
+        gRenderResources.images->resource(inColor).extent;
     WHEELS_ASSERT(extent.depth == 1);
 
     return vk::Extent2D{
@@ -109,14 +109,11 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void TemporalAntiAliasing::init(
-    ScopedScratch scopeAlloc, RenderResources *resources,
-    DescriptorAllocator *staticDescriptorsAlloc,
+    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!_initialized);
-    WHEELS_ASSERT(resources != nullptr);
 
-    _resources = resources;
     _computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
@@ -161,15 +158,18 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent =
-            getRenderExtent(*_resources, input.illumination);
+        const vk::Extent2D renderExtent = getRenderExtent(input.illumination);
 
-        ret = createOutputs(renderExtent);
+        ret = Output{
+            .resolvedIllumination =
+                createIllumination(renderExtent, "ResolvedIllumination"),
+        };
 
         vk::Extent3D previousExtent;
-        if (_resources->images.isValidHandle(_previousResolveOutput))
+        if (gRenderResources.images->isValidHandle(_previousResolveOutput))
             previousExtent =
-                _resources->images.resource(_previousResolveOutput).extent;
+                gRenderResources.images->resource(_previousResolveOutput)
+                    .extent;
 
         // TODO: Reset history from app when camera or scene is toggled,
         // projection changes
@@ -178,54 +178,58 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         if (renderExtent.width != previousExtent.width ||
             renderExtent.height != previousExtent.height)
         {
-            if (_resources->images.isValidHandle(_previousResolveOutput))
-                _resources->images.release(_previousResolveOutput);
+            if (gRenderResources.images->isValidHandle(_previousResolveOutput))
+                gRenderResources.images->release(_previousResolveOutput);
 
             // Create dummy texture that won't be read from to satisfy binds
             _previousResolveOutput =
-                createIllumination(*_resources, renderExtent, resolveDebugName);
+                createIllumination(renderExtent, resolveDebugName);
             ignoreHistory = true;
         }
         else // We clear debug names each frame
-            _resources->images.appendDebugName(
+            gRenderResources.images->appendDebugName(
                 _previousResolveOutput, resolveDebugName);
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    _resources->images.resource(input.illumination).view,
+                    gRenderResources.images->resource(input.illumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    _resources->images.resource(_previousResolveOutput).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = _resources->images.resource(input.velocity).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = _resources->images.resource(input.depth).view,
+                    gRenderResources.images->resource(_previousResolveOutput)
+                        .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    _resources->images.resource(ret.resolvedIllumination).view,
+                    gRenderResources.images->resource(input.velocity).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _resources->nearestSampler,
+                .imageView =
+                    gRenderResources.images->resource(input.depth).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _resources->bilinearSampler,
+                .imageView =
+                    gRenderResources.images->resource(ret.resolvedIllumination)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = gRenderResources.nearestSampler,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = gRenderResources.bilinearSampler,
             }},
         }};
         _computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
-            WHEELS_MOV(scopeAlloc), *_resources, cb,
+            WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 5>{{
                     {input.illumination, ImageState::ComputeShaderRead},
@@ -260,9 +264,9 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             },
             extent, descriptorSets, Span{&camOffset, 1});
 
-        _resources->images.release(_previousResolveOutput);
+        gRenderResources.images->release(_previousResolveOutput);
         _previousResolveOutput = ret.resolvedIllumination;
-        _resources->images.preserve(_previousResolveOutput);
+        gRenderResources.images->preserve(_previousResolveOutput);
     }
 
     return ret;
@@ -272,15 +276,6 @@ void TemporalAntiAliasing::releasePreserved()
 {
     WHEELS_ASSERT(_initialized);
 
-    if (_resources->images.isValidHandle(_previousResolveOutput))
-        _resources->images.release(_previousResolveOutput);
-}
-
-TemporalAntiAliasing::Output TemporalAntiAliasing::createOutputs(
-    const vk::Extent2D &size)
-{
-    return Output{
-        .resolvedIllumination =
-            createIllumination(*_resources, size, "ResolvedIllumination"),
-    };
+    if (gRenderResources.images->isValidHandle(_previousResolveOutput))
+        gRenderResources.images->release(_previousResolveOutput);
 }
