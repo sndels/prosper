@@ -371,9 +371,11 @@ void generateMeshlets(MeshData *meshData)
     meshData->meshletVertices.resize(
         lastMeshlet.vertex_offset + lastMeshlet.vertex_count);
     // Pad up to a u32 boundary
-    meshData->meshletTriangles.resize(
-        lastMeshlet.triangle_offset +
-        ((lastMeshlet.triangle_count * 3 + 3) & ~3));
+    const uint32_t trianglesSize =
+        asserted_cast<uint32_t>(wheels::aligned_offset(
+            lastMeshlet.triangle_offset + lastMeshlet.triangle_count,
+            sizeof(uint32_t)));
+    meshData->meshletTriangles.resize(trianglesSize);
 
     meshData->meshletBounds.reserve(meshData->meshlets.size());
     for (const meshopt_Meshlet &meshlet : meshData->meshlets)
@@ -516,8 +518,7 @@ void writeCache(
         {
             size_t byteCount = meshInfo.indexCount * sizeof(uint16_t);
             // Let's pad to 4byte boundary to make things simpler later
-            byteCount = (byteCount + sizeof(uint32_t) - 1) / sizeof(uint32_t) *
-                        sizeof(uint32_t);
+            byteCount = aligned_offset(byteCount, sizeof(uint32_t));
             WHEELS_ASSERT(byteCount % sizeof(uint32_t) == 0);
 
             packedIndices.resize(byteCount);
@@ -529,8 +530,7 @@ void writeCache(
             size_t byteCount =
                 meshData.meshletVertices.size() * sizeof(uint16_t);
             // Let's pad to 4byte boundary to make things simpler later
-            byteCount = (byteCount + sizeof(uint32_t) - 1) / sizeof(uint32_t) *
-                        sizeof(uint32_t);
+            byteCount = aligned_offset(byteCount, sizeof(uint32_t));
             WHEELS_ASSERT(byteCount % sizeof(uint32_t) == 0);
 
             packedMeshletVertices.resize(byteCount);
