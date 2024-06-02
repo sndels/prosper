@@ -11,6 +11,7 @@
 #include "../GBufferRenderer.hpp"
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
+#include "../Utils.hpp"
 
 #include <imgui.h>
 
@@ -79,18 +80,6 @@ uint32_t pcFlags(PCBlock::Flags flags)
     ret |= (uint32_t)flags.accumulate << 1;
 
     return ret;
-}
-
-vk::Extent2D getRenderExtent(const GBufferRendererOutput &gbuffer)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(gbuffer.albedoRoughness).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-
-    return vk::Extent2D{
-        .width = targetExtent.width,
-        .height = targetExtent.height,
-    };
 }
 
 } // namespace
@@ -163,7 +152,8 @@ RtDiTrace::Output RtDiTrace::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(input.gbuffer);
+        const vk::Extent2D renderExtent =
+            getExtent2D(input.gbuffer.albedoRoughness);
 
         const ImageDescription accumulateImageDescription = ImageDescription{
             .format = vk::Format::eR32G32B32A32Sfloat,

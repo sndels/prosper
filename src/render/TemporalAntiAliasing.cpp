@@ -12,6 +12,7 @@
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
+#include "Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -68,18 +69,6 @@ uint32_t pcFlags(PCBlock::Flags flags)
     ret |= (uint32_t)flags.luminanceWeighting << 6;
 
     return ret;
-}
-
-vk::Extent2D getRenderExtent(ImageHandle inColor)
-{
-    const vk::Extent3D extent =
-        gRenderResources.images->resource(inColor).extent;
-    WHEELS_ASSERT(extent.depth == 1);
-
-    return vk::Extent2D{
-        .width = extent.width,
-        .height = extent.height,
-    };
 }
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
@@ -158,7 +147,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(input.illumination);
+        const vk::Extent2D renderExtent = getExtent2D(input.illumination);
 
         ret = Output{
             .resolvedIllumination =

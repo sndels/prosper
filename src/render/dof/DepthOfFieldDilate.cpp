@@ -8,6 +8,7 @@
 #include "../../utils/Profiler.hpp"
 #include "../../utils/Utils.hpp"
 #include "../RenderResources.hpp"
+#include "../Utils.hpp"
 #include "DepthOfField.hpp"
 
 using namespace glm;
@@ -15,18 +16,6 @@ using namespace wheels;
 
 namespace
 {
-
-vk::Extent2D getInputExtent(ImageHandle illumination)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(illumination).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-
-    return vk::Extent2D{
-        .width = targetExtent.width,
-        .height = targetExtent.height,
-    };
-}
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -76,7 +65,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
 
     Output ret;
     {
-        const vk::Extent2D inputExtent = getInputExtent(tileMinMaxCoC);
+        const vk::Extent2D inputExtent = getExtent2D(tileMinMaxCoC);
 
         ret.dilatedTileMinMaxCoC = gRenderResources.images->create(
             ImageDescription{

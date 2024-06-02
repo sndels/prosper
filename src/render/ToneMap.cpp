@@ -9,6 +9,7 @@
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
+#include "Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -21,18 +22,6 @@ struct PCBlock
     float exposure{1.f};
     float contrast{1.f};
 };
-
-vk::Extent2D getRenderExtent(ImageHandle inColor)
-{
-    const vk::Extent3D extent =
-        gRenderResources.images->resource(inColor).extent;
-    WHEELS_ASSERT(extent.depth == 1);
-
-    return vk::Extent2D{
-        .width = extent.width,
-        .height = extent.height,
-    };
-}
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -87,7 +76,7 @@ ToneMap::Output ToneMap::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(inColor);
+        const vk::Extent2D renderExtent = getExtent2D(inColor);
 
         ret = Output{
             .toneMapped = gRenderResources.images->create(

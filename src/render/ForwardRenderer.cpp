@@ -18,6 +18,7 @@
 #include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
+#include "Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -391,7 +392,7 @@ void ForwardRenderer::record(
     WHEELS_ASSERT(sceneStats != nullptr);
     WHEELS_ASSERT(profiler != nullptr);
 
-    const vk::Rect2D renderArea = getRenderArea(inOutTargets);
+    const vk::Rect2D renderArea = getRect2D(inOutTargets.illumination);
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
@@ -564,24 +565,4 @@ ForwardRenderer::Attachments ForwardRenderer::createAttachments(
     }
 
     return ret;
-}
-
-vk::Rect2D ForwardRenderer::getRenderArea(
-    const ForwardRenderer::RecordInOut &inOutTargets)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(inOutTargets.illumination).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-    WHEELS_ASSERT(
-        targetExtent ==
-        gRenderResources.images->resource(inOutTargets.depth).extent);
-
-    return vk::Rect2D{
-        .offset = {0, 0},
-        .extent =
-            {
-                targetExtent.width,
-                targetExtent.height,
-            },
-    };
 }

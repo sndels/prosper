@@ -15,6 +15,7 @@
 #include "LightClustering.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
+#include "Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -39,18 +40,6 @@ struct PCBlock
     uint drawType{0};
     uint ibl{0};
 };
-
-vk::Extent2D getRenderExtent(const GBufferRendererOutput &gbuffer)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(gbuffer.albedoRoughness).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-
-    return vk::Extent2D{
-        .width = targetExtent.width,
-        .height = targetExtent.height,
-    };
-}
 
 ComputePass::Shader shaderDefinitionCallback(
     Allocator &alloc, const WorldDSLayouts &worldDSLayouts)
@@ -140,7 +129,8 @@ DeferredShading::Output DeferredShading::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(input.gbuffer);
+        const vk::Extent2D renderExtent =
+            getExtent2D(input.gbuffer.albedoRoughness);
 
         ret.illumination = createIllumination(renderExtent, "illumination");
 

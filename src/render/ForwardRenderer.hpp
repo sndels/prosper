@@ -110,9 +110,6 @@ class ForwardRenderer
     [[nodiscard]] static Attachments createAttachments(
         const RecordInOut &inOutTargets, bool transparents);
 
-    static vk::Rect2D getRenderArea(
-        const ForwardRenderer::RecordInOut &inOutTargets);
-
     bool _initialized{false};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;

@@ -8,6 +8,7 @@
 #include "../../utils/Utils.hpp"
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
+#include "../Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -21,18 +22,6 @@ struct PCBlock
     vec2 invHalfResolution{};
     uint frameIndex{0};
 };
-
-vk::Extent2D getRenderExtent(ImageHandle halfResIllumination)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(halfResIllumination).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-
-    return vk::Extent2D{
-        .width = targetExtent.width,
-        .height = targetExtent.height,
-    };
-}
 
 ComputePass::Shader backgroundDefinitionCallback(Allocator &alloc)
 {
@@ -103,7 +92,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     Output ret;
     {
         const vk::Extent2D renderExtent =
-            getRenderExtent(input.halfResIllumination);
+            getExtent2D(input.halfResIllumination);
 
         ret.halfResBokehColorWeight = gRenderResources.images->create(
             ImageDescription{

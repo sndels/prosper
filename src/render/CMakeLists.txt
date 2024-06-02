@@ -24,6 +24,7 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.hpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureReadback.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Utils.hpp
     PARENT_SCOPE
 )
 
@@ -48,5 +49,6 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/TextureDebug.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TextureReadback.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ToneMap.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
     PARENT_SCOPE
 )

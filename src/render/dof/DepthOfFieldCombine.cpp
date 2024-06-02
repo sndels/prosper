@@ -8,24 +8,13 @@
 #include "../../utils/Utils.hpp"
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
+#include "../Utils.hpp"
 
 using namespace glm;
 using namespace wheels;
 
 namespace
 {
-
-vk::Extent2D getRenderExtent(ImageHandle illumination)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(illumination).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-
-    return vk::Extent2D{
-        .width = targetExtent.width,
-        .height = targetExtent.height,
-    };
-}
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -68,7 +57,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(input.illumination);
+        const vk::Extent2D renderExtent = getExtent2D(input.illumination);
 
         ret.combinedIlluminationDoF =
             createIllumination(renderExtent, "CombinedIllumnationDoF");
