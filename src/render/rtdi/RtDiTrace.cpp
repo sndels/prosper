@@ -648,8 +648,8 @@ void RtDiTrace::createShaderBindingTable(ScopedScratch scopeAlloc)
         gDevice.properties().rtPipeline.shaderGroupHandleSize;
     const auto groupBaseAlignment =
         gDevice.properties().rtPipeline.shaderGroupBaseAlignment;
-    _sbtGroupSize = static_cast<vk::DeviceSize>(
-                        ((groupHandleSize - 1) / groupBaseAlignment) + 1) *
+    _sbtGroupSize = static_cast<vk::DeviceSize>(roundedUpQuotient(
+                        groupHandleSize, groupBaseAlignment)) *
                     groupBaseAlignment;
 
     const auto sbtSize = groupCount * _sbtGroupSize;

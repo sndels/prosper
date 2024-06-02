@@ -1,6 +1,8 @@
 
 #pragma shader_stage(compute)
 
+#include "common/math.glsl"
+
 // TODO: Put in a header?
 struct DrawMeshletInstance
 {
@@ -27,7 +29,7 @@ void main()
     if (inDrawList.count > 0)
     {
         outDispatchArguments.groupsX =
-            (inDrawList.count - 1) / CULLER_GROUP_SIZE + 1;
+            roundedUpQuotient(inDrawList.count, CULLER_GROUP_SIZE);
         outDispatchArguments.groupsY = 1;
         outDispatchArguments.groupsZ = 1;
     }

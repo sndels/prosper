@@ -65,12 +65,10 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
         ret.tileMinMaxCircleOfConfusion = gRenderResources.images->create(
             ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
-                .width = (inputExtent.width - 1) /
-                             DepthOfFieldFlatten::sFlattenFactor +
-                         1,
-                .height = (inputExtent.height - 1) /
-                              DepthOfFieldFlatten::sFlattenFactor +
-                          1,
+                .width = roundedUpQuotient(
+                    inputExtent.width, DepthOfFieldFlatten::sFlattenFactor),
+                .height = roundedUpQuotient(
+                    inputExtent.height, DepthOfFieldFlatten::sFlattenFactor),
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
             },

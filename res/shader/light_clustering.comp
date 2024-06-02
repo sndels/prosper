@@ -2,6 +2,7 @@
 
 #extension GL_EXT_control_flow_attributes : require
 
+#include "common/math.glsl"
 #include "scene/camera.glsl"
 #include "scene/lights.glsl"
 
@@ -132,7 +133,7 @@ void main()
     uint totalPoints = pointLights.count;
     if (totalPoints > 0)
     {
-        uint threadPoints = (totalPoints - 1) / groupThreads + 1;
+        uint threadPoints = roundedUpQuotient(totalPoints, groupThreads);
         for (uint i = 0; i < threadPoints; ++i)
         {
             uint pi = localIndex * threadPoints + i;
@@ -150,7 +151,7 @@ void main()
     uint totalSpots = spotLights.count;
     if (totalSpots > 0)
     {
-        uint threadSpots = (totalSpots - 1) / groupThreads + 1;
+        uint threadSpots = roundedUpQuotient(totalSpots, groupThreads);
         for (uint i = 0; i < threadSpots; ++i)
         {
             uint si = localIndex * threadSpots + i;
@@ -185,7 +186,7 @@ void main()
 
     if (pointCount > 0)
     {
-        uint threadPoints = (pointCount - 1) / groupThreads + 1;
+        uint threadPoints = roundedUpQuotient(pointCount, groupThreads);
         for (uint i = 0; i < threadPoints; ++i)
         {
             uint index = localIndex * threadPoints + i;
@@ -199,7 +200,7 @@ void main()
 
     if (spotCount > 0)
     {
-        uint threadSpots = (spotCount - 1) / groupThreads + 1;
+        uint threadSpots = roundedUpQuotient(spotCount, groupThreads);
         for (uint i = 0; i < threadSpots; ++i)
         {
             uint index = localIndex * threadSpots + i;

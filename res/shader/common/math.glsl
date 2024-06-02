@@ -76,4 +76,9 @@ vec3 hsvToRgb(vec3 hsv)
     return rgb + m;
 }
 
+uint roundedUpQuotient(uint dividend, uint divisor)
+{
+    return (dividend - 1) / divisor + 1;
+}
+
 #endif // COMMON_MATH_GLSL

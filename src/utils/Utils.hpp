@@ -6,6 +6,7 @@
 #include <fstream>
 #include <limits>
 #include <string>
+#include <type_traits>
 
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/utils.hpp>
@@ -145,6 +146,22 @@ inline void appendEnumVariantsAsDefines(
         str.extend(std::to_string(i).c_str());
         str.push_back('\n');
     }
+}
+
+// Completes the division by rounding up to the next integer when there is a
+// remainder. Assumes both inputs are positive. Returns 0 when dividend is 0.
+template <typename T>
+    requires std::is_integral_v<T>
+T roundedUpQuotient(T dividend, T divisor)
+{
+    if (dividend == 0) [[unlikely]]
+        return 0;
+
+    WHEELS_ASSERT(dividend > 0);
+    WHEELS_ASSERT(divisor > 0);
+
+    const T ret = (dividend - 1) / divisor + 1;
+    return ret;
 }
 
 #endif // PROSPER_UTILS_HPP

@@ -9,6 +9,7 @@
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
+#include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
 
 using namespace glm;
@@ -68,9 +69,9 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
 LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
 {
     const uint32_t pointersWidth =
-        ((renderExtent.width - 1u) / LightClustering::clusterDim) + 1u;
+        roundedUpQuotient(renderExtent.width, LightClustering::clusterDim);
     const uint32_t pointersHeight =
-        ((renderExtent.height - 1u) / LightClustering::clusterDim) + 1u;
+        roundedUpQuotient(renderExtent.height, LightClustering::clusterDim);
     const uint32_t pointersDepth = LightClustering::zSlices + 1;
 
     LightClusteringOutput ret;

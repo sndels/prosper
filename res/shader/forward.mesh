@@ -12,6 +12,7 @@
 #include "forward_pc.glsl"
 #endif // USE_GBUFFER_PC
 
+#include "common/math.glsl"
 #include "scene/camera.glsl"
 #include "scene/geometry.glsl"
 #include "scene/instances.glsl"
@@ -123,7 +124,8 @@ void main()
         }
     }
 
-    const uint trianglesPerThread = (MAX_MS_PRIMS - 1) / LOCAL_SIZE_X + 1;
+    const uint trianglesPerThread =
+        roundedUpQuotient(MAX_MS_PRIMS, LOCAL_SIZE_X);
     for (uint i = 0; i < trianglesPerThread; ++i)
     {
         uint triangleID = i * LOCAL_SIZE_X + threadID;

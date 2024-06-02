@@ -48,6 +48,10 @@ void main()
     ivec2 coord11 = coord * 2 + ivec2(1, 1);
     ivec2 coord10 = coord * 2 + ivec2(1, 0);
     ivec2 coord00 = coord * 2 + ivec2(0, 0);
+    coord01 = min(coord01, inRes - 1);
+    coord11 = min(coord11, inRes - 1);
+    coord10 = min(coord10, inRes - 1);
+    coord00 = min(coord00, inRes - 1);
 
     // TODO: 0.5 offset correct?
     vec2 uv00 = vec2(coord00 + 0.5) / vec2(inRes);

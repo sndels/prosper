@@ -8,6 +8,7 @@
 #include "../../utils/Utils.hpp"
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
+#include "../Utils.hpp"
 #include "DepthOfField.hpp"
 
 using namespace glm;
@@ -29,18 +30,6 @@ struct PCBlock
     float maxBackgroundCoC{0.f};
     float maxCoC{0.f};
 };
-
-vk::Extent2D getRenderExtent(ImageHandle illumination)
-{
-    const vk::Extent3D targetExtent =
-        gRenderResources.images->resource(illumination).extent;
-    WHEELS_ASSERT(targetExtent.depth == 1);
-
-    return vk::Extent2D{
-        .width = targetExtent.width / 2,
-        .height = targetExtent.height / 2,
-    };
-}
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -97,7 +86,8 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
     Output ret;
     {
-        const vk::Extent2D renderExtent = getRenderExtent(input.illumination);
+        const vk::Extent2D renderExtent =
+            getRoundedUpHalfExtent2D(input.illumination);
 
         const uint32_t mipCount =
             static_cast<uint32_t>(floor(log2(static_cast<float>(
