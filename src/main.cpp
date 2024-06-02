@@ -136,7 +136,9 @@ int main(int argc, char *argv[])
         gRenderResources.init();
 
         App app{settings.scene};
-        app.init();
+        app.init(WHEELS_MOV(scopeAlloc));
+        app.setInitScratchHighWatermark(
+            scratchBacking.allocated_byte_count_high_watermark());
         printf("run() called after %.2fs\n", t.getSeconds());
         app.run();
     }

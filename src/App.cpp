@@ -114,11 +114,8 @@ App::~App()
     }
 }
 
-void App::init()
+void App::init(ScopedScratch scopeAlloc)
 {
-    LinearAllocator scratchBacking{megabytes(16)};
-    ScopedScratch scopeAlloc{scratchBacking};
-
     _staticDescriptorsAlloc->init();
 
     {
@@ -212,8 +209,11 @@ void App::init()
         _renderFinishedSemaphores[i] =
             gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
     }
-    _ctorScratchHighWatermark = asserted_cast<uint32_t>(
-        scratchBacking.allocated_byte_count_high_watermark());
+}
+
+void App::setInitScratchHighWatermark(size_t value)
+{
+    _ctorScratchHighWatermark = asserted_cast<uint32_t>(value);
 }
 
 void App::run()

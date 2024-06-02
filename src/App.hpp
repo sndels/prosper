@@ -38,7 +38,8 @@ class App
     App &operator=(const App &other) = delete;
     App &operator=(App &&other) = delete;
 
-    void init();
+    void init(wheels::ScopedScratch scopeAlloc);
+    void setInitScratchHighWatermark(size_t value);
     void run();
 
   private:
