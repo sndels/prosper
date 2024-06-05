@@ -3,6 +3,12 @@
 
 #include "../gfx/Resources.hpp"
 
+constexpr vk::Format sVertexPositionFormat = vk::Format::eR16G16B16A16Sfloat;
+constexpr uint32_t sVertexPositionByteSize = 8;
+constexpr vk::Format sVertexNormalFormat = vk::Format::eA2B10G10R10SnormPack32;
+constexpr vk::Format sVertexTangentFormat = vk::Format::eA2B10G10R10SnormPack32;
+constexpr vk::Format sVertexTexCoord0Format = vk::Format::eR16G16Sfloat;
+
 struct GeometryMetadata
 {
     uint32_t bufferIndex{0xFFFFFFFF};

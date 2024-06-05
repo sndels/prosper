@@ -76,10 +76,8 @@ uint loadIndex(
     uint bufferIndex, uint bufferOffset, uint index, uint usesShortIndices)
 {
     if (usesShortIndices == 1)
-    {
         return uint(
             GET_GEOMETRY_BUFFER_U16(bufferIndex).data[bufferOffset + index]);
-    }
     else
         return GET_GEOMETRY_BUFFER_U32(bufferIndex).data[bufferOffset + index];
 }
@@ -94,34 +92,62 @@ uint loadU8(uint bufferIndex, uint bufferOffset, uint index)
     return uint(GET_GEOMETRY_BUFFER_U8(bufferIndex).data[bufferOffset + index]);
 }
 
-vec2 loadVec2(uint bufferIndex, uint bufferOffset, uint index)
+vec2 loadR16G16(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return bufferOffset < 0xFFFFFFFF
-               ? vec2(
-                     loadFloat(bufferIndex, bufferOffset, 2 * index),
-                     loadFloat(bufferIndex, bufferOffset, 2 * index + 1))
-               : vec2(0);
+    if (bufferOffset == 0xFFFFFFFF)
+        return vec2(0);
+
+    uint packed =
+        GET_GEOMETRY_BUFFER_U32(bufferIndex).data[bufferOffset + index];
+
+    return unpackHalf2x16(packed);
 }
 
-vec3 loadVec3(uint bufferIndex, uint bufferOffset, uint index)
+vec3 loadR16G16B16A16(uint bufferIndex, uint bufferOffset, uint index)
 {
-    return bufferOffset < 0xFFFFFFFF
-               ? vec3(
-                     loadFloat(bufferIndex, bufferOffset, 3 * index),
-                     loadFloat(bufferIndex, bufferOffset, 3 * index + 1),
-                     loadFloat(bufferIndex, bufferOffset, 3 * index + 2))
-               : vec3(0);
+    if (bufferOffset == 0xFFFFFFFF)
+        return vec3(0);
+
+    uvec2 packed = uvec2(
+        GET_GEOMETRY_BUFFER_U32(bufferIndex).data[bufferOffset + index * 2],
+        GET_GEOMETRY_BUFFER_U32(bufferIndex)
+            .data[bufferOffset + index * 2 + 1]);
+
+    return vec3(unpackHalf2x16(packed.x), unpackHalf2x16(packed.y));
 }
 
-vec4 loadVec4(uint bufferIndex, uint bufferOffset, uint index)
+vec3 unpackSnormR10G10B10(uint packed)
 {
-    return bufferOffset < 0xFFFFFFFF
-               ? vec4(
-                     loadFloat(bufferIndex, bufferOffset, 4 * index),
-                     loadFloat(bufferIndex, bufferOffset, 4 * index + 1),
-                     loadFloat(bufferIndex, bufferOffset, 4 * index + 2),
-                     loadFloat(bufferIndex, bufferOffset, 4 * index + 3))
-               : vec4(0);
+    // Leverage sign extension in GLSL right shift to unpack the components
+    // https://www.gamedev.net/forums/topic/696946-normalized-unsigned-integers-vs-floats-as-vertex-data/5379938/
+    ivec3 signExtended = ivec3(packed << 22, packed << 12, packed << 2) >> 22;
+
+    // 3.10.1. Conversion From Normalized Fixed-Point to Floating-Point
+    return normalize(max(vec3(signExtended) / 511., -1));
+}
+
+vec3 loadR10G10B10Snorm(uint bufferIndex, uint bufferOffset, uint index)
+{
+    if (bufferOffset == 0xFFFFFFFF)
+        return vec3(0);
+
+    uint packed =
+        GET_GEOMETRY_BUFFER_U32(bufferIndex).data[bufferOffset + index];
+
+    return unpackSnormR10G10B10(packed);
+}
+
+vec4 loadTangentWithSign(uint bufferIndex, uint bufferOffset, uint index)
+{
+    if (bufferOffset == 0xFFFFFFFF)
+        return vec4(0);
+
+    uint packed =
+        GET_GEOMETRY_BUFFER_U32(bufferIndex).data[bufferOffset + index];
+
+    // Leverage sign extension in GLSL right shift to unpack the sign
+    // https://www.gamedev.net/forums/topic/696946-normalized-unsigned-integers-vs-floats-as-vertex-data/5379938/
+    return vec4(unpackSnormR10G10B10(packed), float(int(packed) >> 30));
 }
 
 struct MeshletInfo
@@ -178,8 +204,8 @@ MeshletBounds loadMeshletBounds(GeometryMetadata metadata, uint index)
     int packedCone =
         int(GET_GEOMETRY_BUFFER_U32(metadata.bufferIndex)
                 .data[metadata.meshletBoundsOffset + index * 5 + 4]);
-    // This shift dance seens to be required as shift + mask (& 0xFF) gives
-    // wrong results. Conversion into uint or some other sign bit shenanigans?
+    // This shift dance leverages GLSL right shift sign extension to unpack the
+    // signed ingeter components
     ret.coneAxis =
         vec3(ivec3(packedCone << 24, packedCone << 16, packedCone << 8) >> 24) /
         127.;
@@ -220,12 +246,14 @@ Vertex loadVertex(GeometryMetadata metadata, uint index)
     Vertex ret;
 
     ret.Position =
-        loadVec3(metadata.bufferIndex, metadata.positionsOffset, index);
-    ret.Normal = loadVec3(metadata.bufferIndex, metadata.normalsOffset, index);
-    ret.Tangent =
-        loadVec4(metadata.bufferIndex, metadata.tangentsOffset, index);
+        loadR16G16B16A16(metadata.bufferIndex, metadata.positionsOffset, index)
+            .xyz;
+    ret.Normal =
+        loadR10G10B10Snorm(metadata.bufferIndex, metadata.normalsOffset, index);
+    ret.Tangent = loadTangentWithSign(
+        metadata.bufferIndex, metadata.tangentsOffset, index);
     ret.TexCoord0 =
-        loadVec2(metadata.bufferIndex, metadata.texCoord0sOffset, index);
+        loadR16G16(metadata.bufferIndex, metadata.texCoord0sOffset, index);
 
     return ret;
 }
@@ -247,7 +275,7 @@ vec2 loadUV(uint meshID, uint index)
         metadata.bufferIndex, metadata.indicesOffset, index,
         metadata.usesShortIndices);
 
-    return loadVec2(
+    return loadR16G16(
         metadata.bufferIndex, metadata.texCoord0sOffset, vertexIndex);
 }
 

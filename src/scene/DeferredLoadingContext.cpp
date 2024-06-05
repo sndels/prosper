@@ -2,6 +2,7 @@
 
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
+#include <glm/gtc/packing.hpp>
 #include <meshoptimizer.h>
 #include <mikktspace.h>
 #include <wheels/allocators/linear_allocator.hpp>
@@ -17,7 +18,7 @@ constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
 const uint64_t sMeshCacheMagic = 0x48534D5250535250; // PRSPRMSH
 // This should be incremented when breaking changes are made to
 // what's cached
-const uint32_t sMeshCacheVersion = 3;
+const uint32_t sMeshCacheVersion = 4;
 
 // Balance between cluster size and cone culling efficiency
 const float sConeWeight = 0.5f;
@@ -40,35 +41,66 @@ void remapVertexAttribute(
     src = WHEELS_MOV(remapped);
 }
 
+struct MeshletBounds
+{
+    // Bounding sphere
+    vec3 center{};
+    float radius{0.f};
+    // Normal cone
+    i8vec3 coneAxisS8{};
+    int8_t coneCutoffS8{0};
+};
+static_assert(sizeof(MeshletBounds) == 5 * sizeof(uint32_t));
+static_assert(offsetof(MeshletBounds, coneAxisS8) == 4 * sizeof(uint32_t));
+static_assert(
+    offsetof(MeshletBounds, coneCutoffS8) ==
+    4 * sizeof(uint32_t) + 3 * sizeof(int8_t));
+
+static_assert(
+    sizeof(meshopt_Meshlet) == 4 * sizeof(uint32_t),
+    "Mesh shaders use meshoptimizer meshlets as is.");
+
 struct MeshData
 {
-    struct Bounds
-    {
-        // Bounding sphere
-        vec3 center{};
-        float radius{0.f};
-        // Normal cone
-        i8vec3 coneAxisS8{};
-        int8_t coneCutoffS8{0};
-    };
-
     wheels::Array<uint32_t> indices;
     wheels::Array<glm::vec3> positions;
     wheels::Array<glm::vec3> normals;
     wheels::Array<glm::vec4> tangents;
     wheels::Array<glm::vec2> texCoord0s;
     wheels::Array<meshopt_Meshlet> meshlets;
-    wheels::Array<Bounds> meshletBounds;
+    wheels::Array<MeshletBounds> meshletBounds;
     wheels::Array<uint32_t> meshletVertices;
     wheels::Array<uint8_t> meshletTriangles;
+};
+
+struct PackedMeshData
+{
+    wheels::Array<uint32_t> indices{gAllocators.loadingWorker};
+    // Packed as r16g16b16a16_sfloat
+    // TODO:
+    // Pack as r16g16b16a16_snorm relative to object space AABB to have uniform
+    // (and potentially better) precision. Unpacking would then be pos *
+    // aabbHalfAxisOS + aabbCenterOS and it can be concatenated into the
+    // objectToWorld transform (careful to not include it in parent transforms)
+    wheels::Array<uint64_t> positions{gAllocators.loadingWorker};
+    // Packed as r10g10b10(a2)_snorm
+    wheels::Array<uint32_t> normals{gAllocators.loadingWorker};
+    // Packed as r10g10b10a2_snorm, sign in a2
+    wheels::Array<uint32_t> tangents{gAllocators.loadingWorker};
+    // Packed as r16g16_sfloat
+    wheels::Array<uint32_t> texCoord0s{gAllocators.loadingWorker};
+    wheels::Array<meshopt_Meshlet> meshlets{gAllocators.loadingWorker};
+    wheels::Array<MeshletBounds> meshletBounds{gAllocators.loadingWorker};
+    wheels::Array<uint32_t> meshletVertices{gAllocators.loadingWorker};
+    wheels::Array<uint8_t> meshletTriangles{gAllocators.loadingWorker};
 };
 static_assert(
     sizeof(meshopt_Meshlet) == 4 * sizeof(uint32_t),
     "Mesh shaders use meshoptimizer meshlets as is.");
-static_assert(sizeof(MeshData::Bounds) == 5 * sizeof(uint32_t));
-static_assert(offsetof(MeshData::Bounds, coneAxisS8) == 4 * sizeof(uint32_t));
+static_assert(sizeof(MeshletBounds) == 5 * sizeof(uint32_t));
+static_assert(offsetof(MeshletBounds, coneAxisS8) == 4 * sizeof(uint32_t));
 static_assert(
-    offsetof(MeshData::Bounds, coneCutoffS8) ==
+    offsetof(MeshletBounds, coneCutoffS8) ==
     4 * sizeof(uint32_t) + 3 * sizeof(int8_t));
 
 template <int N>
@@ -92,7 +124,7 @@ MeshData getMeshData(
         .tangents = Array<vec4>{gAllocators.loadingWorker},
         .texCoord0s = Array<vec2>{gAllocators.loadingWorker},
         .meshlets = Array<meshopt_Meshlet>{gAllocators.loadingWorker},
-        .meshletBounds = Array<MeshData::Bounds>{gAllocators.loadingWorker},
+        .meshletBounds = Array<MeshletBounds>{gAllocators.loadingWorker},
         .meshletVertices = Array<uint32_t>{gAllocators.loadingWorker},
         .meshletTriangles = Array<uint8_t>{gAllocators.loadingWorker},
     };
@@ -385,7 +417,7 @@ void generateMeshlets(MeshData *meshData)
             &meshData->meshletTriangles[meshlet.triangle_offset],
             meshlet.triangle_count, &meshData->positions[0].x,
             meshData->positions.size(), sizeof(vec3));
-        meshData->meshletBounds.push_back(MeshData::Bounds{
+        meshData->meshletBounds.push_back(MeshletBounds{
             .center =
                 vec3{
                     bounds.center[0],
@@ -402,6 +434,56 @@ void generateMeshlets(MeshData *meshData)
             .coneCutoffS8 = bounds.cone_cutoff_s8,
         });
     }
+}
+
+PackedMeshData packMeshData(MeshData &&meshData)
+{
+    PackedMeshData ret;
+
+    ret.indices = WHEELS_MOV(meshData.indices);
+
+    ret.positions.reserve(meshData.positions.size());
+    for (const vec3 &p : meshData.positions)
+    {
+        static_assert(
+            sVertexPositionFormat == vk::Format::eR16G16B16A16Sfloat,
+            "Packing doesn't match the global format");
+        ret.positions.push_back(packHalf4x16(vec4{p, 1.f}));
+    }
+
+    ret.normals.reserve(meshData.normals.size());
+    for (const vec3 &n : meshData.normals)
+    {
+        static_assert(
+            sVertexNormalFormat == vk::Format::eA2B10G10R10SnormPack32,
+            "Packing doesn't match the global format");
+        ret.normals.push_back(packSnorm3x10_1x2(vec4{n, 0.f}));
+    }
+
+    ret.tangents.reserve(meshData.tangents.size());
+    for (const vec4 &ts : meshData.tangents)
+    {
+        static_assert(
+            sVertexTangentFormat == vk::Format::eA2B10G10R10SnormPack32,
+            "Packing doesn't match the global format");
+        ret.tangents.push_back(packSnorm3x10_1x2(ts));
+    }
+
+    ret.texCoord0s.reserve(meshData.texCoord0s.size());
+    for (const vec2 &uv : meshData.texCoord0s)
+    {
+        static_assert(
+            sVertexTexCoord0Format == vk::Format::eR16G16Sfloat,
+            "Packing doesn't match the global format");
+        ret.texCoord0s.push_back(packHalf2x16(uv));
+    }
+
+    ret.meshlets = WHEELS_MOV(meshData.meshlets);
+    ret.meshletBounds = WHEELS_MOV(meshData.meshletBounds);
+    ret.meshletVertices = WHEELS_MOV(meshData.meshletVertices);
+    ret.meshletTriangles = WHEELS_MOV(meshData.meshletTriangles);
+
+    return ret;
 }
 
 std::filesystem::path getCachePath(
@@ -494,7 +576,7 @@ bool cacheValid(
 void writeCache(
     const std::filesystem::path &sceneDir,
     std::filesystem::file_time_type sceneWriteTime, uint32_t meshIndex,
-    MeshData &&meshData, const MeshInfo &meshInfo)
+    PackedMeshData &&meshData, const MeshInfo &meshInfo)
 {
     WHEELS_ASSERT(meshData.indices.size() == meshInfo.indexCount);
     WHEELS_ASSERT(meshData.positions.size() == meshInfo.vertexCount);
@@ -561,75 +643,64 @@ void writeCache(
         }
     }
 
-    // Figure out the required storage
-    const uint32_t indicesByteCount =
-        asserted_cast<uint32_t>(packedIndices.size());
-    const uint32_t positionsByteCount =
-        asserted_cast<uint32_t>(meshData.positions.size() * sizeof(vec3));
-    const uint32_t normalsByteCount =
-        asserted_cast<uint32_t>(meshData.normals.size() * sizeof(vec3));
-    const uint32_t tangentsByteCount =
-        asserted_cast<uint32_t>(meshData.tangents.size() * sizeof(vec4));
-    const uint32_t texCoord0sByteCount =
-        asserted_cast<uint32_t>(meshData.texCoord0s.size() * sizeof(vec2));
-    const uint32_t meshletsByteCount = asserted_cast<uint32_t>(
-        meshData.meshlets.size() * sizeof(meshopt_Meshlet));
-    const uint32_t meshletBoundsByteCount = asserted_cast<uint32_t>(
-        meshData.meshletBounds.size() * sizeof(MeshData::Bounds));
-    const uint32_t meshletVerticesByteCount =
-        asserted_cast<uint32_t>(packedMeshletVertices.size());
-    const uint32_t meshletTrianglesByteCount = asserted_cast<uint32_t>(
-        meshData.meshletTriangles.size() * sizeof(uint8_t));
-    const uint32_t byteCount =
-        indicesByteCount + positionsByteCount + normalsByteCount +
-        tangentsByteCount + texCoord0sByteCount + meshletsByteCount +
-        meshletBoundsByteCount + meshletVerticesByteCount +
-        meshletTrianglesByteCount;
+    uint32_t byteCount = asserted_cast<uint32_t>(
+        packedIndices.size() * sizeof(decltype(packedIndices)::value_type));
+
+    auto computeOffset =
+        [&byteCount]<typename T>(const Array<T> &data) -> uint32_t
+    {
+        const uint32_t offset = byteCount;
+        byteCount += asserted_cast<uint32_t>(data.size() * sizeof(T));
+        WHEELS_ASSERT(
+            byteCount % sizeof(uint32_t) == 0 &&
+            "Mesh data is not aligned properly");
+        return offset;
+    };
+
+    // Many offsets into the GPU buffer are for u32
+    const uint32_t elementSize = static_cast<uint32_t>(sizeof(uint32_t));
+
+    // Figure out the offsets and total byte count
+    // NOTE: Order here has to match the write order into the file
+    const uint32_t positionsOffset =
+        computeOffset(meshData.positions) / elementSize;
+    const uint32_t normalsOffset =
+        computeOffset(meshData.normals) / elementSize;
+    const uint32_t tangentsOffset =
+        computeOffset(meshData.tangents) / elementSize;
+    const uint32_t texCoord0sOffset =
+        computeOffset(meshData.texCoord0s) / elementSize;
+    const uint32_t meshletsOffset =
+        computeOffset(meshData.meshlets) / elementSize;
+    const uint32_t meshletBoundsOffset =
+        computeOffset(meshData.meshletBounds) / elementSize;
+    const uint32_t meshletVerticesOffset =
+        computeOffset(packedMeshletVertices) /
+        static_cast<uint32_t>(
+            usesShortIndices ? sizeof(uint16_t) : sizeof(uint32_t));
+    const uint32_t meshletTrianglesOffset =
+        computeOffset(meshData.meshletTriangles);
+
     WHEELS_ASSERT(
         byteCount % sizeof(uint32_t) == 0 &&
-        "We'll read this data from a u32 buffer so it should be aligned "
-        "properly");
+        "Mesh data is not aligned properly");
     WHEELS_ASSERT(
         byteCount < sGeometryBufferSize &&
         "The default size for geometry buffers doesn't fit the mesh");
-
-    // Offsets into GPU buffer are for uint
-    const uint32_t elementSize = static_cast<uint32_t>(sizeof(uint32_t));
 
     const MeshCacheHeader header{
         .sourceWriteTime = sceneWriteTime,
         .indexCount = meshInfo.indexCount,
         .vertexCount = meshInfo.vertexCount,
         .meshletCount = asserted_cast<uint32_t>(meshData.meshlets.size()),
-        .positionsOffset = indicesByteCount / elementSize,
-        .normalsOffset = (indicesByteCount + positionsByteCount) / elementSize,
-        .tangentsOffset = hasTangents ? (indicesByteCount + positionsByteCount +
-                                         normalsByteCount) /
-                                            elementSize
-                                      : 0xFFFFFFFF,
-        .texCoord0sOffset = hasTexCoord0s
-                                ? (indicesByteCount + positionsByteCount +
-                                   normalsByteCount + tangentsByteCount) /
-                                      elementSize
-                                : 0xFFFFFFFF,
-        .meshletsOffset =
-            (indicesByteCount + positionsByteCount + normalsByteCount +
-             tangentsByteCount + texCoord0sByteCount) /
-            elementSize,
-        .meshletBoundsOffset =
-            (indicesByteCount + positionsByteCount + normalsByteCount +
-             tangentsByteCount + texCoord0sByteCount + meshletsByteCount) /
-            elementSize,
-        .meshletVerticesOffset =
-            (indicesByteCount + positionsByteCount + normalsByteCount +
-             tangentsByteCount + texCoord0sByteCount + meshletsByteCount +
-             meshletBoundsByteCount) /
-            static_cast<uint32_t>(
-                usesShortIndices ? sizeof(uint16_t) : sizeof(uint32_t)),
-        .meshletTrianglesByteOffset =
-            indicesByteCount + positionsByteCount + normalsByteCount +
-            tangentsByteCount + texCoord0sByteCount + meshletsByteCount +
-            meshletBoundsByteCount + meshletVerticesByteCount,
+        .positionsOffset = positionsOffset,
+        .normalsOffset = normalsOffset,
+        .tangentsOffset = hasTangents ? tangentsOffset : 0xFFFFFFFF,
+        .texCoord0sOffset = hasTexCoord0s ? texCoord0sOffset : 0xFFFFFFFF,
+        .meshletsOffset = meshletsOffset,
+        .meshletBoundsOffset = meshletBoundsOffset,
+        .meshletVerticesOffset = meshletVerticesOffset,
+        .meshletTrianglesByteOffset = meshletTrianglesOffset,
         .usesShortIndices = usesShortIndices ? 1u : 0u,
         .blobByteCount = byteCount,
     };
@@ -748,9 +819,11 @@ void loadNextMesh(DeferredLoadingContext *ctx)
 
         generateMeshlets(&meshData);
 
+        PackedMeshData packedMeshData = packMeshData(WHEELS_MOV(meshData));
+
         writeCache(
-            ctx->sceneDir, ctx->sceneWriteTime, meshIndex, WHEELS_MOV(meshData),
-            info);
+            ctx->sceneDir, ctx->sceneWriteTime, meshIndex,
+            WHEELS_MOV(packedMeshData), info);
     }
 
     // Always read from the cache to make caching issues always visible

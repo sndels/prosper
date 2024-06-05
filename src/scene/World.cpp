@@ -628,9 +628,9 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
                                           : sizeof(uint32_t));
 
         const vk::AccelerationStructureGeometryTrianglesDataKHR triangles{
-            .vertexFormat = vk::Format::eR32G32B32Sfloat,
+            .vertexFormat = sVertexPositionFormat,
             .vertexData = dataBuffer.deviceAddress + positionsOffset,
-            .vertexStride = 3 * sizeof(float),
+            .vertexStride = sVertexPositionByteSize,
             .maxVertex = info.vertexCount,
             .indexType = metadata.usesShortIndices == 1u
                              ? vk::IndexType::eUint16
