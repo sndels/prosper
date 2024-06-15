@@ -375,7 +375,7 @@ void generateMeshlets(MeshData *meshData)
         asserted_cast<uint32_t>(wheels::aligned_offset(
             lastMeshlet.triangle_offset + lastMeshlet.triangle_count,
             sizeof(uint32_t)));
-    meshData->meshletTriangles.resize(trianglesSize);
+    meshData->meshletTriangles.resize(asserted_cast<size_t>(trianglesSize) * 3);
 
     meshData->meshletBounds.reserve(meshData->meshlets.size());
     for (const meshopt_Meshlet &meshlet : meshData->meshlets)
