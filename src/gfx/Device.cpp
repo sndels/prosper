@@ -274,7 +274,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         return ret;
 #undef DEVICE_EXTENSION_STR
 
-    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+    std::cerr << "VkDbg: " << pCallbackData->pMessage << std::endl;
 
     if (breakOnError &&
         messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
@@ -1396,11 +1396,11 @@ void Device::createDebugMessenger()
 {
     const vk::DebugUtilsMessengerCreateInfoEXT createInfo{
         .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
                            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
                            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
         .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
+                       vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
         .pfnUserCallback = debugCallback,
         .pUserData = &_settings,
     };
