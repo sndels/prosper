@@ -59,6 +59,7 @@ class RenderResourceCollection
 
   protected:
     void assertValidHandle(Handle handle) const;
+    wheels::StrSpan aliasedDebugName(Handle handle) const;
 
   private:
     static const uint64_t sNotInUseGenerationFlag = static_cast<size_t>(1)
@@ -538,6 +539,19 @@ void RenderResourceCollection<
     else
         // Handle generation matching means held generation isn't flagged unused
         WHEELS_ASSERT(handle.generation == _generations[handle.index]);
+}
+
+template <
+    typename Handle, typename Resource, typename Description,
+    typename CreateInfo, typename ResourceState, typename Barrier,
+    typename CppNativeType, typename NativeType, vk::ObjectType ObjectType>
+wheels::StrSpan RenderResourceCollection<
+    Handle, Resource, Description, CreateInfo, ResourceState, Barrier,
+    CppNativeType, NativeType, ObjectType>::aliasedDebugName(Handle handle)
+    const
+{
+    WHEELS_ASSERT(isValidHandle(handle));
+    return _aliasedDebugNames[handle.index];
 }
 
 template <
