@@ -80,14 +80,17 @@ Ray thinLensCameraRay(
 // From 'A Fast and Robust Method for Avoiding Self-Intersection'
 // by Wächter and Binder
 // Published in Ray Tracing Gems
-vec3 offsetRay(VisibleSurface surface)
+vec3 offsetRay(vec3 position, vec3 geometryNormal)
 {
     const float origin = 1.0 / 32.0;
+    // TODO:
+    // Different versions for 16bit float/snorm scaled positions and <32bit
+    // normals?
     const float float_scale = 1.0 / 65536.0;
     const float int_scale = 256.0;
 
-    vec3 p = surface.positionWS;
-    vec3 n = surface.normalWS;
+    vec3 p = position;
+    vec3 n = geometryNormal;
 
     ivec3 ofI = ivec3(int_scale * n.x, int_scale * n.y, int_scale * n.z);
 

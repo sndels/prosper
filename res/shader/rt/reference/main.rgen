@@ -211,7 +211,10 @@ vec3 evaluateDirectLighting(VisibleSurface surface, vec3 throughput)
     if (dot(l, surface.normalWS) <= 0)
         return vec3(0);
 
-    irradiance *= shadow(surface.positionWS, l, 0.1, d);
+    // This seems to work ok (at least closeish to the camera and world origin)
+    // even though input vertex positions and normals are not 32bit.
+    vec3 shadowPos = offsetRay(surface.positionWS, surface.geometryNormalWS);
+    irradiance *= shadow(shadowPos, l, 0, d);
 
     // Account for sampling the lights uniformly
     irradiance *= lightCount;
@@ -260,9 +263,10 @@ void main()
             break;
         }
 
-        addBounce(color, evaluateDirectLighting(surface, throughput), bounce);
         // TODO:
         // Use more precise terms for what the actual quantity is
+        vec3 bounceColor = evaluateDirectLighting(surface, throughput);
+        addBounce(color, bounceColor, bounce);
 
         vec3 rd;
         importanceSampleBounce(surface, throughput, rd);
@@ -274,7 +278,7 @@ void main()
                 break;
         }
 
-        ray.o = offsetRay(surface);
+        ray.o = offsetRay(surface.positionWS, surface.geometryNormalWS);
         ray.d = rd;
         ray.tMin = 0;
         ray.tMax = 1.0 / 0.0; // INF

@@ -74,7 +74,11 @@ vec3 evaluateDirectLighting(VisibleSurface surface)
     if (dot(l, surface.normalWS) <= 0)
         return vec3(0);
 
-    irradiance *= shadow(surface.positionWS, l, 0.1, d);
+    // TODO:
+    // This is pretty bad compared to reference rt, need to account for 16bit
+    // position and packed normal?
+    vec3 shadowPos = offsetRay(surface.positionWS, surface.geometryNormalWS);
+    irradiance *= shadow(shadowPos, l, 0, d);
 
     // Account for sampling the lights uniformly
     irradiance *= lightCount;
@@ -98,7 +102,11 @@ vec3 evaluateDirectLightingReSTIR(
     if (dot(l, surface.normalWS) <= 0)
         return vec3(0);
 
-    irradiance *= shadow(surface.positionWS, l, 0.1, d);
+    // TODO:
+    // This is pretty bad compared to reference rt, need to account for 16bit
+    // position and packed normal?
+    vec3 shadowPos = offsetRay(surface.positionWS, surface.geometryNormalWS);
+    irradiance *= shadow(shadowPos, l, 0, d);
 
     return irradiance * evalBRDFTimesNoL(l, surface) *
            reservoir.unbiasedContributionWeight;
