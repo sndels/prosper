@@ -1676,8 +1676,11 @@ void WorldData::createDescriptorSets(
     {
         const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
             materialDatasLayouts{_dsLayouts.materialDatas};
+        const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
+            "MaterialDatas"};
         _descriptorAllocator.allocate(
-            materialDatasLayouts, _descriptorSets.materialDatas.mut_span());
+            materialDatasLayouts, debugNames,
+            _descriptorSets.materialDatas.mut_span());
     }
 
     WHEELS_ASSERT(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
@@ -1748,7 +1751,7 @@ void WorldData::createDescriptorSets(
                 Span{&imageInfoCount, 1}, bindingFlags);
 
         _descriptorSets.materialTextures = _descriptorAllocator.allocate(
-            _dsLayouts.materialTextures, imageInfoCount);
+            _dsLayouts.materialTextures, "MaterialTextures", imageInfoCount);
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{materialSamplerInfos},
@@ -1792,8 +1795,8 @@ void WorldData::createDescriptorSets(
         WHEELS_ASSERT(_descriptorSets.geometry.size() == MAX_FRAMES_IN_FLIGHT);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         {
-            _descriptorSets.geometry[i] =
-                _descriptorAllocator.allocate(_dsLayouts.geometry, bufferCount);
+            _descriptorSets.geometry[i] = _descriptorAllocator.allocate(
+                _dsLayouts.geometry, "Geometry", bufferCount);
 
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1867,7 +1870,7 @@ void WorldData::createDescriptorSets(
     // Per light type
     {
         _descriptorSets.lights =
-            _descriptorAllocator.allocate(_dsLayouts.lights);
+            _descriptorAllocator.allocate(_dsLayouts.lights, "Lights");
 
         const StaticArray lightInfos{{
             DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1903,8 +1906,8 @@ void WorldData::createDescriptorSets(
     {
         Scene &scene = _scenes[i];
         {
-            scene.sceneInstancesDescriptorSet =
-                _descriptorAllocator.allocate(_dsLayouts.sceneInstances);
+            scene.sceneInstancesDescriptorSet = _descriptorAllocator.allocate(
+                _dsLayouts.sceneInstances, "SceneInstances");
 
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1937,7 +1940,7 @@ void WorldData::createDescriptorSets(
         }
         {
             scene.rtDescriptorSet =
-                _descriptorAllocator.allocate(_dsLayouts.rayTracing);
+                _descriptorAllocator.allocate(_dsLayouts.rayTracing, "Rt");
             // DS is written by World::Impl when the TLAS is created
         }
     }
@@ -1952,7 +1955,7 @@ void WorldData::createDescriptorSets(
                 vk::ShaderStageFlagBits::eRaygenKHR);
 
         _descriptorSets.skybox =
-            _descriptorAllocator.allocate(_dsLayouts.skybox);
+            _descriptorAllocator.allocate(_dsLayouts.skybox, "Skybox");
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{_skyboxResources.texture.imageInfo()},

@@ -525,7 +525,10 @@ void RtDiTrace::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _descriptorSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _descriptorSets.mut_span());
+    const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
+        "RtDiTrace"};
+    staticDescriptorsAlloc->allocate(
+        layouts, debugNames, _descriptorSets.mut_span());
 }
 
 void RtDiTrace::updateDescriptorSet(

@@ -247,7 +247,10 @@ void DebugRenderer::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _linesDSLayout};
-    staticDescriptorsAlloc->allocate(layouts, _linesDescriptorSets.mut_span());
+    const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
+        "DebugRenderer"};
+    staticDescriptorsAlloc->allocate(
+        layouts, debugNames, _linesDescriptorSets.mut_span());
 
     for (size_t i = 0; i < _linesDescriptorSets.size(); ++i)
     {

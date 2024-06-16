@@ -105,7 +105,7 @@ class ComputePass
 
     void createDescriptorSets(
         wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
+        DescriptorAllocator *staticDescriptorsAlloc, const char *,
         vk::ShaderStageFlags storageStageFlags);
 
     void createPipeline(

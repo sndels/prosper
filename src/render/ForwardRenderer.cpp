@@ -262,7 +262,9 @@ void ForwardRenderer::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT * 2>
         layouts{_meshSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _meshSets.mut_span());
+    const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT * 2> debugNames{
+        "ForwardMesh"};
+    staticDescriptorsAlloc->allocate(layouts, debugNames, _meshSets.mut_span());
 }
 
 void ForwardRenderer::updateDescriptorSet(

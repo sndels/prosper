@@ -34,18 +34,21 @@ class DescriptorAllocator
 
     // Free is not allowed for individual descriptors. resetPools() can be used
     // to free all descriptors allocated by this allocator.
-    vk::DescriptorSet allocate(const vk::DescriptorSetLayout &layout);
     vk::DescriptorSet allocate(
-        const vk::DescriptorSetLayout &layout,
+        const vk::DescriptorSetLayout &layout, const char *debugName);
+    vk::DescriptorSet allocate(
+        const vk::DescriptorSetLayout &layout, const char *debugName,
         uint32_t variableDescriptorCount);
     void allocate(
         wheels::Span<const vk::DescriptorSetLayout> layouts,
+        wheels::Span<const char *const> debugNames,
         wheels::Span<vk::DescriptorSet> output);
 
   private:
     void nextPool();
     void allocate(
         wheels::Span<const vk::DescriptorSetLayout> layouts,
+        wheels::Span<const char *const> debugNames,
         wheels::Span<vk::DescriptorSet> output, const void *allocatePNext);
 
     bool _initialized{false};

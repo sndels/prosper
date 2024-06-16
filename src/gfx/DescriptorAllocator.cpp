@@ -98,17 +98,18 @@ void DescriptorAllocator::resetPools()
 }
 
 vk::DescriptorSet DescriptorAllocator::allocate(
-    const vk::DescriptorSetLayout &layout)
+    const vk::DescriptorSetLayout &layout, const char *debugName)
 {
     WHEELS_ASSERT(_initialized);
 
     vk::DescriptorSet ret;
-    allocate(Span{&layout, 1}, Span{&ret, 1}, nullptr);
+    allocate(Span{&layout, 1}, Span{&debugName, 1}, Span{&ret, 1}, nullptr);
     return ret;
 }
 
 vk::DescriptorSet DescriptorAllocator::allocate(
-    const vk::DescriptorSetLayout &layout, uint32_t variableDescriptorCount)
+    const vk::DescriptorSetLayout &layout, const char *debugName,
+    uint32_t variableDescriptorCount)
 {
     WHEELS_ASSERT(_initialized);
 
@@ -117,16 +118,18 @@ vk::DescriptorSet DescriptorAllocator::allocate(
         .pDescriptorCounts = &variableDescriptorCount,
     };
     vk::DescriptorSet ret;
-    allocate(Span{&layout, 1}, Span{&ret, 1}, &variableCounts);
+    allocate(
+        Span{&layout, 1}, Span{&debugName, 1}, Span{&ret, 1}, &variableCounts);
     return ret;
 }
 
 void DescriptorAllocator::allocate(
-    Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output)
+    Span<const vk::DescriptorSetLayout> layouts,
+    Span<const char *const> debugNames, Span<vk::DescriptorSet> output)
 {
     WHEELS_ASSERT(_initialized);
 
-    return allocate(layouts, output, nullptr);
+    return allocate(layouts, debugNames, output, nullptr);
 }
 
 void DescriptorAllocator::nextPool()
@@ -145,10 +148,12 @@ void DescriptorAllocator::nextPool()
 }
 
 void DescriptorAllocator::allocate(
-    Span<const vk::DescriptorSetLayout> layouts, Span<vk::DescriptorSet> output,
+    Span<const vk::DescriptorSetLayout> layouts,
+    Span<const char *const> debugNames, Span<vk::DescriptorSet> output,
     const void *allocatePNext)
 {
     WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(layouts.size() == debugNames.size());
     WHEELS_ASSERT(layouts.size() == output.size());
 
     auto tryAllocate = [&]() -> vk::Result
@@ -172,4 +177,18 @@ void DescriptorAllocator::allocate(
         result = tryAllocate();
     }
     checkSuccess(result, "allocateDescriptorSets");
+    if (result == vk::Result::eSuccess)
+    {
+        const size_t setsCount = layouts.size();
+        for (size_t i = 0; i < setsCount; ++i)
+        {
+            gDevice.logical().setDebugUtilsObjectNameEXT(
+                vk::DebugUtilsObjectNameInfoEXT{
+                    .objectType = vk::ObjectType::eDescriptorSet,
+                    .objectHandle = reinterpret_cast<uint64_t>(
+                        static_cast<VkDescriptorSet>(output[i])),
+                    .pObjectName = debugNames[i],
+                });
+        }
+    }
 }

@@ -386,7 +386,9 @@ void GBufferRenderer::createDescriptorSets(
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
         _meshSetLayout};
-    staticDescriptorsAlloc->allocate(layouts, _meshSets.mut_span());
+    const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
+        "GBufferMesh"};
+    staticDescriptorsAlloc->allocate(layouts, debugNames, _meshSets.mut_span());
 }
 
 void GBufferRenderer::updateDescriptorSet(

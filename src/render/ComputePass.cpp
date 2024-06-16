@@ -51,7 +51,7 @@ void ComputePass::init(
 
     createDescriptorSets(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        options.storageStageFlags);
+        shader.debugName.c_str(), options.storageStageFlags);
     createPipeline(
         scopeAlloc.child_scope(), options.externalDsLayouts, shader.debugName);
 
@@ -240,7 +240,7 @@ void ComputePass::destroyPipelines()
 
 void ComputePass::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    vk::ShaderStageFlags storageStageFlags)
+    const char *debugName, vk::ShaderStageFlags storageStageFlags)
 {
     WHEELS_ASSERT(_shaderReflection.has_value());
     _storageSetLayout = _shaderReflection->createDescriptorSetLayout(
@@ -249,8 +249,10 @@ void ComputePass::createDescriptorSets(
     for (auto &sets : _storageSets)
     {
         InlineArray<vk::DescriptorSetLayout, sPerFrameRecordLimit> layouts;
+        InlineArray<const char *, sPerFrameRecordLimit> debugNames;
         layouts.resize(sets.size(), _storageSetLayout);
-        staticDescriptorsAlloc->allocate(layouts, sets.mut_span());
+        debugNames.resize(sets.size(), debugName);
+        staticDescriptorsAlloc->allocate(layouts, debugNames, sets.mut_span());
     }
 }
 

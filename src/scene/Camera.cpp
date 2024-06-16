@@ -343,7 +343,8 @@ void Camera::createDescriptorSet(
             vk::ShaderStageFlagBits::eRaygenKHR |
             vk::ShaderStageFlagBits::eMeshEXT);
 
-    _descriptorSet = staticDescriptorsAlloc->allocate(_descriptorSetLayout);
+    _descriptorSet =
+        staticDescriptorsAlloc->allocate(_descriptorSetLayout, "Camera");
 
     const StaticArray descriptorInfos{
         DescriptorInfo{vk::DescriptorBufferInfo{
