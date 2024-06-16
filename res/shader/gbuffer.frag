@@ -78,6 +78,9 @@ void main()
     // confusion.
     velocity.y = -velocity.y;
 
+    // Write before debug to not break TAA
+    outVelocity = clamp(velocity, vec2(-1), vec2(1));
+
     if (PC.drawType != DrawType_Default)
     {
         if (PC.drawType == DrawType_MeshletID)
@@ -102,6 +105,4 @@ void main()
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
     outNormalMetallic =
         vec4(encodedNormal.xy, material.metallic, encodedNormal.z);
-    outVelocity = clamp(velocity, vec2(-1), vec2(1));
-    // No alpha needed as only opaque surfaces are in gbuffer
 }

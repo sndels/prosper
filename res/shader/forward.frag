@@ -87,6 +87,7 @@ void main()
     // confusion.
     velocity.y = -velocity.y;
 
+    // Write before debug to not break TAA
     outVelocity = clamp(velocity, vec2(-1), vec2(1));
 
     if (PC.DrawType >= DrawType_PrimitiveID)
