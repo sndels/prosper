@@ -1,5 +1,7 @@
 #include "RenderImageCollection.hpp"
 
+using namespace wheels;
+
 RenderImageCollection::~RenderImageCollection()
 {
     RenderImageCollection::destroyResources();
@@ -30,7 +32,11 @@ wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     {
         const Image &image = resource(handle);
         views.resize(image.subresourceRange.levelCount);
-        gDevice.createSubresourcesViews(image, views.mut_span());
+        // TODO:
+        // Isolate the last concatenated name if this gets shared resources at
+        // some point? Is that always the 'active' logical resource?
+        const StrSpan debugName = aliasedDebugName(handle);
+        gDevice.createSubresourcesViews(image, debugName, views.mut_span());
     }
     else
     {

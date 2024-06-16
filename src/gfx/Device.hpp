@@ -140,7 +140,8 @@ class Device
     // Creates views to the individual subresources of the image
     // NOTE: Caller is responsible of destroying the views
     void createSubresourcesViews(
-        const Image &image, wheels::Span<vk::ImageView> outViews) const;
+        const Image &image, wheels::StrSpan debugNamePrefix,
+        wheels::Span<vk::ImageView> outViews) const;
     void destroy(wheels::Span<const vk::ImageView> views) const;
 
     // This is not thread-safe

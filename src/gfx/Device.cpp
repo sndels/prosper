@@ -1130,6 +1130,13 @@ Image Device::createImage(const ImageCreateInfo &info)
         .subresourceRange = range,
     });
 
+    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        .objectType = vk::ObjectType::eImageView,
+        .objectHandle =
+            reinterpret_cast<uint64_t>(static_cast<VkImageView>(image.view)),
+        .pObjectName = info.debugName,
+    });
+
     image.extent = extent;
     image.mipCount = desc.mipCount;
     image.subresourceRange = range;
@@ -1170,7 +1177,8 @@ void Device::destroy(Image &image)
 }
 
 void Device::createSubresourcesViews(
-    const Image &image, Span<vk::ImageView> outViews) const
+    const Image &image, StrSpan debugNamePrefix,
+    Span<vk::ImageView> outViews) const
 {
     WHEELS_ASSERT(_initialized);
 
@@ -1200,7 +1208,11 @@ void Device::createSubresourcesViews(
         }
     }();
 
+    String tmp{gAllocators.general};
+    tmp.reserve(debugNamePrefix.size() + 2);
+    tmp.extend(debugNamePrefix);
     for (uint32_t i = 0; i < image.subresourceRange.levelCount; ++i)
+    {
         outViews[i] = _logical.createImageView(vk::ImageViewCreateInfo{
             .image = image.handle,
             .viewType = viewType,
@@ -1214,6 +1226,27 @@ void Device::createSubresourcesViews(
                     .layerCount = 1,
                 },
         });
+
+        // We won't have three digits for mip level as each mip halves the size
+        // Do math in int32_t to account for implementation defined signedness
+        // for char
+        if (i >= 10)
+            tmp.push_back(asserted_cast<char>(
+                asserted_cast<int32_t>('0') + asserted_cast<int32_t>(i) / 10));
+        tmp.push_back(asserted_cast<char>(
+            asserted_cast<int32_t>('0') + asserted_cast<int32_t>(i) % 10));
+
+        _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImageView,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkImageView>(image.view)),
+            .pObjectName = tmp.c_str(),
+        });
+
+        if (i >= 10)
+            tmp.pop_back();
+        tmp.pop_back();
+    }
 }
 
 void Device::destroy(Span<const vk::ImageView> views) const

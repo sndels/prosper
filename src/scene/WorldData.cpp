@@ -382,6 +382,13 @@ void WorldData::init(
                         .layerCount = 6,
                     },
             }));
+    gDevice.logical().setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImageView,
+            .objectHandle = reinterpret_cast<uint64_t>(static_cast<VkImageView>(
+                _skyboxResources.radianceViews.back())),
+            .pObjectName = "SkyboxRadiance",
+        });
     {
         const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
         _skyboxResources.radiance.transition(
