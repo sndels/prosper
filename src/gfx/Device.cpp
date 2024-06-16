@@ -274,6 +274,16 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         return ret;
 #undef DEVICE_EXTENSION_STR
 
+    {
+        // Suppress a false positive in validation layers 1.3.283
+        // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/8038
+        // This can be removed when the next version drops
+        const String tmp{gAllocators.general, pCallbackData->pMessage};
+        if (tmp.contains(
+                "[RtDiTrace] doesn't set up VK_DYNAMIC_STATE_VIEWPORT"))
+            return ret;
+    }
+
     std::cerr << "VkDbg: " << pCallbackData->pMessage << std::endl;
 
     if (breakOnError &&
