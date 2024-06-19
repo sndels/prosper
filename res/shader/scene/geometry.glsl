@@ -147,7 +147,8 @@ vec4 loadTangentWithSign(uint bufferIndex, uint bufferOffset, uint index)
 
     // Leverage sign extension in GLSL right shift to unpack the sign
     // https://www.gamedev.net/forums/topic/696946-normalized-unsigned-integers-vs-floats-as-vertex-data/5379938/
-    return vec4(unpackSnormR10G10B10(packed), float(int(packed) >> 30));
+    return vec4(
+        normalize(unpackSnormR10G10B10(packed)), float(int(packed) >> 30));
 }
 
 struct MeshletInfo
@@ -248,8 +249,8 @@ Vertex loadVertex(GeometryMetadata metadata, uint index)
     ret.Position =
         loadR16G16B16A16(metadata.bufferIndex, metadata.positionsOffset, index)
             .xyz;
-    ret.Normal =
-        loadR10G10B10Snorm(metadata.bufferIndex, metadata.normalsOffset, index);
+    ret.Normal = normalize(loadR10G10B10Snorm(
+        metadata.bufferIndex, metadata.normalsOffset, index));
     ret.Tangent = loadTangentWithSign(
         metadata.bufferIndex, metadata.tangentsOffset, index);
     ret.TexCoord0 =
