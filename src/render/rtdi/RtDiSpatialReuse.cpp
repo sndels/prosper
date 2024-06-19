@@ -137,6 +137,12 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(input.gbuffer.geometryNormal)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.gbuffer.depth)
                             .view,
@@ -161,10 +167,12 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 5>{{
+                .images = StaticArray<ImageTransition, 6>{{
                     {input.gbuffer.albedoRoughness,
                      ImageState::ComputeShaderRead},
                     {input.gbuffer.normalMetalness,
+                     ImageState::ComputeShaderRead},
+                    {input.gbuffer.geometryNormal,
                      ImageState::ComputeShaderRead},
                     {input.gbuffer.depth, ImageState::ComputeShaderRead},
                     {input.reservoirs, ImageState::ComputeShaderRead},

@@ -11,6 +11,7 @@ struct DebugInputs
     uint materialID;
     vec3 position;
     vec3 shadingNormal;
+    vec3 geometryNormal;
     vec2 texCoord0;
 };
 
@@ -30,6 +31,8 @@ vec3 commonDebugDraw(uint drawType, DebugInputs inputs, Material m)
         return vec3(m.albedo);
     else if (drawType == DrawType_ShadingNormal)
         return vec3(inputs.shadingNormal * 0.5 + 0.5);
+    else if (drawType == DrawType_GeometryNormal)
+        return vec3(inputs.geometryNormal * 0.5 + 0.5);
     else if (drawType == DrawType_Roughness)
         return vec3(vec3(m.roughness));
     else if (drawType == DrawType_Metallic)

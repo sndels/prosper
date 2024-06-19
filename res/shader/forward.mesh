@@ -55,6 +55,10 @@ layout(location = 5) out vec3 outNormalWorld[];
 layout(location = 6) out vec4 outTangentWorldSign[];
 layout(location = 7) perprimitiveEXT out flat uint outDrawInstanceID[];
 layout(location = 8) perprimitiveEXT out flat uint outMeshletID[];
+layout(location = 9) perprimitiveEXT out flat vec3 outGeometryNormalWorld[];
+
+// Need to write into shared mem because output arrays are write-only
+shared vec3 sPositionWorld[MAX_MS_VERTS];
 
 void writeTransformedVertex(
     DrawInstance instance, GeometryMetadata metadata, Transforms trfn,
@@ -63,6 +67,7 @@ void writeTransformedVertex(
     Vertex vertexModel = loadVertex(metadata, globalVertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
 
+    sPositionWorld[meshletVertexIndex] = vertexWorld.Position;
     outPositionWorld[meshletVertexIndex] = vertexWorld.Position;
     outTexCoord0[meshletVertexIndex] = vertexWorld.TexCoord0;
 
@@ -131,12 +136,18 @@ void main()
         uint triangleID = i * LOCAL_SIZE_X + threadID;
         if (triangleID < meshletInfo.triangleCount)
         {
-            outDrawInstanceID[triangleID] = meshletInstance.drawInstanceID;
-            outMeshletID[triangleID] = meshletInstance.meshletID;
-            gl_MeshPrimitivesEXT[triangleID].gl_PrimitiveID = int(triangleID);
-
             uvec3 triIndices =
                 loadMeshletTriangle(metadata, meshletInfo, triangleID);
+
+            outGeometryNormalWorld[triangleID] = normalize(cross(
+                sPositionWorld[triIndices[1]] - sPositionWorld[triIndices[0]],
+                sPositionWorld[triIndices[2]] - sPositionWorld[triIndices[0]]));
+
+            outDrawInstanceID[triangleID] = meshletInstance.drawInstanceID;
+            outMeshletID[triangleID] = meshletInstance.meshletID;
+
+            gl_MeshPrimitivesEXT[triangleID].gl_PrimitiveID = int(triangleID);
+
             gl_PrimitiveTriangleIndicesEXT[triangleID] = triIndices;
 
             // Per-triangle backface culling seemed to be 2-3% slower on 680M

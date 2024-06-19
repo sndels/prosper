@@ -26,6 +26,8 @@ namespace
 
 const vk::Format sAlbedoRoughnessFormat = vk::Format::eR8G8B8A8Unorm;
 const vk::Format sNormalMetalnessFormat = vk::Format::eA2B10G10R10UnormPack32;
+// This has a free B component
+const vk::Format sGeometryNormalFormat = vk::Format::eA2B10G10R10UnormPack32;
 
 enum BindingSet : uint32_t
 {
@@ -46,7 +48,7 @@ struct PCBlock
 
 struct Attachments
 {
-    wheels::StaticArray<vk::RenderingAttachmentInfo, 3> color;
+    wheels::StaticArray<vk::RenderingAttachmentInfo, 4> color;
     vk::RenderingAttachmentInfo depth;
 };
 
@@ -141,6 +143,17 @@ GBufferRendererOutput GBufferRenderer::record(
                         vk::ImageUsageFlagBits::eStorage,          // Shading
                 },
                 "normalMetalness"),
+            .geometryNormal = gRenderResources.images->create(
+                ImageDescription{
+                    .format = sGeometryNormalFormat,
+                    .width = renderArea.extent.width,
+                    .height = renderArea.extent.height,
+                    .usageFlags =
+                        vk::ImageUsageFlagBits::eSampled |         // Debug
+                        vk::ImageUsageFlagBits::eColorAttachment | // Render
+                        vk::ImageUsageFlagBits::eStorage,          // Shading
+                },
+                "geometryNormal"),
             .velocity = createVelocity(renderArea.extent, "velocity"),
             .depth = createDepth(renderArea.extent, "depth"),
         };
@@ -155,9 +168,10 @@ GBufferRendererOutput GBufferRenderer::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 4>{{
+                .images = StaticArray<ImageTransition, 5>{{
                     {ret.albedoRoughness, ImageState::ColorAttachmentWrite},
                     {ret.normalMetalness, ImageState::ColorAttachmentWrite},
+                    {ret.geometryNormal, ImageState::ColorAttachmentWrite},
                     {ret.velocity, ImageState::ColorAttachmentWrite},
                     {ret.depth, ImageState::DepthAttachmentReadWrite},
                 }},
@@ -184,6 +198,16 @@ GBufferRendererOutput GBufferRenderer::record(
                 vk::RenderingAttachmentInfo{
                     .imageView =
                         gRenderResources.images->resource(ret.normalMetalness)
+                            .view,
+                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                    .loadOp = vk::AttachmentLoadOp::eClear,
+                    .storeOp = vk::AttachmentStoreOp::eStore,
+                    .clearValue =
+                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+                },
+                vk::RenderingAttachmentInfo{
+                    .imageView =
+                        gRenderResources.images->resource(ret.geometryNormal)
                             .view,
                     .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
                     .loadOp = vk::AttachmentLoadOp::eClear,
@@ -316,7 +340,7 @@ bool GBufferRenderer::compileShaders(
                                           .defines = meshDefines,
                                       });
 
-    const size_t fragDefsLen = 491;
+    const size_t fragDefsLen = 526;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(fragDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
@@ -458,10 +482,11 @@ void GBufferRenderer::createGraphicsPipelines(
     const StaticArray colorAttachmentFormats{{
         sAlbedoRoughnessFormat,
         sNormalMetalnessFormat,
+        sGeometryNormalFormat,
         sVelocityFormat,
     }};
 
-    const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
+    const StaticArray<vk::PipelineColorBlendAttachmentState, 4>
         colorBlendAttachments{opaqueColorBlendAttachment()};
 
     _pipeline = createGraphicsPipeline(

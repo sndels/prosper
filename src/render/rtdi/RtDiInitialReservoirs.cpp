@@ -136,6 +136,12 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(gbuffer.geometryNormal)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(gbuffer.depth).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
@@ -153,9 +159,10 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 4>{{
+                .images = StaticArray<ImageTransition, 5>{{
                     {gbuffer.albedoRoughness, ImageState::ComputeShaderRead},
                     {gbuffer.normalMetalness, ImageState::ComputeShaderRead},
+                    {gbuffer.geometryNormal, ImageState::ComputeShaderRead},
                     {gbuffer.depth, ImageState::ComputeShaderRead},
                     {ret.reservoirs, ImageState::ComputeShaderWrite},
                 }},

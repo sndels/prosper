@@ -431,7 +431,7 @@ bool RtReference::compileShaders(
     SpotLights::appendShaderDefines(raygenDefines);
     WHEELS_ASSERT(raygenDefines.size() <= raygenDefsLen);
 
-    const size_t anyhitDefsLen = 512;
+    const size_t anyhitDefsLen = 524;
     String anyhitDefines{scopeAlloc, anyhitDefsLen};
     appendDefineStr(anyhitDefines, "RAY_TRACING_SET", RTBindingSet);
     appendEnumVariantsAsDefines(

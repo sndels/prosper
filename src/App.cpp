@@ -1434,6 +1434,7 @@ void App::render(
 
             gRenderResources.images->release(gbuffer.albedoRoughness);
             gRenderResources.images->release(gbuffer.normalMetalness);
+            gRenderResources.images->release(gbuffer.geometryNormal);
 
             velocity = gbuffer.velocity;
             depth = gbuffer.depth;

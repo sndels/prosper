@@ -16,6 +16,7 @@ struct GBufferRendererOutput
 {
     ImageHandle albedoRoughness;
     ImageHandle normalMetalness;
+    ImageHandle geometryNormal;
     ImageHandle velocity;
     ImageHandle depth;
 };

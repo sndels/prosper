@@ -25,6 +25,7 @@ layout(location = 5) in vec3 inNormalWorld;
 layout(location = 6) in vec4 inTangentWorldSign;
 layout(location = 7) in flat uint inDrawInstanceID;
 layout(location = 8) in flat uint inMeshletID;
+layout(location = 9) in flat vec3 inGeometryNormalWorld;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec2 outVelocity;
@@ -46,6 +47,7 @@ void main()
     VisibleSurface surface;
     surface.positionWS = inPositionWorld;
     surface.invViewRayWS = normalize(camera.eye.xyz - inPositionWorld);
+    surface.geometryNormalWS = inGeometryNormalWorld;
     surface.uv = inTexCoord0;
     surface.material = sampleMaterial(instance.materialID, inTexCoord0);
 
@@ -104,6 +106,7 @@ void main()
         di.materialID = instance.materialID;
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
+        di.geometryNormal = surface.geometryNormalWS;
         di.texCoord0 = inTexCoord0;
         outColor = vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1);
         return;

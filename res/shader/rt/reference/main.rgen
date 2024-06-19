@@ -154,6 +154,9 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 
     VisibleSurface surface;
     surface.positionWS = v.Position;
+    surface.geometryNormalWS =
+        mat3(trfn.normalToWorld) *
+        normalize(cross(v1.Position - v0.Position, v2.Position - v0.Position));
     surface.invViewRayWS = -ray.d;
     surface.uv = v.TexCoord0;
     surface.material = sampleMaterial(instance.materialID, v.TexCoord0);
@@ -181,6 +184,7 @@ vec3 debugColor(RayPayload hit, VisibleSurface surface)
     di.materialID = instance.materialID;
     di.position = surface.positionWS;
     di.shadingNormal = surface.normalWS;
+    di.geometryNormal = surface.geometryNormalWS;
     di.texCoord0 = surface.uv;
     return commonDebugDraw(PC.drawType, di, surface.material);
 }
@@ -257,6 +261,8 @@ void main()
         }
 
         addBounce(color, evaluateDirectLighting(surface, throughput), bounce);
+        // TODO:
+        // Use more precise terms for what the actual quantity is
 
         vec3 rd;
         importanceSampleBounce(surface, throughput, rd);

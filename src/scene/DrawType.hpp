@@ -6,7 +6,7 @@
 
 #define DRAW_TYPES                                                             \
     Default, PrimitiveID, MeshletID, MeshID, MaterialID, Position,             \
-        ShadingNormal, TexCoord0, Albedo, Roughness, Metallic
+        ShadingNormal, GeometryNormal, TexCoord0, Albedo, Roughness, Metallic
 
 #define DRAW_TYPES_AND_COUNT DRAW_TYPES, Count
 

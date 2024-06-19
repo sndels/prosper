@@ -27,11 +27,13 @@ layout(set = STORAGE_SET, binding = 0) uniform readonly image2D
     inAlbedoRoughness;
 layout(set = STORAGE_SET, binding = 1) uniform readonly image2D
     inNormalMetallic;
-layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
-layout(set = STORAGE_SET, binding = 3) uniform readonly image2D inReservoirs;
-layout(set = STORAGE_SET, binding = 4) uniform readonly image2D previousColor;
-layout(set = STORAGE_SET, binding = 5) uniform image2D outColor;
-layout(set = STORAGE_SET, binding = 6) uniform sampler depthSampler;
+layout(set = STORAGE_SET, binding = 2) uniform readonly image2D
+    inGeometryNormal;
+layout(set = STORAGE_SET, binding = 3) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 4) uniform readonly image2D inReservoirs;
+layout(set = STORAGE_SET, binding = 5) uniform readonly image2D previousColor;
+layout(set = STORAGE_SET, binding = 6) uniform image2D outColor;
+layout(set = STORAGE_SET, binding = 7) uniform sampler depthSampler;
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
@@ -118,6 +120,8 @@ void main()
     surface.invViewRayWS = normalize(camera.eye.xyz - surface.positionWS);
     surface.material = loadFromGbuffer(px, inAlbedoRoughness, inNormalMetallic);
     surface.normalWS = surface.material.normal;
+    surface.geometryNormalWS =
+        signedOctDecode(imageLoad(inGeometryNormal, px).xyw);
     surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
     surface.linearDepth = linearizeDepth(nonLinearDepth);

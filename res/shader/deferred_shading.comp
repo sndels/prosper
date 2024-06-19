@@ -14,9 +14,11 @@ layout(set = STORAGE_SET, binding = 0) uniform readonly image2D
     inAlbedoRoughness;
 layout(set = STORAGE_SET, binding = 1) uniform readonly image2D
     inNormalMetallic;
-layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
-layout(set = STORAGE_SET, binding = 3) uniform image2D outColor;
-layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+layout(set = STORAGE_SET, binding = 2) uniform readonly image2D
+    inGeometryNormal;
+layout(set = STORAGE_SET, binding = 3) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 4) uniform image2D outColor;
+layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
 
 layout(push_constant) uniform DeferredShadingPC
 {
@@ -45,6 +47,8 @@ void main()
     surface.material =
         loadFromGbuffer(coord, inAlbedoRoughness, inNormalMetallic);
     surface.normalWS = surface.material.normal;
+    surface.geometryNormalWS =
+        signedOctDecode(imageLoad(inGeometryNormal, coord).xyw);
     surface.uv = vec2(0);
     surface.NoV = saturate(dot(surface.normalWS, surface.invViewRayWS));
     surface.linearDepth = linearizeDepth(nonLinearDepth);

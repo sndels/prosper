@@ -184,7 +184,7 @@ bool ForwardRenderer::compileShaders(
                                           .defines = meshDefines,
                                       });
 
-    const size_t fragDefsLen = 705;
+    const size_t fragDefsLen = 740;
     String fragDefines{scopeAlloc, fragDefsLen};
     appendDefineStr(fragDefines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(fragDefines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);

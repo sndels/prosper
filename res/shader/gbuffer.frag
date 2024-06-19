@@ -19,10 +19,12 @@ layout(location = 5) in vec3 inNormalWorld;
 layout(location = 6) in vec4 inTangentWorldSign;
 layout(location = 7) in flat uint inDrawInstanceID;
 layout(location = 8) in flat uint inMeshletID;
+layout(location = 9) in flat vec3 inGeometryNormalWorld;
 
 layout(location = 0) out vec4 outAlbedoRoughness;
 layout(location = 1) out vec4 outNormalMetallic;
-layout(location = 2) out vec2 outVelocity;
+layout(location = 2) out vec4 outGeometryNormal;
+layout(location = 3) out vec2 outVelocity;
 
 vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
 {
@@ -67,7 +69,9 @@ void main()
             inTangentWorldSign.w);
     else
         normal = normalize(inNormalWorld);
-    vec3 encodedNormal = signedOctEncode(normal);
+    vec3 encodedShadingNormal = signedOctEncode(normal);
+
+    vec3 encodedGeometryNormal = signedOctEncode(inGeometryNormalWorld);
 
     // Store in NDC like in https://alextardif.com/TAA.html
     vec3 posNDC = inPositionNDC.xyz / inPositionNDC.w;
@@ -95,6 +99,7 @@ void main()
         di.primitiveID = gl_PrimitiveID;
         di.materialID = instance.materialID;
         di.shadingNormal = normal;
+        di.geometryNormal = inGeometryNormalWorld;
         di.texCoord0 = inTexCoord0;
         outAlbedoRoughness =
             vec4(commonDebugDraw(PC.drawType, di, material), 1);
@@ -103,6 +108,8 @@ void main()
     }
 
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
+    outNormalMetallic = vec4(
+        encodedShadingNormal.xy, material.metallic, encodedShadingNormal.z);
     outNormalMetallic =
-        vec4(encodedNormal.xy, material.metallic, encodedNormal.z);
+        vec4(encodedGeometryNormal.xy, 0., encodedGeometryNormal.z);
 }

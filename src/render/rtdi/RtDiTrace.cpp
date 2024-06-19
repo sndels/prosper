@@ -199,9 +199,10 @@ RtDiTrace::Output RtDiTrace::record(
         transition(
             scopeAlloc.child_scope(), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 6>{{
+                .images = StaticArray<ImageTransition, 7>{{
                     {input.gbuffer.albedoRoughness, ImageState::RayTracingRead},
                     {input.gbuffer.normalMetalness, ImageState::RayTracingRead},
+                    {input.gbuffer.geometryNormal, ImageState::RayTracingRead},
                     {input.gbuffer.depth, ImageState::RayTracingRead},
                     {input.reservoirs, ImageState::RayTracingRead},
                     {_previousIllumination, ImageState::RayTracingRead},
@@ -388,7 +389,7 @@ bool RtDiTrace::compileShaders(
     SpotLights::appendShaderDefines(raygenDefines);
     WHEELS_ASSERT(raygenDefines.size() <= raygenDefsLen);
 
-    const size_t anyhitDefsLen = 512;
+    const size_t anyhitDefsLen = 524;
     String anyhitDefines{scopeAlloc, anyhitDefsLen};
     appendDefineStr(anyhitDefines, "RAY_TRACING_SET", RTBindingSet);
     appendEnumVariantsAsDefines(
@@ -550,6 +551,12 @@ void RtDiTrace::updateDescriptorSet(
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
                 gRenderResources.images->resource(input.gbuffer.normalMetalness)
+                    .view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                gRenderResources.images->resource(input.gbuffer.geometryNormal)
                     .view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
