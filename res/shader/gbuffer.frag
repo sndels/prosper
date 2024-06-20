@@ -110,6 +110,6 @@ void main()
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
     outNormalMetallic = vec4(
         encodedShadingNormal.xy, material.metallic, encodedShadingNormal.z);
-    outNormalMetallic =
+    outGeometryNormal =
         vec4(encodedGeometryNormal.xy, 0., encodedGeometryNormal.z);
 }
