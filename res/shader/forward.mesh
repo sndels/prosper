@@ -128,6 +128,8 @@ void main()
                 instance, metadata, trfn, vertexIndex, meshletID);
         }
     }
+    // positions are read from shared memory in the triangle loop
+    barrier();
 
     const uint trianglesPerThread =
         roundedUpQuotient(MAX_MS_PRIMS, LOCAL_SIZE_X);
