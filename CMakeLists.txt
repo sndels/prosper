@@ -148,6 +148,7 @@ if(PROSPER_USE_PCH)
 
         [["glm/glm.hpp"]]
         [["glm/gtc/type_ptr.hpp"]]
+        [["glm/gtc/quaternion.hpp"]]
 
         [["chrono"]]
         [["filesystem"]]
