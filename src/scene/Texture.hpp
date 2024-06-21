@@ -3,15 +3,11 @@
 
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
+#include "../utils/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 
 #include <filesystem>
-
-namespace gli
-{
-class texture_cube;
-}
 
 namespace tinygltf
 {
@@ -79,7 +75,7 @@ class TextureCubemap : public Texture
 
   private:
     void copyPixels(
-        wheels::ScopedScratch scopeAlloc, const gli::texture_cube &cube,
+        wheels::ScopedScratch scopeAlloc, const Ktx &cube,
         const vk::ImageSubresourceRange &subresourceRange) const;
 
     vk::Sampler _sampler;

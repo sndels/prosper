@@ -4,11 +4,6 @@
 #include <fstream>
 #include <iostream>
 
-// GLI uses rgba accesses
-#undef GLM_FORCE_XYZW_ONLY
-#include <gli/gli.hpp>
-#define GLM_FORCE_XYZW_ONLY
-
 #include <ispc_texcomp.h>
 #include <stb_image.h>
 #include <wheels/containers/array.hpp>
@@ -17,6 +12,7 @@
 
 #include "../gfx/Device.hpp"
 #include "../utils/Dds.hpp"
+#include "../utils/Ktx.hpp"
 #include "../utils/Utils.hpp"
 
 using namespace wheels;
@@ -649,29 +645,27 @@ vk::DescriptorImageInfo Texture3D::imageInfo() const
 void TextureCubemap::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path)
 {
-    const gli::texture_cube cube(gli::load(path.string()));
-    WHEELS_ASSERT(!cube.empty());
-    WHEELS_ASSERT(cube.faces() == 6);
+    const Ktx cube = readKtx(scopeAlloc, path);
+    WHEELS_ASSERT(cube.faceCount == 6);
 
-    const auto mipLevels = asserted_cast<uint32_t>(cube.levels());
-    const gli::texture_cube::extent_type extent = cube.extent();
     WHEELS_ASSERT(
-        extent.x == 512 && extent.y == 512 &&
+        cube.width == 512 && cube.height == 512 &&
         "Diffuse irradiance gather expects input as 512x512 to sample from the "
         "correct mip");
     WHEELS_ASSERT(
-        mipLevels > 4 && "Diffuse irradiance gather happens from mip 3");
+        cube.mipLevelCount > 4 &&
+        "Diffuse irradiance gather happens from mip 3");
 
     const std::filesystem::path relPath = relativePath(path);
 
     _image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
-                .format = vk::Format::eR16G16B16A16Sfloat,
-                .width = asserted_cast<uint32_t>(extent.x),
-                .height = asserted_cast<uint32_t>(extent.y),
-                .mipCount = mipLevels,
-                .layerCount = 6,
+                .format = cube.format,
+                .width = asserted_cast<uint32_t>(cube.width),
+                .height = asserted_cast<uint32_t>(cube.height),
+                .mipCount = cube.mipLevelCount,
+                .layerCount = cube.faceCount,
                 .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
                 .usageFlags = vk::ImageUsageFlagBits::eTransferDst |
                               vk::ImageUsageFlagBits::eSampled,
@@ -691,7 +685,7 @@ void TextureCubemap::init(
         .anisotropyEnable = VK_TRUE,
         .maxAnisotropy = 16,
         .minLod = 0,
-        .maxLod = static_cast<float>(mipLevels),
+        .maxLod = static_cast<float>(cube.mipLevelCount),
     });
 }
 
@@ -729,13 +723,13 @@ vk::DescriptorImageInfo TextureCubemap::imageInfo() const
 }
 
 void TextureCubemap::copyPixels(
-    ScopedScratch scopeAlloc, const gli::texture_cube &cube,
+    ScopedScratch scopeAlloc, const Ktx &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
     Buffer stagingBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
-                .byteSize = cube.size(),
+                .byteSize = cube.data.size(),
                 .usage = vk::BufferUsageFlagBits::eTransferSrc,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -743,41 +737,40 @@ void TextureCubemap::copyPixels(
         .debugName = "TextureCubemapStaging",
     });
 
-    memcpy(stagingBuffer.mapped, cube.data(), cube.size());
+    memcpy(stagingBuffer.mapped, cube.data.data(), cube.data.size());
 
     // Collect memory regions of all faces and their miplevels so their
     // transfers can be submitted together
     const Array<vk::BufferImageCopy> regions = [&]
     {
+        WHEELS_ASSERT(cube.arrayLayerCount == 1);
+
         Array<vk::BufferImageCopy> regions{
-            scopeAlloc, cube.faces() * cube.levels()};
-        size_t offset = 0;
-        for (uint32_t face = 0; face < cube.faces(); ++face)
+            scopeAlloc, asserted_cast<size_t>(cube.faceCount) *
+                            asserted_cast<size_t>(cube.mipLevelCount)};
+        for (uint32_t iMip = 0; iMip < cube.mipLevelCount; ++iMip)
         {
-            for (uint32_t mipLevel = 0; mipLevel < cube.levels(); ++mipLevel)
+            for (uint32_t iFace = 0; iFace < cube.faceCount; ++iFace)
             {
-                // Cubemap data contains each face and its miplevels in order
+                const uint32_t width = std::max(cube.width >> iMip, 1u);
+                const uint32_t height = std::max(cube.height >> iMip, 1u);
+                const uint32_t sourceOffset =
+                    cube.levelByteOffsets[iMip * cube.faceCount + iFace];
+
                 regions.push_back(vk::BufferImageCopy{
-                    .bufferOffset = offset,
+                    .bufferOffset = sourceOffset,
                     .bufferRowLength = 0,
                     .bufferImageHeight = 0,
                     .imageSubresource =
                         vk::ImageSubresourceLayers{
                             .aspectMask = vk::ImageAspectFlagBits::eColor,
-                            .mipLevel = mipLevel,
-                            .baseArrayLayer = face,
+                            .mipLevel = iMip,
+                            .baseArrayLayer = iFace,
                             .layerCount = 1,
                         },
                     .imageOffset = vk::Offset3D{0},
-                    .imageExtent =
-                        vk::Extent3D{
-                            asserted_cast<uint32_t>(
-                                cube[face][mipLevel].extent().x),
-                            asserted_cast<uint32_t>(
-                                cube[face][mipLevel].extent().y),
-                            1},
+                    .imageExtent = vk::Extent3D{width, height, 1},
                 });
-                offset += cube[face][mipLevel].size();
             }
         }
         return regions;

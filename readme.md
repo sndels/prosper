@@ -106,7 +106,6 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - [cgltf](https://github.com/jkuhlmann/cgltf)
 - [cxxopts](https://github.com/jarro2783/cxxopts)
 - [glfw](https://github.com/glfw/glfw)
-- [gli](https://github.com/g-truc/gli)
 - [glm](https://github.com/g-truc/glm)
 - [imgui](https://github.com/ocornut/imgui)
 - [ISPCTextureCompressor](https://github.com/GameTechDev/ISPCTextureCompressor)

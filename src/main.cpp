@@ -112,7 +112,8 @@ int main(int argc, char *argv[])
     {
         App::Settings settings = parseCli(argc, argv);
 
-        LinearAllocator scratchBacking{megabytes(16)};
+        // Used by environment map KTX loading so conservative
+        LinearAllocator scratchBacking{megabytes(128)};
         ScopedScratch scopeAlloc{scratchBacking};
 
         const auto &tl = [](const char *stage, std::function<void()> const &fn)

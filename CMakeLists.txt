@@ -107,7 +107,6 @@ target_link_libraries(prosper
     cxxopts
     cgltf
     glfw
-    gli
     glm
     imgui
     ispc_texcomp
@@ -149,7 +148,6 @@ if(PROSPER_USE_PCH)
         [["glm/glm.hpp"]]
         [["glm/gtc/type_ptr.hpp"]]
 
-        # TODO: Get rid of gli (GLM_ENABLE_EXPERIMENTAL redefinition )and put glm/gtx things here
         [["chrono"]]
         [["filesystem"]]
         [["fstream"]]

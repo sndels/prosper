@@ -9,6 +9,9 @@ class InputHandler;
 struct CursorState;
 struct MouseGesture;
 
+// Ktx.hpp
+struct Ktx;
+
 // Profiler.hpp
 class CpuFrameProfiler;
 class GpuFrameProfiler;
