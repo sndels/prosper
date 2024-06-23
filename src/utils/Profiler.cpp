@@ -237,16 +237,16 @@ CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other) noexcept
     other._output = nullptr;
 }
 
-void CpuFrameProfiler::startFrame() { _nanos.clear(); }
+void CpuFrameProfiler::startFrame()
+{
+    _queryScopeIndices.clear();
+    _nanos.clear();
+}
 
 [[nodiscard]] CpuFrameProfiler::Scope CpuFrameProfiler::createScope(
     uint32_t index)
 {
-    WHEELS_ASSERT(
-        index == _nanos.size() &&
-        "CpuFrameProfiler expects that all indices have a scope attached");
-    (void)index;
-
+    _queryScopeIndices.push_back(index);
     _nanos.emplace_back();
 
     return Scope{&_nanos.back()};
@@ -254,14 +254,17 @@ void CpuFrameProfiler::startFrame() { _nanos.clear(); }
 
 Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
 {
-    Array<ScopeTime> times{alloc, _nanos.size()};
-    for (auto i = 0u; i < _nanos.size(); ++i)
+    size_t const scopeCount = _queryScopeIndices.size();
+    WHEELS_ASSERT(scopeCount == _nanos.size());
+    Array<ScopeTime> times{alloc, sMaxScopeCount};
+    for (size_t i = 0; i < scopeCount; ++i)
     {
-        times.push_back(ScopeTime{
-            .index = i,
+        const ScopeTime st{
+            .index = _queryScopeIndices[i],
             .millis =
                 std::chrono::duration<float, std::milli>(_nanos[i]).count(),
-        });
+        };
+        times.push_back(st);
     };
 
     return times;
@@ -342,6 +345,21 @@ void Profiler::endCpuFrame()
         _cpuFrameProfiler.getTimes(gAllocators.general);
 
     _debugState = DebugState::NewFrame;
+}
+
+Profiler::Scope Profiler::createGpuScope(
+    vk::CommandBuffer cb, const char *name, bool includeStatistics)
+{
+    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(_debugState == DebugState::StartGpuCalled);
+
+    const auto index = asserted_cast<uint32_t>(_currentFrameScopeNames.size());
+    WHEELS_ASSERT(index < sMaxScopeCount && "Ran out of per-frame scopes");
+
+    _currentFrameScopeNames.emplace_back(gAllocators.general, name);
+
+    return Scope{_gpuFrameProfilers[_currentFrame].createScope(
+        cb, name, index, includeStatistics)};
 }
 
 Profiler::Scope Profiler::createCpuGpuScope(

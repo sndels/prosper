@@ -143,6 +143,8 @@ class CpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeTime> getTimes(wheels::Allocator &alloc);
 
   private:
+    wheels::Array<uint32_t> _queryScopeIndices{
+        gAllocators.general, sMaxScopeCount};
     wheels::Array<std::chrono::nanoseconds> _nanos{
         gAllocators.general, sMaxScopeCount};
 
@@ -173,6 +175,11 @@ class Profiler
 
         Scope(CpuFrameProfiler::Scope &&cpuScope)
         : _cpuScope{WHEELS_MOV(cpuScope)}
+        {
+        }
+
+        Scope(GpuFrameProfiler::Scope &&gpuScope)
+        : _gpuScope{WHEELS_MOV(gpuScope)}
         {
         }
 
@@ -219,6 +226,12 @@ class Profiler
 
     // Scopes can be created between the startFrame and endFrame -calls
     [[nodiscard]] Scope createCpuScope(const char *name);
+
+    // GPU scopes shouldn't contain barriers because it might produce weird
+    // results when they block the current scope on work that belongs to the
+    // previous one.
+    [[nodiscard]] Scope createGpuScope(
+        vk::CommandBuffer cb, const char *name, bool includeStatistics = false);
 
     // GPU scopes shouldn't contain barriers because it might produce weird
     // results when they block the current scope on work that belongs to the
