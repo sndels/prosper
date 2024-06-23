@@ -138,8 +138,12 @@ int main(int argc, char *argv[])
 
         App app{settings.scene};
         app.init(WHEELS_MOV(scopeAlloc));
+
         app.setInitScratchHighWatermark(
             scratchBacking.allocated_byte_count_high_watermark());
+        // We don't need this memory anymore so let's drop it.
+        scratchBacking.destroy();
+
         printf("run() called after %.2fs\n", t.getSeconds());
         app.run();
     }
