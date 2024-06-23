@@ -701,6 +701,7 @@ void WorldData::loadTextures(
     }
 
     Buffer stagingBuffer = createTextureStaging();
+    defer { gDevice.destroy(stagingBuffer); };
 
     _texture2Ds.reserve(gltfData.images_count + 1);
     {
@@ -718,8 +719,6 @@ void WorldData::loadTextures(
     WHEELS_ASSERT(
         gltfData.images_count < 0xFFFFFE &&
         "Too many textures to pack in u32 texture index");
-
-    gDevice.destroy(stagingBuffer);
 
     for (const cgltf_texture &texture :
          Span{gltfData.textures, gltfData.textures_count})
