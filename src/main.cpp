@@ -129,12 +129,18 @@ int main(int argc, char *argv[])
         // many issues in initialization order. More in Game Engine Architecture
         // 3rd ed. section 6.1.2
         tl("Allocators init", []() { gAllocators.init(); });
+        defer { gAllocators.destroy(); };
+
         // gInputHandler doesn't require calling init
         tl("Window init", []() { gWindow.init(sStartupRes, sWindowTitle); });
+        defer { gWindow.destroy(); };
+
         tl("Device init", [&scopeAlloc, &settings]()
            { gDevice.init(scopeAlloc.child_scope(), settings.device); });
+        defer { gDevice.destroy(); };
 
         gRenderResources.init();
+        defer { gRenderResources.destroy(); };
 
         App app{settings.scene};
         app.init(WHEELS_MOV(scopeAlloc));
@@ -151,11 +157,6 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Exception thrown: %s\n", e.what());
     }
-
-    gRenderResources.destroy();
-    gDevice.destroy();
-    gWindow.destroy();
-    gAllocators.destroy();
 
 #ifdef LIVEPP_PATH
     // destroy the Live++ agent
