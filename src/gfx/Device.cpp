@@ -898,6 +898,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
                 },
             .debugName = stagingDebugName.c_str(),
         });
+        defer { destroy(stagingBuffer); };
 
         WHEELS_ASSERT(stagingBuffer.mapped != nullptr);
         // Seems like a false positive
@@ -915,8 +916,6 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
             stagingBuffer.handle, buffer.handle, 1, &copyRegion);
 
         endGraphicsCommands(commandBuffer);
-
-        destroy(stagingBuffer);
     }
 
     trackBuffer(buffer);
