@@ -27,35 +27,10 @@ const uint32_t sTextureCacheVersion = 3;
 
 struct UncompressedPixelData
 {
-    // 'dataOwned', if not null, needs to be freed with stbi_image_free
-    // 'data' may or may not be == 'dataOwned'
-    const uint8_t *data{nullptr};
-    stbi_uc *dataOwned{nullptr};
+    Span<const uint8_t> data;
     vk::Extent2D extent{0};
     uint32_t channels{0};
 };
-UncompressedPixelData pixelsFromFile(const std::filesystem::path &path)
-{
-    const auto pathString = path.string();
-    int w = 0;
-    int h = 0;
-    int channels = 0;
-    stbi_uc *pixels = stbi_load(pathString.c_str(), &w, &h, &channels, 0);
-    if (pixels == nullptr)
-        throw std::runtime_error("Failed to load texture '" + pathString + "'");
-
-    static_assert(sizeof(uint8_t) == sizeof(stbi_uc));
-    return UncompressedPixelData{
-        .data = reinterpret_cast<uint8_t *>(pixels),
-        .dataOwned = pixels,
-        .extent =
-            vk::Extent2D{
-                asserted_cast<uint32_t>(w),
-                asserted_cast<uint32_t>(h),
-            },
-        .channels = asserted_cast<uint32_t>(channels),
-    };
-}
 
 // Returns path of the corresponding cached file, creating the folders up to
 // it if those don't exist
@@ -289,12 +264,9 @@ void compress(
     {
         Array<uint8_t> rawLevels{scopeAlloc};
         // Twice the size of the first level should be plenty for mips
-        const size_t inputSize = asserted_cast<size_t>(pixels.extent.width) *
-                                 asserted_cast<size_t>(pixels.extent.height) *
-                                 4;
-        rawLevels.resize(inputSize * 2);
+        rawLevels.resize(pixels.data.size() * 2);
 
-        memcpy(rawLevels.data(), pixels.data, inputSize);
+        memcpy(rawLevels.data(), pixels.data.data(), pixels.data.size());
 
         Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
         rawLevelByteOffsets.resize(mipLevelCount);
@@ -334,12 +306,9 @@ void compress(
     else
     {
         Array<uint8_t> rawLevels{scopeAlloc};
-        const size_t inputSize = asserted_cast<size_t>(pixels.extent.width) *
-                                 asserted_cast<size_t>(pixels.extent.height) *
-                                 4;
-        rawLevels.resize(inputSize * 2);
+        rawLevels.resize(pixels.data.size() * 2);
 
-        memcpy(rawLevels.data(), pixels.data, inputSize);
+        memcpy(rawLevels.data(), pixels.data.data(), pixels.data.size());
 
         Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
         rawLevelByteOffsets.resize(mipLevelCount);
@@ -435,23 +404,46 @@ void Texture2D::init(
     const auto cached = cachePath(path);
     if (!cacheValid(cached, sourceWriteTime))
     {
-        auto pixels = pixelsFromFile(path);
+        const auto pathString = path.string();
+        int width = 0;
+        int height = 0;
+        int channels = 0;
+        stbi_uc *stb_pixels =
+            stbi_load(pathString.c_str(), &width, &height, &channels, 0);
+        if (stb_pixels == nullptr)
+            throw std::runtime_error(
+                "Failed to load texture '" + pathString + "'");
+
+        defer { stbi_image_free(stb_pixels); };
+
+        UncompressedPixelData pixels{
+            .data =
+                Span{
+                    stb_pixels, asserted_cast<size_t>(width) *
+                                    asserted_cast<size_t>(height) *
+                                    asserted_cast<size_t>(channels)},
+            .extent =
+                vk::Extent2D{
+                    asserted_cast<uint32_t>(width),
+                    asserted_cast<uint32_t>(height),
+                },
+            .channels = asserted_cast<uint32_t>(channels),
+        };
 
         Array<uint8_t> tmpPixels{scopeAlloc};
-        if (pixels.channels < 3)
+        if (channels < 3)
             throw std::runtime_error("Image with less than 3 components");
 
-        if (pixels.channels == 3)
+        if (channels == 3)
         {
             // Add fourth channel as 3 channel optimal tiling is rarely
             // supported
-            tmpPixels.resize(
-                asserted_cast<size_t>(pixels.extent.width) *
-                pixels.extent.height * 4);
-            const auto *rgb = pixels.data;
-            auto *rgba = tmpPixels.data();
-            for (auto i = 0u; i < pixels.extent.width * pixels.extent.height;
-                 ++i)
+            const size_t widthByHeight =
+                asserted_cast<size_t>(width) * asserted_cast<size_t>(height);
+            tmpPixels.resize(widthByHeight * 4);
+            const uint8_t *rgb = pixels.data.data();
+            uint8_t *rgba = tmpPixels.data();
+            for (size_t i = 0; i < widthByHeight; ++i)
             {
                 rgba[0] = rgb[0];
                 rgba[1] = rgb[1];
@@ -459,15 +451,13 @@ void Texture2D::init(
                 rgb += 3;
                 rgba += 4;
             }
-            pixels.data = tmpPixels.data();
+            pixels.data = Span{tmpPixels.data(), tmpPixels.size()};
             pixels.channels = 4;
         }
 
         compress(scopeAlloc.child_scope(), cached, pixels, mipmap);
 
         writeCacheTag(cached, sourceWriteTime);
-
-        stbi_image_free(pixels.dataOwned);
     }
 
     // TODO:
@@ -579,6 +569,7 @@ void Texture3D::init(
             },
         .debugName = "Texture3DStaging",
     });
+    defer { gDevice.destroy(stagingBuffer); };
 
     WHEELS_ASSERT(dds.data.size() <= stagingBuffer.byteSize);
     memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
@@ -631,7 +622,6 @@ void Texture3D::init(
         _image.transition(cb, initialState);
 
     gDevice.endGraphicsCommands(cb);
-    gDevice.destroy(stagingBuffer);
 }
 
 vk::DescriptorImageInfo Texture3D::imageInfo() const
@@ -699,7 +689,6 @@ TextureCubemap::TextureCubemap(TextureCubemap &&other) noexcept
 
 TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
 {
-
     if (this != &other)
     {
         destroy();
@@ -736,6 +725,7 @@ void TextureCubemap::copyPixels(
             },
         .debugName = "TextureCubemapStaging",
     });
+    defer { gDevice.destroy(stagingBuffer); };
 
     memcpy(stagingBuffer.mapped, cube.data.data(), cube.data.size());
 
@@ -799,6 +789,4 @@ void TextureCubemap::copyPixels(
         vk::PipelineStageFlagBits::eFragmentShader);
 
     gDevice.endGraphicsCommands(copyBuffer);
-
-    gDevice.destroy(stagingBuffer);
 }
