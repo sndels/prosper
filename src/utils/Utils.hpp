@@ -164,4 +164,7 @@ T roundedUpQuotient(T dividend, T divisor)
     return ret;
 }
 
+#define TOKEN_APPEND_HELPER(x, y) x##y
+#define TOKEN_APPEND(x, y) TOKEN_APPEND_HELPER(x, y)
+
 #endif // PROSPER_UTILS_HPP
