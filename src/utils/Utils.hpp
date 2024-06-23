@@ -167,4 +167,17 @@ T roundedUpQuotient(T dividend, T divisor)
 #define TOKEN_APPEND_HELPER(x, y) x##y
 #define TOKEN_APPEND(x, y) TOKEN_APPEND_HELPER(x, y)
 
+// Deferred code execution, runs when the current scope ends
+// https://stackoverflow.com/a/42060129
+struct DeferDummy
+{
+};
+template <class F> struct Deferrer
+{
+    F f;
+    ~Deferrer() { f(); }
+};
+template <class F> Deferrer<F> operator*(DeferDummy, F f) { return {f}; }
+#define defer auto TOKEN_APPEND(zzDefer, __LINE__) = DeferDummy{} *[&]()
+
 #endif // PROSPER_UTILS_HPP
