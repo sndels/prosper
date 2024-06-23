@@ -53,7 +53,8 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  Combine");
 
     Output ret;
     {
@@ -110,7 +111,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "  Combine");
+        PROFILER_GPU_SCOPE(profiler, cb, "  Combine");
 
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
         const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);

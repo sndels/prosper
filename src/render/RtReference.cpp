@@ -174,6 +174,8 @@ RtReference::Output RtReference::record(
 {
     WHEELS_ASSERT(_initialized);
 
+    PROFILER_CPU_SCOPE(profiler, "RtReference");
+
     _frameIndex = ++_frameIndex % sFramePeriod;
 
     Output ret;
@@ -236,7 +238,7 @@ RtReference::Output RtReference::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "RtReference");
+        PROFILER_GPU_SCOPE(profiler, cb, "RtReference");
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
 

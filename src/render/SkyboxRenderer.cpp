@@ -85,7 +85,8 @@ void SkyboxRenderer::record(
     Profiler *profiler) const
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "Skybox");
 
     {
         const vk::Rect2D renderArea = getRect2D(inOutTargets.illumination);
@@ -133,7 +134,7 @@ void SkyboxRenderer::record(
                 },
         };
 
-        const auto _s = profiler->createCpuGpuScope(cb, "Skybox", true);
+        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "Skybox");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

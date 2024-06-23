@@ -102,7 +102,8 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
     Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  SpatialReuse");
 
     _frameIndex = ++_frameIndex % sFramePeriod;
 
@@ -172,7 +173,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "  SpatialReuse");
+        PROFILER_GPU_SCOPE(profiler, cb, "  SpatialReuse");
 
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
         const WorldByteOffsets &worldByteOffsets = world.byteOffsets();

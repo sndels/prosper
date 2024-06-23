@@ -232,7 +232,7 @@ void App::run()
             ScopedScratch scopeAlloc{scopeBackingAlloc};
 
             {
-                const auto _s = _profiler->createCpuScope("Window::startFrame");
+                PROFILER_CPU_SCOPE(_profiler, "Window::startFrame");
                 gWindow.startFrame();
             }
 
@@ -328,7 +328,7 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
 
 void App::recompileShaders(ScopedScratch scopeAlloc)
 {
-    const auto _s = _profiler->createCpuScope("App::recompileShaders");
+    PROFILER_CPU_SCOPE(_profiler, "App::recompileShaders");
 
     if (!_recompileShaders)
     {
@@ -447,7 +447,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
 void App::handleMouseGestures()
 {
-    const auto _s = _profiler->createCpuScope("App::handleMouseGestures");
+    PROFILER_CPU_SCOPE(_profiler, "App::handleMouseGestures");
 
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
@@ -698,7 +698,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     _cam->updateBuffer(_debugFrustum);
 
     {
-        auto _s = _profiler->createCpuScope("World::updateBuffers");
+        PROFILER_CPU_SCOPE(_profiler, "World::updateBuffers");
         _world->updateBuffers(scopeAlloc.child_scope());
     }
 
@@ -723,7 +723,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         },
         uiChanges);
 
-    _newSceneDataLoaded = _world->handleDeferredLoading(cb, *_profiler);
+    _newSceneDataLoaded = _world->handleDeferredLoading(cb, _profiler.get());
 
     _profiler->endGpuFrame(cb);
 
@@ -825,7 +825,7 @@ App::UiChanges App::drawUi(
     const Array<Profiler::ScopeData> &profilerDatas,
     uint32_t scopeHighWatermark)
 {
-    const auto _s = _profiler->createCpuScope("App::drawUi");
+    PROFILER_CPU_SCOPE(_profiler, "App::drawUi");
 
     UiChanges ret;
     // Actual scene change happens after the frame so let's initialize here with
@@ -1348,7 +1348,7 @@ void App::render(
     bool blasesAdded = false;
     if (_referenceRt || _deferredRt || _world->unbuiltBlases())
     {
-        auto _s = _profiler->createCpuGpuScope(cb, "BuildTLAS");
+        PROFILER_CPU_GPU_SCOPE(_profiler, cb, "BuildTLAS");
         blasesAdded =
             _world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
     }
@@ -1661,8 +1661,7 @@ ImageHandle App::blitColorToFinalComposite(
 
     // This scope has a barrier, but that's intentional as it should contain
     // both the clear and the blit
-    const auto _s =
-        _profiler->createCpuGpuScope(cb, "blitColorToFinalComposite");
+    PROFILER_CPU_GPU_SCOPE(_profiler, cb, "blitColorToFinalComposite");
 
     const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
     const vk::ImageSubresourceRange subresourceRange{
@@ -1794,7 +1793,7 @@ void App::blitFinalComposite(
     });
 
     {
-        const auto _s = _profiler->createCpuGpuScope(cb, "BlitFinalComposite");
+        PROFILER_CPU_GPU_SCOPE(_profiler, cb, "BlitFinalComposite");
 
         const vk::ImageSubresourceLayers layers{
             .aspectMask = vk::ImageAspectFlagBits::eColor,

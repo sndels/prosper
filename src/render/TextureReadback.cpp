@@ -80,7 +80,8 @@ void TextureReadback::record(
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(
         _framesUntilReady == -1 && "Readback already queued and unread");
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "TextureReadback");
 
     {
         const BufferHandle deviceReadback = gRenderResources.buffers->create(
@@ -125,7 +126,7 @@ void TextureReadback::record(
                     },
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "TextureReadback");
+        PROFILER_GPU_SCOPE(profiler, cb, "TextureReadback");
 
         const vk::Extent3D inRes =
             gRenderResources.images->resource(inTexture).extent;

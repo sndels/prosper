@@ -54,7 +54,8 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
     const DebugNames &debugNames, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, debugNames.scope);
 
     const Image &inRes =
         gRenderResources.images->resource(inIlluminationWeight);
@@ -100,7 +101,7 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
             }},
         });
 
-    const auto _s = profiler->createCpuGpuScope(cb, debugNames.scope);
+    PROFILER_GPU_SCOPE(profiler, cb, debugNames.scope);
 
     const vk::DescriptorSet descriptorSet = _computePass.storageSet(nextFrame);
 

@@ -108,7 +108,8 @@ void DebugRenderer::record(
     Profiler *profiler) const
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "Debug");
 
     {
         const vk::Rect2D renderArea = getRect2D(inOutTargets.color);
@@ -140,7 +141,7 @@ void DebugRenderer::record(
                 .storeOp = vk::AttachmentStoreOp::eStore,
             }};
 
-        const auto _s = profiler->createCpuGpuScope(cb, "Debug", true);
+        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "Debug");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

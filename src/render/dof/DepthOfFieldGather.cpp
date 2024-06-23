@@ -79,8 +79,12 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     GatherType gatherType, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
     WHEELS_ASSERT(gatherType < GatherType_Count);
+
+    const char *const debugString = gatherType == GatherType_Background
+                                        ? "  GatherBackground"
+                                        : "  GatherForeground";
+    PROFILER_CPU_SCOPE(profiler, debugString);
 
     ComputePass *computePass = gatherType == GatherType_Foreground
                                    ? &_foregroundPass
@@ -152,9 +156,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(
-            cb, gatherType == GatherType_Background ? "  GatherBackground"
-                                                    : "  GatherForeground");
+        PROFILER_GPU_SCOPE(profiler, cb, debugString);
 
         const PCBlock pcBlock{
             .halfResolution =

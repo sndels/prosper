@@ -112,11 +112,12 @@ void ImageBasedLighting::recordGeneration(
     uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
 
     SkyboxResources &skyboxResources = world.skyboxResources();
 
     {
+        PROFILER_CPU_SCOPE(profiler, "SampleIrradiance");
+
         const StaticArray descriptorInfos{{
             DescriptorInfo{skyboxResources.texture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -130,7 +131,7 @@ void ImageBasedLighting::recordGeneration(
         skyboxResources.irradiance.transition(
             cb, ImageState::ComputeShaderWrite);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "SampleIrradiance");
+        PROFILER_GPU_SCOPE(profiler, cb, "SampleIrradiance");
 
         const uvec3 extent =
             uvec3{uvec2{SkyboxResources::sSkyboxIrradianceResolution}, 6u};
@@ -148,6 +149,8 @@ void ImageBasedLighting::recordGeneration(
     }
 
     {
+        PROFILER_CPU_SCOPE(profiler, "IntegrateSpecularBrdf");
+
         const StaticArray descriptorInfos{
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = skyboxResources.specularBrdfLut.view,
@@ -160,8 +163,7 @@ void ImageBasedLighting::recordGeneration(
         skyboxResources.specularBrdfLut.transition(
             cb, ImageState::ComputeShaderWrite);
 
-        const auto _s =
-            profiler->createCpuGpuScope(cb, "IntegrateSpecularBrdf");
+        PROFILER_GPU_SCOPE(profiler, cb, "IntegrateSpecularBrdf");
 
         const uvec3 extent =
             uvec3{uvec2{SkyboxResources::sSpecularBrdfLutResolution}, 1u};
@@ -179,6 +181,8 @@ void ImageBasedLighting::recordGeneration(
     }
 
     {
+        PROFILER_CPU_SCOPE(profiler, "PrefilterRadiance");
+
         const uint32_t mipCount = skyboxResources.radiance.mipCount;
         WHEELS_ASSERT(mipCount == skyboxResources.radianceViews.size());
 
@@ -205,7 +209,7 @@ void ImageBasedLighting::recordGeneration(
 
         skyboxResources.radiance.transition(cb, ImageState::ComputeShaderWrite);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "PrefilterRadiance");
+        PROFILER_GPU_SCOPE(profiler, cb, "PrefilterRadiance");
 
         // TODO:
         // The number of groups is overkill here as each mip is a quarter of the

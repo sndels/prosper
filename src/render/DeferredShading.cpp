@@ -125,7 +125,8 @@ DeferredShading::Output DeferredShading::record(
     bool applyIbl, DrawType drawType, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "DeferredShading");
 
     Output ret;
     {
@@ -187,7 +188,7 @@ DeferredShading::Output DeferredShading::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "DeferredShading");
+        PROFILER_GPU_SCOPE(profiler, cb, "DeferredShading");
 
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(drawType),

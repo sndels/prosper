@@ -130,8 +130,8 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 void ImGuiRenderer::startFrame(Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
-    const auto _s = profiler->createCpuScope("ImGui::startFrame");
+
+    PROFILER_CPU_SCOPE(profiler, "ImGui::startFrame");
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -149,19 +149,20 @@ void ImGuiRenderer::endFrame(
     Profiler *profiler) const
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
 
     {
-        const auto _s = profiler->createCpuScope("ImGui::render");
+        PROFILER_CPU_SCOPE(profiler, "ImGui::render");
         ImGui::Render();
     }
     ImDrawData *drawData = ImGui::GetDrawData();
 
     {
+        PROFILER_CPU_SCOPE(profiler, "ImGui::draw");
+
         gRenderResources.images->transition(
             cb, inOutColor, ImageState::ColorAttachmentReadWrite);
 
-        const auto _s = profiler->createCpuGpuScope(cb, "ImGui::draw", true);
+        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "ImGui::draw");
 
         const vk::RenderingAttachmentInfo attachment{
             .imageView = gRenderResources.images->resource(inOutColor).view,

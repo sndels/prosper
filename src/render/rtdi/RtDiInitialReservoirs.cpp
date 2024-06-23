@@ -102,7 +102,8 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
     const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  InitialReservoirs");
 
     _frameIndex = ++_frameIndex % sFramePeriod;
 
@@ -161,7 +162,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "  InitialReservoirs");
+        PROFILER_GPU_SCOPE(profiler, cb, "  InitialReservoirs");
 
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
         const WorldByteOffsets &worldByteOffsets = world.byteOffsets();

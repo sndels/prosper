@@ -341,9 +341,7 @@ AccelerationStructure &World::Impl::currentTLAS()
 
 void World::Impl::updateAnimations(float timeS, Profiler *profiler)
 {
-    WHEELS_ASSERT(profiler != nullptr);
-
-    auto _s = profiler->createCpuScope("World::updateAnimations");
+    PROFILER_CPU_SCOPE(profiler, "World::updateAnimations");
 
     for (Animation<vec3> &animation : _data._animations._vec3)
         animation.update(timeS);
@@ -355,11 +353,10 @@ void World::Impl::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
     SceneStats *sceneStats, Profiler *profiler)
 {
-    WHEELS_ASSERT(profiler != nullptr);
     WHEELS_ASSERT(cameraTransform != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
 
-    auto _s = profiler->createCpuScope("World::updateScene");
+    PROFILER_CPU_SCOPE(profiler, "World::updateScene");
 
     Scene &scene = currentScene();
 
@@ -972,7 +969,7 @@ void World::endFrame()
     _impl->endFrame();
 }
 
-bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler)
+bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
     return _impl->_data.handleDeferredLoading(cb, profiler);

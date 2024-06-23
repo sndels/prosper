@@ -249,7 +249,8 @@ ImageHandle TextureDebug::record(
     Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "TextureDebug");
 
     ImageHandle ret;
     {
@@ -350,7 +351,7 @@ ImageHandle TextureDebug::record(
                         },
                 });
 
-            const auto _s = profiler->createCpuGpuScope(cb, "TextureDebug");
+            PROFILER_GPU_SCOPE(profiler, cb, "TextureDebug");
 
             const vk::Extent3D inExtent =
                 gRenderResources.images->resource(inColor).extent;

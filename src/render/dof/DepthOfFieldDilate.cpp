@@ -61,7 +61,8 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
     const Camera &cam, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  Dilate");
 
     Output ret;
     {
@@ -105,7 +106,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "  Dilate");
+        PROFILER_GPU_SCOPE(profiler, cb, "  Dilate");
 
         const CameraParameters &camParams = cam.parameters();
         const float maxBgCoCInUnits =

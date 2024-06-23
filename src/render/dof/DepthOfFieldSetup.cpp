@@ -82,7 +82,8 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  Setup");
 
     Output ret;
     {
@@ -158,7 +159,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "  Setup");
+        PROFILER_GPU_SCOPE(profiler, cb, "  Setup");
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};

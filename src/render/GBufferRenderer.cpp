@@ -114,7 +114,8 @@ GBufferRendererOutput GBufferRenderer::record(
     WHEELS_ASSERT(_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "GBuffer");
 
     GBufferRendererOutput ret;
     {
@@ -214,7 +215,7 @@ GBufferRendererOutput GBufferRenderer::record(
                 },
         };
 
-        const auto _s = profiler->createCpuGpuScope(cb, "GBuffer", true);
+        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "GBuffer");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

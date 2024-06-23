@@ -56,7 +56,8 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
     Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  Flatten");
 
     Output ret;
     {
@@ -101,7 +102,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "  Flatten");
+        PROFILER_GPU_SCOPE(profiler, cb, "  Flatten");
 
         const uvec3 extent = uvec3{inputExtent.width, inputExtent.height, 1u};
         const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);

@@ -210,7 +210,8 @@ MeshletCullerOutput MeshletCuller::record(
     String scopeName{scopeAlloc};
     scopeName.extend(debugPrefix);
     scopeName.extend("DrawList");
-    const auto _s = profiler->createCpuGpuScope(cb, scopeName.c_str());
+
+    PROFILER_CPU_GPU_SCOPE(profiler, cb, scopeName.c_str());
 
     const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,

@@ -99,7 +99,8 @@ void DepthOfFieldReduce::record(
     Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "  Reduce");
 
     const Image &inOutRes =
         gRenderResources.images->resource(inOutIlluminationMips);
@@ -173,7 +174,7 @@ void DepthOfFieldReduce::record(
         _counterNotCleared = false;
     }
 
-    const auto _s = profiler->createCpuGpuScope(cb, "  Reduce");
+    PROFILER_GPU_SCOPE(profiler, cb, "  Reduce");
 
     const vk::DescriptorSet descriptorSet = _computePass.storageSet(nextFrame);
 

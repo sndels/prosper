@@ -48,9 +48,10 @@ DepthOfField::Output DepthOfField::record(
 {
     WHEELS_ASSERT(_initialized);
 
+    PROFILER_CPU_GPU_SCOPE(profiler, cb, "DepthOfField");
+
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "DepthOfField");
 
         const DepthOfFieldSetup::Output setupOutput = _setupPass.record(
             scopeAlloc.child_scope(), cb, cam, input, nextFrame, profiler);

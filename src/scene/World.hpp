@@ -30,7 +30,7 @@ class World
     void endFrame();
 
     // Returns true if the visible scene was changed.
-    bool handleDeferredLoading(vk::CommandBuffer cb, Profiler &profiler);
+    bool handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler);
     bool unbuiltBlases() const;
 
     void drawDeferredLoadingUi() const;

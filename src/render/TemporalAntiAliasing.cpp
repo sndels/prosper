@@ -143,7 +143,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
     WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(profiler != nullptr);
+
+    PROFILER_CPU_SCOPE(profiler, "TemporalAntiAliasing");
 
     Output ret;
     {
@@ -229,7 +230,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "TemporalAntiAliasing");
+        PROFILER_GPU_SCOPE(profiler, cb, "TemporalAntiAliasing");
 
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
 

@@ -71,9 +71,10 @@ RtDirectIllumination::Output RtDirectIllumination::record(
 {
     WHEELS_ASSERT(_initialized);
 
+    PROFILER_CPU_GPU_SCOPE(profiler, cb, "RtDirectIllumination");
+
     Output ret;
     {
-        const auto _s = profiler->createCpuGpuScope(cb, "RtDirectIllumination");
 
         const RtDiInitialReservoirs::Output initialReservoirsOutput =
             _initialReservoirs.record(

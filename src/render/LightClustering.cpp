@@ -171,6 +171,8 @@ LightClusteringOutput LightClustering::record(
 {
     WHEELS_ASSERT(_initialized);
 
+    PROFILER_CPU_SCOPE(profiler, "LightClustering");
+
     LightClusteringOutput ret;
     {
         ret = createOutputs(renderExtent);
@@ -203,7 +205,7 @@ LightClusteringOutput LightClustering::record(
                 }},
             });
 
-        const auto _s = profiler->createCpuGpuScope(cb, "LightClustering");
+        PROFILER_GPU_SCOPE(profiler, cb, "LightClustering");
 
         { // Reset count
             const TexelBuffer &indicesCount =
