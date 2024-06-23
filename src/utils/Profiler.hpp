@@ -6,6 +6,7 @@
 #include "../gfx/Resources.hpp"
 #include "../utils/Utils.hpp"
 
+#include <wheels/assert.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/span.hpp>
@@ -276,5 +277,40 @@ class Profiler
     wheels::Array<GpuFrameProfiler::ScopeData> _previousGpuScopeData{
         gAllocators.general, sMaxScopeCount};
 };
+
+// The scope variable is never accessed so let's reduce the noise with a macro
+// zz* to push the local variable to the bottom of the locals list in debuggers
+#define PROFILER_CPU_SCOPE(profiler, name)                                     \
+    WHEELS_ASSERT(profiler != nullptr);                                        \
+    const Profiler::Scope TOKEN_APPEND(zzCpuScope, __LINE__) =                 \
+        profiler->createCpuScope(name);
+
+// The scope variable is never accessed so let's reduce the noise with a macro
+// zz* to push the local variable to the bottom of the locals list in debuggers
+#define PROFILER_GPU_SCOPE(profiler, cb, name)                                 \
+    WHEELS_ASSERT(profiler != nullptr);                                        \
+    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
+        profiler->createGpuScope(cb, name, false);
+
+// The scope variable is never accessed so let's reduce the noise with a macro
+// zz* to push the local variable to the bottom of the locals list in debuggers
+#define PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, name)                      \
+    WHEELS_ASSERT(profiler != nullptr);                                        \
+    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
+        profiler->createGpuScope(cb, name, true);
+
+// The scope variable is never accessed so let's reduce the noise with a macro
+// zz* to push the local variable to the bottom of the locals list in debuggers
+#define PROFILER_CPU_GPU_SCOPE(profiler, cb, name)                             \
+    WHEELS_ASSERT(profiler != nullptr);                                        \
+    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
+        profiler->createCpuGpuScope(cb, name, false);
+
+// The scope variable is never accessed so let's reduce the noise with a macro
+// zz* to push the local variable to the bottom of the locals list in debuggers
+#define PROFILER_CPU_GPU_SCOPE_WITH_STATS(profiler, cb, name)                  \
+    WHEELS_ASSERT(profiler != nullptr);                                        \
+    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
+        profiler->createCpuGpuScope(cb, name, true);
 
 #endif // PROSPER_UTILS_PROFILER_HPP
