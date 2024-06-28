@@ -385,10 +385,11 @@ ImageHandle TextureDebug::record(
                 .cursorUv = cursorUv,
             };
 
-            const uvec3 extent = uvec3{outSize.width, outSize.height, 1u};
+            const uvec3 groupCount = m_computePass.groupCount(
+                uvec3{outSize.width, outSize.height, 1u});
             const vk::DescriptorSet storageSet =
                 m_computePass.storageSet(nextFrame);
-            m_computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
+            m_computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
 
             gRenderResources.buffers->transition(
                 cb, deviceReadback, BufferState::TransferSrc);

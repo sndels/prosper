@@ -113,10 +113,11 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
 
         PROFILER_GPU_SCOPE(profiler, cb, "  Combine");
 
-        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
+        const uvec3 groupCount = m_computePass.groupCount(
+            uvec3{renderExtent.width, renderExtent.height, 1u});
         const vk::DescriptorSet storageSet =
             m_computePass.storageSet(nextFrame);
-        m_computePass.record(cb, extent, Span{&storageSet, 1});
+        m_computePass.record(cb, groupCount, Span{&storageSet, 1});
     }
 
     return ret;

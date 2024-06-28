@@ -105,13 +105,9 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
 
     const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
-    // Compute pass calculates group counts assuming extent / groupSize
-    // TODO:
-    // Rethink this interface. record() might be better off taking in group size
-    // and there could be a groupSize(extent)-method that can be used to get the
-    // typical calculation.
-    const uvec3 extent{inRes.extent.width, inRes.extent.height, 1};
-    m_computePass.record(cb, extent, Span{&descriptorSet, 1});
+    const uvec3 groupCount = m_computePass.groupCount(
+        uvec3{inRes.extent.width, inRes.extent.height, 1});
+    m_computePass.record(cb, groupCount, Span{&descriptorSet, 1});
 
     return ret;
 }

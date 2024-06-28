@@ -232,7 +232,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
         PROFILER_GPU_SCOPE(profiler, cb, "TemporalAntiAliasing");
 
-        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
+        const uvec3 groupCount = m_computePass.groupCount(
+            uvec3{renderExtent.width, renderExtent.height, 1u});
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -252,7 +253,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                     .luminanceWeighting = m_luminanceWeighting,
                 }),
             },
-            extent, descriptorSets, Span{&camOffset, 1});
+            groupCount, descriptorSets, Span{&camOffset, 1});
 
         gRenderResources.images->release(m_previousResolveOutput);
         m_previousResolveOutput = ret.resolvedIllumination;

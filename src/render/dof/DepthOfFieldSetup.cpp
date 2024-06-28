@@ -183,9 +183,10 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             .maxBackgroundCoC = maxBgCoCInHalfResPixels,
             .maxCoC = maxBgCoCInHalfResPixels * DepthOfField::sMaxFgCoCFactor,
         };
-        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
+        const uvec3 groupCount = m_computePass.groupCount(
+            uvec3{renderExtent.width, renderExtent.height, 1u});
         m_computePass.record(
-            cb, pcBlock, extent, descriptorSets, Span{&cameraOffset, 1});
+            cb, pcBlock, groupCount, descriptorSets, Span{&cameraOffset, 1});
     }
 
     return ret;

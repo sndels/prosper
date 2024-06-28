@@ -240,15 +240,12 @@ LightClusteringOutput LightClustering::record(
 
             const vk::Extent3D &outputExtent =
                 gRenderResources.images->resource(ret.pointers).extent;
-            // Each cluster should have a separate compute group
-            const uvec3 extent =
-                uvec3{
-                    outputExtent.width, outputExtent.height,
-                    outputExtent.depth} *
-                uvec3{sGroupDim, sGroupDim, 1u};
 
+            // Each cluster should have a separate compute group
+            const uvec3 groupCount{
+                outputExtent.width, outputExtent.height, outputExtent.depth};
             m_computePass.record(
-                cb, pcBlock, extent, descriptorSets, dynamicOffsets);
+                cb, pcBlock, groupCount, descriptorSets, dynamicOffsets);
         }
     }
 

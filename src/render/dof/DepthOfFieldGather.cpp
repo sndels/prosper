@@ -86,9 +86,9 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                                         : "  GatherForeground";
     PROFILER_CPU_SCOPE(profiler, debugString);
 
-    ComputePass *computePass = gatherType == GatherType_Foreground
-                                   ? &m_foregroundPass
-                                   : &m_backgroundPass;
+    ComputePass &computePass = gatherType == GatherType_Foreground
+                                   ? m_foregroundPass
+                                   : m_backgroundPass;
 
     if (gatherType == GatherType_Foreground)
         m_frameIndex = (m_frameIndex + 1) % 128;
@@ -109,7 +109,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
             gatherType == GatherType_Background ? "halfResBgBokehColorWeight"
                                                 : "halfResFgBokehColorWeight");
 
-        computePass->updateDescriptorSet(
+        computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -169,9 +169,10 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                                      static_cast<float>(renderExtent.height)},
             .frameIndex = m_frameIndex,
         };
-        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
-        const vk::DescriptorSet storageSet = computePass->storageSet(nextFrame);
-        computePass->record(cb, pcBlock, extent, Span{&storageSet, 1});
+        const uvec3 groupCount = computePass.groupCount(
+            uvec3{renderExtent.width, renderExtent.height, 1u});
+        const vk::DescriptorSet storageSet = computePass.storageSet(nextFrame);
+        computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
     }
 
     return ret;

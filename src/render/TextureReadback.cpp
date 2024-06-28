@@ -134,10 +134,10 @@ void TextureReadback::record(
             .uv = px / vec2(inRes.width, inRes.height),
         };
 
-        const uvec3 extent = uvec3{1u, 1u, 1u};
+        const uvec3 groupCount{1u, 1u, 1u};
         const vk::DescriptorSet storageSet =
             m_computePass.storageSet(nextFrame);
-        m_computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
+        m_computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
 
         gRenderResources.buffers->transition(
             cb, deviceReadback, BufferState::TransferSrc);

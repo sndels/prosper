@@ -101,7 +101,7 @@ void ComputePass::updateDescriptorSet(
 
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
+    // Have to compare against both groupCount and previous native handle?
     const vk::DescriptorSet ds = m_storageSets[nextFrame][m_nextRecordIndex];
 
     WHEELS_ASSERT(m_shaderReflection.has_value());
@@ -133,14 +133,22 @@ vk::DescriptorSetLayout ComputePass::storageSetLayout() const
     return m_storageSetLayout;
 }
 
+uvec3 ComputePass::groupCount(uvec3 inputSize) const
+{
+    WHEELS_ASSERT(all(greaterThan(inputSize, glm::uvec3{0u})));
+    const uvec3 count = (inputSize - 1u) / m_groupSize + 1u;
+
+    return count;
+}
+
 void ComputePass::record(
-    vk::CommandBuffer cb, const uvec3 &extent,
+    vk::CommandBuffer cb, const uvec3 &groupCount,
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets)
 {
     WHEELS_ASSERT(m_initialized);
 
-    WHEELS_ASSERT(all(greaterThan(extent, glm::uvec3{0u})));
+    WHEELS_ASSERT(all(greaterThan(groupCount, glm::uvec3{0u})));
     WHEELS_ASSERT(
         dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
@@ -154,9 +162,7 @@ void ComputePass::record(
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
-    const uvec3 groups = (extent - 1u) / m_groupSize + 1u;
-
-    cb.dispatch(groups.x, groups.y, groups.z);
+    cb.dispatch(groupCount.x, groupCount.y, groupCount.z);
 
     if (m_storageSets[0].size() > 1)
     {
@@ -195,13 +201,13 @@ void ComputePass::record(
 }
 
 void ComputePass::record(
-    vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes, const uvec3 &extent,
-    Span<const vk::DescriptorSet> descriptorSets,
+    vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes,
+    const uvec3 &groupCount, Span<const vk::DescriptorSet> descriptorSets,
     Span<const uint32_t> dynamicOffsets)
 {
     WHEELS_ASSERT(m_initialized);
 
-    WHEELS_ASSERT(all(greaterThan(extent, uvec3{0u})));
+    WHEELS_ASSERT(all(greaterThan(groupCount, uvec3{0u})));
     WHEELS_ASSERT(m_shaderReflection.has_value());
     WHEELS_ASSERT(
         pcBlockBytes.size() == m_shaderReflection->pushConstantsBytesize());
@@ -221,9 +227,7 @@ void ComputePass::record(
         m_pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
         asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
 
-    const uvec3 groups = (extent - 1u) / m_groupSize + 1u;
-
-    cb.dispatch(groups.x, groups.y, groups.z);
+    cb.dispatch(groupCount.x, groupCount.y, groupCount.z);
 
     if (m_storageSets[0].size() > 1)
     {

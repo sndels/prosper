@@ -347,12 +347,9 @@ BufferHandle MeshletCuller::recordGenerateList(
         worldByteOffsets.globalMaterialConstants,
     }};
 
-    // We want group per instance so multiply the extent by thread count
-    const uvec3 extent =
-        glm::uvec3{scene.drawInstanceCount * sGeneratorGroupSize, 1u, 1u};
-
+    const uvec3 groupCount{scene.drawInstanceCount, 1u, 1u};
     m_drawListGenerator.record(
-        cb, pcBlock, extent, descriptorSets, dynamicOffsets);
+        cb, pcBlock, groupCount, descriptorSets, dynamicOffsets);
 
     return ret;
 }
@@ -398,7 +395,8 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
 
     const vk::DescriptorSet ds = m_cullerArgumentsWriter.storageSet(nextFrame);
 
-    m_cullerArgumentsWriter.record(cb, glm::uvec3{1, 1, 1}, Span{&ds, 1});
+    const uvec3 groupCount{1, 1, 1};
+    m_cullerArgumentsWriter.record(cb, groupCount, Span{&ds, 1});
 
     return ret;
 }

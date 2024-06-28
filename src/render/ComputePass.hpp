@@ -71,9 +71,13 @@ class ComputePass
     [[nodiscard]] vk::DescriptorSet storageSet(uint32_t nextFrame) const;
     [[nodiscard]] vk::DescriptorSetLayout storageSetLayout() const;
 
+    // Returns the rounded up group count required to process the input with
+    // m_groupSize threads per group
+    [[nodiscard]] glm::uvec3 groupCount(glm::uvec3 inputSize) const;
+
     // Increments the conuter for descriptor sets.
     void record(
-        vk::CommandBuffer cb, const glm::uvec3 &extent,
+        vk::CommandBuffer cb, const glm::uvec3 &groupCount,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
@@ -86,7 +90,8 @@ class ComputePass
     // Increments the conuter for descriptor sets.
     template <typename PCBlock>
     void record(
-        vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &extent,
+        vk::CommandBuffer cb, const PCBlock &pcBlock,
+        const glm::uvec3 &groupCount,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
@@ -97,7 +102,7 @@ class ComputePass
 
     void record(
         vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
-        const glm::uvec3 &extent,
+        const glm::uvec3 &groupCount,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
@@ -135,7 +140,7 @@ class ComputePass
 
 template <typename PCBlock>
 void ComputePass::record(
-    vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &extent,
+    vk::CommandBuffer cb, const PCBlock &pcBlock, const glm::uvec3 &groupCount,
     wheels::Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets)
 {
@@ -143,7 +148,7 @@ void ComputePass::record(
         cb,
         wheels::Span{
             reinterpret_cast<const uint8_t *>(&pcBlock), sizeof(pcBlock)},
-        extent, descriptorSets, dynamicOffsets);
+        groupCount, descriptorSets, dynamicOffsets);
 }
 
 #endif // PROSPER_RENDER_COMPUTE_PASS_HPP

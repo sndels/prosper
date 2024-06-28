@@ -124,7 +124,8 @@ ToneMap::Output ToneMap::record(
 
         PROFILER_GPU_SCOPE(profiler, cb, "ToneMap");
 
-        const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
+        const uvec3 groupCount = m_computePass.groupCount(
+            uvec3{renderExtent.width, renderExtent.height, 1u});
 
         const vk::DescriptorSet storageSet =
             m_computePass.storageSet(nextFrame);
@@ -134,7 +135,7 @@ ToneMap::Output ToneMap::record(
                 .exposure = m_exposure,
                 .contrast = m_contrast,
             },
-            extent, Span{&storageSet, 1});
+            groupCount, Span{&storageSet, 1});
     }
 
     return ret;
