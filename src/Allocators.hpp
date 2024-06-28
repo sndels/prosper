@@ -21,6 +21,10 @@ struct Allocators
     static const size_t sLoadingAllocatorSize =
         sLoadingScratchSize + wheels::megabytes(16);
 
+    // NOTE:
+    // References/pointers to these can already be stored to before init() is
+    // called on them. Any actual access to the allocator has to happen
+    // reliably after init(), of course.
     wheels::TlsfAllocator general;
     wheels::TlsfAllocator loadingWorker;
     std::atomic<size_t> loadingWorkerHighWatermark{0};
