@@ -109,14 +109,14 @@ void ImageBasedLighting::recompileShaders(
 
 void ImageBasedLighting::recordGeneration(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
-    uint32_t nextFrame, Profiler *profiler)
+    uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
     SkyboxResources &skyboxResources = world.skyboxResources();
 
     {
-        PROFILER_CPU_SCOPE(profiler, "SampleIrradiance");
+        PROFILER_CPU_SCOPE("SampleIrradiance");
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{skyboxResources.texture.imageInfo()},
@@ -131,7 +131,7 @@ void ImageBasedLighting::recordGeneration(
         skyboxResources.irradiance.transition(
             cb, ImageState::ComputeShaderWrite);
 
-        PROFILER_GPU_SCOPE(profiler, cb, "SampleIrradiance");
+        PROFILER_GPU_SCOPE(cb, "SampleIrradiance");
 
         const uvec3 groupCount = m_sampleIrradiance.groupCount(
             uvec3{uvec2{SkyboxResources::sSkyboxIrradianceResolution}, 6u});
@@ -149,7 +149,7 @@ void ImageBasedLighting::recordGeneration(
     }
 
     {
-        PROFILER_CPU_SCOPE(profiler, "IntegrateSpecularBrdf");
+        PROFILER_CPU_SCOPE("IntegrateSpecularBrdf");
 
         const StaticArray descriptorInfos{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -163,7 +163,7 @@ void ImageBasedLighting::recordGeneration(
         skyboxResources.specularBrdfLut.transition(
             cb, ImageState::ComputeShaderWrite);
 
-        PROFILER_GPU_SCOPE(profiler, cb, "IntegrateSpecularBrdf");
+        PROFILER_GPU_SCOPE(cb, "IntegrateSpecularBrdf");
 
         const uvec3 groupCount = m_integrateSpecularBrdf.groupCount(
             uvec3{uvec2{SkyboxResources::sSpecularBrdfLutResolution}, 1u});
@@ -181,7 +181,7 @@ void ImageBasedLighting::recordGeneration(
     }
 
     {
-        PROFILER_CPU_SCOPE(profiler, "PrefilterRadiance");
+        PROFILER_CPU_SCOPE("PrefilterRadiance");
 
         const uint32_t mipCount = skyboxResources.radiance.mipCount;
         WHEELS_ASSERT(mipCount == skyboxResources.radianceViews.size());
@@ -209,7 +209,7 @@ void ImageBasedLighting::recordGeneration(
 
         skyboxResources.radiance.transition(cb, ImageState::ComputeShaderWrite);
 
-        PROFILER_GPU_SCOPE(profiler, cb, "PrefilterRadiance");
+        PROFILER_GPU_SCOPE(cb, "PrefilterRadiance");
 
         // TODO:
         // The number of groups is overkill here as each mip is a quarter of the

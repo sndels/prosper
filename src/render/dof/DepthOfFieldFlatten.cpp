@@ -52,12 +52,11 @@ void DepthOfFieldFlatten::recompileShaders(
 
 DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    ImageHandle halfResCircleOfConfusion, const uint32_t nextFrame,
-    Profiler *profiler)
+    ImageHandle halfResCircleOfConfusion, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  Flatten");
+    PROFILER_CPU_SCOPE("  Flatten");
 
     Output ret;
     {
@@ -102,7 +101,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  Flatten");
+        PROFILER_GPU_SCOPE(cb, "  Flatten");
 
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{inputExtent.width, inputExtent.height, 1u});

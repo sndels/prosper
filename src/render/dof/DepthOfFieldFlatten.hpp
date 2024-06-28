@@ -42,8 +42,7 @@ class DepthOfFieldFlatten
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle halfResCircleOfConfusion, uint32_t nextFrame,
-        Profiler *profiler);
+        ImageHandle halfResCircleOfConfusion, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

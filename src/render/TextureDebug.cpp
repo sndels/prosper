@@ -245,12 +245,11 @@ void TextureDebug::drawUi(uint32_t nextFrame)
 
 ImageHandle TextureDebug::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, vk::Extent2D outSize,
-    wheels::Optional<glm::vec2> cursorCoord, uint32_t nextFrame,
-    Profiler *profiler)
+    wheels::Optional<glm::vec2> cursorCoord, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "TextureDebug");
+    PROFILER_CPU_SCOPE("TextureDebug");
 
     ImageHandle ret;
     {
@@ -351,7 +350,7 @@ ImageHandle TextureDebug::record(
                         },
                 });
 
-            PROFILER_GPU_SCOPE(profiler, cb, "TextureDebug");
+            PROFILER_GPU_SCOPE(cb, "TextureDebug");
 
             const vk::Extent3D inExtent =
                 gRenderResources.images->resource(inColor).extent;

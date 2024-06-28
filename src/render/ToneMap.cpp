@@ -69,11 +69,11 @@ void ToneMap::drawUi()
 
 ToneMap::Output ToneMap::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle inColor,
-    const uint32_t nextFrame, Profiler *profiler)
+    const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "ToneMap");
+    PROFILER_CPU_SCOPE("ToneMap");
 
     Output ret;
     {
@@ -122,7 +122,7 @@ ToneMap::Output ToneMap::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "ToneMap");
+        PROFILER_GPU_SCOPE(cb, "ToneMap");
 
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{renderExtent.width, renderExtent.height, 1u});

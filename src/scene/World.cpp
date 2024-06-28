@@ -130,11 +130,11 @@ class World::Impl
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
     [[nodiscard]] AccelerationStructure &currentTLAS();
-    void updateAnimations(float timeS, Profiler *profiler);
+    void updateAnimations(float timeS);
     // Has to be called after updateAnimations()
     void updateScene(
         ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-        SceneStats *sceneStats, Profiler *profiler);
+        SceneStats *sceneStats);
     void updateBuffers(ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
@@ -340,9 +340,9 @@ AccelerationStructure &World::Impl::currentTLAS()
     return m_data.m_tlases[m_data.m_currentScene];
 }
 
-void World::Impl::updateAnimations(float timeS, Profiler *profiler)
+void World::Impl::updateAnimations(float timeS)
 {
-    PROFILER_CPU_SCOPE(profiler, "World::updateAnimations");
+    PROFILER_CPU_SCOPE("World::updateAnimations");
 
     for (Animation<vec3> &animation : m_data.m_animations.vec3)
         animation.update(timeS);
@@ -352,12 +352,12 @@ void World::Impl::updateAnimations(float timeS, Profiler *profiler)
 
 void World::Impl::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-    SceneStats *sceneStats, Profiler *profiler)
+    SceneStats *sceneStats)
 {
     WHEELS_ASSERT(cameraTransform != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
 
-    PROFILER_CPU_SCOPE(profiler, "World::updateScene");
+    PROFILER_CPU_SCOPE("World::updateScene");
 
     Scene &scene = currentScene();
 
@@ -974,10 +974,10 @@ void World::endFrame()
     m_impl->endFrame();
 }
 
-bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
+bool World::handleDeferredLoading(vk::CommandBuffer cb)
 {
     WHEELS_ASSERT(m_initialized);
-    return m_impl->m_data.handleDeferredLoading(cb, profiler);
+    return m_impl->m_data.handleDeferredLoading(cb);
 }
 
 bool World::unbuiltBlases() const
@@ -1050,19 +1050,18 @@ void World::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
     m_impl->uploadMaterialDatas(nextFrame, lodBias);
 }
 
-void World::updateAnimations(float timeS, Profiler *profiler)
+void World::updateAnimations(float timeS)
 {
     WHEELS_ASSERT(m_initialized);
-    m_impl->updateAnimations(timeS, profiler);
+    m_impl->updateAnimations(timeS);
 }
 
 void World::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-    SceneStats *sceneStats, Profiler *profiler)
+    SceneStats *sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
-    m_impl->updateScene(
-        WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats, profiler);
+    m_impl->updateScene(WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats);
 }
 
 void World::updateBuffers(ScopedScratch scopeAlloc)

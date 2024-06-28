@@ -47,8 +47,7 @@ class GBufferRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
-        DrawType drawType, uint32_t nextFrame, SceneStats *sceneStats,
-        Profiler *profiler);
+        DrawType drawType, uint32_t nextFrame, SceneStats *sceneStats);
 
   private:
     [[nodiscard]] bool compileShaders(

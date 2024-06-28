@@ -58,11 +58,11 @@ void DepthOfFieldDilate::recompileShaders(
 
 DepthOfFieldDilate::Output DepthOfFieldDilate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle tileMinMaxCoC,
-    const Camera &cam, const uint32_t nextFrame, Profiler *profiler)
+    const Camera &cam, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  Dilate");
+    PROFILER_CPU_SCOPE("  Dilate");
 
     Output ret;
     {
@@ -106,7 +106,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  Dilate");
+        PROFILER_GPU_SCOPE(cb, "  Dilate");
 
         const CameraParameters &camParams = cam.parameters();
         const float maxBgCoCInUnits =

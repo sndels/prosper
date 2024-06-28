@@ -32,7 +32,7 @@ class ImageBasedLighting
 
     void recordGeneration(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
-        uint32_t nextFrame, Profiler *profiler);
+        uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

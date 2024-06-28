@@ -143,11 +143,11 @@ void RtDiTrace::recompileShaders(
 RtDiTrace::Output RtDiTrace::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     const Camera &cam, const Input &input, bool resetAccumulation,
-    DrawType drawType, uint32_t nextFrame, Profiler *profiler)
+    DrawType drawType, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  Trace");
+    PROFILER_CPU_SCOPE("  Trace");
 
     m_frameIndex = ++m_frameIndex % sFramePeriod;
 
@@ -211,7 +211,7 @@ RtDiTrace::Output RtDiTrace::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  Trace");
+        PROFILER_GPU_SCOPE(cb, "  Trace");
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, m_pipeline);
 

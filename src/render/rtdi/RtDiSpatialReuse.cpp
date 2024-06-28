@@ -98,12 +98,11 @@ bool RtDiSpatialReuse::recompileShaders(
 
 RtDiSpatialReuse::Output RtDiSpatialReuse::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const Input &input, const uint32_t nextFrame,
-    Profiler *profiler)
+    const Camera &cam, const Input &input, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  SpatialReuse");
+    PROFILER_CPU_SCOPE("  SpatialReuse");
 
     m_frameIndex = ++m_frameIndex % sFramePeriod;
 
@@ -173,7 +172,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  SpatialReuse");
+        PROFILER_GPU_SCOPE(cb, "  SpatialReuse");
 
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
         const WorldByteOffsets &worldByteOffsets = world.byteOffsets();

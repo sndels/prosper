@@ -37,8 +37,7 @@ class TextureReadback
     // time. Should be plenty as long as these are used for UI things.
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle inTexture, glm::vec2 px, uint32_t nextFrame,
-        Profiler *profiler);
+        ImageHandle inTexture, glm::vec2 px, uint32_t nextFrame);
 
     // Call this to get the result of the queued readback if it has finished.
     // Returns empty when the readback hasn't finished.

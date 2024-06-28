@@ -99,11 +99,11 @@ bool RtDiInitialReservoirs::recompileShaders(
 RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const GBufferRendererOutput &gbuffer,
-    const uint32_t nextFrame, Profiler *profiler)
+    const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  InitialReservoirs");
+    PROFILER_CPU_SCOPE("  InitialReservoirs");
 
     m_frameIndex = ++m_frameIndex % sFramePeriod;
 
@@ -162,7 +162,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  InitialReservoirs");
+        PROFILER_GPU_SCOPE(cb, "  InitialReservoirs");
 
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
         const WorldByteOffsets &worldByteOffsets = world.byteOffsets();

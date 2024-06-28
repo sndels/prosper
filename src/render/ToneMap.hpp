@@ -39,7 +39,7 @@ class ToneMap
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle inColor, uint32_t nextFrame, Profiler *profiler);
+        ImageHandle inColor, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

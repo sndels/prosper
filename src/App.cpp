@@ -96,7 +96,6 @@ App::App(std::filesystem::path scenePath) noexcept
 , m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
 , m_meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
 , m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
-, m_profiler{OwningPtr<Profiler>{gAllocators.general}}
 {
 }
 
@@ -193,8 +192,6 @@ void App::init(ScopedScratch scopeAlloc)
     m_recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
-    m_profiler->init();
-
     m_cam->lookAt(m_sceneCameraTransform);
     m_cam->setParameters(m_cameraParameters);
     m_cam->updateResolution(
@@ -224,13 +221,13 @@ void App::run()
     {
         while (gWindow.open())
         {
-            m_profiler->startCpuFrame();
+            gProfiler.startCpuFrame();
 
             scopeBackingAlloc.reset();
             ScopedScratch scopeAlloc{scopeBackingAlloc};
 
             {
-                PROFILER_CPU_SCOPE(m_profiler, "Window::startFrame");
+                PROFILER_CPU_SCOPE("Window::startFrame");
                 gWindow.startFrame();
             }
 
@@ -261,7 +258,7 @@ void App::run()
 
             m_world->endFrame();
 
-            m_profiler->endCpuFrame();
+            gProfiler.endCpuFrame();
         }
     }
     catch (std::exception &)
@@ -326,7 +323,7 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
 
 void App::recompileShaders(ScopedScratch scopeAlloc)
 {
-    PROFILER_CPU_SCOPE(m_profiler, "App::recompileShaders");
+    PROFILER_CPU_SCOPE("App::recompileShaders");
 
     if (!m_recompileShaders)
     {
@@ -445,7 +442,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
 void App::handleMouseGestures()
 {
-    PROFILER_CPU_SCOPE(m_profiler, "App::handleMouseGestures");
+    PROFILER_CPU_SCOPE("App::handleMouseGestures");
 
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
@@ -629,16 +626,16 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     const uint32_t nextImage =
         nextSwapchainImage(scopeAlloc.child_scope(), nextFrame);
 
-    m_profiler->startGpuFrame(nextFrame);
+    gProfiler.startGpuFrame(nextFrame);
 
-    const auto profilerDatas = m_profiler->getPreviousData(scopeAlloc);
+    const auto profilerDatas = gProfiler.getPreviousData(scopeAlloc);
 
     capFramerate();
 
     UiChanges uiChanges;
     if (m_drawUi)
     {
-        m_imguiRenderer->startFrame(m_profiler.get());
+        m_imguiRenderer->startFrame();
 
         uiChanges = drawUi(
             scopeAlloc.child_scope(), nextFrame, profilerDatas,
@@ -655,11 +652,11 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     };
 
     const float timeS = currentTimelineTimeS();
-    m_world->updateAnimations(timeS, m_profiler.get());
+    m_world->updateAnimations(timeS);
 
     m_world->updateScene(
         scopeAlloc.child_scope(), &m_sceneCameraTransform,
-        &m_sceneStats[nextFrame], m_profiler.get());
+        &m_sceneStats[nextFrame]);
 
     m_world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 
@@ -697,7 +694,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     m_cam->updateBuffer(m_debugFrustum);
 
     {
-        PROFILER_CPU_SCOPE(m_profiler, "World::updateBuffers");
+        PROFILER_CPU_SCOPE("World::updateBuffers");
         m_world->updateBuffers(scopeAlloc.child_scope());
     }
 
@@ -712,8 +709,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     if (m_applyIbl && !m_imageBasedLighting->isGenerated())
         m_imageBasedLighting->recordGeneration(
-            scopeAlloc.child_scope(), cb, *m_world, nextFrame,
-            m_profiler.get());
+            scopeAlloc.child_scope(), cb, *m_world, nextFrame);
 
     render(
         scopeAlloc.child_scope(), cb, renderArea,
@@ -723,9 +719,9 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         },
         uiChanges);
 
-    m_newSceneDataLoaded = m_world->handleDeferredLoading(cb, m_profiler.get());
+    m_newSceneDataLoaded = m_world->handleDeferredLoading(cb);
 
-    m_profiler->endGpuFrame(cb);
+    gProfiler.endGpuFrame(cb);
 
     cb.end();
 
@@ -826,7 +822,7 @@ App::UiChanges App::drawUi(
     const Array<Profiler::ScopeData> &profilerDatas,
     uint32_t scopeHighWatermark)
 {
-    PROFILER_CPU_SCOPE(m_profiler, "App::drawUi");
+    PROFILER_CPU_SCOPE("App::drawUi");
 
     UiChanges ret;
     // Actual scene change happens after the frame so let's initialize here with
@@ -1351,14 +1347,14 @@ void App::render(
     bool blasesAdded = false;
     if (m_referenceRt || m_deferredRt || m_world->unbuiltBlases())
     {
-        PROFILER_CPU_GPU_SCOPE(m_profiler, cb, "BuildTLAS");
+        PROFILER_CPU_GPU_SCOPE(cb, "BuildTLAS");
         blasesAdded =
             m_world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
     }
 
     const LightClusteringOutput lightClusters = m_lightClustering->record(
         scopeAlloc.child_scope(), cb, *m_world, *m_cam, m_viewportExtent,
-        indices.nextFrame, m_profiler.get());
+        indices.nextFrame);
 
     ImageHandle illumination;
     const BufferHandle drawStats = gRenderResources.buffers->create(
@@ -1392,7 +1388,7 @@ void App::render(
                         .colorDirty = uiChanges.rtDirty || blasesAdded,
                         .drawType = m_drawType,
                     },
-                    indices.nextFrame, m_profiler.get())
+                    indices.nextFrame)
                 .illumination;
     }
     else
@@ -1408,7 +1404,7 @@ void App::render(
             const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, m_meshletCuller.get(), *m_world,
                 *m_cam, renderArea, drawStats, m_drawType, indices.nextFrame,
-                &m_sceneStats[indices.nextFrame], m_profiler.get());
+                &m_sceneStats[indices.nextFrame]);
 
             if (m_deferredRt)
                 illumination =
@@ -1416,7 +1412,7 @@ void App::render(
                         ->record(
                             scopeAlloc.child_scope(), cb, *m_world, *m_cam,
                             gbuffer, uiChanges.rtDirty || blasesAdded,
-                            m_drawType, indices.nextFrame, m_profiler.get())
+                            m_drawType, indices.nextFrame)
                         .illumination;
             else
             {
@@ -1430,8 +1426,7 @@ void App::render(
                                 .gbuffer = gbuffer,
                                 .lightClusters = lightClusters,
                             },
-                            indices.nextFrame, m_applyIbl, m_drawType,
-                            m_profiler.get())
+                            indices.nextFrame, m_applyIbl, m_drawType)
                         .illumination;
             }
 
@@ -1450,7 +1445,7 @@ void App::render(
                     scopeAlloc.child_scope(), cb, m_meshletCuller.get(),
                     *m_world, *m_cam, renderArea, lightClusters, drawStats,
                     indices.nextFrame, m_applyIbl, m_drawType,
-                    &m_sceneStats[indices.nextFrame], m_profiler.get());
+                    &m_sceneStats[indices.nextFrame]);
             illumination = output.illumination;
             velocity = output.velocity;
             depth = output.depth;
@@ -1462,8 +1457,7 @@ void App::render(
                 .illumination = illumination,
                 .velocity = velocity,
                 .depth = depth,
-            },
-            m_profiler.get());
+            });
 
         // Transparent
         m_forwardRenderer->recordTransparent(
@@ -1474,7 +1468,7 @@ void App::render(
                 .depth = depth,
             },
             lightClusters, drawStats, indices.nextFrame, m_drawType,
-            &m_sceneStats[indices.nextFrame], m_profiler.get());
+            &m_sceneStats[indices.nextFrame]);
 
         m_debugRenderer->record(
             scopeAlloc.child_scope(), cb, *m_cam,
@@ -1482,7 +1476,7 @@ void App::render(
                 .color = illumination,
                 .depth = depth,
             },
-            indices.nextFrame, m_profiler.get());
+            indices.nextFrame);
 
         if (m_pickFocusDistance)
         {
@@ -1494,8 +1488,7 @@ void App::render(
             const vec2 px = gesture->currentPos - vec2{offset.x, offset.y};
 
             m_textureReadback->record(
-                scopeAlloc.child_scope(), cb, depth, px, indices.nextFrame,
-                m_profiler.get());
+                scopeAlloc.child_scope(), cb, depth, px, indices.nextFrame);
 
             m_pickFocusDistance = false;
             m_pickedFocusPx = px;
@@ -1512,7 +1505,7 @@ void App::render(
                         .velocity = velocity,
                         .depth = depth,
                     },
-                    indices.nextFrame, m_profiler.get());
+                    indices.nextFrame);
 
             gRenderResources.images->release(illumination);
             illumination = taaOutput.resolvedIllumination;
@@ -1531,7 +1524,7 @@ void App::render(
                     .illumination = illumination,
                     .depth = depth,
                 },
-                indices.nextFrame, m_profiler.get());
+                indices.nextFrame);
 
             gRenderResources.images->release(illumination);
             illumination = dofOutput.combinedIlluminationDoF;
@@ -1547,8 +1540,7 @@ void App::render(
     const ImageHandle toneMapped =
         m_toneMap
             ->record(
-                scopeAlloc.child_scope(), cb, illumination, indices.nextFrame,
-                m_profiler.get())
+                scopeAlloc.child_scope(), cb, illumination, indices.nextFrame)
             .toneMapped;
 
     gRenderResources.images->release(illumination);
@@ -1588,7 +1580,7 @@ void App::render(
 
         const ImageHandle debugOutput = m_textureDebug->record(
             scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,
-            indices.nextFrame, m_profiler.get());
+            indices.nextFrame);
 
         finalComposite = blitColorToFinalComposite(
             scopeAlloc.child_scope(), cb, debugOutput);
@@ -1615,8 +1607,7 @@ void App::render(
             .offset = {0, 0},
             .extent = m_swapchain->config().extent,
         };
-        m_imguiRenderer->endFrame(
-            cb, backbufferArea, finalComposite, m_profiler.get());
+        m_imguiRenderer->endFrame(cb, backbufferArea, finalComposite);
     }
 
     blitFinalComposite(cb, finalComposite, indices.nextImage);
@@ -1665,7 +1656,7 @@ ImageHandle App::blitColorToFinalComposite(
 
     // This scope has a barrier, but that's intentional as it should contain
     // both the clear and the blit
-    PROFILER_CPU_GPU_SCOPE(m_profiler, cb, "blitColorToFinalComposite");
+    PROFILER_CPU_GPU_SCOPE(cb, "blitColorToFinalComposite");
 
     const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
     const vk::ImageSubresourceRange subresourceRange{
@@ -1797,7 +1788,7 @@ void App::blitFinalComposite(
     });
 
     {
-        PROFILER_CPU_GPU_SCOPE(m_profiler, cb, "BlitFinalComposite");
+        PROFILER_CPU_GPU_SCOPE(cb, "BlitFinalComposite");
 
         const vk::ImageSubresourceLayers layers{
             .aspectMask = vk::ImageAspectFlagBits::eColor,

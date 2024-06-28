@@ -54,7 +54,7 @@ class LightClustering
     [[nodiscard]] LightClusteringOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const vk::Extent2D &renderExtent,
-        uint32_t nextFrame, Profiler *profiler);
+        uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

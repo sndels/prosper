@@ -43,7 +43,7 @@ class DepthOfFieldFilter
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         ImageHandle inIlluminationWeight, uint32_t nextFrame,
-        const DebugNames &debugNames, Profiler *profiler);
+        const DebugNames &debugNames);
 
   private:
     bool m_initialized{false};

@@ -51,11 +51,11 @@ void DepthOfFieldFilter::startFrame() { m_computePass.startFrame(); }
 DepthOfFieldFilter::Output DepthOfFieldFilter::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     ImageHandle inIlluminationWeight, const uint32_t nextFrame,
-    const DebugNames &debugNames, Profiler *profiler)
+    const DebugNames &debugNames)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, debugNames.scope);
+    PROFILER_CPU_SCOPE(debugNames.scope);
 
     const Image &inRes =
         gRenderResources.images->resource(inIlluminationWeight);
@@ -101,7 +101,7 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
             }},
         });
 
-    PROFILER_GPU_SCOPE(profiler, cb, debugNames.scope);
+    PROFILER_GPU_SCOPE(cb, debugNames.scope);
 
     const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 

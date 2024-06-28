@@ -81,12 +81,11 @@ void SkyboxRenderer::recompileShaders(
 
 void SkyboxRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const RecordInOut &inOutTargets,
-    Profiler *profiler) const
+    const Camera &cam, const RecordInOut &inOutTargets) const
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "Skybox");
+    PROFILER_CPU_SCOPE("Skybox");
 
     {
         const vk::Rect2D renderArea = getRect2D(inOutTargets.illumination);
@@ -134,7 +133,7 @@ void SkyboxRenderer::record(
                 },
         };
 
-        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "Skybox");
+        PROFILER_GPU_SCOPE_WITH_STATS(cb, "Skybox");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

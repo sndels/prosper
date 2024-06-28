@@ -76,7 +76,7 @@ void DepthOfFieldGather::recompileShaders(
 
 DepthOfFieldGather::Output DepthOfFieldGather::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
-    GatherType gatherType, const uint32_t nextFrame, Profiler *profiler)
+    GatherType gatherType, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(gatherType < GatherType_Count);
@@ -84,7 +84,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     const char *const debugString = gatherType == GatherType_Background
                                         ? "  GatherBackground"
                                         : "  GatherForeground";
-    PROFILER_CPU_SCOPE(profiler, debugString);
+    PROFILER_CPU_SCOPE(debugString);
 
     ComputePass &computePass = gatherType == GatherType_Foreground
                                    ? m_foregroundPass
@@ -156,7 +156,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, debugString);
+        PROFILER_GPU_SCOPE(cb, debugString);
 
         const PCBlock pcBlock{
             .halfResolution =

@@ -53,8 +53,7 @@ class DeferredShading
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const Input &input,
-        uint32_t nextFrame, bool applyIbl, DrawType drawType,
-        Profiler *profiler);
+        uint32_t nextFrame, bool applyIbl, DrawType drawType);
 
     bool m_initialized{false};
     ComputePass m_computePass;

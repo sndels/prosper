@@ -104,7 +104,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
     BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
-    DrawType drawType, SceneStats *sceneStats, Profiler *profiler)
+    DrawType drawType, SceneStats *sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -125,7 +125,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .ibl = applyIbl,
             .drawType = drawType,
         },
-        sceneStats, profiler, "OpaqueGeometry");
+        sceneStats, "OpaqueGeometry");
 
     return ret;
 }
@@ -135,8 +135,7 @@ void ForwardRenderer::recordTransparent(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats,
-    Profiler *profiler)
+    uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -151,7 +150,7 @@ void ForwardRenderer::recordTransparent(
             .transparents = true,
             .drawType = drawType,
         },
-        sceneStats, profiler, "TransparentGeometry");
+        sceneStats, "TransparentGeometry");
 }
 
 bool ForwardRenderer::compileShaders(
@@ -388,13 +387,12 @@ void ForwardRenderer::record(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    const Options &options, SceneStats *sceneStats, Profiler *profiler,
-    const char *debugName)
+    const Options &options, SceneStats *sceneStats, const char *debugName)
 {
     WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
 
-    PROFILER_CPU_SCOPE(profiler, debugName);
+    PROFILER_CPU_SCOPE(debugName);
 
     const vk::Rect2D renderArea = getRect2D(inOutTargets.illumination);
 
@@ -407,7 +405,7 @@ void ForwardRenderer::record(
         options.transparents ? "Transparent" : "Opaque";
     const MeshletCullerOutput cullerOutput = meshletCuller->record(
         scopeAlloc.child_scope(), cb, cullerMode, world, cam, nextFrame,
-        cullerDebugPrefix, sceneStats, profiler);
+        cullerDebugPrefix, sceneStats);
 
     updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame, options.transparents, cullerOutput,
@@ -441,7 +439,7 @@ void ForwardRenderer::record(
     const Attachments attachments =
         createAttachments(inOutTargets, options.transparents);
 
-    PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, debugName);
+    PROFILER_GPU_SCOPE_WITH_STATS(cb, debugName);
 
     cb.beginRendering(vk::RenderingInfo{
         .renderArea = renderArea,

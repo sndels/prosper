@@ -41,8 +41,7 @@ class DepthOfFieldDilate
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle tileMinMaxCoC, const Camera &cam, uint32_t nextFrame,
-        Profiler *profiler);
+        ImageHandle tileMinMaxCoC, const Camera &cam, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

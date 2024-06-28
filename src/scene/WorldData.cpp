@@ -569,7 +569,7 @@ void WorldData::uploadMaterialDatas(uint32_t nextFrame)
         m_deferredLoadingContext->materialsGeneration;
 }
 
-bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
+bool WorldData::handleDeferredLoading(vk::CommandBuffer cb)
 {
     if (!m_deferredLoadingContext.has_value())
         return false;
@@ -599,7 +599,7 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
     }
 
     // No gpu as timestamps are flaky for this work
-    PROFILER_CPU_SCOPE(profiler, "DeferredLoading");
+    PROFILER_CPU_SCOPE("DeferredLoading");
 
     if (ctx.loadedImageCount == 0)
         m_materialStreamingTimer.reset();

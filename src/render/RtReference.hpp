@@ -55,7 +55,7 @@ class RtReference
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
         const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
-        uint32_t nextFrame, Profiler *profiler);
+        uint32_t nextFrame);
     void releasePreserved();
 
   private:

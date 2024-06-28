@@ -54,7 +54,7 @@ class MeshletCuller
     [[nodiscard]] MeshletCullerOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
         const World &world, const Camera &cam, uint32_t nextFrame,
-        const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler);
+        const char *debugPrefix, SceneStats *sceneStats);
 
   private:
     [[nodiscard]] BufferHandle recordGenerateList(

@@ -52,7 +52,7 @@ class ForwardRenderer
         const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         uint32_t nextFrame, bool applyIbl, DrawType drawType,
-        SceneStats *sceneStats, Profiler *profiler);
+        SceneStats *sceneStats);
 
     struct TransparentInOut
     {
@@ -64,8 +64,7 @@ class ForwardRenderer
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats,
-        Profiler *profiler);
+        uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats);
 
   private:
     [[nodiscard]] bool compileShaders(
@@ -99,8 +98,7 @@ class ForwardRenderer
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         uint32_t nextFrame, const RecordInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        const Options &options, SceneStats *sceneStats, Profiler *profiler,
-        const char *debugName);
+        const Options &options, SceneStats *sceneStats, const char *debugName);
 
     struct Attachments
     {

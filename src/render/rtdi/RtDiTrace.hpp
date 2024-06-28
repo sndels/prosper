@@ -48,7 +48,7 @@ class RtDiTrace
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
         const Camera &cam, const Input &input, bool resetAccumulation,
-        DrawType drawType, uint32_t nextFrame, Profiler *profiler);
+        DrawType drawType, uint32_t nextFrame);
     void releasePreserved();
 
   private:

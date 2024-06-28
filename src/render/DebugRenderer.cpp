@@ -104,12 +104,11 @@ void DebugRenderer::recompileShaders(
 
 void DebugRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
-    const RecordInOut &inOutTargets, const uint32_t nextFrame,
-    Profiler *profiler) const
+    const RecordInOut &inOutTargets, const uint32_t nextFrame) const
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "Debug");
+    PROFILER_CPU_SCOPE("Debug");
 
     {
         const vk::Rect2D renderArea = getRect2D(inOutTargets.color);
@@ -141,7 +140,7 @@ void DebugRenderer::record(
                 .storeOp = vk::AttachmentStoreOp::eStore,
             }};
 
-        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "Debug");
+        PROFILER_GPU_SCOPE_WITH_STATS(cb, "Debug");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,

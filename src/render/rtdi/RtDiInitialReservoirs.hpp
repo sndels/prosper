@@ -47,8 +47,7 @@ class RtDiInitialReservoirs
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam,
-        const GBufferRendererOutput &gbuffer, uint32_t nextFrame,
-        Profiler *profiler);
+        const GBufferRendererOutput &gbuffer, uint32_t nextFrame);
 
     bool m_initialized{false};
     ComputePass m_computePass;

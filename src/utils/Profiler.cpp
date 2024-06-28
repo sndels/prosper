@@ -20,6 +20,11 @@ constexpr size_t sStatTypeCount = asserted_cast<size_t>(
 
 } // namespace
 
+// This used everywhere and init()/destroy() order relative to other similar
+// globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+Profiler gProfiler;
+
 GpuFrameProfiler::Scope::Scope(
     vk::CommandBuffer cb, QueryPools pools, const char *name,
     uint32_t queryIndex, bool includeStatistics)
@@ -204,18 +209,19 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
         const float millis = static_cast<float>(nanos * 1e-6);
         const bool hasStats = m_scopeHasStats[i];
 
+        Optional<PipelineStatistics> scopeStats;
+        if (hasStats)
+            scopeStats = PipelineStatistics{
+                .clipPrimitives =
+                    stats[static_cast<size_t>(i) * sStatTypeCount],
+                .fragInvocations =
+                    stats[static_cast<size_t>(i) * sStatTypeCount + 1],
+            };
+
         ret.push_back(ScopeData{
             .index = m_queryScopeIndices[i],
             .millis = millis,
-            .stats =
-                hasStats
-                    ? Optional{PipelineStatistics{
-                          .clipPrimitives =
-                              stats[static_cast<size_t>(i) * sStatTypeCount],
-                          .fragInvocations = stats
-                              [static_cast<size_t>(i) * sStatTypeCount + 1],
-                      }}
-                    : Optional<PipelineStatistics>{},
+            .stats = scopeStats,
         });
     };
 
@@ -239,6 +245,31 @@ CpuFrameProfiler::Scope::Scope(CpuFrameProfiler::Scope &&other) noexcept
 , m_output{other.m_output}
 {
     other.m_output = nullptr;
+}
+
+CpuFrameProfiler::~CpuFrameProfiler()
+{
+    WHEELS_ASSERT(!m_initialized && "destroy() not called");
+}
+
+void CpuFrameProfiler::init()
+{
+    WHEELS_ASSERT(!m_initialized);
+
+    m_queryScopeIndices.reserve(sMaxScopeCount);
+    m_nanos.reserve(sMaxScopeCount);
+
+    m_initialized = true;
+}
+
+void CpuFrameProfiler::destroy()
+{
+    // Clean up manually as we need to free things before allocator destroy()s
+    // are called
+    m_queryScopeIndices.~Array();
+    m_nanos.~Array();
+
+    m_initialized = false;
 }
 
 void CpuFrameProfiler::startFrame()
@@ -274,8 +305,24 @@ Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)
     return times;
 }
 
+Profiler::~Profiler()
+{
+    // This is a global with tricky destruction order relative to others so
+    // require manual destroy();
+    WHEELS_ASSERT(!m_initialized && "destroy() not called");
+}
+
 void Profiler::init()
 {
+    // This is a global and allocators are initialized in main() so we can't
+    // reserve these in default member initializers.
+    m_cpuFrameProfiler.init();
+    m_gpuFrameProfilers.reserve(MAX_FRAMES_IN_FLIGHT);
+    m_currentFrameScopeNames.reserve(sMaxScopeCount);
+    m_previousScopeNames.reserve(MAX_FRAMES_IN_FLIGHT);
+    m_previousCpuScopeTimes.reserve(MAX_FRAMES_IN_FLIGHT);
+    m_previousGpuScopeData.reserve(sMaxScopeCount);
+
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_gpuFrameProfilers.emplace_back();
@@ -287,6 +334,19 @@ void Profiler::init()
     }
 
     m_initialized = true;
+}
+
+void Profiler::destroy()
+{
+    // Clean up manually as we need to free things before allocator destroy()s
+    // are called
+    m_cpuFrameProfiler.destroy();
+    m_gpuFrameProfilers.~Array();
+    m_currentFrameScopeNames.~Array();
+    m_previousScopeNames.~Array();
+    m_previousCpuScopeTimes.~Array();
+    m_previousGpuScopeData.~Array();
+    m_initialized = false;
 }
 
 void Profiler::startCpuFrame()

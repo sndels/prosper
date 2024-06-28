@@ -22,10 +22,10 @@ class ImGuiRenderer
 
     void init(const SwapchainConfig &swapConfig);
 
-    void startFrame(Profiler *profiler);
+    void startFrame();
     void endFrame(
         vk::CommandBuffer cb, const vk::Rect2D &renderArea,
-        ImageHandle inOutColor, Profiler *profiler) const;
+        ImageHandle inOutColor) const;
 
     [[nodiscard]] ImVec2 centerAreaOffset() const;
     [[nodiscard]] ImVec2 centerAreaSize() const;

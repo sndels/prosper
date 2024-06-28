@@ -79,11 +79,11 @@ void DepthOfFieldSetup::recompileShaders(
 
 DepthOfFieldSetup::Output DepthOfFieldSetup::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
-    const Input &input, const uint32_t nextFrame, Profiler *profiler)
+    const Input &input, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  Setup");
+    PROFILER_CPU_SCOPE("  Setup");
 
     Output ret;
     {
@@ -159,7 +159,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  Setup");
+        PROFILER_GPU_SCOPE(cb, "  Setup");
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};

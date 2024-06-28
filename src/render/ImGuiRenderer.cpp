@@ -127,11 +127,11 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 }
 
 // NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
-void ImGuiRenderer::startFrame(Profiler *profiler)
+void ImGuiRenderer::startFrame()
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "ImGui::startFrame");
+    PROFILER_CPU_SCOPE("ImGui::startFrame");
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -145,24 +145,24 @@ void ImGuiRenderer::startFrame(Profiler *profiler)
 }
 
 void ImGuiRenderer::endFrame(
-    vk::CommandBuffer cb, const vk::Rect2D &renderArea, ImageHandle inOutColor,
-    Profiler *profiler) const
+    vk::CommandBuffer cb, const vk::Rect2D &renderArea,
+    ImageHandle inOutColor) const
 {
     WHEELS_ASSERT(m_initialized);
 
     {
-        PROFILER_CPU_SCOPE(profiler, "ImGui::render");
+        PROFILER_CPU_SCOPE("ImGui::render");
         ImGui::Render();
     }
     ImDrawData *drawData = ImGui::GetDrawData();
 
     {
-        PROFILER_CPU_SCOPE(profiler, "ImGui::draw");
+        PROFILER_CPU_SCOPE("ImGui::draw");
 
         gRenderResources.images->transition(
             cb, inOutColor, ImageState::ColorAttachmentReadWrite);
 
-        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "ImGui::draw");
+        PROFILER_GPU_SCOPE_WITH_STATS(cb, "ImGui::draw");
 
         const vk::RenderingAttachmentInfo attachment{
             .imageView = gRenderResources.images->resource(inOutColor).view,

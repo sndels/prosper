@@ -50,11 +50,11 @@ void DepthOfFieldCombine::recompileShaders(
 
 DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
-    const uint32_t nextFrame, Profiler *profiler)
+    const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  Combine");
+    PROFILER_CPU_SCOPE("  Combine");
 
     Output ret;
     {
@@ -111,7 +111,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "  Combine");
+        PROFILER_GPU_SCOPE(cb, "  Combine");
 
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{renderExtent.width, renderExtent.height, 1u});

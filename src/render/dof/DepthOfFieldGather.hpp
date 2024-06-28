@@ -53,8 +53,7 @@ class DepthOfFieldGather
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Input &input, GatherType gatherType, uint32_t nextFrame,
-        Profiler *profiler);
+        const Input &input, GatherType gatherType, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

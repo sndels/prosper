@@ -140,11 +140,11 @@ void TemporalAntiAliasing::drawUi()
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
-    const Input &input, const uint32_t nextFrame, Profiler *profiler)
+    const Input &input, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "TemporalAntiAliasing");
+    PROFILER_CPU_SCOPE("TemporalAntiAliasing");
 
     Output ret;
     {
@@ -230,7 +230,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "TemporalAntiAliasing");
+        PROFILER_GPU_SCOPE(cb, "TemporalAntiAliasing");
 
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{renderExtent.width, renderExtent.height, 1u});

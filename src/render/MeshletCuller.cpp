@@ -203,7 +203,7 @@ void MeshletCuller::startFrame()
 MeshletCullerOutput MeshletCuller::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, const Camera &cam, uint32_t nextFrame,
-    const char *debugPrefix, SceneStats *sceneStats, Profiler *profiler)
+    const char *debugPrefix, SceneStats *sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -211,7 +211,7 @@ MeshletCullerOutput MeshletCuller::record(
     scopeName.extend(debugPrefix);
     scopeName.extend("DrawList");
 
-    PROFILER_CPU_GPU_SCOPE(profiler, cb, scopeName.c_str());
+    PROFILER_CPU_GPU_SCOPE(cb, scopeName.c_str());
 
     const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,

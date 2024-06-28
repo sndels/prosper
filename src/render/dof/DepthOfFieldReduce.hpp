@@ -37,8 +37,7 @@ class DepthOfFieldReduce
 
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const ImageHandle &inOutIlluminationMips, uint32_t nextFrame,
-        Profiler *profiler);
+        const ImageHandle &inOutIlluminationMips, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

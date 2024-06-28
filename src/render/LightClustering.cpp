@@ -167,11 +167,11 @@ void LightClustering::recompileShaders(
 LightClusteringOutput LightClustering::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Extent2D &renderExtent,
-    const uint32_t nextFrame, Profiler *profiler)
+    const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "LightClustering");
+    PROFILER_CPU_SCOPE("LightClustering");
 
     LightClusteringOutput ret;
     {
@@ -205,7 +205,7 @@ LightClusteringOutput LightClustering::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "LightClustering");
+        PROFILER_GPU_SCOPE(cb, "LightClustering");
 
         { // Reset count
             const TexelBuffer &indicesCount =

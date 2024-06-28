@@ -144,8 +144,6 @@ class App
     wheels::OwningPtr<MeshletCuller> m_meshletCuller;
     wheels::OwningPtr<TextureReadback> m_textureReadback;
 
-    wheels::OwningPtr<Profiler> m_profiler;
-
     bool m_useFpsLimit{true};
     int32_t m_fpsLimit{140};
     bool m_recompileShaders{false};

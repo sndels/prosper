@@ -30,7 +30,7 @@ class World
     void endFrame();
 
     // Returns true if the visible scene was changed.
-    bool handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler);
+    bool handleDeferredLoading(vk::CommandBuffer cb);
     bool unbuiltBlases() const;
 
     void drawDeferredLoadingUi() const;
@@ -49,11 +49,11 @@ class World
 
     void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     void uploadMaterialDatas(uint32_t nextFrame, float lodBias);
-    void updateAnimations(float timeS, Profiler *profiler);
+    void updateAnimations(float timeS);
     // Has to be called after updateAnimations()
     void updateScene(
         wheels::ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-        SceneStats *sceneStats, Profiler *profiler);
+        SceneStats *sceneStats);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.

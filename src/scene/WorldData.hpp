@@ -49,7 +49,7 @@ class WorldData
     void uploadMeshDatas(wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
     void uploadMaterialDatas(uint32_t nextFrame);
     // Returns true if the visible scene was changed.
-    bool handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler);
+    bool handleDeferredLoading(vk::CommandBuffer cb);
 
     void drawDeferredLoadingUi() const;
 

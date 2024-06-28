@@ -43,8 +43,7 @@ class RtDirectIllumination
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
         const Camera &cam, const GBufferRendererOutput &gbuffer,
-        bool resetAccumulation, DrawType drawType, uint32_t nextFrame,
-        Profiler *profiler);
+        bool resetAccumulation, DrawType drawType, uint32_t nextFrame);
     void releasePreserved();
 
   private:

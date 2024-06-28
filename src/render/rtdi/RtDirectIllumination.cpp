@@ -66,20 +66,18 @@ void RtDirectIllumination::drawUi()
 RtDirectIllumination::Output RtDirectIllumination::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     const Camera &cam, const GBufferRendererOutput &gbuffer,
-    bool resetAccumulation, DrawType drawType, uint32_t nextFrame,
-    Profiler *profiler)
+    bool resetAccumulation, DrawType drawType, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_GPU_SCOPE(profiler, cb, "RtDirectIllumination");
+    PROFILER_CPU_GPU_SCOPE(cb, "RtDirectIllumination");
 
     Output ret;
     {
 
         const RtDiInitialReservoirs::Output initialReservoirsOutput =
             m_initialReservoirs.record(
-                scopeAlloc.child_scope(), cb, world, cam, gbuffer, nextFrame,
-                profiler);
+                scopeAlloc.child_scope(), cb, world, cam, gbuffer, nextFrame);
 
         ImageHandle reservoirs = initialReservoirsOutput.reservoirs;
         if (m_doSpatialReuse)
@@ -91,7 +89,7 @@ RtDirectIllumination::Output RtDirectIllumination::record(
                         .gbuffer = gbuffer,
                         .reservoirs = initialReservoirsOutput.reservoirs,
                     },
-                    nextFrame, profiler);
+                    nextFrame);
 
             gRenderResources.images->release(
                 initialReservoirsOutput.reservoirs);
@@ -104,8 +102,7 @@ RtDirectIllumination::Output RtDirectIllumination::record(
                 .gbuffer = gbuffer,
                 .reservoirs = reservoirs,
             },
-            resetAccumulation || m_resetAccumulation, drawType, nextFrame,
-            profiler);
+            resetAccumulation || m_resetAccumulation, drawType, nextFrame);
 
         gRenderResources.images->release(reservoirs);
     }

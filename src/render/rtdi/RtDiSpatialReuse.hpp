@@ -51,7 +51,7 @@ class RtDiSpatialReuse
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const Input &input,
-        uint32_t nextFrame, Profiler *profiler);
+        uint32_t nextFrame);
 
     bool m_initialized{false};
     ComputePass m_computePass;

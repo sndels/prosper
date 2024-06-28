@@ -122,11 +122,11 @@ void DeferredShading::recompileShaders(
 DeferredShading::Output DeferredShading::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const Input &input, const uint32_t nextFrame,
-    bool applyIbl, DrawType drawType, Profiler *profiler)
+    bool applyIbl, DrawType drawType)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "DeferredShading");
+    PROFILER_CPU_SCOPE("DeferredShading");
 
     Output ret;
     {
@@ -188,7 +188,7 @@ DeferredShading::Output DeferredShading::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "DeferredShading");
+        PROFILER_GPU_SCOPE(cb, "DeferredShading");
 
         const PCBlock pcBlock{
             .drawType = static_cast<uint32_t>(drawType),

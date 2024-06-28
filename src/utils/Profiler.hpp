@@ -129,7 +129,10 @@ class CpuFrameProfiler
     };
 
     CpuFrameProfiler() noexcept = default;
-    ~CpuFrameProfiler() = default;
+    ~CpuFrameProfiler();
+
+    void init();
+    void destroy();
 
     CpuFrameProfiler(CpuFrameProfiler const &) = delete;
     CpuFrameProfiler(CpuFrameProfiler &&) = delete;
@@ -144,10 +147,12 @@ class CpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeTime> getTimes(wheels::Allocator &alloc);
 
   private:
-    wheels::Array<uint32_t> m_queryScopeIndices{
-        gAllocators.general, sMaxScopeCount};
-    wheels::Array<std::chrono::nanoseconds> m_nanos{
-        gAllocators.general, sMaxScopeCount};
+    bool m_initialized{false};
+    // Any non-trivially destructible members need to be cleaned up manually in
+    // destroy(). Thus, calling the dtor on an already destroyed object needs to
+    // also be supported for the member types.
+    wheels::Array<uint32_t> m_queryScopeIndices{gAllocators.general};
+    wheels::Array<std::chrono::nanoseconds> m_nanos{gAllocators.general};
 
     friend class Profiler;
 };
@@ -200,7 +205,7 @@ class Profiler
     };
 
     Profiler() noexcept = default;
-    ~Profiler() = default;
+    ~Profiler();
 
     // Assume one profiler that is initialized in place
     Profiler(Profiler const &) = delete;
@@ -209,6 +214,7 @@ class Profiler
     Profiler &operator=(Profiler &&) = delete;
 
     void init();
+    void destroy();
 
     // Should be called before startGpuFrame, whenever the cpu frame loop starts
     void startCpuFrame();
@@ -256,61 +262,59 @@ class Profiler
     };
 
     bool m_initialized{false};
+    // Any non-trivially destructible members need to be cleaned up manually in
+    // destroy(). Thus, calling the dtor on an already destroyed object needs to
+    // also be supported for the member types.
     DebugState m_debugState{DebugState::NewFrame};
 
     CpuFrameProfiler m_cpuFrameProfiler;
-    wheels::Array<GpuFrameProfiler> m_gpuFrameProfilers{
-        gAllocators.general, MAX_FRAMES_IN_FLIGHT};
+    wheels::Array<GpuFrameProfiler> m_gpuFrameProfilers{gAllocators.general};
 
     // There should be a 1:1 mapping between swap images and profiler frames so
     // that we know our gpu data has been filled when we read it back the next
     // time the same index comes up. We should also have 1:1 mapping between gpu
     // frames and the cpu frames that recorded them.
     uint32_t m_currentFrame{0};
-    wheels::Array<wheels::String> m_currentFrameScopeNames{
-        gAllocators.general, sMaxScopeCount};
+    wheels::Array<wheels::String> m_currentFrameScopeNames{gAllocators.general};
 
     wheels::Array<wheels::Array<wheels::String>> m_previousScopeNames{
         gAllocators.general};
     wheels::Array<wheels::Array<CpuFrameProfiler::ScopeTime>>
         m_previousCpuScopeTimes{gAllocators.general};
     wheels::Array<GpuFrameProfiler::ScopeData> m_previousGpuScopeData{
-        gAllocators.general, sMaxScopeCount};
+        gAllocators.general};
 };
 
+extern Profiler gProfiler;
+
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
-#define PROFILER_CPU_SCOPE(profiler, name)                                     \
-    WHEELS_ASSERT(profiler != nullptr);                                        \
+#define PROFILER_CPU_SCOPE(name)                                               \
     const Profiler::Scope TOKEN_APPEND(zzCpuScope, __LINE__) =                 \
-        profiler->createCpuScope(name);
+        gProfiler.createCpuScope(name);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
-#define PROFILER_GPU_SCOPE(profiler, cb, name)                                 \
-    WHEELS_ASSERT(profiler != nullptr);                                        \
+#define PROFILER_GPU_SCOPE(cb, name)                                           \
     const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
-        profiler->createGpuScope(cb, name, false);
+        gProfiler.createGpuScope(cb, name, false);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
-#define PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, name)                      \
-    WHEELS_ASSERT(profiler != nullptr);                                        \
+#define PROFILER_GPU_SCOPE_WITH_STATS(cb, name)                                \
     const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
-        profiler->createGpuScope(cb, name, true);
+        gProfiler.createGpuScope(cb, name, true);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
-#define PROFILER_CPU_GPU_SCOPE(profiler, cb, name)                             \
-    WHEELS_ASSERT(profiler != nullptr);                                        \
+#define PROFILER_CPU_GPU_SCOPE(cb, name)                                       \
     const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
-        profiler->createCpuGpuScope(cb, name, false);
+        gProfiler.createCpuGpuScope(cb, name, false);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
-#define PROFILER_CPU_GPU_SCOPE_WITH_STATS(profiler, cb, name)                  \
-    WHEELS_ASSERT(profiler != nullptr);                                        \
+#define PROFILER_CPU_GPU_SCOPE_WITH_STATS(cb, name)                            \
     const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
-        profiler->createCpuGpuScope(cb, name, true);
+        gProfiler.createCpuGpuScope(cb, name, true);
 
 #endif // PROSPER_UTILS_PROFILER_HPP

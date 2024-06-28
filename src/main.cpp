@@ -11,6 +11,7 @@
 #include "Window.hpp"
 #include "gfx/Device.hpp"
 #include "render/RenderResources.hpp"
+#include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
 
 #ifdef LIVEPP_PATH
@@ -141,6 +142,9 @@ int main(int argc, char *argv[])
 
         gRenderResources.init();
         defer { gRenderResources.destroy(); };
+
+        gProfiler.init();
+        defer { gProfiler.destroy(); };
 
         App app{settings.scene};
         app.init(WHEELS_MOV(scopeAlloc));

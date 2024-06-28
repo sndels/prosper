@@ -42,7 +42,7 @@ class SkyboxRenderer
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &camera,
-        const RecordInOut &inOutTargets, Profiler *profiler) const;
+        const RecordInOut &inOutTargets) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);

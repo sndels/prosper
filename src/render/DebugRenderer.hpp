@@ -41,8 +41,8 @@ class DebugRenderer
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Camera &cam, const RecordInOut &inOutTargets, uint32_t nextFrame,
-        Profiler *profiler) const;
+        const Camera &cam, const RecordInOut &inOutTargets,
+        uint32_t nextFrame) const;
 
   private:
     [[nodiscard]] bool compileShaders(wheels::ScopedScratch scopeAlloc);

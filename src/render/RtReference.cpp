@@ -170,11 +170,11 @@ void RtReference::drawUi()
 RtReference::Output RtReference::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
-    uint32_t nextFrame, Profiler *profiler)
+    uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "RtReference");
+    PROFILER_CPU_SCOPE("RtReference");
 
     m_frameIndex = ++m_frameIndex % sFramePeriod;
 
@@ -239,7 +239,7 @@ RtReference::Output RtReference::record(
                 }},
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "RtReference");
+        PROFILER_GPU_SCOPE(cb, "RtReference");
 
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, m_pipeline);
 

@@ -71,8 +71,7 @@ class TemporalAntiAliasing
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Camera &cam, const Input &input, uint32_t nextFrame,
-        Profiler *profiler);
+        const Camera &cam, const Input &input, uint32_t nextFrame);
     void releasePreserved();
 
   private:

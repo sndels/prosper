@@ -95,12 +95,11 @@ void DepthOfFieldReduce::recompileShaders(
 
 void DepthOfFieldReduce::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const ImageHandle &inOutIlluminationMips, const uint32_t nextFrame,
-    Profiler *profiler)
+    const ImageHandle &inOutIlluminationMips, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    PROFILER_CPU_SCOPE(profiler, "  Reduce");
+    PROFILER_CPU_SCOPE("  Reduce");
 
     const Image &inOutRes =
         gRenderResources.images->resource(inOutIlluminationMips);
@@ -174,7 +173,7 @@ void DepthOfFieldReduce::record(
         m_counterNotCleared = false;
     }
 
-    PROFILER_GPU_SCOPE(profiler, cb, "  Reduce");
+    PROFILER_GPU_SCOPE(cb, "  Reduce");
 
     const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 

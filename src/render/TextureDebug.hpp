@@ -55,7 +55,7 @@ class TextureDebug
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         vk::Extent2D outSize, wheels::Optional<glm::vec2> cursorCoord,
-        uint32_t nextFrame, Profiler *profiler);
+        uint32_t nextFrame);
 
     [[nodiscard]] static bool textureSelected();
 

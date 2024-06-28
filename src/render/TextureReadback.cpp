@@ -75,13 +75,13 @@ void TextureReadback::startFrame()
 
 void TextureReadback::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle inTexture,
-    vec2 px, uint32_t nextFrame, Profiler *profiler)
+    vec2 px, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(
         m_framesUntilReady == -1 && "Readback already queued and unread");
 
-    PROFILER_CPU_SCOPE(profiler, "TextureReadback");
+    PROFILER_CPU_SCOPE("TextureReadback");
 
     {
         const BufferHandle deviceReadback = gRenderResources.buffers->create(
@@ -126,7 +126,7 @@ void TextureReadback::record(
                     },
             });
 
-        PROFILER_GPU_SCOPE(profiler, cb, "TextureReadback");
+        PROFILER_GPU_SCOPE(cb, "TextureReadback");
 
         const vk::Extent3D inRes =
             gRenderResources.images->resource(inTexture).extent;

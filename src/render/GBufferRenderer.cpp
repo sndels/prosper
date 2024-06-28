@@ -108,14 +108,13 @@ GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
-    DrawType drawType, const uint32_t nextFrame, SceneStats *sceneStats,
-    Profiler *profiler)
+    DrawType drawType, const uint32_t nextFrame, SceneStats *sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
 
-    PROFILER_CPU_SCOPE(profiler, "GBuffer");
+    PROFILER_CPU_SCOPE("GBuffer");
 
     GBufferRendererOutput ret;
     {
@@ -148,7 +147,7 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const MeshletCullerOutput cullerOutput = meshletCuller->record(
             scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque, world,
-            cam, nextFrame, "GBuffer", sceneStats, profiler);
+            cam, nextFrame, "GBuffer", sceneStats);
 
         updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, cullerOutput, inOutDrawStats);
@@ -215,7 +214,7 @@ GBufferRendererOutput GBufferRenderer::record(
                 },
         };
 
-        PROFILER_GPU_SCOPE_WITH_STATS(profiler, cb, "GBuffer");
+        PROFILER_GPU_SCOPE_WITH_STATS(cb, "GBuffer");
 
         cb.beginRendering(vk::RenderingInfo{
             .renderArea = renderArea,
