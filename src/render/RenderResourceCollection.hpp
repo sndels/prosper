@@ -240,7 +240,7 @@ Handle RenderResourceCollection<
         }
     }
 
-    uint32_t index = 0xFFFFFFFF;
+    uint32_t index = 0xFFFF'FFFF;
     if (!m_freelist.empty())
         index = m_freelist.pop_back();
     else

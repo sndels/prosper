@@ -14,7 +14,7 @@
 template <typename Resource> struct RenderResourceHandle
 {
   public:
-    static const uint32_t sNullIndex = 0xFFFFFFFF;
+    static const uint32_t sNullIndex = 0xFFFF'FFFF;
 
     // TODO:
     // Protect these? Clang-tidy doesn't like similar value ctor arguments,

@@ -119,7 +119,7 @@ class ComputePass
     wheels::Optional<ShaderReflection> m_shaderReflection;
 
     vk::DescriptorSetLayout m_storageSetLayout;
-    uint32_t m_storageSetIndex{0xFFFFFFFF};
+    uint32_t m_storageSetIndex{0xFFFF'FFFF};
     static const size_t sPerFrameRecordLimit = 5;
     size_t m_nextRecordIndex{0};
     wheels::StaticArray<

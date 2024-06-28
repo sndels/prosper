@@ -6,7 +6,7 @@ using namespace wheels;
 namespace
 {
 
-constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
+constexpr uint32_t sMaxAllocation = 0xFFFF'FFFF - RingBuffer::sAlignment;
 
 } // namespace
 

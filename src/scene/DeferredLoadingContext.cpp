@@ -15,7 +15,7 @@ namespace
 
 constexpr uint32_t sGeometryBufferSize = asserted_cast<uint32_t>(megabytes(64));
 
-const uint64_t sMeshCacheMagic = 0x48534D5250535250; // PRSPRMSH
+const uint64_t sMeshCacheMagic = 0x4853'4D52'5053'5250; // PRSPRMSH
 // This should be incremented when breaking changes are made to
 // what's cached
 const uint32_t sMeshCacheVersion = 4;
@@ -695,8 +695,8 @@ void writeCache(
         .meshletCount = asserted_cast<uint32_t>(meshData.meshlets.size()),
         .positionsOffset = positionsOffset,
         .normalsOffset = normalsOffset,
-        .tangentsOffset = hasTangents ? tangentsOffset : 0xFFFFFFFF,
-        .texCoord0sOffset = hasTexCoord0s ? texCoord0sOffset : 0xFFFFFFFF,
+        .tangentsOffset = hasTangents ? tangentsOffset : 0xFFFF'FFFF,
+        .texCoord0sOffset = hasTexCoord0s ? texCoord0sOffset : 0xFFFF'FFFF,
         .meshletsOffset = meshletsOffset,
         .meshletBoundsOffset = meshletBoundsOffset,
         .meshletVerticesOffset = meshletVerticesOffset,
@@ -1148,12 +1148,12 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
                 .positionsOffset = startOffsetU32 + cacheHeader.positionsOffset,
                 .normalsOffset = startOffsetU32 + cacheHeader.normalsOffset,
                 .tangentsOffset =
-                    cacheHeader.tangentsOffset == 0xFFFFFFFF
-                        ? 0xFFFFFFFF
+                    cacheHeader.tangentsOffset == 0xFFFF'FFFF
+                        ? 0xFFFF'FFFF
                         : startOffsetU32 + cacheHeader.tangentsOffset,
                 .texCoord0sOffset =
-                    cacheHeader.texCoord0sOffset == 0xFFFFFFFF
-                        ? 0xFFFFFFFF
+                    cacheHeader.texCoord0sOffset == 0xFFFF'FFFF
+                        ? 0xFFFF'FFFF
                         : startOffsetU32 + cacheHeader.texCoord0sOffset,
                 .meshletsOffset = startOffsetU32 + cacheHeader.meshletsOffset,
                 .meshletBoundsOffset =

@@ -139,7 +139,7 @@ class Camera
     CameraTransform m_transform;
     CameraParameters m_parameters;
     glm::uvec2 m_resolution{};
-    uint32_t m_parametersByteOffset{0xFFFFFFFF};
+    uint32_t m_parametersByteOffset{0xFFFF'FFFF};
     glm::mat4 m_worldToCamera{1.f};
     glm::mat4 m_cameraToWorld{1.f};
     glm::mat4 m_cameraToClip{1.f};

@@ -598,7 +598,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     {
         const GeometryMetadata &metadata =
             m_data.m_geometryMetadatas[sm.meshID];
-        if (metadata.bufferIndex == 0xFFFFFFFF)
+        if (metadata.bufferIndex == 0xFFFF'FFFF)
             // Mesh is hasn't been uploaded yet
             return false;
     }

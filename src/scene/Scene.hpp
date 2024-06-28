@@ -14,7 +14,7 @@
 
 struct Scene
 {
-    static const uint32_t sDirectionalLight = 0xFFFFFFFF;
+    static const uint32_t sDirectionalLight = 0xFFFF'FFFF;
 
     // TODO:
     // More cache/memory friendly storage?
@@ -58,8 +58,8 @@ struct Scene
     struct DrawInstance
     {
         uint32_t modelInstanceID{0};
-        uint32_t meshID{0xFFFFFFFF};
-        uint32_t materialID{0xFFFFFFFF};
+        uint32_t meshID{0xFFFF'FFFF};
+        uint32_t materialID{0xFFFF'FFFF};
     };
     uint32_t drawInstanceCount{0};
     Buffer drawInstancesBuffer;

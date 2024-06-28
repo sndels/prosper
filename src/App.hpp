@@ -85,8 +85,8 @@ class App
 
     struct RenderIndices
     {
-        uint32_t nextFrame{0xFFFFFFFF};
-        uint32_t nextImage{0xFFFFFFFF};
+        uint32_t nextFrame{0xFFFF'FFFF};
+        uint32_t nextImage{0xFFFF'FFFF};
     };
     void render(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

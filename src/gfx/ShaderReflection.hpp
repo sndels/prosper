@@ -21,10 +21,10 @@
 struct DescriptorSetMetadata
 {
     wheels::String name;
-    uint32_t binding{0xFFFFFFFF};
+    uint32_t binding{0xFFFF'FFFF};
     vk::DescriptorType descriptorType{vk::DescriptorType::eSampler};
     // 0 signals a runtime array
-    uint32_t descriptorCount{0xFFFFFFFF};
+    uint32_t descriptorCount{0xFFFF'FFFF};
 };
 
 using DescriptorInfo = std::variant<

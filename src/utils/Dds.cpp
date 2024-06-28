@@ -61,8 +61,8 @@ struct DdsHeaderDxt10
     uint32_t miscFlags2{0};
 };
 
-const uint32_t sDdsMagic = 0x20534444;
-const uint32_t sDx10Magic = 0x30315844;
+const uint32_t sDdsMagic = 0x2053'4444;
+const uint32_t sDx10Magic = 0x3031'5844;
 
 bool isFormatCompressed(DxgiFormat format)
 {
@@ -174,9 +174,9 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
     // clang-format off
     const uint32_t flags = isCompressed ?
         // compressed | mipmapcount | required
-        0x000A1007u
+        0x000A'1007u
         // mipmapcount | uncompressed | required
-        : 0x0002100Fu;
+        : 0x0002'100Fu;
     // clang-format on
 
     WHEELS_ASSERT(
@@ -194,10 +194,10 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
                 .dwFlags = 0x4, // FourCC
                 .dwFourCC = sDx10Magic,
                 .dwRGBBitCount = pixelBits,
-                .dwRBitMask = pixelBits == 32 ? 0x000000FF : 0u,
-                .dwGBitMask = pixelBits == 32 ? 0x0000FF00 : 0u,
-                .dwBBitMask = pixelBits == 32 ? 0x00FF0000 : 0u,
-                .dwABitMask = pixelBits == 32 ? 0xFF000000 : 0u,
+                .dwRBitMask = pixelBits == 32 ? 0x0000'00FF : 0u,
+                .dwGBitMask = pixelBits == 32 ? 0x0000'FF00 : 0u,
+                .dwBBitMask = pixelBits == 32 ? 0x00FF'0000 : 0u,
+                .dwABitMask = pixelBits == 32 ? 0xFF00'0000 : 0u,
             },
         // gli had mipmaps tagged even for textures that had 1 mipmap, let's
         // match
@@ -249,9 +249,9 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
     // after all...
     // https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dds-header
     WHEELS_ASSERT(
-        ((ddsHeader.dwFlags == 0x0002100F) ||
-         (ddsHeader.dwFlags == 0x0080100F) ||
-         (ddsHeader.dwFlags == 0x000A1007)) &&
+        ((ddsHeader.dwFlags == 0x0002'100F) ||
+         (ddsHeader.dwFlags == 0x0080'100F) ||
+         (ddsHeader.dwFlags == 0x000A'1007)) &&
         "Unexpexted DDS_FLAGS ");
     WHEELS_ASSERT(
         ddsHeader.ddspf.dwSize == 32 && "Unexpexted DDS_PIXEL_FORMAT size");
@@ -263,25 +263,25 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
          ddsHeader.ddspf.dwRGBBitCount == 0) &&
         "Expected a 32bit format or 0");
     WHEELS_ASSERT(
-        (ddsHeader.ddspf.dwRBitMask == 0x000000FF ||
+        (ddsHeader.ddspf.dwRBitMask == 0x0000'00FF ||
          ddsHeader.ddspf.dwRBitMask == 0) &&
-        "Expected R bit mask 0x000000FF or 0");
+        "Expected R bit mask 0x0000'00FF or 0");
     WHEELS_ASSERT(
-        (ddsHeader.ddspf.dwGBitMask == 0x0000FF00 ||
+        (ddsHeader.ddspf.dwGBitMask == 0x0000'FF00 ||
          ddsHeader.ddspf.dwGBitMask == 0) &&
-        "Expected G bit mask 0x0000FF00 or 0");
+        "Expected G bit mask 0x0000'FF00 or 0");
     WHEELS_ASSERT(
-        (ddsHeader.ddspf.dwBBitMask == 0x00FF0000 ||
+        (ddsHeader.ddspf.dwBBitMask == 0x00FF'0000 ||
          ddsHeader.ddspf.dwBBitMask == 0) &&
-        "Expected B bit mask 0x00FF0000 or 0");
+        "Expected B bit mask 0x00FF'0000 or 0");
     WHEELS_ASSERT(
-        (ddsHeader.ddspf.dwABitMask == 0xFF000000 ||
+        (ddsHeader.ddspf.dwABitMask == 0xFF00'0000 ||
          ddsHeader.ddspf.dwABitMask == 0) &&
-        "Expected A bit mask 0xFF000000 or 0");
+        "Expected A bit mask 0xFF00'0000 or 0");
     // gli had mipmaps tagged even for textures that had 1 mipmap, let's match
     // https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dds-header
     WHEELS_ASSERT(
-        (ddsHeader.dwCaps == 0x00401000 || ddsHeader.dwCaps == 0x00001008) &&
+        (ddsHeader.dwCaps == 0x0040'1000 || ddsHeader.dwCaps == 0x0000'1008) &&
         "Unexpected DDS_CAPS");
 
     DdsHeaderDxt10 ddsHeaderDxt10;

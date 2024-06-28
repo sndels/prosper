@@ -20,7 +20,7 @@ using namespace wheels;
 namespace
 {
 
-const uint64_t sTextureCacheMagic = 0x5845545250535250; // PRSPRTEX
+const uint64_t sTextureCacheMagic = 0x5845'5452'5053'5250; // PRSPRTEX
 // This should be incremented when breaking changes are made to
 // what's cached
 const uint32_t sTextureCacheVersion = 3;
@@ -54,7 +54,7 @@ std::filesystem::path cacheTagPath(const std::filesystem::path &cacheFile)
 
 struct CacheTag
 {
-    uint32_t version{0xFFFFFFFFu};
+    uint32_t version{0xFFFF'FFFFu};
     // Use write time instead of a hash because hashing a 4k texture is _slow_
     // in debug.
     std::filesystem::file_time_type sourceWriteTime;

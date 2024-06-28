@@ -44,7 +44,7 @@ template <class... Ts> struct overloaded : Ts...
 };
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-const uint32_t sUninitialized = 0xFFFFFFFF;
+const uint32_t sUninitialized = 0xFFFF'FFFF;
 
 struct SpvInt
 {
@@ -817,12 +817,12 @@ void ShaderReflection::init(
     const uint32_t *words = spvWords.data();
     const size_t wordCount = spvWords.size();
 
-    const uint32_t spvMagic = 0x07230203;
+    const uint32_t spvMagic = 0x0723'0203;
     if (words[0] != spvMagic)
         throw std::runtime_error(
             "Tried to read reflection from invalid SPIR-V words");
 
-    // bytes 0 | major | minor | 0, 0x00010300 is 1.3
+    // bytes 0 | major | minor | 0, 0x0001'0300 is 1.3
     // const uint32_t version = words[1];
     // const uint32_t generatorMagic = words[2];
     const uint32_t idBound = words[3];

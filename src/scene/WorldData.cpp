@@ -718,10 +718,6 @@ void WorldData::loadTextures(
         texture2DSamplers.emplace_back();
     }
 
-    WHEELS_ASSERT(
-        gltfData.images_count < 0xFFFFFE &&
-        "Too many textures to pack in u32 texture index");
-
     for (const cgltf_texture &texture :
          Span{gltfData.textures, gltfData.textures_count})
     {
@@ -1349,8 +1345,8 @@ void WorldData::gatherScene(
 {
     struct NodePair
     {
-        uint32_t tmpNode{0xFFFFFFFF};
-        uint32_t sceneNode{0xFFFFFFFF};
+        uint32_t tmpNode{0xFFFF'FFFF};
+        uint32_t sceneNode{0xFFFF'FFFF};
     };
     Array<NodePair> nodeStack{scopeAlloc, nodes.size()};
 

@@ -65,7 +65,7 @@ Ktx readKtx(Allocator &alloc, const std::filesystem::path &path)
     readRaw(inFile, header);
 
     WHEELS_ASSERT(
-        header.endianness == 0x04030201 &&
+        header.endianness == 0x0403'0201 &&
         "KTX and program endianness don't match");
 
     // GL_HALF_FLOAT, GL_RGBA(16F)

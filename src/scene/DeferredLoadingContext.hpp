@@ -37,8 +37,8 @@ struct InputGeometryMetadata
     cgltf_accessor *normals{nullptr};
     cgltf_accessor *tangents{nullptr};
     cgltf_accessor *texCoord0s{nullptr};
-    uint32_t sourceMeshIndex{0xFFFFFFFF};
-    uint32_t sourcePrimitiveIndex{0xFFFFFFFF};
+    uint32_t sourceMeshIndex{0xFFFF'FFFF};
+    uint32_t sourcePrimitiveIndex{0xFFFF'FFFF};
 };
 
 struct UploadedGeometryData
@@ -61,14 +61,14 @@ struct MeshCacheHeader
     uint32_t meshletCount{0};
     // Offsets are for u32 values starting from the beginning of the blob.
     // The offset for indices is 0.
-    uint32_t positionsOffset{0xFFFFFFFF};
-    uint32_t normalsOffset{0xFFFFFFFF};
-    uint32_t tangentsOffset{0xFFFFFFFF};
-    uint32_t texCoord0sOffset{0xFFFFFFFF};
-    uint32_t meshletsOffset{0xFFFFFFFF};
-    uint32_t meshletBoundsOffset{0xFFFFFFFF};
-    uint32_t meshletVerticesOffset{0xFFFFFFFF};
-    uint32_t meshletTrianglesByteOffset{0xFFFFFFFF};
+    uint32_t positionsOffset{0xFFFF'FFFF};
+    uint32_t normalsOffset{0xFFFF'FFFF};
+    uint32_t tangentsOffset{0xFFFF'FFFF};
+    uint32_t texCoord0sOffset{0xFFFF'FFFF};
+    uint32_t meshletsOffset{0xFFFF'FFFF};
+    uint32_t meshletBoundsOffset{0xFFFF'FFFF};
+    uint32_t meshletVerticesOffset{0xFFFF'FFFF};
+    uint32_t meshletTrianglesByteOffset{0xFFFF'FFFF};
     uint32_t usesShortIndices{0};
     uint32_t blobByteCount{0};
 };

@@ -86,9 +86,9 @@ enum class ImageState : uint32_t
     AccessDepthAttachmentRead = 0x4000,
     AccessDepthAttachmentWrite = 0x8000,
     // Covers copy, blit, resolve and clear
-    AccessTransferRead = 0x10000,
+    AccessTransferRead = 0x1'0000,
     // Covers copy, blit, resolve and clear
-    AccessTransferWrite = 0x20000,
+    AccessTransferWrite = 0x2'0000,
 
     // Combined Masks
     ColorAttachmentWrite =

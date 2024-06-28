@@ -74,7 +74,7 @@ using namespace wheels;
 namespace
 {
 
-const uint64_t sShaderCacheMagic = 0x4448535250535250; // PRSPRSHD
+const uint64_t sShaderCacheMagic = 0x4448'5352'5053'5250; // PRSPRSHD
 // This should be incremented when breaking changes are made to what's cached or
 // when the shader compiler is updated
 const uint32_t sShaderCacheVersion = 2;

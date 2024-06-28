@@ -58,7 +58,7 @@ class GpuFrameProfiler
 
     struct ScopeData
     {
-        uint32_t index{0xFFFFFFFF};
+        uint32_t index{0xFFFF'FFFF};
         float millis{0.f};
         wheels::Optional<PipelineStatistics> stats;
     };
@@ -124,7 +124,7 @@ class CpuFrameProfiler
 
     struct ScopeTime
     {
-        uint32_t index{0xFFFFFFFF};
+        uint32_t index{0xFFFF'FFFF};
         float millis{0.f};
     };
 
