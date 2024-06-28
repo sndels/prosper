@@ -592,7 +592,6 @@ void writeCache(
     const bool hasTexCoord0s = !meshData.texCoord0s.empty();
 
     const bool usesShortIndices = meshInfo.vertexCount <= 0xFFFF;
-    // TODO: Also pack meshlet vertices if short indices are used
     Array<uint8_t> packedIndices{gAllocators.loadingWorker};
     Array<uint8_t> packedMeshletVertices{gAllocators.loadingWorker};
     if (usesShortIndices)

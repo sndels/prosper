@@ -138,8 +138,6 @@ void App::init(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), &m_constantsRing,
         m_staticDescriptorsAlloc.get());
 
-    // TODO: Some VMA allocation in here gets left dangling if we throw
-    // immediately after the call
     m_world->init(scopeAlloc.child_scope(), &m_constantsRing, m_scenePath);
 
     const Timer gpuPassesInitTimer;
@@ -1925,7 +1923,6 @@ void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
     const bool viewportResized =
         asserted_cast<uint32_t>(viewportSize.x) != m_viewportExtent.width ||
         asserted_cast<uint32_t>(viewportSize.y) != m_viewportExtent.height;
-    // TODO: End gesture when mouse is released on top of imgui
 
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (shouldResizeSwapchain || gWindow.resized())

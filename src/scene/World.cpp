@@ -102,7 +102,6 @@ AccelerationStructure createTlas(
 
 } // namespace
 
-// TODO: Split scene loading and runtime scene into separate classes, CUs
 class World::Impl
 {
   public:
