@@ -308,13 +308,13 @@ extern Profiler gProfiler;
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_CPU_GPU_SCOPE(cb, name)                                       \
-    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
+    const Profiler::Scope TOKEN_APPEND(zzCpuGpuScope, __LINE__) =              \
         gProfiler.createCpuGpuScope(cb, name, false);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_CPU_GPU_SCOPE_WITH_STATS(cb, name)                            \
-    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
+    const Profiler::Scope TOKEN_APPEND(zzCpuGpuScope, __LINE__) =              \
         gProfiler.createCpuGpuScope(cb, name, true);
 
 #endif // PROSPER_UTILS_PROFILER_HPP
