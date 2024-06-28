@@ -31,7 +31,7 @@ class Texture
   protected:
     void destroy();
 
-    Image _image;
+    Image m_image;
 };
 
 class Texture2D : public Texture
@@ -78,7 +78,7 @@ class TextureCubemap : public Texture
         wheels::ScopedScratch scopeAlloc, const Ktx &cube,
         const vk::ImageSubresourceRange &subresourceRange) const;
 
-    vk::Sampler _sampler;
+    vk::Sampler m_sampler;
 };
 
 #endif // PROSPER_SCENE_TEXTURE_HPP

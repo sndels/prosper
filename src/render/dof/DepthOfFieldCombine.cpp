@@ -29,22 +29,22 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 void DepthOfFieldCombine::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldCombine::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
@@ -52,7 +52,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  Combine");
 
@@ -94,7 +94,7 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }};
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
@@ -114,8 +114,9 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
         PROFILER_GPU_SCOPE(profiler, cb, "  Combine");
 
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
-        const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, extent, Span{&storageSet, 1});
+        const vk::DescriptorSet storageSet =
+            m_computePass.storageSet(nextFrame);
+        m_computePass.record(cb, extent, Span{&storageSet, 1});
     }
 
     return ret;

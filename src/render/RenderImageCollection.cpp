@@ -9,12 +9,12 @@ RenderImageCollection::~RenderImageCollection()
 
 void RenderImageCollection::destroyResources()
 {
-    for (auto &views : _subresourceViews)
+    for (auto &views : m_subresourceViews)
     {
         gDevice.destroy(views);
         views.clear();
     }
-    _subresourceViews.clear();
+    m_subresourceViews.clear();
 
     RenderResourceCollection::destroyResources();
 }
@@ -23,10 +23,10 @@ wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     ImageHandle handle)
 {
     assertValidHandle(handle);
-    if (_subresourceViews.size() <= handle.index)
-        _subresourceViews.resize(handle.index + 1);
+    if (m_subresourceViews.size() <= handle.index)
+        m_subresourceViews.resize(handle.index + 1);
 
-    auto &views = _subresourceViews[handle.index];
+    auto &views = m_subresourceViews[handle.index];
 
     if (views.empty())
     {

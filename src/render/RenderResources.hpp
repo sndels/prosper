@@ -64,7 +64,7 @@ class RenderResources
     wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
 
   private:
-    bool _initialized{false};
+    bool m_initialized{false};
 };
 
 extern RenderResources gRenderResources;

@@ -81,14 +81,14 @@ class Swapchain
     void createImages();
     void createFences();
 
-    bool _initialized{false};
-    SwapchainConfig _config;
+    bool m_initialized{false};
+    SwapchainConfig m_config;
 
-    vk::SwapchainKHR _swapchain;
-    wheels::InlineArray<SwapchainImage, MAX_SWAPCHAIN_IMAGES> _images;
-    uint32_t _nextImage{0};
-    wheels::StaticArray<vk::Fence, MAX_FRAMES_IN_FLIGHT> _inFlightFences;
-    size_t _nextFrame{0};
+    vk::SwapchainKHR m_swapchain;
+    wheels::InlineArray<SwapchainImage, MAX_SWAPCHAIN_IMAGES> m_images;
+    uint32_t m_nextImage{0};
+    wheels::StaticArray<vk::Fence, MAX_FRAMES_IN_FLIGHT> m_inFlightFences;
+    size_t m_nextFrame{0};
 };
 
 #endif // PROSPER_GFX_SWAPCHAIN_HPP

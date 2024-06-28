@@ -157,36 +157,36 @@ class World::Impl
         vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
         vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
 
-    RingBuffer *_constantsRing{nullptr};
-    RingBuffer _lightDataRing;
-    wheels::Optional<size_t> _nextScene;
-    uint32_t _framesSinceFinalBlasBuilds{0};
-    Timer _blasBuildTimer;
+    RingBuffer *m_constantsRing{nullptr};
+    RingBuffer m_lightDataRing;
+    wheels::Optional<size_t> m_nextScene;
+    uint32_t m_framesSinceFinalBlasBuilds{0};
+    Timer m_blasBuildTimer;
 
   public:
-    WorldData _data;
-    uint32_t _currentCamera{0};
+    WorldData m_data;
+    uint32_t m_currentCamera{0};
 
-    WorldByteOffsets _byteOffsets;
+    WorldByteOffsets m_byteOffsets;
 
     struct ScratchBuffer
     {
         uint32_t framesSinceLastUsed{0};
         Buffer buffer;
     };
-    Array<ScratchBuffer> _scratchBuffers{gAllocators.general};
-    Buffer _tlasInstancesBuffer;
-    OwningPtr<RingBuffer> _tlasInstancesUploadRing;
-    uint32_t _tlasInstancesUploadOffset{0};
+    Array<ScratchBuffer> m_scratchBuffers{gAllocators.general};
+    Buffer m_tlasInstancesBuffer;
+    OwningPtr<RingBuffer> m_tlasInstancesUploadRing;
+    uint32_t m_tlasInstancesUploadOffset{0};
 };
 
 World::Impl::~Impl()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    for (auto &sb : _scratchBuffers)
+    for (auto &sb : m_scratchBuffers)
         gDevice.destroy(sb.buffer);
-    gDevice.destroy(_tlasInstancesBuffer);
+    gDevice.destroy(m_tlasInstancesBuffer);
 }
 
 void World::Impl::init(
@@ -195,22 +195,22 @@ void World::Impl::init(
 {
     WHEELS_ASSERT(constantsRing != nullptr);
 
-    _constantsRing = constantsRing;
+    m_constantsRing = constantsRing;
 
     const uint32_t lightDataBufferSize =
         (DirectionalLight::sBufferByteSize + RingBuffer::sAlignment +
          PointLights::sBufferByteSize + RingBuffer::sAlignment +
          SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
         MAX_FRAMES_IN_FLIGHT;
-    _lightDataRing.init(
+    m_lightDataRing.init(
         vk::BufferUsageFlagBits::eStorageBuffer, lightDataBufferSize,
         "LightDataRing");
 
-    _data.init(
+    m_data.init(
         WHEELS_MOV(scopeAlloc),
         WorldData::RingBuffers{
-            .constantsRing = _constantsRing,
-            .lightDataRing = &_lightDataRing,
+            .constantsRing = constantsRing,
+            .lightDataRing = &m_lightDataRing,
         },
         scene);
 
@@ -222,11 +222,11 @@ void World::Impl::startFrame()
 {
     // Launch on the first frame instead of the WorldData ctor to avoid the
     // deferred loading timer bloating from renderer setup etc.
-    if (_data._deferredLoadingContext.has_value() &&
-        !_data._deferredLoadingContext->worker.has_value())
-        _data._deferredLoadingContext->launch();
+    if (m_data.m_deferredLoadingContext.has_value() &&
+        !m_data.m_deferredLoadingContext->worker.has_value())
+        m_data.m_deferredLoadingContext->launch();
 
-    if (_nextScene.has_value())
+    if (m_nextScene.has_value())
     {
         {
             Scene &scene = currentScene();
@@ -235,15 +235,15 @@ void World::Impl::startFrame()
             scene.previousTransformsValid = false;
         }
 
-        _data._currentScene = _nextScene.take();
+        m_data.m_currentScene = m_nextScene.take();
     }
-    _data._modelInstanceTransformsRing.startFrame();
-    _lightDataRing.startFrame();
-    _tlasInstancesUploadRing->startFrame();
+    m_data.m_modelInstanceTransformsRing.startFrame();
+    m_lightDataRing.startFrame();
+    m_tlasInstancesUploadRing->startFrame();
 
-    for (size_t i = 0; i < _scratchBuffers.size();)
+    for (size_t i = 0; i < m_scratchBuffers.size();)
     {
-        ScratchBuffer &sb = _scratchBuffers[i];
+        ScratchBuffer &sb = m_scratchBuffers[i];
         // TODO:l
         // Should this free logic be done for al the tracked render resources?
         if (++sb.framesSinceLastUsed > MAX_FRAMES_IN_FLIGHT)
@@ -252,7 +252,7 @@ void World::Impl::startFrame()
             // destroyed
             gDevice.destroy(sb.buffer);
             // The reference held by sb is invalid after this
-            _scratchBuffers.erase(i);
+            m_scratchBuffers.erase(i);
         }
         else
             ++i;
@@ -268,37 +268,38 @@ void World::Impl::endFrame()
 void World::Impl::uploadMeshDatas(
     wheels::ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
-    _data.uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
+    m_data.uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) one callsite
 void World::Impl::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
 {
-    _data.uploadMaterialDatas(nextFrame);
+    m_data.uploadMaterialDatas(nextFrame);
 
-    _byteOffsets.globalMaterialConstants = _constantsRing->write_value(lodBias);
+    m_byteOffsets.globalMaterialConstants =
+        m_constantsRing->write_value(lodBias);
 }
 
 bool World::Impl::drawSceneUi()
 {
-    WHEELS_ASSERT(!_data._scenes.empty());
+    WHEELS_ASSERT(!m_data.m_scenes.empty());
 
     bool sceneChanged = false;
-    if (_data._scenes.size() > 1)
+    if (m_data.m_scenes.size() > 1)
     {
         ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
         ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         const uint32_t sceneCount =
-            asserted_cast<uint32_t>(_data._scenes.size());
+            asserted_cast<uint32_t>(m_data.m_scenes.size());
         if (sceneCount > 1)
         {
-            uint32_t scene = asserted_cast<uint32_t>(_data._currentScene);
+            uint32_t scene = asserted_cast<uint32_t>(m_data.m_currentScene);
             if (sliderU32("Active scene", &scene, 0, sceneCount - 1))
             {
                 // Make sure the new camera's parameters are copied over from
                 sceneChanged = true;
-                _nextScene = scene;
+                m_nextScene = scene;
             }
         }
 
@@ -310,12 +311,13 @@ bool World::Impl::drawSceneUi()
 
 bool World::Impl::drawCameraUi()
 {
-    WHEELS_ASSERT(!_data._cameras.empty());
-    const uint32_t cameraCount = asserted_cast<uint32_t>(_data._cameras.size());
+    WHEELS_ASSERT(!m_data.m_cameras.empty());
+    const uint32_t cameraCount =
+        asserted_cast<uint32_t>(m_data.m_cameras.size());
     bool camChanged = false;
     if (cameraCount > 1)
     {
-        if (sliderU32("Active camera", &_currentCamera, 0, cameraCount - 1))
+        if (sliderU32("Active camera", &m_currentCamera, 0, cameraCount - 1))
         {
             // Make sure the new camera's parameters are copied over from
             camChanged = true;
@@ -326,26 +328,26 @@ bool World::Impl::drawCameraUi()
 
 Scene &World::Impl::currentScene()
 {
-    return _data._scenes[_data._currentScene];
+    return m_data.m_scenes[m_data.m_currentScene];
 }
 
 const Scene &World::Impl::currentScene() const
 {
-    return _data._scenes[_data._currentScene];
+    return m_data.m_scenes[m_data.m_currentScene];
 }
 
 AccelerationStructure &World::Impl::currentTLAS()
 {
-    return _data._tlases[_data._currentScene];
+    return m_data.m_tlases[m_data.m_currentScene];
 }
 
 void World::Impl::updateAnimations(float timeS, Profiler *profiler)
 {
     PROFILER_CPU_SCOPE(profiler, "World::updateAnimations");
 
-    for (Animation<vec3> &animation : _data._animations._vec3)
+    for (Animation<vec3> &animation : m_data.m_animations.vec3)
         animation.update(timeS);
-    for (Animation<quat> &animation : _data._animations._quat)
+    for (Animation<quat> &animation : m_data.m_animations.quat)
         animation.update(timeS);
 }
 
@@ -409,7 +411,7 @@ void World::Impl::updateScene(
                             .normalToWorld = normalToWorld,
                         };
 
-                if (node.camera.has_value() && *node.camera == _currentCamera)
+                if (node.camera.has_value() && *node.camera == m_currentCamera)
                 {
                     cameraTransform->eye =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
@@ -498,7 +500,8 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             // assumes this as it uses the flattened index of the first submodel
             // as the custom index for each instance. RT shaders then access
             // each submodel from that using the geometry index of the hit.
-            for (const auto &model : _data._models[instance.modelID].subModels)
+            for (const auto &model :
+                 m_data.m_models[instance.modelID].subModels)
             {
                 drawInstances.push_back(Scene::DrawInstance{
                     .modelInstanceID = mi,
@@ -510,12 +513,12 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 
         // This is valid to offset (0) even on the first frame and we'll skip
         // reads anyway
-        _byteOffsets.previousModelInstanceTransforms =
-            _byteOffsets.modelInstanceTransforms;
-        _byteOffsets.modelInstanceTransforms =
-            _data._modelInstanceTransformsRing.write_elements(transforms);
-        _byteOffsets.modelInstanceScales =
-            _data._modelInstanceTransformsRing.write_elements(scales);
+        m_byteOffsets.previousModelInstanceTransforms =
+            m_byteOffsets.modelInstanceTransforms;
+        m_byteOffsets.modelInstanceTransforms =
+            m_data.m_modelInstanceTransformsRing.write_elements(transforms);
+        m_byteOffsets.modelInstanceScales =
+            m_data.m_modelInstanceTransformsRing.write_elements(scales);
 
         memcpy(
             scene.drawInstancesBuffer.mapped, drawInstances.data(),
@@ -524,33 +527,33 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 
     updateTlasInstances(scopeAlloc.child_scope(), scene);
 
-    _byteOffsets.directionalLight =
-        scene.lights.directionalLight.write(_lightDataRing);
-    _byteOffsets.pointLights = scene.lights.pointLights.write(_lightDataRing);
-    _byteOffsets.spotLights = scene.lights.spotLights.write(_lightDataRing);
+    m_byteOffsets.directionalLight =
+        scene.lights.directionalLight.write(m_lightDataRing);
+    m_byteOffsets.pointLights = scene.lights.pointLights.write(m_lightDataRing);
+    m_byteOffsets.spotLights = scene.lights.spotLights.write(m_lightDataRing);
 }
 
 bool World::Impl::buildAccelerationStructures(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 {
-    if (_framesSinceFinalBlasBuilds > MAX_FRAMES_IN_FLIGHT)
+    if (m_framesSinceFinalBlasBuilds > MAX_FRAMES_IN_FLIGHT)
     {
         // Be conservative and log this after we know the work is done. Let's
         // not worry about getting a tight time since this will only be off by
         // frametime at most.
         printf(
-            "Streamed BLAS builds took %.2fs\n", _blasBuildTimer.getSeconds());
-        _framesSinceFinalBlasBuilds = 0;
+            "Streamed BLAS builds took %.2fs\n", m_blasBuildTimer.getSeconds());
+        m_framesSinceFinalBlasBuilds = 0;
     }
-    else if (_framesSinceFinalBlasBuilds > 0)
-        _framesSinceFinalBlasBuilds++;
+    else if (m_framesSinceFinalBlasBuilds > 0)
+        m_framesSinceFinalBlasBuilds++;
 
     bool blasAdded = false;
-    if (_data._models.size() > _data._blases.size())
+    if (m_data.m_models.size() > m_data.m_blases.size())
     {
         const size_t maxBlasBuildsPerFrame = 10;
         const size_t unbuiltBlasCount =
-            _data._models.size() - _data._blases.size();
+            m_data.m_models.size() - m_data.m_blases.size();
         const size_t blasBuildCount =
             std::min(unbuiltBlasCount, maxBlasBuildsPerFrame);
         size_t blasesBuilt = 0;
@@ -560,7 +563,7 @@ bool World::Impl::buildAccelerationStructures(
                 break;
         }
         if (blasesBuilt == blasBuildCount && blasBuildCount == unbuiltBlasCount)
-            _framesSinceFinalBlasBuilds = 1;
+            m_framesSinceFinalBlasBuilds = 1;
         blasAdded = blasesBuilt > 0;
     }
 
@@ -573,27 +576,28 @@ void World::Impl::drawSkybox(vk::CommandBuffer cb) const
 {
     const vk::DeviceSize offset = 0;
     cb.bindVertexBuffers(
-        0, 1, &_data._skyboxResources.vertexBuffer.handle, &offset);
+        0, 1, &m_data.m_skyboxResources.vertexBuffer.handle, &offset);
     cb.draw(asserted_cast<uint32_t>(WorldData::sSkyboxVertsCount), 1, 0, 0);
 }
 
 bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 {
-    WHEELS_ASSERT(_data._models.size() > _data._blases.size());
+    WHEELS_ASSERT(m_data.m_models.size() > m_data.m_blases.size());
 
-    const size_t modelIndex = _data._blases.size();
+    const size_t modelIndex = m_data.m_blases.size();
     if (modelIndex == 0)
         // TODO: This will continue to reset until the first blas is built.
         // Reset at the start of the first frame instead? Same for the material
         // timer?
-        _blasBuildTimer.reset();
+        m_blasBuildTimer.reset();
 
-    const Model &model = _data._models[modelIndex];
+    const Model &model = m_data.m_models[modelIndex];
     // Quick search through the submodels so we can early out if some of them
     // are not loaded in yet
     for (const Model::SubModel &sm : model.subModels)
     {
-        const GeometryMetadata &metadata = _data._geometryMetadatas[sm.meshID];
+        const GeometryMetadata &metadata =
+            m_data.m_geometryMetadatas[sm.meshID];
         if (metadata.bufferIndex == 0xFFFFFFFF)
             // Mesh is hasn't been uploaded yet
             return false;
@@ -611,10 +615,12 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     maxPrimitiveCounts.reserve(model.subModels.size());
     for (const Model::SubModel &sm : model.subModels)
     {
-        const GeometryMetadata &metadata = _data._geometryMetadatas[sm.meshID];
-        const MeshInfo &info = _data._meshInfos[sm.meshID];
+        const GeometryMetadata &metadata =
+            m_data.m_geometryMetadatas[sm.meshID];
+        const MeshInfo &info = m_data.m_meshInfos[sm.meshID];
 
-        const Buffer &dataBuffer = _data._geometryBuffers[metadata.bufferIndex];
+        const Buffer &dataBuffer =
+            m_data.m_geometryBuffers[metadata.bufferIndex];
         WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
 
         const vk::DeviceSize positionsOffset =
@@ -635,7 +641,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
             .indexData = dataBuffer.deviceAddress + indicesOffset,
         };
 
-        const Material &material = _data._materials[info.materialID];
+        const Material &material = m_data.m_materials[info.materialID];
         const vk::GeometryFlagsKHR geomFlags =
             material.alphaMode == Material::AlphaMode::Opaque
                 ? vk::GeometryFlagBitsKHR::eOpaque
@@ -669,8 +675,8 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
             {asserted_cast<uint32_t>(maxPrimitiveCounts.size()),
              maxPrimitiveCounts.data()});
 
-    _data._blases.push_back(AccelerationStructure{});
-    AccelerationStructure &blas = _data._blases.back();
+    m_data.m_blases.push_back(AccelerationStructure{});
+    AccelerationStructure &blas = m_data.m_blases.back();
 
     blas.buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
@@ -700,7 +706,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     String blasName{scopeAlloc};
     for (const Model::SubModel &sm : model.subModels)
     {
-        const String &smName = _data._meshNames[sm.meshID];
+        const String &smName = m_data.m_meshNames[sm.meshID];
         blasName.extend(smName);
         blasName.push_back('|');
     }
@@ -736,8 +742,8 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 
 void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 {
-    const Scene &scene = _data._scenes[_data._currentScene];
-    AccelerationStructure &tlas = _data._tlases[_data._currentScene];
+    const Scene &scene = m_data.m_scenes[m_data.m_currentScene];
+    AccelerationStructure &tlas = m_data.m_tlases[m_data.m_currentScene];
 
     vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
     vk::AccelerationStructureGeometryKHR geometry;
@@ -760,12 +766,12 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
     buildInfo.scratchData = scratchBuffer.deviceAddress;
 
     const vk::BufferCopy copyRegion{
-        .srcOffset = _tlasInstancesUploadOffset,
+        .srcOffset = m_tlasInstancesUploadOffset,
         .dstOffset = 0,
-        .size = _tlasInstancesBuffer.byteSize,
+        .size = m_tlasInstancesBuffer.byteSize,
     };
     cb.copyBuffer(
-        _tlasInstancesUploadRing->buffer(), _tlasInstancesBuffer.handle, 1,
+        m_tlasInstancesUploadRing->buffer(), m_tlasInstancesBuffer.handle, 1,
         &copyRegion);
 
     const StaticArray barriers{{
@@ -790,7 +796,7 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
 {
     // See if we have a big enough buffer available
-    for (ScratchBuffer &sb : _scratchBuffers)
+    for (ScratchBuffer &sb : m_scratchBuffers)
     {
         // Don't check for use within this frame as we assume barriers will be
         // used on the scratch buffer before use
@@ -802,7 +808,7 @@ Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
     }
 
     // Didn't find a viable buffer so allocate a new one
-    _scratchBuffers.push_back(ScratchBuffer{
+    m_scratchBuffers.push_back(ScratchBuffer{
         .buffer = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
@@ -816,23 +822,23 @@ Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
         }),
     });
 
-    return _scratchBuffers.back().buffer;
+    return m_scratchBuffers.back().buffer;
 }
 
 void World::Impl::reserveTlasInstances(uint32_t instanceCount)
 {
     const vk::DeviceSize byteSize =
         sizeof(vk::AccelerationStructureInstanceKHR) * instanceCount;
-    if (_tlasInstancesBuffer.byteSize < byteSize)
+    if (m_tlasInstancesBuffer.byteSize < byteSize)
     {
         // TODO: This destroy isn't safe until all frames in flight have
         // finished
-        gDevice.destroy(_tlasInstancesBuffer);
+        gDevice.destroy(m_tlasInstancesBuffer);
         // TODO: This destroy isn't safe until all frames in flight have
         // finished
-        _tlasInstancesUploadRing.reset();
+        m_tlasInstancesUploadRing.reset();
 
-        _tlasInstancesBuffer = gDevice.createBuffer(BufferCreateInfo{
+        m_tlasInstancesBuffer = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = byteSize,
@@ -848,11 +854,11 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
 
         const uint32_t ringByteSize = asserted_cast<uint32_t>(
             (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
-        _tlasInstancesUploadRing = OwningPtr<RingBuffer>(gAllocators.general);
-        _tlasInstancesUploadRing->init(
+        m_tlasInstancesUploadRing = OwningPtr<RingBuffer>(gAllocators.general);
+        m_tlasInstancesUploadRing->init(
             vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
             "InstancesUploadBuffer");
-        _tlasInstancesUploadRing->startFrame();
+        m_tlasInstancesUploadRing->startFrame();
     }
 }
 
@@ -870,7 +876,7 @@ void World::Impl::updateTlasInstances(
     uint32_t rti = 0;
     for (const auto &mi : scene.modelInstances)
     {
-        const auto &model = _data._models[mi.modelID];
+        const auto &model = m_data.m_models[mi.modelID];
 
         // This has to be mat3x4 because we assume the transform already has
         // the same memory layout as vk::TransformationMatrixKHR
@@ -881,9 +887,9 @@ void World::Impl::updateTlasInstances(
         // Zero as accelerationStructureReference marks an inactive instance
         // according to the vk spec
         uint64_t asReference = 0;
-        if (_data._blases.size() > mi.modelID)
+        if (m_data.m_blases.size() > mi.modelID)
         {
-            const auto &blas = _data._blases[mi.modelID];
+            const auto &blas = m_data.m_blases[mi.modelID];
             asReference = blas.address;
         }
 
@@ -903,8 +909,8 @@ void World::Impl::updateTlasInstances(
 
     reserveTlasInstances(asserted_cast<uint32_t>(scene.modelInstances.size()));
 
-    _tlasInstancesUploadOffset =
-        _tlasInstancesUploadRing->write_elements(instances);
+    m_tlasInstancesUploadOffset =
+        m_tlasInstancesUploadRing->write_elements(instances);
 }
 
 void World::Impl::createTlasBuildInfos(
@@ -919,12 +925,12 @@ void World::Impl::createTlasBuildInfos(
         .primitiveOffset = 0,
     };
 
-    WHEELS_ASSERT(_tlasInstancesBuffer.deviceAddress != 0);
+    WHEELS_ASSERT(m_tlasInstancesBuffer.deviceAddress != 0);
     geometryOut = vk::AccelerationStructureGeometryKHR{
         .geometryType = vk::GeometryTypeKHR::eInstances,
         .geometry =
             vk::AccelerationStructureGeometryInstancesDataKHR{
-                .data = _tlasInstancesBuffer.deviceAddress,
+                .data = m_tlasInstancesBuffer.deviceAddress,
             },
     };
 
@@ -941,7 +947,7 @@ void World::Impl::createTlasBuildInfos(
 }
 
 World::World() noexcept
-: _impl{gAllocators.general}
+: m_impl{gAllocators.general}
 {
 }
 
@@ -952,170 +958,171 @@ void World::init(
     wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
     const std::filesystem::path &scene)
 {
-    WHEELS_ASSERT(!_initialized);
-    _impl->init(WHEELS_MOV(scopeAlloc), constantsRing, scene);
-    _initialized = true;
+    WHEELS_ASSERT(!m_initialized);
+    m_impl->init(WHEELS_MOV(scopeAlloc), constantsRing, scene);
+    m_initialized = true;
 }
 
 void World::startFrame()
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->startFrame();
+    WHEELS_ASSERT(m_initialized);
+    m_impl->startFrame();
 }
 
 void World::endFrame()
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->endFrame();
+    WHEELS_ASSERT(m_initialized);
+    m_impl->endFrame();
 }
 
 bool World::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data.handleDeferredLoading(cb, profiler);
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.handleDeferredLoading(cb, profiler);
 }
 
 bool World::unbuiltBlases() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._blases.size() < _impl->_data._models.size();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_blases.size() < m_impl->m_data.m_models.size();
 }
 
 void World::drawDeferredLoadingUi() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data.drawDeferredLoadingUi();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.drawDeferredLoadingUi();
 }
 
 bool World::drawSceneUi()
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->drawSceneUi();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->drawSceneUi();
 }
 
 bool World::drawCameraUi()
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->drawCameraUi();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->drawCameraUi();
 }
 
 Scene &World::currentScene()
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->currentScene();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->currentScene();
 }
 
 const Scene &World::currentScene() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->currentScene();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->currentScene();
 }
 
 AccelerationStructure &World::currentTLAS()
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->currentTLAS();
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->currentTLAS();
 }
 
 CameraParameters const &World::currentCamera() const
 {
-    WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(_impl->_currentCamera < _impl->_data._cameras.size());
-    return _impl->_data._cameras[_impl->_currentCamera];
+    WHEELS_ASSERT(m_initialized);
+    WHEELS_ASSERT(m_impl->m_currentCamera < m_impl->m_data.m_cameras.size());
+    return m_impl->m_data.m_cameras[m_impl->m_currentCamera];
 }
 
 bool World::isCurrentCameraDynamic() const
 {
-    WHEELS_ASSERT(_initialized);
-    WHEELS_ASSERT(_impl->_currentCamera < _impl->_data._cameraDynamic.size());
-    return _impl->_data._cameraDynamic[_impl->_currentCamera];
+    WHEELS_ASSERT(m_initialized);
+    WHEELS_ASSERT(
+        m_impl->m_currentCamera < m_impl->m_data.m_cameraDynamic.size());
+    return m_impl->m_data.m_cameraDynamic[m_impl->m_currentCamera];
 }
 
 void World::uploadMeshDatas(
     wheels::ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
+    WHEELS_ASSERT(m_initialized);
+    m_impl->uploadMeshDatas(WHEELS_MOV(scopeAlloc), nextFrame);
 }
 
 void World::uploadMaterialDatas(uint32_t nextFrame, float lodBias)
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->uploadMaterialDatas(nextFrame, lodBias);
+    WHEELS_ASSERT(m_initialized);
+    m_impl->uploadMaterialDatas(nextFrame, lodBias);
 }
 
 void World::updateAnimations(float timeS, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->updateAnimations(timeS, profiler);
+    WHEELS_ASSERT(m_initialized);
+    m_impl->updateAnimations(timeS, profiler);
 }
 
 void World::updateScene(
     ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
     SceneStats *sceneStats, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->updateScene(
+    WHEELS_ASSERT(m_initialized);
+    m_impl->updateScene(
         WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats, profiler);
 }
 
 void World::updateBuffers(ScopedScratch scopeAlloc)
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->updateBuffers(WHEELS_MOV(scopeAlloc));
+    WHEELS_ASSERT(m_initialized);
+    m_impl->updateBuffers(WHEELS_MOV(scopeAlloc));
 }
 
 bool World::buildAccelerationStructures(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->buildAccelerationStructures(WHEELS_MOV(scopeAlloc), cb);
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->buildAccelerationStructures(WHEELS_MOV(scopeAlloc), cb);
 }
 
 void World::drawSkybox(vk::CommandBuffer cb) const
 {
-    WHEELS_ASSERT(_initialized);
-    _impl->drawSkybox(cb);
+    WHEELS_ASSERT(m_initialized);
+    m_impl->drawSkybox(cb);
 }
 
 const WorldDSLayouts &World::dsLayouts() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._dsLayouts;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_dsLayouts;
 }
 
 const WorldDescriptorSets &World::descriptorSets() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._descriptorSets;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_descriptorSets;
 }
 
 const WorldByteOffsets &World::byteOffsets() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_byteOffsets;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_byteOffsets;
 }
 
 Span<const Model> World::models() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._models;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_models;
 }
 
 Span<const Material> World::materials() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._materials;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_materials;
 }
 
 Span<const MeshInfo> World::meshInfos() const
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._meshInfos;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_meshInfos;
 }
 
 SkyboxResources &World::skyboxResources()
 {
-    WHEELS_ASSERT(_initialized);
-    return _impl->_data._skyboxResources;
+    WHEELS_ASSERT(m_initialized);
+    return m_impl->m_data.m_skyboxResources;
 }

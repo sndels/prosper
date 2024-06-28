@@ -72,11 +72,11 @@ class ShaderReflection
         wheels::Span<const DescriptorInfo> descriptorInfos) const;
 
   private:
-    bool _initialized{false};
-    uint32_t _pushConstantsBytesize{0};
+    bool m_initialized{false};
+    uint32_t m_pushConstantsBytesize{0};
     wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>>
-        _descriptorSetMetadatas{gAllocators.general};
-    wheels::HashSet<std::filesystem::path> _sourceFiles{gAllocators.general};
+        m_descriptorSetMetadatas{gAllocators.general};
+    wheels::HashSet<std::filesystem::path> m_sourceFiles{gAllocators.general};
 };
 
 #endif // PROSPER_GFX_SHADER_REFLECTION_HPP

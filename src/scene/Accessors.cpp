@@ -8,28 +8,28 @@ using namespace glm;
 
 TimeAccessor::TimeAccessor(
     const float *data, uint32_t count, const Interval &interval) noexcept
-: _data{data}
-, _count{count}
-, _interval{interval}
+: m_data{data}
+, m_count{count}
+, m_interval{interval}
 {
-    WHEELS_ASSERT(_data != nullptr);
-    WHEELS_ASSERT(_count > 0);
+    WHEELS_ASSERT(m_data != nullptr);
+    WHEELS_ASSERT(m_count > 0);
 }
 
-float TimeAccessor::endTimeS() const { return _interval.endTimeS; }
+float TimeAccessor::endTimeS() const { return m_interval.endTimeS; }
 
 KeyFrameInterpolation TimeAccessor::interpolation(float timeS) const
 {
-    if (timeS <= _interval.startTimeS || timeS < _data[0])
+    if (timeS <= m_interval.startTimeS || timeS < m_data[0])
         return KeyFrameInterpolation{
             .t = 0.f,
             .firstFrame = 0,
         };
 
-    if (timeS >= _interval.endTimeS)
+    if (timeS >= m_interval.endTimeS)
         return KeyFrameInterpolation{
             .t = 0.f,
-            .firstFrame = _count - 1,
+            .firstFrame = m_count - 1,
         };
 
     // TODO:
@@ -39,10 +39,10 @@ KeyFrameInterpolation TimeAccessor::interpolation(float timeS) const
     // random access. Profile well.
 
     KeyFrameInterpolation ret;
-    const uint32_t lastFrame = _count - 1;
+    const uint32_t lastFrame = m_count - 1;
     while (ret.firstFrame < lastFrame)
     {
-        const float frameTimeS = _data[ret.firstFrame];
+        const float frameTimeS = m_data[ret.firstFrame];
         // Time == first frame has an early out
         if (frameTimeS > timeS)
             break;
@@ -54,8 +54,8 @@ KeyFrameInterpolation TimeAccessor::interpolation(float timeS) const
 
     if (ret.firstFrame < lastFrame)
     {
-        const float firstTime = _data[ret.firstFrame];
-        const float secondTime = _data[ret.firstFrame + 1];
+        const float firstTime = m_data[ret.firstFrame];
+        const float secondTime = m_data[ret.firstFrame + 1];
         WHEELS_ASSERT(firstTime <= timeS);
         WHEELS_ASSERT(timeS <= secondTime);
 
@@ -72,32 +72,32 @@ KeyFrameInterpolation TimeAccessor::interpolation(float timeS) const
 
 template <>
 ValueAccessor<vec3>::ValueAccessor(const uint8_t *data, uint32_t count) noexcept
-: _data{data}
-, _count{count}
+: m_data{data}
+, m_count{count}
 {
-    WHEELS_ASSERT(_data != nullptr);
-    WHEELS_ASSERT(_count > 0);
+    WHEELS_ASSERT(m_data != nullptr);
+    WHEELS_ASSERT(m_count > 0);
 }
 
 template <> vec3 ValueAccessor<vec3>::read(uint32_t index) const
 {
-    WHEELS_ASSERT(index < _count);
+    WHEELS_ASSERT(index < m_count);
     return *reinterpret_cast<const vec3 *>(
-        _data + asserted_cast<size_t>(index) * 3 * sizeof(float));
+        m_data + asserted_cast<size_t>(index) * 3 * sizeof(float));
 }
 
 template <>
 ValueAccessor<quat>::ValueAccessor(const uint8_t *data, uint32_t count) noexcept
-: _data{data}
-, _count{count}
+: m_data{data}
+, m_count{count}
 {
-    WHEELS_ASSERT(_data != nullptr);
-    WHEELS_ASSERT(_count > 0);
+    WHEELS_ASSERT(m_data != nullptr);
+    WHEELS_ASSERT(m_count > 0);
 }
 
 template <> quat ValueAccessor<quat>::read(uint32_t index) const
 {
-    WHEELS_ASSERT(index < _count);
+    WHEELS_ASSERT(index < m_count);
     return *reinterpret_cast<const quat *>(
-        _data + asserted_cast<size_t>(index) * 4 * sizeof(float));
+        m_data + asserted_cast<size_t>(index) * 4 * sizeof(float));
 }

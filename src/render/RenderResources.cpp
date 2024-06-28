@@ -12,7 +12,7 @@ RenderResources gRenderResources;
 RenderResources::~RenderResources()
 {
     WHEELS_ASSERT(
-        (!_initialized || nearestSampler == vk::Sampler{}) &&
+        (!m_initialized || nearestSampler == vk::Sampler{}) &&
         "destroy() not called?");
 }
 
@@ -61,12 +61,12 @@ void RenderResources::init()
         .maxLod = VK_LOD_CLAMP_NONE,
     });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void RenderResources::destroy()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     gDevice.logical().destroy(nearestSampler);
     gDevice.logical().destroy(bilinearSampler);
@@ -83,7 +83,7 @@ void RenderResources::destroy()
 
 void RenderResources::startFrame()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     images->startFrame();
     texelBuffers->startFrame();
@@ -92,7 +92,7 @@ void RenderResources::startFrame()
 
 void RenderResources::destroyResources()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     images->destroyResources();
     texelBuffers->destroyResources();

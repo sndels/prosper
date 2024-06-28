@@ -9,18 +9,18 @@ void DepthOfField::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout cameraDsLayout)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _setupPass.init(
+    m_setupPass.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc, cameraDsLayout);
-    _reducePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    _flattenPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    _dilatePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    _gatherPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    _filterPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    _combinePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_reducePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_flattenPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_dilatePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_gatherPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_filterPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_combinePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfField::recompileShaders(
@@ -28,43 +28,43 @@ void DepthOfField::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout cameraDsLayout)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _setupPass.recompileShaders(
+    m_setupPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
-    _reducePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _flattenPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _dilatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _gatherPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _filterPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _combinePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_reducePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_flattenPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_dilatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_gatherPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_filterPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_combinePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
 }
 
-void DepthOfField::startFrame() { _filterPass.startFrame(); }
+void DepthOfField::startFrame() { m_filterPass.startFrame(); }
 
 DepthOfField::Output DepthOfField::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
     const DepthOfField::Input &input, uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_GPU_SCOPE(profiler, cb, "DepthOfField");
 
     Output ret;
     {
 
-        const DepthOfFieldSetup::Output setupOutput = _setupPass.record(
+        const DepthOfFieldSetup::Output setupOutput = m_setupPass.record(
             scopeAlloc.child_scope(), cb, cam, input, nextFrame, profiler);
 
-        _reducePass.record(
+        m_reducePass.record(
             scopeAlloc.child_scope(), cb, setupOutput.halfResIllumination,
             nextFrame, profiler);
 
-        const DepthOfFieldFlatten::Output flattenOutput = _flattenPass.record(
+        const DepthOfFieldFlatten::Output flattenOutput = m_flattenPass.record(
             scopeAlloc.child_scope(), cb, setupOutput.halfResCircleOfConfusion,
             nextFrame, profiler);
 
-        const DepthOfFieldDilate::Output dilateOutput = _dilatePass.record(
+        const DepthOfFieldDilate::Output dilateOutput = m_dilatePass.record(
             scopeAlloc.child_scope(), cb,
             flattenOutput.tileMinMaxCircleOfConfusion, cam, nextFrame,
             profiler);
@@ -77,14 +77,14 @@ DepthOfField::Output DepthOfField::record(
             .halfResCoC = setupOutput.halfResCircleOfConfusion,
             .dilatedTileMinMaxCoC = dilateOutput.dilatedTileMinMaxCoC,
         };
-        const DepthOfFieldGather::Output fgGatherOutput = _gatherPass.record(
+        const DepthOfFieldGather::Output fgGatherOutput = m_gatherPass.record(
             scopeAlloc.child_scope(), cb, gatherInput,
             DepthOfFieldGather::GatherType_Foreground, nextFrame, profiler);
-        const DepthOfFieldGather::Output bgGatherOutput = _gatherPass.record(
+        const DepthOfFieldGather::Output bgGatherOutput = m_gatherPass.record(
             scopeAlloc.child_scope(), cb, gatherInput,
             DepthOfFieldGather::GatherType_Background, nextFrame, profiler);
 
-        const DepthOfFieldFilter::Output fgFilterOutput = _filterPass.record(
+        const DepthOfFieldFilter::Output fgFilterOutput = m_filterPass.record(
             scopeAlloc.child_scope(), cb,
             fgGatherOutput.halfResBokehColorWeight, nextFrame,
             DepthOfFieldFilter::DebugNames{
@@ -94,7 +94,7 @@ DepthOfField::Output DepthOfField::record(
             profiler);
         gRenderResources.images->release(
             fgGatherOutput.halfResBokehColorWeight);
-        const DepthOfFieldFilter::Output bgFilterOutput = _filterPass.record(
+        const DepthOfFieldFilter::Output bgFilterOutput = m_filterPass.record(
             scopeAlloc.child_scope(), cb,
             bgGatherOutput.halfResBokehColorWeight, nextFrame,
             DepthOfFieldFilter::DebugNames{
@@ -105,7 +105,7 @@ DepthOfField::Output DepthOfField::record(
         gRenderResources.images->release(
             bgGatherOutput.halfResBokehColorWeight);
 
-        ret = _combinePass.record(
+        ret = m_combinePass.record(
             scopeAlloc.child_scope(), cb,
             DepthOfFieldCombine::Input{
                 .halfResFgBokehWeight =

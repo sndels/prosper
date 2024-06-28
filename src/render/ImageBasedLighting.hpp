@@ -35,12 +35,12 @@ class ImageBasedLighting
         uint32_t nextFrame, Profiler *profiler);
 
   private:
-    bool _initialized{false};
-    ComputePass _sampleIrradiance;
-    ComputePass _integrateSpecularBrdf;
-    ComputePass _prefilterRadiance;
+    bool m_initialized{false};
+    ComputePass m_sampleIrradiance;
+    ComputePass m_integrateSpecularBrdf;
+    ComputePass m_prefilterRadiance;
 
-    bool _generated{false};
+    bool m_generated{false};
 };
 
 #endif // PROSPER_RENDER_IMAGE_BASED_LIGHTING_HPP

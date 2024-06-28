@@ -48,10 +48,10 @@ class GpuFrameProfiler
             uint32_t queryIndex, bool includeStatistics);
 
       private:
-        vk::CommandBuffer _cb;
-        QueryPools _pools;
-        uint32_t _queryIndex{0};
-        bool _hasStatistics;
+        vk::CommandBuffer m_cb;
+        QueryPools m_pools;
+        uint32_t m_queryIndex{0};
+        bool m_hasStatistics;
 
         friend class GpuFrameProfiler;
     };
@@ -86,13 +86,13 @@ class GpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeData> getData(wheels::Allocator &alloc);
 
   private:
-    bool _initialized{false};
-    Buffer _timestampBuffer;
-    Buffer _statisticsBuffer;
-    QueryPools _pools;
-    wheels::Array<uint32_t> _queryScopeIndices{
+    bool m_initialized{false};
+    Buffer m_timestampBuffer;
+    Buffer m_statisticsBuffer;
+    QueryPools m_pools;
+    wheels::Array<uint32_t> m_queryScopeIndices{
         gAllocators.general, sMaxScopeCount};
-    wheels::Array<bool> _scopeHasStats{gAllocators.general, sMaxScopeCount};
+    wheels::Array<bool> m_scopeHasStats{gAllocators.general, sMaxScopeCount};
 
     friend class Profiler;
 };
@@ -116,8 +116,8 @@ class CpuFrameProfiler
         Scope(std::chrono::nanoseconds *output);
 
       private:
-        std::chrono::time_point<std::chrono::high_resolution_clock> _start;
-        std::chrono::nanoseconds *_output;
+        std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+        std::chrono::nanoseconds *m_output;
 
         friend class CpuFrameProfiler;
     };
@@ -144,9 +144,9 @@ class CpuFrameProfiler
     [[nodiscard]] wheels::Array<ScopeTime> getTimes(wheels::Allocator &alloc);
 
   private:
-    wheels::Array<uint32_t> _queryScopeIndices{
+    wheels::Array<uint32_t> m_queryScopeIndices{
         gAllocators.general, sMaxScopeCount};
-    wheels::Array<std::chrono::nanoseconds> _nanos{
+    wheels::Array<std::chrono::nanoseconds> m_nanos{
         gAllocators.general, sMaxScopeCount};
 
     friend class Profiler;
@@ -169,23 +169,23 @@ class Profiler
         Scope(
             GpuFrameProfiler::Scope &&gpuScope,
             CpuFrameProfiler::Scope &&cpuScope)
-        : _gpuScope{WHEELS_MOV(gpuScope)}
-        , _cpuScope{WHEELS_MOV(cpuScope)}
+        : m_gpuScope{WHEELS_MOV(gpuScope)}
+        , m_cpuScope{WHEELS_MOV(cpuScope)}
         {
         }
 
         Scope(CpuFrameProfiler::Scope &&cpuScope)
-        : _cpuScope{WHEELS_MOV(cpuScope)}
+        : m_cpuScope{WHEELS_MOV(cpuScope)}
         {
         }
 
         Scope(GpuFrameProfiler::Scope &&gpuScope)
-        : _gpuScope{WHEELS_MOV(gpuScope)}
+        : m_gpuScope{WHEELS_MOV(gpuScope)}
         {
         }
 
-        wheels::Optional<GpuFrameProfiler::Scope> _gpuScope;
-        wheels::Optional<CpuFrameProfiler::Scope> _cpuScope;
+        wheels::Optional<GpuFrameProfiler::Scope> m_gpuScope;
+        wheels::Optional<CpuFrameProfiler::Scope> m_cpuScope;
 
         friend class Profiler;
     };
@@ -255,26 +255,26 @@ class Profiler
         EndGpuCalled,
     };
 
-    bool _initialized{false};
-    DebugState _debugState{DebugState::NewFrame};
+    bool m_initialized{false};
+    DebugState m_debugState{DebugState::NewFrame};
 
-    CpuFrameProfiler _cpuFrameProfiler;
-    wheels::Array<GpuFrameProfiler> _gpuFrameProfilers{
+    CpuFrameProfiler m_cpuFrameProfiler;
+    wheels::Array<GpuFrameProfiler> m_gpuFrameProfilers{
         gAllocators.general, MAX_FRAMES_IN_FLIGHT};
 
     // There should be a 1:1 mapping between swap images and profiler frames so
     // that we know our gpu data has been filled when we read it back the next
     // time the same index comes up. We should also have 1:1 mapping between gpu
     // frames and the cpu frames that recorded them.
-    uint32_t _currentFrame{0};
-    wheels::Array<wheels::String> _currentFrameScopeNames{
+    uint32_t m_currentFrame{0};
+    wheels::Array<wheels::String> m_currentFrameScopeNames{
         gAllocators.general, sMaxScopeCount};
 
-    wheels::Array<wheels::Array<wheels::String>> _previousScopeNames{
+    wheels::Array<wheels::Array<wheels::String>> m_previousScopeNames{
         gAllocators.general};
     wheels::Array<wheels::Array<CpuFrameProfiler::ScopeTime>>
-        _previousCpuScopeTimes{gAllocators.general};
-    wheels::Array<GpuFrameProfiler::ScopeData> _previousGpuScopeData{
+        m_previousCpuScopeTimes{gAllocators.general};
+    wheels::Array<GpuFrameProfiler::ScopeData> m_previousGpuScopeData{
         gAllocators.general, sMaxScopeCount};
 };
 

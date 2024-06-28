@@ -51,10 +51,10 @@ class DescriptorAllocator
         wheels::Span<const char *const> debugNames,
         wheels::Span<vk::DescriptorSet> output, const void *allocatePNext);
 
-    bool _initialized{false};
-    int32_t _activePool{-1};
-    wheels::Array<vk::DescriptorPool> _pools{gAllocators.general};
-    vk::DescriptorPoolCreateFlags _flags;
+    bool m_initialized{false};
+    int32_t m_activePool{-1};
+    wheels::Array<vk::DescriptorPool> m_pools{gAllocators.general};
+    vk::DescriptorPoolCreateFlags m_flags;
 };
 
 #endif // PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP

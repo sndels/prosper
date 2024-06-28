@@ -11,25 +11,25 @@ void RtDirectIllumination::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _initialReservoirs.init(
+    m_initialReservoirs.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         RtDiInitialReservoirs::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
-    _spatialReuse.init(
+    m_spatialReuse.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         RtDiSpatialReuse::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
-    _trace.init(
+    m_trace.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc, camDSLayout,
         worldDSLayouts);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void RtDirectIllumination::recompileShaders(
@@ -37,30 +37,30 @@ void RtDirectIllumination::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _resetAccumulation |= _initialReservoirs.recompileShaders(
+    m_resetAccumulation |= m_initialReservoirs.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         RtDiInitialReservoirs::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
-    _resetAccumulation |= _spatialReuse.recompileShaders(
+    m_resetAccumulation |= m_spatialReuse.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         RtDiSpatialReuse::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
     // Trace handles accumulation so we don't check recompile here
-    _trace.recompileShaders(
+    m_trace.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDSLayout, worldDSLayouts);
 }
 
 void RtDirectIllumination::drawUi()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    ImGui::Checkbox("Spatial reuse", &_doSpatialReuse);
+    ImGui::Checkbox("Spatial reuse", &m_doSpatialReuse);
 }
 
 RtDirectIllumination::Output RtDirectIllumination::record(
@@ -69,7 +69,7 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     bool resetAccumulation, DrawType drawType, uint32_t nextFrame,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_GPU_SCOPE(profiler, cb, "RtDirectIllumination");
 
@@ -77,15 +77,15 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     {
 
         const RtDiInitialReservoirs::Output initialReservoirsOutput =
-            _initialReservoirs.record(
+            m_initialReservoirs.record(
                 scopeAlloc.child_scope(), cb, world, cam, gbuffer, nextFrame,
                 profiler);
 
         ImageHandle reservoirs = initialReservoirsOutput.reservoirs;
-        if (_doSpatialReuse)
+        if (m_doSpatialReuse)
         {
             const RtDiSpatialReuse::Output spatialReuseOutput =
-                _spatialReuse.record(
+                m_spatialReuse.record(
                     scopeAlloc.child_scope(), cb, world, cam,
                     RtDiSpatialReuse::Input{
                         .gbuffer = gbuffer,
@@ -98,26 +98,26 @@ RtDirectIllumination::Output RtDirectIllumination::record(
             reservoirs = spatialReuseOutput.reservoirs;
         }
 
-        ret = _trace.record(
+        ret = m_trace.record(
             scopeAlloc.child_scope(), cb, world, cam,
             RtDiTrace::Input{
                 .gbuffer = gbuffer,
                 .reservoirs = reservoirs,
             },
-            resetAccumulation || _resetAccumulation, drawType, nextFrame,
+            resetAccumulation || m_resetAccumulation, drawType, nextFrame,
             profiler);
 
         gRenderResources.images->release(reservoirs);
     }
 
-    _resetAccumulation = false;
+    m_resetAccumulation = false;
 
     return ret;
 }
 
 void RtDirectIllumination::releasePreserved()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _trace.releasePreserved();
+    m_trace.releasePreserved();
 }

@@ -113,24 +113,24 @@ class ComputePass
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts,
         wheels::StrSpan debugName);
 
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    vk::ShaderModule _shaderModule;
-    wheels::Optional<ShaderReflection> _shaderReflection;
+    vk::ShaderModule m_shaderModule;
+    wheels::Optional<ShaderReflection> m_shaderReflection;
 
-    vk::DescriptorSetLayout _storageSetLayout;
-    uint32_t _storageSetIndex{0xFFFFFFFF};
+    vk::DescriptorSetLayout m_storageSetLayout;
+    uint32_t m_storageSetIndex{0xFFFFFFFF};
     static const size_t sPerFrameRecordLimit = 5;
-    size_t _nextRecordIndex{0};
+    size_t m_nextRecordIndex{0};
     wheels::StaticArray<
         wheels::InlineArray<vk::DescriptorSet, sPerFrameRecordLimit>,
         MAX_FRAMES_IN_FLIGHT>
-        _storageSets;
+        m_storageSets;
 
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    vk::PipelineLayout m_pipelineLayout;
+    vk::Pipeline m_pipeline;
 
-    glm::uvec3 _groupSize{16, 16, 1};
+    glm::uvec3 m_groupSize{16, 16, 1};
 };
 
 template <typename PCBlock>

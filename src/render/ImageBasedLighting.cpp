@@ -68,41 +68,41 @@ ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
 void ImageBasedLighting::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _sampleIrradiance.init(
+    m_sampleIrradiance.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         sampleIrradianceShaderDefinitionCallback);
-    _integrateSpecularBrdf.init(
+    m_integrateSpecularBrdf.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         integrateSpecularBrdfShaderDefinitionCallback);
-    _prefilterRadiance.init(
+    m_prefilterRadiance.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         prefilterRadianceShaderDefinitionCallback);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 bool ImageBasedLighting::isGenerated() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _generated;
+    return m_generated;
 }
 
 void ImageBasedLighting::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _sampleIrradiance.recompileShader(
+    m_sampleIrradiance.recompileShader(
         scopeAlloc.child_scope(), changedFiles,
         sampleIrradianceShaderDefinitionCallback);
-    _integrateSpecularBrdf.recompileShader(
+    m_integrateSpecularBrdf.recompileShader(
         scopeAlloc.child_scope(), changedFiles,
         integrateSpecularBrdfShaderDefinitionCallback);
-    _prefilterRadiance.recompileShader(
+    m_prefilterRadiance.recompileShader(
         scopeAlloc.child_scope(), changedFiles,
         prefilterRadianceShaderDefinitionCallback);
 }
@@ -111,7 +111,7 @@ void ImageBasedLighting::recordGeneration(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
     uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     SkyboxResources &skyboxResources = world.skyboxResources();
 
@@ -125,7 +125,7 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }};
-        _sampleIrradiance.updateDescriptorSet(
+        m_sampleIrradiance.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.irradiance.transition(
@@ -137,8 +137,8 @@ void ImageBasedLighting::recordGeneration(
             uvec3{uvec2{SkyboxResources::sSkyboxIrradianceResolution}, 6u};
 
         const vk::DescriptorSet storageSet =
-            _sampleIrradiance.storageSet(nextFrame);
-        _sampleIrradiance.record(cb, extent, Span{&storageSet, 1});
+            m_sampleIrradiance.storageSet(nextFrame);
+        m_sampleIrradiance.record(cb, extent, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition
         // for all users
@@ -157,7 +157,7 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
-        _integrateSpecularBrdf.updateDescriptorSet(
+        m_integrateSpecularBrdf.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.specularBrdfLut.transition(
@@ -169,8 +169,8 @@ void ImageBasedLighting::recordGeneration(
             uvec3{uvec2{SkyboxResources::sSpecularBrdfLutResolution}, 1u};
 
         const vk::DescriptorSet storageSet =
-            _integrateSpecularBrdf.storageSet(nextFrame);
-        _integrateSpecularBrdf.record(cb, extent, Span{&storageSet, 1});
+            m_integrateSpecularBrdf.storageSet(nextFrame);
+        m_integrateSpecularBrdf.record(cb, extent, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition for
         // all users
@@ -202,10 +202,10 @@ void ImageBasedLighting::recordGeneration(
             DescriptorInfo{imageInfos},
         }};
 
-        _prefilterRadiance.updateDescriptorSet(
+        m_prefilterRadiance.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
         const vk::DescriptorSet storageSet =
-            _prefilterRadiance.storageSet(nextFrame);
+            m_prefilterRadiance.storageSet(nextFrame);
 
         skyboxResources.radiance.transition(cb, ImageState::ComputeShaderWrite);
 
@@ -220,7 +220,7 @@ void ImageBasedLighting::recordGeneration(
             uvec2{SkyboxResources::sSkyboxRadianceResolution},
             6 * skyboxResources.radiance.mipCount};
 
-        _prefilterRadiance.record(
+        m_prefilterRadiance.record(
             cb,
             PrefilterRadiancePC{
                 .mipCount = mipCount,
@@ -234,5 +234,5 @@ void ImageBasedLighting::recordGeneration(
                     ImageState::FragmentShaderSampledRead |
                     ImageState::RayTracingSampledRead);
     }
-    _generated = true;
+    m_generated = true;
 }

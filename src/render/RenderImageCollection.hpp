@@ -38,7 +38,7 @@ class RenderImageCollection
     // TODO:
     // Is the sparsity of this array a memory usage problem?
     wheels::Array<wheels::InlineArray<vk::ImageView, sMaxMipCount>>
-        _subresourceViews{gAllocators.general};
+        m_subresourceViews{gAllocators.general};
 };
 
 #endif // PROSPER_RENDER_IMAGE_COLLECTION_HPP

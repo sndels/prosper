@@ -67,17 +67,17 @@ class GBufferRenderer
         vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
-    wheels::Optional<ShaderReflection> _meshReflection;
-    wheels::Optional<ShaderReflection> _fragReflection;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
+    wheels::Optional<ShaderReflection> m_meshReflection;
+    wheels::Optional<ShaderReflection> m_fragReflection;
 
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    vk::PipelineLayout m_pipelineLayout;
+    vk::Pipeline m_pipeline;
 
-    vk::DescriptorSetLayout _meshSetLayout;
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> _meshSets{
+    vk::DescriptorSetLayout m_meshSetLayout;
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT> m_meshSets{
         VK_NULL_HANDLE};
 };
 

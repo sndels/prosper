@@ -28,9 +28,9 @@ class TimeAccessor
     KeyFrameInterpolation interpolation(float timeS) const;
 
   private:
-    const float *_data{nullptr};
-    uint32_t _count{0};
-    Interval _interval;
+    const float *m_data{nullptr};
+    uint32_t m_count{0};
+    Interval m_interval;
 };
 
 // Templated so that Sampler can be templated on the read value type.
@@ -44,8 +44,8 @@ template <typename T> class ValueAccessor
     T read(uint32_t index) const;
 
   private:
-    const uint8_t *_data{nullptr};
-    uint32_t _count{0};
+    const uint8_t *m_data{nullptr};
+    uint32_t m_count{0};
 };
 // TODO:
 // Requires or something to give an error for unimplemented value types

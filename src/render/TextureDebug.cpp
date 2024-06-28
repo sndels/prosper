@@ -72,22 +72,22 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 TextureDebug::~TextureDebug()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    for (Buffer &b : _readbackBuffers)
+    for (Buffer &b : m_readbackBuffers)
         gDevice.destroy(b);
 }
 
 void TextureDebug::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
 
-    for (Buffer &b : _readbackBuffers)
+    for (Buffer &b : m_readbackBuffers)
     {
         b = gDevice.createBuffer(BufferCreateInfo{
             .desc =
@@ -102,22 +102,22 @@ void TextureDebug::init(
         memset(b.mapped, 0, b.byteSize);
     }
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void TextureDebug::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 void TextureDebug::drawUi(uint32_t nextFrame)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     ImGui::SetNextWindowPos(ImVec2{400.f, 400.f}, ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2{50.f, 80.f}, ImGuiCond_FirstUseEver);
@@ -181,9 +181,9 @@ void TextureDebug::drawUi(uint32_t nextFrame)
         }
 
         const uint64_t nameHash = sStrSpanHash(StrSpan{comboTitle});
-        if (!_targetSettings.contains(nameHash))
-            _targetSettings.insert_or_assign(nameHash, TargetSettings{});
-        settings = _targetSettings.find(nameHash);
+        if (!m_targetSettings.contains(nameHash))
+            m_targetSettings.insert_or_assign(nameHash, TargetSettings{});
+        settings = m_targetSettings.find(nameHash);
         WHEELS_ASSERT(settings != nullptr);
     }
     WHEELS_ASSERT(settings != nullptr);
@@ -222,7 +222,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
 
     {
         const float *value =
-            static_cast<const float *>(_readbackBuffers[nextFrame].mapped);
+            static_cast<const float *>(m_readbackBuffers[nextFrame].mapped);
         ImVec4 imVec{
             value[0],
             value[1],
@@ -238,7 +238,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
 
     ImGui::Checkbox("Abs before range", &settings->absBeforeRange);
     ImGui::Checkbox("Bilinear sampler", &settings->useBilinearSampler);
-    ImGui::Checkbox("Zoom", &_zoom);
+    ImGui::Checkbox("Zoom", &m_zoom);
 
     ImGui::End();
 }
@@ -248,7 +248,7 @@ ImageHandle TextureDebug::record(
     wheels::Optional<glm::vec2> cursorCoord, uint32_t nextFrame,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "TextureDebug");
 
@@ -291,7 +291,7 @@ ImageHandle TextureDebug::record(
             const BufferHandle deviceReadback =
                 gRenderResources.buffers->create(
                     BufferDescription{
-                        .byteSize = _readbackBuffers[nextFrame].byteSize,
+                        .byteSize = m_readbackBuffers[nextFrame].byteSize,
                         .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                                  vk::BufferUsageFlagBits::eTransferSrc,
                         .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
@@ -303,12 +303,12 @@ ImageHandle TextureDebug::record(
             {
                 const uint64_t nameHash = sStrSpanHash(*activeName);
                 const TargetSettings *settings_ptr =
-                    _targetSettings.find(nameHash);
+                    m_targetSettings.find(nameHash);
                 if (settings_ptr != nullptr)
                     settings = *settings_ptr;
             }
 
-            _computePass.updateDescriptorSet(
+            m_computePass.updateDescriptorSet(
                 scopeAlloc.child_scope(), nextFrame,
                 StaticArray{{
                     DescriptorInfo{vk::DescriptorImageInfo{
@@ -379,7 +379,7 @@ ImageHandle TextureDebug::record(
                 .flags = pcFlags(PCBlock::Flags{
                     .channelType = settings.channelType,
                     .absBeforeRange = settings.absBeforeRange,
-                    .zoom = _zoom,
+                    .zoom = m_zoom,
                     .magnifier = cursorCoord.has_value(),
                 }),
                 .cursorUv = cursorUv,
@@ -387,8 +387,8 @@ ImageHandle TextureDebug::record(
 
             const uvec3 extent = uvec3{outSize.width, outSize.height, 1u};
             const vk::DescriptorSet storageSet =
-                _computePass.storageSet(nextFrame);
-            _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
+                m_computePass.storageSet(nextFrame);
+            m_computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
 
             gRenderResources.buffers->transition(
                 cb, deviceReadback, BufferState::TransferSrc);
@@ -398,11 +398,11 @@ ImageHandle TextureDebug::record(
             const vk::BufferCopy region{
                 .srcOffset = 0,
                 .dstOffset = 0,
-                .size = _readbackBuffers[nextFrame].byteSize,
+                .size = m_readbackBuffers[nextFrame].byteSize,
             };
             cb.copyBuffer(
                 gRenderResources.buffers->nativeHandle(deviceReadback),
-                _readbackBuffers[nextFrame].handle, 1, &region);
+                m_readbackBuffers[nextFrame].handle, 1, &region);
 
             gRenderResources.buffers->release(deviceReadback);
         }

@@ -97,13 +97,13 @@ uint32_t pcFlags(PCBlock::Flags flags)
 
 RtReference::~RtReference()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     destroyPipeline();
 
-    gDevice.logical().destroy(_descriptorSetLayout);
+    gDevice.logical().destroy(m_descriptorSetLayout);
 
-    gDevice.destroy(_shaderBindingTable);
+    gDevice.destroy(m_shaderBindingTable);
     destroyShaders();
 }
 
@@ -111,7 +111,7 @@ void RtReference::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating RtReference\n");
@@ -123,7 +123,7 @@ void RtReference::init(
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void RtReference::recompileShaders(
@@ -131,40 +131,40 @@ void RtReference::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    WHEELS_ASSERT(_raygenReflection.has_value());
-    WHEELS_ASSERT(_rayMissReflection.has_value());
-    WHEELS_ASSERT(_closestHitReflection.has_value());
-    WHEELS_ASSERT(_anyHitReflection.has_value());
-    if (!_raygenReflection->affected(changedFiles) &&
-        !_rayMissReflection->affected(changedFiles) &&
-        !_closestHitReflection->affected(changedFiles) &&
-        !_anyHitReflection->affected(changedFiles))
+    WHEELS_ASSERT(m_raygenReflection.has_value());
+    WHEELS_ASSERT(m_rayMissReflection.has_value());
+    WHEELS_ASSERT(m_closestHitReflection.has_value());
+    WHEELS_ASSERT(m_anyHitReflection.has_value());
+    if (!m_raygenReflection->affected(changedFiles) &&
+        !m_rayMissReflection->affected(changedFiles) &&
+        !m_closestHitReflection->affected(changedFiles) &&
+        !m_anyHitReflection->affected(changedFiles))
         return;
 
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
     {
         destroyPipeline();
         createPipeline(camDSLayout, worldDSLayouts);
-        _accumulationDirty = true;
+        m_accumulationDirty = true;
     }
 }
 
 void RtReference::drawUi()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    ImGui::Checkbox("Accumulate", &_accumulate);
+    ImGui::Checkbox("Accumulate", &m_accumulate);
 
-    _accumulationDirty |= ImGui::Checkbox("Clamp indirect", &_clampIndirect);
-    _accumulationDirty |=
-        sliderU32("Roulette Start", &_rouletteStartBounce, 0u, _maxBounces);
-    _accumulationDirty |=
-        sliderU32("Max bounces", &_maxBounces, 1u, sMaxBounces);
+    m_accumulationDirty |= ImGui::Checkbox("Clamp indirect", &m_clampIndirect);
+    m_accumulationDirty |=
+        sliderU32("Roulette Start", &m_rouletteStartBounce, 0u, m_maxBounces);
+    m_accumulationDirty |=
+        sliderU32("Max bounces", &m_maxBounces, 1u, sMaxBounces);
 
-    _maxBounces = std::min(_maxBounces, sMaxBounces);
-    _rouletteStartBounce = std::min(_rouletteStartBounce, _maxBounces);
+    m_maxBounces = std::min(m_maxBounces, sMaxBounces);
+    m_rouletteStartBounce = std::min(m_rouletteStartBounce, m_maxBounces);
 }
 
 RtReference::Output RtReference::record(
@@ -172,11 +172,11 @@ RtReference::Output RtReference::record(
     const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
     uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "RtReference");
 
-    _frameIndex = ++_frameIndex % sFramePeriod;
+    m_frameIndex = ++m_frameIndex % sFramePeriod;
 
     Output ret;
     {
@@ -196,19 +196,20 @@ RtReference::Output RtReference::record(
             "rtIllumination");
 
         vk::Extent3D previousExtent;
-        if (gRenderResources.images->isValidHandle(_previousIllumination))
+        if (gRenderResources.images->isValidHandle(m_previousIllumination))
             previousExtent =
-                gRenderResources.images->resource(_previousIllumination).extent;
+                gRenderResources.images->resource(m_previousIllumination)
+                    .extent;
 
         if (options.colorDirty ||
             renderArea.extent.width != previousExtent.width ||
             renderArea.extent.height != previousExtent.height)
         {
-            if (gRenderResources.images->isValidHandle(_previousIllumination))
-                gRenderResources.images->release(_previousIllumination);
+            if (gRenderResources.images->isValidHandle(m_previousIllumination))
+                gRenderResources.images->release(m_previousIllumination);
 
             // Create dummy texture that won't be read from to satisfy binds
-            _previousIllumination = gRenderResources.images->create(
+            m_previousIllumination = gRenderResources.images->create(
                 ImageDescription{
                     .format = vk::Format::eR32G32B32A32Sfloat,
                     .width = renderArea.extent.width,
@@ -218,11 +219,11 @@ RtReference::Output RtReference::record(
                                   vk::ImageUsageFlagBits::eSampled,
                 },
                 "previousRTIllumination");
-            _accumulationDirty = true;
+            m_accumulationDirty = true;
         }
         else // We clear debug names each frame
             gRenderResources.images->appendDebugName(
-                _previousIllumination, "previousRTIllumination");
+                m_previousIllumination, "previousRTIllumination");
 
         updateDescriptorSet(scopeAlloc.child_scope(), nextFrame, illumination);
 
@@ -234,13 +235,13 @@ RtReference::Output RtReference::record(
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {illumination, ImageState::RayTracingReadWrite},
-                    {_previousIllumination, ImageState::RayTracingReadWrite},
+                    {m_previousIllumination, ImageState::RayTracingReadWrite},
                 }},
             });
 
         PROFILER_GPU_SCOPE(profiler, cb, "RtReference");
 
-        cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, _pipeline);
+        cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, m_pipeline);
 
         const auto &scene = world.currentScene();
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
@@ -250,7 +251,7 @@ RtReference::Output RtReference::record(
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
         descriptorSets[RTBindingSet] = scene.rtDescriptorSet;
-        descriptorSets[OutputBindingSet] = _descriptorSets[nextFrame];
+        descriptorSets[OutputBindingSet] = m_descriptorSets[nextFrame];
         descriptorSets[MaterialDatasBindingSet] =
             worldDSes.materialDatas[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
@@ -272,7 +273,7 @@ RtReference::Output RtReference::record(
         }};
 
         cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eRayTracingKHR, _pipelineLayout, 0,
+            vk::PipelineBindPoint::eRayTracingKHR, m_pipelineLayout, 0,
             asserted_cast<uint32_t>(descriptorSets.size()),
             descriptorSets.data(),
             asserted_cast<uint32_t>(dynamicOffsets.size()),
@@ -284,45 +285,45 @@ RtReference::Output RtReference::record(
             .drawType = static_cast<uint32_t>(options.drawType),
             .flags = pcFlags(PCBlock::Flags{
                 .skipHistory = cam.changedThisFrame() || options.colorDirty ||
-                               _accumulationDirty,
-                .accumulate = _accumulate,
+                               m_accumulationDirty,
+                .accumulate = m_accumulate,
                 .ibl = options.ibl,
                 .depthOfField = options.depthOfField,
-                .clampIndirect = _clampIndirect,
+                .clampIndirect = m_clampIndirect,
             }),
-            .frameIndex = _frameIndex,
+            .frameIndex = m_frameIndex,
             .apertureDiameter = camParams.apertureDiameter,
             .focusDistance = camParams.focusDistance,
             .focalLength = camParams.focalLength,
-            .rouletteStartBounce = _rouletteStartBounce,
-            .maxBounces = _maxBounces,
+            .rouletteStartBounce = m_rouletteStartBounce,
+            .maxBounces = m_maxBounces,
         };
         cb.pushConstants(
-            _pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
+            m_pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
             &pcBlock);
 
-        WHEELS_ASSERT(_shaderBindingTable.deviceAddress != 0);
-        const vk::DeviceAddress sbtAddr = _shaderBindingTable.deviceAddress;
+        WHEELS_ASSERT(m_shaderBindingTable.deviceAddress != 0);
+        const vk::DeviceAddress sbtAddr = m_shaderBindingTable.deviceAddress;
 
         const vk::StridedDeviceAddressRegionKHR rayGenRegion{
-            .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
-                                                           GroupIndex::RayGen),
-            .stride = _sbtGroupSize,
-            .size = _sbtGroupSize,
+            .deviceAddress = sbtAddr + m_sbtGroupSize * static_cast<uint32_t>(
+                                                            GroupIndex::RayGen),
+            .stride = m_sbtGroupSize,
+            .size = m_sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR missRegion{
-            .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
-                                                           GroupIndex::Miss),
-            .stride = _sbtGroupSize,
-            .size = _sbtGroupSize,
+            .deviceAddress = sbtAddr + m_sbtGroupSize * static_cast<uint32_t>(
+                                                            GroupIndex::Miss),
+            .stride = m_sbtGroupSize,
+            .size = m_sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR hitRegion{
-            .deviceAddress = sbtAddr + _sbtGroupSize * static_cast<uint32_t>(
-                                                           GroupIndex::Hit),
-            .stride = _sbtGroupSize,
-            .size = _sbtGroupSize,
+            .deviceAddress = sbtAddr + m_sbtGroupSize * static_cast<uint32_t>(
+                                                            GroupIndex::Hit),
+            .stride = m_sbtGroupSize,
+            .size = m_sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR callableRegion;
@@ -332,9 +333,9 @@ RtReference::Output RtReference::record(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderArea.extent.width, renderArea.extent.height, 1);
 
-        gRenderResources.images->release(_previousIllumination);
-        _previousIllumination = illumination;
-        gRenderResources.images->preserve(_previousIllumination);
+        gRenderResources.images->release(m_previousIllumination);
+        m_previousIllumination = illumination;
+        gRenderResources.images->preserve(m_previousIllumination);
 
         // Further passes expect 16bit illumination with pipelines created with
         // the attachment format
@@ -380,29 +381,29 @@ RtReference::Output RtReference::record(
         }
     }
 
-    _accumulationDirty = false;
+    m_accumulationDirty = false;
 
     return ret;
 }
 
 void RtReference::releasePreserved()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    if (gRenderResources.images->isValidHandle(_previousIllumination))
-        gRenderResources.images->release(_previousIllumination);
+    if (gRenderResources.images->isValidHandle(m_previousIllumination))
+        gRenderResources.images->release(m_previousIllumination);
 }
 
 void RtReference::destroyShaders()
 {
-    for (auto const &stage : _shaderStages)
+    for (auto const &stage : m_shaderStages)
         gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void RtReference::destroyPipeline()
 {
-    gDevice.logical().destroy(_pipeline);
-    gDevice.logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(m_pipeline);
+    gDevice.logical().destroy(m_pipelineLayout);
 }
 
 bool RtReference::compileShaders(
@@ -484,61 +485,61 @@ bool RtReference::compileShaders(
     {
         destroyShaders();
 
-        _raygenReflection = WHEELS_MOV(raygenResult->reflection);
+        m_raygenReflection = WHEELS_MOV(raygenResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == _raygenReflection->pushConstantsBytesize());
+            sizeof(PCBlock) == m_raygenReflection->pushConstantsBytesize());
 
-        _rayMissReflection = WHEELS_MOV(rayMissResult->reflection);
+        m_rayMissReflection = WHEELS_MOV(rayMissResult->reflection);
         WHEELS_ASSERT(
-            _rayMissReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == _rayMissReflection->pushConstantsBytesize());
+            m_rayMissReflection->pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == m_rayMissReflection->pushConstantsBytesize());
 
-        _closestHitReflection = WHEELS_MOV(closestHitResult->reflection);
+        m_closestHitReflection = WHEELS_MOV(closestHitResult->reflection);
         WHEELS_ASSERT(
-            _closestHitReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == _closestHitReflection->pushConstantsBytesize());
+            m_closestHitReflection->pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == m_closestHitReflection->pushConstantsBytesize());
 
-        _anyHitReflection = WHEELS_MOV(anyHitResult->reflection);
+        m_anyHitReflection = WHEELS_MOV(anyHitResult->reflection);
         WHEELS_ASSERT(
-            _anyHitReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == _anyHitReflection->pushConstantsBytesize());
+            m_anyHitReflection->pushConstantsBytesize() == 0 ||
+            sizeof(PCBlock) == m_anyHitReflection->pushConstantsBytesize());
 
-        _shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
+        m_shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,
             .module = raygenResult->module,
             .pName = "main",
         };
-        _shaderStages[static_cast<uint32_t>(StageIndex::Miss)] = {
+        m_shaderStages[static_cast<uint32_t>(StageIndex::Miss)] = {
             .stage = vk::ShaderStageFlagBits::eMissKHR,
             .module = rayMissResult->module,
             .pName = "main",
         };
-        _shaderStages[static_cast<uint32_t>(StageIndex::ClosestHit)] = {
+        m_shaderStages[static_cast<uint32_t>(StageIndex::ClosestHit)] = {
             .stage = vk::ShaderStageFlagBits::eClosestHitKHR,
             .module = closestHitResult->module,
             .pName = "main",
         };
-        _shaderStages[static_cast<uint32_t>(StageIndex::AnyHit)] = {
+        m_shaderStages[static_cast<uint32_t>(StageIndex::AnyHit)] = {
             .stage = vk::ShaderStageFlagBits::eAnyHitKHR,
             .module = anyHitResult->module,
             .pName = "main",
         };
 
-        _shaderGroups[static_cast<uint32_t>(GroupIndex::RayGen)] = {
+        m_shaderGroups[static_cast<uint32_t>(GroupIndex::RayGen)] = {
             .type = vk::RayTracingShaderGroupTypeKHR::eGeneral,
             .generalShader = static_cast<uint32_t>(StageIndex::RayGen),
             .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         };
-        _shaderGroups[static_cast<uint32_t>(GroupIndex::Miss)] = {
+        m_shaderGroups[static_cast<uint32_t>(GroupIndex::Miss)] = {
             .type = vk::RayTracingShaderGroupTypeKHR::eGeneral,
             .generalShader = static_cast<uint32_t>(StageIndex::Miss),
             .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         };
-        _shaderGroups[static_cast<uint32_t>(GroupIndex::Hit)] = {
+        m_shaderGroups[static_cast<uint32_t>(GroupIndex::Hit)] = {
             .type = vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup,
             .generalShader = VK_SHADER_UNUSED_KHR,
             .closestHitShader = static_cast<uint32_t>(StageIndex::ClosestHit),
@@ -564,16 +565,16 @@ bool RtReference::compileShaders(
 void RtReference::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    _descriptorSetLayout = _raygenReflection->createDescriptorSetLayout(
+    m_descriptorSetLayout = m_raygenReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), OutputBindingSet,
         vk::ShaderStageFlagBits::eRaygenKHR);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _descriptorSetLayout};
+        m_descriptorSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "RtReference"};
     staticDescriptorsAlloc->allocate(
-        layouts, debugNames, _descriptorSets.mut_span());
+        layouts, debugNames, m_descriptorSets.mut_span());
 }
 
 void RtReference::updateDescriptorSet(
@@ -582,12 +583,12 @@ void RtReference::updateDescriptorSet(
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    WHEELS_ASSERT(_raygenReflection.has_value());
+    WHEELS_ASSERT(m_raygenReflection.has_value());
 
     const StaticArray descriptorInfos{{
         DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                gRenderResources.images->resource(_previousIllumination).view,
+                gRenderResources.images->resource(m_previousIllumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         DescriptorInfo{vk::DescriptorImageInfo{
@@ -596,9 +597,9 @@ void RtReference::updateDescriptorSet(
         }},
     }};
 
-    WHEELS_ASSERT(_raygenReflection.has_value());
-    const Array descriptorWrites = _raygenReflection->generateDescriptorWrites(
-        scopeAlloc, OutputBindingSet, _descriptorSets[nextFrame],
+    WHEELS_ASSERT(m_raygenReflection.has_value());
+    const Array descriptorWrites = m_raygenReflection->generateDescriptorWrites(
+        scopeAlloc, OutputBindingSet, m_descriptorSets[nextFrame],
         descriptorInfos);
 
     gDevice.logical().updateDescriptorSets(
@@ -614,7 +615,7 @@ void RtReference::createPipeline(
         VK_NULL_HANDLE};
     setLayouts[CameraBindingSet] = camDSLayout;
     setLayouts[RTBindingSet] = worldDSLayouts.rayTracing;
-    setLayouts[OutputBindingSet] = _descriptorSetLayout;
+    setLayouts[OutputBindingSet] = m_descriptorSetLayout;
     setLayouts[MaterialDatasBindingSet] = worldDSLayouts.materialDatas;
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBindingSet] = worldDSLayouts.geometry;
@@ -627,7 +628,7 @@ void RtReference::createPipeline(
         .offset = 0,
         .size = sizeof(PCBlock),
     };
-    _pipelineLayout =
+    m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
@@ -636,12 +637,12 @@ void RtReference::createPipeline(
         });
 
     const vk::RayTracingPipelineCreateInfoKHR pipelineInfo{
-        .stageCount = asserted_cast<uint32_t>(_shaderStages.size()),
-        .pStages = _shaderStages.data(),
-        .groupCount = asserted_cast<uint32_t>(_shaderGroups.size()),
-        .pGroups = _shaderGroups.data(),
+        .stageCount = asserted_cast<uint32_t>(m_shaderStages.size()),
+        .pStages = m_shaderStages.data(),
+        .groupCount = asserted_cast<uint32_t>(m_shaderGroups.size()),
+        .pGroups = m_shaderGroups.data(),
         .maxPipelineRayRecursionDepth = 1,
-        .layout = _pipelineLayout,
+        .layout = m_pipelineLayout,
     };
 
     {
@@ -650,13 +651,13 @@ void RtReference::createPipeline(
         if (pipeline.result != vk::Result::eSuccess)
             throw std::runtime_error("Failed to create rt pipeline");
 
-        _pipeline = pipeline.value;
+        m_pipeline = pipeline.value;
 
         gDevice.logical().setDebugUtilsObjectNameEXT(
             vk::DebugUtilsObjectNameInfoEXT{
                 .objectType = vk::ObjectType::ePipeline,
                 .objectHandle = reinterpret_cast<uint64_t>(
-                    static_cast<VkPipeline>(_pipeline)),
+                    static_cast<VkPipeline>(m_pipeline)),
                 .pObjectName = "RtReference",
             });
     }
@@ -665,24 +666,24 @@ void RtReference::createPipeline(
 void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
 {
 
-    const auto groupCount = asserted_cast<uint32_t>(_shaderGroups.size());
+    const auto groupCount = asserted_cast<uint32_t>(m_shaderGroups.size());
     const auto groupHandleSize =
         gDevice.properties().rtPipeline.shaderGroupHandleSize;
     const auto groupBaseAlignment =
         gDevice.properties().rtPipeline.shaderGroupBaseAlignment;
-    _sbtGroupSize = static_cast<vk::DeviceSize>(roundedUpQuotient(
-                        groupHandleSize, groupBaseAlignment)) *
-                    groupBaseAlignment;
+    m_sbtGroupSize = static_cast<vk::DeviceSize>(roundedUpQuotient(
+                         groupHandleSize, groupBaseAlignment)) *
+                     groupBaseAlignment;
 
-    const auto sbtSize = groupCount * _sbtGroupSize;
+    const auto sbtSize = groupCount * m_sbtGroupSize;
 
     Array<uint8_t> shaderHandleStorage{scopeAlloc, sbtSize};
     checkSuccess(
         gDevice.logical().getRayTracingShaderGroupHandlesKHR(
-            _pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),
+            m_pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),
         "getRayTracingShaderGroupHandlesKHR");
 
-    _shaderBindingTable = gDevice.createBuffer(BufferCreateInfo{
+    m_shaderBindingTable = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sbtSize,
@@ -696,12 +697,12 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
         .debugName = "RtReferenceSBT",
     });
 
-    auto *pData = static_cast<uint8_t *>(_shaderBindingTable.mapped);
+    auto *pData = static_cast<uint8_t *>(m_shaderBindingTable.mapped);
     for (size_t i = 0; i < groupCount; ++i)
     {
         memcpy(
             pData, shaderHandleStorage.data() + i * groupHandleSize,
             groupHandleSize);
-        pData += _sbtGroupSize;
+        pData += m_sbtGroupSize;
     }
 }

@@ -72,8 +72,8 @@ class World
   private:
     // Pimpl to isolate heavy includes within the World CU
     class Impl;
-    wheels::OwningPtr<Impl> _impl;
-    bool _initialized{false};
+    wheels::OwningPtr<Impl> m_impl;
+    bool m_initialized{false};
 };
 
 #endif // PROSPER_SCENE_WORLD_HPP

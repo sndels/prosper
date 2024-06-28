@@ -133,37 +133,37 @@ class Camera
     void updateWorldToCamera();
     void updateFrustumPlanes(const FrustumCorners &corners);
 
-    bool _initialized{false};
-    RingBuffer *_constantsRing{nullptr};
+    bool m_initialized{false};
+    RingBuffer *m_constantsRing{nullptr};
 
-    CameraTransform _transform;
-    CameraParameters _parameters;
-    glm::uvec2 _resolution{};
-    uint32_t _parametersByteOffset{0xFFFFFFFF};
-    glm::mat4 _worldToCamera{1.f};
-    glm::mat4 _cameraToWorld{1.f};
-    glm::mat4 _cameraToClip{1.f};
-    glm::mat4 _clipToCamera{1.f};
-    glm::mat4 _clipToWorld{1.f};
-    glm::mat4 _previousWorldToCamera{1.f};
-    glm::mat4 _previousCameraToClip{1.f};
-    glm::vec2 _currentJitter{0.f};
-    glm::vec2 _previousJitter{0.f};
+    CameraTransform m_transform;
+    CameraParameters m_parameters;
+    glm::uvec2 m_resolution{};
+    uint32_t m_parametersByteOffset{0xFFFFFFFF};
+    glm::mat4 m_worldToCamera{1.f};
+    glm::mat4 m_cameraToWorld{1.f};
+    glm::mat4 m_cameraToClip{1.f};
+    glm::mat4 m_clipToCamera{1.f};
+    glm::mat4 m_clipToWorld{1.f};
+    glm::mat4 m_previousWorldToCamera{1.f};
+    glm::mat4 m_previousCameraToClip{1.f};
+    glm::vec2 m_currentJitter{0.f};
+    glm::vec2 m_previousJitter{0.f};
     // These are world space plane normal,distance and normals point into the
     // frustum
-    glm::vec4 _nearPlane{0.f};
-    glm::vec4 _farPlane{0.f};
-    glm::vec4 _leftPlane{0.f};
-    glm::vec4 _rightPlane{0.f};
-    glm::vec4 _topPlane{0.f};
-    glm::vec4 _bottomPlane{0.f};
+    glm::vec4 m_nearPlane{0.f};
+    glm::vec4 m_farPlane{0.f};
+    glm::vec4 m_leftPlane{0.f};
+    glm::vec4 m_rightPlane{0.f};
+    glm::vec4 m_topPlane{0.f};
+    glm::vec4 m_bottomPlane{0.f};
 
-    wheels::Optional<ShaderReflection> _bindingsReflection;
-    vk::DescriptorSetLayout _descriptorSetLayout;
-    vk::DescriptorSet _descriptorSet;
-    bool _changedThisFrame{true};
-    bool _applyJitter{false};
-    size_t _jitterIndex{0};
+    wheels::Optional<ShaderReflection> m_bindingsReflection;
+    vk::DescriptorSetLayout m_descriptorSetLayout;
+    vk::DescriptorSet m_descriptorSet;
+    bool m_changedThisFrame{true};
+    bool m_applyJitter{false};
+    size_t m_jitterIndex{0};
 };
 
 #endif // PROSPER_SCENE_CAMERA_HPP

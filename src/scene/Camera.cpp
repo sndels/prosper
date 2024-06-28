@@ -46,123 +46,123 @@ vec4 getPlane(vec3 p0, vec3 p1, vec3 p2)
 
 Camera::~Camera()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.logical().destroy(_descriptorSetLayout);
+    gDevice.logical().destroy(m_descriptorSetLayout);
 }
 
 void Camera::init(
     wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
     DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(constantsRing != nullptr);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    _constantsRing = constantsRing;
+    m_constantsRing = constantsRing;
 
     printf("Creating Camera\n");
 
     createBindingsReflection(scopeAlloc.child_scope());
     createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void Camera::endFrame()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _changedThisFrame = false;
-    _previousCameraToClip = _cameraToClip;
-    _previousWorldToCamera = _worldToCamera;
-    _previousJitter = _currentJitter;
-    _jitterIndex = (_jitterIndex + 1) % sHaltonSampleCount;
+    m_changedThisFrame = false;
+    m_previousCameraToClip = m_cameraToClip;
+    m_previousWorldToCamera = m_worldToCamera;
+    m_previousJitter = m_currentJitter;
+    m_jitterIndex = (m_jitterIndex + 1) % sHaltonSampleCount;
 }
 
 void Camera::lookAt(const CameraTransform &transform)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _transform = transform;
+    m_transform = transform;
 
     updateWorldToCamera();
 }
 
 void Camera::setParameters(const CameraParameters &parameters)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _parameters = parameters;
+    m_parameters = parameters;
 }
 
 void Camera::setJitter(bool applyJitter)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _applyJitter = applyJitter;
+    m_applyJitter = applyJitter;
 }
 
 void Camera::perspective()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    const auto fov = _parameters.fov;
+    const auto fov = m_parameters.fov;
     const auto ar =
-        static_cast<float>(_resolution.x) / static_cast<float>(_resolution.y);
+        static_cast<float>(m_resolution.x) / static_cast<float>(m_resolution.y);
     // Swap near and far for the magical properties of reverse-z
     // https://developer.nvidia.com/content/depth-precision-visualized
-    const auto zN = _parameters.zF;
-    const auto zF = _parameters.zN;
+    const auto zN = m_parameters.zF;
+    const auto zF = m_parameters.zN;
 
     const float tf = 1.f / tanf(fov * 0.5f);
 
-    if (_applyJitter)
+    if (m_applyJitter)
     {
         // Based on https://alextardif.com/TAA.html
-        _currentJitter = sHalton23[_jitterIndex];
-        _currentJitter *= 2.f;
-        _currentJitter -= 1.f;
-        _currentJitter /= vec2{
-            static_cast<float>(_resolution.x),
-            static_cast<float>(_resolution.y)};
+        m_currentJitter = sHalton23[m_jitterIndex];
+        m_currentJitter *= 2.f;
+        m_currentJitter -= 1.f;
+        m_currentJitter /= vec2{
+            static_cast<float>(m_resolution.x),
+            static_cast<float>(m_resolution.y)};
     }
     else
-        _currentJitter = vec2{0.f, 0.f};
+        m_currentJitter = vec2{0.f, 0.f};
 
     // From glTF spec with flipped y and z in [0,1]
     // Compensate for the flipped y projection by flipping jitter x in the
     // matrix. That way, the shader can unjitter using the original jitter value
 
     // clang-format off
-    _cameraToClip = mat4{1.f,  0.f,  0.f,  0.f,
+    m_cameraToClip = mat4{1.f,  0.f,  0.f,  0.f,
                          0.f, -1.f,  0.f,  0.f,
                          0.f,  0.f, 0.5f,  0.f,
                          0.f, 0.f,  0.5f, 1.f } *
                     mat4{              tf / ar,              0.f,                     0.f,  0.f,
                                            0.f,               tf,                     0.f,  0.f,
-                             -_currentJitter.x, _currentJitter.y,   (zF + zN) / (zN - zF), -1.f,
+                             -m_currentJitter.x, m_currentJitter.y,   (zF + zN) / (zN - zF), -1.f,
                                            0.f,              0.f, 2 * zF * zN / (zN - zF),  0.f};
     // clang-format on
 
-    _clipToCamera = inverse(_cameraToClip);
-    _clipToWorld = inverse(_cameraToClip * _worldToCamera);
+    m_clipToCamera = inverse(m_cameraToClip);
+    m_clipToWorld = inverse(m_cameraToClip * m_worldToCamera);
 
     const float sensorHeight = sensorWidth() / ar;
 
-    _parameters.focalLength = sensorHeight * tf * 0.5f;
+    m_parameters.focalLength = sensorHeight * tf * 0.5f;
 }
 
 void Camera::updateResolution(const uvec2 &resolution)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _resolution = resolution;
+    m_resolution = resolution;
 }
 
 void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     if (gestureOffset.has_value())
     {
@@ -176,83 +176,84 @@ void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
         debugFrustum.has_value() ? *debugFrustum : getFrustumCorners());
 
     const CameraUniforms uniforms{
-        .worldToCamera = _worldToCamera,
-        .cameraToWorld = _cameraToWorld,
-        .cameraToClip = _cameraToClip,
-        .clipToWorld = _clipToWorld,
-        .previousWorldToCamera = _previousWorldToCamera,
-        .previousCameraToClip = _previousCameraToClip,
+        .worldToCamera = m_worldToCamera,
+        .cameraToWorld = m_cameraToWorld,
+        .cameraToClip = m_cameraToClip,
+        .clipToWorld = m_clipToWorld,
+        .previousWorldToCamera = m_previousWorldToCamera,
+        .previousCameraToClip = m_previousCameraToClip,
         .eye =
             vec4{
-                gestureOffset.has_value() ? _transform.apply(*gestureOffset).eye
-                                          : _transform.eye,
+                gestureOffset.has_value()
+                    ? m_transform.apply(*gestureOffset).eye
+                    : m_transform.eye,
                 1.f},
-        .nearPlane = _nearPlane,
-        .farPlane = _farPlane,
-        .leftPlane = _leftPlane,
-        .rightPlane = _rightPlane,
-        .topPlane = _topPlane,
-        .bottomPlane = _bottomPlane,
-        .resolution = _resolution,
-        .currentJitter = _currentJitter,
-        .previousJitter = _previousJitter,
-        .near = _parameters.zN,
-        .far = _parameters.zF,
+        .nearPlane = m_nearPlane,
+        .farPlane = m_farPlane,
+        .leftPlane = m_leftPlane,
+        .rightPlane = m_rightPlane,
+        .topPlane = m_topPlane,
+        .bottomPlane = m_bottomPlane,
+        .resolution = m_resolution,
+        .currentJitter = m_currentJitter,
+        .previousJitter = m_previousJitter,
+        .near = m_parameters.zN,
+        .far = m_parameters.zF,
     };
-    _parametersByteOffset = _constantsRing->write_value(uniforms);
+    m_parametersByteOffset = m_constantsRing->write_value(uniforms);
 }
 
 uint32_t Camera::bufferOffset() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _parametersByteOffset;
+    return m_parametersByteOffset;
 }
 
 vk::DescriptorSetLayout Camera::descriptorSetLayout() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _descriptorSetLayout;
+    return m_descriptorSetLayout;
 }
 
 vk::DescriptorSet Camera::descriptorSet() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _descriptorSet;
+    return m_descriptorSet;
 }
 
 const CameraTransform &Camera::transform() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _transform;
+    return m_transform;
 }
 
 const CameraParameters &Camera::parameters() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _parameters;
+    return m_parameters;
 }
 
-const mat4 &Camera::clipToCamera() const { return _clipToCamera; }
+const mat4 &Camera::clipToCamera() const { return m_clipToCamera; }
 
 bool Camera::changedThisFrame() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _changedThisFrame;
+    return m_changedThisFrame;
 }
 
 void Camera::applyGestureOffset()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     if (gestureOffset.has_value())
     {
-        _transform = _transform.apply(*gestureOffset);
+        m_transform = m_transform.apply(*gestureOffset);
         gestureOffset.reset();
     }
 
@@ -261,52 +262,52 @@ void Camera::applyGestureOffset()
 
 void Camera::applyOffset(const CameraOffset &offset)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _transform = _transform.apply(offset);
+    m_transform = m_transform.apply(offset);
 
     updateWorldToCamera();
 }
 
 FrustumCorners Camera::getFrustumCorners() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const CameraTransform transform = gestureOffset.has_value()
-                                          ? _transform.apply(*gestureOffset)
-                                          : _transform;
+                                          ? m_transform.apply(*gestureOffset)
+                                          : m_transform;
 
-    const vec3 right = vec3{row(_worldToCamera, 0)};
-    const vec3 up = vec3{row(_worldToCamera, 1)};
+    const vec3 right = vec3{row(m_worldToCamera, 0)};
+    const vec3 up = vec3{row(m_worldToCamera, 1)};
     // Flip so that fwd is the real camera direction in world space
     // These vectors aren't used to construct a coordinate frame so right is
     // *not* flipped for handedness correction
-    const vec3 fwd = -vec3{row(_worldToCamera, 2)};
+    const vec3 fwd = -vec3{row(m_worldToCamera, 2)};
 
     const float ar =
-        static_cast<float>(_resolution.x) / static_cast<float>(_resolution.y);
-    const float halfYFar = _parameters.zF * tanf(_parameters.fov * 0.5f);
+        static_cast<float>(m_resolution.x) / static_cast<float>(m_resolution.y);
+    const float halfYFar = m_parameters.zF * tanf(m_parameters.fov * 0.5f);
     const float halfXFar = halfYFar * ar;
-    const float halfYNear = _parameters.zN * tanf(_parameters.fov * 0.5f);
+    const float halfYNear = m_parameters.zN * tanf(m_parameters.fov * 0.5f);
     const float halfXNear = halfYNear * ar;
 
     const FrustumCorners ret{
-        .bottomLeftNear = transform.eye + _parameters.zN * fwd -
+        .bottomLeftNear = transform.eye + m_parameters.zN * fwd -
                           halfXNear * right - halfYNear * up,
-        .bottomRightNear = transform.eye + _parameters.zN * fwd +
+        .bottomRightNear = transform.eye + m_parameters.zN * fwd +
                            halfXNear * right - halfYNear * up,
-        .topLeftNear = transform.eye + _parameters.zN * fwd -
+        .topLeftNear = transform.eye + m_parameters.zN * fwd -
                        halfXNear * right + halfYNear * up,
-        .topRightNear = transform.eye + _parameters.zN * fwd +
+        .topRightNear = transform.eye + m_parameters.zN * fwd +
                         halfXNear * right + halfYNear * up,
-        .bottomLeftFar = transform.eye + _parameters.zF * fwd -
+        .bottomLeftFar = transform.eye + m_parameters.zF * fwd -
                          halfXFar * right - halfYFar * up,
-        .bottomRightFar = transform.eye + _parameters.zF * fwd +
+        .bottomRightFar = transform.eye + m_parameters.zF * fwd +
                           halfXFar * right - halfYFar * up,
-        .topLeftFar = transform.eye + _parameters.zF * fwd - halfXFar * right +
+        .topLeftFar = transform.eye + m_parameters.zF * fwd - halfXFar * right +
                       halfYFar * up,
-        .topRightFar = transform.eye + _parameters.zF * fwd + halfXFar * right +
-                       halfYFar * up,
+        .topRightFar = transform.eye + m_parameters.zF * fwd +
+                       halfXFar * right + halfYFar * up,
     };
 
     return ret;
@@ -329,32 +330,32 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     if (!compResult.has_value())
         throw std::runtime_error("Failed to create camera bindings reflection");
 
-    _bindingsReflection = WHEELS_MOV(*compResult);
+    m_bindingsReflection = WHEELS_MOV(*compResult);
 }
 
 void Camera::createDescriptorSet(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(_bindingsReflection.has_value());
-    _descriptorSetLayout = _bindingsReflection->createDescriptorSetLayout(
+    WHEELS_ASSERT(m_bindingsReflection.has_value());
+    m_descriptorSetLayout = m_bindingsReflection->createDescriptorSetLayout(
         scopeAlloc.child_scope(), 0,
         vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment |
             vk::ShaderStageFlagBits::eCompute |
             vk::ShaderStageFlagBits::eRaygenKHR |
             vk::ShaderStageFlagBits::eMeshEXT);
 
-    _descriptorSet =
-        staticDescriptorsAlloc->allocate(_descriptorSetLayout, "Camera");
+    m_descriptorSet =
+        staticDescriptorsAlloc->allocate(m_descriptorSetLayout, "Camera");
 
     const StaticArray descriptorInfos{
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = _constantsRing->buffer(),
+            .buffer = m_constantsRing->buffer(),
             .range = sizeof(CameraUniforms),
         }},
     };
     const Array descriptorWrites =
-        _bindingsReflection->generateDescriptorWrites(
-            scopeAlloc, sBindingSetIndex, _descriptorSet, descriptorInfos);
+        m_bindingsReflection->generateDescriptorWrites(
+            scopeAlloc, sBindingSetIndex, m_descriptorSet, descriptorInfos);
 
     gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -364,8 +365,8 @@ void Camera::createDescriptorSet(
 void Camera::updateWorldToCamera()
 {
     const auto transform = gestureOffset.has_value()
-                               ? _transform.apply(*gestureOffset)
-                               : _transform;
+                               ? m_transform.apply(*gestureOffset)
+                               : m_transform;
     auto const &[eye, target, up] = transform;
 
     const vec3 fwd = normalize(target - eye);
@@ -374,33 +375,33 @@ void Camera::updateWorldToCamera()
     const vec3 newUp = normalize(cross(z, right));
 
     // Right handed camera
-    _worldToCamera =
+    m_worldToCamera =
         mat4{right.x,          newUp.x,          z.x,          0.f,
              right.y,          newUp.y,          z.y,          0.f,
              right.z,          newUp.z,          z.z,          0.f,
              -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
-    _cameraToWorld = inverse(_worldToCamera);
+    m_cameraToWorld = inverse(m_worldToCamera);
 
-    _clipToCamera = inverse(_cameraToClip);
-    _clipToWorld = inverse(_cameraToClip * _worldToCamera);
+    m_clipToCamera = inverse(m_cameraToClip);
+    m_clipToWorld = inverse(m_cameraToClip * m_worldToCamera);
 
-    _changedThisFrame = true;
+    m_changedThisFrame = true;
 }
 
 void Camera::updateFrustumPlanes(const FrustumCorners &corners)
 {
     // Use corners instead of shortcutting with fwd and near/far to make this
     // work with cached corners as well
-    _nearPlane = getPlane(
+    m_nearPlane = getPlane(
         corners.bottomRightNear, corners.bottomLeftNear, corners.topRightNear);
-    _farPlane = getPlane(
+    m_farPlane = getPlane(
         corners.bottomRightFar, corners.topRightFar, corners.bottomLeftFar);
-    _leftPlane = getPlane(
+    m_leftPlane = getPlane(
         corners.bottomLeftNear, corners.bottomLeftFar, corners.topLeftNear);
-    _rightPlane = getPlane(
+    m_rightPlane = getPlane(
         corners.bottomRightNear, corners.topRightNear, corners.bottomRightFar);
-    _topPlane =
+    m_topPlane =
         getPlane(corners.topLeftNear, corners.topLeftFar, corners.topRightNear);
-    _bottomPlane = getPlane(
+    m_bottomPlane = getPlane(
         corners.bottomLeftNear, corners.bottomRightNear, corners.bottomLeftFar);
 }

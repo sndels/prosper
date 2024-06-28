@@ -60,10 +60,10 @@ class TextureDebug
     [[nodiscard]] static bool textureSelected();
 
   private:
-    bool _initialized{false};
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _readbackBuffers;
+    bool m_initialized{false};
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> m_readbackBuffers;
 
-    ComputePass _computePass;
+    ComputePass m_computePass;
 
     struct TargetSettings
     {
@@ -76,9 +76,9 @@ class TextureDebug
     // TODO:
     // Not a String because type conversions and allocations from StrSpan. Is
     // there a better universal solution?
-    wheels::HashMap<uint64_t, TargetSettings> _targetSettings{
+    wheels::HashMap<uint64_t, TargetSettings> m_targetSettings{
         gAllocators.general};
-    bool _zoom{false};
+    bool m_zoom{false};
 };
 
 #endif // PROSPER_RENDER_TEXTURE_DEBUG_HPP

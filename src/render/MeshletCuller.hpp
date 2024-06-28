@@ -76,11 +76,11 @@ class MeshletCuller
         const World &world, const Camera &cam, uint32_t nextFrame,
         const CullerInput &input, const char *debugPrefix);
 
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    ComputePass _drawListGenerator;
-    ComputePass _cullerArgumentsWriter;
-    ComputePass _drawListCuller;
+    ComputePass m_drawListGenerator;
+    ComputePass m_cullerArgumentsWriter;
+    ComputePass m_drawListCuller;
 };
 
 #endif // PROSPER_RENDER_MESHLET_CULLER_HPP

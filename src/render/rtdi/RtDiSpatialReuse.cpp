@@ -68,9 +68,9 @@ void RtDiSpatialReuse::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
@@ -79,7 +79,7 @@ void RtDiSpatialReuse::init(
             .externalDsLayouts = externalDsLayouts(dsLayouts),
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 bool RtDiSpatialReuse::recompileShaders(
@@ -87,9 +87,9 @@ bool RtDiSpatialReuse::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _computePass.recompileShader(
+    return m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
@@ -101,11 +101,11 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
     const Camera &cam, const Input &input, const uint32_t nextFrame,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  SpatialReuse");
 
-    _frameIndex = ++_frameIndex % sFramePeriod;
+    m_frameIndex = ++m_frameIndex % sFramePeriod;
 
     Output ret;
     {
@@ -122,7 +122,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             },
             "RtDiSpatialReuseReservoirs");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -182,7 +182,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             VK_NULL_HANDLE};
         descriptorSets[LightsBindingSet] = worldDSes.lights;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
@@ -195,10 +195,10 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             glm::uvec3{renderExtent.width, renderExtent.height, 1u};
 
         const PCBlock pcBlock{
-            .frameIndex = _frameIndex,
+            .frameIndex = m_frameIndex,
         };
 
-        _computePass.record(
+        m_computePass.record(
             cb, pcBlock, extent, descriptorSets, dynamicOffsets);
     }
 

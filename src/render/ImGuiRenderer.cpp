@@ -43,19 +43,19 @@ ImVec4 operator*(const ImVec4 &lhs, const ImVec4 &rhs)
 
 ImGuiRenderer::~ImGuiRenderer()
 {
-    if (_initialized)
+    if (m_initialized)
     {
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
-        gDevice.logical().destroy(_descriptorPool);
+        gDevice.logical().destroy(m_descriptorPool);
     }
 }
 
 void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
     GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
@@ -96,7 +96,7 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
         .Device = gDevice.logical(),
         .QueueFamily = *gDevice.queueFamilies().graphicsFamily,
         .Queue = gDevice.graphicsQueue(),
-        .DescriptorPool = _descriptorPool,
+        .DescriptorPool = m_descriptorPool,
         .MinImageCount = swapConfig.imageCount,
         .ImageCount = swapConfig.imageCount,
         .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
@@ -123,13 +123,13 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 
     setStyle();
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 // NOLINTNEXTLINE could be static, but requires an instance TODO: Singleton?
 void ImGuiRenderer::startFrame(Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "ImGui::startFrame");
 
@@ -141,14 +141,14 @@ void ImGuiRenderer::startFrame(Profiler *profiler)
     const ImGuiDockNodeFlags dockFlags =
         ImGuiDockNodeFlags_NoDockingInCentralNode |
         ImGuiDockNodeFlags_PassthruCentralNode;
-    _dockAreaID = ImGui::DockSpaceOverViewport(nullptr, dockFlags);
+    m_dockAreaID = ImGui::DockSpaceOverViewport(nullptr, dockFlags);
 }
 
 void ImGuiRenderer::endFrame(
     vk::CommandBuffer cb, const vk::Rect2D &renderArea, ImageHandle inOutColor,
     Profiler *profiler) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     {
         PROFILER_CPU_SCOPE(profiler, "ImGui::render");
@@ -186,9 +186,9 @@ void ImGuiRenderer::endFrame(
 
 ImVec2 ImGuiRenderer::centerAreaOffset() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
+    const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(m_dockAreaID);
     WHEELS_ASSERT(node != nullptr);
 
     return node->Pos;
@@ -196,9 +196,9 @@ ImVec2 ImGuiRenderer::centerAreaOffset() const
 
 ImVec2 ImGuiRenderer::centerAreaSize() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(_dockAreaID);
+    const ImGuiDockNode *node = ImGui::DockBuilderGetCentralNode(m_dockAreaID);
     WHEELS_ASSERT(node != nullptr);
 
     return node->Size;
@@ -212,7 +212,7 @@ void ImGuiRenderer::createDescriptorPool()
         .type = vk::DescriptorType::eCombinedImageSampler,
         .descriptorCount = 1,
     };
-    _descriptorPool =
+    m_descriptorPool =
         gDevice.logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
             .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
             .maxSets = 1,

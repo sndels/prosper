@@ -22,8 +22,8 @@ const uint32_t sMaxDynamicOffsets = 8;
 ComputePass::~ComputePass()
 {
     destroyPipelines();
-    gDevice.logical().destroy(_storageSetLayout);
-    gDevice.logical().destroy(_shaderModule);
+    gDevice.logical().destroy(m_storageSetLayout);
+    gDevice.logical().destroy(m_shaderModule);
 }
 
 void ComputePass::init(
@@ -32,16 +32,16 @@ void ComputePass::init(
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
     const ComputePassOptions &options)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
     WHEELS_ASSERT(
         (options.storageSetIndex == options.externalDsLayouts.size()) &&
         "Implementation assumes that the pass storage set is the last set and "
         "is placed right after the last external one");
 
-    _storageSetIndex = options.storageSetIndex;
+    m_storageSetIndex = options.storageSetIndex;
 
-    for (auto &sets : _storageSets)
+    for (auto &sets : m_storageSets)
         sets.resize(options.perFrameRecordLimit);
 
     const Shader shader = shaderDefinitionCallback(scopeAlloc);
@@ -55,7 +55,7 @@ void ComputePass::init(
     createPipeline(
         scopeAlloc.child_scope(), options.externalDsLayouts, shader.debugName);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 bool ComputePass::recompileShader(
@@ -64,10 +64,10 @@ bool ComputePass::recompileShader(
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
     wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    WHEELS_ASSERT(_shaderReflection.has_value());
-    if (!_shaderReflection->affected(changedFiles))
+    WHEELS_ASSERT(m_shaderReflection.has_value());
+    if (!m_shaderReflection->affected(changedFiles))
         return false;
 
     const Shader shader = shaderDefinitionCallback(scopeAlloc);
@@ -83,31 +83,31 @@ bool ComputePass::recompileShader(
 
 void ComputePass::startFrame()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _nextRecordIndex = 0;
+    m_nextRecordIndex = 0;
 }
 
 void ComputePass::updateDescriptorSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame,
     Span<const DescriptorInfo> descriptorInfos)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(
-        _nextRecordIndex < _storageSets[nextFrame].size() &&
+        m_nextRecordIndex < m_storageSets[nextFrame].size() &&
         "Too many records, forgot to call startFrame() or construct this "
         "ComputePass with enough records?");
 
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = _storageSets[nextFrame][_nextRecordIndex];
+    const vk::DescriptorSet ds = m_storageSets[nextFrame][m_nextRecordIndex];
 
-    WHEELS_ASSERT(_shaderReflection.has_value());
+    WHEELS_ASSERT(m_shaderReflection.has_value());
     const wheels::Array descriptorWrites =
-        _shaderReflection->generateDescriptorWrites(
-            scopeAlloc, _storageSetIndex, ds, descriptorInfos);
+        m_shaderReflection->generateDescriptorWrites(
+            scopeAlloc, m_storageSetIndex, ds, descriptorInfos);
 
     gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -116,21 +116,21 @@ void ComputePass::updateDescriptorSet(
 
 vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(
-        _nextRecordIndex < _storageSets[nextFrame].size() &&
+        m_nextRecordIndex < m_storageSets[nextFrame].size() &&
         "Too many records, forgot to call startFrame() or construct this "
         "ComputePass with enough records?");
 
-    return _storageSets[nextFrame][_nextRecordIndex];
+    return m_storageSets[nextFrame][m_nextRecordIndex];
 }
 
 vk::DescriptorSetLayout ComputePass::storageSetLayout() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _storageSetLayout;
+    return m_storageSetLayout;
 }
 
 void ComputePass::record(
@@ -138,7 +138,7 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(all(greaterThan(extent, glm::uvec3{0u})));
     WHEELS_ASSERT(
@@ -146,22 +146,22 @@ void ComputePass::record(
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
 
     cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _pipelineLayout,
+        vk::PipelineBindPoint::eCompute, m_pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
-    const uvec3 groups = (extent - 1u) / _groupSize + 1u;
+    const uvec3 groups = (extent - 1u) / m_groupSize + 1u;
 
     cb.dispatch(groups.x, groups.y, groups.z);
 
-    if (_storageSets[0].size() > 1)
+    if (m_storageSets[0].size() > 1)
     {
         // This can equal perFrameRecordLimit if all of them are used
-        _nextRecordIndex++;
+        m_nextRecordIndex++;
     }
 }
 
@@ -170,27 +170,27 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     wheels::Span<const uint32_t> dynamicOffsets)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(
         dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
 
     cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _pipelineLayout,
+        vk::PipelineBindPoint::eCompute, m_pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
     cb.dispatchIndirect(argumentBuffer, 0);
 
-    if (_storageSets[0].size() > 1)
+    if (m_storageSets[0].size() > 1)
     {
         // This can equal perFrameRecordLimit if all of them are used
-        _nextRecordIndex++;
+        m_nextRecordIndex++;
     }
 }
 
@@ -199,58 +199,58 @@ void ComputePass::record(
     Span<const vk::DescriptorSet> descriptorSets,
     Span<const uint32_t> dynamicOffsets)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(all(greaterThan(extent, uvec3{0u})));
-    WHEELS_ASSERT(_shaderReflection.has_value());
+    WHEELS_ASSERT(m_shaderReflection.has_value());
     WHEELS_ASSERT(
-        pcBlockBytes.size() == _shaderReflection->pushConstantsBytesize());
+        pcBlockBytes.size() == m_shaderReflection->pushConstantsBytesize());
     WHEELS_ASSERT(
         dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
 
     cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _pipelineLayout, 0, // firstSet
+        vk::PipelineBindPoint::eCompute, m_pipelineLayout, 0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
     cb.pushConstants(
-        _pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
+        m_pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
         asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
 
-    const uvec3 groups = (extent - 1u) / _groupSize + 1u;
+    const uvec3 groups = (extent - 1u) / m_groupSize + 1u;
 
     cb.dispatch(groups.x, groups.y, groups.z);
 
-    if (_storageSets[0].size() > 1)
+    if (m_storageSets[0].size() > 1)
     {
         // This can equal perFrameRecordLimit if all of them are used
-        _nextRecordIndex++;
+        m_nextRecordIndex++;
     }
 }
 
 void ComputePass::destroyPipelines()
 {
-    gDevice.logical().destroy(_pipeline);
-    gDevice.logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(m_pipeline);
+    gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void ComputePass::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const char *debugName, vk::ShaderStageFlags storageStageFlags)
 {
-    WHEELS_ASSERT(_shaderReflection.has_value());
-    _storageSetLayout = _shaderReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), _storageSetIndex, storageStageFlags);
+    WHEELS_ASSERT(m_shaderReflection.has_value());
+    m_storageSetLayout = m_shaderReflection->createDescriptorSetLayout(
+        WHEELS_MOV(scopeAlloc), m_storageSetIndex, storageStageFlags);
 
-    for (auto &sets : _storageSets)
+    for (auto &sets : m_storageSets)
     {
         InlineArray<vk::DescriptorSetLayout, sPerFrameRecordLimit> layouts;
         InlineArray<const char *, sPerFrameRecordLimit> debugNames;
-        layouts.resize(sets.size(), _storageSetLayout);
+        layouts.resize(sets.size(), m_storageSetLayout);
         debugNames.resize(sets.size(), debugName);
         staticDescriptorsAlloc->allocate(layouts, debugNames, sets.mut_span());
     }
@@ -260,24 +260,24 @@ void ComputePass::createPipeline(
     wheels::ScopedScratch scopeAlloc,
     Span<const vk::DescriptorSetLayout> externalDsLayouts, StrSpan debugName)
 {
-    WHEELS_ASSERT(_shaderReflection.has_value());
+    WHEELS_ASSERT(m_shaderReflection.has_value());
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eCompute,
         .offset = 0,
-        .size = _shaderReflection->pushConstantsBytesize(),
+        .size = m_shaderReflection->pushConstantsBytesize(),
     };
 
-    WHEELS_ASSERT(_storageSetIndex == externalDsLayouts.size());
+    WHEELS_ASSERT(m_storageSetIndex == externalDsLayouts.size());
     Array<vk::DescriptorSetLayout> dsLayouts{scopeAlloc};
     dsLayouts.resize(externalDsLayouts.size() + 1);
     if (!externalDsLayouts.empty())
         memcpy(
             dsLayouts.data(), externalDsLayouts.data(),
             externalDsLayouts.size() * sizeof(*externalDsLayouts.data()));
-    dsLayouts.back() = _storageSetLayout;
+    dsLayouts.back() = m_storageSetLayout;
 
-    _pipelineLayout =
+    m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(dsLayouts.size()),
             .pSetLayouts = dsLayouts.data(),
@@ -289,13 +289,13 @@ void ComputePass::createPipeline(
         .stage =
             {
                 .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = _shaderModule,
+                .module = m_shaderModule,
                 .pName = "main",
             },
-        .layout = _pipelineLayout,
+        .layout = m_pipelineLayout,
     };
 
-    _pipeline =
+    m_pipeline =
         createComputePipeline(gDevice.logical(), createInfo, debugName.data());
 }
 
@@ -303,7 +303,7 @@ bool ComputePass::compileShader(
     wheels::ScopedScratch scopeAlloc, const Shader &shader)
 {
     WHEELS_ASSERT(all(greaterThan(shader.groupSize, uvec3{0})));
-    _groupSize = shader.groupSize;
+    m_groupSize = shader.groupSize;
 
     const size_t len =
         56 + (shader.defines.has_value() ? shader.defines->size() : 0);
@@ -325,12 +325,12 @@ bool ComputePass::compileShader(
 
     if (compResult.has_value())
     {
-        gDevice.logical().destroy(_shaderModule);
+        gDevice.logical().destroy(m_shaderModule);
 
         ShaderReflection &reflection = compResult->reflection;
 
-        _shaderModule = compResult->module;
-        _shaderReflection = WHEELS_MOV(reflection);
+        m_shaderModule = compResult->module;
+        m_shaderReflection = WHEELS_MOV(reflection);
 
         return true;
     }

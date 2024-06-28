@@ -367,9 +367,9 @@ vk::Format asVkFormat(DxgiFormat format)
 Texture::~Texture() { destroy(); }
 
 Texture::Texture(Texture &&other) noexcept
-: _image{WHEELS_MOV(other._image)}
+: m_image{WHEELS_MOV(other.m_image)}
 {
-    other._image = Image{};
+    other.m_image = Image{};
 }
 
 Texture &Texture::operator=(Texture &&other) noexcept
@@ -378,20 +378,20 @@ Texture &Texture::operator=(Texture &&other) noexcept
     {
         destroy();
 
-        _image = WHEELS_MOV(other._image);
+        m_image = WHEELS_MOV(other.m_image);
 
-        other._image = Image{};
+        other.m_image = Image{};
     }
     return *this;
 }
 
 vk::Image Texture::nativeHandle() const
 {
-    WHEELS_ASSERT(_image.handle);
-    return _image.handle;
+    WHEELS_ASSERT(m_image.handle);
+    return m_image.handle;
 }
 
-void Texture::destroy() { gDevice.destroy(_image); }
+void Texture::destroy() { gDevice.destroy(m_image); }
 
 void Texture2D::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path,
@@ -483,7 +483,7 @@ void Texture2D::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    _image = gDevice.createImage(ImageCreateInfo{
+    m_image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = asVkFormat(dds.format),
@@ -498,7 +498,7 @@ void Texture2D::init(
         .debugName = relPath.generic_string().c_str(),
     });
 
-    _image.transition(cb, ImageState::TransferDst);
+    m_image.transition(cb, ImageState::TransferDst);
 
     std::vector<vk::BufferImageCopy> regions;
     regions.reserve(dds.mipLevelCount);
@@ -528,18 +528,18 @@ void Texture2D::init(
     }
 
     cb.copyBufferToImage(
-        stagingBuffer.handle, _image.handle,
+        stagingBuffer.handle, m_image.handle,
         vk::ImageLayout::eTransferDstOptimal,
         asserted_cast<uint32_t>(regions.size()), regions.data());
 
     if (initialState != ImageState::Unknown)
-        _image.transition(cb, initialState);
+        m_image.transition(cb, initialState);
 }
 
 vk::DescriptorImageInfo Texture2D::imageInfo() const
 {
     return vk::DescriptorImageInfo{
-        .imageView = _image.view,
+        .imageView = m_image.view,
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 }
@@ -577,7 +577,7 @@ void Texture3D::init(
     const std::filesystem::path relPath = relativePath(path);
 
     WHEELS_ASSERT(dds.mipLevelCount == 1);
-    _image = gDevice.createImage(ImageCreateInfo{
+    m_image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .imageType = vk::ImageType::e3D,
@@ -597,7 +597,7 @@ void Texture3D::init(
     // time so we can wait for upload to complete
     const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
 
-    _image.transition(cb, ImageState::TransferDst);
+    m_image.transition(cb, ImageState::TransferDst);
 
     const vk::BufferImageCopy region{
         .bufferOffset = 0,
@@ -615,11 +615,11 @@ void Texture3D::init(
     };
 
     cb.copyBufferToImage(
-        stagingBuffer.handle, _image.handle,
+        stagingBuffer.handle, m_image.handle,
         vk::ImageLayout::eTransferDstOptimal, 1, &region);
 
     if (initialState != ImageState::Unknown)
-        _image.transition(cb, initialState);
+        m_image.transition(cb, initialState);
 
     gDevice.endGraphicsCommands(cb);
 }
@@ -627,7 +627,7 @@ void Texture3D::init(
 vk::DescriptorImageInfo Texture3D::imageInfo() const
 {
     return vk::DescriptorImageInfo{
-        .imageView = _image.view,
+        .imageView = m_image.view,
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 }
@@ -648,7 +648,7 @@ void TextureCubemap::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    _image = gDevice.createImage(ImageCreateInfo{
+    m_image = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = cube.format,
@@ -663,9 +663,9 @@ void TextureCubemap::init(
         .debugName = relPath.generic_string().c_str(),
     });
 
-    copyPixels(scopeAlloc.child_scope(), cube, _image.subresourceRange);
+    copyPixels(scopeAlloc.child_scope(), cube, m_image.subresourceRange);
 
-    _sampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
+    m_sampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -679,11 +679,11 @@ void TextureCubemap::init(
     });
 }
 
-TextureCubemap::~TextureCubemap() { gDevice.logical().destroy(_sampler); }
+TextureCubemap::~TextureCubemap() { gDevice.logical().destroy(m_sampler); }
 
 TextureCubemap::TextureCubemap(TextureCubemap &&other) noexcept
 : Texture{WHEELS_MOV(other)}
-, _sampler{other._sampler}
+, m_sampler{other.m_sampler}
 {
 }
 
@@ -693,11 +693,11 @@ TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
     {
         destroy();
 
-        _image = WHEELS_MOV(other._image);
-        _sampler = other._sampler;
+        m_image = WHEELS_MOV(other.m_image);
+        m_sampler = other.m_sampler;
 
-        other._image = Image{};
-        other._sampler = vk::Sampler{};
+        other.m_image = Image{};
+        other.m_sampler = vk::Sampler{};
     }
     return *this;
 }
@@ -705,8 +705,8 @@ TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
 vk::DescriptorImageInfo TextureCubemap::imageInfo() const
 {
     return vk::DescriptorImageInfo{
-        .sampler = _sampler,
-        .imageView = _image.view,
+        .sampler = m_sampler,
+        .imageView = m_image.view,
         .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
     };
 }
@@ -769,19 +769,19 @@ void TextureCubemap::copyPixels(
     const auto copyBuffer = gDevice.beginGraphicsCommands();
 
     transitionImageLayout(
-        copyBuffer, _image.handle, subresourceRange,
+        copyBuffer, m_image.handle, subresourceRange,
         vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
         vk::AccessFlags{}, vk::AccessFlagBits::eTransferWrite,
         vk::PipelineStageFlagBits::eTopOfPipe,
         vk::PipelineStageFlagBits::eTransfer);
 
     copyBuffer.copyBufferToImage(
-        stagingBuffer.handle, _image.handle,
+        stagingBuffer.handle, m_image.handle,
         vk::ImageLayout::eTransferDstOptimal,
         asserted_cast<uint32_t>(regions.size()), regions.data());
 
     transitionImageLayout(
-        copyBuffer, _image.handle, subresourceRange,
+        copyBuffer, m_image.handle, subresourceRange,
         vk::ImageLayout::eTransferDstOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
         vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,

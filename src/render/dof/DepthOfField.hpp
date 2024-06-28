@@ -56,15 +56,15 @@ class DepthOfField
         Profiler *profiler);
 
   private:
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    DepthOfFieldSetup _setupPass;
-    DepthOfFieldReduce _reducePass;
-    DepthOfFieldFlatten _flattenPass;
-    DepthOfFieldDilate _dilatePass;
-    DepthOfFieldGather _gatherPass;
-    DepthOfFieldFilter _filterPass;
-    DepthOfFieldCombine _combinePass;
+    DepthOfFieldSetup m_setupPass;
+    DepthOfFieldReduce m_reducePass;
+    DepthOfFieldFlatten m_flattenPass;
+    DepthOfFieldDilate m_dilatePass;
+    DepthOfFieldGather m_gatherPass;
+    DepthOfFieldFilter m_filterPass;
+    DepthOfFieldCombine m_combinePass;
 };
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_HPP

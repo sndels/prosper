@@ -41,10 +41,10 @@ class DepthOfFieldReduce
         Profiler *profiler);
 
   private:
-    bool _initialized{false};
-    ComputePass _computePass;
-    Buffer _atomicCounter;
-    bool _counterNotCleared{true};
+    bool m_initialized{false};
+    ComputePass m_computePass;
+    Buffer m_atomicCounter;
+    bool m_counterNotCleared{true};
 };
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_REDUCE_HPP

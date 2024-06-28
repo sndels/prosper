@@ -51,13 +51,13 @@ struct PCBlock
 
 ForwardRenderer::~ForwardRenderer()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     destroyGraphicsPipelines();
 
-    gDevice.logical().destroy(_meshSetLayout);
+    gDevice.logical().destroy(m_meshSetLayout);
 
-    for (auto const &stage : _shaderStages)
+    for (auto const &stage : m_shaderStages)
         gDevice.logical().destroyShaderModule(stage.module);
 }
 
@@ -65,7 +65,7 @@ void ForwardRenderer::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating ForwardRenderer\n");
@@ -76,7 +76,7 @@ void ForwardRenderer::init(
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipelines(dsLayouts);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void ForwardRenderer::recompileShaders(
@@ -84,12 +84,12 @@ void ForwardRenderer::recompileShaders(
     const wheels::HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    WHEELS_ASSERT(_meshReflection.has_value());
-    WHEELS_ASSERT(_fragReflection.has_value());
-    if (!_meshReflection->affected(changedFiles) &&
-        !_fragReflection->affected(changedFiles))
+    WHEELS_ASSERT(m_meshReflection.has_value());
+    WHEELS_ASSERT(m_fragReflection.has_value());
+    if (!m_meshReflection->affected(changedFiles) &&
+        !m_fragReflection->affected(changedFiles))
         return;
 
     if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
@@ -106,7 +106,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
     DrawType drawType, SceneStats *sceneStats, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     OpaqueOutput ret;
     ret.illumination = createIllumination(renderArea.extent, "illumination");
@@ -138,7 +138,7 @@ void ForwardRenderer::recordTransparent(
     uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     record(
         WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
@@ -217,18 +217,18 @@ bool ForwardRenderer::compileShaders(
 
     if (meshResult.has_value() && fragResult.has_value())
     {
-        for (auto const &stage : _shaderStages)
+        for (auto const &stage : m_shaderStages)
             gDevice.logical().destroyShaderModule(stage.module);
 
-        _meshReflection = WHEELS_MOV(meshResult->reflection);
+        m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == _meshReflection->pushConstantsBytesize());
+            sizeof(PCBlock) == m_meshReflection->pushConstantsBytesize());
 
-        _fragReflection = WHEELS_MOV(fragResult->reflection);
+        m_fragReflection = WHEELS_MOV(fragResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == _fragReflection->pushConstantsBytesize());
+            sizeof(PCBlock) == m_fragReflection->pushConstantsBytesize());
 
-        _shaderStages = {{
+        m_shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eMeshEXT,
                 .module = meshResult->module,
@@ -255,16 +255,17 @@ bool ForwardRenderer::compileShaders(
 void ForwardRenderer::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(_meshReflection.has_value());
-    _meshSetLayout = _meshReflection->createDescriptorSetLayout(
+    WHEELS_ASSERT(m_meshReflection.has_value());
+    m_meshSetLayout = m_meshReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), DrawStatsBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT * 2>
-        layouts{_meshSetLayout};
+        layouts{m_meshSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT * 2> debugNames{
         "ForwardMesh"};
-    staticDescriptorsAlloc->allocate(layouts, debugNames, _meshSets.mut_span());
+    staticDescriptorsAlloc->allocate(
+        layouts, debugNames, m_meshSets.mut_span());
 }
 
 void ForwardRenderer::updateDescriptorSet(
@@ -275,7 +276,7 @@ void ForwardRenderer::updateDescriptorSet(
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
     const vk::DescriptorSet ds =
-        _meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + (transparents ? 1u : 0u)];
+        m_meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + (transparents ? 1u : 0u)];
 
     const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
@@ -289,9 +290,9 @@ void ForwardRenderer::updateDescriptorSet(
         }},
     }};
 
-    WHEELS_ASSERT(_meshReflection.has_value());
+    WHEELS_ASSERT(m_meshReflection.has_value());
     const wheels::Array descriptorWrites =
-        _meshReflection->generateDescriptorWrites(
+        m_meshReflection->generateDescriptorWrites(
             scopeAlloc, DrawStatsBindingSet, ds, infos);
 
     gDevice.logical().updateDescriptorSets(
@@ -301,9 +302,9 @@ void ForwardRenderer::updateDescriptorSet(
 
 void ForwardRenderer::destroyGraphicsPipelines()
 {
-    for (auto &p : _pipelines)
+    for (auto &p : m_pipelines)
         gDevice.logical().destroy(p);
-    gDevice.logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
@@ -318,7 +319,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     setLayouts[GeometryBuffersBindingSet] = dsLayouts.world.geometry;
     setLayouts[SceneInstancesBindingSet] = dsLayouts.world.sceneInstances;
     setLayouts[SkyboxBindingSet] = dsLayouts.world.skybox;
-    setLayouts[DrawStatsBindingSet] = _meshSetLayout;
+    setLayouts[DrawStatsBindingSet] = m_meshSetLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
@@ -326,7 +327,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         .offset = 0,
         .size = sizeof(PCBlock),
     };
-    _pipelineLayout =
+    m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
@@ -343,12 +344,12 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
             colorBlendAttachments{opaqueColorBlendAttachment()};
 
-        _pipelines[0] = createGraphicsPipeline(
+        m_pipelines[0] = createGraphicsPipeline(
             gDevice.logical(),
             GraphicsPipelineInfo{
-                .layout = _pipelineLayout,
+                .layout = m_pipelineLayout,
                 .colorBlendAttachments = colorBlendAttachments,
-                .shaderStages = _shaderStages,
+                .shaderStages = m_shaderStages,
                 .renderingInfo =
                     vk::PipelineRenderingCreateInfo{
                         .colorAttachmentCount = asserted_cast<uint32_t>(
@@ -365,12 +366,12 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         const vk::PipelineColorBlendAttachmentState blendAttachment =
             transparentColorBlendAttachment();
 
-        _pipelines[1] = createGraphicsPipeline(
+        m_pipelines[1] = createGraphicsPipeline(
             gDevice.logical(),
             GraphicsPipelineInfo{
-                .layout = _pipelineLayout,
+                .layout = m_pipelineLayout,
                 .colorBlendAttachments = Span{&blendAttachment, 1},
-                .shaderStages = _shaderStages,
+                .shaderStages = m_shaderStages,
                 .renderingInfo =
                     vk::PipelineRenderingCreateInfo{
                         .colorAttachmentCount = 1,
@@ -452,7 +453,7 @@ void ForwardRenderer::record(
     });
 
     cb.bindPipeline(
-        vk::PipelineBindPoint::eGraphics, _pipelines[pipelineIndex]);
+        vk::PipelineBindPoint::eGraphics, m_pipelines[pipelineIndex]);
 
     const Scene &scene = world.currentScene();
     const WorldDescriptorSets &worldDSes = world.descriptorSets();
@@ -471,7 +472,7 @@ void ForwardRenderer::record(
         scene.sceneInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
     descriptorSets[DrawStatsBindingSet] =
-        _meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
+        m_meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
 
     const StaticArray dynamicOffsets{{
         worldByteOffsets.directionalLight,
@@ -485,7 +486,7 @@ void ForwardRenderer::record(
     }};
 
     cb.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+        vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
@@ -498,7 +499,7 @@ void ForwardRenderer::record(
         .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
     };
     cb.pushConstants(
-        _pipelineLayout,
+        m_pipelineLayout,
         vk::ShaderStageFlagBits::eMeshEXT | vk::ShaderStageFlagBits::eFragment,
         0, // offset
         sizeof(PCBlock), &pcBlock);

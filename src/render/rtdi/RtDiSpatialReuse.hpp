@@ -53,10 +53,10 @@ class RtDiSpatialReuse
         const World &world, const Camera &cam, const Input &input,
         uint32_t nextFrame, Profiler *profiler);
 
-    bool _initialized{false};
-    ComputePass _computePass;
+    bool m_initialized{false};
+    ComputePass m_computePass;
 
-    uint32_t _frameIndex{0};
+    uint32_t m_frameIndex{0};
 };
 
 #endif // PROSPER_RENDER_RT_DI_SPATIAL_REUSE_HPP

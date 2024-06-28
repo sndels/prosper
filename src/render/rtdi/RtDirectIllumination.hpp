@@ -48,14 +48,14 @@ class RtDirectIllumination
     void releasePreserved();
 
   private:
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    bool _doSpatialReuse{true};
-    bool _resetAccumulation{true};
+    bool m_doSpatialReuse{true};
+    bool m_resetAccumulation{true};
 
-    RtDiInitialReservoirs _initialReservoirs;
-    RtDiSpatialReuse _spatialReuse;
-    RtDiTrace _trace;
+    RtDiInitialReservoirs m_initialReservoirs;
+    RtDiSpatialReuse m_spatialReuse;
+    RtDiTrace m_trace;
 };
 
 #endif // PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP

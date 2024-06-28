@@ -57,12 +57,12 @@ class DepthOfFieldGather
         Profiler *profiler);
 
   private:
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    ComputePass _backgroundPass;
-    ComputePass _foregroundPass;
+    ComputePass m_backgroundPass;
+    ComputePass m_foregroundPass;
 
-    uint32_t _frameIndex{0};
+    uint32_t m_frameIndex{0};
 };
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_GATHER_HPP

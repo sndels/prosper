@@ -110,18 +110,18 @@ class ForwardRenderer
     [[nodiscard]] static Attachments createAttachments(
         const RecordInOut &inOutTargets, bool transparents);
 
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages;
-    wheels::Optional<ShaderReflection> _meshReflection;
-    wheels::Optional<ShaderReflection> _fragReflection;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
+    wheels::Optional<ShaderReflection> m_meshReflection;
+    wheels::Optional<ShaderReflection> m_fragReflection;
 
-    vk::PipelineLayout _pipelineLayout;
-    wheels::StaticArray<vk::Pipeline, 2> _pipelines;
+    vk::PipelineLayout m_pipelineLayout;
+    wheels::StaticArray<vk::Pipeline, 2> m_pipelines;
 
-    vk::DescriptorSetLayout _meshSetLayout;
+    vk::DescriptorSetLayout m_meshSetLayout;
     // Separate sets for transparents and opaque
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT * 2> _meshSets{
+    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT * 2> m_meshSets{
         VK_NULL_HANDLE};
 };
 

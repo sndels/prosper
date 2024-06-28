@@ -56,11 +56,11 @@ class Window
     // All members should init (in ctor) without dynamic allocations or
     // exceptions because this class is used in a extern global.
 
-    bool _initialized{false};
-    GLFWwindow *_window{nullptr};
-    uint32_t _width{0};
-    uint32_t _height{0};
-    bool _resized{false};
+    bool m_initialized{false};
+    GLFWwindow *m_window{nullptr};
+    uint32_t m_width{0};
+    uint32_t m_height{0};
+    bool m_resized{false};
 };
 
 extern Window gWindow;

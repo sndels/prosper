@@ -55,18 +55,18 @@ Window gWindow;
 Window::~Window()
 {
     WHEELS_ASSERT(
-        (!_initialized || _window == nullptr) && "destroy() not called");
+        (!m_initialized || m_window == nullptr) && "destroy() not called");
 }
 
 void Window::init(
     const Pair<uint32_t, uint32_t> &resolution, const char *title) noexcept
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
     printf("Creating window\n");
 
-    _width = resolution.first;
-    _height = resolution.second;
+    m_width = resolution.first;
+    m_height = resolution.second;
 
     GLFWallocator allocator;
     allocator.allocate = allocatefun;
@@ -83,30 +83,30 @@ void Window::init(
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    _window = glfwCreateWindow(
-        asserted_cast<int>(_width), asserted_cast<int>(_height), title, nullptr,
-        nullptr);
+    m_window = glfwCreateWindow(
+        asserted_cast<int>(m_width), asserted_cast<int>(m_height), title,
+        nullptr, nullptr);
 
-    glfwSetWindowUserPointer(_window, this);
-    glfwSetKeyCallback(_window, Window::keyCallback);
-    glfwSetCharCallback(_window, Window::charCallback);
-    glfwSetCursorPosCallback(_window, Window::cursorPosCallback);
-    glfwSetCursorEnterCallback(_window, Window::cursorEnterCallback);
-    glfwSetScrollCallback(_window, Window::scrollCallback);
-    glfwSetMouseButtonCallback(_window, Window::mouseButtonCallback);
-    glfwSetFramebufferSizeCallback(_window, Window::framebufferSizeCallback);
+    glfwSetWindowUserPointer(m_window, this);
+    glfwSetKeyCallback(m_window, Window::keyCallback);
+    glfwSetCharCallback(m_window, Window::charCallback);
+    glfwSetCursorPosCallback(m_window, Window::cursorPosCallback);
+    glfwSetCursorEnterCallback(m_window, Window::cursorEnterCallback);
+    glfwSetScrollCallback(m_window, Window::scrollCallback);
+    glfwSetMouseButtonCallback(m_window, Window::mouseButtonCallback);
+    glfwSetFramebufferSizeCallback(m_window, Window::framebufferSizeCallback);
 
     // Non-raw input virtual mouse position seems to jump aroud much more on
     // Win10. First callback after disabling cursor could be 100s of px away
     // from the click position if drag is initiated during a fast move.
     if (glfwRawMouseMotionSupported() == GLFW_TRUE)
-        glfwSetInputMode(_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
 #ifdef _WIN32
     // Try to set dark mode to match the inactive title bar color to the ui
     // color scheme
     // https://stackoverflow.com/a/70693198
-    HWND hwnd = glfwGetWin32Window(_window);
+    HWND hwnd = glfwGetWin32Window(m_window);
     const BOOL use_dark_mode = TRUE;
     // These aren't exposed in older SDKs but might still work
     const WORD DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
@@ -120,34 +120,34 @@ void Window::init(
         sizeof(use_dark_mode));
 #endif // _WIN32
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void Window::destroy() noexcept
 {
-    glfwDestroyWindow(_window);
+    glfwDestroyWindow(m_window);
     glfwTerminate();
 
-    // _initialized = true and _window = nullptr mark a destroyed window
-    _window = nullptr;
+    // m_initialized = true and m_window = nullptr mark a destroyed window
+    m_window = nullptr;
 }
 
-GLFWwindow *Window::ptr() const { return _window; }
+GLFWwindow *Window::ptr() const { return m_window; }
 
 bool Window::open() const
 {
-    return glfwWindowShouldClose(_window) == GLFW_FALSE;
+    return glfwWindowShouldClose(m_window) == GLFW_FALSE;
 }
 
-uint32_t Window::width() const { return _width; }
+uint32_t Window::width() const { return m_width; }
 
-uint32_t Window::height() const { return _height; }
+uint32_t Window::height() const { return m_height; }
 
-bool Window::resized() const { return _resized; }
+bool Window::resized() const { return m_resized; }
 
 void Window::startFrame()
 {
-    _resized = false;
+    m_resized = false;
 
     glfwPollEvents();
     gInputHandler.handleKeyStateUpdate();
@@ -158,7 +158,7 @@ void Window::pollCursorPosition() const
     const CursorState cursor = gInputHandler.cursor();
     double x = static_cast<double>(cursor.position.x);
     double y = static_cast<double>(cursor.position.y);
-    glfwGetCursorPos(_window, &x, &y);
+    glfwGetCursorPos(m_window, &x, &y);
     gInputHandler.handleMouseMove(x, y);
 }
 
@@ -238,10 +238,10 @@ void Window::framebufferSizeCallback(GLFWwindow *window, int width, int height)
 
     auto uw = asserted_cast<uint32_t>(width);
     auto uh = asserted_cast<uint32_t>(height);
-    if (thisPtr->_width != uw || thisPtr->_height != uh)
+    if (thisPtr->m_width != uw || thisPtr->m_height != uh)
     {
-        thisPtr->_width = uw;
-        thisPtr->_height = uh;
-        thisPtr->_resized = true;
+        thisPtr->m_width = uw;
+        thisPtr->m_height = uh;
+        thisPtr->m_resized = true;
     }
 }

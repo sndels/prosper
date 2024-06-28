@@ -76,34 +76,34 @@ class RtReference
         const WorldDSLayouts &worldDSLayouts);
     void createShaderBindingTable(wheels::ScopedScratch scopeAlloc);
 
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> _shaderStages;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 4> m_shaderStages;
     wheels::StaticArray<vk::RayTracingShaderGroupCreateInfoKHR, 3>
-        _shaderGroups;
-    wheels::Optional<ShaderReflection> _raygenReflection;
-    wheels::Optional<ShaderReflection> _rayMissReflection;
-    wheels::Optional<ShaderReflection> _closestHitReflection;
-    wheels::Optional<ShaderReflection> _anyHitReflection;
+        m_shaderGroups;
+    wheels::Optional<ShaderReflection> m_raygenReflection;
+    wheels::Optional<ShaderReflection> m_rayMissReflection;
+    wheels::Optional<ShaderReflection> m_closestHitReflection;
+    wheels::Optional<ShaderReflection> m_anyHitReflection;
 
-    vk::DescriptorSetLayout _descriptorSetLayout;
+    vk::DescriptorSetLayout m_descriptorSetLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _descriptorSets;
+        m_descriptorSets;
 
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    vk::PipelineLayout m_pipelineLayout;
+    vk::Pipeline m_pipeline;
 
-    vk::DeviceSize _sbtGroupSize{0};
-    Buffer _shaderBindingTable;
+    vk::DeviceSize m_sbtGroupSize{0};
+    Buffer m_shaderBindingTable;
 
-    bool _accumulationDirty{true};
-    bool _accumulate{true};
-    bool _clampIndirect{true};
-    uint32_t _frameIndex{0};
-    uint32_t _rouletteStartBounce{3};
-    uint32_t _maxBounces{sMaxBounces};
+    bool m_accumulationDirty{true};
+    bool m_accumulate{true};
+    bool m_clampIndirect{true};
+    uint32_t m_frameIndex{0};
+    uint32_t m_rouletteStartBounce{3};
+    uint32_t m_maxBounces{sMaxBounces};
 
-    ImageHandle _previousIllumination;
+    ImageHandle m_previousIllumination;
 };
 
 #endif // PROSPER_RENDER_RT_REFERENCE_HPP

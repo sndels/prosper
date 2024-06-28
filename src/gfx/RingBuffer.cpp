@@ -12,21 +12,21 @@ constexpr uint32_t sMaxAllocation = 0xFFFFFFFF - RingBuffer::sAlignment;
 
 RingBuffer::~RingBuffer()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.destroy(_buffer);
+    gDevice.destroy(m_buffer);
 }
 
 void RingBuffer::init(
     vk::BufferUsageFlags usage, uint32_t byteSize, const char *debugName)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
     // Implementation assumes these in allocate()
     WHEELS_ASSERT(byteSize > RingBuffer::sAlignment);
     WHEELS_ASSERT(byteSize <= sMaxAllocation);
 
-    _buffer = gDevice.createBuffer(BufferCreateInfo{
+    m_buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = byteSize,
@@ -36,53 +36,53 @@ void RingBuffer::init(
             },
         .debugName = debugName,
     });
-    WHEELS_ASSERT(_buffer.mapped != nullptr);
+    WHEELS_ASSERT(m_buffer.mapped != nullptr);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 vk::Buffer RingBuffer::buffer() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _buffer.handle;
+    return m_buffer.handle;
 }
 
 void RingBuffer::startFrame()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    if (_frameStartOffsets.size() < _frameStartOffsets.capacity())
-        _frameStartOffsets.push_back(_currentByteOffset);
+    if (m_frameStartOffsets.size() < m_frameStartOffsets.capacity())
+        m_frameStartOffsets.push_back(m_currentByteOffset);
     else
     {
         // This is not an efficient deque but there shouldn't be many of these
         // buffers doing this once a frame
-        const size_t offsetCount = _frameStartOffsets.size();
+        const size_t offsetCount = m_frameStartOffsets.size();
         for (size_t i = 0; i < offsetCount - 1; ++i)
-            _frameStartOffsets[i] = _frameStartOffsets[i + 1];
-        _frameStartOffsets.back() = _currentByteOffset;
+            m_frameStartOffsets[i] = m_frameStartOffsets[i + 1];
+        m_frameStartOffsets.back() = m_currentByteOffset;
     }
 }
 
 void RingBuffer::reset()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _currentByteOffset = 0;
-    _frameStartOffsets.clear();
+    m_currentByteOffset = 0;
+    m_frameStartOffsets.clear();
 }
 
 uint32_t RingBuffer::write(wheels::Span<const uint8_t> data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     return write_internal(data, true);
 }
 
 void RingBuffer::write_unaligned(wheels::Span<const uint8_t> data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     write_internal(data, false);
 }
@@ -95,33 +95,33 @@ uint32_t RingBuffer::write_internal(
     WHEELS_ASSERT(byteSize + RingBuffer::sAlignment < sMaxAllocation);
 
     // Align offset
-    if (align && (_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
-        // Won't overflow since _currentByteOffset is at most sMaxAllocation
-        _currentByteOffset +=
+    if (align && (m_currentByteOffset & (RingBuffer::sAlignment - 1)) != 0)
+        // Won't overflow since m_currentByteOffset is at most sMaxAllocation
+        m_currentByteOffset +=
             RingBuffer::sAlignment -
-            (_currentByteOffset & (RingBuffer::sAlignment - 1));
+            (m_currentByteOffset & (RingBuffer::sAlignment - 1));
 
     // Wrap around if we're out of room
-    if (_buffer.byteSize <= _currentByteOffset ||
-        _buffer.byteSize - _currentByteOffset < byteSize)
+    if (m_buffer.byteSize <= m_currentByteOffset ||
+        m_buffer.byteSize - m_currentByteOffset < byteSize)
     {
         WHEELS_ASSERT(align && "Unaligned write wrapped around");
-        _currentByteOffset = 0;
+        m_currentByteOffset = 0;
     }
 
-    const uint32_t writeOffset = _currentByteOffset;
+    const uint32_t writeOffset = m_currentByteOffset;
 
-    uint8_t *dst = static_cast<uint8_t *>(_buffer.mapped);
+    uint8_t *dst = static_cast<uint8_t *>(m_buffer.mapped);
     dst += writeOffset;
     memcpy(dst, data.data(), data.size());
 
-    _currentByteOffset += byteSize;
+    m_currentByteOffset += byteSize;
 
     WHEELS_ASSERT(
-        !_frameStartOffsets.empty() && "Forgot to call startFrame()?");
+        !m_frameStartOffsets.empty() && "Forgot to call startFrame()?");
     WHEELS_ASSERT(
-        (_frameStartOffsets.back() < _currentByteOffset ||
-         _frameStartOffsets.front() > _currentByteOffset) &&
+        (m_frameStartOffsets.back() < m_currentByteOffset ||
+         m_frameStartOffsets.front() > m_currentByteOffset) &&
         "Stomped over an in flight frame");
 
     return writeOffset;

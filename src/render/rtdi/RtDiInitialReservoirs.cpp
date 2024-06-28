@@ -68,9 +68,9 @@ void RtDiInitialReservoirs::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
@@ -79,7 +79,7 @@ void RtDiInitialReservoirs::init(
             .externalDsLayouts = externalDsLayouts(dsLayouts),
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 bool RtDiInitialReservoirs::recompileShaders(
@@ -87,9 +87,9 @@ bool RtDiInitialReservoirs::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _computePass.recompileShader(
+    return m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
@@ -101,11 +101,11 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
     const Camera &cam, const GBufferRendererOutput &gbuffer,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  InitialReservoirs");
 
-    _frameIndex = ++_frameIndex % sFramePeriod;
+    m_frameIndex = ++m_frameIndex % sFramePeriod;
 
     Output ret;
     {
@@ -121,7 +121,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             },
             "RtDiInitialReservoirs");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -171,7 +171,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             VK_NULL_HANDLE};
         descriptorSets[LightsBindingSet] = worldDSes.lights;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
@@ -184,10 +184,10 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
             glm::uvec3{renderExtent.width, renderExtent.height, 1u};
 
         const PCBlock pcBlock{
-            .frameIndex = _frameIndex,
+            .frameIndex = m_frameIndex,
         };
 
-        _computePass.record(
+        m_computePass.record(
             cb, pcBlock, extent, descriptorSets, dynamicOffsets);
     }
 

@@ -31,22 +31,22 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 void DepthOfFieldFlatten::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldFlatten::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
@@ -55,7 +55,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
     ImageHandle halfResCircleOfConfusion, const uint32_t nextFrame,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  Flatten");
 
@@ -75,7 +75,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
             },
             "tileMinMaxCircleOfConfusion");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -105,8 +105,9 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
         PROFILER_GPU_SCOPE(profiler, cb, "  Flatten");
 
         const uvec3 extent = uvec3{inputExtent.width, inputExtent.height, 1u};
-        const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, extent, Span{&storageSet, 1});
+        const vk::DescriptorSet storageSet =
+            m_computePass.storageSet(nextFrame);
+        m_computePass.record(cb, extent, Span{&storageSet, 1});
     }
 
     return ret;

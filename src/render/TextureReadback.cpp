@@ -27,20 +27,20 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 TextureReadback::~TextureReadback()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.destroy(_buffer);
+    gDevice.destroy(m_buffer);
 }
 
 void TextureReadback::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
-    _buffer = gDevice.createBuffer(BufferCreateInfo{
+    m_buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeof(vec4),
@@ -51,24 +51,24 @@ void TextureReadback::init(
         .debugName = "TextureReadbackHostBuffer",
     });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void TextureReadback::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 void TextureReadback::startFrame()
 {
-    if (_framesUntilReady > 0)
-        _framesUntilReady--;
-    else if (_framesUntilReady == 0)
+    if (m_framesUntilReady > 0)
+        m_framesUntilReady--;
+    else if (m_framesUntilReady == 0)
         WHEELS_ASSERT(!"Forgot to call readback() on subsequent frames after "
                        "queueing readback");
 }
@@ -77,23 +77,23 @@ void TextureReadback::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle inTexture,
     vec2 px, uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(
-        _framesUntilReady == -1 && "Readback already queued and unread");
+        m_framesUntilReady == -1 && "Readback already queued and unread");
 
     PROFILER_CPU_SCOPE(profiler, "TextureReadback");
 
     {
         const BufferHandle deviceReadback = gRenderResources.buffers->create(
             BufferDescription{
-                .byteSize = _buffer.byteSize,
+                .byteSize = m_buffer.byteSize,
                 .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                          vk::BufferUsageFlagBits::eTransferSrc,
                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
             },
             "TextureReadbackDeviceBuffer");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -135,8 +135,9 @@ void TextureReadback::record(
         };
 
         const uvec3 extent = uvec3{1u, 1u, 1u};
-        const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
+        const vk::DescriptorSet storageSet =
+            m_computePass.storageSet(nextFrame);
+        m_computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
 
         gRenderResources.buffers->transition(
             cb, deviceReadback, BufferState::TransferSrc);
@@ -146,25 +147,25 @@ void TextureReadback::record(
         const vk::BufferCopy region{
             .srcOffset = 0,
             .dstOffset = 0,
-            .size = _buffer.byteSize,
+            .size = m_buffer.byteSize,
         };
         cb.copyBuffer(
             gRenderResources.buffers->nativeHandle(deviceReadback),
-            _buffer.handle, 1, &region);
+            m_buffer.handle, 1, &region);
 
         gRenderResources.buffers->release(deviceReadback);
 
-        _framesUntilReady = MAX_FRAMES_IN_FLIGHT;
+        m_framesUntilReady = MAX_FRAMES_IN_FLIGHT;
     }
 }
 
 Optional<vec4> TextureReadback::readback()
 {
-    WHEELS_ASSERT(_framesUntilReady >= 0 && "No readback in flight");
+    WHEELS_ASSERT(m_framesUntilReady >= 0 && "No readback in flight");
 
-    if (_framesUntilReady > 0)
+    if (m_framesUntilReady > 0)
         return {};
 
-    _framesUntilReady = -1;
-    return *reinterpret_cast<vec4 *>(_buffer.mapped);
+    m_framesUntilReady = -1;
+    return *reinterpret_cast<vec4 *>(m_buffer.mapped);
 }

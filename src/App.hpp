@@ -106,91 +106,91 @@ class App
         wheels::ScopedScratch scopeAlloc, bool shouldResizeSwapchain);
 
     // Separate allocator for async polling as TlsfAllocator is not thread safe
-    wheels::TlsfAllocator _fileChangePollingAlloc;
-    std::filesystem::path _scenePath;
+    wheels::TlsfAllocator m_fileChangePollingAlloc;
+    std::filesystem::path m_scenePath;
 
     // This allocator should only be used for the descriptors that can live
     // until the end of the program. As such, reset() shouldn't be called so
     // that users can rely on the descriptors being there once allocated.
-    wheels::OwningPtr<DescriptorAllocator> _staticDescriptorsAlloc;
+    wheels::OwningPtr<DescriptorAllocator> m_staticDescriptorsAlloc;
 
-    wheels::OwningPtr<Swapchain> _swapchain;
+    wheels::OwningPtr<Swapchain> m_swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
-        _commandBuffers;
+        m_commandBuffers;
 
-    vk::Extent2D _viewportExtent{};
+    vk::Extent2D m_viewportExtent{};
 
     // TODO:
     // Should this be a global too?
-    RingBuffer _constantsRing;
+    RingBuffer m_constantsRing;
 
-    wheels::OwningPtr<Camera> _cam;
-    wheels::OwningPtr<World> _world;
+    wheels::OwningPtr<Camera> m_cam;
+    wheels::OwningPtr<World> m_world;
 
-    wheels::OwningPtr<LightClustering> _lightClustering;
-    wheels::OwningPtr<ForwardRenderer> _forwardRenderer;
-    wheels::OwningPtr<GBufferRenderer> _gbufferRenderer;
-    wheels::OwningPtr<DeferredShading> _deferredShading;
-    wheels::OwningPtr<RtDirectIllumination> _rtDirectIllumination;
-    wheels::OwningPtr<RtReference> _rtReference;
-    wheels::OwningPtr<SkyboxRenderer> _skyboxRenderer;
-    wheels::OwningPtr<DebugRenderer> _debugRenderer;
-    wheels::OwningPtr<ToneMap> _toneMap;
-    wheels::OwningPtr<ImGuiRenderer> _imguiRenderer;
-    wheels::OwningPtr<TextureDebug> _textureDebug;
-    wheels::OwningPtr<DepthOfField> _depthOfField;
-    wheels::OwningPtr<ImageBasedLighting> _imageBasedLighting;
-    wheels::OwningPtr<TemporalAntiAliasing> _temporalAntiAliasing;
-    wheels::OwningPtr<MeshletCuller> _meshletCuller;
-    wheels::OwningPtr<TextureReadback> _textureReadback;
+    wheels::OwningPtr<LightClustering> m_lightClustering;
+    wheels::OwningPtr<ForwardRenderer> m_forwardRenderer;
+    wheels::OwningPtr<GBufferRenderer> m_gbufferRenderer;
+    wheels::OwningPtr<DeferredShading> m_deferredShading;
+    wheels::OwningPtr<RtDirectIllumination> m_rtDirectIllumination;
+    wheels::OwningPtr<RtReference> m_rtReference;
+    wheels::OwningPtr<SkyboxRenderer> m_skyboxRenderer;
+    wheels::OwningPtr<DebugRenderer> m_debugRenderer;
+    wheels::OwningPtr<ToneMap> m_toneMap;
+    wheels::OwningPtr<ImGuiRenderer> m_imguiRenderer;
+    wheels::OwningPtr<TextureDebug> m_textureDebug;
+    wheels::OwningPtr<DepthOfField> m_depthOfField;
+    wheels::OwningPtr<ImageBasedLighting> m_imageBasedLighting;
+    wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
+    wheels::OwningPtr<MeshletCuller> m_meshletCuller;
+    wheels::OwningPtr<TextureReadback> m_textureReadback;
 
-    wheels::OwningPtr<Profiler> _profiler;
+    wheels::OwningPtr<Profiler> m_profiler;
 
-    bool _useFpsLimit{true};
-    int32_t _fpsLimit{140};
-    bool _recompileShaders{false};
-    bool _referenceRt{false};
-    bool _renderDeferred{true};
-    bool _deferredRt{false};
-    bool _renderDoF{false};
-    bool _textureDebugActive{false};
-    bool _drawUi{true};
-    bool _forceViewportRecreate{false};
-    bool _forceCamUpdate{true};
-    bool _applyIbl{false};
-    bool _sceneChanged{false};
-    bool _newSceneDataLoaded{false};
-    bool _applyTaa{true};
-    bool _applyJitter{true};
-    DrawType _drawType{DrawType::Default};
+    bool m_useFpsLimit{true};
+    int32_t m_fpsLimit{140};
+    bool m_recompileShaders{false};
+    bool m_referenceRt{false};
+    bool m_renderDeferred{true};
+    bool m_deferredRt{false};
+    bool m_renderDoF{false};
+    bool m_textureDebugActive{false};
+    bool m_drawUi{true};
+    bool m_forceViewportRecreate{false};
+    bool m_forceCamUpdate{true};
+    bool m_applyIbl{false};
+    bool m_sceneChanged{false};
+    bool m_newSceneDataLoaded{false};
+    bool m_applyTaa{true};
+    bool m_applyJitter{true};
+    DrawType m_drawType{DrawType::Default};
 
-    bool _camFreeLook{false};
-    CameraTransform _sceneCameraTransform;
-    CameraParameters _cameraParameters;
-    wheels::Optional<FrustumCorners> _debugFrustum;
-    glm::vec3 _frustumDebugColor{1.f, 1.f, 1.f};
-    bool _pickFocusDistance{false};
-    glm::vec2 _pickedFocusPx{-1.f, -1.f};
-    bool _waitFocusDistance{false};
+    bool m_camFreeLook{false};
+    CameraTransform m_sceneCameraTransform;
+    CameraParameters m_cameraParameters;
+    wheels::Optional<FrustumCorners> m_debugFrustum;
+    glm::vec3 m_frustumDebugColor{1.f, 1.f, 1.f};
+    bool m_pickFocusDistance{false};
+    glm::vec2 m_pickedFocusPx{-1.f, -1.f};
+    bool m_waitFocusDistance{false};
 
-    wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> _sceneStats;
-    wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> _drawStats;
+    wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> m_sceneStats;
+    wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> m_drawStats;
 
-    std::chrono::high_resolution_clock::time_point _lastTimeChange;
-    float _timeOffsetS{0.f};
-    bool _isPlaying{false};
+    std::chrono::high_resolution_clock::time_point m_lastTimeChange;
+    float m_timeOffsetS{0.f};
+    bool m_isPlaying{false};
 
-    uint32_t _ctorScratchHighWatermark{0};
+    uint32_t m_ctorScratchHighWatermark{0};
 
-    Timer _frameTimer;
-    std::chrono::time_point<std::chrono::file_clock> _recompileTime;
+    Timer m_frameTimer;
+    std::chrono::time_point<std::chrono::file_clock> m_recompileTime;
 
     wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
-        _imageAvailableSemaphores;
+        m_imageAvailableSemaphores;
     wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
-        _renderFinishedSemaphores;
+        m_renderFinishedSemaphores;
 
-    std::future<wheels::HashSet<std::filesystem::path>> _fileChanges;
+    std::future<wheels::HashSet<std::filesystem::path>> m_fileChanges;
 };
 
 #endif // PROSPER_APP_HPP

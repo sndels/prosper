@@ -55,22 +55,22 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 DepthOfFieldReduce::~DepthOfFieldReduce()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.destroy(_atomicCounter);
+    gDevice.destroy(m_atomicCounter);
 }
 
 void DepthOfFieldReduce::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
-    _atomicCounter = gDevice.createBuffer(BufferCreateInfo{
+    m_atomicCounter = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{
                 .byteSize = sizeof(uint32_t),
@@ -80,16 +80,16 @@ void DepthOfFieldReduce::init(
             },
         .debugName = "DofReduceCounter"});
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldReduce::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
@@ -98,7 +98,7 @@ void DepthOfFieldReduce::record(
     const ImageHandle &inOutIlluminationMips, const uint32_t nextFrame,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  Reduce");
 
@@ -147,7 +147,7 @@ void DepthOfFieldReduce::record(
             };
     }
 
-    _computePass.updateDescriptorSet(
+    m_computePass.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -156,7 +156,7 @@ void DepthOfFieldReduce::record(
             }},
             DescriptorInfo{outputInfos},
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _atomicCounter.handle,
+                .buffer = m_atomicCounter.handle,
                 .range = VK_WHOLE_SIZE,
             }},
         }});
@@ -164,19 +164,19 @@ void DepthOfFieldReduce::record(
     gRenderResources.images->transition(
         cb, inOutIlluminationMips, ImageState::ComputeShaderReadWrite);
 
-    if (_counterNotCleared)
+    if (m_counterNotCleared)
     {
-        _atomicCounter.transition(cb, BufferState::TransferDst);
+        m_atomicCounter.transition(cb, BufferState::TransferDst);
         // Only need to clear once as SPD will leave this zeroed when the
         // dispatch exits
-        cb.fillBuffer(_atomicCounter.handle, 0, _atomicCounter.byteSize, 0);
-        _atomicCounter.transition(cb, BufferState::ComputeShaderReadWrite);
-        _counterNotCleared = false;
+        cb.fillBuffer(m_atomicCounter.handle, 0, m_atomicCounter.byteSize, 0);
+        m_atomicCounter.transition(cb, BufferState::ComputeShaderReadWrite);
+        m_counterNotCleared = false;
     }
 
     PROFILER_GPU_SCOPE(profiler, cb, "  Reduce");
 
-    const vk::DescriptorSet descriptorSet = _computePass.storageSet(nextFrame);
+    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     // Compute pass calculates group counts assuming extent / groupSize
     // TODO:
@@ -186,5 +186,5 @@ void DepthOfFieldReduce::record(
     const uvec3 extent = uvec3{
         dispatchThreadGroupCountXY[0] * sGroupSizeX,
         dispatchThreadGroupCountXY[1], 1u};
-    _computePass.record(cb, pcBlock, extent, Span{&descriptorSet, 1});
+    m_computePass.record(cb, pcBlock, extent, Span{&descriptorSet, 1});
 }

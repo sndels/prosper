@@ -66,10 +66,10 @@ class RingBuffer
   private:
     uint32_t write_internal(wheels::Span<const uint8_t> data, bool aligned);
 
-    bool _initialized{false};
-    Buffer _buffer;
-    uint32_t _currentByteOffset{0};
-    wheels::InlineArray<uint32_t, MAX_FRAMES_IN_FLIGHT - 1> _frameStartOffsets;
+    bool m_initialized{false};
+    Buffer m_buffer;
+    uint32_t m_currentByteOffset{0};
+    wheels::InlineArray<uint32_t, MAX_FRAMES_IN_FLIGHT - 1> m_frameStartOffsets;
 };
 
 template <typename T>
@@ -85,7 +85,7 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 void RingBuffer::write_value_unaligned(const T &data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     write_internal(
         wheels::Span{reinterpret_cast<const uint8_t *>(&data), sizeof(data)},
@@ -96,7 +96,7 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 uint32_t RingBuffer::write_elements(const wheels::Array<T> &data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     return write_internal(
         wheels::Span{
@@ -109,7 +109,7 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 void RingBuffer::write_elements_unaligned(const wheels::Array<T> &data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     write_internal(
         wheels::Span{
@@ -122,7 +122,7 @@ template <typename T, size_t N>
     requires std::is_trivially_copyable_v<T>
 uint32_t RingBuffer::write_full_capacity(const wheels::InlineArray<T, N> &data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     return write_internal(
         wheels::Span{
@@ -136,7 +136,7 @@ template <typename T, size_t N>
 void RingBuffer::write_full_capacity_unaligned(
     const wheels::InlineArray<T, N> &data)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     write_internal(
         wheels::Span{

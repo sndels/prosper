@@ -52,9 +52,9 @@ void DepthOfFieldSetup::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
         ComputePassOptions{
@@ -62,7 +62,7 @@ void DepthOfFieldSetup::init(
             .externalDsLayouts = Span{&camDsLayout, 1},
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldSetup::recompileShaders(
@@ -70,9 +70,9 @@ void DepthOfFieldSetup::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDsLayout)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         Span{&camDsLayout, 1});
 }
@@ -81,7 +81,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  Setup");
 
@@ -116,7 +116,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             },
             "HalfResCircleOfConfusion");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -164,7 +164,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
 
         const uint32_t cameraOffset = cam.bufferOffset();
 
@@ -184,7 +184,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             .maxCoC = maxBgCoCInHalfResPixels * DepthOfField::sMaxFgCoCFactor,
         };
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
-        _computePass.record(
+        m_computePass.record(
             cb, pcBlock, extent, descriptorSets, Span{&cameraOffset, 1});
     }
 

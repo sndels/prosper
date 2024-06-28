@@ -881,7 +881,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     ctx->workerLoadedMeshCount++;
 
     {
-        const std::lock_guard _lock{ctx->loadedMeshesMutex};
+        const std::lock_guard lock{ctx->loadedMeshesMutex};
 
         ctx->loadedMeshes.emplace_back(uploadData, info);
     }
@@ -971,7 +971,7 @@ void loadNextTexture(DeferredLoadingContext *ctx)
     ctx->workerLoadedImageCount++;
 
     {
-        const std::lock_guard _lock{ctx->loadedTexturesMutex};
+        const std::lock_guard lock{ctx->loadedTexturesMutex};
 
         ctx->loadedTextures.emplace_back(WHEELS_MOV(tex));
     }
@@ -1022,7 +1022,7 @@ Buffer createTextureStaging()
 
 DeferredLoadingContext::~DeferredLoadingContext()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     if (worker.has_value())
     {
@@ -1214,7 +1214,7 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
             // The managing thread should only read the buffer array. A lock
             // is only be needed for the append op on the worker side to
             // sync those reads.
-            const std::lock_guard _lock{geometryBuffersMutex};
+            const std::lock_guard lock{geometryBuffersMutex};
             geometryBuffers.push_back(WHEELS_MOV(buffer));
         }
         geometryBufferRemainingByteCounts.push_back(sGeometryBufferSize);

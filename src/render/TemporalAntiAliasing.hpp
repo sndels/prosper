@@ -76,14 +76,14 @@ class TemporalAntiAliasing
     void releasePreserved();
 
   private:
-    bool _initialized{false};
-    ComputePass _computePass;
+    bool m_initialized{false};
+    ComputePass m_computePass;
 
-    ImageHandle _previousResolveOutput;
-    ColorClippingType _colorClipping{ColorClippingType::Variance};
-    VelocitySamplingType _velocitySampling{VelocitySamplingType::Closest};
-    bool _catmullRom{true};
-    bool _luminanceWeighting{true};
+    ImageHandle m_previousResolveOutput;
+    ColorClippingType m_colorClipping{ColorClippingType::Variance};
+    VelocitySamplingType m_velocitySampling{VelocitySamplingType::Closest};
+    bool m_catmullRom{true};
+    bool m_luminanceWeighting{true};
 };
 
 #endif // PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP

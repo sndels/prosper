@@ -35,9 +35,9 @@ class ImGuiRenderer
 
     static void setStyle();
 
-    bool _initialized{false};
-    vk::DescriptorPool _descriptorPool;
-    ImGuiID _dockAreaID{0};
+    bool m_initialized{false};
+    vk::DescriptorPool m_descriptorPool;
+    ImGuiID m_dockAreaID{0};
 };
 
 #endif // PROSPER_RENDER_IMGUI_RENDERER_HPP

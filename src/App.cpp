@@ -74,40 +74,40 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
 } // namespace
 
 App::App(std::filesystem::path scenePath) noexcept
-: _fileChangePollingAlloc{megabytes(1)}
-, _scenePath{WHEELS_MOV(scenePath)}
-, _staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>{gAllocators.general}}
-, _swapchain{OwningPtr<Swapchain>{gAllocators.general}}
-, _cam{OwningPtr<Camera>{gAllocators.general}}
-, _world{OwningPtr<World>{gAllocators.general}}
-, _lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
-, _forwardRenderer{OwningPtr<ForwardRenderer>{gAllocators.general}}
-, _gbufferRenderer{OwningPtr<GBufferRenderer>{gAllocators.general}}
-, _deferredShading{OwningPtr<DeferredShading>{gAllocators.general}}
-, _rtDirectIllumination{OwningPtr<RtDirectIllumination>{gAllocators.general}}
-, _rtReference{OwningPtr<RtReference>{gAllocators.general}}
-, _skyboxRenderer{OwningPtr<SkyboxRenderer>{gAllocators.general}}
-, _debugRenderer{OwningPtr<DebugRenderer>{gAllocators.general}}
-, _toneMap{OwningPtr<ToneMap>{gAllocators.general}}
-, _imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
-, _textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
-, _depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
-, _imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
-, _temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
-, _meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
-, _textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
-, _profiler{OwningPtr<Profiler>{gAllocators.general}}
+: m_fileChangePollingAlloc{megabytes(1)}
+, m_scenePath{WHEELS_MOV(scenePath)}
+, m_staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>{gAllocators.general}}
+, m_swapchain{OwningPtr<Swapchain>{gAllocators.general}}
+, m_cam{OwningPtr<Camera>{gAllocators.general}}
+, m_world{OwningPtr<World>{gAllocators.general}}
+, m_lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
+, m_forwardRenderer{OwningPtr<ForwardRenderer>{gAllocators.general}}
+, m_gbufferRenderer{OwningPtr<GBufferRenderer>{gAllocators.general}}
+, m_deferredShading{OwningPtr<DeferredShading>{gAllocators.general}}
+, m_rtDirectIllumination{OwningPtr<RtDirectIllumination>{gAllocators.general}}
+, m_rtReference{OwningPtr<RtReference>{gAllocators.general}}
+, m_skyboxRenderer{OwningPtr<SkyboxRenderer>{gAllocators.general}}
+, m_debugRenderer{OwningPtr<DebugRenderer>{gAllocators.general}}
+, m_toneMap{OwningPtr<ToneMap>{gAllocators.general}}
+, m_imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
+, m_textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
+, m_depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
+, m_imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
+, m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
+, m_meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
+, m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
+, m_profiler{OwningPtr<Profiler>{gAllocators.general}}
 {
 }
 
 App::~App()
 {
-    for (auto &semaphore : _renderFinishedSemaphores)
+    for (auto &semaphore : m_renderFinishedSemaphores)
     {
         if (semaphore)
             gDevice.logical().destroy(semaphore);
     }
-    for (auto &semaphore : _imageAvailableSemaphores)
+    for (auto &semaphore : m_imageAvailableSemaphores)
     {
         if (semaphore)
             gDevice.logical().destroy(semaphore);
@@ -116,123 +116,123 @@ App::~App()
 
 void App::init(ScopedScratch scopeAlloc)
 {
-    _staticDescriptorsAlloc->init();
+    m_staticDescriptorsAlloc->init();
 
     {
         const SwapchainConfig &config = SwapchainConfig{
             scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
-        _swapchain->init(config);
+        m_swapchain->init(config);
     }
 
-    _commandBuffers = allocateCommandBuffers();
+    m_commandBuffers = allocateCommandBuffers();
 
     // We don't know the extent in member inits
     // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
-    _viewportExtent = _swapchain->config().extent;
+    m_viewportExtent = m_swapchain->config().extent;
 
-    _constantsRing.init(
+    m_constantsRing.init(
         vk::BufferUsageFlagBits::eStorageBuffer,
         asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
 
-    _cam->init(
-        scopeAlloc.child_scope(), &_constantsRing,
-        _staticDescriptorsAlloc.get());
+    m_cam->init(
+        scopeAlloc.child_scope(), &m_constantsRing,
+        m_staticDescriptorsAlloc.get());
 
     // TODO: Some VMA allocation in here gets left dangling if we throw
     // immediately after the call
-    _world->init(scopeAlloc.child_scope(), &_constantsRing, _scenePath);
+    m_world->init(scopeAlloc.child_scope(), &m_constantsRing, m_scenePath);
 
     const Timer gpuPassesInitTimer;
-    _lightClustering->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout(), _world->dsLayouts());
-    _forwardRenderer->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+    m_lightClustering->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+    m_forwardRenderer->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
         ForwardRenderer::InputDSLayouts{
-            .camera = _cam->descriptorSetLayout(),
-            .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->dsLayouts(),
+            .camera = m_cam->descriptorSetLayout(),
+            .lightClusters = m_lightClustering->descriptorSetLayout(),
+            .world = m_world->dsLayouts(),
         });
-    _gbufferRenderer->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout(), _world->dsLayouts());
-    _deferredShading->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
+    m_gbufferRenderer->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+    m_deferredShading->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
         DeferredShading::InputDSLayouts{
-            .camera = _cam->descriptorSetLayout(),
-            .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->dsLayouts(),
+            .camera = m_cam->descriptorSetLayout(),
+            .lightClusters = m_lightClustering->descriptorSetLayout(),
+            .world = m_world->dsLayouts(),
         });
-    _rtDirectIllumination->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout(), _world->dsLayouts());
-    _rtReference->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout(), _world->dsLayouts());
-    _skyboxRenderer->init(
-        scopeAlloc.child_scope(), _cam->descriptorSetLayout(),
-        _world->dsLayouts());
-    _debugRenderer->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout());
-    _toneMap->init(scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
-    _imguiRenderer->init(_swapchain->config());
-    _textureDebug->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
-    _depthOfField->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout());
-    _imageBasedLighting->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
-    _temporalAntiAliasing->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _cam->descriptorSetLayout());
-    _meshletCuller->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get(),
-        _world->dsLayouts(), _cam->descriptorSetLayout());
-    _textureReadback->init(
-        scopeAlloc.child_scope(), _staticDescriptorsAlloc.get());
-    _recompileTime = std::chrono::file_clock::now();
+    m_rtDirectIllumination->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+    m_rtReference->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+    m_skyboxRenderer->init(
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
+    m_debugRenderer->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout());
+    m_toneMap->init(scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+    m_imguiRenderer->init(m_swapchain->config());
+    m_textureDebug->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+    m_depthOfField->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout());
+    m_imageBasedLighting->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+    m_temporalAntiAliasing->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_cam->descriptorSetLayout());
+    m_meshletCuller->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        m_world->dsLayouts(), m_cam->descriptorSetLayout());
+    m_textureReadback->init(
+        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+    m_recompileTime = std::chrono::file_clock::now();
     printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
 
-    _profiler->init();
+    m_profiler->init();
 
-    _cam->lookAt(_sceneCameraTransform);
-    _cam->setParameters(_cameraParameters);
-    _cam->updateResolution(
-        uvec2{_viewportExtent.width, _viewportExtent.height});
+    m_cam->lookAt(m_sceneCameraTransform);
+    m_cam->setParameters(m_cameraParameters);
+    m_cam->updateResolution(
+        uvec2{m_viewportExtent.width, m_viewportExtent.height});
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        _imageAvailableSemaphores[i] =
+        m_imageAvailableSemaphores[i] =
             gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
-        _renderFinishedSemaphores[i] =
+        m_renderFinishedSemaphores[i] =
             gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
     }
 }
 
 void App::setInitScratchHighWatermark(size_t value)
 {
-    _ctorScratchHighWatermark = asserted_cast<uint32_t>(value);
+    m_ctorScratchHighWatermark = asserted_cast<uint32_t>(value);
 }
 
 void App::run()
 {
     LinearAllocator scopeBackingAlloc{megabytes(16)};
     Timer updateDelta;
-    _lastTimeChange = std::chrono::high_resolution_clock::now();
+    m_lastTimeChange = std::chrono::high_resolution_clock::now();
 
     try
     {
         while (gWindow.open())
         {
-            _profiler->startCpuFrame();
+            m_profiler->startCpuFrame();
 
             scopeBackingAlloc.reset();
             ScopedScratch scopeAlloc{scopeBackingAlloc};
 
             {
-                PROFILER_CPU_SCOPE(_profiler, "Window::startFrame");
+                PROFILER_CPU_SCOPE(m_profiler, "Window::startFrame");
                 gWindow.startFrame();
             }
 
@@ -247,11 +247,11 @@ void App::run()
             recompileShaders(scopeAlloc.child_scope());
 
             gRenderResources.startFrame();
-            _constantsRing.startFrame();
-            _world->startFrame();
-            _meshletCuller->startFrame();
-            _depthOfField->startFrame();
-            _textureReadback->startFrame();
+            m_constantsRing.startFrame();
+            m_world->startFrame();
+            m_meshletCuller->startFrame();
+            m_depthOfField->startFrame();
+            m_textureReadback->startFrame();
 
             drawFrame(
                 scopeAlloc.child_scope(),
@@ -259,11 +259,11 @@ void App::run()
                     scopeBackingAlloc.allocated_byte_count_high_watermark()));
 
             gInputHandler.clearSingleFrameGestures();
-            _cam->endFrame();
+            m_cam->endFrame();
 
-            _world->endFrame();
+            m_world->endFrame();
 
-            _profiler->endCpuFrame();
+            m_profiler->endCpuFrame();
         }
     }
     catch (std::exception &)
@@ -290,19 +290,19 @@ void App::recreateViewportRelated()
 
     gRenderResources.destroyResources();
 
-    if (_drawUi)
+    if (m_drawUi)
     {
-        const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
-        _viewportExtent = vk::Extent2D{
+        const ImVec2 viewportSize = m_imguiRenderer->centerAreaSize();
+        m_viewportExtent = vk::Extent2D{
             asserted_cast<uint32_t>(viewportSize.x),
             asserted_cast<uint32_t>(viewportSize.y),
         };
     }
     else
-        _viewportExtent = _swapchain->config().extent;
+        m_viewportExtent = m_swapchain->config().extent;
 
-    _cam->updateResolution(
-        uvec2{_viewportExtent.width, _viewportExtent.height});
+    m_cam->updateResolution(
+        uvec2{m_viewportExtent.width, m_viewportExtent.height});
 }
 
 void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
@@ -322,28 +322,28 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
     { // Drop the config as we should always use swapchain's active config
         const SwapchainConfig config{
             scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
-        _swapchain->recreate(config);
+        m_swapchain->recreate(config);
     }
 }
 
 void App::recompileShaders(ScopedScratch scopeAlloc)
 {
-    PROFILER_CPU_SCOPE(_profiler, "App::recompileShaders");
+    PROFILER_CPU_SCOPE(m_profiler, "App::recompileShaders");
 
-    if (!_recompileShaders)
+    if (!m_recompileShaders)
     {
-        if (_fileChanges.valid())
+        if (m_fileChanges.valid())
             // This blocks until the future is done which should be fine as it
             // causes at most one frame drop.
-            _fileChanges = {};
+            m_fileChanges = {};
         return;
     }
 
-    if (!_fileChanges.valid())
+    if (!m_fileChanges.valid())
     {
         // Push a new async task that polls files to avoid holding back
         // rendering if it lags.
-        _fileChanges = std::async(
+        m_fileChanges = std::async(
             std::launch::async,
             [this]()
             {
@@ -353,10 +353,10 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
                         resPath("shader"));
                 const uint32_t shaderFileBound = 128;
                 HashSet<std::filesystem::path> changedFiles{
-                    _fileChangePollingAlloc, shaderFileBound};
+                    m_fileChangePollingAlloc, shaderFileBound};
                 for (const auto &entry : shadersIterator)
                 {
-                    if (entry.last_write_time() > _recompileTime)
+                    if (entry.last_write_time() > m_recompileTime)
                         changedFiles.insert(entry.path().lexically_normal());
                 }
                 WHEELS_ASSERT(changedFiles.capacity() == shaderFileBound);
@@ -371,7 +371,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         return;
     }
 
-    const std::future_status status = _fileChanges.wait_for(0s);
+    const std::future_status status = m_fileChanges.wait_for(0s);
     WHEELS_ASSERT(
         status != std::future_status::deferred &&
         "The future should never be lazy");
@@ -379,7 +379,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         return;
 
     const HashSet<std::filesystem::path> changedFiles{
-        WHEELS_MOV(_fileChanges.get())};
+        WHEELS_MOV(m_fileChanges.get())};
     if (changedFiles.empty())
         return;
 
@@ -397,63 +397,63 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
     const Timer t;
 
-    _lightClustering->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->dsLayouts());
-    _forwardRenderer->recompileShaders(
+    m_lightClustering->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
+    m_forwardRenderer->recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         ForwardRenderer::InputDSLayouts{
-            .camera = _cam->descriptorSetLayout(),
-            .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->dsLayouts(),
+            .camera = m_cam->descriptorSetLayout(),
+            .lightClusters = m_lightClustering->descriptorSetLayout(),
+            .world = m_world->dsLayouts(),
         });
-    _gbufferRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->dsLayouts());
-    _deferredShading->recompileShaders(
+    m_gbufferRenderer->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
+    m_deferredShading->recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
         DeferredShading::InputDSLayouts{
-            .camera = _cam->descriptorSetLayout(),
-            .lightClusters = _lightClustering->descriptorSetLayout(),
-            .world = _world->dsLayouts(),
+            .camera = m_cam->descriptorSetLayout(),
+            .lightClusters = m_lightClustering->descriptorSetLayout(),
+            .world = m_world->dsLayouts(),
         });
-    _rtDirectIllumination->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->dsLayouts());
-    _rtReference->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->dsLayouts());
-    _skyboxRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout(),
-        _world->dsLayouts());
-    _debugRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
-    _toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _textureDebug->recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    _depthOfField->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
-    _imageBasedLighting->recompileShaders(
+    m_rtDirectIllumination->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
+    m_rtReference->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
+    m_skyboxRenderer->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
+    m_debugRenderer->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout());
+    m_toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_textureDebug->recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_depthOfField->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout());
+    m_imageBasedLighting->recompileShaders(
         scopeAlloc.child_scope(), changedFiles);
-    _temporalAntiAliasing->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _cam->descriptorSetLayout());
-    _meshletCuller->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, _world->dsLayouts(),
-        _cam->descriptorSetLayout());
+    m_temporalAntiAliasing->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout());
+    m_meshletCuller->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, m_world->dsLayouts(),
+        m_cam->descriptorSetLayout());
 
     printf("Shaders recompiled in %.2fs\n", t.getSeconds());
 
-    _recompileTime = std::chrono::file_clock::now();
+    m_recompileTime = std::chrono::file_clock::now();
 }
 
 void App::handleMouseGestures()
 {
-    PROFILER_CPU_SCOPE(_profiler, "App::handleMouseGestures");
+    PROFILER_CPU_SCOPE(m_profiler, "App::handleMouseGestures");
 
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
     const auto &gesture = gInputHandler.mouseGesture();
-    if (gesture.has_value() && _camFreeLook)
+    if (gesture.has_value() && m_camFreeLook)
     {
         if (gesture->type == MouseGestureType::TrackBall)
         {
@@ -462,7 +462,7 @@ void App::handleMouseGestures()
             const auto drag =
                 (gesture->currentPos - gesture->startPos) * dragScale;
 
-            const auto transform = _cam->transform();
+            const auto transform = m_cam->transform();
             const auto fromTarget = transform.eye - transform.target;
 
             const auto horizontalRotatedFromTarget =
@@ -476,24 +476,24 @@ void App::handleMouseGestures()
             const auto flipUp =
                 dot(right, cross(newFromTarget, transform.up)) < 0.0;
 
-            _cam->gestureOffset = CameraOffset{
+            m_cam->gestureOffset = CameraOffset{
                 .eye = newFromTarget - fromTarget,
                 .flipUp = flipUp,
             };
         }
         else if (gesture->type == MouseGestureType::TrackPlane)
         {
-            const auto transform = _cam->transform();
+            const auto transform = m_cam->transform();
             const auto from_target = transform.eye - transform.target;
             const auto dist_target = length(from_target);
 
             // TODO: Adjust for aspect ratio difference between film and window
             const auto drag_scale = [&]
             {
-                const auto params = _cam->parameters();
+                const auto params = m_cam->parameters();
                 auto tanHalfFov = tan(params.fov * 0.5f);
                 return dist_target * tanHalfFov /
-                       (static_cast<float>(_viewportExtent.height) * 0.5f);
+                       (static_cast<float>(m_viewportExtent.height) * 0.5f);
             }();
             const auto drag =
                 (gesture->currentPos - gesture->startPos) * drag_scale;
@@ -503,16 +503,16 @@ void App::handleMouseGestures()
 
             const auto offset = right * (drag.x) + cam_up * (drag.y);
 
-            _cam->gestureOffset = CameraOffset{
+            m_cam->gestureOffset = CameraOffset{
                 .eye = offset,
                 .target = offset,
             };
         }
         else if (gesture->type == MouseGestureType::TrackZoom)
         {
-            if (!_cam->gestureOffset.has_value())
+            if (!m_cam->gestureOffset.has_value())
             {
-                const auto &transform = _cam->transform();
+                const auto &transform = m_cam->transform();
 
                 const auto to_target = transform.target - transform.eye;
                 const auto dist_target = length(to_target);
@@ -532,7 +532,7 @@ void App::handleMouseGestures()
                             0.01f *
                             max(offsettransform.eye, transform.target))))))
                 {
-                    _cam->gestureOffset = offset;
+                    m_cam->gestureOffset = offset;
                 }
             }
         }
@@ -540,17 +540,17 @@ void App::handleMouseGestures()
         {
             // Reference RT write a depth buffer so can't use the texture
             // readback
-            if (_renderDoF && !_referenceRt && !_waitFocusDistance)
-                _pickFocusDistance = true;
+            if (m_renderDoF && !m_referenceRt && !m_waitFocusDistance)
+                m_pickFocusDistance = true;
         }
         else
             throw std::runtime_error("Unknown mouse gesture");
     }
     else
     {
-        if (_cam->gestureOffset.has_value())
+        if (m_cam->gestureOffset.has_value())
         {
-            _cam->applyGestureOffset();
+            m_cam->applyGestureOffset();
         }
     }
 }
@@ -561,11 +561,11 @@ void App::handleKeyboardInput(float deltaS)
 
     if (keyStates[KeyI] == KeyState::Pressed)
     {
-        _drawUi = !_drawUi;
-        _forceViewportRecreate = true;
+        m_drawUi = !m_drawUi;
+        m_forceViewportRecreate = true;
     }
 
-    if (_camFreeLook)
+    if (m_camFreeLook)
     {
         const float baseSpeed = 2.f;
         vec3 speed{0.f};
@@ -598,8 +598,8 @@ void App::handleKeyboardInput(float deltaS)
 
         if (length(speed) > 0.f)
         {
-            const CameraTransform &transform = _cam->transform();
-            const Optional<CameraOffset> &offset = _cam->gestureOffset;
+            const CameraTransform &transform = m_cam->transform();
+            const Optional<CameraOffset> &offset = m_cam->gestureOffset;
 
             const vec3 eye = offset.has_value() ? transform.eye + offset->eye
                                                 : transform.eye;
@@ -614,7 +614,7 @@ void App::handleKeyboardInput(float deltaS)
             const vec3 movement =
                 right * speed.x + fwd * speed.z + up * speed.y;
 
-            _cam->applyOffset(CameraOffset{
+            m_cam->applyOffset(CameraOffset{
                 .eye = movement,
                 .target = movement,
             });
@@ -625,95 +625,97 @@ void App::handleKeyboardInput(float deltaS)
 void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
-    const uint32_t nextFrame = asserted_cast<uint32_t>(_swapchain->nextFrame());
+    const uint32_t nextFrame =
+        asserted_cast<uint32_t>(m_swapchain->nextFrame());
 
     const uint32_t nextImage =
         nextSwapchainImage(scopeAlloc.child_scope(), nextFrame);
 
-    _profiler->startGpuFrame(nextFrame);
+    m_profiler->startGpuFrame(nextFrame);
 
-    const auto profilerDatas = _profiler->getPreviousData(scopeAlloc);
+    const auto profilerDatas = m_profiler->getPreviousData(scopeAlloc);
 
     capFramerate();
 
     UiChanges uiChanges;
-    if (_drawUi)
+    if (m_drawUi)
     {
-        _imguiRenderer->startFrame(_profiler.get());
+        m_imguiRenderer->startFrame(m_profiler.get());
 
         uiChanges = drawUi(
             scopeAlloc.child_scope(), nextFrame, profilerDatas,
             scopeHighWatermark);
     }
     // Clear stats for new frame after UI was drawn
-    _sceneStats[nextFrame] = SceneStats{};
-    if (gRenderResources.buffers->isValidHandle(_drawStats[nextFrame]))
-        gRenderResources.buffers->release(_drawStats[nextFrame]);
+    m_sceneStats[nextFrame] = SceneStats{};
+    if (gRenderResources.buffers->isValidHandle(m_drawStats[nextFrame]))
+        gRenderResources.buffers->release(m_drawStats[nextFrame]);
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
-        .extent = _viewportExtent,
+        .extent = m_viewportExtent,
     };
 
     const float timeS = currentTimelineTimeS();
-    _world->updateAnimations(timeS, _profiler.get());
+    m_world->updateAnimations(timeS, m_profiler.get());
 
-    _world->updateScene(
-        scopeAlloc.child_scope(), &_sceneCameraTransform,
-        &_sceneStats[nextFrame], _profiler.get());
+    m_world->updateScene(
+        scopeAlloc.child_scope(), &m_sceneCameraTransform,
+        &m_sceneStats[nextFrame], m_profiler.get());
 
-    _world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
+    m_world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 
     // -1 seems like a safe value here since an 8 sample halton sequence is
     // used. See A Survey of Temporal Antialiasing Techniques by Yang, Liu and
     // Salvi for details.
-    const float lodBias = _applyTaa ? -1.f : 0.f;
-    _world->uploadMaterialDatas(nextFrame, lodBias);
+    const float lodBias = m_applyTaa ? -1.f : 0.f;
+    m_world->uploadMaterialDatas(nextFrame, lodBias);
 
-    if (_isPlaying || _forceCamUpdate || uiChanges.timeTweaked)
+    if (m_isPlaying || m_forceCamUpdate || uiChanges.timeTweaked)
     {
         // Don't needlessly reset free look movement
         // TODO:
         // Add a button to reset non-animated camera to scene defined position?
-        if (_forceCamUpdate || !_camFreeLook)
+        if (m_forceCamUpdate || !m_camFreeLook)
         {
-            _cam->lookAt(_sceneCameraTransform);
+            m_cam->lookAt(m_sceneCameraTransform);
 
-            const CameraParameters &params = _world->currentCamera();
+            const CameraParameters &params = m_world->currentCamera();
             // This makes sure we copy the new params over when a camera is
             // changed, or for the first camera
-            _cameraParameters = params;
-            _cam->setParameters(params);
-            if (_forceCamUpdate)
+            m_cameraParameters = params;
+            m_cam->setParameters(params);
+            if (m_forceCamUpdate)
                 // Disable free look for animated cameras when update is forced
                 // (camera changed)
-                _camFreeLook = !_world->isCurrentCameraDynamic();
-            _forceCamUpdate = false;
+                m_camFreeLook = !m_world->isCurrentCameraDynamic();
+            m_forceCamUpdate = false;
         }
     }
 
     WHEELS_ASSERT(
         renderArea.offset.x == 0 && renderArea.offset.y == 0 &&
         "Camera update assumes no render offset");
-    _cam->updateBuffer(_debugFrustum);
+    m_cam->updateBuffer(m_debugFrustum);
 
     {
-        PROFILER_CPU_SCOPE(_profiler, "World::updateBuffers");
-        _world->updateBuffers(scopeAlloc.child_scope());
+        PROFILER_CPU_SCOPE(m_profiler, "World::updateBuffers");
+        m_world->updateBuffers(scopeAlloc.child_scope());
     }
 
-    updateDebugLines(_world->currentScene(), nextFrame);
+    updateDebugLines(m_world->currentScene(), nextFrame);
 
-    const auto cb = _commandBuffers[nextFrame];
+    const auto cb = m_commandBuffers[nextFrame];
     cb.reset();
 
     cb.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    if (_applyIbl && !_imageBasedLighting->isGenerated())
-        _imageBasedLighting->recordGeneration(
-            scopeAlloc.child_scope(), cb, *_world, nextFrame, _profiler.get());
+    if (m_applyIbl && !m_imageBasedLighting->isGenerated())
+        m_imageBasedLighting->recordGeneration(
+            scopeAlloc.child_scope(), cb, *m_world, nextFrame,
+            m_profiler.get());
 
     render(
         scopeAlloc.child_scope(), cb, renderArea,
@@ -723,24 +725,24 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         },
         uiChanges);
 
-    _newSceneDataLoaded = _world->handleDeferredLoading(cb, _profiler.get());
+    m_newSceneDataLoaded = m_world->handleDeferredLoading(cb, m_profiler.get());
 
-    _profiler->endGpuFrame(cb);
+    m_profiler->endGpuFrame(cb);
 
     cb.end();
 
-    if (_waitFocusDistance)
+    if (m_waitFocusDistance)
     {
-        const Optional<vec4> nonLinearDepth = _textureReadback->readback();
+        const Optional<vec4> nonLinearDepth = m_textureReadback->readback();
         if (nonLinearDepth.has_value())
         {
             // First we get the projected direction and linear depth
-            const ImVec2 viewportArea = _imguiRenderer->centerAreaSize();
+            const ImVec2 viewportArea = m_imguiRenderer->centerAreaSize();
             const vec2 uv =
-                (_pickedFocusPx + 0.5f) / vec2{viewportArea.x, viewportArea.y};
+                (m_pickedFocusPx + 0.5f) / vec2{viewportArea.x, viewportArea.y};
             const vec2 clipXy = uv * 2.f - 1.f;
             const vec4 projected =
-                _cam->clipToCamera() * vec4{clipXy, nonLinearDepth->x, 1.f};
+                m_cam->clipToCamera() * vec4{clipXy, nonLinearDepth->x, 1.f};
             vec3 projectedDir = vec3{projected} / projected.w;
             const float projectedDepth = length(projectedDir);
             projectedDir /= projectedDepth;
@@ -748,12 +750,12 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
             // Camera looks at -Z in view space
             const float cosTheta = dot(vec3{0.f, 0.f, -1.f}, projectedDir);
 
-            CameraParameters params = _cam->parameters();
+            CameraParameters params = m_cam->parameters();
             params.focusDistance = projectedDepth * cosTheta;
-            _cam->setParameters(params);
+            m_cam->setParameters(params);
 
-            _pickedFocusPx = vec2{-1.f, -1.f};
-            _waitFocusDistance = false;
+            m_pickedFocusPx = vec2{-1.f, -1.f};
+            m_waitFocusDistance = false;
         }
     }
 
@@ -764,8 +766,9 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
 uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
-    const vk::Semaphore imageAvailable = _imageAvailableSemaphores[nextFrame];
-    Optional<uint32_t> nextImage = _swapchain->acquireNextImage(imageAvailable);
+    const vk::Semaphore imageAvailable = m_imageAvailableSemaphores[nextFrame];
+    Optional<uint32_t> nextImage =
+        m_swapchain->acquireNextImage(imageAvailable);
     while (!nextImage.has_value())
     {
         // Wait on the acquire semaphore to have it properly unsignaled.
@@ -786,7 +789,7 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
 
         // Recreate the swap chain as necessary
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
-        nextImage = _swapchain->acquireNextImage(imageAvailable);
+        nextImage = m_swapchain->acquireNextImage(imageAvailable);
     }
 
     return *nextImage;
@@ -794,15 +797,15 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
 
 float App::currentTimelineTimeS() const
 {
-    if (!_isPlaying)
-        return _timeOffsetS;
+    if (!m_isPlaying)
+        return m_timeOffsetS;
 
     const auto now = std::chrono::high_resolution_clock::now();
 
-    const std::chrono::duration<float> dt = now - _lastTimeChange;
+    const std::chrono::duration<float> dt = now - m_lastTimeChange;
     const float deltaS = dt.count();
 
-    const float timeS = deltaS + _timeOffsetS;
+    const float timeS = deltaS + m_timeOffsetS;
     return timeS;
 }
 
@@ -812,12 +815,12 @@ void App::capFramerate()
     // Note that this is always based on the previous frame so it only limits
     // fps and doesn't help actual frame timing
     const float minDt =
-        _useFpsLimit ? 1.f / static_cast<float>(_fpsLimit) : 0.f;
-    while (_frameTimer.getSeconds() < minDt)
+        m_useFpsLimit ? 1.f / static_cast<float>(m_fpsLimit) : 0.f;
+    while (m_frameTimer.getSeconds() < minDt)
     {
         ;
     }
-    _frameTimer.reset();
+    m_frameTimer.reset();
 }
 
 App::UiChanges App::drawUi(
@@ -825,17 +828,17 @@ App::UiChanges App::drawUi(
     const Array<Profiler::ScopeData> &profilerDatas,
     uint32_t scopeHighWatermark)
 {
-    PROFILER_CPU_SCOPE(_profiler, "App::drawUi");
+    PROFILER_CPU_SCOPE(m_profiler, "App::drawUi");
 
     UiChanges ret;
     // Actual scene change happens after the frame so let's initialize here with
     // last frame's value
     // TODO:
-    // At least _newSceneDataLoaded would probably be less surprising if
+    // At least m_newSceneDataLoaded would probably be less surprising if
     // combined to the dirty flag somewhere else
-    ret.rtDirty = _sceneChanged || _newSceneDataLoaded;
+    ret.rtDirty = m_sceneChanged || m_newSceneDataLoaded;
 
-    _sceneChanged = _world->drawSceneUi();
+    m_sceneChanged = m_world->drawSceneUi();
 
     ret.rtDirty |= drawCameraUi();
 
@@ -849,7 +852,7 @@ App::UiChanges App::drawUi(
 
     drawSceneStats(nextFrame);
 
-    ret.rtDirty |= _isPlaying;
+    ret.rtDirty |= m_isPlaying;
     ret.timeTweaked |= drawTimeline();
     ret.rtDirty |= ret.timeTweaked;
 
@@ -865,18 +868,18 @@ void App::drawOptions()
         "%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
         ImGui::GetIO().Framerate);
 
-    ImGui::Checkbox("Limit FPS", &_useFpsLimit);
-    if (_useFpsLimit)
+    ImGui::Checkbox("Limit FPS", &m_useFpsLimit);
+    if (m_useFpsLimit)
     {
-        ImGui::DragInt("##FPS limit value", &_fpsLimit, 5.f, 30, 250);
+        ImGui::DragInt("##FPS limit value", &m_fpsLimit, 5.f, 30, 250);
         // Drag doesn't clamp values that are input as text
-        _fpsLimit = std::max(_fpsLimit, 30);
+        m_fpsLimit = std::max(m_fpsLimit, 30);
     }
 
-    ImGui::Checkbox("Recompile shaders", &_recompileShaders);
+    ImGui::Checkbox("Recompile shaders", &m_recompileShaders);
 
-    if (ImGui::Checkbox("Texture Debug", &_textureDebugActive) &&
-        !_textureDebugActive)
+    if (ImGui::Checkbox("Texture Debug", &m_textureDebugActive) &&
+        !m_textureDebugActive)
         gRenderResources.images->clearDebug();
 
     ImGui::End();
@@ -890,50 +893,50 @@ void App::drawRendererSettings(UiChanges &uiChanges)
 
     // TODO: Droplist for main renderer type
     uiChanges.rtDirty |=
-        ImGui::Checkbox("Reference RT", &_referenceRt) && _referenceRt;
-    uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &_renderDoF);
-    ImGui::Checkbox("Temporal Anti-Aliasing", &_applyTaa);
+        ImGui::Checkbox("Reference RT", &m_referenceRt) && m_referenceRt;
+    uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &m_renderDoF);
+    ImGui::Checkbox("Temporal Anti-Aliasing", &m_applyTaa);
 
-    if (!_referenceRt)
+    if (!m_referenceRt)
     {
-        ImGui::Checkbox("Deferred shading", &_renderDeferred);
+        ImGui::Checkbox("Deferred shading", &m_renderDeferred);
 
-        if (_renderDeferred)
+        if (m_renderDeferred)
             uiChanges.rtDirty =
-                ImGui::Checkbox("RT direct illumination", &_deferredRt);
+                ImGui::Checkbox("RT direct illumination", &m_deferredRt);
     }
 
-    if (!_applyTaa)
-        _cam->setJitter(false);
+    if (!m_applyTaa)
+        m_cam->setJitter(false);
     else
     {
         if (ImGui::CollapsingHeader(
                 "Temporal Anti-Aliasing", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::Checkbox("Jitter", &_applyJitter);
-            _cam->setJitter(_applyJitter);
-            _temporalAntiAliasing->drawUi();
+            ImGui::Checkbox("Jitter", &m_applyJitter);
+            m_cam->setJitter(m_applyJitter);
+            m_temporalAntiAliasing->drawUi();
         }
     }
 
     if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
-        _toneMap->drawUi();
+        m_toneMap->drawUi();
 
     if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
     {
         uiChanges.rtDirty |=
-            enumDropdown("Draw type", _drawType, sDrawTypeNames);
-        if (_referenceRt)
-            _rtReference->drawUi();
+            enumDropdown("Draw type", m_drawType, sDrawTypeNames);
+        if (m_referenceRt)
+            m_rtReference->drawUi();
         else
         {
-            if (_renderDeferred)
+            if (m_renderDeferred)
             {
-                if (_deferredRt)
-                    _rtDirectIllumination->drawUi();
+                if (m_deferredRt)
+                    m_rtDirectIllumination->drawUi();
             }
         }
-        uiChanges.rtDirty |= ImGui::Checkbox("IBL", &_applyIbl);
+        uiChanges.rtDirty |= ImGui::Checkbox("IBL", &m_applyIbl);
     }
 
     ImGui::End();
@@ -1007,7 +1010,7 @@ void App::drawProfiling(
             if (profilerDatas[scopeIndex].gpuStats.has_value())
             {
                 const auto &stats = *profilerDatas[scopeIndex].gpuStats;
-                const auto &swapExtent = _viewportExtent;
+                const auto &swapExtent = m_viewportExtent;
                 const uint32_t pixelCount =
                     swapExtent.width * swapExtent.height;
 
@@ -1068,7 +1071,7 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
     ImGui::Text("High watermarks:\n");
     ImGui::Text(
         "  ctors : %uKB\n",
-        asserted_cast<uint32_t>(_ctorScratchHighWatermark) / 1024);
+        asserted_cast<uint32_t>(m_ctorScratchHighWatermark) / 1024);
     ImGui::Text(
         "  deferred general: %uMB\n",
         asserted_cast<uint32_t>(
@@ -1103,7 +1106,7 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
 bool App::drawTimeline()
 {
     bool timeTweaked = false;
-    const Scene &scene = _world->currentScene();
+    const Scene &scene = m_world->currentScene();
     if (scene.endTimeS > 0.f)
     {
         ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_FirstUseEver);
@@ -1119,9 +1122,9 @@ bool App::drawTimeline()
         if (ImGui::SliderFloat(
                 "##TimelineTime", &timeS, 0.f, scene.endTimeS, "%.3fs"))
         {
-            _lastTimeChange = std::chrono::high_resolution_clock::now();
-            _timeOffsetS = timeS;
-            _timeOffsetS = std::clamp(timeS, 0.f, scene.endTimeS);
+            m_lastTimeChange = std::chrono::high_resolution_clock::now();
+            m_timeOffsetS = timeS;
+            m_timeOffsetS = std::clamp(timeS, 0.f, scene.endTimeS);
             timeTweaked = true;
         }
 
@@ -1129,42 +1132,42 @@ bool App::drawTimeline()
 
         if (currentTimelineTimeS() > scene.endTimeS)
         {
-            _lastTimeChange = std::chrono::high_resolution_clock::now();
-            _timeOffsetS = 0.f;
+            m_lastTimeChange = std::chrono::high_resolution_clock::now();
+            m_timeOffsetS = 0.f;
             timeTweaked = true;
         }
 
         const float buttonWidth = 30.f;
         if (ImGui::Button("|<", ImVec2(buttonWidth, 0)))
         {
-            _lastTimeChange = std::chrono::high_resolution_clock::now();
-            _timeOffsetS = 0;
+            m_lastTimeChange = std::chrono::high_resolution_clock::now();
+            m_timeOffsetS = 0;
             timeTweaked = true;
         }
 
         ImGui::SameLine();
-        if (_isPlaying)
+        if (m_isPlaying)
         {
             if (ImGui::Button("||", ImVec2(buttonWidth, 0)))
             {
-                _isPlaying = false;
-                _lastTimeChange = std::chrono::high_resolution_clock::now();
-                _timeOffsetS = timeS;
+                m_isPlaying = false;
+                m_lastTimeChange = std::chrono::high_resolution_clock::now();
+                m_timeOffsetS = timeS;
                 timeTweaked = true;
             }
         }
         else if (ImGui::Button(">", ImVec2(buttonWidth, 0)))
         {
-            _isPlaying = true;
-            _lastTimeChange = std::chrono::high_resolution_clock::now();
+            m_isPlaying = true;
+            m_lastTimeChange = std::chrono::high_resolution_clock::now();
             timeTweaked = true;
         }
 
         ImGui::SameLine();
         if (ImGui::Button(">|", ImVec2(buttonWidth, 0)))
         {
-            _lastTimeChange = std::chrono::high_resolution_clock::now();
-            _timeOffsetS = scene.endTimeS;
+            m_lastTimeChange = std::chrono::high_resolution_clock::now();
+            m_timeOffsetS = scene.endTimeS;
             timeTweaked = true;
         }
 
@@ -1181,13 +1184,13 @@ bool App::drawCameraUi()
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    _forceCamUpdate |= _world->drawCameraUi();
-    if (_world->isCurrentCameraDynamic())
-        ImGui::Checkbox("Free look", &_camFreeLook);
+    m_forceCamUpdate |= m_world->drawCameraUi();
+    if (m_world->isCurrentCameraDynamic())
+        ImGui::Checkbox("Free look", &m_camFreeLook);
 
-    CameraParameters params = _cam->parameters();
+    CameraParameters params = m_cam->parameters();
 
-    if (_camFreeLook)
+    if (m_camFreeLook)
     {
         // TODO: Tweak this in millimeters?
         changed |= ImGui::DragFloat(
@@ -1206,7 +1209,7 @@ bool App::drawCameraUi()
         // Set before drawing focal length as this updates it after fov changes
         // TODO: Just use focal length instead of fov as the only parameter?
         if (changed)
-            _cam->setParameters(params);
+            m_cam->setParameters(params);
     }
     else
     {
@@ -1219,19 +1222,19 @@ bool App::drawCameraUi()
 
     ImGui::Text("Focal length: %.3fmm", params.focalLength * 1e3);
 
-    if (_debugFrustum.has_value())
+    if (m_debugFrustum.has_value())
     {
         if (ImGui::Button("Clear debug frustum"))
-            _debugFrustum.reset();
+            m_debugFrustum.reset();
 
         ImGui::ColorEdit3(
-            "Frustum color", &_frustumDebugColor[0],
+            "Frustum color", &m_frustumDebugColor[0],
             ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_PickerHueWheel);
     }
     else
     {
         if (ImGui::Button("Freeze debug frustum"))
-            _debugFrustum = _cam->getFrustumCorners();
+            m_debugFrustum = m_cam->getFrustumCorners();
     }
 
     ImGui::End();
@@ -1243,10 +1246,10 @@ void App::drawSceneStats(uint32_t nextFrame) const
 {
     uint32_t drawnMeshletCount = 0;
     uint32_t rasterizedTriangleCount = 0;
-    if (gRenderResources.buffers->isValidHandle(_drawStats[nextFrame]))
+    if (gRenderResources.buffers->isValidHandle(m_drawStats[nextFrame]))
     {
         const uint32_t *readbackPtr = static_cast<const uint32_t *>(
-            gRenderResources.buffers->resource(_drawStats[nextFrame]).mapped);
+            gRenderResources.buffers->resource(m_drawStats[nextFrame]).mapped);
         WHEELS_ASSERT(readbackPtr != nullptr);
 
         drawnMeshletCount = readbackPtr[0];
@@ -1257,13 +1260,15 @@ void App::drawSceneStats(uint32_t nextFrame) const
     ImGui::Begin("Scene stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text(
-        "Total triangles: %u", _sceneStats[nextFrame].totalTriangleCount);
+        "Total triangles: %u", m_sceneStats[nextFrame].totalTriangleCount);
     ImGui::Text("Rasterized triangles: %u", rasterizedTriangleCount);
-    ImGui::Text("Total meshlets: %u", _sceneStats[nextFrame].totalMeshletCount);
+    ImGui::Text(
+        "Total meshlets: %u", m_sceneStats[nextFrame].totalMeshletCount);
     ImGui::Text("Drawn meshlets: %u", drawnMeshletCount);
-    ImGui::Text("Total meshes: %u", _sceneStats[nextFrame].totalMeshCount);
-    ImGui::Text("Total nodes: %u", _sceneStats[nextFrame].totalNodeCount);
-    ImGui::Text("Animated nodes: %u", _sceneStats[nextFrame].animatedNodeCount);
+    ImGui::Text("Total meshes: %u", m_sceneStats[nextFrame].totalMeshCount);
+    ImGui::Text("Total nodes: %u", m_sceneStats[nextFrame].totalNodeCount);
+    ImGui::Text(
+        "Animated nodes: %u", m_sceneStats[nextFrame].animatedNodeCount);
 
     ImGui::End();
 }
@@ -1302,41 +1307,41 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
         }
     }
 
-    if (_debugFrustum.has_value())
+    if (m_debugFrustum.has_value())
     {
-        const FrustumCorners &corners = *_debugFrustum;
+        const FrustumCorners &corners = *m_debugFrustum;
 
         // Near plane
         debugLines.addLine(
-            corners.bottomLeftNear, corners.topLeftNear, _frustumDebugColor);
+            corners.bottomLeftNear, corners.topLeftNear, m_frustumDebugColor);
         debugLines.addLine(
             corners.bottomLeftNear, corners.bottomRightNear,
-            _frustumDebugColor);
+            m_frustumDebugColor);
         debugLines.addLine(
-            corners.topRightNear, corners.topLeftNear, _frustumDebugColor);
+            corners.topRightNear, corners.topLeftNear, m_frustumDebugColor);
         debugLines.addLine(
-            corners.topRightNear, corners.bottomRightNear, _frustumDebugColor);
+            corners.topRightNear, corners.bottomRightNear, m_frustumDebugColor);
 
         // Far plane
         debugLines.addLine(
-            corners.bottomLeftFar, corners.topLeftFar, _frustumDebugColor);
+            corners.bottomLeftFar, corners.topLeftFar, m_frustumDebugColor);
         debugLines.addLine(
-            corners.bottomLeftFar, corners.bottomRightFar, _frustumDebugColor);
+            corners.bottomLeftFar, corners.bottomRightFar, m_frustumDebugColor);
         debugLines.addLine(
-            corners.topRightFar, corners.topLeftFar, _frustumDebugColor);
+            corners.topRightFar, corners.topLeftFar, m_frustumDebugColor);
         debugLines.addLine(
-            corners.topRightFar, corners.bottomRightFar, _frustumDebugColor);
+            corners.topRightFar, corners.bottomRightFar, m_frustumDebugColor);
 
         // Pyramid edges
         debugLines.addLine(
-            corners.bottomLeftNear, corners.bottomLeftFar, _frustumDebugColor);
+            corners.bottomLeftNear, corners.bottomLeftFar, m_frustumDebugColor);
         debugLines.addLine(
             corners.bottomRightNear, corners.bottomRightFar,
-            _frustumDebugColor);
+            m_frustumDebugColor);
         debugLines.addLine(
-            corners.topLeftNear, corners.topLeftFar, _frustumDebugColor);
+            corners.topLeftNear, corners.topLeftFar, m_frustumDebugColor);
         debugLines.addLine(
-            corners.topRightNear, corners.topRightFar, _frustumDebugColor);
+            corners.topRightNear, corners.topRightFar, m_frustumDebugColor);
     }
 }
 
@@ -1346,16 +1351,16 @@ void App::render(
     const UiChanges &uiChanges)
 {
     bool blasesAdded = false;
-    if (_referenceRt || _deferredRt || _world->unbuiltBlases())
+    if (m_referenceRt || m_deferredRt || m_world->unbuiltBlases())
     {
-        PROFILER_CPU_GPU_SCOPE(_profiler, cb, "BuildTLAS");
+        PROFILER_CPU_GPU_SCOPE(m_profiler, cb, "BuildTLAS");
         blasesAdded =
-            _world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
+            m_world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
     }
 
-    const LightClusteringOutput lightClusters = _lightClustering->record(
-        scopeAlloc.child_scope(), cb, *_world, *_cam, _viewportExtent,
-        indices.nextFrame, _profiler.get());
+    const LightClusteringOutput lightClusters = m_lightClustering->record(
+        scopeAlloc.child_scope(), cb, *m_world, *m_cam, m_viewportExtent,
+        indices.nextFrame, m_profiler.get());
 
     ImageHandle illumination;
     const BufferHandle drawStats = gRenderResources.buffers->create(
@@ -1374,61 +1379,61 @@ void App::render(
         gRenderResources.buffers->nativeHandle(drawStats), 0,
         sDrawStatsByteSize, 0);
 
-    if (_referenceRt)
+    if (m_referenceRt)
     {
-        _rtDirectIllumination->releasePreserved();
-        _temporalAntiAliasing->releasePreserved();
+        m_rtDirectIllumination->releasePreserved();
+        m_temporalAntiAliasing->releasePreserved();
 
         illumination =
-            _rtReference
+            m_rtReference
                 ->record(
-                    scopeAlloc.child_scope(), cb, *_world, *_cam, renderArea,
+                    scopeAlloc.child_scope(), cb, *m_world, *m_cam, renderArea,
                     RtReference::Options{
-                        .depthOfField = _renderDoF,
-                        .ibl = _applyIbl,
+                        .depthOfField = m_renderDoF,
+                        .ibl = m_applyIbl,
                         .colorDirty = uiChanges.rtDirty || blasesAdded,
-                        .drawType = _drawType,
+                        .drawType = m_drawType,
                     },
-                    indices.nextFrame, _profiler.get())
+                    indices.nextFrame, m_profiler.get())
                 .illumination;
     }
     else
     {
         // Need to clean up after toggling rt off to not "leak" the resources
-        _rtReference->releasePreserved();
+        m_rtReference->releasePreserved();
 
         ImageHandle velocity;
         ImageHandle depth;
         // Opaque
-        if (_renderDeferred)
+        if (m_renderDeferred)
         {
-            const GBufferRendererOutput gbuffer = _gbufferRenderer->record(
-                scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
-                *_cam, renderArea, drawStats, _drawType, indices.nextFrame,
-                &_sceneStats[indices.nextFrame], _profiler.get());
+            const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
+                scopeAlloc.child_scope(), cb, m_meshletCuller.get(), *m_world,
+                *m_cam, renderArea, drawStats, m_drawType, indices.nextFrame,
+                &m_sceneStats[indices.nextFrame], m_profiler.get());
 
-            if (_deferredRt)
+            if (m_deferredRt)
                 illumination =
-                    _rtDirectIllumination
+                    m_rtDirectIllumination
                         ->record(
-                            scopeAlloc.child_scope(), cb, *_world, *_cam,
+                            scopeAlloc.child_scope(), cb, *m_world, *m_cam,
                             gbuffer, uiChanges.rtDirty || blasesAdded,
-                            _drawType, indices.nextFrame, _profiler.get())
+                            m_drawType, indices.nextFrame, m_profiler.get())
                         .illumination;
             else
             {
-                _rtDirectIllumination->releasePreserved();
+                m_rtDirectIllumination->releasePreserved();
 
                 illumination =
-                    _deferredShading
+                    m_deferredShading
                         ->record(
-                            scopeAlloc.child_scope(), cb, *_world, *_cam,
+                            scopeAlloc.child_scope(), cb, *m_world, *m_cam,
                             DeferredShading::Input{
                                 .gbuffer = gbuffer,
                                 .lightClusters = lightClusters,
                             },
-                            indices.nextFrame, _applyIbl, _drawType,
-                            _profiler.get())
+                            indices.nextFrame, m_applyIbl, m_drawType,
+                            m_profiler.get())
                         .illumination;
             }
 
@@ -1440,94 +1445,95 @@ void App::render(
         }
         else
         {
-            _rtDirectIllumination->releasePreserved();
+            m_rtDirectIllumination->releasePreserved();
 
             const ForwardRenderer::OpaqueOutput output =
-                _forwardRenderer->recordOpaque(
-                    scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world,
-                    *_cam, renderArea, lightClusters, drawStats,
-                    indices.nextFrame, _applyIbl, _drawType,
-                    &_sceneStats[indices.nextFrame], _profiler.get());
+                m_forwardRenderer->recordOpaque(
+                    scopeAlloc.child_scope(), cb, m_meshletCuller.get(),
+                    *m_world, *m_cam, renderArea, lightClusters, drawStats,
+                    indices.nextFrame, m_applyIbl, m_drawType,
+                    &m_sceneStats[indices.nextFrame], m_profiler.get());
             illumination = output.illumination;
             velocity = output.velocity;
             depth = output.depth;
         }
 
-        _skyboxRenderer->record(
-            scopeAlloc.child_scope(), cb, *_world, *_cam,
+        m_skyboxRenderer->record(
+            scopeAlloc.child_scope(), cb, *m_world, *m_cam,
             SkyboxRenderer::RecordInOut{
                 .illumination = illumination,
                 .velocity = velocity,
                 .depth = depth,
             },
-            _profiler.get());
+            m_profiler.get());
 
         // Transparent
-        _forwardRenderer->recordTransparent(
-            scopeAlloc.child_scope(), cb, _meshletCuller.get(), *_world, *_cam,
+        m_forwardRenderer->recordTransparent(
+            scopeAlloc.child_scope(), cb, m_meshletCuller.get(), *m_world,
+            *m_cam,
             ForwardRenderer::TransparentInOut{
                 .illumination = illumination,
                 .depth = depth,
             },
-            lightClusters, drawStats, indices.nextFrame, _drawType,
-            &_sceneStats[indices.nextFrame], _profiler.get());
+            lightClusters, drawStats, indices.nextFrame, m_drawType,
+            &m_sceneStats[indices.nextFrame], m_profiler.get());
 
-        _debugRenderer->record(
-            scopeAlloc.child_scope(), cb, *_cam,
+        m_debugRenderer->record(
+            scopeAlloc.child_scope(), cb, *m_cam,
             DebugRenderer::RecordInOut{
                 .color = illumination,
                 .depth = depth,
             },
-            indices.nextFrame, _profiler.get());
+            indices.nextFrame, m_profiler.get());
 
-        if (_pickFocusDistance)
+        if (m_pickFocusDistance)
         {
             const Optional<MouseGesture> &gesture =
                 gInputHandler.mouseGesture();
             WHEELS_ASSERT(gesture.has_value());
 
-            const ImVec2 offset = _imguiRenderer->centerAreaOffset();
+            const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
             const vec2 px = gesture->currentPos - vec2{offset.x, offset.y};
 
-            _textureReadback->record(
+            m_textureReadback->record(
                 scopeAlloc.child_scope(), cb, depth, px, indices.nextFrame,
-                _profiler.get());
+                m_profiler.get());
 
-            _pickFocusDistance = false;
-            _pickedFocusPx = px;
-            _waitFocusDistance = true;
+            m_pickFocusDistance = false;
+            m_pickedFocusPx = px;
+            m_waitFocusDistance = true;
         }
 
-        if (_applyTaa)
+        if (m_applyTaa)
         {
             const TemporalAntiAliasing::Output taaOutput =
-                _temporalAntiAliasing->record(
-                    scopeAlloc.child_scope(), cb, *_cam,
+                m_temporalAntiAliasing->record(
+                    scopeAlloc.child_scope(), cb, *m_cam,
                     TemporalAntiAliasing::Input{
                         .illumination = illumination,
                         .velocity = velocity,
                         .depth = depth,
                     },
-                    indices.nextFrame, _profiler.get());
+                    indices.nextFrame, m_profiler.get());
 
             gRenderResources.images->release(illumination);
             illumination = taaOutput.resolvedIllumination;
         }
         else
-            _temporalAntiAliasing->releasePreserved();
+            m_temporalAntiAliasing->releasePreserved();
 
         // TODO:
         // Do DoF on raw illumination and have a separate stabilizing TAA pass
         // that doesn't blend foreground/background (Karis/Abadie).
-        if (_renderDoF)
+        if (m_renderDoF)
         {
-            const DepthOfField::Output dofOutput = _depthOfField->record(
-                scopeAlloc.child_scope(), cb, *_cam,
+            const DepthOfField::Output dofOutput = m_depthOfField->record(
+                scopeAlloc.child_scope(), cb, *m_cam,
                 DepthOfField::Input{
                     .illumination = illumination,
                     .depth = depth,
                 },
-                indices.nextFrame, _profiler.get());
+                indices.nextFrame, m_profiler.get());
 
             gRenderResources.images->release(illumination);
             illumination = dofOutput.combinedIlluminationDoF;
@@ -1541,24 +1547,24 @@ void App::render(
     gRenderResources.texelBuffers->release(lightClusters.indices);
 
     const ImageHandle toneMapped =
-        _toneMap
+        m_toneMap
             ->record(
                 scopeAlloc.child_scope(), cb, illumination, indices.nextFrame,
-                _profiler.get())
+                m_profiler.get())
             .toneMapped;
 
     gRenderResources.images->release(illumination);
 
     ImageHandle finalComposite;
-    if (_textureDebugActive)
+    if (m_textureDebugActive)
     {
-        const ImVec2 size = _imguiRenderer->centerAreaSize();
-        const ImVec2 offset = _imguiRenderer->centerAreaOffset();
+        const ImVec2 size = m_imguiRenderer->centerAreaSize();
+        const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
         const CursorState cursor = gInputHandler.cursor();
 
         // Have magnifier when mouse is on (an active) debug view
         const bool uiHovered = ImGui::IsAnyItemHovered();
-        const bool activeTexture = _textureDebug->textureSelected();
+        const bool activeTexture = m_textureDebug->textureSelected();
         const bool cursorWithinArea =
             all(greaterThan(cursor.position, vec2(offset.x, offset.y))) &&
             all(lessThan(
@@ -1582,9 +1588,9 @@ void App::render(
         else
             gInputHandler.showCursor();
 
-        const ImageHandle debugOutput = _textureDebug->record(
+        const ImageHandle debugOutput = m_textureDebug->record(
             scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,
-            indices.nextFrame, _profiler.get());
+            indices.nextFrame, m_profiler.get());
 
         finalComposite = blitColorToFinalComposite(
             scopeAlloc.child_scope(), cb, debugOutput);
@@ -1597,22 +1603,22 @@ void App::render(
 
     gRenderResources.images->release(toneMapped);
 
-    if (_drawUi)
+    if (m_drawUi)
     {
-        _world->drawDeferredLoadingUi();
+        m_world->drawDeferredLoadingUi();
 
-        if (_textureDebugActive)
+        if (m_textureDebugActive)
             // Draw this after so that the first frame debug is active for a new
             // texture, we draw black instead of a potentially wrong output from
             // the shared texture that wasn't protected yet
-            _textureDebug->drawUi(indices.nextFrame);
+            m_textureDebug->drawUi(indices.nextFrame);
 
         const vk::Rect2D backbufferArea{
             .offset = {0, 0},
-            .extent = _swapchain->config().extent,
+            .extent = m_swapchain->config().extent,
         };
-        _imguiRenderer->endFrame(
-            cb, backbufferArea, finalComposite, _profiler.get());
+        m_imguiRenderer->endFrame(
+            cb, backbufferArea, finalComposite, m_profiler.get());
     }
 
     blitFinalComposite(cb, finalComposite, indices.nextImage);
@@ -1625,7 +1631,7 @@ void App::render(
 
     // Need to preserve both the new and old readback buffers. Release happens
     // after the readback is read from when nextFrame wraps around.
-    for (const BufferHandle buffer : _drawStats)
+    for (const BufferHandle buffer : m_drawStats)
     {
         if (gRenderResources.buffers->isValidHandle(buffer))
             gRenderResources.buffers->preserve(buffer);
@@ -1635,7 +1641,7 @@ void App::render(
 ImageHandle App::blitColorToFinalComposite(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle toneMapped)
 {
-    const SwapchainConfig &swapConfig = _swapchain->config();
+    const SwapchainConfig &swapConfig = m_swapchain->config();
     const ImageHandle finalComposite = gRenderResources.images->create(
         ImageDescription{
             .format = sFinalCompositeFormat,
@@ -1661,7 +1667,7 @@ ImageHandle App::blitColorToFinalComposite(
 
     // This scope has a barrier, but that's intentional as it should contain
     // both the clear and the blit
-    PROFILER_CPU_GPU_SCOPE(_profiler, cb, "blitColorToFinalComposite");
+    PROFILER_CPU_GPU_SCOPE(m_profiler, cb, "blitColorToFinalComposite");
 
     const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
     const vk::ImageSubresourceRange subresourceRange{
@@ -1697,19 +1703,19 @@ ImageHandle App::blitColorToFinalComposite(
     const std::array srcOffsets{
         vk::Offset3D{0, 0, 0},
         vk::Offset3D{
-            asserted_cast<int32_t>(_viewportExtent.width),
-            asserted_cast<int32_t>(_viewportExtent.height),
+            asserted_cast<int32_t>(m_viewportExtent.width),
+            asserted_cast<int32_t>(m_viewportExtent.height),
             1,
         },
     };
 
-    const vk::Extent2D backbufferExtent = _swapchain->config().extent;
+    const vk::Extent2D backbufferExtent = m_swapchain->config().extent;
     ivec2 dstOffset;
     ivec2 dstSize;
-    if (_drawUi)
+    if (m_drawUi)
     {
-        const ImVec2 offset = _imguiRenderer->centerAreaOffset();
-        const ImVec2 size = _imguiRenderer->centerAreaSize();
+        const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
+        const ImVec2 size = m_imguiRenderer->centerAreaSize();
         dstOffset = ivec2{static_cast<int32_t>(offset.x), offset.y};
         dstSize = ivec2{size.x, size.y};
     }
@@ -1763,7 +1769,7 @@ void App::blitFinalComposite(
     // Blit to support different internal rendering resolution (and color
     // format?) the future
 
-    const auto &swapImage = _swapchain->image(nextImage);
+    const auto &swapImage = m_swapchain->image(nextImage);
 
     const StaticArray barriers{{
         *gRenderResources.images->transitionBarrier(
@@ -1793,7 +1799,7 @@ void App::blitFinalComposite(
     });
 
     {
-        PROFILER_CPU_GPU_SCOPE(_profiler, cb, "BlitFinalComposite");
+        PROFILER_CPU_GPU_SCOPE(m_profiler, cb, "BlitFinalComposite");
 
         const vk::ImageSubresourceLayers layers{
             .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -1808,8 +1814,8 @@ void App::blitFinalComposite(
         const std::array offsets{
             vk::Offset3D{0, 0, 0},
             vk::Offset3D{
-                asserted_cast<int32_t>(_swapchain->config().extent.width),
-                asserted_cast<int32_t>(_swapchain->config().extent.height),
+                asserted_cast<int32_t>(m_swapchain->config().extent.width),
+                asserted_cast<int32_t>(m_swapchain->config().extent.height),
                 1,
             },
         };
@@ -1852,7 +1858,7 @@ void App::blitFinalComposite(
 void App::readbackDrawStats(
     vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer)
 {
-    BufferHandle &dstBuffer = _drawStats[nextFrame];
+    BufferHandle &dstBuffer = m_drawStats[nextFrame];
     WHEELS_ASSERT(!gRenderResources.buffers->isValidHandle(dstBuffer));
     dstBuffer = gRenderResources.buffers->create(
         BufferDescription{
@@ -1890,10 +1896,10 @@ void App::readbackDrawStats(
 
 bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
 {
-    const StaticArray waitSemaphores{_imageAvailableSemaphores[nextFrame]};
+    const StaticArray waitSemaphores{m_imageAvailableSemaphores[nextFrame]};
     const StaticArray waitStages{vk::PipelineStageFlags{
         vk::PipelineStageFlagBits::eColorAttachmentOutput}};
-    const StaticArray signalSemaphores{_renderFinishedSemaphores[nextFrame]};
+    const StaticArray signalSemaphores{m_renderFinishedSemaphores[nextFrame]};
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
@@ -1907,27 +1913,27 @@ bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
 
     checkSuccess(
         gDevice.graphicsQueue().submit(
-            1, &submitInfo, _swapchain->currentFence()),
+            1, &submitInfo, m_swapchain->currentFence()),
         "submit");
 
-    return _swapchain->present(signalSemaphores);
+    return m_swapchain->present(signalSemaphores);
 }
 
 void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
 {
-    const ImVec2 viewportSize = _imguiRenderer->centerAreaSize();
+    const ImVec2 viewportSize = m_imguiRenderer->centerAreaSize();
     const bool viewportResized =
-        asserted_cast<uint32_t>(viewportSize.x) != _viewportExtent.width ||
-        asserted_cast<uint32_t>(viewportSize.y) != _viewportExtent.height;
+        asserted_cast<uint32_t>(viewportSize.x) != m_viewportExtent.width ||
+        asserted_cast<uint32_t>(viewportSize.y) != m_viewportExtent.height;
     // TODO: End gesture when mouse is released on top of imgui
 
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (shouldResizeSwapchain || gWindow.resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
-    else if (viewportResized || _forceViewportRecreate)
+    else if (viewportResized || m_forceViewportRecreate)
     { // Don't recreate viewport related on the same frame as swapchain is
       // resized since we don't know the new viewport area until the next frame
         recreateViewportRelated();
-        _forceViewportRecreate = false;
+        m_forceViewportRecreate = false;
     }
 }

@@ -57,7 +57,7 @@ void GBufferRenderer::init(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     printf("Creating GBufferRenderer\n");
@@ -68,18 +68,18 @@ void GBufferRenderer::init(
     createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 GBufferRenderer::~GBufferRenderer()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     destroyGraphicsPipeline();
 
-    gDevice.logical().destroy(_meshSetLayout);
+    gDevice.logical().destroy(m_meshSetLayout);
 
-    for (auto const &stage : _shaderStages)
+    for (auto const &stage : m_shaderStages)
         gDevice.logical().destroyShaderModule(stage.module);
 }
 
@@ -89,12 +89,12 @@ void GBufferRenderer::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    WHEELS_ASSERT(_meshReflection.has_value());
-    WHEELS_ASSERT(_fragReflection.has_value());
-    if (!_meshReflection->affected(changedFiles) &&
-        !_fragReflection->affected(changedFiles))
+    WHEELS_ASSERT(m_meshReflection.has_value());
+    WHEELS_ASSERT(m_fragReflection.has_value());
+    if (!m_meshReflection->affected(changedFiles) &&
+        !m_fragReflection->affected(changedFiles))
         return;
 
     if (compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
@@ -111,7 +111,7 @@ GBufferRendererOutput GBufferRenderer::record(
     DrawType drawType, const uint32_t nextFrame, SceneStats *sceneStats,
     Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(sceneStats != nullptr);
 
@@ -226,7 +226,7 @@ GBufferRendererOutput GBufferRenderer::record(
             .pDepthAttachment = &attachments.depth,
         });
 
-        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, _pipeline);
+        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 
         const Scene &scene = world.currentScene();
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
@@ -242,7 +242,7 @@ GBufferRendererOutput GBufferRenderer::record(
             worldDSes.geometry[nextFrame];
         descriptorSets[SceneInstancesBindingSet] =
             scene.sceneInstancesDescriptorSet;
-        descriptorSets[DrawStatsBindingSet] = _meshSets[nextFrame];
+        descriptorSets[DrawStatsBindingSet] = m_meshSets[nextFrame];
 
         const StaticArray dynamicOffsets{{
             cam.bufferOffset(),
@@ -253,7 +253,7 @@ GBufferRendererOutput GBufferRenderer::record(
         }};
 
         cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics, _pipelineLayout,
+            vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
             0, // firstSet
             asserted_cast<uint32_t>(descriptorSets.size()),
             descriptorSets.data(),
@@ -267,7 +267,7 @@ GBufferRendererOutput GBufferRenderer::record(
             .drawType = static_cast<uint32_t>(drawType),
         };
         cb.pushConstants(
-            _pipelineLayout,
+            m_pipelineLayout,
             vk::ShaderStageFlagBits::eMeshEXT |
                 vk::ShaderStageFlagBits::eFragment,
             0, // offset
@@ -344,16 +344,16 @@ bool GBufferRenderer::compileShaders(
 
     if (meshResult.has_value() && fragResult.has_value())
     {
-        for (auto const &stage : _shaderStages)
+        for (auto const &stage : m_shaderStages)
             gDevice.logical().destroyShaderModule(stage.module);
 
-        _meshReflection = WHEELS_MOV(meshResult->reflection);
+        m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == _meshReflection->pushConstantsBytesize());
+            sizeof(PCBlock) == m_meshReflection->pushConstantsBytesize());
 
-        _fragReflection = WHEELS_MOV(fragResult->reflection);
+        m_fragReflection = WHEELS_MOV(fragResult->reflection);
 
-        _shaderStages = {{
+        m_shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eMeshEXT,
                 .module = meshResult->module,
@@ -380,16 +380,17 @@ bool GBufferRenderer::compileShaders(
 void GBufferRenderer::createDescriptorSets(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(_meshReflection.has_value());
-    _meshSetLayout = _meshReflection->createDescriptorSetLayout(
+    WHEELS_ASSERT(m_meshReflection.has_value());
+    m_meshSetLayout = m_meshReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), DrawStatsBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
     const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
-        _meshSetLayout};
+        m_meshSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "GBufferMesh"};
-    staticDescriptorsAlloc->allocate(layouts, debugNames, _meshSets.mut_span());
+    staticDescriptorsAlloc->allocate(
+        layouts, debugNames, m_meshSets.mut_span());
 }
 
 void GBufferRenderer::updateDescriptorSet(
@@ -399,7 +400,7 @@ void GBufferRenderer::updateDescriptorSet(
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = _meshSets[nextFrame];
+    const vk::DescriptorSet ds = m_meshSets[nextFrame];
 
     const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
@@ -413,9 +414,9 @@ void GBufferRenderer::updateDescriptorSet(
         }},
     }};
 
-    WHEELS_ASSERT(_meshReflection.has_value());
+    WHEELS_ASSERT(m_meshReflection.has_value());
     const wheels::Array descriptorWrites =
-        _meshReflection->generateDescriptorWrites(
+        m_meshReflection->generateDescriptorWrites(
             scopeAlloc, DrawStatsBindingSet, ds, infos);
 
     gDevice.logical().updateDescriptorSets(
@@ -425,8 +426,8 @@ void GBufferRenderer::updateDescriptorSet(
 
 void GBufferRenderer::destroyGraphicsPipeline()
 {
-    gDevice.logical().destroy(_pipeline);
-    gDevice.logical().destroy(_pipelineLayout);
+    gDevice.logical().destroy(m_pipeline);
+    gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void GBufferRenderer::createGraphicsPipelines(
@@ -440,7 +441,7 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = worldDSLayouts.geometry;
     setLayouts[SceneInstancesBindingSet] = worldDSLayouts.sceneInstances;
-    setLayouts[DrawStatsBindingSet] = _meshSetLayout;
+    setLayouts[DrawStatsBindingSet] = m_meshSetLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
@@ -448,7 +449,7 @@ void GBufferRenderer::createGraphicsPipelines(
         .offset = 0,
         .size = sizeof(PCBlock),
     };
-    _pipelineLayout =
+    m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
@@ -465,12 +466,12 @@ void GBufferRenderer::createGraphicsPipelines(
     const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
         colorBlendAttachments{opaqueColorBlendAttachment()};
 
-    _pipeline = createGraphicsPipeline(
+    m_pipeline = createGraphicsPipeline(
         gDevice.logical(),
         GraphicsPipelineInfo{
-            .layout = _pipelineLayout,
+            .layout = m_pipelineLayout,
             .colorBlendAttachments = colorBlendAttachments,
-            .shaderStages = _shaderStages,
+            .shaderStages = m_shaderStages,
             .renderingInfo =
                 vk::PipelineRenderingCreateInfo{
                     .colorAttachmentCount = asserted_cast<uint32_t>(

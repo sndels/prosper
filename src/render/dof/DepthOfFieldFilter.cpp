@@ -24,36 +24,36 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 void DepthOfFieldFilter::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
         ComputePassOptions{
             .perFrameRecordLimit = 2,
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldFilter::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
-void DepthOfFieldFilter::startFrame() { _computePass.startFrame(); }
+void DepthOfFieldFilter::startFrame() { m_computePass.startFrame(); }
 
 DepthOfFieldFilter::Output DepthOfFieldFilter::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     ImageHandle inIlluminationWeight, const uint32_t nextFrame,
     const DebugNames &debugNames, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, debugNames.scope);
 
@@ -73,7 +73,7 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
         },
         debugNames.outRes);
 
-    _computePass.updateDescriptorSet(
+    m_computePass.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -103,7 +103,7 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
 
     PROFILER_GPU_SCOPE(profiler, cb, debugNames.scope);
 
-    const vk::DescriptorSet descriptorSet = _computePass.storageSet(nextFrame);
+    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     // Compute pass calculates group counts assuming extent / groupSize
     // TODO:
@@ -111,7 +111,7 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
     // and there could be a groupSize(extent)-method that can be used to get the
     // typical calculation.
     const uvec3 extent{inRes.extent.width, inRes.extent.height, 1};
-    _computePass.record(cb, extent, Span{&descriptorSet, 1});
+    m_computePass.record(cb, extent, Span{&descriptorSet, 1});
 
     return ret;
 }

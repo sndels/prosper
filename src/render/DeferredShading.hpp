@@ -56,8 +56,8 @@ class DeferredShading
         uint32_t nextFrame, bool applyIbl, DrawType drawType,
         Profiler *profiler);
 
-    bool _initialized{false};
-    ComputePass _computePass;
+    bool m_initialized{false};
+    ComputePass m_computePass;
 };
 
 #endif // PROSPER_RENDER_DEFERRED_SHADING_HPP

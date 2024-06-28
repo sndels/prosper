@@ -12,7 +12,7 @@ class Timer
     [[nodiscard]] float getSeconds() const;
 
   private:
-    std::chrono::time_point<std::chrono::system_clock> _start;
+    std::chrono::time_point<std::chrono::system_clock> m_start;
 };
 
 #endif // PROSPER_UTILS_TIMER_HPP

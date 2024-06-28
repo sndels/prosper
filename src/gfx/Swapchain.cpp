@@ -155,77 +155,77 @@ Swapchain::~Swapchain() { destroy(); }
 
 void Swapchain::init(const SwapchainConfig &config)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
     printf("Creating Swapchain\n");
 
     recreate(config);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 SwapchainConfig const &Swapchain::config() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _config;
+    return m_config;
 }
 
 vk::Format Swapchain::format() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _config.surfaceFormat.format;
+    return m_config.surfaceFormat.format;
 }
 
 const vk::Extent2D &Swapchain::extent() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _config.extent;
+    return m_config.extent;
 }
 
 SwapchainImage Swapchain::image(size_t i) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    if (i < _images.size())
-        return _images[i];
+    if (i < m_images.size())
+        return m_images[i];
     throw std::runtime_error("Tried to index past swap image count");
 }
 
 size_t Swapchain::nextFrame() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _nextFrame;
+    return m_nextFrame;
 }
 
 vk::Fence Swapchain::currentFence() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _inFlightFences[_nextFrame];
+    return m_inFlightFences[m_nextFrame];
 }
 
 wheels::Optional<uint32_t> Swapchain::acquireNextImage(
     vk::Semaphore signalSemaphore)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const auto noTimeout = std::numeric_limits<uint64_t>::max();
     checkSuccess(
         gDevice.logical().waitForFences(
-            1, &_inFlightFences[_nextFrame], VK_TRUE, noTimeout),
+            1, &m_inFlightFences[m_nextFrame], VK_TRUE, noTimeout),
         "waitForFences");
     checkSuccess(
-        gDevice.logical().resetFences(1, &_inFlightFences[_nextFrame]),
+        gDevice.logical().resetFences(1, &m_inFlightFences[m_nextFrame]),
         "resetFences");
 
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const auto result = gDevice.logical().acquireNextImageKHR(
-        _swapchain, noTimeout, signalSemaphore, vk::Fence{}, &_nextImage);
-    WHEELS_ASSERT(_nextImage < _config.imageCount);
+        m_swapchain, noTimeout, signalSemaphore, vk::Fence{}, &m_nextImage);
+    WHEELS_ASSERT(m_nextImage < m_config.imageCount);
 
     // Swapchain should be recreated if out of date or suboptimal
     if (result == vk::Result::eErrorOutOfDateKHR ||
@@ -234,20 +234,20 @@ wheels::Optional<uint32_t> Swapchain::acquireNextImage(
     if (result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to acquire swapchain image");
 
-    return _nextImage;
+    return m_nextImage;
 }
 
 bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     // TODO: noexcept, modern interface would throw on ErrorOutOfDate
     const vk::PresentInfoKHR presentInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
         .swapchainCount = 1,
-        .pSwapchains = &_swapchain,
-        .pImageIndices = &_nextImage,
+        .pSwapchains = &m_swapchain,
+        .pImageIndices = &m_nextImage,
     };
     const vk::Result result = gDevice.graphicsQueue().presentKHR(&presentInfo);
 
@@ -264,7 +264,7 @@ bool Swapchain::present(Span<const vk::Semaphore> waitSemaphores)
         return good_swap;
     }();
 
-    _nextFrame = (_nextFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    m_nextFrame = (m_nextFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     return good_swap;
 }
 
@@ -272,7 +272,7 @@ void Swapchain::recreate(const SwapchainConfig &config)
 {
     // Called by init so no init assert
     destroy();
-    _config = config;
+    m_config = config;
     createSwapchain();
     createImages();
     createFences();
@@ -280,39 +280,39 @@ void Swapchain::recreate(const SwapchainConfig &config)
 
 void Swapchain::destroy()
 {
-    for (const vk::Fence f : _inFlightFences)
+    for (const vk::Fence f : m_inFlightFences)
         gDevice.logical().destroy(f);
-    _inFlightFences = {};
-    _images.clear();
-    gDevice.logical().destroy(_swapchain);
+    m_inFlightFences = {};
+    m_images.clear();
+    gDevice.logical().destroy(m_swapchain);
 }
 
 void Swapchain::createSwapchain()
 {
-    _swapchain =
+    m_swapchain =
         gDevice.logical().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
             .surface = gDevice.surface(),
-            .minImageCount = _config.imageCount,
-            .imageFormat = _config.surfaceFormat.format,
-            .imageColorSpace = _config.surfaceFormat.colorSpace,
-            .imageExtent = _config.extent,
+            .minImageCount = m_config.imageCount,
+            .imageFormat = m_config.surfaceFormat.format,
+            .imageColorSpace = m_config.surfaceFormat.colorSpace,
+            .imageExtent = m_config.extent,
             .imageArrayLayers = 1,
             .imageUsage = vk::ImageUsageFlagBits::eTransferDst,
             .imageSharingMode = vk::SharingMode::eExclusive,
-            .preTransform = _config.transform,
+            .preTransform = m_config.transform,
             .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
-            .presentMode = _config.presentMode,
+            .presentMode = m_config.presentMode,
             .clipped = VK_TRUE});
 }
 
 void Swapchain::createImages()
 {
-    auto images = gDevice.logical().getSwapchainImagesKHR(_swapchain);
+    auto images = gDevice.logical().getSwapchainImagesKHR(m_swapchain);
     for (auto &image : images)
     {
-        _images.push_back(SwapchainImage{
+        m_images.push_back(SwapchainImage{
             .handle = image,
-            .extent = _config.extent,
+            .extent = m_config.extent,
             .subresourceRange =
                 vk::ImageSubresourceRange{
                     .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -324,7 +324,7 @@ void Swapchain::createImages()
         });
     }
     // We might get more images than we asked for and acquire will use them all
-    _config.imageCount = asserted_cast<uint32_t>(_images.size());
+    m_config.imageCount = asserted_cast<uint32_t>(m_images.size());
 }
 
 void Swapchain::createFences()
@@ -333,5 +333,5 @@ void Swapchain::createFences()
         .flags = vk::FenceCreateFlagBits::eSignaled,
     };
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        _inFlightFences[i] = gDevice.logical().createFence(fenceInfo);
+        m_inFlightFences[i] = gDevice.logical().createFence(fenceInfo);
 }

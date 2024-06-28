@@ -234,64 +234,64 @@ const void *appendAccessorData(
 
 WorldData::~WorldData()
 {
-    // Don't check for _initialized as we might be cleaning up after a failed
+    // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
 
     // Make sure the deferred loader exits before we clean up any shared
     // resources.
-    if (_deferredLoadingContext.has_value())
+    if (m_deferredLoadingContext.has_value())
     {
-        _deferredLoadingContext->kill();
+        m_deferredLoadingContext->kill();
         // Copy over any new geometry buffers as ~WorldData is responsible of
         // destroying them
-        while (_deferredLoadingContext->geometryBuffers.size() >
-               _geometryBuffers.size())
+        while (m_deferredLoadingContext->geometryBuffers.size() >
+               m_geometryBuffers.size())
         {
-            _geometryBuffers.push_back(
-                _deferredLoadingContext
-                    ->geometryBuffers[_geometryBuffers.size()]
+            m_geometryBuffers.push_back(
+                m_deferredLoadingContext
+                    ->geometryBuffers[m_geometryBuffers.size()]
                     .clone());
         }
     }
 
-    gDevice.logical().destroy(_dsLayouts.lights);
-    gDevice.logical().destroy(_dsLayouts.skybox);
-    gDevice.logical().destroy(_dsLayouts.rayTracing);
-    gDevice.logical().destroy(_dsLayouts.sceneInstances);
-    gDevice.logical().destroy(_dsLayouts.geometry);
-    gDevice.logical().destroy(_dsLayouts.materialTextures);
-    gDevice.logical().destroy(_dsLayouts.materialDatas);
+    gDevice.logical().destroy(m_dsLayouts.lights);
+    gDevice.logical().destroy(m_dsLayouts.skybox);
+    gDevice.logical().destroy(m_dsLayouts.rayTracing);
+    gDevice.logical().destroy(m_dsLayouts.sceneInstances);
+    gDevice.logical().destroy(m_dsLayouts.geometry);
+    gDevice.logical().destroy(m_dsLayouts.materialTextures);
+    gDevice.logical().destroy(m_dsLayouts.materialDatas);
 
-    gDevice.destroy(_skyboxResources.vertexBuffer);
-    for (const vk::ImageView view : _skyboxResources.radianceViews)
+    gDevice.destroy(m_skyboxResources.vertexBuffer);
+    for (const vk::ImageView view : m_skyboxResources.radianceViews)
         gDevice.logical().destroy(view);
-    gDevice.destroy(_skyboxResources.radiance);
-    gDevice.destroy(_skyboxResources.specularBrdfLut);
-    gDevice.destroy(_skyboxResources.irradiance);
-    gDevice.logical().destroy(_skyboxResources.sampler);
+    gDevice.destroy(m_skyboxResources.radiance);
+    gDevice.destroy(m_skyboxResources.specularBrdfLut);
+    gDevice.destroy(m_skyboxResources.irradiance);
+    gDevice.logical().destroy(m_skyboxResources.sampler);
 
-    for (Buffer &buffer : _materialsBuffers)
+    for (Buffer &buffer : m_materialsBuffers)
         gDevice.destroy(buffer);
 
-    for (AccelerationStructure &blas : _blases)
+    for (AccelerationStructure &blas : m_blases)
     {
         gDevice.logical().destroy(blas.handle);
         gDevice.destroy(blas.buffer);
     }
-    for (AccelerationStructure &tlas : _tlases)
+    for (AccelerationStructure &tlas : m_tlases)
     {
         gDevice.logical().destroy(tlas.handle);
         gDevice.destroy(tlas.buffer);
     }
-    for (Scene &scene : _scenes)
+    for (Scene &scene : m_scenes)
         gDevice.destroy(scene.drawInstancesBuffer);
-    for (Buffer &buffer : _geometryBuffers)
+    for (Buffer &buffer : m_geometryBuffers)
         gDevice.destroy(buffer);
-    for (Buffer &buffer : _geometryMetadatasBuffers)
+    for (Buffer &buffer : m_geometryMetadatasBuffers)
         gDevice.destroy(buffer);
-    for (Buffer &buffer : _meshletCountsBuffers)
+    for (Buffer &buffer : m_meshletCountsBuffers)
         gDevice.destroy(buffer);
-    for (const vk::Sampler sampler : _samplers)
+    for (const vk::Sampler sampler : m_samplers)
         gDevice.logical().destroy(sampler);
 }
 
@@ -299,15 +299,15 @@ void WorldData::init(
     ScopedScratch scopeAlloc, const RingBuffers &ringBuffers,
     const std::filesystem::path &scene)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _descriptorAllocator.init();
-    _sceneDir = resPath(scene.parent_path());
-    _skyboxResources.vertexBuffer = createSkyboxVertexBuffer();
-    _skyboxResources.texture.init(
+    m_descriptorAllocator.init();
+    m_sceneDir = resPath(scene.parent_path());
+    m_skyboxResources.vertexBuffer = createSkyboxVertexBuffer();
+    m_skyboxResources.texture.init(
         scopeAlloc.child_scope(), resPath("env/storm.ktx"));
 
-    _skyboxResources.irradiance = gDevice.createImage(ImageCreateInfo{
+    m_skyboxResources.irradiance = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
@@ -322,14 +322,14 @@ void WorldData::init(
     });
     {
         const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
-        _skyboxResources.irradiance.transition(
+        m_skyboxResources.irradiance.transition(
             cb, ImageState::FragmentShaderSampledRead |
                     ImageState::ComputeShaderSampledRead |
                     ImageState::RayTracingSampledRead);
         gDevice.endGraphicsCommands(cb);
     }
 
-    _skyboxResources.specularBrdfLut = gDevice.createImage(ImageCreateInfo{
+    m_skyboxResources.specularBrdfLut = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16Unorm,
@@ -342,7 +342,7 @@ void WorldData::init(
     });
     {
         const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
-        _skyboxResources.specularBrdfLut.transition(
+        m_skyboxResources.specularBrdfLut.transition(
             cb, ImageState::FragmentShaderSampledRead |
                     ImageState::ComputeShaderSampledRead |
                     ImageState::RayTracingSampledRead);
@@ -353,7 +353,7 @@ void WorldData::init(
         asserted_cast<uint32_t>(floor(std::log2((
             static_cast<float>(SkyboxResources::sSkyboxRadianceResolution))))) +
         1;
-    _skyboxResources.radiance = gDevice.createImage(ImageCreateInfo{
+    m_skyboxResources.radiance = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
@@ -368,11 +368,11 @@ void WorldData::init(
         .debugName = "SkyboxRadiance",
     });
     for (uint32_t i = 0; i < radianceMips; ++i)
-        _skyboxResources.radianceViews.push_back(
+        m_skyboxResources.radianceViews.push_back(
             gDevice.logical().createImageView(vk::ImageViewCreateInfo{
-                .image = _skyboxResources.radiance.handle,
+                .image = m_skyboxResources.radiance.handle,
                 .viewType = vk::ImageViewType::eCube,
-                .format = _skyboxResources.radiance.format,
+                .format = m_skyboxResources.radiance.format,
                 .subresourceRange =
                     vk::ImageSubresourceRange{
                         .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -386,19 +386,19 @@ void WorldData::init(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eImageView,
             .objectHandle = reinterpret_cast<uint64_t>(static_cast<VkImageView>(
-                _skyboxResources.radianceViews.back())),
+                m_skyboxResources.radianceViews.back())),
             .pObjectName = "SkyboxRadiance",
         });
     {
         const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
-        _skyboxResources.radiance.transition(
+        m_skyboxResources.radiance.transition(
             cb, ImageState::FragmentShaderSampledRead |
                     ImageState::ComputeShaderSampledRead |
                     ImageState::RayTracingSampledRead);
         gDevice.endGraphicsCommands(cb);
     }
 
-    _skyboxResources.sampler =
+    m_skyboxResources.sampler =
         gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
@@ -425,11 +425,11 @@ void WorldData::init(
     WHEELS_ASSERT(gltfData != nullptr);
     printf("glTF model loading took %.2fs\n", t.getSeconds());
 
-    _deferredLoadingContext.emplace();
+    m_deferredLoadingContext.emplace();
     // Deferred context is responsible for freeing gltfData. Dispatch happens
     // after other loading finishes and WorldData will then always go through
     // the deferred context when it needs gltfData.
-    _deferredLoadingContext->init(_sceneDir, sourceWriteTime, gltfData);
+    m_deferredLoadingContext->init(m_sceneDir, sourceWriteTime, gltfData);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {
@@ -457,34 +457,34 @@ void WorldData::init(
        });
     tl("Buffer creation", [&]() { createBuffers(); });
 
-    _tlases.resize(_scenes.size());
+    m_tlases.resize(m_scenes.size());
 
     reflectBindings(scopeAlloc.child_scope());
     createDescriptorSets(scopeAlloc.child_scope(), ringBuffers);
 
-    _deferredLoadingContext->launch();
-    _initialized = true;
+    m_deferredLoadingContext->launch();
+    m_initialized = true;
 }
 
 void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
-    if (!_deferredLoadingContext.has_value())
+    if (!m_deferredLoadingContext.has_value())
         return;
 
-    if (_geometryGenerations[nextFrame] ==
-        _deferredLoadingContext->geometryGeneration)
+    if (m_geometryGenerations[nextFrame] ==
+        m_deferredLoadingContext->geometryGeneration)
         return;
 
     {
-        uint8_t *mapped =
-            static_cast<uint8_t *>(_geometryMetadatasBuffers[nextFrame].mapped);
+        uint8_t *mapped = static_cast<uint8_t *>(
+            m_geometryMetadatasBuffers[nextFrame].mapped);
         memcpy(
-            mapped, _geometryMetadatas.data(),
-            _geometryMetadatas.size() * sizeof(_geometryMetadatas[0]));
+            mapped, m_geometryMetadatas.data(),
+            m_geometryMetadatas.size() * sizeof(m_geometryMetadatas[0]));
     }
     {
-        Array<uint32_t> meshletCounts{scopeAlloc, _meshInfos.size()};
-        for (const MeshInfo &info : _meshInfos)
+        Array<uint32_t> meshletCounts{scopeAlloc, m_meshInfos.size()};
+        for (const MeshInfo &info : m_meshInfos)
         {
             if (info.indexCount > 0)
                 meshletCounts.push_back(info.meshletCount);
@@ -492,45 +492,45 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
                 meshletCounts.push_back(0u);
         }
         uint32_t *mapped =
-            static_cast<uint32_t *>(_meshletCountsBuffers[nextFrame].mapped);
+            static_cast<uint32_t *>(m_meshletCountsBuffers[nextFrame].mapped);
         memcpy(
             mapped, meshletCounts.data(),
             meshletCounts.size() * sizeof(meshletCounts[0]));
     }
 
-    _geometryGenerations[nextFrame] =
-        _deferredLoadingContext->geometryGeneration;
+    m_geometryGenerations[nextFrame] =
+        m_deferredLoadingContext->geometryGeneration;
 
     Array<vk::DescriptorBufferInfo> bufferInfos{
-        scopeAlloc, 2 + _geometryBuffers.size()};
+        scopeAlloc, 2 + m_geometryBuffers.size()};
 
     bufferInfos.push_back(vk::DescriptorBufferInfo{
-        .buffer = _geometryMetadatasBuffers[nextFrame].handle,
+        .buffer = m_geometryMetadatasBuffers[nextFrame].handle,
         .range = VK_WHOLE_SIZE,
     });
     bufferInfos.push_back(vk::DescriptorBufferInfo{
-        .buffer = _meshletCountsBuffers[nextFrame].handle,
+        .buffer = m_meshletCountsBuffers[nextFrame].handle,
         .range = VK_WHOLE_SIZE,
     });
 
     WHEELS_ASSERT(
-        _geometryBuffers.size() == _geometryBufferAllocatedByteCounts.size());
-    const size_t bufferCount = _geometryBuffers.size();
+        m_geometryBuffers.size() == m_geometryBufferAllocatedByteCounts.size());
+    const size_t bufferCount = m_geometryBuffers.size();
     for (size_t i = 0; i < bufferCount; ++i)
     {
-        if (_geometryBufferAllocatedByteCounts[i] == 0)
+        if (m_geometryBufferAllocatedByteCounts[i] == 0)
         {
             // We might push a new buffer before the mesh it got created for
             // gets copied over. Let's just skip in that case. Just make sure we
             // won't leave other already used buffers hanging.
             for (size_t j = i + 1; j < bufferCount; ++j)
-                WHEELS_ASSERT(_geometryBufferAllocatedByteCounts[j] == 0);
+                WHEELS_ASSERT(m_geometryBufferAllocatedByteCounts[j] == 0);
             break;
         }
 
         bufferInfos.push_back(vk::DescriptorBufferInfo{
-            .buffer = _geometryBuffers[i].handle,
-            .range = _geometryBufferAllocatedByteCounts[i],
+            .buffer = m_geometryBuffers[i].handle,
+            .range = m_geometryBufferAllocatedByteCounts[i],
         });
     }
 
@@ -541,9 +541,9 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
     }};
 
     const Array descriptorWrites =
-        _geometryReflection->generateDescriptorWrites(
+        m_geometryReflection->generateDescriptorWrites(
             scopeAlloc, sGeometryReflectionSet,
-            _descriptorSets.geometry[nextFrame], descriptorInfos);
+            m_descriptorSets.geometry[nextFrame], descriptorInfos);
 
     gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -552,28 +552,29 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
 
 void WorldData::uploadMaterialDatas(uint32_t nextFrame)
 {
-    if (!_deferredLoadingContext.has_value())
+    if (!m_deferredLoadingContext.has_value())
         return;
 
-    if (_materialsGenerations[nextFrame] ==
-        _deferredLoadingContext->materialsGeneration)
+    if (m_materialsGenerations[nextFrame] ==
+        m_deferredLoadingContext->materialsGeneration)
         return;
 
     Material *mapped =
-        static_cast<Material *>(_materialsBuffers[nextFrame].mapped);
+        static_cast<Material *>(m_materialsBuffers[nextFrame].mapped);
     memcpy(
-        mapped, _materials.data(), _materials.size() * sizeof(_materials[0]));
+        mapped, m_materials.data(),
+        m_materials.size() * sizeof(m_materials[0]));
 
-    _materialsGenerations[nextFrame] =
-        _deferredLoadingContext->materialsGeneration;
+    m_materialsGenerations[nextFrame] =
+        m_deferredLoadingContext->materialsGeneration;
 }
 
 bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
 {
-    if (!_deferredLoadingContext.has_value())
+    if (!m_deferredLoadingContext.has_value())
         return false;
 
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    DeferredLoadingContext &ctx = *m_deferredLoadingContext;
 
     const bool allMeshesLoaded = ctx.loadedMeshCount == ctx.meshes.size();
     const bool allMaterialsLoaded =
@@ -582,7 +583,7 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
     if (allMeshesLoaded && allMaterialsLoaded)
     {
         WHEELS_ASSERT(
-            ctx.loadedMeshCount == _meshInfos.size() &&
+            ctx.loadedMeshCount == m_meshInfos.size() &&
             "Meshes should have been loaded before textures");
 
         // Don't clean up until all in flight uploads are finished
@@ -590,9 +591,9 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
         {
             printf(
                 "Material streaming took %.2fs\n",
-                _materialStreamingTimer.getSeconds());
+                m_materialStreamingTimer.getSeconds());
 
-            _deferredLoadingContext.reset();
+            m_deferredLoadingContext.reset();
         }
         return false;
     }
@@ -601,7 +602,7 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
     PROFILER_CPU_SCOPE(profiler, "DeferredLoading");
 
     if (ctx.loadedImageCount == 0)
-        _materialStreamingTimer.reset();
+        m_materialStreamingTimer.reset();
 
     bool newMeshAvailable = false;
     if (!allMeshesLoaded)
@@ -637,24 +638,25 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb, Profiler *profiler)
 
 void WorldData::drawDeferredLoadingUi() const
 {
-    if (_deferredLoadingContext.has_value() || _blases.size() < _models.size())
+    if (m_deferredLoadingContext.has_value() ||
+        m_blases.size() < m_models.size())
     {
         ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_Appearing);
         ImGui::Begin(
             "DeferredLoadingProgress", nullptr,
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                 ImGuiWindowFlags_AlwaysAutoResize);
-        if (_deferredLoadingContext.has_value())
+        if (m_deferredLoadingContext.has_value())
         {
             ImGui::Text(
                 "Meshes loaded: %u/%u",
-                _deferredLoadingContext->loadedMeshCount,
-                asserted_cast<uint32_t>(_meshInfos.size()));
+                m_deferredLoadingContext->loadedMeshCount,
+                asserted_cast<uint32_t>(m_meshInfos.size()));
             ImGui::Text(
                 "Images loaded: %u/%u",
-                _deferredLoadingContext->loadedImageCount,
+                m_deferredLoadingContext->loadedImageCount,
                 asserted_cast<uint32_t>(
-                    _deferredLoadingContext->gltfData->textures_count));
+                    m_deferredLoadingContext->gltfData->textures_count));
         }
         ImGui::End();
     }
@@ -677,7 +679,7 @@ void WorldData::loadTextures(
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
-        _samplers.push_back(gDevice.logical().createSampler(info));
+        m_samplers.push_back(gDevice.logical().createSampler(info));
     }
     WHEELS_ASSERT(
         gltfData.samplers_count < 0xFE &&
@@ -697,17 +699,17 @@ void WorldData::loadTextures(
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
-        _samplers.push_back(gDevice.logical().createSampler(info));
+        m_samplers.push_back(gDevice.logical().createSampler(info));
     }
 
     Buffer stagingBuffer = createTextureStaging();
     defer { gDevice.destroy(stagingBuffer); };
 
-    _texture2Ds.reserve(gltfData.images_count + 1);
+    m_texture2Ds.reserve(gltfData.images_count + 1);
     {
         const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
-        _texture2Ds.emplace_back();
-        _texture2Ds.back().init(
+        m_texture2Ds.emplace_back();
+        m_texture2Ds.back().init(
             scopeAlloc.child_scope(), resPath("texture/empty.png"), cb,
             stagingBuffer, false,
             ImageState::FragmentShaderRead | ImageState::RayTracingRead);
@@ -740,7 +742,7 @@ void WorldData::loadMaterials(
     const cgltf_data &gltfData,
     const Array<Texture2DSampler> &texture2DSamplers)
 {
-    _materials.push_back(Material{});
+    m_materials.push_back(Material{});
 
     for (const cgltf_material &material :
          Span{gltfData.materials, gltfData.materials_count})
@@ -803,31 +805,31 @@ void WorldData::loadMaterials(
 
         // Copy the alpha mode of the real material because that's used to
         // set opaque flag in rt
-        _materials.push_back(Material{
+        m_materials.push_back(Material{
             .alphaMode = mat.alphaMode,
         });
-        WHEELS_ASSERT(_deferredLoadingContext.has_value());
-        _deferredLoadingContext->materials.push_back(mat);
+        WHEELS_ASSERT(m_deferredLoadingContext.has_value());
+        m_deferredLoadingContext->materials.push_back(mat);
     }
 }
 
 void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
 {
-    _models.reserve(gltfData.meshes_count);
+    m_models.reserve(gltfData.meshes_count);
 
     size_t totalPrimitiveCount = 0;
     for (const cgltf_mesh &mesh : Span{gltfData.meshes, gltfData.meshes_count})
         totalPrimitiveCount += mesh.primitives_count;
-    _geometryMetadatas.resize(totalPrimitiveCount);
-    _meshInfos.resize(totalPrimitiveCount);
+    m_geometryMetadatas.resize(totalPrimitiveCount);
+    m_meshInfos.resize(totalPrimitiveCount);
 
     uint32_t meshID = 0;
     for (cgltf_size mi = 0; mi < gltfData.meshes_count; ++mi)
     {
         const cgltf_mesh &mesh = gltfData.meshes[mi];
 
-        _models.emplace_back(gAllocators.world);
-        Model &model = _models.back();
+        m_models.emplace_back(gAllocators.world);
+        Model &model = m_models.back();
 
         model.subModels.reserve(mesh.primitives_count);
         for (cgltf_size pi = 0; pi < mesh.primitives_count; ++pi)
@@ -884,11 +886,11 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
             };
 
             WHEELS_ASSERT(
-                _deferredLoadingContext.has_value() &&
-                !_deferredLoadingContext->worker.has_value() &&
+                m_deferredLoadingContext.has_value() &&
+                !m_deferredLoadingContext->worker.has_value() &&
                 "Loading worker is running while input data is being set "
                 "up");
-            _deferredLoadingContext->meshes.emplace_back(
+            m_deferredLoadingContext->meshes.emplace_back(
                 inputMetadata, meshInfo);
             // Don't set metadata or info for the mesh index as default
             // values signal invalid or not yet loaded for other parts. Tangents
@@ -901,32 +903,32 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
         }
     }
 
-    for (size_t i = 0; i < _geometryMetadatasBuffers.size(); ++i)
-        _geometryMetadatasBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
+    for (size_t i = 0; i < m_geometryMetadatasBuffers.size(); ++i)
+        m_geometryMetadatasBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = asserted_cast<uint32_t>(
-                        _geometryMetadatas.size() * sizeof(GeometryMetadata)),
+                        m_geometryMetadatas.size() * sizeof(GeometryMetadata)),
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                              vk::BufferUsageFlagBits::eTransferDst,
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
-            .initialData = _geometryMetadatas.data(),
+            .initialData = m_geometryMetadatas.data(),
             .debugName = "GeometryMetadatas",
         });
 
     Array<uint32_t> zeroMeshletCounts{scopeAlloc};
-    zeroMeshletCounts.resize(_meshInfos.size());
+    zeroMeshletCounts.resize(m_meshInfos.size());
     memset(
         zeroMeshletCounts.data(), 0,
         zeroMeshletCounts.size() * sizeof(uint32_t));
-    for (size_t i = 0; i < _meshletCountsBuffers.size(); ++i)
-        _meshletCountsBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
+    for (size_t i = 0; i < m_meshletCountsBuffers.size(); ++i)
+        m_meshletCountsBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
                     .byteSize = asserted_cast<uint32_t>(
-                        _meshInfos.size() * sizeof(uint32_t)),
+                        m_meshInfos.size() * sizeof(uint32_t)),
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                              vk::BufferUsageFlagBits::eTransferDst,
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -987,9 +989,9 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
 
     // Now reserve the data so that our pointers are stable when we push the
     // data
-    _rawAnimationData.reserve(totalAnimationBytes);
-    _animations._vec3.reserve(totalVec3Animations);
-    _animations._quat.reserve(totalQuatAnimations);
+    m_rawAnimationData.reserve(totalAnimationBytes);
+    m_animations.vec3.reserve(totalVec3Animations);
+    m_animations.quat.reserve(totalQuatAnimations);
     for (const cgltf_animation &animation :
          Span{gltfData.animations, gltfData.animations_count})
     {
@@ -1022,7 +1024,7 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
             // TODO:
             // Share data for accessors that use the same bytes?
             const float *timesPtr = static_cast<const float *>(
-                appendAccessorData(_rawAnimationData, inputAccessor));
+                appendAccessorData(m_rawAnimationData, inputAccessor));
 
             WHEELS_ASSERT(inputAccessor.has_min);
             WHEELS_ASSERT(inputAccessor.has_max);
@@ -1042,31 +1044,31 @@ HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
             // TODO:
             // Share data for accessors that use the same bytes?
             const uint8_t *valuesPtr = static_cast<const uint8_t *>(
-                appendAccessorData(_rawAnimationData, outputAccessor));
+                appendAccessorData(m_rawAnimationData, outputAccessor));
 
             if (outputAccessor.type == cgltf_type_vec3)
             {
                 ValueAccessor<vec3> valueFrames{
                     valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
 
-                _animations._vec3.emplace_back(
+                m_animations.vec3.emplace_back(
                     interpolation, WHEELS_MOV(timeFrames),
                     WHEELS_MOV(valueFrames));
 
                 concreteAnimations.push_back(
-                    static_cast<void *>(&_animations._vec3.back()));
+                    static_cast<void *>(&m_animations.vec3.back()));
             }
             else if (outputAccessor.type == cgltf_type_vec4)
             {
                 ValueAccessor<quat> valueFrames{
                     valuesPtr, asserted_cast<uint32_t>(outputAccessor.count)};
 
-                _animations._quat.emplace_back(
+                m_animations.quat.emplace_back(
                     interpolation, WHEELS_MOV(timeFrames),
                     WHEELS_MOV(valueFrames));
 
                 concreteAnimations.push_back(
-                    static_cast<void *>(&_animations._quat.back()));
+                    static_cast<void *>(&m_animations.quat.back()));
             }
             else
                 WHEELS_ASSERT(!"Unsupported animation output type");
@@ -1133,13 +1135,13 @@ void WorldData::loadScenes(
             const cgltf_camera &cam = *gltfNode.camera;
             if (cam.type == cgltf_camera_type_perspective)
             {
-                if (_cameras.size() <= cameraIndex)
+                if (m_cameras.size() <= cameraIndex)
                 {
-                    _cameras.resize(cameraIndex + 1);
-                    _cameraDynamic.resize(cameraIndex + 1);
+                    m_cameras.resize(cameraIndex + 1);
+                    m_cameraDynamic.resize(cameraIndex + 1);
                 }
 
-                _cameras[cameraIndex] = CameraParameters{
+                m_cameras[cameraIndex] = CameraParameters{
                     .fov = static_cast<float>(cam.data.perspective.yfov),
                     .zN = static_cast<float>(cam.data.perspective.znear),
                     .zF = static_cast<float>(cam.data.perspective.zfar),
@@ -1193,18 +1195,18 @@ void WorldData::loadScenes(
 
     const cgltf_size defaultScene =
         cgltf_scene_index(&gltfData, gltfData.scene);
-    _currentScene = std::max(defaultScene, (size_t)0);
+    m_currentScene = std::max(defaultScene, (size_t)0);
 
     // Traverse scene trees and generate actual scene datas
-    _scenes.reserve(gltfData.scenes_count);
+    m_scenes.reserve(gltfData.scenes_count);
     for (const cgltf_scene &gltfScene :
          Span{gltfData.scenes, gltfData.scenes_count})
     {
-        _scenes.emplace_back();
+        m_scenes.emplace_back();
 
         gatherScene(scopeAlloc.child_scope(), gltfData, gltfScene, nodes);
 
-        Scene &scene = _scenes.back();
+        Scene &scene = m_scenes.back();
 
         // Nodes won't move in memory anymore so we can register the
         // animation targets
@@ -1293,7 +1295,7 @@ void WorldData::loadScenes(
                         node.dynamicTransform |= parentDynamic;
 
                         if (node.dynamicTransform && node.camera.has_value())
-                            _cameraDynamic[*node.camera] = true;
+                            m_cameraDynamic[*node.camera] = true;
 
                         parentDynamics.emplace_back(node.dynamicTransform);
                     }
@@ -1334,10 +1336,10 @@ void WorldData::loadScenes(
     }
 
     // Make sure we always have a camera
-    if (_cameras.empty())
+    if (m_cameras.empty())
     {
-        _cameras.emplace_back();
-        _cameraDynamic.push_back(false);
+        m_cameras.emplace_back();
+        m_cameraDynamic.push_back(false);
     }
 }
 
@@ -1352,7 +1354,7 @@ void WorldData::gatherScene(
     };
     Array<NodePair> nodeStack{scopeAlloc, nodes.size()};
 
-    Scene &scene = _scenes.back();
+    Scene &scene = m_scenes.back();
 
     bool directionalLightFound = false;
 
@@ -1430,7 +1432,7 @@ void WorldData::gatherScene(
                     .fullName = sceneNode.fullName,
                 });
                 scene.drawInstanceCount += asserted_cast<uint32_t>(
-                    _models[*sceneNode.modelID].subModels.size());
+                    m_models[*sceneNode.modelID].subModels.size());
             }
 
             if (tmpNode.light.has_value())
@@ -1528,23 +1530,23 @@ void WorldData::gatherScene(
 
 void WorldData::createBuffers()
 {
-    for (size_t i = 0; i < _materialsBuffers.capacity(); ++i)
-        _materialsBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
+    for (size_t i = 0; i < m_materialsBuffers.capacity(); ++i)
+        m_materialsBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
             .desc =
                 BufferDescription{
-                    .byteSize = _materials.size() * sizeof(_materials[0]),
+                    .byteSize = m_materials.size() * sizeof(m_materials[0]),
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                              vk::BufferUsageFlagBits::eTransferDst,
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                   vk::MemoryPropertyFlagBits::eHostCoherent,
                 },
-            .initialData = _materials.data(),
+            .initialData = m_materials.data(),
             .debugName = "MaterialsBuffer",
         });
 
     {
         size_t maxModelInstanceTransforms = 0;
-        for (auto &scene : _scenes)
+        for (auto &scene : m_scenes)
         {
             maxModelInstanceTransforms = std::max(
                 maxModelInstanceTransforms, scene.modelInstances.size());
@@ -1570,7 +1572,7 @@ void WorldData::createBuffers()
              (maxModelInstanceTransforms * sizeof(float) +
               static_cast<size_t>(RingBuffer::sAlignment))) *
             (MAX_FRAMES_IN_FLIGHT + 1));
-        _modelInstanceTransformsRing.init(
+        m_modelInstanceTransformsRing.init(
             vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
             "ModelInstanceTransformRing");
     }
@@ -1597,9 +1599,9 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
     };
 
     {
-        WHEELS_ASSERT(!_samplers.empty());
-        _dsLayouts.materialSamplerCount =
-            asserted_cast<uint32_t>(_samplers.size());
+        WHEELS_ASSERT(!m_samplers.empty());
+        m_dsLayouts.materialSamplerCount =
+            asserted_cast<uint32_t>(m_samplers.size());
 
         const size_t len = 192;
         String defines{scopeAlloc, len};
@@ -1608,11 +1610,11 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
         appendDefineStr(
             defines, "MATERIAL_TEXTURES_SET", sMaterialTexturesReflectionSet);
         appendDefineStr(
-            defines, "NUM_MATERIAL_SAMPLERS", _dsLayouts.materialSamplerCount);
+            defines, "NUM_MATERIAL_SAMPLERS", m_dsLayouts.materialSamplerCount);
         defines.extend("#extension GL_EXT_nonuniform_qualifier : require\n");
         WHEELS_ASSERT(defines.size() <= len);
 
-        _materialsReflection = reflect(defines, "shader/scene/materials.glsl");
+        m_materialsReflection = reflect(defines, "shader/scene/materials.glsl");
     }
 
     {
@@ -1624,7 +1626,7 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
         defines.extend("#extension GL_EXT_shader_8bit_storage : require\n");
         WHEELS_ASSERT(defines.size() <= len);
 
-        _geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
+        m_geometryReflection = reflect(defines, "shader/scene/geometry.glsl");
     }
 
     {
@@ -1634,7 +1636,7 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
             defines, "SCENE_INSTANCES_SET", sSceneInstancesReflectionSet);
         WHEELS_ASSERT(defines.size() <= len);
 
-        _sceneInstancesReflection =
+        m_sceneInstancesReflection =
             reflect(defines, "shader/scene/instances.glsl");
     }
 
@@ -1646,7 +1648,7 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
         SpotLights::appendShaderDefines(defines);
         WHEELS_ASSERT(defines.size() <= len);
 
-        _lightsReflection = reflect(defines, "shader/scene/lights.glsl");
+        m_lightsReflection = reflect(defines, "shader/scene/lights.glsl");
     }
 
     {
@@ -1655,7 +1657,7 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
         appendDefineStr(defines, "SKYBOX_SET", sSkyboxReflectionSet);
         WHEELS_ASSERT(defines.size() <= len);
 
-        _skyboxReflection = reflect(defines, "shader/scene/skybox.glsl");
+        m_skyboxReflection = reflect(defines, "shader/scene/skybox.glsl");
     }
 }
 
@@ -1665,30 +1667,33 @@ void WorldData::createDescriptorSets(
     WHEELS_ASSERT(ringBuffers.constantsRing != nullptr);
     WHEELS_ASSERT(ringBuffers.lightDataRing != nullptr);
 
-    WHEELS_ASSERT(_materialsReflection.has_value());
-    _dsLayouts.materialDatas = _materialsReflection->createDescriptorSetLayout(
-        scopeAlloc.child_scope(), sMaterialDatasReflectionSet,
-        vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute |
-            vk::ShaderStageFlagBits::eRaygenKHR |
-            vk::ShaderStageFlagBits::eAnyHitKHR);
+    WHEELS_ASSERT(m_materialsReflection.has_value());
+    m_dsLayouts.materialDatas =
+        m_materialsReflection->createDescriptorSetLayout(
+            scopeAlloc.child_scope(), sMaterialDatasReflectionSet,
+            vk::ShaderStageFlagBits::eFragment |
+                vk::ShaderStageFlagBits::eCompute |
+                vk::ShaderStageFlagBits::eRaygenKHR |
+                vk::ShaderStageFlagBits::eAnyHitKHR);
 
     {
         const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT>
-            materialDatasLayouts{_dsLayouts.materialDatas};
+            materialDatasLayouts{m_dsLayouts.materialDatas};
         const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
             "MaterialDatas"};
-        _descriptorAllocator.allocate(
+        m_descriptorAllocator.allocate(
             materialDatasLayouts, debugNames,
-            _descriptorSets.materialDatas.mut_span());
+            m_descriptorSets.materialDatas.mut_span());
     }
 
-    WHEELS_ASSERT(_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
-    WHEELS_ASSERT(_descriptorSets.materialDatas.size() == MAX_FRAMES_IN_FLIGHT);
+    WHEELS_ASSERT(m_materialsBuffers.size() == MAX_FRAMES_IN_FLIGHT);
+    WHEELS_ASSERT(
+        m_descriptorSets.materialDatas.size() == MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = _materialsBuffers[i].handle,
+                .buffer = m_materialsBuffers[i].handle,
                 .range = VK_WHOLE_SIZE,
             }},
             DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1697,9 +1702,9 @@ void WorldData::createDescriptorSets(
             }},
         }};
         const Array descriptorWrites =
-            _materialsReflection->generateDescriptorWrites(
+            m_materialsReflection->generateDescriptorWrites(
                 scopeAlloc, sMaterialDatasReflectionSet,
-                _descriptorSets.materialDatas[i], descriptorInfos);
+                m_descriptorSets.materialDatas[i], descriptorInfos);
         gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
@@ -1707,22 +1712,22 @@ void WorldData::createDescriptorSets(
 
     {
         Array<vk::DescriptorImageInfo> materialSamplerInfos{
-            scopeAlloc, _samplers.size()};
-        for (const auto &s : _samplers)
+            scopeAlloc, m_samplers.size()};
+        for (const auto &s : m_samplers)
             materialSamplerInfos.push_back(
                 vk::DescriptorImageInfo{.sampler = s});
         const auto samplerInfoCount =
             asserted_cast<uint32_t>(materialSamplerInfos.size());
-        _dsLayouts.materialSamplerCount = samplerInfoCount;
+        m_dsLayouts.materialSamplerCount = samplerInfoCount;
 
         // Use capacity instead of size so that this allocates descriptors for
         // textures that are loaded later
         Array<vk::DescriptorImageInfo> materialImageInfos{
-            scopeAlloc, _texture2Ds.capacity()};
+            scopeAlloc, m_texture2Ds.capacity()};
         // Fill missing textures with the default info so potential reads
         // are still to valid descriptors
-        WHEELS_ASSERT(_texture2Ds.size() == 1);
-        const vk::DescriptorImageInfo defaultInfo = _texture2Ds[0].imageInfo();
+        WHEELS_ASSERT(m_texture2Ds.size() == 1);
+        const vk::DescriptorImageInfo defaultInfo = m_texture2Ds[0].imageInfo();
         for (size_t i = 0; i < materialImageInfos.capacity(); ++i)
             materialImageInfos.push_back(defaultInfo);
 
@@ -1740,17 +1745,17 @@ void WorldData::createDescriptorSets(
                 vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending},
         }};
 
-        WHEELS_ASSERT(_materialsReflection.has_value());
-        _dsLayouts.materialTextures =
-            _materialsReflection->createDescriptorSetLayout(
+        WHEELS_ASSERT(m_materialsReflection.has_value());
+        m_dsLayouts.materialTextures =
+            m_materialsReflection->createDescriptorSetLayout(
                 scopeAlloc.child_scope(), sMaterialTexturesReflectionSet,
                 vk::ShaderStageFlagBits::eFragment |
                     vk::ShaderStageFlagBits::eRaygenKHR |
                     vk::ShaderStageFlagBits::eAnyHitKHR,
                 Span{&imageInfoCount, 1}, bindingFlags);
 
-        _descriptorSets.materialTextures = _descriptorAllocator.allocate(
-            _dsLayouts.materialTextures, "MaterialTextures", imageInfoCount);
+        m_descriptorSets.materialTextures = m_descriptorAllocator.allocate(
+            m_dsLayouts.materialTextures, "MaterialTextures", imageInfoCount);
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{materialSamplerInfos},
@@ -1758,14 +1763,14 @@ void WorldData::createDescriptorSets(
         }};
 
         const Array descriptorWrites =
-            _materialsReflection->generateDescriptorWrites(
+            m_materialsReflection->generateDescriptorWrites(
                 scopeAlloc, sMaterialTexturesReflectionSet,
-                _descriptorSets.materialTextures, descriptorInfos);
+                m_descriptorSets.materialTextures, descriptorInfos);
         gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
 
-        _deferredLoadingContext->textureArrayBinding =
+        m_deferredLoadingContext->textureArrayBinding =
             asserted_cast<uint32_t>(materialSamplerInfos.size());
     }
 
@@ -1781,8 +1786,8 @@ void WorldData::createDescriptorSets(
                 vk::DescriptorBindingFlagBits::ePartiallyBound},
         }};
 
-        WHEELS_ASSERT(_geometryReflection.has_value());
-        _dsLayouts.geometry = _geometryReflection->createDescriptorSetLayout(
+        WHEELS_ASSERT(m_geometryReflection.has_value());
+        m_dsLayouts.geometry = m_geometryReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), sGeometryReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
                 vk::ShaderStageFlagBits::eCompute |
@@ -1791,28 +1796,28 @@ void WorldData::createDescriptorSets(
                 vk::ShaderStageFlagBits::eMeshEXT,
             Span{&bufferCount, 1}, bindingFlags);
 
-        WHEELS_ASSERT(_descriptorSets.geometry.size() == MAX_FRAMES_IN_FLIGHT);
+        WHEELS_ASSERT(m_descriptorSets.geometry.size() == MAX_FRAMES_IN_FLIGHT);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         {
-            _descriptorSets.geometry[i] = _descriptorAllocator.allocate(
-                _dsLayouts.geometry, "Geometry", bufferCount);
+            m_descriptorSets.geometry[i] = m_descriptorAllocator.allocate(
+                m_dsLayouts.geometry, "Geometry", bufferCount);
 
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _geometryMetadatasBuffers[i].handle,
+                    .buffer = m_geometryMetadatasBuffers[i].handle,
                     .range = VK_WHOLE_SIZE,
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _meshletCountsBuffers[i].handle,
+                    .buffer = m_meshletCountsBuffers[i].handle,
                     .range = VK_WHOLE_SIZE,
                 }},
                 DescriptorInfo{Span<const vk::DescriptorBufferInfo>{}},
             }};
 
             const Array descriptorWrites =
-                _geometryReflection->generateDescriptorWrites(
+                m_geometryReflection->generateDescriptorWrites(
                     scopeAlloc, sGeometryReflectionSet,
-                    _descriptorSets.geometry[i], descriptorInfos);
+                    m_descriptorSets.geometry[i], descriptorInfos);
 
             gDevice.logical().updateDescriptorSets(
                 asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -1845,13 +1850,13 @@ void WorldData::createDescriptorSets(
             .bindingCount = asserted_cast<uint32_t>(layoutBindings.size()),
             .pBindings = layoutBindings.data(),
         };
-        _dsLayouts.rayTracing =
+        m_dsLayouts.rayTracing =
             gDevice.logical().createDescriptorSetLayout(createInfo);
     }
 
-    WHEELS_ASSERT(_sceneInstancesReflection.has_value());
-    _dsLayouts.sceneInstances =
-        _sceneInstancesReflection->createDescriptorSetLayout(
+    WHEELS_ASSERT(m_sceneInstancesReflection.has_value());
+    m_dsLayouts.sceneInstances =
+        m_sceneInstancesReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), sSceneInstancesReflectionSet,
             vk::ShaderStageFlagBits::eVertex |
                 vk::ShaderStageFlagBits::eCompute |
@@ -1860,16 +1865,16 @@ void WorldData::createDescriptorSets(
                 vk::ShaderStageFlagBits::eAnyHitKHR |
                 vk::ShaderStageFlagBits::eMeshEXT);
 
-    WHEELS_ASSERT(_lightsReflection.has_value());
-    _dsLayouts.lights = _lightsReflection->createDescriptorSetLayout(
+    WHEELS_ASSERT(m_lightsReflection.has_value());
+    m_dsLayouts.lights = m_lightsReflection->createDescriptorSetLayout(
         scopeAlloc.child_scope(), sLightsReflectionSet,
         vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute |
             vk::ShaderStageFlagBits::eRaygenKHR);
 
     // Per light type
     {
-        _descriptorSets.lights =
-            _descriptorAllocator.allocate(_dsLayouts.lights, "Lights");
+        m_descriptorSets.lights =
+            m_descriptorAllocator.allocate(m_dsLayouts.lights, "Lights");
 
         const StaticArray lightInfos{{
             DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1890,8 +1895,8 @@ void WorldData::createDescriptorSets(
         }};
 
         const Array descriptorWrites =
-            _lightsReflection->generateDescriptorWrites(
-                scopeAlloc, sLightsReflectionSet, _descriptorSets.lights,
+            m_lightsReflection->generateDescriptorWrites(
+                scopeAlloc, sLightsReflectionSet, m_descriptorSets.lights,
                 lightInfos);
 
         gDevice.logical().updateDescriptorSets(
@@ -1900,27 +1905,27 @@ void WorldData::createDescriptorSets(
     }
 
     // Scene descriptor sets
-    const size_t sceneCount = _scenes.size();
+    const size_t sceneCount = m_scenes.size();
     for (size_t i = 0; i < sceneCount; ++i)
     {
-        Scene &scene = _scenes[i];
+        Scene &scene = m_scenes[i];
         {
-            scene.sceneInstancesDescriptorSet = _descriptorAllocator.allocate(
-                _dsLayouts.sceneInstances, "SceneInstances");
+            scene.sceneInstancesDescriptorSet = m_descriptorAllocator.allocate(
+                m_dsLayouts.sceneInstances, "SceneInstances");
 
             const StaticArray descriptorInfos{{
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _modelInstanceTransformsRing.buffer(),
+                    .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _modelInstanceTransformsRing.buffer(),
+                    .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
                              sizeof(ModelInstance::Transforms),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
-                    .buffer = _modelInstanceTransformsRing.buffer(),
+                    .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() * sizeof(float),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
@@ -1929,7 +1934,7 @@ void WorldData::createDescriptorSets(
                 }},
             }};
             const Array descriptorWrites =
-                _sceneInstancesReflection->generateDescriptorWrites(
+                m_sceneInstancesReflection->generateDescriptorWrites(
                     scopeAlloc, sSceneInstancesReflectionSet,
                     scene.sceneInstancesDescriptorSet, descriptorInfos);
 
@@ -1939,44 +1944,44 @@ void WorldData::createDescriptorSets(
         }
         {
             scene.rtDescriptorSet =
-                _descriptorAllocator.allocate(_dsLayouts.rayTracing, "Rt");
+                m_descriptorAllocator.allocate(m_dsLayouts.rayTracing, "Rt");
             // DS is written by World::Impl when the TLAS is created
         }
     }
 
     // Skybox layout and descriptor set
     {
-        WHEELS_ASSERT(_skyboxReflection.has_value());
-        _dsLayouts.skybox = _skyboxReflection->createDescriptorSetLayout(
+        WHEELS_ASSERT(m_skyboxReflection.has_value());
+        m_dsLayouts.skybox = m_skyboxReflection->createDescriptorSetLayout(
             scopeAlloc.child_scope(), sSkyboxReflectionSet,
             vk::ShaderStageFlagBits::eFragment |
                 vk::ShaderStageFlagBits::eCompute |
                 vk::ShaderStageFlagBits::eRaygenKHR);
 
-        _descriptorSets.skybox =
-            _descriptorAllocator.allocate(_dsLayouts.skybox, "Skybox");
+        m_descriptorSets.skybox =
+            m_descriptorAllocator.allocate(m_dsLayouts.skybox, "Skybox");
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{_skyboxResources.texture.imageInfo()},
+            DescriptorInfo{m_skyboxResources.texture.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxResources.sampler,
-                .imageView = _skyboxResources.irradiance.view,
+                .sampler = m_skyboxResources.sampler,
+                .imageView = m_skyboxResources.irradiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxResources.sampler,
-                .imageView = _skyboxResources.specularBrdfLut.view,
+                .sampler = m_skyboxResources.sampler,
+                .imageView = m_skyboxResources.specularBrdfLut.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
-                .sampler = _skyboxResources.sampler,
-                .imageView = _skyboxResources.radiance.view,
+                .sampler = m_skyboxResources.sampler,
+                .imageView = m_skyboxResources.radiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
         }};
         const Array descriptorWrites =
-            _skyboxReflection->generateDescriptorWrites(
-                scopeAlloc, sSkyboxReflectionSet, _descriptorSets.skybox,
+            m_skyboxReflection->generateDescriptorWrites(
+                scopeAlloc, sSkyboxReflectionSet, m_descriptorSets.skybox,
                 descriptorInfos);
 
         gDevice.logical().updateDescriptorSets(
@@ -1987,9 +1992,9 @@ void WorldData::createDescriptorSets(
 
 bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
 {
-    WHEELS_ASSERT(_deferredLoadingContext.has_value());
+    WHEELS_ASSERT(m_deferredLoadingContext.has_value());
 
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    DeferredLoadingContext &ctx = *m_deferredLoadingContext;
     WHEELS_ASSERT(ctx.loadedMeshCount < ctx.meshes.size());
 
     bool newMeshLoaded = false;
@@ -2000,7 +2005,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
         // new ones to fill the quota while we're in this loop
         Optional<Pair<UploadedGeometryData, MeshInfo>> loaded;
         {
-            const std::lock_guard _lock{ctx.loadedMeshesMutex};
+            const std::lock_guard lock{ctx.loadedMeshesMutex};
             if (ctx.loadedMeshes.empty())
                 break;
 
@@ -2012,17 +2017,17 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
         {
             newMeshLoaded = true;
             {
-                const std::lock_guard _lock{ctx.geometryBuffersMutex};
+                const std::lock_guard lock{ctx.geometryBuffersMutex};
                 // Copy over any newly created geometry buffers
-                while (_geometryBuffers.size() < ctx.geometryBuffers.size())
+                while (m_geometryBuffers.size() < ctx.geometryBuffers.size())
                 {
-                    _geometryBuffers.push_back(
-                        ctx.geometryBuffers[_geometryBuffers.size()].clone());
+                    m_geometryBuffers.push_back(
+                        ctx.geometryBuffers[m_geometryBuffers.size()].clone());
                     WHEELS_ASSERT(
-                        _geometryBuffers.size() <= sMaxGeometryBuffersCount &&
+                        m_geometryBuffers.size() <= sMaxGeometryBuffersCount &&
                         "The layout requires a hard limit on the max number of "
                         "geometry buffers");
-                    _geometryBufferAllocatedByteCounts.push_back(0u);
+                    m_geometryBufferAllocatedByteCounts.push_back(0u);
                 }
             }
 
@@ -2032,7 +2037,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
             WHEELS_ASSERT(uploadedData.byteCount > 0);
 
             const uint32_t previousAllocatedByteCount =
-                _geometryBufferAllocatedByteCounts[targetBufferI];
+                m_geometryBufferAllocatedByteCounts[targetBufferI];
             WHEELS_ASSERT(
                 ((uploadedData.metadata.usesShortIndices &&
                   previousAllocatedByteCount ==
@@ -2048,7 +2053,7 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
 
             if (*families.graphicsFamily != *families.transferFamily)
             {
-                const Buffer &geometryBuffer = _geometryBuffers[targetBufferI];
+                const Buffer &geometryBuffer = m_geometryBuffers[targetBufferI];
 
                 const vk::BufferMemoryBarrier2 acquireBarrier{
                     .srcStageMask = vk::PipelineStageFlagBits2::eNone,
@@ -2071,11 +2076,12 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
                 });
             }
 
-            _geometryMetadatas[ctx.loadedMeshCount] = uploadedData.metadata;
-            _meshInfos[ctx.loadedMeshCount] = info;
-            _meshNames.emplace_back(gAllocators.general, uploadedData.meshName);
+            m_geometryMetadatas[ctx.loadedMeshCount] = uploadedData.metadata;
+            m_meshInfos[ctx.loadedMeshCount] = info;
+            m_meshNames.emplace_back(
+                gAllocators.general, uploadedData.meshName);
             // Track the used (and ownership transferred) range
-            _geometryBufferAllocatedByteCounts[targetBufferI] +=
+            m_geometryBufferAllocatedByteCounts[targetBufferI] +=
                 uploadedData.byteCount;
 
             ctx.loadedMeshCount++;
@@ -2088,9 +2094,9 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
 
 size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
 {
-    WHEELS_ASSERT(_deferredLoadingContext.has_value());
+    WHEELS_ASSERT(m_deferredLoadingContext.has_value());
 
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    DeferredLoadingContext &ctx = *m_deferredLoadingContext;
     WHEELS_ASSERT(ctx.loadedImageCount < ctx.gltfData->images_count);
 
     size_t newTexturesLoaded = 0;
@@ -2101,11 +2107,11 @@ size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
         {
             // Let's pop textures one by one to potentially let the async worker
             // push new ones to fill the quota while we're in this loop
-            const std::lock_guard _lock{ctx.loadedTexturesMutex};
+            const std::lock_guard lock{ctx.loadedTexturesMutex};
             if (ctx.loadedTextures.empty())
                 break;
 
-            _texture2Ds.emplace_back(WHEELS_MOV(ctx.loadedTextures.front()));
+            m_texture2Ds.emplace_back(WHEELS_MOV(ctx.loadedTextures.front()));
             ctx.loadedTextures.erase(0);
             newTextureLoaded = true;
         }
@@ -2131,7 +2137,7 @@ size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
                     .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                     .srcQueueFamilyIndex = *families.transferFamily,
                     .dstQueueFamilyIndex = *families.graphicsFamily,
-                    .image = _texture2Ds.back().nativeHandle(),
+                    .image = m_texture2Ds.back().nativeHandle(),
                     .subresourceRange =
                         vk::ImageSubresourceRange{
                             .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -2154,16 +2160,16 @@ size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
 
 void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 {
-    WHEELS_ASSERT(_deferredLoadingContext.has_value());
+    WHEELS_ASSERT(m_deferredLoadingContext.has_value());
 
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
-    const size_t textureCount = _texture2Ds.size();
+    DeferredLoadingContext &ctx = *m_deferredLoadingContext;
+    const size_t textureCount = m_texture2Ds.size();
     for (size_t i = 0; i < newTextureCount; ++i)
     {
         const vk::DescriptorImageInfo imageInfo =
-            _texture2Ds[textureCount - newTextureCount + i].imageInfo();
+            m_texture2Ds[textureCount - newTextureCount + i].imageInfo();
         const vk::WriteDescriptorSet descriptorWrite{
-            .dstSet = _descriptorSets.materialTextures,
+            .dstSet = m_descriptorSets.materialTextures,
             .dstBinding = ctx.textureArrayBinding,
             // loadedImageCount is gltf images so bump by one to take our
             // default texture into account
@@ -2180,7 +2186,7 @@ void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
 
 bool WorldData::updateMaterials()
 {
-    DeferredLoadingContext &ctx = *_deferredLoadingContext;
+    DeferredLoadingContext &ctx = *m_deferredLoadingContext;
     // Update next material(s) in line if the required textures are
     // loaded
     bool materialsUpdated = false;
@@ -2198,7 +2204,7 @@ bool WorldData::updateMaterials()
         {
             // These are gltf material indices so we have to take our
             // default material into account
-            _materials[i + 1] = material;
+            m_materials[i + 1] = material;
             ctx.loadedMaterialCount++;
             materialsUpdated = true;
         }

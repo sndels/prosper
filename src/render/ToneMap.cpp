@@ -36,42 +36,42 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 void ToneMap::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         shaderDefinitionCallback);
 
-    _lut.init(
+    m_lut.init(
         WHEELS_MOV(scopeAlloc), resPath("texture/tony_mc_mapface.dds"),
         ImageState::ComputeShaderSampledRead);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void ToneMap::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
 void ToneMap::drawUi()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    ImGui::DragFloat("Exposure", &_exposure, 0.01f, 0.001f, 10000.f);
-    ImGui::DragFloat("Contrast", &_contrast, 0.01f, 0.001f, 10000.f);
+    ImGui::DragFloat("Exposure", &m_exposure, 0.01f, 0.001f, 10000.f);
+    ImGui::DragFloat("Contrast", &m_contrast, 0.01f, 0.001f, 10000.f);
 }
 
 ToneMap::Output ToneMap::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle inColor,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "ToneMap");
 
@@ -100,7 +100,7 @@ ToneMap::Output ToneMap::record(
                 .imageView = gRenderResources.images->resource(inColor).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{_lut.imageInfo()},
+            DescriptorInfo{m_lut.imageInfo()},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.bilinearSampler,
             }},
@@ -110,7 +110,7 @@ ToneMap::Output ToneMap::record(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }};
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
@@ -126,12 +126,13 @@ ToneMap::Output ToneMap::record(
 
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
 
-        const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(
+        const vk::DescriptorSet storageSet =
+            m_computePass.storageSet(nextFrame);
+        m_computePass.record(
             cb,
             PCBlock{
-                .exposure = _exposure,
-                .contrast = _contrast,
+                .exposure = m_exposure,
+                .contrast = m_contrast,
             },
             extent, Span{&storageSet, 1});
     }

@@ -101,9 +101,9 @@ void TemporalAntiAliasing::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     vk::DescriptorSetLayout camDsLayout)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
         ComputePassOptions{
@@ -111,7 +111,7 @@ void TemporalAntiAliasing::init(
             .externalDsLayouts = Span{&camDsLayout, 1},
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void TemporalAntiAliasing::recompileShaders(
@@ -119,30 +119,30 @@ void TemporalAntiAliasing::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         Span{&camDSLayout, 1});
 }
 
 void TemporalAntiAliasing::drawUi()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    enumDropdown("Color clipping", _colorClipping, sColorClippingTypeNames);
+    enumDropdown("Color clipping", m_colorClipping, sColorClippingTypeNames);
     enumDropdown(
-        "Velocity sampling", _velocitySampling, sVelocitySamplingTypeNames);
+        "Velocity sampling", m_velocitySampling, sVelocitySamplingTypeNames);
 
-    ImGui::Checkbox("Catmull-Rom history samples", &_catmullRom);
-    ImGui::Checkbox("Luminance Weighting", &_luminanceWeighting);
+    ImGui::Checkbox("Catmull-Rom history samples", &m_catmullRom);
+    ImGui::Checkbox("Luminance Weighting", &m_luminanceWeighting);
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
     const Input &input, const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "TemporalAntiAliasing");
 
@@ -156,9 +156,9 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         };
 
         vk::Extent3D previousExtent;
-        if (gRenderResources.images->isValidHandle(_previousResolveOutput))
+        if (gRenderResources.images->isValidHandle(m_previousResolveOutput))
             previousExtent =
-                gRenderResources.images->resource(_previousResolveOutput)
+                gRenderResources.images->resource(m_previousResolveOutput)
                     .extent;
 
         // TODO: Reset history from app when camera or scene is toggled,
@@ -168,17 +168,17 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         if (renderExtent.width != previousExtent.width ||
             renderExtent.height != previousExtent.height)
         {
-            if (gRenderResources.images->isValidHandle(_previousResolveOutput))
-                gRenderResources.images->release(_previousResolveOutput);
+            if (gRenderResources.images->isValidHandle(m_previousResolveOutput))
+                gRenderResources.images->release(m_previousResolveOutput);
 
             // Create dummy texture that won't be read from to satisfy binds
-            _previousResolveOutput =
+            m_previousResolveOutput =
                 createIllumination(renderExtent, resolveDebugName);
             ignoreHistory = true;
         }
         else // We clear debug names each frame
             gRenderResources.images->appendDebugName(
-                _previousResolveOutput, resolveDebugName);
+                m_previousResolveOutput, resolveDebugName);
 
         const StaticArray descriptorInfos{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -188,7 +188,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    gRenderResources.images->resource(_previousResolveOutput)
+                    gRenderResources.images->resource(m_previousResolveOutput)
                         .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
@@ -215,7 +215,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 .sampler = gRenderResources.bilinearSampler,
             }},
         }};
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
@@ -225,7 +225,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                     {input.illumination, ImageState::ComputeShaderRead},
                     {input.velocity, ImageState::ComputeShaderRead},
                     {input.depth, ImageState::ComputeShaderRead},
-                    {_previousResolveOutput, ImageState::ComputeShaderRead},
+                    {m_previousResolveOutput, ImageState::ComputeShaderRead},
                     {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
                 }},
             });
@@ -237,26 +237,26 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
 
         const uint32_t camOffset = cam.bufferOffset();
 
-        _computePass.record(
+        m_computePass.record(
             cb,
             PCBlock{
                 .flags = pcFlags(PCBlock::Flags{
                     .ignoreHistory = ignoreHistory,
-                    .catmullRom = _catmullRom,
-                    .colorClipping = _colorClipping,
-                    .velocitySampling = _velocitySampling,
-                    .luminanceWeighting = _luminanceWeighting,
+                    .catmullRom = m_catmullRom,
+                    .colorClipping = m_colorClipping,
+                    .velocitySampling = m_velocitySampling,
+                    .luminanceWeighting = m_luminanceWeighting,
                 }),
             },
             extent, descriptorSets, Span{&camOffset, 1});
 
-        gRenderResources.images->release(_previousResolveOutput);
-        _previousResolveOutput = ret.resolvedIllumination;
-        gRenderResources.images->preserve(_previousResolveOutput);
+        gRenderResources.images->release(m_previousResolveOutput);
+        m_previousResolveOutput = ret.resolvedIllumination;
+        gRenderResources.images->preserve(m_previousResolveOutput);
     }
 
     return ret;
@@ -264,8 +264,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
 void TemporalAntiAliasing::releasePreserved()
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    if (gRenderResources.images->isValidHandle(_previousResolveOutput))
-        gRenderResources.images->release(_previousResolveOutput);
+    if (gRenderResources.images->isValidHandle(m_previousResolveOutput))
+        gRenderResources.images->release(m_previousResolveOutput);
 }

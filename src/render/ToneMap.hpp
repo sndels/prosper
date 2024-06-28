@@ -42,12 +42,12 @@ class ToneMap
         ImageHandle inColor, uint32_t nextFrame, Profiler *profiler);
 
   private:
-    bool _initialized{false};
-    ComputePass _computePass;
-    Texture3D _lut;
+    bool m_initialized{false};
+    ComputePass m_computePass;
+    Texture3D m_lut;
 
-    float _exposure{1.f};
-    float _contrast{1.f};
+    float m_exposure{1.f};
+    float m_contrast{1.f};
 };
 
 #endif // PROSPER_RENDER_TONE_MAP_HPP

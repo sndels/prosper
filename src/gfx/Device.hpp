@@ -177,34 +177,34 @@ class Device
     // All members should init (in ctor) without dynamic allocations or
     // exceptions because this class is used in a extern global.
 
-    bool _initialized{false};
-    Settings _settings;
+    bool m_initialized{false};
+    Settings m_settings;
 
-    vk::Instance _instance;
-    vk::PhysicalDevice _physical;
-    vk::Device _logical;
-    DeviceProperties _properties;
+    vk::Instance m_instance;
+    vk::PhysicalDevice m_physical;
+    vk::Device m_logical;
+    DeviceProperties m_properties;
 
-    std::mutex _allocatorMutex;
-    VmaAllocator _allocator{nullptr};
+    std::mutex m_allocatorMutex;
+    VmaAllocator m_allocator{nullptr};
 
-    shaderc::CompileOptions _compilerOptions;
+    shaderc::CompileOptions m_compilerOptions;
     // Put behind a ptr to control lifetime and make the leaky mutex visible in
     // win crt debugging.
-    wheels::OwningPtr<shaderc::Compiler> _compiler;
+    wheels::OwningPtr<shaderc::Compiler> m_compiler;
 
-    vk::SurfaceKHR _surface;
+    vk::SurfaceKHR m_surface;
 
-    QueueFamilies _queueFamilies;
-    vk::Queue _graphicsQueue;
-    vk::Queue _transferQueue;
+    QueueFamilies m_queueFamilies;
+    vk::Queue m_graphicsQueue;
+    vk::Queue m_transferQueue;
 
-    vk::CommandPool _graphicsPool;
-    vk::CommandPool _transferPool;
+    vk::CommandPool m_graphicsPool;
+    vk::CommandPool m_transferPool;
 
-    vk::DebugUtilsMessengerEXT _debugMessenger;
+    vk::DebugUtilsMessengerEXT m_debugMessenger;
 
-    MemoryAllocationBytes _memoryAllocations;
+    MemoryAllocationBytes m_memoryAllocations;
 };
 
 extern Device gDevice;

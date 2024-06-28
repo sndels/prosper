@@ -51,8 +51,8 @@ class DepthOfFieldCombine
         const Input &input, uint32_t nextFrame, Profiler *profiler);
 
   private:
-    bool _initialized{false};
-    ComputePass _computePass;
+    bool m_initialized{false};
+    ComputePass m_computePass;
 };
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_COMBINE_HPP

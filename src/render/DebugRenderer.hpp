@@ -54,18 +54,18 @@ class DebugRenderer
         DescriptorAllocator *staticDescriptorsAlloc);
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
-    bool _initialized{false};
+    bool m_initialized{false};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> _shaderStages{};
-    wheels::Optional<ShaderReflection> _vertReflection;
-    wheels::Optional<ShaderReflection> _fragReflection;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages{};
+    wheels::Optional<ShaderReflection> m_vertReflection;
+    wheels::Optional<ShaderReflection> m_fragReflection;
 
-    vk::DescriptorSetLayout _linesDSLayout;
+    vk::DescriptorSetLayout m_linesDSLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
-        _linesDescriptorSets;
+        m_linesDescriptorSets;
 
-    vk::PipelineLayout _pipelineLayout;
-    vk::Pipeline _pipeline;
+    vk::PipelineLayout m_pipelineLayout;
+    vk::Pipeline m_pipeline;
 };
 
 #endif // PROSPER_RENDER_DEBUG_RENDERER_HPP

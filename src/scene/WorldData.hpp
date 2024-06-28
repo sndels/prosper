@@ -54,61 +54,63 @@ class WorldData
     void drawDeferredLoadingUi() const;
 
   private:
-    bool _initialized{false};
+    bool m_initialized{false};
     // Use general for descriptors because because we don't know the required
     // storage up front and the internal array will be reallocated
-    DescriptorAllocator _descriptorAllocator;
+    DescriptorAllocator m_descriptorAllocator;
 
-    Timer _materialStreamingTimer;
+    Timer m_materialStreamingTimer;
 
-    std::filesystem::path _sceneDir;
+    std::filesystem::path m_sceneDir;
 
-    wheels::Array<vk::Sampler> _samplers{gAllocators.general};
-    wheels::Array<Texture2D> _texture2Ds{gAllocators.general};
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _geometryMetadatasBuffers;
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _meshletCountsBuffers;
-    wheels::Array<uint32_t> _geometryBufferAllocatedByteCounts{
+    wheels::Array<vk::Sampler> m_samplers{gAllocators.general};
+    wheels::Array<Texture2D> m_texture2Ds{gAllocators.general};
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT>
+        m_geometryMetadatasBuffers;
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> m_meshletCountsBuffers;
+    wheels::Array<uint32_t> m_geometryBufferAllocatedByteCounts{
         gAllocators.general};
-    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _geometryGenerations{0};
-
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> _materialsBuffers;
-    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> _materialsGenerations{
+    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> m_geometryGenerations{
         0};
 
-    wheels::Array<uint8_t> _rawAnimationData{gAllocators.general};
+    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> m_materialsBuffers;
+    wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> m_materialsGenerations{
+        0};
 
-    wheels::Optional<ShaderReflection> _materialsReflection;
-    wheels::Optional<ShaderReflection> _geometryReflection;
-    wheels::Optional<ShaderReflection> _sceneInstancesReflection;
-    wheels::Optional<ShaderReflection> _lightsReflection;
-    wheels::Optional<ShaderReflection> _skyboxReflection;
+    wheels::Array<uint8_t> m_rawAnimationData{gAllocators.general};
+
+    wheels::Optional<ShaderReflection> m_materialsReflection;
+    wheels::Optional<ShaderReflection> m_geometryReflection;
+    wheels::Optional<ShaderReflection> m_sceneInstancesReflection;
+    wheels::Optional<ShaderReflection> m_lightsReflection;
+    wheels::Optional<ShaderReflection> m_skyboxReflection;
 
   public:
-    SkyboxResources _skyboxResources{
+    SkyboxResources m_skyboxResources{
         .radianceViews = wheels::Array<vk::ImageView>{gAllocators.general},
     };
 
-    wheels::Array<CameraParameters> _cameras{gAllocators.general};
+    wheels::Array<CameraParameters> m_cameras{gAllocators.general};
     // True if any instance of the camera is dynamic
-    wheels::Array<bool> _cameraDynamic{gAllocators.general};
-    wheels::Array<Material> _materials{gAllocators.general};
-    wheels::Array<Buffer> _geometryBuffers{gAllocators.general};
-    wheels::Array<GeometryMetadata> _geometryMetadatas{gAllocators.general};
-    wheels::Array<MeshInfo> _meshInfos{gAllocators.general};
-    wheels::Array<wheels::String> _meshNames{gAllocators.general};
-    wheels::Array<AccelerationStructure> _blases{gAllocators.general};
-    wheels::Array<AccelerationStructure> _tlases{gAllocators.general};
-    wheels::Array<Model> _models{gAllocators.general};
-    Animations _animations{gAllocators.general};
-    wheels::Array<Scene> _scenes{gAllocators.general};
-    size_t _currentScene{0};
+    wheels::Array<bool> m_cameraDynamic{gAllocators.general};
+    wheels::Array<Material> m_materials{gAllocators.general};
+    wheels::Array<Buffer> m_geometryBuffers{gAllocators.general};
+    wheels::Array<GeometryMetadata> m_geometryMetadatas{gAllocators.general};
+    wheels::Array<MeshInfo> m_meshInfos{gAllocators.general};
+    wheels::Array<wheels::String> m_meshNames{gAllocators.general};
+    wheels::Array<AccelerationStructure> m_blases{gAllocators.general};
+    wheels::Array<AccelerationStructure> m_tlases{gAllocators.general};
+    wheels::Array<Model> m_models{gAllocators.general};
+    Animations m_animations{gAllocators.general};
+    wheels::Array<Scene> m_scenes{gAllocators.general};
+    size_t m_currentScene{0};
 
-    WorldDSLayouts _dsLayouts;
-    WorldDescriptorSets _descriptorSets;
+    WorldDSLayouts m_dsLayouts;
+    WorldDescriptorSets m_descriptorSets;
 
-    RingBuffer _modelInstanceTransformsRing;
+    RingBuffer m_modelInstanceTransformsRing;
 
-    wheels::Optional<DeferredLoadingContext> _deferredLoadingContext;
+    wheels::Optional<DeferredLoadingContext> m_deferredLoadingContext;
 
   private:
     void loadTextures(

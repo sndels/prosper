@@ -83,10 +83,10 @@ class InputHandler
     void showCursor();
 
   private:
-    CursorState _cursor;
-    wheels::StaticArray<KeyState, KeyCount> _keyboard{KeyState::Neutral};
-    wheels::StaticArray<bool, KeyCount> _keyboardUpdated{false};
-    wheels::Optional<MouseGesture> _mouseGesture;
+    CursorState m_cursor;
+    wheels::StaticArray<KeyState, KeyCount> m_keyboard{KeyState::Neutral};
+    wheels::StaticArray<bool, KeyCount> m_keyboardUpdated{false};
+    wheels::Optional<MouseGesture> m_mouseGesture;
 };
 
 extern InputHandler gInputHandler;

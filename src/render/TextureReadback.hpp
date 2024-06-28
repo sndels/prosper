@@ -45,10 +45,10 @@ class TextureReadback
     wheels::Optional<glm::vec4> readback();
 
   private:
-    bool _initialized{false};
-    ComputePass _computePass;
-    int32_t _framesUntilReady{-1};
-    Buffer _buffer;
+    bool m_initialized{false};
+    ComputePass m_computePass;
+    int32_t m_framesUntilReady{-1};
+    Buffer m_buffer;
 };
 
 #endif // PROSPER_RENDER_TEXTURE_READBACK_HPP

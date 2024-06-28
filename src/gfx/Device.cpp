@@ -483,24 +483,24 @@ Device gDevice;
 
 Device::~Device()
 {
-    WHEELS_ASSERT((!_initialized || !_instance) && "destroy() not called");
+    WHEELS_ASSERT((!m_initialized || !m_instance) && "destroy() not called");
 }
 
 void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
     printf("Creating Vulkan device\n");
 
-    _settings = settings;
+    m_settings = settings;
 
     // No includer as we expand those ourselves
-    _compilerOptions.SetGenerateDebugInfo();
-    _compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
-    _compilerOptions.SetTargetEnvironment(
+    m_compilerOptions.SetGenerateDebugInfo();
+    m_compilerOptions.SetTargetSpirv(shaderc_spirv_version_1_6);
+    m_compilerOptions.SetTargetEnvironment(
         shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
 
-    _compiler = OwningPtr<shaderc::Compiler>(gAllocators.general);
+    m_compiler = OwningPtr<shaderc::Compiler>(gAllocators.general);
 
     const vk::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
@@ -508,7 +508,7 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
     createInstance(scopeAlloc.child_scope());
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(_instance);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(m_instance);
 
     {
         // 1.0 doesn't have the check function
@@ -529,51 +529,51 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
     createDebugMessenger();
     createSurface();
     selectPhysicalDevice(scopeAlloc.child_scope());
-    _queueFamilies = findQueueFamilies(_physical, _surface);
+    m_queueFamilies = findQueueFamilies(m_physical, m_surface);
 
     createLogicalDevice(scopeAlloc.child_scope());
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(_logical);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(m_logical);
 
     createAllocator();
     createCommandPools();
 
     {
-        const auto props = _physical.getProperties2<
+        const auto props = m_physical.getProperties2<
             vk::PhysicalDeviceProperties2,
             vk::PhysicalDeviceRayTracingPipelinePropertiesKHR,
             vk::PhysicalDeviceAccelerationStructurePropertiesKHR,
             vk::PhysicalDeviceMeshShaderPropertiesEXT,
             vk::PhysicalDeviceSubgroupProperties>();
-        _properties.device =
+        m_properties.device =
             props.get<vk::PhysicalDeviceProperties2>().properties;
-        _properties.rtPipeline =
+        m_properties.rtPipeline =
             props.get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
-        _properties.accelerationStructure =
+        m_properties.accelerationStructure =
             props.get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
-        _properties.meshShader =
+        m_properties.meshShader =
             props.get<vk::PhysicalDeviceMeshShaderPropertiesEXT>();
-        _properties.subgroup =
+        m_properties.subgroup =
             props.get<vk::PhysicalDeviceSubgroupProperties>();
 
 #ifdef __linux__
         // The AMD 680M on amdpro drivers seems to misreport this higher
         // than what's actually used
-        if (_properties.device.vendorID == 0x1002 &&
-            _properties.device.deviceID == 0x1681)
-            _properties.meshShader.maxMeshWorkGroupCount[0] = std::min(
-                _properties.meshShader.maxMeshWorkGroupCount[0], 0xFFFFu);
+        if (m_properties.device.vendorID == 0x1002 &&
+            m_properties.device.deviceID == 0x1681)
+            m_properties.meshShader.maxMeshWorkGroupCount[0] = std::min(
+                m_properties.meshShader.maxMeshWorkGroupCount[0], 0xFFFFu);
 #endif // __linux__
 
         WHEELS_ASSERT(
-            _properties.meshShader.maxMeshOutputVertices >= sMaxMsVertices);
+            m_properties.meshShader.maxMeshOutputVertices >= sMaxMsVertices);
         WHEELS_ASSERT(
-            _properties.meshShader.maxMeshOutputPrimitives >= sMaxMsTriangles);
+            m_properties.meshShader.maxMeshOutputPrimitives >= sMaxMsTriangles);
 
         const vk::ShaderStageFlags meshAndComputeStages =
             vk::ShaderStageFlagBits::eMeshEXT |
             vk::ShaderStageFlagBits::eCompute;
         WHEELS_ASSERT(
-            (_properties.subgroup.supportedStages & meshAndComputeStages) ==
+            (m_properties.subgroup.supportedStages & meshAndComputeStages) ==
             meshAndComputeStages);
 
         const vk::SubgroupFeatureFlags basicBallotAndArithmetic =
@@ -581,21 +581,21 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
             vk::SubgroupFeatureFlagBits::eBallot |
             vk::SubgroupFeatureFlagBits::eArithmetic;
         WHEELS_ASSERT(
-            (_properties.subgroup.supportedOperations &
+            (m_properties.subgroup.supportedOperations &
              basicBallotAndArithmetic) == basicBallotAndArithmetic);
 
         {
-            const auto apiPacked = _properties.device.apiVersion;
+            const auto apiPacked = m_properties.device.apiVersion;
             const auto major = VK_API_VERSION_MAJOR(apiPacked);
             const auto minor = VK_API_VERSION_MINOR(apiPacked);
             const auto patch = VK_API_VERSION_PATCH(apiPacked);
             printf("Vulkan %u.%u.%u\n", major, minor, patch);
         }
 
-        printf("%s\n", _properties.device.deviceName.data());
+        printf("%s\n", m_properties.device.deviceName.data());
     }
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void Device::destroy()
@@ -603,95 +603,95 @@ void Device::destroy()
     // Don't check for initialized as we might be cleaning up after a partial
     // init that failed
 
-    if (_allocator != nullptr)
-        vmaDestroyAllocator(_allocator);
+    if (m_allocator != nullptr)
+        vmaDestroyAllocator(m_allocator);
 
-    if (_logical)
+    if (m_logical)
     {
         // Also cleans up associated command buffers
-        _logical.destroy(_graphicsPool);
-        _logical.destroy(_transferPool);
+        m_logical.destroy(m_graphicsPool);
+        m_logical.destroy(m_transferPool);
         // Implicitly cleans up associated queues as well
-        _logical.destroy();
+        m_logical.destroy();
     }
 
-    if (_instance)
+    if (m_instance)
     {
-        _instance.destroy(_surface);
-        DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
-        _instance.destroy();
+        m_instance.destroy(m_surface);
+        DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+        m_instance.destroy();
 
-        // _initialized = true and null instance mark a destroyed Device
-        _instance = vk::Instance{};
+        // m_initialized = true and null instance mark a destroyed Device
+        m_instance = vk::Instance{};
     }
 
-    _compiler.reset();
+    m_compiler.reset();
 }
 
 vk::Instance Device::instance() const
 {
-    WHEELS_ASSERT(_instance);
+    WHEELS_ASSERT(m_instance);
 
-    return _instance;
+    return m_instance;
 }
 
 vk::PhysicalDevice Device::physical() const
 {
-    WHEELS_ASSERT(_physical);
+    WHEELS_ASSERT(m_physical);
 
-    return _physical;
+    return m_physical;
 }
 
 vk::Device Device::logical() const
 {
-    WHEELS_ASSERT(_logical);
+    WHEELS_ASSERT(m_logical);
 
-    return _logical;
+    return m_logical;
 }
 
 vk::SurfaceKHR Device::surface() const
 {
-    WHEELS_ASSERT(_surface);
+    WHEELS_ASSERT(m_surface);
 
-    return _surface;
+    return m_surface;
 }
 
 vk::CommandPool Device::graphicsPool() const
 {
-    WHEELS_ASSERT(_graphicsPool);
+    WHEELS_ASSERT(m_graphicsPool);
 
-    return _graphicsPool;
+    return m_graphicsPool;
 }
 
 vk::Queue Device::graphicsQueue() const
 {
-    WHEELS_ASSERT(_graphicsQueue);
+    WHEELS_ASSERT(m_graphicsQueue);
 
-    return _graphicsQueue;
+    return m_graphicsQueue;
 }
 
 vk::CommandPool Device::transferPool() const
 {
-    WHEELS_ASSERT(_transferPool);
+    WHEELS_ASSERT(m_transferPool);
 
-    return _transferPool;
+    return m_transferPool;
 }
 
 vk::Queue Device::transferQueue() const
 {
-    WHEELS_ASSERT(_transferQueue);
+    WHEELS_ASSERT(m_transferQueue);
 
-    return _transferQueue;
+    return m_transferQueue;
 }
 
-const QueueFamilies &Device::queueFamilies() const { return _queueFamilies; }
+const QueueFamilies &Device::queueFamilies() const { return m_queueFamilies; }
 
-const DeviceProperties &Device::properties() const { return _properties; }
+const DeviceProperties &Device::properties() const { return m_properties; }
 
 wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
@@ -726,12 +726,12 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     ShaderReflection reflection;
     reflection.init(scopeAlloc.child_scope(), spvWords, uniqueIncludes);
 
-    const auto sm = _logical.createShaderModule(vk::ShaderModuleCreateInfo{
+    const auto sm = m_logical.createShaderModule(vk::ShaderModuleCreateInfo{
         .codeSize = spvWords.size() * sizeof(uint32_t),
         .pCode = spvWords.data(),
     });
 
-    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eShaderModule,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
@@ -748,7 +748,7 @@ wheels::Optional<ShaderReflection> Device::reflectShader(
     ScopedScratch scopeAlloc, CompileShaderModuleArgs const &info,
     bool add_dummy_compute_boilerplate)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     printf("Reflecting %s\n", info.relPath.string().c_str());
 
@@ -805,14 +805,14 @@ void main()
 
 Buffer Device::create(const BufferCreateInfo &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     return createBuffer(info);
 }
 
 Buffer Device::createBuffer(const BufferCreateInfo &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const BufferDescription &desc = info.desc;
 
@@ -853,9 +853,9 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     // many individual buffers
     const vk::DeviceSize alignment = 256;
     {
-        const std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard lock{m_allocatorMutex};
         vmaCreateBufferWithAlignment(
-            _allocator, vkpBufferInfo, &allocCreateInfo, alignment, vkpBuffer,
+            m_allocator, vkpBufferInfo, &allocCreateInfo, alignment, vkpBuffer,
             &buffer.allocation, &allocInfo);
     }
 
@@ -869,11 +869,11 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
 
     if (info.cacheDeviceAddress)
         buffer.deviceAddress =
-            _logical.getBufferAddress(vk::BufferDeviceAddressInfo{
+            m_logical.getBufferAddress(vk::BufferDeviceAddressInfo{
                 .buffer = buffer.handle,
             });
 
-    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eBuffer,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
@@ -925,7 +925,7 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
 
 void Device::destroy(Buffer &buffer)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     if (buffer.handle == vk::Buffer{})
         return;
@@ -934,8 +934,8 @@ void Device::destroy(Buffer &buffer)
 
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaDestroyBuffer(m_allocator, vkBuffer, buffer.allocation);
     }
 
     buffer.handle = vk::Buffer{};
@@ -943,19 +943,19 @@ void Device::destroy(Buffer &buffer)
 
 TexelBuffer Device::create(const TexelBufferCreateInfo &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     return createTexelBuffer(info);
 }
 
 TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const TexelBufferDescription &desc = info.desc;
     const BufferDescription &bufferDesc = desc.bufferDesc;
 
-    const auto formatProperties = _physical.getFormatProperties(desc.format);
+    const auto formatProperties = m_physical.getFormatProperties(desc.format);
 
     if (containsFlag(
             bufferDesc.usage, vk::BufferUsageFlagBits::eStorageTexelBuffer))
@@ -988,7 +988,7 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
     // This will be tracked as a texel buffer
     untrackBuffer(buffer);
 
-    const auto view = _logical.createBufferView(vk::BufferViewCreateInfo{
+    const auto view = m_logical.createBufferView(vk::BufferViewCreateInfo{
         .buffer = buffer.handle,
         .format = desc.format,
         .offset = 0,
@@ -1009,7 +1009,7 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
 
 void Device::destroy(TexelBuffer &buffer)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     if (buffer.handle == vk::Buffer{})
         return;
@@ -1018,24 +1018,24 @@ void Device::destroy(TexelBuffer &buffer)
 
     auto *vkBuffer = static_cast<VkBuffer>(buffer.handle);
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaDestroyBuffer(_allocator, vkBuffer, buffer.allocation);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaDestroyBuffer(m_allocator, vkBuffer, buffer.allocation);
     }
-    _logical.destroy(buffer.view);
+    m_logical.destroy(buffer.view);
 
     buffer.handle = vk::Buffer{};
 }
 
 Image Device::create(const ImageCreateInfo &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     return createImage(info);
 }
 
 Image Device::createImage(const ImageCreateInfo &info)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const ImageDescription &desc = info.desc;
 
@@ -1068,13 +1068,13 @@ Image Device::createImage(const ImageCreateInfo &info)
         reinterpret_cast<const VkImageCreateInfo *>(&imageInfo);
     auto *vkpImage = reinterpret_cast<VkImage *>(&image.handle);
     {
-        const std::lock_guard _lock{_allocatorMutex};
+        const std::lock_guard lock{m_allocatorMutex};
         vmaCreateImage(
-            _allocator, vkpImageInfo, &allocInfo, vkpImage, &image.allocation,
+            m_allocator, vkpImageInfo, &allocInfo, vkpImage, &image.allocation,
             nullptr);
     }
 
-    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eImage,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
@@ -1122,14 +1122,14 @@ Image Device::createImage(const ImageCreateInfo &info)
         }
     }();
 
-    image.view = _logical.createImageView(vk::ImageViewCreateInfo{
+    image.view = m_logical.createImageView(vk::ImageViewCreateInfo{
         .image = image.handle,
         .viewType = viewType,
         .format = desc.format,
         .subresourceRange = range,
     });
 
-    _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
         .objectType = vk::ObjectType::eImageView,
         .objectHandle =
             reinterpret_cast<uint64_t>(static_cast<VkImageView>(image.view)),
@@ -1145,8 +1145,8 @@ Image Device::createImage(const ImageCreateInfo &info)
     {
         VmaAllocationInfo vmaInfo;
         {
-            const std::lock_guard _lock{_allocatorMutex};
-            vmaGetAllocationInfo(_allocator, image.allocation, &vmaInfo);
+            const std::lock_guard lock{m_allocatorMutex};
+            vmaGetAllocationInfo(m_allocator, image.allocation, &vmaInfo);
         }
         image.rawByteSize = vmaInfo.size;
     }
@@ -1158,7 +1158,7 @@ Image Device::createImage(const ImageCreateInfo &info)
 
 void Device::destroy(Image &image)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     if (image.handle == vk::Image{})
         return;
@@ -1167,10 +1167,10 @@ void Device::destroy(Image &image)
 
     auto *vkImage = static_cast<VkImage>(image.handle);
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaDestroyImage(_allocator, vkImage, image.allocation);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaDestroyImage(m_allocator, vkImage, image.allocation);
     }
-    _logical.destroy(image.view);
+    m_logical.destroy(image.view);
 
     image.handle = vk::Image{};
 }
@@ -1179,7 +1179,7 @@ void Device::createSubresourcesViews(
     const Image &image, StrSpan debugNamePrefix,
     Span<vk::ImageView> outViews) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(
         image.subresourceRange.layerCount == 1 &&
@@ -1212,7 +1212,7 @@ void Device::createSubresourcesViews(
     tmp.extend(debugNamePrefix);
     for (uint32_t i = 0; i < image.subresourceRange.levelCount; ++i)
     {
-        outViews[i] = _logical.createImageView(vk::ImageViewCreateInfo{
+        outViews[i] = m_logical.createImageView(vk::ImageViewCreateInfo{
             .image = image.handle,
             .viewType = viewType,
             .format = image.format,
@@ -1235,7 +1235,7 @@ void Device::createSubresourcesViews(
         tmp.push_back(asserted_cast<char>(
             asserted_cast<int32_t>('0') + asserted_cast<int32_t>(i) % 10));
 
-        _logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
+        m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eImageView,
             .objectHandle = reinterpret_cast<uint64_t>(
                 static_cast<VkImageView>(image.view)),
@@ -1250,19 +1250,19 @@ void Device::createSubresourcesViews(
 
 void Device::destroy(Span<const vk::ImageView> views) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     for (const vk::ImageView view : views)
-        _logical.destroy(view);
+        m_logical.destroy(view);
 }
 
 vk::CommandBuffer Device::beginGraphicsCommands() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const auto buffer =
-        _logical.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-            .commandPool = _graphicsPool,
+        m_logical.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+            .commandPool = m_graphicsPool,
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1})[0];
 
@@ -1276,7 +1276,7 @@ vk::CommandBuffer Device::beginGraphicsCommands() const
 
 void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     buffer.end();
 
@@ -1284,23 +1284,23 @@ void Device::endGraphicsCommands(const vk::CommandBuffer buffer) const
         .commandBufferCount = 1,
         .pCommandBuffers = &buffer,
     };
-    checkSuccess(_graphicsQueue.submit(1, &submitInfo, vk::Fence{}), "submit");
-    _graphicsQueue.waitIdle();
+    checkSuccess(m_graphicsQueue.submit(1, &submitInfo, vk::Fence{}), "submit");
+    m_graphicsQueue.waitIdle();
 
-    _logical.freeCommandBuffers(_graphicsPool, 1, &buffer);
+    m_logical.freeCommandBuffers(m_graphicsPool, 1, &buffer);
 }
 
 const MemoryAllocationBytes &Device::memoryAllocations() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _memoryAllocations;
+    return m_memoryAllocations;
 }
 
 bool Device::isDeviceSuitable(
     ScopedScratch scopeAlloc, const vk::PhysicalDevice device) const
 {
-    const auto families = findQueueFamilies(device, _surface);
+    const auto families = findQueueFamilies(device, m_surface);
     if (!families.isComplete())
     {
         fprintf(stderr, "Missing required queue families\n");
@@ -1308,10 +1308,10 @@ bool Device::isDeviceSuitable(
     }
 
     if (!checkDeviceExtensionSupport(
-            scopeAlloc.child_scope(), device, _settings))
+            scopeAlloc.child_scope(), device, m_settings))
         return false;
 
-    const SwapchainSupport swapSupport{scopeAlloc, device, _surface};
+    const SwapchainSupport swapSupport{scopeAlloc, device, m_surface};
     if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
     {
         fprintf(stderr, "Inadequate swap chain\n");
@@ -1335,7 +1335,7 @@ bool Device::isDeviceSuitable(
 #undef CHECK_REQUIRED_FEATURES
     }
 
-    if (_settings.robustAccess)
+    if (m_settings.robustAccess)
     {
         const auto allFeatures = device.getFeatures2<
             vk::PhysicalDeviceFeatures2,
@@ -1403,7 +1403,7 @@ bool Device::isDeviceSuitable(
 
 void Device::createInstance(ScopedScratch scopeAlloc)
 {
-    if (_settings.enableDebugLayers && !checkValidationLayerSupport())
+    if (m_settings.enableDebugLayers && !checkValidationLayerSupport())
         throw std::runtime_error("Validation layers not available");
 
     const vk::ApplicationInfo appInfo{
@@ -1420,14 +1420,14 @@ void Device::createInstance(ScopedScratch scopeAlloc)
     for (const String &ext : extensions)
         extension_cstrs.push_back(ext.c_str());
 
-    _instance = vk::createInstance(vk::InstanceCreateInfo{
+    m_instance = vk::createInstance(vk::InstanceCreateInfo{
         .pApplicationInfo = &appInfo,
         .enabledLayerCount =
-            _settings.enableDebugLayers
+            m_settings.enableDebugLayers
                 ? asserted_cast<uint32_t>(validationLayers.size())
                 : 0,
         .ppEnabledLayerNames =
-            _settings.enableDebugLayers ? validationLayers.data() : nullptr,
+            m_settings.enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount =
             asserted_cast<uint32_t>(extension_cstrs.size()),
         .ppEnabledExtensionNames = extension_cstrs.data(),
@@ -1444,10 +1444,10 @@ void Device::createDebugMessenger()
         .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
                        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
         .pfnUserCallback = debugCallback,
-        .pUserData = &_settings,
+        .pUserData = &m_settings,
     };
     CreateDebugUtilsMessengerEXT(
-        _instance, &createInfo, nullptr, &_debugMessenger);
+        m_instance, &createInfo, nullptr, &m_debugMessenger);
 }
 
 void Device::createSurface()
@@ -1455,8 +1455,8 @@ void Device::createSurface()
     GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
 
-    auto *vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&_surface);
-    auto *vkInstance = static_cast<VkInstance>(_instance);
+    auto *vkpSurface = reinterpret_cast<VkSurfaceKHR *>(&m_surface);
+    auto *vkInstance = static_cast<VkInstance>(m_instance);
     if (glfwCreateWindowSurface(vkInstance, window, nullptr, vkpSurface) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to create window surface");
@@ -1466,14 +1466,14 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
 {
     printf("Selecting device\n");
 
-    const auto devices = _instance.enumeratePhysicalDevices();
+    const auto devices = m_instance.enumeratePhysicalDevices();
 
     for (const auto &device : devices)
     {
         printf("Considering '%s'\n", device.getProperties().deviceName.data());
         if (isDeviceSuitable(scopeAlloc.child_scope(), device))
         {
-            _physical = device;
+            m_physical = device;
             return;
         }
     }
@@ -1483,13 +1483,13 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
 
 void Device::createLogicalDevice(ScopedScratch scopeAlloc)
 {
-    WHEELS_ASSERT(_queueFamilies.graphicsFamily.has_value());
-    WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
+    WHEELS_ASSERT(m_queueFamilies.graphicsFamily.has_value());
+    WHEELS_ASSERT(m_queueFamilies.transferFamily.has_value());
 
-    const uint32_t graphicsFamily = *_queueFamilies.graphicsFamily;
+    const uint32_t graphicsFamily = *m_queueFamilies.graphicsFamily;
     const uint32_t graphicsFamilyQueueCount =
-        _queueFamilies.graphicsFamilyQueueCount;
-    const uint32_t transferFamily = *_queueFamilies.transferFamily;
+        m_queueFamilies.graphicsFamilyQueueCount;
+    const uint32_t transferFamily = *m_queueFamilies.transferFamily;
 
     // First queue in family has largest queue, rest descend
     const StaticArray queuePriorities{{1.f, 0.f}};
@@ -1528,7 +1528,7 @@ void Device::createLogicalDevice(ScopedScratch scopeAlloc)
         enabledExtensions.push_back(ext);
 
     const char *robustness2Name = VK_EXT_ROBUSTNESS_2_EXTENSION_NAME;
-    if (_settings.robustAccess)
+    if (m_settings.robustAccess)
         enabledExtensions.push_back(robustness2Name);
 
     vk::StructureChain<
@@ -1541,11 +1541,11 @@ void Device::createLogicalDevice(ScopedScratch scopeAlloc)
             asserted_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
         .enabledLayerCount =
-            _settings.enableDebugLayers
+            m_settings.enableDebugLayers
                 ? asserted_cast<uint32_t>(validationLayers.size())
                 : 0,
         .ppEnabledLayerNames =
-            _settings.enableDebugLayers ? validationLayers.data() : nullptr,
+            m_settings.enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount =
             asserted_cast<uint32_t>(enabledExtensions.size()),
         .ppEnabledExtensionNames = enabledExtensions.data(),
@@ -1558,7 +1558,7 @@ void Device::createLogicalDevice(ScopedScratch scopeAlloc)
 
 #undef TOGGLE_REQUIRED_FEATURES
 
-    if (_settings.robustAccess)
+    if (m_settings.robustAccess)
     {
         createChain.get<vk::PhysicalDeviceFeatures2>()
             .features.robustBufferAccess = VK_TRUE;
@@ -1571,51 +1571,52 @@ void Device::createLogicalDevice(ScopedScratch scopeAlloc)
     else
         createChain.unlink<vk::PhysicalDeviceRobustness2FeaturesEXT>();
 
-    _logical = _physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
+    m_logical =
+        m_physical.createDevice(createChain.get<vk::DeviceCreateInfo>());
 
-    _graphicsQueue = _logical.getQueue(graphicsFamily, 0);
+    m_graphicsQueue = m_logical.getQueue(graphicsFamily, 0);
     if (graphicsFamily == transferFamily)
     {
         WHEELS_ASSERT(
             graphicsFamilyQueueCount > 1 &&
             "Device doesn't support two queues");
-        _transferQueue = _logical.getQueue(graphicsFamily, 1);
+        m_transferQueue = m_logical.getQueue(graphicsFamily, 1);
     }
     else
-        _transferQueue = _logical.getQueue(transferFamily, 0);
+        m_transferQueue = m_logical.getQueue(transferFamily, 0);
 }
 
 void Device::createAllocator()
 {
     const VmaAllocatorCreateInfo allocatorInfo{
         .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-        .physicalDevice = static_cast<VkPhysicalDevice>(_physical),
-        .device = static_cast<VkDevice>(_logical),
-        .instance = static_cast<VkInstance>(_instance),
+        .physicalDevice = static_cast<VkPhysicalDevice>(m_physical),
+        .device = static_cast<VkDevice>(m_logical),
+        .instance = static_cast<VkInstance>(m_instance),
     };
-    if (vmaCreateAllocator(&allocatorInfo, &_allocator) != VK_SUCCESS)
+    if (vmaCreateAllocator(&allocatorInfo, &m_allocator) != VK_SUCCESS)
         throw std::runtime_error("Failed to create allocator");
 }
 
 void Device::createCommandPools()
 {
     {
-        WHEELS_ASSERT(_queueFamilies.graphicsFamily.has_value());
+        WHEELS_ASSERT(m_queueFamilies.graphicsFamily.has_value());
 
         const vk::CommandPoolCreateInfo poolInfo{
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = *_queueFamilies.graphicsFamily,
+            .queueFamilyIndex = *m_queueFamilies.graphicsFamily,
         };
-        _graphicsPool = _logical.createCommandPool(poolInfo, nullptr);
+        m_graphicsPool = m_logical.createCommandPool(poolInfo, nullptr);
     }
     {
-        WHEELS_ASSERT(_queueFamilies.transferFamily.has_value());
+        WHEELS_ASSERT(m_queueFamilies.transferFamily.has_value());
 
         const vk::CommandPoolCreateInfo poolInfo{
             .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            .queueFamilyIndex = *_queueFamilies.transferFamily,
+            .queueFamilyIndex = *m_queueFamilies.transferFamily,
         };
-        _transferPool = _logical.createCommandPool(poolInfo, nullptr);
+        m_transferPool = m_logical.createCommandPool(poolInfo, nullptr);
     }
 }
 
@@ -1623,11 +1624,11 @@ void Device::trackBuffer(const Buffer &buffer)
 {
     VmaAllocationInfo info;
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaGetAllocationInfo(m_allocator, buffer.allocation, &info);
     }
 
-    _memoryAllocations.buffers += info.size;
+    m_memoryAllocations.buffers += info.size;
 }
 
 void Device::untrackBuffer(const Buffer &buffer)
@@ -1637,22 +1638,22 @@ void Device::untrackBuffer(const Buffer &buffer)
 
     VmaAllocationInfo info;
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaGetAllocationInfo(m_allocator, buffer.allocation, &info);
     }
 
-    _memoryAllocations.buffers -= info.size;
+    m_memoryAllocations.buffers -= info.size;
 }
 
 void Device::trackTexelBuffer(const TexelBuffer &buffer)
 {
     VmaAllocationInfo info;
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaGetAllocationInfo(m_allocator, buffer.allocation, &info);
     }
 
-    _memoryAllocations.texelBuffers += info.size;
+    m_memoryAllocations.texelBuffers += info.size;
 }
 
 void Device::untrackTexelBuffer(const TexelBuffer &buffer)
@@ -1662,22 +1663,22 @@ void Device::untrackTexelBuffer(const TexelBuffer &buffer)
 
     VmaAllocationInfo info;
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaGetAllocationInfo(_allocator, buffer.allocation, &info);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaGetAllocationInfo(m_allocator, buffer.allocation, &info);
     }
 
-    _memoryAllocations.texelBuffers -= info.size;
+    m_memoryAllocations.texelBuffers -= info.size;
 }
 
 void Device::trackImage(const Image &image)
 {
     VmaAllocationInfo info;
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaGetAllocationInfo(_allocator, image.allocation, &info);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaGetAllocationInfo(m_allocator, image.allocation, &info);
     }
 
-    _memoryAllocations.images += info.size;
+    m_memoryAllocations.images += info.size;
 }
 
 void Device::untrackImage(const Image &image)
@@ -1687,11 +1688,11 @@ void Device::untrackImage(const Image &image)
 
     VmaAllocationInfo info;
     {
-        const std::lock_guard _lock{_allocatorMutex};
-        vmaGetAllocationInfo(_allocator, image.allocation, &info);
+        const std::lock_guard lock{m_allocatorMutex};
+        vmaGetAllocationInfo(m_allocator, image.allocation, &info);
     }
 
-    _memoryAllocations.images -= info.size;
+    m_memoryAllocations.images -= info.size;
 }
 
 std::filesystem::path Device::updateShaderCache(
@@ -1727,15 +1728,15 @@ std::filesystem::path Device::updateShaderCache(
     cachePath.replace_extension("prosper_shader");
 
     const bool cacheValid = readCache(alloc, cachePath);
-    if (!cacheValid || _settings.dumpShaderDisassembly)
+    if (!cacheValid || m_settings.dumpShaderDisassembly)
     {
         printf("Compiling %s\n", relPath.string().c_str());
 
         const shaderc::SpvCompilationResult result =
-            _compiler->CompileGlslToSpv(
+            m_compiler->CompileGlslToSpv(
                 fullSource.c_str(), fullSource.size(),
                 shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
-                _compilerOptions);
+                m_compilerOptions);
 
         if (const auto status = result.GetCompilationStatus(); status)
         {
@@ -1751,13 +1752,13 @@ std::filesystem::path Device::updateShaderCache(
 
         writeCache(cachePath, result, uniqueIncludes);
 
-        if (_settings.dumpShaderDisassembly)
+        if (m_settings.dumpShaderDisassembly)
         {
             const shaderc::AssemblyCompilationResult resultAsm =
-                _compiler->CompileGlslToSpvAssembly(
+                m_compiler->CompileGlslToSpvAssembly(
                     fullSource.c_str(), fullSource.size(),
                     shaderc_glsl_infer_from_source, sourcePath.string().c_str(),
-                    _compilerOptions);
+                    m_compilerOptions);
             if (const shaderc_compilation_status status =
                     result.GetCompilationStatus();
                 status == shaderc_compilation_status_success)

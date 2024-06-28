@@ -50,27 +50,27 @@ ComputePass::Shader foregroundDefinitionCallback(Allocator &alloc)
 void DepthOfFieldGather::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _backgroundPass.init(
+    m_backgroundPass.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         backgroundDefinitionCallback);
-    _foregroundPass.init(
+    m_foregroundPass.init(
         scopeAlloc.child_scope(), staticDescriptorsAlloc,
         foregroundDefinitionCallback);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldGather::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _backgroundPass.recompileShader(
+    m_backgroundPass.recompileShader(
         scopeAlloc.child_scope(), changedFiles, backgroundDefinitionCallback);
-    _foregroundPass.recompileShader(
+    m_foregroundPass.recompileShader(
         scopeAlloc.child_scope(), changedFiles, foregroundDefinitionCallback);
 }
 
@@ -78,7 +78,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     GatherType gatherType, const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(gatherType < GatherType_Count);
 
     const char *const debugString = gatherType == GatherType_Background
@@ -87,11 +87,11 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
     PROFILER_CPU_SCOPE(profiler, debugString);
 
     ComputePass *computePass = gatherType == GatherType_Foreground
-                                   ? &_foregroundPass
-                                   : &_backgroundPass;
+                                   ? &m_foregroundPass
+                                   : &m_backgroundPass;
 
     if (gatherType == GatherType_Foreground)
-        _frameIndex = (_frameIndex + 1) % 128;
+        m_frameIndex = (m_frameIndex + 1) % 128;
 
     Output ret;
     {
@@ -167,7 +167,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
                                  vec2{
                                      static_cast<float>(renderExtent.width),
                                      static_cast<float>(renderExtent.height)},
-            .frameIndex = _frameIndex,
+            .frameIndex = m_frameIndex,
         };
         const uvec3 extent = uvec3{renderExtent.width, renderExtent.height, 1u};
         const vk::DescriptorSet storageSet = computePass->storageSet(nextFrame);

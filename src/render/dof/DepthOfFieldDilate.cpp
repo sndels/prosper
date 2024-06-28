@@ -37,22 +37,22 @@ struct PcBlock
 void DepthOfFieldDilate::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DepthOfFieldDilate::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
@@ -60,7 +60,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle tileMinMaxCoC,
     const Camera &cam, const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "  Dilate");
 
@@ -78,7 +78,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
             },
             "dilatedTileMinMaxCoC");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -133,8 +133,9 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
         };
 
         const uvec3 extent = uvec3{inputExtent.width, inputExtent.height, 1u};
-        const vk::DescriptorSet storageSet = _computePass.storageSet(nextFrame);
-        _computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
+        const vk::DescriptorSet storageSet =
+            m_computePass.storageSet(nextFrame);
+        m_computePass.record(cb, pcBlock, extent, Span{&storageSet, 1});
     }
 
     return ret;

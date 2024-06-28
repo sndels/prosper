@@ -91,9 +91,9 @@ void DeferredShading::init(
     ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
@@ -102,7 +102,7 @@ void DeferredShading::init(
             .externalDsLayouts = externalDsLayouts(dsLayouts),
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 void DeferredShading::recompileShaders(
@@ -110,9 +110,9 @@ void DeferredShading::recompileShaders(
     const HashSet<std::filesystem::path> &changedFiles,
     const InputDSLayouts &dsLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles,
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
@@ -124,7 +124,7 @@ DeferredShading::Output DeferredShading::record(
     const Camera &cam, const Input &input, const uint32_t nextFrame,
     bool applyIbl, DrawType drawType, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "DeferredShading");
 
@@ -135,7 +135,7 @@ DeferredShading::Output DeferredShading::record(
 
         ret.illumination = createIllumination(renderExtent, "illumination");
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -208,7 +208,7 @@ DeferredShading::Output DeferredShading::record(
             worldDSes.materialDatas[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
         descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
-        descriptorSets[StorageBindingSet] = _computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
@@ -221,7 +221,7 @@ DeferredShading::Output DeferredShading::record(
         const uvec3 extent =
             glm::uvec3{renderExtent.width, renderExtent.height, 1u};
 
-        _computePass.record(
+        m_computePass.record(
             cb, pcBlock, extent, descriptorSets, dynamicOffsets);
     }
 

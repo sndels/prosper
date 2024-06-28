@@ -129,9 +129,9 @@ void LightClustering::init(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
-    _computePass.init(
+    m_computePass.init(
         WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
         shaderDefinitionCallback,
         ComputePassOptions{
@@ -141,14 +141,14 @@ void LightClustering::init(
                                  vk::ShaderStageFlagBits::eFragment,
         });
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 vk::DescriptorSetLayout LightClustering::descriptorSetLayout() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _computePass.storageSetLayout();
+    return m_computePass.storageSetLayout();
 }
 
 void LightClustering::recompileShaders(
@@ -157,9 +157,9 @@ void LightClustering::recompileShaders(
     const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    _computePass.recompileShader(
+    m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback,
         externalDsLayouts(camDSLayout, worldDSLayouts));
 }
@@ -169,7 +169,7 @@ LightClusteringOutput LightClustering::record(
     const Camera &cam, const vk::Extent2D &renderExtent,
     const uint32_t nextFrame, Profiler *profiler)
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE(profiler, "LightClustering");
 
@@ -177,7 +177,7 @@ LightClusteringOutput LightClustering::record(
     {
         ret = createOutputs(renderExtent);
 
-        _computePass.updateDescriptorSet(
+        m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -191,7 +191,7 @@ LightClusteringOutput LightClustering::record(
                 DescriptorInfo{
                     gRenderResources.texelBuffers->resource(ret.indices).view},
             }});
-        ret.descriptorSet = _computePass.storageSet(nextFrame);
+        ret.descriptorSet = m_computePass.storageSet(nextFrame);
 
         transition(
             WHEELS_MOV(scopeAlloc), cb,
@@ -247,7 +247,7 @@ LightClusteringOutput LightClustering::record(
                     outputExtent.depth} *
                 uvec3{sGroupDim, sGroupDim, 1u};
 
-            _computePass.record(
+            m_computePass.record(
                 cb, pcBlock, extent, descriptorSets, dynamicOffsets);
         }
     }

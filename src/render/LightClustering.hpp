@@ -57,8 +57,8 @@ class LightClustering
         uint32_t nextFrame, Profiler *profiler);
 
   private:
-    bool _initialized{false};
-    ComputePass _computePass;
+    bool m_initialized{false};
+    ComputePass m_computePass;
 };
 
 #endif // PROSPER_RENDER_LIGHT_CLUSTERING_HPP

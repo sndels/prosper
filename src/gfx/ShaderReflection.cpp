@@ -784,10 +784,10 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
 } // namespace
 
 ShaderReflection::ShaderReflection(ShaderReflection &&other) noexcept
-: _initialized{other._initialized}
-, _pushConstantsBytesize{other._pushConstantsBytesize}
-, _descriptorSetMetadatas{WHEELS_MOV(other._descriptorSetMetadatas)}
-, _sourceFiles{WHEELS_MOV(other._sourceFiles)}
+: m_initialized{other.m_initialized}
+, m_pushConstantsBytesize{other.m_pushConstantsBytesize}
+, m_descriptorSetMetadatas{WHEELS_MOV(other.m_descriptorSetMetadatas)}
+, m_sourceFiles{WHEELS_MOV(other.m_sourceFiles)}
 {
 }
 
@@ -795,12 +795,12 @@ ShaderReflection &ShaderReflection::operator=(ShaderReflection &&other) noexcept
 {
     if (this != &other)
     {
-        WHEELS_ASSERT(!_initialized);
+        WHEELS_ASSERT(!m_initialized);
 
-        _initialized = other._initialized;
-        _pushConstantsBytesize = other._pushConstantsBytesize;
-        _descriptorSetMetadatas = WHEELS_MOV(other._descriptorSetMetadatas);
-        _sourceFiles = WHEELS_MOV(other._sourceFiles);
+        m_initialized = other.m_initialized;
+        m_pushConstantsBytesize = other.m_pushConstantsBytesize;
+        m_descriptorSetMetadatas = WHEELS_MOV(other.m_descriptorSetMetadatas);
+        m_sourceFiles = WHEELS_MOV(other.m_sourceFiles);
     }
     return *this;
 }
@@ -809,10 +809,10 @@ void ShaderReflection::init(
     ScopedScratch scopeAlloc, Span<const uint32_t> spvWords,
     const wheels::HashSet<std::filesystem::path> &sourceFiles)
 {
-    WHEELS_ASSERT(!_initialized);
+    WHEELS_ASSERT(!m_initialized);
 
     for (const std::filesystem::path &include : sourceFiles)
-        _sourceFiles.insert(include);
+        m_sourceFiles.insert(include);
 
     const uint32_t *words = spvWords.data();
     const size_t wordCount = spvWords.size();
@@ -841,46 +841,46 @@ void ShaderReflection::init(
     secondPass(words, wordCount, results.mut_span());
 
     if (pushConstantMetadataId != sUninitialized)
-        _pushConstantsBytesize =
+        m_pushConstantsBytesize =
             getPushConstantsBytesize(results, pushConstantMetadataId);
 
-    _descriptorSetMetadatas =
+    m_descriptorSetMetadatas =
         fillDescriptorSetMetadatas(scopeAlloc.child_scope(), results);
 
-    _initialized = true;
+    m_initialized = true;
 }
 
 uint32_t ShaderReflection::pushConstantsBytesize() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _pushConstantsBytesize;
+    return m_pushConstantsBytesize;
 }
 
 HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
     descriptorSetMetadatas() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _descriptorSetMetadatas;
+    return m_descriptorSetMetadatas;
 }
 
 const HashSet<std::filesystem::path> &ShaderReflection::sourceFiles() const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
-    return _sourceFiles;
+    return m_sourceFiles;
 }
 
 bool ShaderReflection::affected(
     const HashSet<std::filesystem::path> &changedFiles) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     bool found = false;
     for (const std::filesystem::path &file : changedFiles)
     {
-        if (_sourceFiles.contains(file))
+        if (m_sourceFiles.contains(file))
         {
             found = true;
             break;
@@ -894,10 +894,10 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
     vk::ShaderStageFlags stageFlags, wheels::Span<const uint32_t> dynamicCounts,
     wheels::Span<const vk::DescriptorBindingFlags> bindingFlags) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const Array<DescriptorSetMetadata> *metadatas =
-        _descriptorSetMetadatas.find(descriptorSet);
+        m_descriptorSetMetadatas.find(descriptorSet);
     WHEELS_ASSERT(metadatas != nullptr);
 
     Array<vk::DescriptorSetLayoutBinding> layoutBindings{
@@ -954,10 +954,10 @@ wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
         vk::DescriptorSet descriptorSetHandle,
         wheels::Span<const DescriptorInfo> descriptorInfos) const
 {
-    WHEELS_ASSERT(_initialized);
+    WHEELS_ASSERT(m_initialized);
 
     const wheels::Array<DescriptorSetMetadata> *metadatas =
-        _descriptorSetMetadatas.find(descriptorSetIndex);
+        m_descriptorSetMetadatas.find(descriptorSetIndex);
     WHEELS_ASSERT(metadatas != nullptr);
     // false positive, custom assert above
     // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
