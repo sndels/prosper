@@ -19,6 +19,7 @@
 #include <thread>
 #include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/array.hpp>
+#include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
@@ -111,6 +112,8 @@ class DeferredLoadingContext
     cgltf_data *gltfData{nullptr};
     vk::CommandBuffer cb;
     uint32_t workerLoadedImageCount{0};
+    wheels::HashSet<uint32_t> sRgbColorImages{gAllocators.loadingWorker};
+    wheels::HashSet<uint32_t> linearColorImages{gAllocators.loadingWorker};
     wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes{
         gAllocators.loadingWorker};
     wheels::Array<wheels::String> meshNames{gAllocators.loadingWorker};

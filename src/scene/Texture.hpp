@@ -29,6 +29,19 @@ class Texture
     Image m_image;
 };
 
+enum class TextureColorSpace : uint8_t
+{
+    sRgb,
+    Linear,
+};
+
+struct Texture2DOptions
+{
+    bool generateMipMaps{false};
+    TextureColorSpace colorSpace{TextureColorSpace::sRgb};
+    ImageState initialState{ImageState::Unknown};
+};
+
 class Texture2D : public Texture
 {
   public:
@@ -36,8 +49,8 @@ class Texture2D : public Texture
     // and has finished executing.
     void init(
         wheels::ScopedScratch scopeAlloc, const std::filesystem::path &path,
-        vk::CommandBuffer cb, const Buffer &stagingBuffer, bool mipmap,
-        ImageState initialState = ImageState::Unknown);
+        vk::CommandBuffer cb, const Buffer &stagingBuffer,
+        const Texture2DOptions &options = Texture2DOptions{});
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 };

@@ -22,9 +22,8 @@ namespace
 {
 
 const uint64_t sTextureCacheMagic = 0x5845'5452'5053'5250; // PRSPRTEX
-// This should be incremented when breaking changes are made to
-// what's cached
-const uint32_t sTextureCacheVersion = 4;
+// This should be incremented when changes are made to what's cached
+const uint32_t sTextureCacheVersion = 5;
 
 struct UncompressedPixelData
 {
@@ -167,7 +166,7 @@ bool cacheValid(
 
 void generateMipLevels(
     Array<uint8_t> &rawLevels, Array<uint32_t> &rawLevelByteOffsets,
-    const UncompressedPixelData &pixels)
+    const UncompressedPixelData &pixels, TextureColorSpace colorSpace)
 {
     const size_t mipLevelCount = rawLevelByteOffsets.size();
     // TODO: Non-8bit channels?
@@ -194,21 +193,31 @@ void generateMipLevels(
             rawLevels.data() + rawLevelByteOffsets[level - 1]);
         uint8_t *data = reinterpret_cast<uint8_t *>(
             rawLevels.data() + rawLevelByteOffsets[level]);
-        stbir_resize_uint8_srgb(
-            parentData, asserted_cast<int>(parentWidth),
-            asserted_cast<int>(parentHeight), 0, data,
-            asserted_cast<int>(width), asserted_cast<int>(height), 0,
-            pixelLayout);
+        if (colorSpace == TextureColorSpace::sRgb)
+            stbir_resize_uint8_srgb(
+                parentData, asserted_cast<int>(parentWidth),
+                asserted_cast<int>(parentHeight), 0, data,
+                asserted_cast<int>(width), asserted_cast<int>(height), 0,
+                pixelLayout);
+        else
+        {
+            WHEELS_ASSERT(colorSpace == TextureColorSpace::Linear);
+            stbir_resize_uint8_linear(
+                parentData, asserted_cast<int>(parentWidth),
+                asserted_cast<int>(parentHeight), 0, data,
+                asserted_cast<int>(width), asserted_cast<int>(height), 0,
+                pixelLayout);
+        }
     }
 }
 
 void compress(
     ScopedScratch scopeAlloc, const std::filesystem::path &targetPath,
-    const UncompressedPixelData &pixels, bool generateMips)
+    const UncompressedPixelData &pixels, const Texture2DOptions &options)
 {
     // First calculate mip count down to 1x1
     const int32_t fullMipLevelCount =
-        generateMips
+        options.generateMipMaps
             ? asserted_cast<int32_t>(floor(
                   log2(std::max(pixels.extent.width, pixels.extent.height)))) +
                   1
@@ -245,7 +254,8 @@ void compress(
 
         // TODO: This mip setup code seems identical to the else branch?
         if (mipLevelCount > 1)
-            generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
+            generateMipLevels(
+                rawLevels, rawLevelByteOffsets, pixels, options.colorSpace);
         else
             rawLevelByteOffsets[0] = 0u;
 
@@ -286,7 +296,8 @@ void compress(
         Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
         rawLevelByteOffsets.resize(mipLevelCount);
         if (mipLevelCount > 1)
-            generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
+            generateMipLevels(
+                rawLevels, rawLevelByteOffsets, pixels, options.colorSpace);
 
         WHEELS_ASSERT(dds.data.size() <= rawLevels.size());
         memcpy(dds.data.data(), rawLevels.data(), dds.data.size());
@@ -368,8 +379,8 @@ void Texture::destroy() { gDevice.destroy(m_image); }
 
 void Texture2D::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path,
-    vk::CommandBuffer cb, const Buffer &stagingBuffer, const bool mipmap,
-    const ImageState initialState)
+    vk::CommandBuffer cb, const Buffer &stagingBuffer,
+    const Texture2DOptions &options)
 {
     const std::filesystem::file_time_type sourceWriteTime =
         std::filesystem::last_write_time(path);
@@ -405,7 +416,7 @@ void Texture2D::init(
             .channels = asserted_cast<uint32_t>(channels),
         };
 
-        compress(scopeAlloc.child_scope(), cached, pixels, mipmap);
+        compress(scopeAlloc.child_scope(), cached, pixels, options);
 
         writeCacheTag(cached, sourceWriteTime);
     }
@@ -482,8 +493,8 @@ void Texture2D::init(
         vk::ImageLayout::eTransferDstOptimal,
         asserted_cast<uint32_t>(regions.size()), regions.data());
 
-    if (initialState != ImageState::Unknown)
-        m_image.transition(cb, initialState);
+    if (options.initialState != ImageState::Unknown)
+        m_image.transition(cb, options.initialState);
 }
 
 vk::DescriptorImageInfo Texture2D::imageInfo() const

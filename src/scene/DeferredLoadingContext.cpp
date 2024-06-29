@@ -573,6 +573,40 @@ bool cacheValid(
     return true;
 }
 
+Optional<uint32_t> getImageIndex(
+    const cgltf_data *gltfData, const cgltf_texture *texture)
+{
+    if (texture == nullptr || texture->image == nullptr)
+        return {};
+
+    return asserted_cast<uint32_t>(cgltf_image_index(gltfData, texture->image));
+}
+
+void printImageColorSpaceReuseWarning(const cgltf_image *image)
+{
+    const char *debugName = nullptr;
+    if (image != nullptr)
+    {
+        if (image->uri != nullptr)
+            debugName = image->uri;
+        else if (image->name != nullptr)
+            debugName = image->name;
+    }
+    if (debugName != nullptr)
+        fprintf(
+            stderr,
+            "'%s' is used both as a linear and sRgb texture. "
+            "Mip maps will be generated with sRgb filtering\n",
+            debugName);
+    else
+        // We shouldn't really get here with decent files, but let's still log
+        // that there is an issue
+        fprintf(
+            stderr,
+            "An unnamed image is used both as a linear and sRgb texture. "
+            "Mip maps will be generated with sRgb filtering\n");
+}
+
 void writeCache(
     const std::filesystem::path &sceneDir,
     std::filesystem::file_time_type sceneWriteTime, uint32_t meshIndex,
@@ -896,16 +930,16 @@ void loadNextTexture(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
 
-    if (ctx->workerLoadedImageCount == ctx->gltfData->images_count)
+    const uint32_t imageIndex = ctx->workerLoadedImageCount;
+    if (imageIndex == ctx->gltfData->images_count)
     {
         printf("Texture loading took %.2fs\n", ctx->textureTimer.getSeconds());
         ctx->interruptLoading = true;
         return;
     }
 
-    WHEELS_ASSERT(ctx->gltfData->images_count > ctx->workerLoadedImageCount);
-    const cgltf_image &image =
-        ctx->gltfData->images[ctx->workerLoadedImageCount];
+    WHEELS_ASSERT(ctx->gltfData->images_count > imageIndex);
+    const cgltf_image &image = ctx->gltfData->images[imageIndex];
     if (image.uri == nullptr)
         throw std::runtime_error("Embedded glTF textures aren't supported. "
                                  "Scene should be glTF + bin + textures.");
@@ -918,10 +952,27 @@ void loadNextTexture(DeferredLoadingContext *ctx)
     LinearAllocator scopeBacking{
         gAllocators.loadingWorker, Allocators::sLoadingScratchSize};
 
+    TextureColorSpace colorSpace = TextureColorSpace::sRgb;
+    if (ctx->linearColorImages.contains(imageIndex))
+    {
+        WHEELS_ASSERT(
+            !ctx->sRgbColorImages.contains(imageIndex) &&
+            "Image should belong to exactly one colorspace set");
+        colorSpace = TextureColorSpace::Linear;
+    }
+    else
+        WHEELS_ASSERT(
+            ctx->sRgbColorImages.contains(imageIndex) &&
+            "Image should belong to exactly one colorspace set");
+
     Texture2D tex;
     tex.init(
         ScopedScratch{scopeBacking}, ctx->sceneDir / image.uri, ctx->cb,
-        ctx->stagingBuffers[0], true);
+        ctx->stagingBuffers[0],
+        Texture2DOptions{
+            .generateMipMaps = true,
+            .colorSpace = colorSpace,
+        });
 
     const QueueFamilies &families = gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
@@ -1078,6 +1129,52 @@ void DeferredLoadingContext::launch()
     WHEELS_ASSERT(initialized);
     WHEELS_ASSERT(
         !worker.has_value() && "Tried to launch deferred loading worker twice");
+
+    // Fill sets to query image colorspaces from
+    for (const cgltf_material &material :
+         Span{gltfData->materials, gltfData->materials_count})
+    {
+        if (material.has_pbr_metallic_roughness == 1)
+        {
+            const cgltf_pbr_metallic_roughness &pbrParams =
+                material.pbr_metallic_roughness;
+
+            const Optional<uint32_t> baseColorIndex =
+                getImageIndex(gltfData, pbrParams.base_color_texture.texture);
+            if (baseColorIndex.has_value())
+            {
+                if (linearColorImages.contains(*baseColorIndex))
+                {
+                    printImageColorSpaceReuseWarning(
+                        gltfData->textures[*baseColorIndex].image);
+                    linearColorImages.remove(*baseColorIndex);
+                }
+                sRgbColorImages.insert(*baseColorIndex);
+            }
+
+            const Optional<uint32_t> metallicRoughnessIndex = getImageIndex(
+                gltfData, pbrParams.metallic_roughness_texture.texture);
+            if (metallicRoughnessIndex.has_value())
+            {
+                if (sRgbColorImages.contains(*metallicRoughnessIndex))
+                    printImageColorSpaceReuseWarning(
+                        gltfData->textures[*metallicRoughnessIndex].image);
+                else
+                    linearColorImages.insert(*metallicRoughnessIndex);
+            }
+        }
+
+        const Optional<uint32_t> normalIndex =
+            getImageIndex(gltfData, material.normal_texture.texture);
+        if (normalIndex.has_value())
+        {
+            if (sRgbColorImages.contains(*normalIndex))
+                printImageColorSpaceReuseWarning(
+                    gltfData->textures[*normalIndex].image);
+            else
+                linearColorImages.insert(*normalIndex);
+        }
+    }
 
     worker = std::thread{&loadingWorker, this};
 }

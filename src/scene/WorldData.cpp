@@ -711,8 +711,11 @@ void WorldData::loadTextures(
         m_texture2Ds.emplace_back();
         m_texture2Ds.back().init(
             scopeAlloc.child_scope(), resPath("texture/empty.png"), cb,
-            stagingBuffer, false,
-            ImageState::FragmentShaderRead | ImageState::RayTracingRead);
+            stagingBuffer,
+            Texture2DOptions{
+                .initialState =
+                    ImageState::FragmentShaderRead | ImageState::RayTracingRead,
+            });
         gDevice.endGraphicsCommands(cb);
 
         texture2DSamplers.emplace_back();
