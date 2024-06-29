@@ -241,24 +241,21 @@ void compress(
     Dds dds{scopeAlloc, pixels.extent.width, pixels.extent.height, 1,
             format,     mipLevelCount};
 
+    Array<uint8_t> rawLevels{scopeAlloc};
+    // Twice the size of the first level should be plenty for mips
+    rawLevels.resize(pixels.data.size() * 2);
+
+    memcpy(rawLevels.data(), pixels.data.data(), pixels.data.size());
+
+    Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
+    rawLevelByteOffsets.resize(mipLevelCount, 0);
+
+    if (mipLevelCount > 1)
+        generateMipLevels(
+            rawLevels, rawLevelByteOffsets, pixels, options.colorSpace);
+
     if (format == DxgiFormat::BC7Unorm)
     {
-        Array<uint8_t> rawLevels{scopeAlloc};
-        // Twice the size of the first level should be plenty for mips
-        rawLevels.resize(pixels.data.size() * 2);
-
-        memcpy(rawLevels.data(), pixels.data.data(), pixels.data.size());
-
-        Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
-        rawLevelByteOffsets.resize(mipLevelCount);
-
-        // TODO: This mip setup code seems identical to the else branch?
-        if (mipLevelCount > 1)
-            generateMipLevels(
-                rawLevels, rawLevelByteOffsets, pixels, options.colorSpace);
-        else
-            rawLevelByteOffsets[0] = 0u;
-
         bc7_enc_settings bc7Settings{};
         // Don't really care about quality at this point, this is much faster
         // than even veryfast
@@ -293,17 +290,6 @@ void compress(
     }
     else
     {
-        Array<uint8_t> rawLevels{scopeAlloc};
-        rawLevels.resize(pixels.data.size() * 2);
-
-        memcpy(rawLevels.data(), pixels.data.data(), pixels.data.size());
-
-        Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
-        rawLevelByteOffsets.resize(mipLevelCount);
-        if (mipLevelCount > 1)
-            generateMipLevels(
-                rawLevels, rawLevelByteOffsets, pixels, options.colorSpace);
-
         WHEELS_ASSERT(dds.data.size() <= rawLevels.size());
         memcpy(dds.data.data(), rawLevels.data(), dds.data.size());
     }
