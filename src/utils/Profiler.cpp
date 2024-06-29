@@ -14,8 +14,9 @@ constexpr uint32_t sMaxTimestampCount = sMaxScopeCount * 2;
 constexpr vk::QueryPipelineStatisticFlags sPipelineStatisticsFlags =
     vk::QueryPipelineStatisticFlagBits::eClippingPrimitives |
     vk::QueryPipelineStatisticFlagBits::eFragmentShaderInvocations;
+// Use VkFlags directly, should be a typedef to an integral type
 constexpr size_t sStatTypeCount = asserted_cast<size_t>(
-    std::popcount(static_cast<uint32_t>(sPipelineStatisticsFlags)));
+    std::popcount(static_cast<VkFlags>(sPipelineStatisticsFlags)));
 
 } // namespace
 
@@ -206,13 +207,15 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
         ret.push_back(ScopeData{
             .index = m_queryScopeIndices[i],
             .millis = millis,
-            .stats = hasStats ? Optional{PipelineStatistics{
-                                    .clipPrimitives =
-                                        stats[static_cast<size_t>(i) * 5],
-                                    .fragInvocations =
-                                        stats[static_cast<size_t>(i) * 5 + 1],
-                                }}
-                              : Optional<PipelineStatistics>{},
+            .stats =
+                hasStats
+                    ? Optional{PipelineStatistics{
+                          .clipPrimitives =
+                              stats[static_cast<size_t>(i) * sStatTypeCount],
+                          .fragInvocations = stats
+                              [static_cast<size_t>(i) * sStatTypeCount + 1],
+                      }}
+                    : Optional<PipelineStatistics>{},
         });
     };
 
