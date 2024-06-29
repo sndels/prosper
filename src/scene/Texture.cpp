@@ -283,6 +283,11 @@ void compress(
                 .stride = asserted_cast<int32_t>(width * 4),
             };
             uint8_t *dst = dds.data.data() + dds.levelByteOffsets[i];
+            // TODO:
+            // 4k textures are really slow to convert even when AVX2 is
+            // available. The vectorized code path seems to be used as expected
+            // so this is apparently just slow. Parallelize this with OpenMP or
+            // something?
             CompressBlocksBC7(&rgbaSurface, dst, &bc7Settings);
         }
     }
