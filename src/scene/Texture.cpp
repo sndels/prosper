@@ -6,6 +6,7 @@
 
 #include <ispc_texcomp.h>
 #include <stb_image.h>
+#include <stb_image_resize2.h>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/pair.hpp>
 #include <wyhash.h>
@@ -23,7 +24,7 @@ namespace
 const uint64_t sTextureCacheMagic = 0x5845'5452'5053'5250; // PRSPRTEX
 // This should be incremented when breaking changes are made to
 // what's cached
-const uint32_t sTextureCacheVersion = 3;
+const uint32_t sTextureCacheVersion = 4;
 
 struct UncompressedPixelData
 {
@@ -168,14 +169,12 @@ void generateMipLevels(
     Array<uint8_t> &rawLevels, Array<uint32_t> &rawLevelByteOffsets,
     const UncompressedPixelData &pixels)
 {
-    // GLI's implementation generated weird artifacts on sponza's fabrics so
-    // let's do this ourselves.
-    // TODO:
-    // - Optimize
-    // - Better algo for e.g. normals?
     const size_t mipLevelCount = rawLevelByteOffsets.size();
     // TODO: Non-8bit channels?
     const uint32_t pixelStride = pixels.channels;
+    // TODO: Pass in actual layout
+    const auto pixelLayout = static_cast<stbir_pixel_layout>(pixels.channels);
+
     rawLevelByteOffsets[0] = 0;
     for (uint32_t level = 1; level < mipLevelCount; ++level)
     {
@@ -195,38 +194,11 @@ void generateMipLevels(
             rawLevels.data() + rawLevelByteOffsets[level - 1]);
         uint8_t *data = reinterpret_cast<uint8_t *>(
             rawLevels.data() + rawLevelByteOffsets[level]);
-        for (uint32_t j = 0; j < height; ++j)
-        {
-            // Clamp to edge
-            const uint32_t y0ParentOffset =
-                std::min(j * 2, parentHeight - 1) * parentRowStride;
-            const uint32_t y1ParentOffset =
-                std::min(j * 2 + 1, parentHeight - 1) * parentRowStride;
-            for (uint32_t i = 0; i < width; ++i)
-            {
-                // Clamp to edge
-                const uint32_t x0ParentOffset =
-                    std::min(i * 2, parentWidth - 1) * pixelStride;
-                const uint32_t x1ParentOffset =
-                    std::min(i * 2 + 1, parentWidth - 1) * pixelStride;
-                for (uint32_t c = 0; c < pixels.channels; ++c)
-                {
-                    const uint16_t v00 =
-                        parentData[y0ParentOffset + x0ParentOffset + c];
-                    const uint16_t v01 =
-                        parentData[y0ParentOffset + x1ParentOffset + c];
-                    const uint16_t v10 =
-                        parentData[y1ParentOffset + x0ParentOffset + c];
-                    const uint16_t v11 =
-                        parentData[y1ParentOffset + x1ParentOffset + c];
-
-                    // Linear filter
-                    data[(j * width + i) * pixelStride + c] =
-                        static_cast<uint8_t>(
-                            static_cast<float>(v00 + v01 + v10 + v11) / 4.f);
-                }
-            }
-        }
+        stbir_resize_uint8_srgb(
+            parentData, asserted_cast<int>(parentWidth),
+            asserted_cast<int>(parentHeight), 0, data,
+            asserted_cast<int>(width), asserted_cast<int>(height), 0,
+            pixelLayout);
     }
 }
 
@@ -271,6 +243,7 @@ void compress(
         Array<uint32_t> rawLevelByteOffsets{scopeAlloc};
         rawLevelByteOffsets.resize(mipLevelCount);
 
+        // TODO: This mip setup code seems identical to the else branch?
         if (mipLevelCount > 1)
             generateMipLevels(rawLevels, rawLevelByteOffsets, pixels);
         else
@@ -413,6 +386,7 @@ void Texture2D::init(
         if (stb_pixels == nullptr)
             throw std::runtime_error(
                 "Failed to load texture '" + pathString + "'");
+        channels = desiredChannels;
 
         defer { stbi_image_free(stb_pixels); };
 
