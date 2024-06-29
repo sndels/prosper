@@ -381,8 +381,9 @@ void Texture2D::init(
         int width = 0;
         int height = 0;
         int channels = 0;
-        stbi_uc *stb_pixels =
-            stbi_load(pathString.c_str(), &width, &height, &channels, 0);
+        const int desiredChannels = 4;
+        stbi_uc *stb_pixels = stbi_load(
+            pathString.c_str(), &width, &height, &channels, desiredChannels);
         if (stb_pixels == nullptr)
             throw std::runtime_error(
                 "Failed to load texture '" + pathString + "'");
@@ -390,7 +391,7 @@ void Texture2D::init(
 
         defer { stbi_image_free(stb_pixels); };
 
-        UncompressedPixelData pixels{
+        const UncompressedPixelData pixels{
             .data =
                 Span{
                     stb_pixels, asserted_cast<size_t>(width) *
@@ -403,31 +404,6 @@ void Texture2D::init(
                 },
             .channels = asserted_cast<uint32_t>(channels),
         };
-
-        Array<uint8_t> tmpPixels{scopeAlloc};
-        if (channels < 3)
-            throw std::runtime_error("Image with less than 3 components");
-
-        if (channels == 3)
-        {
-            // Add fourth channel as 3 channel optimal tiling is rarely
-            // supported
-            const size_t widthByHeight =
-                asserted_cast<size_t>(width) * asserted_cast<size_t>(height);
-            tmpPixels.resize(widthByHeight * 4);
-            const uint8_t *rgb = pixels.data.data();
-            uint8_t *rgba = tmpPixels.data();
-            for (size_t i = 0; i < widthByHeight; ++i)
-            {
-                rgba[0] = rgb[0];
-                rgba[1] = rgb[1];
-                rgba[2] = rgb[2];
-                rgb += 3;
-                rgba += 4;
-            }
-            pixels.data = Span{tmpPixels.data(), tmpPixels.size()};
-            pixels.channels = 4;
-        }
 
         compress(scopeAlloc.child_scope(), cached, pixels, mipmap);
 
