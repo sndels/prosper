@@ -11,6 +11,7 @@
 #include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/SceneStats.hpp"
 #include "../utils/Utils.hpp"
@@ -68,7 +69,7 @@ void ForwardRenderer::init(
     WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating ForwardRenderer\n");
+    LOG_INFO("Creating ForwardRenderer");
 
     if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("ForwardRenderer shader compilation failed");

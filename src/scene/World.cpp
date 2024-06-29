@@ -7,6 +7,7 @@
 
 #include "../gfx/Device.hpp"
 #include "../gfx/RingBuffer.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/SceneStats.hpp"
 #include "../utils/Ui.hpp"
@@ -540,8 +541,8 @@ bool World::Impl::buildAccelerationStructures(
         // Be conservative and log this after we know the work is done. Let's
         // not worry about getting a tight time since this will only be off by
         // frametime at most.
-        printf(
-            "Streamed BLAS builds took %.2fs\n", m_blasBuildTimer.getSeconds());
+        LOG_INFO(
+            "Streamed BLAS builds took %.2fs", m_blasBuildTimer.getSeconds());
         m_framesSinceFinalBlasBuilds = 0;
     }
     else if (m_framesSinceFinalBlasBuilds > 0)

@@ -22,6 +22,7 @@
 #include "../Allocators.hpp"
 #include "../Window.hpp"
 #include "../utils/ForEach.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 #include "ShaderIncludes.hpp"
 #include "ShaderReflection.hpp"
@@ -201,9 +202,9 @@ bool checkDeviceExtensionSupport(
 
     if (!requiredExtensions.empty())
     {
-        fprintf(stderr, "Missing support for extensions:\n");
+        LOG_ERR("Missing support for extensions:");
         for (const auto &e : requiredExtensions)
-            fprintf(stderr, "  %s\n", e.c_str());
+            LOG_ERR("  %s", e.c_str());
     }
 
     return requiredExtensions.empty();
@@ -257,7 +258,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     const VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
 {
-    (void)messageSeverity;
     (void)messageType;
 
     const bool breakOnError =
@@ -284,7 +284,14 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             return ret;
     }
 
-    std::cerr << "VkDbg: " << pCallbackData->pMessage << std::endl;
+    if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0)
+        LOG_ERR("VkDbg: %s", pCallbackData->pMessage);
+    else if (
+        (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) !=
+        0)
+        LOG_WARN("VkDbg: %s", pCallbackData->pMessage);
+    else
+        LOG_INFO("VkDbg: %s", pCallbackData->pMessage);
 
     if (breakOnError &&
         messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
@@ -484,7 +491,7 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    printf("Creating Vulkan device\n");
+    LOG_INFO("Creating Vulkan device");
 
     m_settings = settings;
 
@@ -583,10 +590,10 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
             const auto major = VK_API_VERSION_MAJOR(apiPacked);
             const auto minor = VK_API_VERSION_MINOR(apiPacked);
             const auto patch = VK_API_VERSION_PATCH(apiPacked);
-            printf("Vulkan %u.%u.%u\n", major, minor, patch);
+            LOG_INFO("Vulkan %u.%u.%u", major, minor, patch);
         }
 
-        printf("%s\n", m_properties.device.deviceName.data());
+        LOG_INFO("%s", m_properties.device.deviceName.data());
     }
 
     m_initialized = true;
@@ -744,7 +751,7 @@ wheels::Optional<ShaderReflection> Device::reflectShader(
 {
     WHEELS_ASSERT(m_initialized);
 
-    printf("Reflecting %s\n", info.relPath.string().c_str());
+    LOG_INFO("Reflecting %s", info.relPath.string().c_str());
 
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
@@ -1297,7 +1304,7 @@ bool Device::isDeviceSuitable(
     const auto families = findQueueFamilies(device, m_surface);
     if (!families.isComplete())
     {
-        fprintf(stderr, "Missing required queue families\n");
+        LOG_ERR("Missing required queue families");
         return false;
     }
 
@@ -1308,11 +1315,11 @@ bool Device::isDeviceSuitable(
     const SwapchainSupport swapSupport{scopeAlloc, device, m_surface};
     if (swapSupport.formats.empty() || swapSupport.presentModes.empty())
     {
-        fprintf(stderr, "Inadequate swap chain\n");
+        LOG_ERR("Inadequate swap chain");
         return false;
     }
 
-    printf("Checking feature support\n");
+    LOG_INFO("Checking feature support");
 
     {
         const auto features = device.getFeatures2<ALL_FEATURE_STRUCTS_LIST>();
@@ -1320,7 +1327,7 @@ bool Device::isDeviceSuitable(
 #define CHECK_REQUIRED_FEATURES(container, feature)                            \
     if (features.get<container>().feature == VK_FALSE)                         \
     {                                                                          \
-        fprintf(stderr, "Missing %s\n", #feature);                             \
+        LOG_ERR("Missing %s", #feature);                                       \
         return false;                                                          \
     }
 
@@ -1341,7 +1348,7 @@ bool Device::isDeviceSuitable(
         // robustBufferAccess2 requires enabling robustBufferAccess
         if (features.features.robustBufferAccess == VK_FALSE)
         {
-            fprintf(stderr, "Missing robustBufferAccess\n");
+            LOG_ERR("Missing robustBufferAccess");
             return false;
         }
 
@@ -1349,12 +1356,12 @@ bool Device::isDeviceSuitable(
             allFeatures.get<vk::PhysicalDeviceRobustness2FeaturesEXT>();
         if (robustness.robustBufferAccess2 == VK_FALSE)
         {
-            fprintf(stderr, "Missing robustBufferAccess2\n");
+            LOG_ERR("Missing robustBufferAccess2");
             return false;
         }
         if (robustness.robustImageAccess2 == VK_FALSE)
         {
-            fprintf(stderr, "Missing robustImageAccess2\n");
+            LOG_ERR("Missing robustImageAccess2");
             return false;
         }
     }
@@ -1368,7 +1375,7 @@ bool Device::isDeviceSuitable(
 
         if (deviceProps.properties.apiVersion < VK_VERSION_1_3)
         {
-            fprintf(stderr, "Missing Vulkan 1.3 support\n");
+            LOG_ERR("Missing Vulkan 1.3 support");
             return false;
         }
     }
@@ -1385,12 +1392,12 @@ bool Device::isDeviceSuitable(
              vk::SubgroupFeatureFlagBits::eArithmetic) !=
             vk::SubgroupFeatureFlagBits::eArithmetic)
         {
-            fprintf(stderr, "Missing subgroup arithmetic op support\n");
+            LOG_ERR("Missing subgroup arithmetic op support");
             return false;
         }
     }
 
-    printf("Required features are supported\n");
+    LOG_INFO("Required features are supported");
 
     return true;
 }
@@ -1458,13 +1465,13 @@ void Device::createSurface()
 
 void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
 {
-    printf("Selecting device\n");
+    LOG_INFO("Selecting device");
 
     const auto devices = m_instance.enumeratePhysicalDevices();
 
     for (const auto &device : devices)
     {
-        printf("Considering '%s'\n", device.getProperties().deviceName.data());
+        LOG_INFO("Considering '%s'", device.getProperties().deviceName.data());
         if (isDeviceSuitable(scopeAlloc.child_scope(), device))
         {
             m_physical = device;
@@ -1706,7 +1713,7 @@ std::filesystem::path Device::updateShaderCache(
     catch (const std::exception &e)
     {
         // Just log so that the calling code can skip without error on recompile
-        fprintf(stderr, "%s\n", e.what());
+        LOG_ERR("%s", e.what());
         return {};
     }
 
@@ -1724,7 +1731,7 @@ std::filesystem::path Device::updateShaderCache(
     const bool cacheValid = readCache(alloc, cachePath);
     if (!cacheValid || m_settings.dumpShaderDisassembly)
     {
-        printf("Compiling %s\n", relPath.string().c_str());
+        LOG_INFO("Compiling %s", relPath.string().c_str());
 
         const shaderc::SpvCompilationResult result =
             m_compiler->CompileGlslToSpv(
@@ -1735,12 +1742,15 @@ std::filesystem::path Device::updateShaderCache(
         if (const auto status = result.GetCompilationStatus(); status)
         {
             const auto err = result.GetErrorMessage();
-            if (!err.empty())
-                fprintf(stderr, "%s\n", err.c_str());
-            fprintf(
-                stderr, "Compilation of '%s' failed\n",
-                sourcePath.string().c_str());
-            fprintf(stderr, "%s\n", statusString(status));
+            if (err.empty())
+                LOG_ERR(
+                    "Compilation of '%s' failed\n%s",
+                    sourcePath.string().c_str(), statusString(status));
+            else
+                LOG_ERR(
+                    "Compilation of '%s' failed\n%s\n%s",
+                    sourcePath.string().c_str(), statusString(status),
+                    err.c_str());
             return {};
         }
 
@@ -1756,22 +1766,25 @@ std::filesystem::path Device::updateShaderCache(
             if (const shaderc_compilation_status status =
                     result.GetCompilationStatus();
                 status == shaderc_compilation_status_success)
-                fprintf(stdout, "%s\n", resultAsm.begin());
+                LOG_INFO("%s", resultAsm.begin());
             else
             {
                 const std::string err = result.GetErrorMessage();
-                if (!err.empty())
-                    fprintf(stderr, "%s\n", err.c_str());
-                fprintf(
-                    stderr, "Compilation of '%s' failed\n",
-                    sourcePath.string().c_str());
-                fprintf(stderr, "%s\n", statusString(status));
+                if (err.empty())
+                    LOG_ERR(
+                        "Compilation of '%s' failed\n%s",
+                        sourcePath.string().c_str(), statusString(status));
+                else
+                    LOG_ERR(
+                        "Compilation of '%s' failed\n%s\n%s",
+                        sourcePath.string().c_str(), statusString(status),
+                        err.c_str());
                 return {};
             }
         }
     }
     else
-        printf("Loading '%s' from cache\n", relPath.string().c_str());
+        LOG_INFO("Loading '%s' from cache", relPath.string().c_str());
 
     return cachePath;
 }

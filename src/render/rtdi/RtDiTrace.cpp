@@ -6,12 +6,14 @@
 #include "../../scene/Scene.hpp"
 #include "../../scene/World.hpp"
 #include "../../scene/WorldRenderStructs.hpp"
+#include "../../utils/Logger.hpp"
 #include "../../utils/Profiler.hpp"
 #include "../../utils/Utils.hpp"
 #include "../GBufferRenderer.hpp"
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
 #include "../Utils.hpp"
+
 
 #include <imgui.h>
 
@@ -103,7 +105,7 @@ void RtDiTrace::init(
     WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating RtDiTrace\n");
+    LOG_INFO("Creating RtDiTrace");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RtDiTrace shader compilation failed");

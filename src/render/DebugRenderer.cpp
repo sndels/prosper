@@ -5,6 +5,7 @@
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "LightClustering.hpp"
@@ -55,7 +56,7 @@ void DebugRenderer::init(
     WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating DebugRenderer\n");
+    LOG_INFO("Creating DebugRenderer");
 
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("DebugRenderer shader compilation failed");

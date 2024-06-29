@@ -6,6 +6,7 @@
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderTargets.hpp"
 
@@ -45,7 +46,7 @@ void ComputePass::init(
         sets.resize(options.perFrameRecordLimit);
 
     const Shader shader = shaderDefinitionCallback(scopeAlloc);
-    printf("Creating %s\n", shader.debugName.c_str());
+    LOG_INFO("Creating %s", shader.debugName.c_str());
     if (!compileShader(scopeAlloc.child_scope(), shader))
         throw std::runtime_error("Shader compilation failed");
 

@@ -2,6 +2,7 @@
 
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Logger.hpp"
 #include <glm/gtc/packing.hpp>
 #include <meshoptimizer.h>
 #include <mikktspace.h>
@@ -356,7 +357,7 @@ void optimizeMeshData(
     const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
         remapIndices.data(), meshData->indices.data(), indexCount, vertexCount);
     if (uniqueVertexCount < vertexCount)
-        fprintf(stderr, "Mesh '%s' has unused vertices\n", meshName);
+        LOG_WARN("Mesh '%s' has unused vertices", meshName);
 
     // Reuse tmpIndices as it's not required after optimizeOverdraw
     meshopt_remapIndexBuffer(
@@ -506,7 +507,7 @@ Optional<MeshCacheHeader> readCache(
 
     if (!std::filesystem::exists(cachePath))
     {
-        fprintf(stdout, "Missing cache for %s\n", cachePath.string().c_str());
+        LOG_INFO("Missing cache for %s", cachePath.string().c_str());
         return ret;
     }
 
@@ -525,9 +526,7 @@ Optional<MeshCacheHeader> readCache(
     readRaw(cacheFile, version);
     if (sMeshCacheVersion != version)
     {
-        fprintf(
-            stdout, "Old cache data version for %s\n",
-            cachePath.string().c_str());
+        LOG_INFO("Old cache data version for %s", cachePath.string().c_str());
         return ret;
     }
 
@@ -567,7 +566,7 @@ bool cacheValid(
 
     if (header->sourceWriteTime != sceneWriteTime)
     {
-        fprintf(stdout, "Stale cache for %s\n", cachePath.string().c_str());
+        LOG_INFO("Stale cache for %s", cachePath.string().c_str());
         return false;
     }
     return true;
@@ -593,18 +592,15 @@ void printImageColorSpaceReuseWarning(const cgltf_image *image)
             debugName = image->name;
     }
     if (debugName != nullptr)
-        fprintf(
-            stderr,
-            "'%s' is used both as a linear and sRgb texture. "
-            "Mip maps will be generated with sRgb filtering\n",
+        LOG_WARN(
+            "'%s' is used both as a linear and sRgb texture. Mip maps will be "
+            "generated with sRgb filtering",
             debugName);
     else
         // We shouldn't really get here with decent files, but let's still log
         // that there is an issue
-        fprintf(
-            stderr,
-            "An unnamed image is used both as a linear and sRgb texture. "
-            "Mip maps will be generated with sRgb filtering\n");
+        LOG_WARN("An unnamed image is used both as a linear and sRgb texture. "
+                 "Mip maps will be generated with sRgb filtering");
 }
 
 void writeCache(
@@ -921,7 +917,7 @@ void loadNextMesh(DeferredLoadingContext *ctx)
 
     if (ctx->workerLoadedMeshCount == ctx->meshes.size())
     {
-        printf("Mesh loading took %.2fs\n", ctx->meshTimer.getSeconds());
+        LOG_INFO("Mesh loading took %.2fs", ctx->meshTimer.getSeconds());
         ctx->textureTimer.reset();
     }
 }
@@ -933,7 +929,7 @@ void loadNextTexture(DeferredLoadingContext *ctx)
     const uint32_t imageIndex = ctx->workerLoadedImageCount;
     if (imageIndex == ctx->gltfData->images_count)
     {
-        printf("Texture loading took %.2fs\n", ctx->textureTimer.getSeconds());
+        LOG_INFO("Texture loading took %.2fs", ctx->textureTimer.getSeconds());
         ctx->interruptLoading = true;
         return;
     }

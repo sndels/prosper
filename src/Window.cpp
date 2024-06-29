@@ -8,6 +8,7 @@
 
 #include "Allocators.hpp"
 #include "utils/InputHandler.hpp"
+#include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
 #ifdef _WIN32
@@ -63,7 +64,7 @@ void Window::init(
 {
     WHEELS_ASSERT(!m_initialized);
 
-    printf("Creating window\n");
+    LOG_INFO("Creating window");
 
     m_width = resolution.first;
     m_height = resolution.second;
@@ -164,7 +165,7 @@ void Window::pollCursorPosition() const
 
 void Window::errorCallback(int error, const char *description)
 {
-    std::cerr << "GLFW error " << error << ": " << description << std::endl;
+    LOG_ERR("GLFW error %d: %s", error, description);
 }
 
 void Window::keyCallback(

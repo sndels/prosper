@@ -11,6 +11,7 @@
 #include "Window.hpp"
 #include "gfx/Device.hpp"
 #include "render/RenderResources.hpp"
+#include "utils/Logger.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
 
@@ -40,7 +41,7 @@ App::Settings parseCli(int argc, char *argv[])
     // clang-format off
         options.add_options()
             ("debugLayers", "Enable Vulkan debug layers")
-            ("dumpShaderDisassembly", "Dump shader disassembly to stdout")
+            ("dumpShaderDisassembly", "Dump shader disassembly to info log")
             ("breakOnValidationError", "Break debugger on Vulkan validation error")
             ("robustAccess", "Enable VK_EXT_robustness2 for buffers and images")
             ("sceneFile", std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
@@ -98,8 +99,7 @@ int main(int argc, char *argv[])
     // bail out in case the agent is not valid
     if (!lpp::LppIsValidDefaultAgent(&lppAgent))
     {
-        fprintf(
-            stderr, "Couldn't create Live++ agent. Is LIVEPP_PATH correct?");
+        LOG_ERR("Couldn't create Live++ agent. Is LIVEPP_PATH correct?");
         return 1;
     }
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
         {
             const Timer t;
             fn();
-            printf("%s took %.2fs\n", stage, t.getSeconds());
+            LOG_INFO("%s took %.2fs", stage, t.getSeconds());
         };
 
         // Globals
@@ -154,12 +154,12 @@ int main(int argc, char *argv[])
         // We don't need this memory anymore so let's drop it.
         scratchBacking.destroy();
 
-        printf("run() called after %.2fs\n", t.getSeconds());
+        LOG_INFO("run() called after %.2fs", t.getSeconds());
         app.run();
     }
     catch (std::exception &e)
     {
-        fprintf(stderr, "Exception thrown: %s\n", e.what());
+        LOG_ERR("Exception thrown: %s", e.what());
     }
 
 #ifdef LIVEPP_PATH

@@ -5,6 +5,7 @@
 #include "../scene/Camera.hpp"
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
@@ -48,7 +49,7 @@ void SkyboxRenderer::init(
 {
     WHEELS_ASSERT(!m_initialized);
 
-    printf("Creating SkyboxRenderer\n");
+    LOG_INFO("Creating SkyboxRenderer");
 
     if (!compileShaders(scopeAlloc.child_scope()))
         throw std::runtime_error("SkyboxRenderer shader compilation failed");

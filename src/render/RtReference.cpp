@@ -7,6 +7,7 @@
 #include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Ui.hpp"
 #include "../utils/Utils.hpp"
@@ -114,7 +115,7 @@ void RtReference::init(
     WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating RtReference\n");
+    LOG_INFO("Creating RtReference");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RtReference shader compilation failed");

@@ -11,6 +11,7 @@
 #include "../Window.hpp"
 #include "../gfx/Swapchain.hpp"
 #include "../gfx/VkUtils.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
@@ -60,7 +61,7 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
     GLFWwindow *window = gWindow.ptr();
     WHEELS_ASSERT(window != nullptr);
 
-    printf("Creating ImGuiRenderer\n");
+    LOG_INFO("Creating ImGuiRenderer");
 
     // TODO:
     // If this init fails in some part, the dtor will not clean up anything
@@ -71,16 +72,15 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 
     if (!std::filesystem::exists(sIniFilename))
     {
-        printf("ImGui ini not found, copying default ini into working dir\n");
+        LOG_INFO("ImGui ini not found, copying default ini into working dir");
         try
         {
             std::filesystem::copy(resPath(sDefaultIniFilename), sIniFilename);
         }
         catch (...)
         {
-            fprintf(
-                stderr, "Failed to copy default imgui config into working "
-                        "directory.\n");
+            LOG_ERR(
+                "Failed to copy default imgui config into working directory.");
         }
     }
 

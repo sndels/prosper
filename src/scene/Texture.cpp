@@ -14,6 +14,7 @@
 #include "../gfx/Device.hpp"
 #include "../utils/Dds.hpp"
 #include "../utils/Ktx.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 
 using namespace wheels;
@@ -135,8 +136,7 @@ bool cacheValid(
     {
         if (!std::filesystem::exists(cacheFile))
         {
-            fprintf(
-                stdout, "Missing cache file %s\n", cacheFile.string().c_str());
+            LOG_INFO("Missing cache file %s", cacheFile.string().c_str());
             return false;
         }
 
@@ -144,15 +144,14 @@ bool cacheValid(
 
         if (sTextureCacheVersion != storedTag.version)
         {
-            fprintf(
-                stdout, "Old cache data version for %s\n",
-                cacheFile.string().c_str());
+            LOG_INFO(
+                "Old cache data version for %s", cacheFile.string().c_str());
             return false;
         }
 
         if (storedTag.sourceWriteTime != sourceWriteTime)
         {
-            fprintf(stdout, "Stale cache for %s\n", cacheFile.string().c_str());
+            LOG_INFO("Stale cache for %s", cacheFile.string().c_str());
             return false;
         }
     }

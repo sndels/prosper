@@ -43,6 +43,7 @@
 #include "scene/Scene.hpp"
 #include "scene/World.hpp"
 #include "utils/InputHandler.hpp"
+#include "utils/Logger.hpp"
 #include "utils/Ui.hpp"
 #include "utils/Utils.hpp"
 
@@ -190,7 +191,7 @@ void App::init(ScopedScratch scopeAlloc)
     m_textureReadback->init(
         scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
     m_recompileTime = std::chrono::file_clock::now();
-    printf("GPU pass init took %.2fs\n", gpuPassesInitTimer.getSeconds());
+    LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 
     m_cam->lookAt(m_sceneCameraTransform);
     m_cam->setParameters(m_cameraParameters);
@@ -269,6 +270,7 @@ void App::run()
         gDevice.graphicsQueue().waitIdle();
         throw;
     }
+    LOG_INFO("Closing window");
 
     // Wait for in flight rendering actions to finish
     // Don't wait for device idle as async loading might be using the transfer
@@ -357,8 +359,8 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
                 WHEELS_ASSERT(changedFiles.capacity() == shaderFileBound);
 
                 if (checkTime.getSeconds() > 0.2f)
-                    fprintf(
-                        stderr, "Shader timestamp check is laggy: %.1fms\n",
+                    LOG_WARN(
+                        "Shader timestamp check is laggy: %.1fms",
                         checkTime.getSeconds() * 1000.f);
 
                 return changedFiles;
@@ -388,7 +390,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     // wait to avoid reading them mid-write.
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    printf("Recompiling shaders\n");
+    LOG_INFO("Recompiling shaders");
 
     const Timer t;
 
@@ -435,7 +437,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
         scopeAlloc.child_scope(), changedFiles, m_world->dsLayouts(),
         m_cam->descriptorSetLayout());
 
-    printf("Shaders recompiled in %.2fs\n", t.getSeconds());
+    LOG_INFO("Shaders recompiled in %.2fs", t.getSeconds());
 
     m_recompileTime = std::chrono::file_clock::now();
 }

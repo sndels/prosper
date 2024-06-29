@@ -7,6 +7,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "../gfx/Device.hpp"
+#include "../utils/Logger.hpp"
 #include <cstdio>
 #include <imgui.h>
 
@@ -176,7 +177,7 @@ Buffer createSkyboxVertexBuffer()
     });
 }
 
-constexpr vk::Filter getVkFilterMode(cgltf_int glEnum)
+vk::Filter getVkFilterMode(cgltf_int glEnum)
 {
     switch (glEnum)
     {
@@ -190,11 +191,11 @@ constexpr vk::Filter getVkFilterMode(cgltf_int glEnum)
         return vk::Filter::eLinear;
     }
 
-    fprintf(stderr, "Invalid gl filter %d\n", glEnum);
+    LOG_ERR("Invalid gl filter %d", glEnum);
     return vk::Filter::eLinear;
 }
 
-constexpr vk::SamplerAddressMode getVkAddressMode(cgltf_int glEnum)
+vk::SamplerAddressMode getVkAddressMode(cgltf_int glEnum)
 {
     switch (glEnum)
     {
@@ -205,7 +206,7 @@ constexpr vk::SamplerAddressMode getVkAddressMode(cgltf_int glEnum)
     case s_gl_repeat:
         return vk::SamplerAddressMode::eRepeat;
     }
-    fprintf(stderr, "Invalid gl wrapping mode %d\n", glEnum);
+    LOG_ERR("Invalid gl wrapping mode %d", glEnum);
     return vk::SamplerAddressMode::eClampToEdge;
 }
 
@@ -410,7 +411,7 @@ void WorldData::init(
             .maxLod = VK_LOD_CLAMP_NONE,
         });
 
-    printf("Loading world\n");
+    LOG_INFO("Loading world");
 
     const std::filesystem::path fullScenePath = resPath(scene);
     if (!std::filesystem::exists(fullScenePath))
@@ -423,7 +424,7 @@ void WorldData::init(
     Timer t;
     cgltf_data *gltfData = loadGltf(fullScenePath);
     WHEELS_ASSERT(gltfData != nullptr);
-    printf("glTF model loading took %.2fs\n", t.getSeconds());
+    LOG_INFO("glTF model loading took %.2fs", t.getSeconds());
 
     m_deferredLoadingContext.emplace();
     // Deferred context is responsible for freeing gltfData. Dispatch happens
@@ -435,7 +436,7 @@ void WorldData::init(
     {
         t.reset();
         fn();
-        printf("%s took %.2fs\n", stage, t.getSeconds());
+        LOG_INFO("%s took %.2fs", stage, t.getSeconds());
     };
 
     Array<Texture2DSampler> texture2DSamplers{
@@ -589,8 +590,8 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb)
         // Don't clean up until all in flight uploads are finished
         if (ctx.framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
         {
-            printf(
-                "Material streaming took %.2fs\n",
+            LOG_INFO(
+                "Material streaming took %.2fs",
                 m_materialStreamingTimer.getSeconds());
 
             m_deferredLoadingContext.reset();
@@ -749,8 +750,8 @@ void WorldData::loadMaterials(
         Material mat;
         if (material.has_pbr_metallic_roughness == 0)
         {
-            fprintf(
-                stderr, "'%s' doesn't have pbr metallic roughness components\n",
+            LOG_WARN(
+                "'%s' doesn't have pbr metallic roughness components",
                 material.name);
             continue;
         }
@@ -762,17 +763,14 @@ void WorldData::loadMaterials(
             if (tv.texture != nullptr)
             {
                 if (tv.has_transform == 1)
-                    fprintf(
-                        stderr, "%s: %s has a transform\n", material.name,
-                        channelName);
+                    LOG_WARN(
+                        "%s: %s has a transform", material.name, channelName);
                 if (tv.scale != 1.f)
-                    fprintf(
-                        stderr, "%s: %s Scale isn't 1\n", material.name,
-                        channelName);
+                    LOG_WARN(
+                        "%s: %s Scale isn't 1", material.name, channelName);
                 if (tv.texcoord != 0)
-                    fprintf(
-                        stderr, "%s: %s TexCoord isn't 0\n", material.name,
-                        channelName);
+                    LOG_WARN(
+                        "%s: %s TexCoord isn't 0", material.name, channelName);
 
                 const cgltf_size index =
                     cgltf_texture_index(&gltfData, tv.texture);
@@ -797,8 +795,8 @@ void WorldData::loadMaterials(
         else if (material.alpha_mode == cgltf_alpha_mode_blend)
             mat.alphaMode = Material::AlphaMode::Blend;
         else if (material.alpha_mode != cgltf_alpha_mode_opaque)
-            fprintf(
-                stderr, "%s: Unsupported alpha mode '%s'\n", material.name,
+            LOG_ERR(
+                "%s: Unsupported alpha mode '%s'", material.name,
                 sCgltfAlphaModeStr[material.alpha_mode]);
         mat.alphaCutoff = material.alpha_cutoff;
 
@@ -1149,8 +1147,8 @@ void WorldData::loadScenes(
                 node.camera = cameraIndex;
             }
             else
-                fprintf(
-                    stderr, "Unsupported camera type '%s'\n",
+                LOG_ERR(
+                    "Unsupported camera type '%s'",
                     sCgltfCameraTypeStr[cam.type]);
         }
         if (gltfNode.light != nullptr)
@@ -1441,10 +1439,8 @@ void WorldData::gatherScene(
                 {
                     if (directionalLightFound)
                     {
-                        fprintf(
-                            stderr, "Found second directional light for a "
-                                    "scene."
-                                    " Ignoring since only one is supported\n");
+                        LOG_ERR("Found second directional light for a scene. "
+                                "Ignoring since only one is supported");
                     }
                     auto &parameters = scene.lights.directionalLight.parameters;
                     // gltf blender exporter puts W/m^2 into intensity
@@ -1512,8 +1508,8 @@ void WorldData::gatherScene(
                     sceneLight.positionAndAngleOffset.w = angleOffset;
                 }
                 else
-                    fprintf(
-                        stderr, "Unsupported light type '%s'\n",
+                    LOG_ERR(
+                        "Unsupported light type '%s'",
                         sCgltfLightTypeStr[light.type]);
             }
         }

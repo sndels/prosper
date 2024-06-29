@@ -10,6 +10,7 @@
 #include "../scene/Scene.hpp"
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
 #include "../utils/SceneStats.hpp"
 #include "../utils/Utils.hpp"
@@ -60,7 +61,7 @@ void GBufferRenderer::init(
     WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
-    printf("Creating GBufferRenderer\n");
+    LOG_INFO("Creating GBufferRenderer");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("GBufferRenderer shader compilation failed");

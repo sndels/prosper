@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <wheels/containers/span.hpp>
 
+#include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 #include "Device.hpp"
 #include "VkUtils.hpp"
@@ -36,9 +37,8 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
 
     // At least one of the 8bit unorm surface formats is supported by rdna,
     // non-tegra nvidia and intel
-    fprintf(
-        stderr, "Linear 8bit rgba surface not supported. Output might look "
-                "incorrect.\n");
+    LOG_WARN(
+        "Linear 8bit rgba surface not supported. Output might look incorrect.");
 
     return availableFormats[0];
 }
@@ -54,7 +54,7 @@ vk::PresentModeKHR selectSwapPresentMode(
         // We'd like mailbox to implement triple buffering
         if (mode == vk::PresentModeKHR::eMailbox)
         {
-            printf("Using present mode 'Mailbox'\n");
+            LOG_INFO("Using present mode 'Mailbox'");
             return mode;
         }
         // fifo is not properly supported by some drivers so use immediate if
@@ -64,9 +64,9 @@ vk::PresentModeKHR selectSwapPresentMode(
     }
 
     if (bestMode == vk::PresentModeKHR::eFifo)
-        printf("Using present mode 'Fifo'\n");
+        LOG_INFO("Using present mode 'Fifo'");
     else if (bestMode == vk::PresentModeKHR::eImmediate)
-        printf("Using present mode 'Immediate'\n");
+        LOG_INFO("Using present mode 'Immediate'");
 
     return bestMode;
 }
@@ -157,7 +157,7 @@ void Swapchain::init(const SwapchainConfig &config)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    printf("Creating Swapchain\n");
+    LOG_INFO("Creating Swapchain");
 
     recreate(config);
 

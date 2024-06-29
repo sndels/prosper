@@ -8,6 +8,7 @@
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/Device.hpp"
 #include "../gfx/RingBuffer.hpp"
+#include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 
 using namespace glm;
@@ -61,7 +62,7 @@ void Camera::init(
 
     m_constantsRing = constantsRing;
 
-    printf("Creating Camera\n");
+    LOG_INFO("Creating Camera");
 
     createBindingsReflection(scopeAlloc.child_scope());
     createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
