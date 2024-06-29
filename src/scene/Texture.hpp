@@ -9,11 +9,6 @@
 
 #include <filesystem>
 
-namespace tinygltf
-{
-struct Image;
-}; // namespace tinygltf
-
 class Texture
 {
   public:
