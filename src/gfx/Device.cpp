@@ -288,13 +288,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
     if (breakOnError &&
         messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-#ifdef _WIN32
-        // Assumes MSVC
-        __debugbreak();
-#else  // !__WIN32
-       // Assumes gcc or a new enough clang
-        __builtin_trap();
-#endif // __WIN32
+        WHEELS_DEBUGBREAK();
 
     return ret;
 }
