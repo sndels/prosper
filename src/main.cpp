@@ -109,6 +109,8 @@ int main(int argc, char *argv[])
         lpp::LPP_MODULES_OPTION_ALL_IMPORT_MODULES, nullptr, nullptr);
 #endif // LIVEPP_PATH
 
+    setCurrentThreadName("prosper main");
+
     try
     {
         App::Settings settings = parseCli(argc, argv);

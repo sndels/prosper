@@ -3,6 +3,7 @@
 #include "../gfx/Device.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Logger.hpp"
+#include "../utils/Utils.hpp"
 #include <glm/gtc/packing.hpp>
 #include <meshoptimizer.h>
 #include <mikktspace.h>
@@ -1027,6 +1028,8 @@ void loadingWorker(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
     WHEELS_ASSERT(gDevice.graphicsQueue() != gDevice.transferQueue());
+
+    setCurrentThreadName("prosper loading");
 
     ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
