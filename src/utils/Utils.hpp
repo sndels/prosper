@@ -180,4 +180,6 @@ template <class F> struct Deferrer
 template <class F> Deferrer<F> operator*(DeferDummy, F f) { return {f}; }
 #define defer auto TOKEN_APPEND(zzDefer, __LINE__) = DeferDummy{} *[&]()
 
+void setCurrentThreadName(const char *name);
+
 #endif // PROSPER_UTILS_HPP

@@ -1,5 +1,22 @@
 #include "Utils.hpp"
 
+#include "Logger.hpp"
+#include <cstring>
+#include <wheels/assert.hpp>
+#include <wheels/containers/static_array.hpp>
+
+#ifdef _WIN32
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#else // !_WIN32
+
+// Assume Linux
+#include <sys/prctl.h>
+
+#endif // _WIN32
+
 using namespace wheels;
 
 std::filesystem::path resPath(const std::filesystem::path &path)
@@ -51,4 +68,33 @@ String readFileString(Allocator &alloc, const std::filesystem::path &path)
 
     file.close();
     return buffer;
+}
+
+void setCurrentThreadName(const char *name)
+{
+    // This is the prctl maximum including null
+    constexpr size_t sMaxLength = 16;
+
+    const size_t len = strlen(name);
+    // Extra character for null
+    WHEELS_ASSERT(len < sMaxLength && "Thread name is too long");
+
+#ifdef _WIN32
+    // This shouldn't be called a lot so let's convert the simple way
+    StaticArray<wchar_t, sMaxLength> wName;
+    for (size_t i = 0; i < len; ++i)
+        wName[i] = name[i];
+    wName[len] = '\0';
+
+    HANDLE thread = GetCurrentThread();
+    const HRESULT hr = SetThreadDescription(thread, wName.data());
+    if (FAILED(hr))
+        LOG_WARN("Failed to set thread name for '%s'", name);
+
+#else // !_WIN32
+
+    if (prctl(PR_SET_NAME, name) < 0)
+        LOG_WARN("Failed to set thread name for '%s'", name);
+
+#endif // _WIN32
 }
