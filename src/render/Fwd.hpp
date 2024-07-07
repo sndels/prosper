@@ -10,6 +10,9 @@ class ComputePass;
 // DebugRenderer.hpp
 class DebugRenderer;
 
+// DrawStats.hpp
+struct DrawStats;
+
 // DeferredShading.hpp
 class DeferredShading;
 
@@ -36,6 +39,9 @@ struct LightClusteringOutput;
 // MeshletCuller.hpp
 struct MeshletCullerOutput;
 class MeshletCuller;
+
+// Renderer.hpp
+class Renderer;
 
 // RenderResources.hpp
 class RenderResources;

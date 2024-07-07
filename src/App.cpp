@@ -22,24 +22,8 @@
 #include "Allocators.hpp"
 #include "gfx/DescriptorAllocator.hpp"
 #include "gfx/VkUtils.hpp"
-#include "render/DebugRenderer.hpp"
-#include "render/DeferredShading.hpp"
-#include "render/ForwardRenderer.hpp"
-#include "render/GBufferRenderer.hpp"
-#include "render/ImGuiRenderer.hpp"
-#include "render/ImageBasedLighting.hpp"
-#include "render/LightClustering.hpp"
-#include "render/MeshletCuller.hpp"
 #include "render/RenderResources.hpp"
-#include "render/RenderTargets.hpp"
-#include "render/RtReference.hpp"
-#include "render/SkyboxRenderer.hpp"
-#include "render/TemporalAntiAliasing.hpp"
-#include "render/TextureDebug.hpp"
-#include "render/TextureReadback.hpp"
-#include "render/ToneMap.hpp"
-#include "render/dof/DepthOfField.hpp"
-#include "render/rtdi/RtDirectIllumination.hpp"
+#include "render/Renderer.hpp"
 #include "scene/Scene.hpp"
 #include "scene/World.hpp"
 #include "utils/InputHandler.hpp"
@@ -53,8 +37,6 @@ using namespace std::chrono_literals;
 
 namespace
 {
-
-constexpr uint32_t sDrawStatsByteSize = 2 * sizeof(uint32_t);
 
 StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
 {
@@ -80,22 +62,7 @@ App::App(std::filesystem::path scenePath) noexcept
 , m_swapchain{OwningPtr<Swapchain>{gAllocators.general}}
 , m_cam{OwningPtr<Camera>{gAllocators.general}}
 , m_world{OwningPtr<World>{gAllocators.general}}
-, m_lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
-, m_forwardRenderer{OwningPtr<ForwardRenderer>{gAllocators.general}}
-, m_gbufferRenderer{OwningPtr<GBufferRenderer>{gAllocators.general}}
-, m_deferredShading{OwningPtr<DeferredShading>{gAllocators.general}}
-, m_rtDirectIllumination{OwningPtr<RtDirectIllumination>{gAllocators.general}}
-, m_rtReference{OwningPtr<RtReference>{gAllocators.general}}
-, m_skyboxRenderer{OwningPtr<SkyboxRenderer>{gAllocators.general}}
-, m_debugRenderer{OwningPtr<DebugRenderer>{gAllocators.general}}
-, m_toneMap{OwningPtr<ToneMap>{gAllocators.general}}
-, m_imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
-, m_textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
-, m_depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
-, m_imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
-, m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
-, m_meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
-, m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
+, m_renderer{OwningPtr<Renderer>{gAllocators.general}}
 {
 }
 
@@ -135,52 +102,11 @@ void App::init(ScopedScratch scopeAlloc)
 
     m_world->init(scopeAlloc.child_scope(), &m_constantsRing, m_scenePath);
 
-    const Timer gpuPassesInitTimer;
-    m_lightClustering->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_forwardRenderer->init(
-        scopeAlloc.child_scope(),
-        ForwardRenderer::InputDSLayouts{
-            .camera = m_cam->descriptorSetLayout(),
-            .lightClusters = m_lightClustering->descriptorSetLayout(),
-            .world = m_world->dsLayouts(),
-        });
-    m_gbufferRenderer->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_deferredShading->init(
-        scopeAlloc.child_scope(),
-        DeferredShading::InputDSLayouts{
-            .camera = m_cam->descriptorSetLayout(),
-            .lightClusters = m_lightClustering->descriptorSetLayout(),
-            .world = m_world->dsLayouts(),
-        });
-    m_rtDirectIllumination->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_rtReference->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_skyboxRenderer->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_debugRenderer->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout());
-    m_toneMap->init(scopeAlloc.child_scope());
-    m_imguiRenderer->init(m_swapchain->config());
-    m_textureDebug->init(scopeAlloc.child_scope());
-    m_depthOfField->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout());
-    m_imageBasedLighting->init(scopeAlloc.child_scope());
-    m_temporalAntiAliasing->init(
-        scopeAlloc.child_scope(), m_cam->descriptorSetLayout());
-    m_meshletCuller->init(
-        scopeAlloc.child_scope(), m_world->dsLayouts(),
-        m_cam->descriptorSetLayout());
-    m_textureReadback->init(scopeAlloc.child_scope());
+    m_renderer->init(
+        scopeAlloc.child_scope(), m_swapchain->config(),
+        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+
     m_recompileTime = std::chrono::file_clock::now();
-    LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 
     m_cam->lookAt(m_sceneCameraTransform);
     m_cam->setParameters(m_cameraParameters);
@@ -231,12 +157,11 @@ void App::run()
 
             recompileShaders(scopeAlloc.child_scope());
 
-            gRenderResources.startFrame();
             m_constantsRing.startFrame();
+
             m_world->startFrame();
-            m_meshletCuller->startFrame();
-            m_depthOfField->startFrame();
-            m_textureReadback->startFrame();
+
+            m_renderer->startFrame();
 
             drawFrame(
                 scopeAlloc.child_scope(),
@@ -274,18 +199,9 @@ void App::recreateViewportRelated()
     // queue simultaneously
     gDevice.graphicsQueue().waitIdle();
 
-    gRenderResources.destroyResources();
-
-    if (m_drawUi)
-    {
-        const ImVec2 viewportSize = m_imguiRenderer->centerAreaSize();
-        m_viewportExtent = vk::Extent2D{
-            asserted_cast<uint32_t>(viewportSize.x),
-            asserted_cast<uint32_t>(viewportSize.y),
-        };
-    }
-    else
-        m_viewportExtent = m_swapchain->config().extent;
+    m_renderer->recreateViewportRelated();
+    m_viewportExtent = m_drawUi ? m_renderer->viewportExtentInUi()
+                                : m_swapchain->config().extent;
 
     m_cam->updateResolution(
         uvec2{m_viewportExtent.width, m_viewportExtent.height});
@@ -302,8 +218,6 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
     gDevice.graphicsQueue().waitIdle();
-
-    gRenderResources.destroyResources();
 
     { // Drop the config as we should always use swapchain's active config
         const SwapchainConfig config{
@@ -379,54 +293,9 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     // wait to avoid reading them mid-write.
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
-    LOG_INFO("Recompiling shaders");
-
-    const Timer t;
-
-    m_lightClustering->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_forwardRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles,
-        ForwardRenderer::InputDSLayouts{
-            .camera = m_cam->descriptorSetLayout(),
-            .lightClusters = m_lightClustering->descriptorSetLayout(),
-            .world = m_world->dsLayouts(),
-        });
-    m_gbufferRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_deferredShading->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles,
-        DeferredShading::InputDSLayouts{
-            .camera = m_cam->descriptorSetLayout(),
-            .lightClusters = m_lightClustering->descriptorSetLayout(),
-            .world = m_world->dsLayouts(),
-        });
-    m_rtDirectIllumination->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_rtReference->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_skyboxRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout(),
-        m_world->dsLayouts());
-    m_debugRenderer->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout());
-    m_toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    m_textureDebug->recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    m_depthOfField->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout());
-    m_imageBasedLighting->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles);
-    m_temporalAntiAliasing->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_cam->descriptorSetLayout());
-    m_meshletCuller->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, m_world->dsLayouts(),
-        m_cam->descriptorSetLayout());
-
-    LOG_INFO("Shaders recompiled in %.2fs", t.getSeconds());
+    m_renderer->recompileShaders(
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
+        m_world->dsLayouts(), changedFiles);
 
     m_recompileTime = std::chrono::file_clock::now();
 }
@@ -524,9 +393,9 @@ void App::handleMouseGestures()
         }
         else if (gesture->type == MouseGestureType::SelectPoint)
         {
-            // Reference RT write a depth buffer so can't use the texture
-            // readback
-            if (m_renderDoF && !m_referenceRt && !m_waitFocusDistance)
+            // Reference RT doesn't write a depth buffer so can't use the
+            // texture readback
+            if (m_renderer->depthAvailable() && !m_waitFocusDistance)
                 m_pickFocusDistance = true;
         }
         else
@@ -625,17 +494,9 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     UiChanges uiChanges;
     if (m_drawUi)
-    {
-        m_imguiRenderer->startFrame();
-
         uiChanges = drawUi(
             scopeAlloc.child_scope(), nextFrame, profilerDatas,
             scopeHighWatermark);
-    }
-    // Clear stats for new frame after UI was drawn
-    m_sceneStats[nextFrame] = SceneStats{};
-    if (gRenderResources.buffers->isValidHandle(m_drawStats[nextFrame]))
-        gRenderResources.buffers->release(m_drawStats[nextFrame]);
 
     const vk::Rect2D renderArea{
         .offset = {0, 0},
@@ -654,7 +515,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     // -1 seems like a safe value here since an 8 sample halton sequence is
     // used. See A Survey of Temporal Antialiasing Techniques by Yang, Liu and
     // Salvi for details.
-    const float lodBias = m_applyTaa ? -1.f : 0.f;
+    const float lodBias = m_renderer->lodBias();
     m_world->uploadMaterialDatas(nextFrame, lodBias);
 
     if (m_isPlaying || m_forceCamUpdate || uiChanges.timeTweaked)
@@ -698,17 +559,33 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    if (m_applyIbl && !m_imageBasedLighting->isGenerated())
-        m_imageBasedLighting->recordGeneration(
-            scopeAlloc.child_scope(), cb, *m_world, nextFrame);
+    // We need to build TLAS if things are animated or we can build new BLASes
+    if (m_renderer->rtInUse() || m_world->unbuiltBlases())
+    {
+        PROFILER_CPU_GPU_SCOPE(cb, "BuildTLAS");
+        uiChanges.rtDirty |=
+            m_world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
+    }
+    Renderer::Options renderOptions{
+        .rtDirty = uiChanges.rtDirty,
+        .drawUi = m_drawUi,
+    };
+    if (m_pickFocusDistance)
+    {
+        const Optional<MouseGesture> &gesture = gInputHandler.mouseGesture();
+        WHEELS_ASSERT(gesture.has_value());
 
-    render(
-        scopeAlloc.child_scope(), cb, renderArea,
-        RenderIndices{
-            .nextFrame = nextFrame,
-            .nextImage = nextImage,
-        },
-        uiChanges);
+        const vec2 offset = m_renderer->viewportOffsetInUi();
+        m_pickedFocusPx = gesture->currentPos - offset;
+        renderOptions.readbackDepthPx = m_pickedFocusPx;
+
+        m_pickFocusDistance = false;
+        m_waitFocusDistance = true;
+    }
+    const SwapchainImage swapImage = m_swapchain->image(nextImage);
+    m_renderer->render(
+        scopeAlloc.child_scope(), cb, *m_cam, *m_world, renderArea, swapImage,
+        nextFrame, renderOptions);
 
     m_newSceneDataLoaded = m_world->handleDeferredLoading(cb);
 
@@ -718,13 +595,13 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     if (m_waitFocusDistance)
     {
-        const Optional<vec4> nonLinearDepth = m_textureReadback->readback();
+        const Optional<vec4> nonLinearDepth = m_renderer->tryDepthReadback();
         if (nonLinearDepth.has_value())
         {
             // First we get the projected direction and linear depth
-            const ImVec2 viewportArea = m_imguiRenderer->centerAreaSize();
             const vec2 uv =
-                (m_pickedFocusPx + 0.5f) / vec2{viewportArea.x, viewportArea.y};
+                (m_pickedFocusPx + 0.5f) /
+                vec2{m_viewportExtent.width, m_viewportExtent.height};
             const vec2 clipXy = uv * 2.f - 1.f;
             const vec4 projected =
                 m_cam->clipToCamera() * vec4{clipXy, nonLinearDepth->x, 1.f};
@@ -829,7 +706,7 @@ App::UiChanges App::drawUi(
 
     drawOptions();
 
-    drawRendererSettings(ret);
+    ret.rtDirty |= m_renderer->drawUi(*m_cam);
 
     drawProfiling(scopeAlloc.child_scope(), profilerDatas);
 
@@ -862,67 +739,6 @@ void App::drawOptions()
     }
 
     ImGui::Checkbox("Recompile shaders", &m_recompileShaders);
-
-    if (ImGui::Checkbox("Texture Debug", &m_textureDebugActive) &&
-        !m_textureDebugActive)
-        gRenderResources.images->clearDebug();
-
-    ImGui::End();
-}
-
-void App::drawRendererSettings(UiChanges &uiChanges)
-{
-    ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_FirstUseEver);
-    ImGui::Begin(
-        "Renderer settings ", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-    // TODO: Droplist for main renderer type
-    uiChanges.rtDirty |=
-        ImGui::Checkbox("Reference RT", &m_referenceRt) && m_referenceRt;
-    uiChanges.rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &m_renderDoF);
-    ImGui::Checkbox("Temporal Anti-Aliasing", &m_applyTaa);
-
-    if (!m_referenceRt)
-    {
-        ImGui::Checkbox("Deferred shading", &m_renderDeferred);
-
-        if (m_renderDeferred)
-            uiChanges.rtDirty =
-                ImGui::Checkbox("RT direct illumination", &m_deferredRt);
-    }
-
-    if (!m_applyTaa)
-        m_cam->setJitter(false);
-    else
-    {
-        if (ImGui::CollapsingHeader(
-                "Temporal Anti-Aliasing", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::Checkbox("Jitter", &m_applyJitter);
-            m_cam->setJitter(m_applyJitter);
-            m_temporalAntiAliasing->drawUi();
-        }
-    }
-
-    if (ImGui::CollapsingHeader("Tone Map", ImGuiTreeNodeFlags_DefaultOpen))
-        m_toneMap->drawUi();
-
-    if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
-    {
-        uiChanges.rtDirty |=
-            enumDropdown("Draw type", m_drawType, sDrawTypeNames);
-        if (m_referenceRt)
-            m_rtReference->drawUi();
-        else
-        {
-            if (m_renderDeferred)
-            {
-                if (m_deferredRt)
-                    m_rtDirectIllumination->drawUi();
-            }
-        }
-        uiChanges.rtDirty |= ImGui::Checkbox("IBL", &m_applyIbl);
-    }
 
     ImGui::End();
 }
@@ -1227,30 +1043,18 @@ bool App::drawCameraUi()
     return changed;
 }
 
-void App::drawSceneStats(uint32_t nextFrame) const
+void App::drawSceneStats(uint32_t nextFrame)
 {
-    uint32_t drawnMeshletCount = 0;
-    uint32_t rasterizedTriangleCount = 0;
-    if (gRenderResources.buffers->isValidHandle(m_drawStats[nextFrame]))
-    {
-        const uint32_t *readbackPtr = static_cast<const uint32_t *>(
-            gRenderResources.buffers->resource(m_drawStats[nextFrame]).mapped);
-        WHEELS_ASSERT(readbackPtr != nullptr);
-
-        drawnMeshletCount = readbackPtr[0];
-        rasterizedTriangleCount = readbackPtr[1];
-    }
+    const DrawStats &drawStats = m_renderer->drawStats(nextFrame);
 
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    ImGui::Text(
-        "Total triangles: %u", m_sceneStats[nextFrame].totalTriangleCount);
-    ImGui::Text("Rasterized triangles: %u", rasterizedTriangleCount);
-    ImGui::Text(
-        "Total meshlets: %u", m_sceneStats[nextFrame].totalMeshletCount);
-    ImGui::Text("Drawn meshlets: %u", drawnMeshletCount);
-    ImGui::Text("Total meshes: %u", m_sceneStats[nextFrame].totalMeshCount);
+    ImGui::Text("Total triangles: %u", drawStats.totalTriangleCount);
+    ImGui::Text("Rasterized triangles: %u", drawStats.rasterizedTriangleCount);
+    ImGui::Text("Total meshlets: %u", drawStats.totalMeshletCount);
+    ImGui::Text("Drawn meshlets: %u", drawStats.drawnMeshletCount);
+    ImGui::Text("Total meshes: %u", drawStats.totalMeshCount);
     ImGui::Text("Total nodes: %u", m_sceneStats[nextFrame].totalNodeCount);
     ImGui::Text(
         "Animated nodes: %u", m_sceneStats[nextFrame].animatedNodeCount);
@@ -1330,550 +1134,6 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
     }
 }
 
-void App::render(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const vk::Rect2D &renderArea, const RenderIndices &indices,
-    const UiChanges &uiChanges)
-{
-    bool blasesAdded = false;
-    if (m_referenceRt || m_deferredRt || m_world->unbuiltBlases())
-    {
-        PROFILER_CPU_GPU_SCOPE(cb, "BuildTLAS");
-        blasesAdded =
-            m_world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
-    }
-
-    const LightClusteringOutput lightClusters = m_lightClustering->record(
-        scopeAlloc.child_scope(), cb, *m_world, *m_cam, m_viewportExtent,
-        indices.nextFrame);
-
-    ImageHandle illumination;
-    const BufferHandle drawStats = gRenderResources.buffers->create(
-        BufferDescription{
-            .byteSize = sDrawStatsByteSize,
-            .usage = vk::BufferUsageFlagBits::eTransferDst |
-                     vk::BufferUsageFlagBits::eTransferSrc |
-                     vk::BufferUsageFlagBits::eStorageBuffer,
-            .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-        },
-        "DrawStats");
-
-    gRenderResources.buffers->transition(
-        cb, drawStats, BufferState::TransferDst);
-    cb.fillBuffer(
-        gRenderResources.buffers->nativeHandle(drawStats), 0,
-        sDrawStatsByteSize, 0);
-
-    if (m_referenceRt)
-    {
-        m_rtDirectIllumination->releasePreserved();
-        m_temporalAntiAliasing->releasePreserved();
-
-        illumination =
-            m_rtReference
-                ->record(
-                    scopeAlloc.child_scope(), cb, *m_world, *m_cam, renderArea,
-                    RtReference::Options{
-                        .depthOfField = m_renderDoF,
-                        .ibl = m_applyIbl,
-                        .colorDirty = uiChanges.rtDirty || blasesAdded,
-                        .drawType = m_drawType,
-                    },
-                    indices.nextFrame)
-                .illumination;
-    }
-    else
-    {
-        // Need to clean up after toggling rt off to not "leak" the resources
-        m_rtReference->releasePreserved();
-
-        ImageHandle velocity;
-        ImageHandle depth;
-        // Opaque
-        if (m_renderDeferred)
-        {
-            const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
-                scopeAlloc.child_scope(), cb, m_meshletCuller.get(), *m_world,
-                *m_cam, renderArea, drawStats, m_drawType, indices.nextFrame,
-                &m_sceneStats[indices.nextFrame]);
-
-            if (m_deferredRt)
-                illumination =
-                    m_rtDirectIllumination
-                        ->record(
-                            scopeAlloc.child_scope(), cb, *m_world, *m_cam,
-                            gbuffer, uiChanges.rtDirty || blasesAdded,
-                            m_drawType, indices.nextFrame)
-                        .illumination;
-            else
-            {
-                m_rtDirectIllumination->releasePreserved();
-
-                illumination =
-                    m_deferredShading
-                        ->record(
-                            scopeAlloc.child_scope(), cb, *m_world, *m_cam,
-                            DeferredShading::Input{
-                                .gbuffer = gbuffer,
-                                .lightClusters = lightClusters,
-                            },
-                            indices.nextFrame, m_applyIbl, m_drawType)
-                        .illumination;
-            }
-
-            gRenderResources.images->release(gbuffer.albedoRoughness);
-            gRenderResources.images->release(gbuffer.normalMetalness);
-
-            velocity = gbuffer.velocity;
-            depth = gbuffer.depth;
-        }
-        else
-        {
-            m_rtDirectIllumination->releasePreserved();
-
-            const ForwardRenderer::OpaqueOutput output =
-                m_forwardRenderer->recordOpaque(
-                    scopeAlloc.child_scope(), cb, m_meshletCuller.get(),
-                    *m_world, *m_cam, renderArea, lightClusters, drawStats,
-                    indices.nextFrame, m_applyIbl, m_drawType,
-                    &m_sceneStats[indices.nextFrame]);
-            illumination = output.illumination;
-            velocity = output.velocity;
-            depth = output.depth;
-        }
-
-        m_skyboxRenderer->record(
-            scopeAlloc.child_scope(), cb, *m_world, *m_cam,
-            SkyboxRenderer::RecordInOut{
-                .illumination = illumination,
-                .velocity = velocity,
-                .depth = depth,
-            });
-
-        // Transparent
-        m_forwardRenderer->recordTransparent(
-            scopeAlloc.child_scope(), cb, m_meshletCuller.get(), *m_world,
-            *m_cam,
-            ForwardRenderer::TransparentInOut{
-                .illumination = illumination,
-                .depth = depth,
-            },
-            lightClusters, drawStats, indices.nextFrame, m_drawType,
-            &m_sceneStats[indices.nextFrame]);
-
-        m_debugRenderer->record(
-            scopeAlloc.child_scope(), cb, *m_cam,
-            DebugRenderer::RecordInOut{
-                .color = illumination,
-                .depth = depth,
-            },
-            indices.nextFrame);
-
-        if (m_pickFocusDistance)
-        {
-            const Optional<MouseGesture> &gesture =
-                gInputHandler.mouseGesture();
-            WHEELS_ASSERT(gesture.has_value());
-
-            const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
-            const vec2 px = gesture->currentPos - vec2{offset.x, offset.y};
-
-            m_textureReadback->record(
-                scopeAlloc.child_scope(), cb, depth, px, indices.nextFrame);
-
-            m_pickFocusDistance = false;
-            m_pickedFocusPx = px;
-            m_waitFocusDistance = true;
-        }
-
-        if (m_applyTaa)
-        {
-            const TemporalAntiAliasing::Output taaOutput =
-                m_temporalAntiAliasing->record(
-                    scopeAlloc.child_scope(), cb, *m_cam,
-                    TemporalAntiAliasing::Input{
-                        .illumination = illumination,
-                        .velocity = velocity,
-                        .depth = depth,
-                    },
-                    indices.nextFrame);
-
-            gRenderResources.images->release(illumination);
-            illumination = taaOutput.resolvedIllumination;
-        }
-        else
-            m_temporalAntiAliasing->releasePreserved();
-
-        // TODO:
-        // Do DoF on raw illumination and have a separate stabilizing TAA pass
-        // that doesn't blend foreground/background (Karis/Abadie).
-        if (m_renderDoF)
-        {
-            const DepthOfField::Output dofOutput = m_depthOfField->record(
-                scopeAlloc.child_scope(), cb, *m_cam,
-                DepthOfField::Input{
-                    .illumination = illumination,
-                    .depth = depth,
-                },
-                indices.nextFrame);
-
-            gRenderResources.images->release(illumination);
-            illumination = dofOutput.combinedIlluminationDoF;
-        }
-
-        gRenderResources.images->release(velocity);
-        gRenderResources.images->release(depth);
-    }
-    gRenderResources.images->release(lightClusters.pointers);
-    gRenderResources.texelBuffers->release(lightClusters.indicesCount);
-    gRenderResources.texelBuffers->release(lightClusters.indices);
-
-    const ImageHandle toneMapped =
-        m_toneMap
-            ->record(
-                scopeAlloc.child_scope(), cb, illumination, indices.nextFrame)
-            .toneMapped;
-
-    gRenderResources.images->release(illumination);
-
-    ImageHandle finalComposite;
-    if (m_textureDebugActive)
-    {
-        const ImVec2 size = m_imguiRenderer->centerAreaSize();
-        const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
-        const CursorState cursor = gInputHandler.cursor();
-
-        // Have magnifier when mouse is on (an active) debug view
-        const bool uiHovered = ImGui::IsAnyItemHovered();
-        const bool activeTexture = m_textureDebug->textureSelected();
-        const bool cursorWithinArea =
-            all(greaterThan(cursor.position, vec2(offset.x, offset.y))) &&
-            all(lessThan(
-                cursor.position, vec2(offset.x + size.x, offset.y + size.y)));
-
-        Optional<vec2> cursorCoord;
-        // Don't have debug magnifier when using ui that overlaps the render
-        // area
-        if (!uiHovered && activeTexture && cursorWithinArea)
-        {
-            // Also don't have magnifier when e.g. mouse look is active. Let
-            // InputHandler figure out if mouse should be visible or not.
-            if (!gInputHandler.mouseGesture().has_value())
-            {
-                // The magnifier has its own pointer so let's not mask the view
-                // with the OS one.
-                gInputHandler.hideCursor();
-                cursorCoord = cursor.position - vec2(offset.x, offset.y);
-            }
-        }
-        else
-            gInputHandler.showCursor();
-
-        const ImageHandle debugOutput = m_textureDebug->record(
-            scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,
-            indices.nextFrame);
-
-        finalComposite = blitColorToFinalComposite(
-            scopeAlloc.child_scope(), cb, debugOutput);
-
-        gRenderResources.images->release(debugOutput);
-    }
-    else
-        finalComposite =
-            blitColorToFinalComposite(scopeAlloc.child_scope(), cb, toneMapped);
-
-    gRenderResources.images->release(toneMapped);
-
-    if (m_drawUi)
-    {
-        m_world->drawDeferredLoadingUi();
-
-        if (m_textureDebugActive)
-            // Draw this after so that the first frame debug is active for a new
-            // texture, we draw black instead of a potentially wrong output from
-            // the shared texture that wasn't protected yet
-            m_textureDebug->drawUi(indices.nextFrame);
-
-        const vk::Rect2D backbufferArea{
-            .offset = {0, 0},
-            .extent = m_swapchain->config().extent,
-        };
-        m_imguiRenderer->endFrame(cb, backbufferArea, finalComposite);
-    }
-
-    blitFinalComposite(cb, finalComposite, indices.nextImage);
-
-    gRenderResources.images->release(finalComposite);
-
-    readbackDrawStats(cb, indices.nextFrame, drawStats);
-
-    gRenderResources.buffers->release(drawStats);
-
-    // Need to preserve both the new and old readback buffers. Release happens
-    // after the readback is read from when nextFrame wraps around.
-    for (const BufferHandle buffer : m_drawStats)
-    {
-        if (gRenderResources.buffers->isValidHandle(buffer))
-            gRenderResources.buffers->preserve(buffer);
-    }
-}
-
-ImageHandle App::blitColorToFinalComposite(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle toneMapped)
-{
-    const SwapchainConfig &swapConfig = m_swapchain->config();
-    const ImageHandle finalComposite = gRenderResources.images->create(
-        ImageDescription{
-            .format = sFinalCompositeFormat,
-            .width = swapConfig.extent.width,
-            .height = swapConfig.extent.height,
-            .usageFlags =
-                vk::ImageUsageFlagBits::eColorAttachment | // Render
-                vk::ImageUsageFlagBits::eTransferDst |     // Blit from tone
-                                                           // mapped
-                vk::ImageUsageFlagBits::eTransferSrc,      // Blit to swap image
-        },
-        "finalComposite");
-
-    // Blit tonemapped into cleared final composite before drawing ui on top
-    transition(
-        WHEELS_MOV(scopeAlloc), cb,
-        Transitions{
-            .images = StaticArray<ImageTransition, 2>{{
-                {toneMapped, ImageState::TransferSrc},
-                {finalComposite, ImageState::TransferDst},
-            }},
-        });
-
-    // This scope has a barrier, but that's intentional as it should contain
-    // both the clear and the blit
-    PROFILER_CPU_GPU_SCOPE(cb, "blitColorToFinalComposite");
-
-    const vk::ClearColorValue clearColor{0.f, 0.f, 0.f, 0.f};
-    const vk::ImageSubresourceRange subresourceRange{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1,
-    };
-    cb.clearColorImage(
-        gRenderResources.images->nativeHandle(finalComposite),
-        vk::ImageLayout::eTransferDstOptimal, &clearColor, 1,
-        &subresourceRange);
-
-    // Memory barrier for finalComposite, layout is already correct
-    cb.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags{},
-        {
-            vk::MemoryBarrier{
-                .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
-                .dstAccessMask = vk::AccessFlagBits::eTransferWrite,
-            },
-        },
-        {}, {});
-
-    const vk::ImageSubresourceLayers layers{
-        .aspectMask = vk::ImageAspectFlagBits::eColor,
-        .mipLevel = 0,
-        .baseArrayLayer = 0,
-        .layerCount = 1};
-
-    const std::array srcOffsets{
-        vk::Offset3D{0, 0, 0},
-        vk::Offset3D{
-            asserted_cast<int32_t>(m_viewportExtent.width),
-            asserted_cast<int32_t>(m_viewportExtent.height),
-            1,
-        },
-    };
-
-    const vk::Extent2D backbufferExtent = m_swapchain->config().extent;
-    ivec2 dstOffset;
-    ivec2 dstSize;
-    if (m_drawUi)
-    {
-        const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
-        const ImVec2 size = m_imguiRenderer->centerAreaSize();
-        dstOffset = ivec2{static_cast<int32_t>(offset.x), offset.y};
-        dstSize = ivec2{size.x, size.y};
-    }
-    else
-    {
-        dstOffset = ivec2{0, 0};
-        dstSize = ivec2{
-            asserted_cast<int32_t>(backbufferExtent.width),
-            asserted_cast<int32_t>(backbufferExtent.height),
-        };
-    }
-
-    const std::array dstOffsets{
-        vk::Offset3D{
-            std::min(
-                dstOffset.x,
-                asserted_cast<int32_t>(backbufferExtent.width - 1)),
-            std::min(
-                dstOffset.y,
-                asserted_cast<int32_t>(backbufferExtent.height - 1)),
-            0,
-        },
-        vk::Offset3D{
-            std::min(
-                asserted_cast<int32_t>(dstOffset.x + dstSize.x),
-                asserted_cast<int32_t>(backbufferExtent.width)),
-            std::min(
-                asserted_cast<int32_t>(dstOffset.y + dstSize.y),
-                asserted_cast<int32_t>(backbufferExtent.height)),
-            1,
-        },
-    };
-    const vk::ImageBlit blit = {
-        .srcSubresource = layers,
-        .srcOffsets = srcOffsets,
-        .dstSubresource = layers,
-        .dstOffsets = dstOffsets,
-    };
-    cb.blitImage(
-        gRenderResources.images->nativeHandle(toneMapped),
-        vk::ImageLayout::eTransferSrcOptimal,
-        gRenderResources.images->nativeHandle(finalComposite),
-        vk::ImageLayout::eTransferDstOptimal, 1, &blit, vk::Filter::eLinear);
-
-    return finalComposite;
-}
-
-void App::blitFinalComposite(
-    vk::CommandBuffer cb, ImageHandle finalComposite, uint32_t nextImage)
-{
-    // Blit to support different internal rendering resolution (and color
-    // format?) the future
-
-    const auto &swapImage = m_swapchain->image(nextImage);
-
-    const StaticArray barriers{{
-        *gRenderResources.images->transitionBarrier(
-            finalComposite, ImageState::TransferSrc, true),
-        vk::ImageMemoryBarrier2{
-            // TODO:
-            // What's the tight stage for this? Synchronization validation
-            // complained about a hazard after color attachment write which
-            // seems like an oddly specific stage for present source access to
-            // happen in.
-            .srcStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
-            .srcAccessMask = vk::AccessFlags2{},
-            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            .oldLayout = vk::ImageLayout::eUndefined,
-            .newLayout = vk::ImageLayout::eTransferDstOptimal,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = swapImage.handle,
-            .subresourceRange = swapImage.subresourceRange,
-        },
-    }};
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
-
-    {
-        PROFILER_CPU_GPU_SCOPE(cb, "BlitFinalComposite");
-
-        const vk::ImageSubresourceLayers layers{
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
-            .mipLevel = 0,
-            .baseArrayLayer = 0,
-            .layerCount = 1};
-
-        const vk::Extent3D &finalCompositeExtent =
-            gRenderResources.images->resource(finalComposite).extent;
-        WHEELS_ASSERT(finalCompositeExtent.width == swapImage.extent.width);
-        WHEELS_ASSERT(finalCompositeExtent.height == swapImage.extent.height);
-        const std::array offsets{
-            vk::Offset3D{0, 0, 0},
-            vk::Offset3D{
-                asserted_cast<int32_t>(m_swapchain->config().extent.width),
-                asserted_cast<int32_t>(m_swapchain->config().extent.height),
-                1,
-            },
-        };
-        const auto blit = vk::ImageBlit{
-            .srcSubresource = layers,
-            .srcOffsets = offsets,
-            .dstSubresource = layers,
-            .dstOffsets = offsets,
-        };
-        cb.blitImage(
-            gRenderResources.images->nativeHandle(finalComposite),
-            vk::ImageLayout::eTransferSrcOptimal, swapImage.handle,
-            vk::ImageLayout::eTransferDstOptimal, 1, &blit,
-            vk::Filter::eLinear);
-    }
-
-    {
-        const vk::ImageMemoryBarrier2 barrier{
-            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            // TODO:
-            // What's the tight stage and correct access for this?
-            .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
-            .dstAccessMask = vk::AccessFlagBits2::eMemoryRead,
-            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-            .newLayout = vk::ImageLayout::ePresentSrcKHR,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = swapImage.handle,
-            .subresourceRange = swapImage.subresourceRange,
-        };
-
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &barrier,
-        });
-    }
-}
-
-void App::readbackDrawStats(
-    vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer)
-{
-    BufferHandle &dstBuffer = m_drawStats[nextFrame];
-    WHEELS_ASSERT(!gRenderResources.buffers->isValidHandle(dstBuffer));
-    dstBuffer = gRenderResources.buffers->create(
-        BufferDescription{
-            .byteSize = sDrawStatsByteSize,
-            .usage = vk::BufferUsageFlagBits::eTransferDst,
-            .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                          vk::MemoryPropertyFlagBits::eHostCoherent,
-        },
-        "DrawStatsReadback");
-    WHEELS_ASSERT(
-        gRenderResources.buffers->resource(srcBuffer).byteSize ==
-        gRenderResources.buffers->resource(dstBuffer).byteSize);
-
-    const StaticArray barriers{{
-        *gRenderResources.buffers->transitionBarrier(
-            srcBuffer, BufferState::TransferSrc, true),
-        *gRenderResources.buffers->transitionBarrier(
-            dstBuffer, BufferState::TransferDst, true),
-    }};
-
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pBufferMemoryBarriers = barriers.data(),
-    });
-
-    const vk::BufferCopy region{
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = sDrawStatsByteSize,
-    };
-    cb.copyBuffer(
-        gRenderResources.buffers->nativeHandle(srcBuffer),
-        gRenderResources.buffers->nativeHandle(dstBuffer), 1, &region);
-}
-
 bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
 {
     const StaticArray waitSemaphores{m_imageAvailableSemaphores[nextFrame]};
@@ -1901,10 +1161,7 @@ bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
 
 void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
 {
-    const ImVec2 viewportSize = m_imguiRenderer->centerAreaSize();
-    const bool viewportResized =
-        asserted_cast<uint32_t>(viewportSize.x) != m_viewportExtent.width ||
-        asserted_cast<uint32_t>(viewportSize.y) != m_viewportExtent.height;
+    const bool viewportResized = m_renderer->viewportResized();
 
     // Recreate swapchain if so indicated and explicitly handle resizes
     if (shouldResizeSwapchain || gWindow.resized())

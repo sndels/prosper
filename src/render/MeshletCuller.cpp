@@ -9,7 +9,7 @@
 #include "../scene/World.hpp"
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Profiler.hpp"
-#include "../utils/SceneStats.hpp"
+#include "DrawStats.hpp"
 #include "RenderResources.hpp"
 
 using namespace glm;
@@ -201,7 +201,7 @@ void MeshletCuller::startFrame()
 MeshletCullerOutput MeshletCuller::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, const Camera &cam, uint32_t nextFrame,
-    const char *debugPrefix, SceneStats *sceneStats)
+    const char *debugPrefix, DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -213,7 +213,7 @@ MeshletCullerOutput MeshletCuller::record(
 
     const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,
-        sceneStats);
+        drawStats);
 
     const BufferHandle cullerArgs = recordWriteCullerArgs(
         scopeAlloc.child_scope(), cb, nextFrame, initialList, debugPrefix);
@@ -235,7 +235,7 @@ MeshletCullerOutput MeshletCuller::record(
 BufferHandle MeshletCuller::recordGenerateList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, uint32_t nextFrame, const char *debugPrefix,
-    SceneStats *sceneStats)
+    DrawStats *drawStats)
 {
     uint32_t meshletCountUpperBound = 0;
     {
@@ -262,13 +262,13 @@ BufferHandle MeshletCuller::recordGenerateList(
 
                     if (shouldDraw)
                     {
-                        sceneStats->totalMeshCount++;
-                        sceneStats->totalTriangleCount += info.indexCount / 3;
-                        sceneStats->totalMeshletCount += info.meshletCount;
+                        drawStats->totalMeshCount++;
+                        drawStats->totalTriangleCount += info.indexCount / 3;
+                        drawStats->totalMeshletCount += info.meshletCount;
                         meshletCountUpperBound += info.meshletCount;
                         if (!modelDrawn)
                         {
-                            sceneStats->totalModelCount++;
+                            drawStats->totalModelCount++;
                             modelDrawn = true;
                         }
                     }

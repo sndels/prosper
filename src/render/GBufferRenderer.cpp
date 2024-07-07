@@ -12,8 +12,8 @@
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
-#include "../utils/SceneStats.hpp"
 #include "../utils/Utils.hpp"
+#include "DrawStats.hpp"
 #include "LightClustering.hpp"
 #include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
@@ -107,11 +107,11 @@ GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
-    DrawType drawType, const uint32_t nextFrame, SceneStats *sceneStats)
+    DrawType drawType, const uint32_t nextFrame, DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
-    WHEELS_ASSERT(sceneStats != nullptr);
+    WHEELS_ASSERT(drawStats != nullptr);
 
     PROFILER_CPU_SCOPE("GBuffer");
 
@@ -146,7 +146,7 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const MeshletCullerOutput cullerOutput = meshletCuller->record(
             scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque, world,
-            cam, nextFrame, "GBuffer", sceneStats);
+            cam, nextFrame, "GBuffer", drawStats);
 
         updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, cullerOutput, inOutDrawStats);

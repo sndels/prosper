@@ -13,8 +13,8 @@
 #include "../scene/WorldRenderStructs.hpp"
 #include "../utils/Logger.hpp"
 #include "../utils/Profiler.hpp"
-#include "../utils/SceneStats.hpp"
 #include "../utils/Utils.hpp"
+#include "DrawStats.hpp"
 #include "LightClustering.hpp"
 #include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
@@ -103,7 +103,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
     BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
-    DrawType drawType, SceneStats *sceneStats)
+    DrawType drawType, DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -124,7 +124,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .ibl = applyIbl,
             .drawType = drawType,
         },
-        sceneStats, "OpaqueGeometry");
+        drawStats, "OpaqueGeometry");
 
     return ret;
 }
@@ -134,7 +134,7 @@ void ForwardRenderer::recordTransparent(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, DrawType drawType, SceneStats *sceneStats)
+    uint32_t nextFrame, DrawType drawType, DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -149,7 +149,7 @@ void ForwardRenderer::recordTransparent(
             .transparents = true,
             .drawType = drawType,
         },
-        sceneStats, "TransparentGeometry");
+        drawStats, "TransparentGeometry");
 }
 
 bool ForwardRenderer::compileShaders(
@@ -385,10 +385,10 @@ void ForwardRenderer::record(
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    const Options &options, SceneStats *sceneStats, const char *debugName)
+    const Options &options, DrawStats *drawStats, const char *debugName)
 {
     WHEELS_ASSERT(meshletCuller != nullptr);
-    WHEELS_ASSERT(sceneStats != nullptr);
+    WHEELS_ASSERT(drawStats != nullptr);
 
     PROFILER_CPU_SCOPE(debugName);
 
@@ -403,7 +403,7 @@ void ForwardRenderer::record(
         options.transparents ? "Transparent" : "Opaque";
     const MeshletCullerOutput cullerOutput = meshletCuller->record(
         scopeAlloc.child_scope(), cb, cullerMode, world, cam, nextFrame,
-        cullerDebugPrefix, sceneStats);
+        cullerDebugPrefix, drawStats);
 
     updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame, options.transparents, cullerOutput,

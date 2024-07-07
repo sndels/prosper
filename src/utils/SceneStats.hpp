@@ -6,10 +6,6 @@
 
 struct SceneStats
 {
-    uint32_t totalTriangleCount{0};
-    uint32_t totalMeshletCount{0};
-    uint32_t totalMeshCount{0};
-    uint32_t totalModelCount{0};
     uint32_t totalNodeCount{0};
     uint32_t animatedNodeCount{0};
 };

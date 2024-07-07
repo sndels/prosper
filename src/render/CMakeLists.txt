@@ -13,6 +13,7 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.hpp
     ${CMAKE_CURRENT_LIST_DIR}/MeshletCuller.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Renderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResourceCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResourceHandle.hpp
@@ -40,6 +41,7 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.cpp
     ${CMAKE_CURRENT_LIST_DIR}/MeshletCuller.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp

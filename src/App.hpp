@@ -70,7 +70,6 @@ class App
         const wheels::Array<Profiler::ScopeData> &profilerDatas,
         uint32_t scopeHighWatermark);
     void drawOptions();
-    void drawRendererSettings(UiChanges &uiChanges);
     void drawProfiling(
         wheels::ScopedScratch scopeAlloc,
         const wheels::Array<Profiler::ScopeData> &profilerDatas);
@@ -79,26 +78,10 @@ class App
     bool drawTimeline();
     // Returns true if settings changed
     bool drawCameraUi();
-    void drawSceneStats(uint32_t nextFrame) const;
+    void drawSceneStats(uint32_t nextFrame);
 
     void updateDebugLines(const Scene &scene, uint32_t nextFrame);
 
-    struct RenderIndices
-    {
-        uint32_t nextFrame{0xFFFF'FFFF};
-        uint32_t nextImage{0xFFFF'FFFF};
-    };
-    void render(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const vk::Rect2D &renderArea, const RenderIndices &indices,
-        const UiChanges &uiChanges);
-    [[nodiscard]] ImageHandle blitColorToFinalComposite(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle toneMapped);
-    void blitFinalComposite(
-        vk::CommandBuffer cb, ImageHandle finalComposite, uint32_t nextImage);
-    void readbackDrawStats(
-        vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer);
     // Returns true if present succeeded, false if swapchain should be recreated
     [[nodiscard]] bool submitAndPresent(
         vk::CommandBuffer cb, uint32_t nextFrame);
@@ -122,40 +105,16 @@ class App
     wheels::OwningPtr<Camera> m_cam;
     wheels::OwningPtr<World> m_world;
 
-    wheels::OwningPtr<LightClustering> m_lightClustering;
-    wheels::OwningPtr<ForwardRenderer> m_forwardRenderer;
-    wheels::OwningPtr<GBufferRenderer> m_gbufferRenderer;
-    wheels::OwningPtr<DeferredShading> m_deferredShading;
-    wheels::OwningPtr<RtDirectIllumination> m_rtDirectIllumination;
-    wheels::OwningPtr<RtReference> m_rtReference;
-    wheels::OwningPtr<SkyboxRenderer> m_skyboxRenderer;
-    wheels::OwningPtr<DebugRenderer> m_debugRenderer;
-    wheels::OwningPtr<ToneMap> m_toneMap;
-    wheels::OwningPtr<ImGuiRenderer> m_imguiRenderer;
-    wheels::OwningPtr<TextureDebug> m_textureDebug;
-    wheels::OwningPtr<DepthOfField> m_depthOfField;
-    wheels::OwningPtr<ImageBasedLighting> m_imageBasedLighting;
-    wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
-    wheels::OwningPtr<MeshletCuller> m_meshletCuller;
-    wheels::OwningPtr<TextureReadback> m_textureReadback;
+    wheels::OwningPtr<Renderer> m_renderer;
 
     bool m_useFpsLimit{true};
     int32_t m_fpsLimit{140};
     bool m_recompileShaders{false};
-    bool m_referenceRt{false};
-    bool m_renderDeferred{true};
-    bool m_deferredRt{false};
-    bool m_renderDoF{false};
-    bool m_textureDebugActive{false};
     bool m_drawUi{true};
     bool m_forceViewportRecreate{false};
     bool m_forceCamUpdate{true};
-    bool m_applyIbl{false};
     bool m_sceneChanged{false};
     bool m_newSceneDataLoaded{false};
-    bool m_applyTaa{true};
-    bool m_applyJitter{true};
-    DrawType m_drawType{DrawType::Default};
 
     bool m_camFreeLook{false};
     CameraTransform m_sceneCameraTransform;
@@ -167,7 +126,6 @@ class App
     bool m_waitFocusDistance{false};
 
     wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> m_sceneStats;
-    wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> m_drawStats;
 
     std::chrono::high_resolution_clock::time_point m_lastTimeChange;
     float m_timeOffsetS{0.f};
