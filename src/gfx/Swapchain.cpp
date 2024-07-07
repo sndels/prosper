@@ -185,7 +185,7 @@ const vk::Extent2D &Swapchain::extent() const
     return m_config.extent;
 }
 
-SwapchainImage Swapchain::image(size_t i) const
+const SwapchainImage &Swapchain::image(size_t i) const
 {
     WHEELS_ASSERT(m_initialized);
 

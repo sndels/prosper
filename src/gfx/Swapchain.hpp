@@ -63,7 +63,7 @@ class Swapchain
     [[nodiscard]] vk::Format format() const;
     [[nodiscard]] const vk::Extent2D &extent() const;
     [[nodiscard]] uint32_t imageCount() const;
-    [[nodiscard]] SwapchainImage image(size_t i) const;
+    [[nodiscard]] const SwapchainImage &image(size_t i) const;
     [[nodiscard]] size_t nextFrame() const;
     [[nodiscard]] vk::Fence currentFence() const;
     // nullopt tells to recreate swapchain
