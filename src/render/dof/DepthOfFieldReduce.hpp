@@ -27,9 +27,7 @@ class DepthOfFieldReduce
     DepthOfFieldReduce &operator=(const DepthOfFieldReduce &other) = delete;
     DepthOfFieldReduce &operator=(DepthOfFieldReduce &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

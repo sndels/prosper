@@ -28,9 +28,7 @@ class DepthOfFieldSetup
     DepthOfFieldSetup &operator=(DepthOfFieldSetup &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDsLayout);
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

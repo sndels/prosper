@@ -23,9 +23,7 @@ class TextureReadback
     TextureReadback &operator=(const TextureReadback &other) = delete;
     TextureReadback &operator=(TextureReadback &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void startFrame();
 

@@ -138,13 +138,13 @@ cullerExternalDsLayouts(
 } // namespace
 
 void MeshletCuller::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
+    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDsLayouts,
+    vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_drawListGenerator.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
+        scopeAlloc.child_scope(),
         [&worldDsLayouts](Allocator &alloc)
         { return generatorDefinitionCallback(alloc, worldDsLayouts); },
         ComputePassOptions{
@@ -153,14 +153,12 @@ void MeshletCuller::init(
             .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
         });
     m_cullerArgumentsWriter.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        argumentsWriterDefinitionCallback,
+        scopeAlloc.child_scope(), argumentsWriterDefinitionCallback,
         ComputePassOptions{
             .perFrameRecordLimit = sMaxRecordsPerFrame,
         });
     m_drawListCuller.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        cullerDefinitionCallback,
+        WHEELS_MOV(scopeAlloc), cullerDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = CullerStorageBindingSet,
             .perFrameRecordLimit = sMaxRecordsPerFrame,

@@ -38,7 +38,6 @@ class DepthOfField
 
     void init(
         wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
         vk::DescriptorSetLayout cameraDsLayout);
 
     void recompileShaders(

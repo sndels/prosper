@@ -109,18 +109,17 @@ RtReference::~RtReference()
 }
 
 void RtReference::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+    const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     LOG_INFO("Creating RtReference");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RtReference shader compilation failed");
 
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope());
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 
@@ -563,8 +562,7 @@ bool RtReference::compileShaders(
     return false;
 }
 
-void RtReference::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void RtReference::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     m_descriptorSetLayout = m_raygenReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), OutputBindingSet,
@@ -574,7 +572,7 @@ void RtReference::createDescriptorSets(
         m_descriptorSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "RtReference"};
-    staticDescriptorsAlloc->allocate(
+    gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_descriptorSets.mut_span());
 }
 

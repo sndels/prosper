@@ -27,9 +27,7 @@ class DepthOfFieldDilate
     DepthOfFieldDilate &operator=(const DepthOfFieldDilate &other) = delete;
     DepthOfFieldDilate &operator=(DepthOfFieldDilate &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

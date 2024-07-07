@@ -25,9 +25,7 @@ class DebugRenderer
     DebugRenderer &operator=(DebugRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout);
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -49,9 +47,7 @@ class DebugRenderer
 
     void destroyGraphicsPipeline();
 
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
     void createGraphicsPipeline(vk::DescriptorSetLayout camDSLayout);
 
     bool m_initialized{false};

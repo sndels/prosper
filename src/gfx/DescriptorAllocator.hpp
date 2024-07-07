@@ -24,9 +24,9 @@ class DescriptorAllocator
     DescriptorAllocator &operator=(DescriptorAllocator const &) = delete;
     DescriptorAllocator &operator=(DescriptorAllocator &&) = delete;
 
-    // device needs to live as long as this
     void init(
         vk::DescriptorPoolCreateFlags flags = vk::DescriptorPoolCreateFlags{});
+    void destroy();
 
     // Reset frees all allocated descriptors/sets and makes the pools available
     // for new allocations
@@ -51,10 +51,16 @@ class DescriptorAllocator
         wheels::Span<const char *const> debugNames,
         wheels::Span<vk::DescriptorSet> output, const void *allocatePNext);
 
+    // Any dynamic allocations need to be manually destroyed in destroy()
     bool m_initialized{false};
     int32_t m_activePool{-1};
     wheels::Array<vk::DescriptorPool> m_pools{gAllocators.general};
     vk::DescriptorPoolCreateFlags m_flags;
 };
+
+// This allocator should only be used for the descriptors that can live
+// until the end of the program. As such, reset() shouldn't be called so
+// that users can rely on the descriptors being there once allocated.
+extern DescriptorAllocator gStaticDescriptorsAlloc;
 
 #endif // PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP

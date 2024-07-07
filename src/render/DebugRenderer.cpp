@@ -50,11 +50,9 @@ DebugRenderer::~DebugRenderer()
 }
 
 void DebugRenderer::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const vk::DescriptorSetLayout camDSLayout)
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     LOG_INFO("Creating DebugRenderer");
 
@@ -77,7 +75,7 @@ void DebugRenderer::init(
             }),
         };
 
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipeline(camDSLayout);
 
     m_initialized = true;
@@ -238,8 +236,7 @@ void DebugRenderer::destroyGraphicsPipeline()
     gDevice.logical().destroy(m_pipelineLayout);
 }
 
-void DebugRenderer::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void DebugRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(m_vertReflection.has_value());
     m_linesDSLayout = m_vertReflection->createDescriptorSetLayout(
@@ -250,7 +247,7 @@ void DebugRenderer::createDescriptorSets(
         m_linesDSLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "DebugRenderer"};
-    staticDescriptorsAlloc->allocate(
+    gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_linesDescriptorSets.mut_span());
 
     for (size_t i = 0; i < m_linesDescriptorSets.size(); ++i)

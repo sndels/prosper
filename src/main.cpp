@@ -10,6 +10,7 @@
 #include "Allocators.hpp"
 #include "App.hpp"
 #include "Window.hpp"
+#include "gfx/DescriptorAllocator.hpp"
 #include "gfx/Device.hpp"
 #include "render/RenderResources.hpp"
 #include "utils/Logger.hpp"
@@ -190,6 +191,9 @@ int main(int argc, char *argv[])
 
         gRenderResources.init();
         defer { gRenderResources.destroy(); };
+
+        gStaticDescriptorsAlloc.init();
+        defer { gStaticDescriptorsAlloc.destroy(); };
 
         gProfiler.init();
         defer { gProfiler.destroy(); };

@@ -20,9 +20,7 @@ class ImageBasedLighting
     ImageBasedLighting &operator=(const ImageBasedLighting &other) = delete;
     ImageBasedLighting &operator=(ImageBasedLighting &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     [[nodiscard]] bool isGenerated() const;
 

@@ -26,9 +26,7 @@ class RtDirectIllumination
     RtDirectIllumination &operator=(RtDirectIllumination &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(

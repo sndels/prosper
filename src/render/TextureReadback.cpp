@@ -32,14 +32,11 @@ TextureReadback::~TextureReadback()
     gDevice.destroy(m_buffer);
 }
 
-void TextureReadback::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void TextureReadback::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        shaderDefinitionCallback);
+    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
     m_buffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
             BufferDescription{

@@ -91,9 +91,7 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing);
     void endFrame();
 
     void lookAt(const CameraTransform &transform);
@@ -126,9 +124,7 @@ class Camera
 
   private:
     void createBindingsReflection(wheels::ScopedScratch scopeAlloc);
-    void createDescriptorSet(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSet(wheels::ScopedScratch scopeAlloc);
 
     void updateWorldToCamera();
     void updateFrustumPlanes(const FrustumCorners &corners);

@@ -60,14 +60,11 @@ DepthOfFieldReduce::~DepthOfFieldReduce()
     gDevice.destroy(m_atomicCounter);
 }
 
-void DepthOfFieldReduce::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void DepthOfFieldReduce::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        shaderDefinitionCallback);
+    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
     m_atomicCounter = gDevice.createBuffer(BufferCreateInfo{

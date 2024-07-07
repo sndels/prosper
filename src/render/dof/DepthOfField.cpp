@@ -6,19 +6,17 @@
 using namespace wheels;
 
 void DepthOfField::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout cameraDsLayout)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout cameraDsLayout)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_setupPass.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc, cameraDsLayout);
-    m_reducePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    m_flattenPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    m_dilatePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    m_gatherPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    m_filterPass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
-    m_combinePass.init(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    m_setupPass.init(scopeAlloc.child_scope(), cameraDsLayout);
+    m_reducePass.init(scopeAlloc.child_scope());
+    m_flattenPass.init(scopeAlloc.child_scope());
+    m_dilatePass.init(scopeAlloc.child_scope());
+    m_gatherPass.init(scopeAlloc.child_scope());
+    m_filterPass.init(scopeAlloc.child_scope());
+    m_combinePass.init(scopeAlloc.child_scope());
 
     m_initialized = true;
 }

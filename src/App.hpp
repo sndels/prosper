@@ -109,11 +109,6 @@ class App
     wheels::TlsfAllocator m_fileChangePollingAlloc;
     std::filesystem::path m_scenePath;
 
-    // This allocator should only be used for the descriptors that can live
-    // until the end of the program. As such, reset() shouldn't be called so
-    // that users can rely on the descriptors being there once allocated.
-    wheels::OwningPtr<DescriptorAllocator> m_staticDescriptorsAlloc;
-
     wheels::OwningPtr<Swapchain> m_swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
         m_commandBuffers;

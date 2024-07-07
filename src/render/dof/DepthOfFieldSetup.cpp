@@ -49,14 +49,12 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 } // namespace
 
 void DepthOfFieldSetup::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDsLayout)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        shaderDefinitionCallback,
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = StorageBindingSet,
             .externalDsLayouts = Span{&camDsLayout, 1},

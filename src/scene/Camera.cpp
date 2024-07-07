@@ -52,20 +52,17 @@ Camera::~Camera()
     gDevice.logical().destroy(m_descriptorSetLayout);
 }
 
-void Camera::init(
-    wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
-    DescriptorAllocator *staticDescriptorsAlloc)
+void Camera::init(wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing)
 {
     WHEELS_ASSERT(!m_initialized);
     WHEELS_ASSERT(constantsRing != nullptr);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     m_constantsRing = constantsRing;
 
     LOG_INFO("Creating Camera");
 
     createBindingsReflection(scopeAlloc.child_scope());
-    createDescriptorSet(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSet(scopeAlloc.child_scope());
 
     m_initialized = true;
 }
@@ -334,8 +331,7 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     m_bindingsReflection = WHEELS_MOV(*compResult);
 }
 
-void Camera::createDescriptorSet(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void Camera::createDescriptorSet(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(m_bindingsReflection.has_value());
     m_descriptorSetLayout = m_bindingsReflection->createDescriptorSetLayout(
@@ -346,7 +342,7 @@ void Camera::createDescriptorSet(
             vk::ShaderStageFlagBits::eMeshEXT);
 
     m_descriptorSet =
-        staticDescriptorsAlloc->allocate(m_descriptorSetLayout, "Camera");
+        gStaticDescriptorsAlloc.allocate(m_descriptorSetLayout, "Camera");
 
     const StaticArray descriptorInfos{
         DescriptorInfo{vk::DescriptorBufferInfo{

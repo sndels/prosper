@@ -294,6 +294,8 @@ WorldData::~WorldData()
         gDevice.destroy(buffer);
     for (const vk::Sampler sampler : m_samplers)
         gDevice.logical().destroy(sampler);
+
+    m_descriptorAllocator.destroy();
 }
 
 void WorldData::init(

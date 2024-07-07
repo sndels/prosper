@@ -43,7 +43,6 @@ class ComputePass
 
     void init(
         wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
         const std::function<Shader(wheels::Allocator &)>
             &shaderDefinitionCallback,
         const ComputePassOptions &options = ComputePassOptions{});
@@ -109,8 +108,7 @@ class ComputePass
     void destroyPipelines();
 
     void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc, const char *,
+        wheels::ScopedScratch scopeAlloc, const char *,
         vk::ShaderStageFlags storageStageFlags);
 
     void createPipeline(

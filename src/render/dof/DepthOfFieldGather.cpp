@@ -47,17 +47,14 @@ ComputePass::Shader foregroundDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-void DepthOfFieldGather::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void DepthOfFieldGather::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_backgroundPass.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        backgroundDefinitionCallback);
+        scopeAlloc.child_scope(), backgroundDefinitionCallback);
     m_foregroundPass.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        foregroundDefinitionCallback);
+        scopeAlloc.child_scope(), foregroundDefinitionCallback);
 
     m_initialized = true;
 }

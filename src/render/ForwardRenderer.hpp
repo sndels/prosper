@@ -31,9 +31,7 @@ class ForwardRenderer
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        const InputDSLayouts &dsLayouts);
+        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -70,9 +68,7 @@ class ForwardRenderer
     [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
 
     void updateDescriptorSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame, bool transparents,

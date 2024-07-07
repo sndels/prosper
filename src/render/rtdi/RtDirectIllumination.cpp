@@ -8,26 +8,22 @@
 using namespace wheels;
 
 void RtDirectIllumination::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+    const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_initialReservoirs.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        RtDiInitialReservoirs::InputDSLayouts{
-            .camera = camDSLayout,
-            .world = worldDSLayouts,
-        });
+        scopeAlloc.child_scope(), RtDiInitialReservoirs::InputDSLayouts{
+                                      .camera = camDSLayout,
+                                      .world = worldDSLayouts,
+                                  });
     m_spatialReuse.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        RtDiSpatialReuse::InputDSLayouts{
-            .camera = camDSLayout,
-            .world = worldDSLayouts,
-        });
-    m_trace.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc, camDSLayout,
-        worldDSLayouts);
+        scopeAlloc.child_scope(), RtDiSpatialReuse::InputDSLayouts{
+                                      .camera = camDSLayout,
+                                      .world = worldDSLayouts,
+                                  });
+    m_trace.init(WHEELS_MOV(scopeAlloc), camDSLayout, worldDSLayouts);
 
     m_initialized = true;
 }

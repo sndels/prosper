@@ -29,9 +29,7 @@ class RtDiSpatialReuse
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        const InputDSLayouts &dsLayouts);
+        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
 
     // Returns true if recompile happened
     bool recompileShaders(

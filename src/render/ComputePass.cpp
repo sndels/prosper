@@ -29,12 +29,10 @@ ComputePass::~ComputePass()
 
 void ComputePass::init(
     wheels::ScopedScratch scopeAlloc,
-    DescriptorAllocator *staticDescriptorsAlloc,
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
     const ComputePassOptions &options)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
     WHEELS_ASSERT(
         (options.storageSetIndex == options.externalDsLayouts.size()) &&
         "Implementation assumes that the pass storage set is the last set and "
@@ -51,8 +49,8 @@ void ComputePass::init(
         throw std::runtime_error("Shader compilation failed");
 
     createDescriptorSets(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        shader.debugName.c_str(), options.storageStageFlags);
+        scopeAlloc.child_scope(), shader.debugName.c_str(),
+        options.storageStageFlags);
     createPipeline(
         scopeAlloc.child_scope(), options.externalDsLayouts, shader.debugName);
 
@@ -244,8 +242,8 @@ void ComputePass::destroyPipelines()
 }
 
 void ComputePass::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const char *debugName, vk::ShaderStageFlags storageStageFlags)
+    ScopedScratch scopeAlloc, const char *debugName,
+    vk::ShaderStageFlags storageStageFlags)
 {
     WHEELS_ASSERT(m_shaderReflection.has_value());
     m_storageSetLayout = m_shaderReflection->createDescriptorSetLayout(
@@ -257,7 +255,7 @@ void ComputePass::createDescriptorSets(
         InlineArray<const char *, sPerFrameRecordLimit> debugNames;
         layouts.resize(sets.size(), m_storageSetLayout);
         debugNames.resize(sets.size(), debugName);
-        staticDescriptorsAlloc->allocate(layouts, debugNames, sets.mut_span());
+        gStaticDescriptorsAlloc.allocate(layouts, debugNames, sets.mut_span());
     }
 }
 

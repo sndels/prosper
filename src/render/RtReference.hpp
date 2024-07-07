@@ -28,9 +28,7 @@ class RtReference
     RtReference &operator=(RtReference &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
@@ -65,9 +63,7 @@ class RtReference
     [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
     void updateDescriptorSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
         ImageHandle illumination);

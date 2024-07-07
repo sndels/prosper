@@ -21,14 +21,12 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-void DepthOfFieldFilter::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void DepthOfFieldFilter::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        shaderDefinitionCallback,
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
         ComputePassOptions{
             .perFrameRecordLimit = 2,
         });

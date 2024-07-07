@@ -33,9 +33,7 @@ class DepthOfFieldGather
     DepthOfFieldGather &operator=(const DepthOfFieldGather &other) = delete;
     DepthOfFieldGather &operator=(DepthOfFieldGather &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

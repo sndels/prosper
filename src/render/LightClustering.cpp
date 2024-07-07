@@ -125,15 +125,13 @@ LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
 } // namespace
 
 void LightClustering::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        shaderDefinitionCallback,
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = LightClustersBindingSet,
             .externalDsLayouts = externalDsLayouts(camDSLayout, worldDSLayouts),

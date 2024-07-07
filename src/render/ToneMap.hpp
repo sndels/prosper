@@ -23,9 +23,7 @@ class ToneMap
     ToneMap &operator=(const ToneMap &other) = delete;
     ToneMap &operator=(ToneMap &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

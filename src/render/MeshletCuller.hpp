@@ -33,9 +33,7 @@ class MeshletCuller
     MeshletCuller &operator=(MeshletCuller &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        const WorldDSLayouts &worldDsLayouts,
+        wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDsLayouts,
         vk::DescriptorSetLayout camDsLayout);
 
     void recompileShaders(

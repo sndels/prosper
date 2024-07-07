@@ -77,7 +77,6 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
 App::App(std::filesystem::path scenePath) noexcept
 : m_fileChangePollingAlloc{megabytes(1)}
 , m_scenePath{WHEELS_MOV(scenePath)}
-, m_staticDescriptorsAlloc{OwningPtr<DescriptorAllocator>{gAllocators.general}}
 , m_swapchain{OwningPtr<Swapchain>{gAllocators.general}}
 , m_cam{OwningPtr<Camera>{gAllocators.general}}
 , m_world{OwningPtr<World>{gAllocators.general}}
@@ -116,8 +115,6 @@ App::~App()
 
 void App::init(ScopedScratch scopeAlloc)
 {
-    m_staticDescriptorsAlloc->init();
-
     {
         const SwapchainConfig &config = SwapchainConfig{
             scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
@@ -134,62 +131,54 @@ void App::init(ScopedScratch scopeAlloc)
         vk::BufferUsageFlagBits::eStorageBuffer,
         asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
 
-    m_cam->init(
-        scopeAlloc.child_scope(), &m_constantsRing,
-        m_staticDescriptorsAlloc.get());
+    m_cam->init(scopeAlloc.child_scope(), &m_constantsRing);
 
     m_world->init(scopeAlloc.child_scope(), &m_constantsRing, m_scenePath);
 
     const Timer gpuPassesInitTimer;
     m_lightClustering->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
     m_forwardRenderer->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        scopeAlloc.child_scope(),
         ForwardRenderer::InputDSLayouts{
             .camera = m_cam->descriptorSetLayout(),
             .lightClusters = m_lightClustering->descriptorSetLayout(),
             .world = m_world->dsLayouts(),
         });
     m_gbufferRenderer->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
     m_deferredShading->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
+        scopeAlloc.child_scope(),
         DeferredShading::InputDSLayouts{
             .camera = m_cam->descriptorSetLayout(),
             .lightClusters = m_lightClustering->descriptorSetLayout(),
             .world = m_world->dsLayouts(),
         });
     m_rtDirectIllumination->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
     m_rtReference->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout(), m_world->dsLayouts());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
+        m_world->dsLayouts());
     m_skyboxRenderer->init(
         scopeAlloc.child_scope(), m_cam->descriptorSetLayout(),
         m_world->dsLayouts());
     m_debugRenderer->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout());
-    m_toneMap->init(scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout());
+    m_toneMap->init(scopeAlloc.child_scope());
     m_imguiRenderer->init(m_swapchain->config());
-    m_textureDebug->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+    m_textureDebug->init(scopeAlloc.child_scope());
     m_depthOfField->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout());
-    m_imageBasedLighting->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout());
+    m_imageBasedLighting->init(scopeAlloc.child_scope());
     m_temporalAntiAliasing->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_cam->descriptorSetLayout());
+        scopeAlloc.child_scope(), m_cam->descriptorSetLayout());
     m_meshletCuller->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get(),
-        m_world->dsLayouts(), m_cam->descriptorSetLayout());
-    m_textureReadback->init(
-        scopeAlloc.child_scope(), m_staticDescriptorsAlloc.get());
+        scopeAlloc.child_scope(), m_world->dsLayouts(),
+        m_cam->descriptorSetLayout());
+    m_textureReadback->init(scopeAlloc.child_scope());
     m_recompileTime = std::chrono::file_clock::now();
     LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 

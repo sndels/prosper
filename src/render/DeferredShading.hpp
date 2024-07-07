@@ -32,9 +32,7 @@ class DeferredShading
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        const InputDSLayouts &dsLayouts);
+        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

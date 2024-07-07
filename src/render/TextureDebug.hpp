@@ -42,9 +42,7 @@ class TextureDebug
     TextureDebug &operator=(const TextureDebug &other) = delete;
     TextureDebug &operator=(TextureDebug &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

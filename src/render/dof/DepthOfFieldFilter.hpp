@@ -21,9 +21,7 @@ class DepthOfFieldFilter
     DepthOfFieldFilter &operator=(const DepthOfFieldFilter &other) = delete;
     DepthOfFieldFilter &operator=(DepthOfFieldFilter &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

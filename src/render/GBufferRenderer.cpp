@@ -54,19 +54,17 @@ struct Attachments
 } // namespace
 
 void GBufferRenderer::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const vk::DescriptorSetLayout camDSLayout,
+    ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
     const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     LOG_INFO("Creating GBufferRenderer");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("GBufferRenderer shader compilation failed");
 
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
 
     m_initialized = true;
@@ -377,8 +375,7 @@ bool GBufferRenderer::compileShaders(
     return false;
 }
 
-void GBufferRenderer::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void GBufferRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(m_meshReflection.has_value());
     m_meshSetLayout = m_meshReflection->createDescriptorSetLayout(
@@ -389,7 +386,7 @@ void GBufferRenderer::createDescriptorSets(
         m_meshSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "GBufferMesh"};
-    staticDescriptorsAlloc->allocate(
+    gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_meshSets.mut_span());
 }
 

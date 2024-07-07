@@ -28,9 +28,7 @@ class DepthOfFieldFlatten
     DepthOfFieldFlatten &operator=(const DepthOfFieldFlatten &other) = delete;
     DepthOfFieldFlatten &operator=(DepthOfFieldFlatten &&other) = delete;
 
-    void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void init(wheels::ScopedScratch scopeAlloc);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,

@@ -88,13 +88,12 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
 } // namespace
 
 void DeferredShading::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const InputDSLayouts &dsLayouts)
+    ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
+        WHEELS_MOV(scopeAlloc),
         [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
         ComputePassOptions{

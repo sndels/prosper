@@ -38,9 +38,7 @@ class LightClustering
     LightClustering &operator=(LightClustering &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;

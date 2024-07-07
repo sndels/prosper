@@ -33,14 +33,11 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-void ToneMap::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void ToneMap::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(
-        scopeAlloc.child_scope(), staticDescriptorsAlloc,
-        shaderDefinitionCallback);
+    m_computePass.init(scopeAlloc.child_scope(), shaderDefinitionCallback);
 
     m_lut.init(
         WHEELS_MOV(scopeAlloc), resPath("texture/tony_mc_mapface.dds"),

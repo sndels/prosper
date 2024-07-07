@@ -63,18 +63,16 @@ ForwardRenderer::~ForwardRenderer()
 }
 
 void ForwardRenderer::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    const InputDSLayouts &dsLayouts)
+    ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     LOG_INFO("Creating ForwardRenderer");
 
     if (!compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
         throw std::runtime_error("ForwardRenderer shader compilation failed");
 
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipelines(dsLayouts);
 
     m_initialized = true;
@@ -252,8 +250,7 @@ bool ForwardRenderer::compileShaders(
     return false;
 }
 
-void ForwardRenderer::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void ForwardRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(m_meshReflection.has_value());
     m_meshSetLayout = m_meshReflection->createDescriptorSetLayout(
@@ -264,7 +261,7 @@ void ForwardRenderer::createDescriptorSets(
         layouts{m_meshSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT * 2> debugNames{
         "ForwardMesh"};
-    staticDescriptorsAlloc->allocate(
+    gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_meshSets.mut_span());
 }
 

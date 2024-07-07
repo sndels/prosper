@@ -32,9 +32,7 @@ class GBufferRenderer
     GBufferRenderer &operator=(GBufferRenderer &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc,
-        vk::DescriptorSetLayout camDSLayout,
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
         const WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
@@ -53,9 +51,7 @@ class GBufferRenderer
     [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
-    void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc,
-        DescriptorAllocator *staticDescriptorsAlloc);
+    void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
     void updateDescriptorSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
         const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats);

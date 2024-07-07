@@ -14,7 +14,6 @@
 #include "../RenderTargets.hpp"
 #include "../Utils.hpp"
 
-
 #include <imgui.h>
 
 using namespace wheels;
@@ -99,18 +98,17 @@ RtDiTrace::~RtDiTrace()
 }
 
 void RtDiTrace::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
+    const WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(staticDescriptorsAlloc != nullptr);
 
     LOG_INFO("Creating RtDiTrace");
 
     if (!compileShaders(scopeAlloc.child_scope(), worldDSLayouts))
         throw std::runtime_error("RtDiTrace shader compilation failed");
 
-    createDescriptorSets(scopeAlloc.child_scope(), staticDescriptorsAlloc);
+    createDescriptorSets(scopeAlloc.child_scope());
     createPipeline(camDSLayout, worldDSLayouts);
     createShaderBindingTable(scopeAlloc.child_scope());
 
@@ -520,8 +518,7 @@ bool RtDiTrace::compileShaders(
     return false;
 }
 
-void RtDiTrace::createDescriptorSets(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void RtDiTrace::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     m_descriptorSetLayout = m_raygenReflection->createDescriptorSetLayout(
         WHEELS_MOV(scopeAlloc), StorageBindingSet,
@@ -531,7 +528,7 @@ void RtDiTrace::createDescriptorSets(
         m_descriptorSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "RtDiTrace"};
-    staticDescriptorsAlloc->allocate(
+    gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_descriptorSets.mut_span());
 }
 

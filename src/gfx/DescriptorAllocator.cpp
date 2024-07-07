@@ -69,12 +69,14 @@ constexpr StaticArray sDefaultPoolSizes{{
 
 } // namespace
 
+// This used everywhere and init()/destroy() order relative to other similar
+// globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DescriptorAllocator gStaticDescriptorsAlloc;
+
 DescriptorAllocator::~DescriptorAllocator()
 {
-    // Don't check for m_initialized as we might be cleaning up after a failed
-    // init.
-    for (const vk::DescriptorPool p : m_pools)
-        gDevice.logical().destroy(p);
+    WHEELS_ASSERT(!m_initialized && "destroy() not called?");
 }
 
 void DescriptorAllocator::init(vk::DescriptorPoolCreateFlags flags)
@@ -86,6 +88,18 @@ void DescriptorAllocator::init(vk::DescriptorPoolCreateFlags flags)
     nextPool();
 
     m_initialized = true;
+}
+
+void DescriptorAllocator::destroy()
+{
+    // Don't check for m_initialized as we might be cleaning up after a failed
+    // init.
+    for (const vk::DescriptorPool p : m_pools)
+        gDevice.logical().destroy(p);
+
+    m_pools.~Array();
+
+    m_initialized = false;
 }
 
 void DescriptorAllocator::resetPools()

@@ -28,14 +28,11 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
-void DepthOfFieldFlatten::init(
-    ScopedScratch scopeAlloc, DescriptorAllocator *staticDescriptorsAlloc)
+void DepthOfFieldFlatten::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(
-        WHEELS_MOV(scopeAlloc), staticDescriptorsAlloc,
-        shaderDefinitionCallback);
+    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
 
     m_initialized = true;
 }
