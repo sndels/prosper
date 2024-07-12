@@ -1,0 +1,103 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+// Based on A Life of a Bokeh by Guillaume Abadie
+// https://advances.realtimerendering.com/s2018/index.htm
+// implemented using https://github.com/GPUOpen-Effects/FidelityFX-SPD
+
+layout(set = 0, binding = 0) uniform texture2D depthSrc;
+layout(set = 0, binding = 1) uniform sampler depthSampler;
+layout(set = 0, binding = 2) uniform coherent image2D depthDst[12];
+layout(std430, set = 0, binding = 3) coherent buffer SpdGlobalAtomicBuffer
+{
+    uint counter;
+}
+spdGlobalAtomic;
+
+layout(push_constant) uniform ReducePC
+{
+    ivec2 topMipResolution;
+    uint numWorkGroupsPerSlice;
+    uint mips;
+}
+PC;
+
+#define A_GPU 1
+#define A_GLSL 1
+#include "ext/ffx_a.h"
+
+shared AF4 spdIntermediate[16][16];
+shared AU1 spdCounter;
+
+AF4 SpdLoadSourceImage(ASU2 p, AU1 slice)
+{
+    // Clamp to edge
+    p = min(p, PC.topMipResolution - 1);
+
+    // TODO:
+    // Single fetch per pixel feels excessive instead of 4 texel gather. Does
+    // SPD support the latter without hacking?
+    float nonLinearDepth =
+        texelFetch(sampler2D(depthSrc, depthSampler), p, 0).x;
+
+    return AF4(nonLinearDepth, 0, 0, 0);
+}
+
+AF4 SpdLoad(ASU2 p, AU1 slice)
+{
+    // Clamp to edge
+    ASU2 mip5Res = max(PC.topMipResolution >> 5, ASU2(1));
+    p = min(p, mip5Res - 1);
+
+    // TODO:
+    // Single fetch per pixel feels excessive instead of 4 texel gather. Does
+    // SPD support the latter without hacking? Is it even possible from a
+    // image2D?
+    float nonLinearDepth = imageLoad(depthDst[5], p).x;
+
+    return AF4(nonLinearDepth, 0, 0, 0);
+}
+
+void SpdStore(ASU2 p, AF4 value, AU1 mip, AU1 slice)
+{
+    // Skip writes that would have gone over
+    ASU2 mipRes = max(PC.topMipResolution >> mip, ASU2(1));
+    if (any(greaterThanEqual(p, mipRes)))
+        return;
+
+    imageStore(depthDst[mip], p, AF4(value.x, 0, 0, 0));
+}
+
+void SpdIncreaseAtomicCounter(AU1 slice)
+{
+    spdCounter = atomicAdd(spdGlobalAtomic.counter, 1);
+}
+
+AF4 SpdLoadIntermediate(AU1 x, AU1 y) { return spdIntermediate[x][y]; }
+
+void SpdStoreIntermediate(AU1 x, AU1 y, AF4 value)
+{
+    spdIntermediate[x][y] = AF4(value.x, 0, 0, 0);
+}
+
+AU1 SpdGetAtomicCounter() { return spdCounter; }
+
+void SpdResetAtomicCounter(AU1 slice) { spdGlobalAtomic.counter = 0; }
+
+AF4 SpdReduce4(AF4 v0, AF4 v1, AF4 v2, AF4 v3)
+{
+    // Keep the furthest away sample.
+    // Reverse-Z so the furthest away sample is the smallest.
+    return AF4(min(min(v0.x, v1.x), min(v2.x, v3.x)), 0, 0, 0);
+}
+
+#include "ext/ffx_spd.h"
+
+layout(local_size_x = GROUP_X) in;
+void main()
+{
+    SpdDownsample(
+        AU2(gl_WorkGroupID.xy), AU1(gl_LocalInvocationIndex), AU1(PC.mips),
+        AU1(PC.numWorkGroupsPerSlice), AU1(gl_WorkGroupID.z));
+}

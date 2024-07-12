@@ -9,6 +9,7 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ForwardRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/GBufferRenderer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/HierarchicalDepthDownsampler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ImageBasedLighting.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.hpp
@@ -37,6 +38,7 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ForwardRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/GBufferRenderer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/HierarchicalDepthDownsampler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ImageBasedLighting.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ImGuiRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.cpp

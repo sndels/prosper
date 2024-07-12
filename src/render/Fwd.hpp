@@ -23,6 +23,9 @@ class ForwardRenderer;
 class GBufferRenderer;
 struct GBufferRendererOutput;
 
+// HierarchicalDepthDownsampler.hpp
+class HierarchicalDepthDownsampler;
+
 // ImageBasedLighting.hpp
 class ImageBasedLighting;
 
