@@ -74,23 +74,29 @@ class ComputePass
     // m_groupSize threads per group
     [[nodiscard]] glm::uvec3 groupCount(glm::uvec3 inputSize) const;
 
-    // Increments the conuter for descriptor sets.
+    // Increments the counter for descriptor sets.
     void record(
         vk::CommandBuffer cb, const glm::uvec3 &groupCount,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
-    // Increments the conuter for descriptor sets.
+    // Increments the counter for descriptor sets.
     void record(
         vk::CommandBuffer cb, vk::Buffer argumentBuffer,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
-    // Increments the conuter for descriptor sets.
+    // Increments the counter for descriptor sets.
     template <typename PCBlock>
     void record(
         vk::CommandBuffer cb, const PCBlock &pcBlock,
         const glm::uvec3 &groupCount,
+        wheels::Span<const vk::DescriptorSet> descriptorSets,
+        wheels::Span<const uint32_t> dynamicOffsets = {});
+
+    template <typename PCBlock>
+    void record(
+        vk::CommandBuffer cb, const PCBlock &pcBlock, vk::Buffer argumentBuffer,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
@@ -102,6 +108,12 @@ class ComputePass
     void record(
         vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
         const glm::uvec3 &groupCount,
+        wheels::Span<const vk::DescriptorSet> descriptorSets,
+        wheels::Span<const uint32_t> dynamicOffsets = {});
+
+    void record(
+        vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
+        vk::Buffer argumentBuffer,
         wheels::Span<const vk::DescriptorSet> descriptorSets,
         wheels::Span<const uint32_t> dynamicOffsets = {});
 
@@ -147,6 +159,19 @@ void ComputePass::record(
         wheels::Span{
             reinterpret_cast<const uint8_t *>(&pcBlock), sizeof(pcBlock)},
         groupCount, descriptorSets, dynamicOffsets);
+}
+
+template <typename PCBlock>
+void ComputePass::record(
+    vk::CommandBuffer cb, const PCBlock &pcBlock, vk::Buffer argumentBuffer,
+    wheels::Span<const vk::DescriptorSet> descriptorSets,
+    wheels::Span<const uint32_t> dynamicOffsets)
+{
+    record(
+        cb,
+        wheels::Span{
+            reinterpret_cast<const uint8_t *>(&pcBlock), sizeof(pcBlock)},
+        argumentBuffer, descriptorSets, dynamicOffsets);
 }
 
 #endif // PROSPER_RENDER_COMPUTE_PASS_HPP

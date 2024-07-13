@@ -235,6 +235,42 @@ void ComputePass::record(
     }
 }
 
+void ComputePass::record(
+    vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
+    vk::Buffer argumentBuffer,
+    wheels::Span<const vk::DescriptorSet> descriptorSets,
+    wheels::Span<const uint32_t> dynamicOffsets)
+{
+    WHEELS_ASSERT(m_initialized);
+
+    WHEELS_ASSERT(m_shaderReflection.has_value());
+    WHEELS_ASSERT(
+        pcBlockBytes.size() == m_shaderReflection->pushConstantsBytesize());
+    WHEELS_ASSERT(
+        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        "At least some AMD and Intel drivers limit this to 8 per buffer type. "
+        "Let's keep the total under if possible to keep things simple.");
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
+
+    cb.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, m_pipelineLayout, 0, // firstSet
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+
+    cb.pushConstants(
+        m_pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
+        asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
+
+    cb.dispatchIndirect(argumentBuffer, 0);
+
+    if (m_storageSets[0].size() > 1)
+    {
+        // This can equal perFrameRecordLimit if all of them are used
+        m_nextRecordIndex++;
+    }
+}
+
 void ComputePass::destroyPipelines()
 {
     gDevice.logical().destroy(m_pipeline);
