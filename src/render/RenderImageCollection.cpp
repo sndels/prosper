@@ -31,6 +31,11 @@ wheels::Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     if (views.empty())
     {
         const Image &image = resource(handle);
+        // Let's be nice and return the single mip view for ergonomics in cases
+        // where the logical resource might have one or many mips.
+        if (image.mipCount == 1)
+            return Span{&image.view, 1};
+
         views.resize(image.subresourceRange.levelCount);
         // TODO:
         // Isolate the last concatenated name if this gets shared resources at
