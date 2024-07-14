@@ -13,6 +13,7 @@
 #include "DeferredShading.hpp"
 #include "ForwardRenderer.hpp"
 #include "GBufferRenderer.hpp"
+#include "HierarchicalDepthDownsampler.hpp"
 #include "ImGuiRenderer.hpp"
 #include "ImageBasedLighting.hpp"
 #include "LightClustering.hpp"
@@ -146,6 +147,7 @@ Renderer::Renderer() noexcept
 , m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
 , m_meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
 , m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
+, m_hizDownsampler{OwningPtr<HierarchicalDepthDownsampler>{gAllocators.general}}
 {
 }
 
@@ -191,6 +193,7 @@ void Renderer::init(
     m_meshletCuller->init(
         scopeAlloc.child_scope(), worldDsLayouts, camDsLayout);
     m_textureReadback->init(scopeAlloc.child_scope());
+    m_hizDownsampler->init(scopeAlloc.child_scope());
     LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 }
 
@@ -252,6 +255,7 @@ void Renderer::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout);
     m_meshletCuller->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, worldDsLayouts, camDsLayout);
+    m_hizDownsampler->recompileShaders(scopeAlloc.child_scope(), changedFiles);
 
     LOG_INFO("Shaders recompiled in %.2fs", t.getSeconds());
 }
@@ -397,9 +401,20 @@ void Renderer::render(
         // Opaque
         if (m_renderDeferred)
         {
+            Optional<ImageHandle> prevHierarchicalDepth;
+            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
+                prevHierarchicalDepth = m_prevHierarchicalDepth;
+
             const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, m_meshletCuller.get(), world, cam,
-                renderArea, gpuDrawStats, m_drawType, nextFrame, &drawStats);
+                renderArea, prevHierarchicalDepth, gpuDrawStats, m_drawType,
+                nextFrame, &drawStats);
+
+            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
+                gRenderResources.images->release(m_prevHierarchicalDepth);
+            m_prevHierarchicalDepth = m_hizDownsampler->record(
+                scopeAlloc.child_scope(), cb, gbuffer.depth, nextFrame);
+            gRenderResources.images->preserve(m_prevHierarchicalDepth);
 
             if (m_deferredRt)
                 illumination =
@@ -433,11 +448,23 @@ void Renderer::render(
         {
             m_rtDirectIllumination->releasePreserved();
 
+            Optional<ImageHandle> prevHierarchicalDepth;
+            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
+                prevHierarchicalDepth = m_prevHierarchicalDepth;
+
             const ForwardRenderer::OpaqueOutput output =
                 m_forwardRenderer->recordOpaque(
                     scopeAlloc.child_scope(), cb, m_meshletCuller.get(), world,
-                    cam, renderArea, lightClusters, gpuDrawStats, nextFrame,
-                    m_applyIbl, m_drawType, &drawStats);
+                    cam, renderArea, lightClusters, prevHierarchicalDepth,
+                    gpuDrawStats, nextFrame, m_applyIbl, m_drawType,
+                    &drawStats);
+
+            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
+                gRenderResources.images->release(m_prevHierarchicalDepth);
+            m_prevHierarchicalDepth = m_hizDownsampler->record(
+                scopeAlloc.child_scope(), cb, output.depth, nextFrame);
+            gRenderResources.images->preserve(m_prevHierarchicalDepth);
+
             illumination = output.illumination;
             velocity = output.velocity;
             depth = output.depth;

@@ -26,6 +26,8 @@ const uint32_t sCullerGroupSize = 64;
 // lot based on content
 const uint32_t sMaxRecordsPerFrame = 2;
 
+const uint32_t sMaxHierarchicalDepthMips = 12;
+
 enum GeneratorBindingSet : uint32_t
 {
     GeneratorGeometryBindingSet,
@@ -39,6 +41,12 @@ enum GeneratorBindingSet : uint32_t
 struct GeneratorPCBlock
 {
     uint matchTransparents;
+};
+
+struct CullerPCBlock
+{
+    // 0 means no hiz bound
+    uint hizMipCount{0};
 };
 
 enum CullerBindingSet : uint32_t
@@ -106,13 +114,14 @@ ComputePass::Shader argumentsWriterDefinitionCallback(Allocator &alloc)
 
 ComputePass::Shader cullerDefinitionCallback(Allocator &alloc)
 {
-    const size_t len = 96;
+    const size_t len = 120;
     String defines{alloc, len};
     appendDefineStr(defines, "CAMERA_SET", CullerCameraBindingSet);
     appendDefineStr(defines, "GEOMETRY_SET", CullerGeometryBindingSet);
     appendDefineStr(
         defines, "SCENE_INSTANCES_SET", CullerSceneInstancesBindingSet);
     appendDefineStr(defines, "STORAGE_SET", CullerStorageBindingSet);
+    appendDefineStr(defines, "MAX_HIZ_MIPS", sMaxHierarchicalDepthMips);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -201,7 +210,8 @@ void MeshletCuller::startFrame()
 MeshletCullerOutput MeshletCuller::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, const Camera &cam, uint32_t nextFrame,
-    const char *debugPrefix, DrawStats *drawStats)
+    Optional<ImageHandle> inHierarchicalDepth, const char *debugPrefix,
+    DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -223,6 +233,7 @@ MeshletCullerOutput MeshletCuller::record(
         CullerInput{
             .dataBuffer = initialList,
             .argumentBuffer = cullerArgs,
+            .hierarchicalDepth = inHierarchicalDepth,
         },
         debugPrefix);
 
@@ -412,6 +423,52 @@ MeshletCullerOutput MeshletCuller::recordCullList(
     argumentsName.extend(debugPrefix);
     argumentsName.extend("MeshDiscpatchArguments");
 
+    ImageHandle dummyHierarchicalDepth;
+    if (!input.hierarchicalDepth.has_value())
+    {
+        String dummyHizName{scopeAlloc};
+        dummyHizName.extend(debugPrefix);
+        dummyHizName.extend("DummyHiZ");
+
+        dummyHierarchicalDepth = gRenderResources.images->create(
+            ImageDescription{
+                .format = vk::Format::eR32Sfloat,
+                .width = 1,
+                .height = 1,
+                .mipCount = 1,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled,
+            },
+            dummyHizName.c_str());
+    }
+    // TODO:
+    // Just enable null binds instead of binding dummies?
+    const ImageHandle hierarchicalDepth = input.hierarchicalDepth.has_value()
+                                              ? *input.hierarchicalDepth
+                                              : dummyHierarchicalDepth;
+
+    const Span<const vk::ImageView> hierarchicalDepthViews =
+        gRenderResources.images->subresourceViews(hierarchicalDepth);
+
+    StaticArray<vk::DescriptorImageInfo, sMaxHierarchicalDepthMips>
+        hierarchicalDepthInfos;
+    {
+        size_t i = 0;
+        for (; i < hierarchicalDepthViews.size(); ++i)
+            hierarchicalDepthInfos[i] = vk::DescriptorImageInfo{
+                .imageView = hierarchicalDepthViews[i],
+                .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            };
+        // Fill the remaining descriptors with copies of the first one so we
+        // won't have unbound descriptors. We could use VK_EXT_robustness2 and
+        // null descriptors, but this seems like less of a hassle since we
+        // shouldn't be accessing them anyway.
+        for (; i < sMaxHierarchicalDepthMips; ++i)
+            hierarchicalDepthInfos[i] = vk::DescriptorImageInfo{
+                .imageView = hierarchicalDepthViews[0],
+                .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            };
+    }
+
     const vk::DeviceSize drawListByteSize =
         gRenderResources.buffers->resource(input.dataBuffer).byteSize;
     const MeshletCullerOutput ret{
@@ -451,6 +508,10 @@ MeshletCullerOutput MeshletCuller::recordCullList(
                     gRenderResources.buffers->nativeHandle(ret.argumentBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
+            DescriptorInfo{hierarchicalDepthInfos},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .sampler = gRenderResources.nearestBorderBlackFloatSampler,
+            }},
         }});
 
     gRenderResources.buffers->transition(
@@ -464,6 +525,9 @@ MeshletCullerOutput MeshletCuller::recordCullList(
     transition(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
+            .images = StaticArray<ImageTransition, 1>{{
+                {hierarchicalDepth, ImageState::ComputeShaderSampledRead},
+            }},
             .buffers = StaticArray<BufferTransition, 4>{{
                 {input.dataBuffer, BufferState::ComputeShaderRead},
                 {input.argumentBuffer, BufferState::DrawIndirectRead},
@@ -492,10 +556,21 @@ MeshletCullerOutput MeshletCuller::recordCullList(
         worldByteOffsets.modelInstanceScales,
     }};
 
+    const CullerPCBlock pcBlock{
+        .hizMipCount =
+            input.hierarchicalDepth.has_value()
+                ? gRenderResources.images->resource(*input.hierarchicalDepth)
+                      .mipCount
+                : 0,
+    };
+
     const vk::Buffer argumentsHandle =
         gRenderResources.buffers->nativeHandle(input.argumentBuffer);
     m_drawListCuller.record(
-        cb, argumentsHandle, descriptorSets, dynamicOffsets);
+        cb, pcBlock, argumentsHandle, descriptorSets, dynamicOffsets);
+
+    if (gRenderResources.images->isValidHandle(dummyHierarchicalDepth))
+        gRenderResources.images->release(dummyHierarchicalDepth);
 
     return ret;
 }

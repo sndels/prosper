@@ -106,8 +106,9 @@ void GBufferRenderer::recompileShaders(
 GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
-    DrawType drawType, const uint32_t nextFrame, DrawStats *drawStats)
+    const vk::Rect2D &renderArea, Optional<ImageHandle> inHierarchicalDepth,
+    BufferHandle inOutDrawStats, DrawType drawType, const uint32_t nextFrame,
+    DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(meshletCuller != nullptr);
@@ -146,7 +147,7 @@ GBufferRendererOutput GBufferRenderer::record(
 
         const MeshletCullerOutput cullerOutput = meshletCuller->record(
             scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque, world,
-            cam, nextFrame, "GBuffer", drawStats);
+            cam, nextFrame, inHierarchicalDepth, "GBuffer", drawStats);
 
         updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame, cullerOutput, inOutDrawStats);

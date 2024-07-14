@@ -90,9 +90,12 @@ class Renderer
     wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
     wheels::OwningPtr<MeshletCuller> m_meshletCuller;
     wheels::OwningPtr<TextureReadback> m_textureReadback;
+    wheels::OwningPtr<HierarchicalDepthDownsampler> m_hizDownsampler;
 
     wheels::StaticArray<DrawStats, MAX_FRAMES_IN_FLIGHT> m_drawStats;
     wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> m_gpuDrawStats;
+
+    ImageHandle m_prevHierarchicalDepth;
 
     vk::Extent2D m_viewportExtentInUi{};
 

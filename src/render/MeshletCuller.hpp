@@ -52,6 +52,7 @@ class MeshletCuller
     [[nodiscard]] MeshletCullerOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
         const World &world, const Camera &cam, uint32_t nextFrame,
+        wheels::Optional<ImageHandle> inHierarchicalDepth,
         const char *debugPrefix, DrawStats *drawStats);
 
   private:
@@ -68,6 +69,7 @@ class MeshletCuller
     {
         BufferHandle dataBuffer;
         BufferHandle argumentBuffer;
+        wheels::Optional<ImageHandle> hierarchicalDepth;
     };
     [[nodiscard]] MeshletCullerOutput recordCullList(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

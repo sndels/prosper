@@ -48,9 +48,10 @@ class ForwardRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         const vk::Rect2D &renderArea,
-        const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, bool applyIbl, DrawType drawType,
-        DrawStats *drawStats);
+        const LightClusteringOutput &lightClusters,
+        wheels::Optional<ImageHandle> inHierarchicalDepth,
+        BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
+        DrawType drawType, DrawStats *drawStats);
 
     struct TransparentInOut
     {
@@ -93,8 +94,10 @@ class ForwardRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         MeshletCuller *meshletCuller, const World &world, const Camera &cam,
         uint32_t nextFrame, const RecordInOut &inOutTargets,
-        const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        const Options &options, DrawStats *drawStats, const char *debugName);
+        const LightClusteringOutput &lightClusters,
+        wheels::Optional<ImageHandle> inHierarchicalDepth,
+        BufferHandle inOutDrawStats, const Options &options,
+        DrawStats *drawStats, const char *debugName);
 
     struct Attachments
     {

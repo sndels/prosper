@@ -102,8 +102,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
-    BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
-    DrawType drawType, DrawStats *drawStats)
+    Optional<ImageHandle> inHierarchicalDepth, BufferHandle inOutDrawStats,
+    uint32_t nextFrame, bool applyIbl, DrawType drawType, DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -119,7 +119,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .velocity = ret.velocity,
             .depth = ret.depth,
         },
-        lightClusters, inOutDrawStats,
+        lightClusters, inHierarchicalDepth, inOutDrawStats,
         Options{
             .ibl = applyIbl,
             .drawType = drawType,
@@ -144,7 +144,7 @@ void ForwardRenderer::recordTransparent(
             .illumination = inOutTargets.illumination,
             .depth = inOutTargets.depth,
         },
-        lightClusters, inOutDrawStats,
+        lightClusters, {}, inOutDrawStats,
         Options{
             .transparents = true,
             .drawType = drawType,
@@ -384,7 +384,8 @@ void ForwardRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     MeshletCuller *meshletCuller, const World &world, const Camera &cam,
     const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
+    const LightClusteringOutput &lightClusters,
+    Optional<ImageHandle> inHierarchicalDepth, BufferHandle inOutDrawStats,
     const Options &options, DrawStats *drawStats, const char *debugName)
 {
     WHEELS_ASSERT(meshletCuller != nullptr);
@@ -403,7 +404,7 @@ void ForwardRenderer::record(
         options.transparents ? "Transparent" : "Opaque";
     const MeshletCullerOutput cullerOutput = meshletCuller->record(
         scopeAlloc.child_scope(), cb, cullerMode, world, cam, nextFrame,
-        cullerDebugPrefix, drawStats);
+        inHierarchicalDepth, cullerDebugPrefix, drawStats);
 
     updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame, options.transparents, cullerOutput,

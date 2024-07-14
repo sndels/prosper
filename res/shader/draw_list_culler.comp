@@ -5,6 +5,7 @@
 #extension GL_EXT_shader_8bit_storage : require
 #extension GL_KHR_shader_subgroup_basic : require
 #extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_EXT_shader_image_load_formatted : require
 
 #include "scene/camera.glsl"
 #include "scene/geometry.glsl"
@@ -37,6 +38,18 @@ layout(std430, set = STORAGE_SET, binding = 2) buffer DispatchArguments
 }
 outDispatchArguments;
 
+layout(set = STORAGE_SET, binding = 3) uniform texture2D
+    inHierarchicalDepth[MAX_HIZ_MIPS];
+// This should clamp to 1 on/beyond edges
+layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+
+layout(push_constant) uniform DrawListCullerPC
+{
+    // 0 means no hiz bound
+    uint hizMipCount;
+}
+PC;
+
 float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, 1)); }
 
 void transformBounds(inout MeshletBounds bounds, Transforms trfn, float scale)
@@ -55,6 +68,98 @@ bool isSphereOutsideFrustum(MeshletBounds bounds)
            signedDistance(camera.rightPlane, bounds.center) < -bounds.radius ||
            signedDistance(camera.bottomPlane, bounds.center) < -bounds.radius ||
            signedDistance(camera.topPlane, bounds.center) < -bounds.radius;
+}
+
+// From https://zeux.io/2023/01/12/approximate-projected-bounds/
+// based on
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael
+// Mara, Morgan McGuire. 2013
+// Assumes c,r are in view space and that the projection is symmetrical
+bool projectSphereView(
+    vec3 c, float r, float znear, float P00, float P11, out vec4 aabb)
+{
+    if (c.z < r + znear)
+        return false;
+
+    vec3 cr = c * r;
+    float czr2 = c.z * c.z - r * r;
+
+    float vx = sqrt(c.x * c.x + czr2);
+    float minx = (vx * c.x - cr.z) / (vx * c.z + cr.x);
+    float maxx = (vx * c.x + cr.z) / (vx * c.z - cr.x);
+
+    float vy = sqrt(c.y * c.y + czr2);
+    float miny = (vy * c.y - cr.z) / (vy * c.z + cr.y);
+    float maxy = (vy * c.y + cr.z) / (vy * c.z - cr.y);
+
+    aabb = vec4(minx * P00, miny * P11, maxx * P00, maxy * P11);
+    // clip space -> uv space
+    aabb = aabb.xwzy * vec4(0.5f, -0.5f, 0.5f, -0.5f) + vec4(0.5f);
+
+    return true;
+}
+
+bool isSphereOccluded(MeshletBounds bounds)
+{
+    if (PC.hizMipCount == 0)
+        return false;
+
+    vec4 centerInView = camera.worldToCamera * vec4(bounds.center, 1);
+
+    // Figure out bounds radius in texels, this also early outs if the cam is
+    // inside the bounds, or if the bounds are behind the camera
+    vec4 aabbScreen;
+    float conservativeRadius = bounds.radius * camera.maxViewScale;
+    if (!projectSphereView(
+            vec3(centerInView.xy, -centerInView.z), conservativeRadius,
+            camera.near, camera.cameraToClip[0][0], camera.cameraToClip[1][1],
+            aabbScreen))
+        return false;
+    vec2 aabbDiagonalPx = aabbScreen.zw - aabbScreen.xy;
+    aabbDiagonalPx *= camera.resolution;
+    float pxRadius = length(aabbDiagonalPx);
+
+    // Sample from the first mip where the whole sphere will fit a 2x2 texel
+    // area. floor without + 1 as hiz mip 0 is depth mip 1. clamp to 0 as < 1
+    // radii would be negative.
+    uint hizMip = uint(max(floor(log2(pxRadius)), 0));
+    if (hizMip >= PC.hizMipCount)
+        return false;
+
+    // Figure out what uv to sample hiz from
+    vec4 centerClipPos = camera.cameraToClip * centerInView;
+    centerClipPos.xyz /= centerClipPos.w;
+
+    vec2 uv = centerClipPos.xy * .5 + .5;
+    // Pick the closest 2x2 set of texels around the sample for gather
+    uv *= camera.resolution;
+    uv -= .5;
+    uv = floor(uv);
+    uv /= camera.resolution;
+    // Sampler should clamp to a border of 1 so that out of bounds samples don't
+    // get incorrectly culled
+
+    // Figure out the closest depth on the bounds for conservative culling
+    // TODO:
+    // We're only interested in z and w, so xy are extra math here
+    vec3 viewWorldDir = normalize(camera.eye.xyz - bounds.center);
+    vec3 closestWorldPos = bounds.center + viewWorldDir * bounds.radius;
+    vec4 closestClipPos =
+        camera.cameraToClip * camera.worldToCamera * vec4(closestWorldPos, 1);
+    float closestDepth = closestClipPos.z / closestClipPos.w;
+
+    // Gather the neighborhood around the sample point
+    // Let's not worry about the cases when the whole bounds are guaranteed to
+    // fit in one px. Sub-pixel meshlets are a bad time for perf regardless.
+    vec4 hizDepths = textureGather(
+        sampler2D(inHierarchicalDepth[nonuniformEXT(hizMip)], depthSampler), uv, 0);
+
+    // Reverse-Z so furthest away point is the smallest depth value and we know
+    // the cluster is occluded if its depth value is smaller than the depth
+    // buffer value
+    float hizDepth =
+        min(min(hizDepths.x, hizDepths.y), min(hizDepths.z, hizDepths.w));
+    return closestDepth < hizDepth;
 }
 
 bool isConeCapHidden(MeshletBounds bounds)
@@ -101,6 +206,8 @@ void main()
         meshletVisible = !isSphereOutsideFrustum(bounds);
         if (meshletVisible)
             meshletVisible = !isConeCapHidden(bounds);
+        if (meshletVisible)
+            meshletVisible = !isSphereOccluded(bounds);
     }
 
     // Figure out the subgroup offset for writes
