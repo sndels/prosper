@@ -1,7 +1,9 @@
 #include "Logger.hpp"
 
+#include "Utils.hpp"
 #include <cstdarg>
 #include <cstdio>
+#include <wheels/allocators/utils.hpp>
 #include <wheels/assert.hpp>
 #include <wheels/containers/static_array.hpp>
 
@@ -12,7 +14,6 @@
 
 #else // !_WIN32
 
-#include "Utils.hpp"
 // Assume posix
 #include <ctime>
 
@@ -26,7 +27,12 @@ using namespace wheels;
 namespace
 {
 
-const int sTmpStrLength = 1024;
+// This should be plenty for even the worst shader error messes and still small
+// enough to comfortably fit the 1MB stack on windows.
+const int sTmpStrLength = static_cast<int>(kilobytes(8));
+const char *const sOutOfSpaceError =
+    "\n[ ERROR: Logger ran out of tmp formatting space ]\n";
+const int sOutOfSpaceErrorLength = static_cast<int>(strlen(sOutOfSpaceError));
 
 // TODO:
 // InlineArray and resize_uninitialized() instead?
@@ -34,6 +40,7 @@ struct TmpStr
 {
     StaticArray<char, sTmpStrLength> str;
     size_t writePtr{0};
+    bool outOfSpace{false};
 
     void appendTimestamp()
     {
@@ -84,16 +91,35 @@ struct TmpStr
 
     void appendImpl(bool appendNewline, const char *format, va_list args)
     {
-        const int charsWritten = vsnprintf(
-            str.data() + writePtr, sTmpStrLength - writePtr, format, args);
+        if (outOfSpace)
+            return;
+
+        // Include final null after the overflow error
+        const int space = sTmpStrLength - asserted_cast<int>(writePtr) -
+                          sOutOfSpaceErrorLength - 1;
+        WHEELS_ASSERT(space >= 0);
+
+        const int charsWritten =
+            vsnprintf(str.data() + writePtr, space, format, args);
         WHEELS_ASSERT(charsWritten > 0 && "Encoding error");
-        writePtr += charsWritten;
-        // snprintf returns the number of characters that would have been
-        // written if the buffer was big enough so this also catches overruns
-        // even if the buffer is already exactly full
-        WHEELS_ASSERT(
-            writePtr <= sTmpStrLength - 2 && "Log message is too long");
-        if (appendNewline)
+
+        if (charsWritten < space)
+            writePtr += charsWritten;
+        else
+        {
+            // Let's just print the whole size even if it's garbage, but replace
+            // null(s) with spaces so that we'll still print the overflow error
+            // afterward
+            for (char &c : str)
+            {
+                if (c == '\0')
+                    c = ' ';
+            }
+            writePtr += space;
+            outOfSpace = true;
+        }
+
+        if (appendNewline && !outOfSpace)
         {
             str[writePtr++] = '\n';
             str[writePtr++] = '\0';
@@ -128,6 +154,20 @@ struct TmpStr
 
         va_end(args);
     }
+
+    void checkAndHandleOverflow()
+    {
+        if (outOfSpace)
+        {
+            WHEELS_ASSERT(
+                sTmpStrLength - asserted_cast<int>(writePtr) >=
+                sOutOfSpaceErrorLength + 1);
+            // Copy the final null too
+            memcpy(
+                str.data() + writePtr, sOutOfSpaceError,
+                sOutOfSpaceErrorLength + 1);
+        }
+    }
 };
 
 } // namespace
@@ -144,6 +184,8 @@ void zzInternalLogInfo(const char *format...)
     va_start(args, format);
     tmpStr.appendWithNewline(format, args);
     va_end(args);
+
+    tmpStr.checkAndHandleOverflow();
 
     // PERFNOTE:
     // fprintf dominates this on windows at least.
@@ -168,6 +210,8 @@ void zzInternalLogWarning(const char *format...)
     tmpStr.appendWithNewline(format, args);
     va_end(args);
 
+    tmpStr.checkAndHandleOverflow();
+
     fprintf(stdout, "%s", tmpStr.str.data());
 #ifdef _WIN32
     // Also output to debug output for convenience
@@ -187,6 +231,8 @@ void zzInternalLogError(const char *format...)
     va_start(args, format);
     tmpStr.appendWithNewline(format, args);
     va_end(args);
+
+    tmpStr.checkAndHandleOverflow();
 
     fprintf(stderr, "%s", tmpStr.str.data());
 #ifdef _WIN32
