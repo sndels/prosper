@@ -197,6 +197,7 @@ void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
         .previousJitter = m_previousJitter,
         .near = m_parameters.zN,
         .far = m_parameters.zF,
+        .maxViewScale = m_maxViewScale,
     };
     m_parametersByteOffset = m_constantsRing->write_value(uniforms);
 }
@@ -378,6 +379,11 @@ void Camera::updateWorldToCamera()
              right.z,          newUp.z,          z.z,          0.f,
              -dot(right, eye), -dot(newUp, eye), -dot(z, eye), 1.f};
     m_cameraToWorld = inverse(m_worldToCamera);
+
+    const vec3 scale{
+        length(column(m_worldToCamera, 0)), length(column(m_worldToCamera, 1)),
+        length(column(m_worldToCamera, 2))};
+    m_maxViewScale = max(max(scale.x, scale.y), scale.z);
 
     m_clipToCamera = inverse(m_cameraToClip);
     m_clipToWorld = inverse(m_cameraToClip * m_worldToCamera);

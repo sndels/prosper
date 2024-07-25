@@ -64,6 +64,7 @@ struct CameraUniforms
     glm::vec2 previousJitter;
     float near;
     float far;
+    float maxViewScale;
 };
 
 struct FrustumCorners
@@ -153,6 +154,7 @@ class Camera
     glm::vec4 m_rightPlane{0.f};
     glm::vec4 m_topPlane{0.f};
     glm::vec4 m_bottomPlane{0.f};
+    float m_maxViewScale{1.f};
 
     wheels::Optional<ShaderReflection> m_bindingsReflection;
     vk::DescriptorSetLayout m_descriptorSetLayout;

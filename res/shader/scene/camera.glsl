@@ -23,6 +23,7 @@ layout(std430, set = CAMERA_SET, binding = 0) buffer CameraDSB
     vec2 previousJitter;
     float near;
     float far;
+    float maxViewScale;
 }
 camera;
 
