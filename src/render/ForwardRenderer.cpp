@@ -15,6 +15,7 @@
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "DrawStats.hpp"
+#include "HierarchicalDepthDownsampler.hpp"
 #include "LightClustering.hpp"
 #include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
@@ -48,6 +49,12 @@ struct PCBlock
     uint32_t previousTransformValid{0};
 };
 
+struct Attachments
+{
+    InlineArray<vk::RenderingAttachmentInfo, 2> color;
+    vk::RenderingAttachmentInfo depth;
+};
+
 } // namespace
 
 ForwardRenderer::~ForwardRenderer()
@@ -63,9 +70,13 @@ ForwardRenderer::~ForwardRenderer()
 }
 
 void ForwardRenderer::init(
-    ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts)
+    ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts,
+    MeshletCuller *meshletCuller,
+    HierarchicalDepthDownsampler *hierarchicalDepthDownsampler)
 {
     WHEELS_ASSERT(!m_initialized);
+    WHEELS_ASSERT(meshletCuller != nullptr);
+    WHEELS_ASSERT(hierarchicalDepthDownsampler != nullptr);
 
     LOG_INFO("Creating ForwardRenderer");
 
@@ -74,6 +85,9 @@ void ForwardRenderer::init(
 
     createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipelines(dsLayouts);
+
+    m_meshletCuller = meshletCuller;
+    m_hierarchicalDepthDownsampler = hierarchicalDepthDownsampler;
 
     m_initialized = true;
 }
@@ -98,11 +112,12 @@ void ForwardRenderer::recompileShaders(
     }
 }
 
+void ForwardRenderer::startFrame() { m_nextFrameRecord = 0; }
+
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, const LightClusteringOutput &lightClusters,
-    Optional<ImageHandle> inHierarchicalDepth, BufferHandle inOutDrawStats,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Rect2D &renderArea,
+    const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
     uint32_t nextFrame, bool applyIbl, DrawType drawType, DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
@@ -112,19 +127,94 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ret.velocity = createVelocity(renderArea.extent, "velocity");
     ret.depth = createDepth(renderArea.extent, "depth");
 
-    record(
-        WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
+    Optional<ImageHandle> prevHierarchicalDepth;
+    if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
+        prevHierarchicalDepth = m_previousHierarchicalDepth;
+
+    // Conservative two-phase culling from GPU-Driven Rendering Pipelines
+    // by Sebastian Aaltonen
+
+    // First phase:
+    // Cull with previous frame hierarchical depth and draw. Store a second draw
+    // list with potential culling false positives: all meshlets that were
+    // culled based on depth.
+    const MeshletCullerFirstPhaseOutput firstPhaseCullingOutput =
+        m_meshletCuller->recordFirstPhase(
+            scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque, world,
+            cam, nextFrame, prevHierarchicalDepth, "Opaque", drawStats);
+
+    if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
+        gRenderResources.images->release(m_previousHierarchicalDepth);
+
+    recordDraw(
+        scopeAlloc.child_scope(), cb, world, cam, nextFrame,
         RecordInOut{
-            .illumination = ret.illumination,
-            .velocity = ret.velocity,
-            .depth = ret.depth,
+            .inOutIllumination = ret.illumination,
+            .inOutVelocity = ret.velocity,
+            .inOutDepth = ret.depth,
+            .inOutDrawStats = inOutDrawStats,
+            .inDataBuffer = firstPhaseCullingOutput.dataBuffer,
+            .inArgumentBuffer = firstPhaseCullingOutput.argumentBuffer,
         },
-        lightClusters, inHierarchicalDepth, inOutDrawStats,
+        lightClusters,
         Options{
             .ibl = applyIbl,
             .drawType = drawType,
         },
-        drawStats, "OpaqueGeometry");
+        drawStats, "OpaqueGeometryFirstPhase");
+
+    gRenderResources.buffers->release(firstPhaseCullingOutput.dataBuffer);
+    gRenderResources.buffers->release(firstPhaseCullingOutput.argumentBuffer);
+
+    if (firstPhaseCullingOutput.secondPhaseInput.has_value())
+    {
+        // Second phase:
+        // Another pass over the meshelets that got culled by depth in the first
+        // pass, now with hierarchical depth built from the first pass result.
+        // This way we'll now draw any meshlets that got disoccluded in the
+        // curret frame.
+        const ImageHandle currentHierarchicalDepth =
+            m_hierarchicalDepthDownsampler->record(
+                scopeAlloc.child_scope(), cb, ret.depth, nextFrame,
+                "OpaqueFirstPhase");
+
+        const MeshletCullerSecondPhaseOutput secondPhaseCullingOutput =
+            m_meshletCuller->recordSecondPhase(
+                scopeAlloc.child_scope(), cb, world, cam, nextFrame,
+                *firstPhaseCullingOutput.secondPhaseInput,
+                currentHierarchicalDepth, "Opaque");
+
+        gRenderResources.buffers->release(
+            *firstPhaseCullingOutput.secondPhaseInput);
+        gRenderResources.images->release(currentHierarchicalDepth);
+
+        recordDraw(
+            scopeAlloc.child_scope(), cb, world, cam, nextFrame,
+            RecordInOut{
+                .inOutIllumination = ret.illumination,
+                .inOutVelocity = ret.velocity,
+                .inOutDepth = ret.depth,
+                .inOutDrawStats = inOutDrawStats,
+                .inDataBuffer = secondPhaseCullingOutput.dataBuffer,
+                .inArgumentBuffer = secondPhaseCullingOutput.argumentBuffer,
+            },
+            lightClusters,
+            Options{
+                .ibl = applyIbl,
+                .secondPhase = true,
+                .drawType = drawType,
+            },
+            drawStats, "OpaqueGeometrySecondPhase");
+
+        gRenderResources.buffers->release(secondPhaseCullingOutput.dataBuffer);
+        gRenderResources.buffers->release(
+            secondPhaseCullingOutput.argumentBuffer);
+    }
+
+    // Potential previous pyramid was already freed during first phase
+    m_previousHierarchicalDepth = m_hierarchicalDepthDownsampler->record(
+        WHEELS_MOV(scopeAlloc), cb, ret.depth, nextFrame, "OpaqueSecondPhase");
+    gRenderResources.images->preserve(m_previousHierarchicalDepth);
 
     return ret;
 }
@@ -138,18 +228,36 @@ void ForwardRenderer::recordTransparent(
 {
     WHEELS_ASSERT(m_initialized);
 
-    record(
-        WHEELS_MOV(scopeAlloc), cb, meshletCuller, world, cam, nextFrame,
+    const MeshletCullerFirstPhaseOutput cullerOutput =
+        meshletCuller->recordFirstPhase(
+            scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Transparent,
+            world, cam, nextFrame, {}, "Transparent", drawStats);
+    WHEELS_ASSERT(!cullerOutput.secondPhaseInput.has_value());
+
+    recordDraw(
+        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
         RecordInOut{
-            .illumination = inOutTargets.illumination,
-            .depth = inOutTargets.depth,
+            .inOutIllumination = inOutTargets.illumination,
+            .inOutDepth = inOutTargets.depth,
+            .inOutDrawStats = inOutDrawStats,
+            .inDataBuffer = cullerOutput.dataBuffer,
+            .inArgumentBuffer = cullerOutput.argumentBuffer,
         },
-        lightClusters, {}, inOutDrawStats,
+        lightClusters,
         Options{
             .transparents = true,
             .drawType = drawType,
         },
         drawStats, "TransparentGeometry");
+
+    gRenderResources.buffers->release(cullerOutput.dataBuffer);
+    gRenderResources.buffers->release(cullerOutput.argumentBuffer);
+}
+
+void ForwardRenderer::releasePreserved()
+{
+    if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
+        gRenderResources.images->release(m_previousHierarchicalDepth);
 }
 
 bool ForwardRenderer::compileShaders(
@@ -257,32 +365,26 @@ void ForwardRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
         WHEELS_MOV(scopeAlloc), DrawStatsBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT * 2>
-        layouts{m_meshSetLayout};
-    const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT * 2> debugNames{
+    const StaticArray<vk::DescriptorSetLayout, sDescriptorSetCount> layouts{
+        m_meshSetLayout};
+    const StaticArray<const char *, sDescriptorSetCount> debugNames{
         "ForwardMesh"};
     gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_meshSets.mut_span());
 }
 
 void ForwardRenderer::updateDescriptorSet(
-    ScopedScratch scopeAlloc, uint32_t nextFrame, bool transparents,
-    const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats)
+    ScopedScratch scopeAlloc, vk::DescriptorSet ds,
+    const DescriptorSetBuffers &buffers) const
 {
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds =
-        m_meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + (transparents ? 1u : 0u)];
-
     const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = gRenderResources.buffers->nativeHandle(inOutDrawStats),
+            .buffer = gRenderResources.buffers->nativeHandle(buffers.drawStats),
             .range = VK_WHOLE_SIZE,
         }},
         DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer =
-                gRenderResources.buffers->nativeHandle(cullerOutput.dataBuffer),
+                gRenderResources.buffers->nativeHandle(buffers.dataBuffer),
             .range = VK_WHOLE_SIZE,
         }},
     }};
@@ -380,54 +482,50 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             });
     }
 }
-void ForwardRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-    const uint32_t nextFrame, const RecordInOut &inOutTargets,
-    const LightClusteringOutput &lightClusters,
-    Optional<ImageHandle> inHierarchicalDepth, BufferHandle inOutDrawStats,
-    const Options &options, DrawStats *drawStats, const char *debugName)
+void ForwardRenderer::recordDraw(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, uint32_t nextFrame, const RecordInOut &inputsOutputs,
+    const LightClusteringOutput &lightClusters, const Options &options,
+    DrawStats *drawStats, const char *debugName)
 {
-    WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(drawStats != nullptr);
 
     PROFILER_CPU_SCOPE(debugName);
 
-    const vk::Rect2D renderArea = getRect2D(inOutTargets.illumination);
+    const vk::Rect2D renderArea = getRect2D(inputsOutputs.inOutIllumination);
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
-    const MeshletCuller::Mode cullerMode =
-        options.transparents ? MeshletCuller::Mode::Transparent
-                             : MeshletCuller::Mode::Opaque;
-    const char *cullerDebugPrefix =
-        options.transparents ? "Transparent" : "Opaque";
-    const MeshletCullerOutput cullerOutput = meshletCuller->record(
-        scopeAlloc.child_scope(), cb, cullerMode, world, cam, nextFrame,
-        inHierarchicalDepth, cullerDebugPrefix, drawStats);
+    const uint32_t dsIndex =
+        nextFrame * MAX_FRAMES_IN_FLIGHT * 2 + m_nextFrameRecord;
+    const vk::DescriptorSet ds = m_meshSets[dsIndex];
 
     updateDescriptorSet(
-        scopeAlloc.child_scope(), nextFrame, options.transparents, cullerOutput,
-        inOutDrawStats);
+        scopeAlloc.child_scope(), ds,
+        DescriptorSetBuffers{
+            .dataBuffer = inputsOutputs.inDataBuffer,
+            .drawStats = inputsOutputs.inOutDrawStats,
+        });
 
     InlineArray<ImageTransition, 4> images;
     images.emplace_back(
-        inOutTargets.illumination, ImageState::ColorAttachmentReadWrite);
+        inputsOutputs.inOutIllumination, ImageState::ColorAttachmentReadWrite);
     images.emplace_back(
-        inOutTargets.depth, ImageState::DepthAttachmentReadWrite);
+        inputsOutputs.inOutDepth, ImageState::DepthAttachmentReadWrite);
     images.emplace_back(lightClusters.pointers, ImageState::FragmentShaderRead);
-    if (inOutTargets.velocity.isValid())
+    if (inputsOutputs.inOutVelocity.isValid())
         images.emplace_back(
-            inOutTargets.velocity, ImageState::ColorAttachmentReadWrite);
+            inputsOutputs.inOutVelocity, ImageState::ColorAttachmentReadWrite);
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = images,
             .buffers = StaticArray<BufferTransition, 3>{{
-                {inOutDrawStats, BufferState::MeshShaderReadWrite},
-                {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
-                {cullerOutput.argumentBuffer, BufferState::DrawIndirectRead},
+                {inputsOutputs.inOutDrawStats,
+                 BufferState::MeshShaderReadWrite},
+                {inputsOutputs.inDataBuffer, BufferState::MeshShaderRead},
+                {inputsOutputs.inArgumentBuffer, BufferState::DrawIndirectRead},
             }},
             .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
                 {lightClusters.indicesCount, BufferState::FragmentShaderRead},
@@ -435,8 +533,35 @@ void ForwardRenderer::record(
             }},
         });
 
-    const Attachments attachments =
-        createAttachments(inOutTargets, options.transparents);
+    const vk::AttachmentLoadOp loadOp =
+        options.secondPhase || options.transparents
+            ? vk::AttachmentLoadOp::eLoad
+            : vk::AttachmentLoadOp::eClear;
+    Attachments attachments;
+    attachments.color.push_back(vk::RenderingAttachmentInfo{
+        .imageView =
+            gRenderResources.images->resource(inputsOutputs.inOutIllumination)
+                .view,
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp = loadOp,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    });
+    if (!options.transparents)
+        attachments.color.push_back(vk::RenderingAttachmentInfo{
+            .imageView =
+                gRenderResources.images->resource(inputsOutputs.inOutVelocity)
+                    .view,
+            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .loadOp = loadOp,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+        });
+    attachments.depth = vk::RenderingAttachmentInfo{
+        .imageView =
+            gRenderResources.images->resource(inputsOutputs.inOutDepth).view,
+        .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        .loadOp = loadOp,
+        .storeOp = vk::AttachmentStoreOp::eStore,
+    };
 
     PROFILER_GPU_SCOPE_WITH_STATS(cb, debugName);
 
@@ -468,8 +593,7 @@ void ForwardRenderer::record(
     descriptorSets[SceneInstancesBindingSet] =
         scene.sceneInstancesDescriptorSet;
     descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
-    descriptorSets[DrawStatsBindingSet] =
-        m_meshSets[nextFrame * MAX_FRAMES_IN_FLIGHT + pipelineIndex];
+    descriptorSets[DrawStatsBindingSet] = ds;
 
     const StaticArray dynamicOffsets{{
         worldByteOffsets.directionalLight,
@@ -502,68 +626,10 @@ void ForwardRenderer::record(
         sizeof(PCBlock), &pcBlock);
 
     const vk::Buffer argumentHandle =
-        gRenderResources.buffers->nativeHandle(cullerOutput.argumentBuffer);
+        gRenderResources.buffers->nativeHandle(inputsOutputs.inArgumentBuffer);
     cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
 
     cb.endRendering();
 
-    gRenderResources.buffers->release(cullerOutput.dataBuffer);
-    gRenderResources.buffers->release(cullerOutput.argumentBuffer);
-}
-
-ForwardRenderer::Attachments ForwardRenderer::createAttachments(
-    const RecordInOut &inOutTargets, bool transparents)
-{
-    Attachments ret;
-    if (transparents)
-    {
-        ret.color.push_back(vk::RenderingAttachmentInfo{
-            .imageView =
-                gRenderResources.images->resource(inOutTargets.illumination)
-                    .view,
-            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-        });
-        ret.depth = vk::RenderingAttachmentInfo{
-            .imageView =
-                gRenderResources.images->resource(inOutTargets.depth).view,
-            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eLoad,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-        };
-    }
-    else
-    {
-        ret.color = InlineArray{
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    gRenderResources.images->resource(inOutTargets.illumination)
-                        .view,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eClear,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-            },
-            vk::RenderingAttachmentInfo{
-                .imageView =
-                    gRenderResources.images->resource(inOutTargets.velocity)
-                        .view,
-                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                .loadOp = vk::AttachmentLoadOp::eClear,
-                .storeOp = vk::AttachmentStoreOp::eStore,
-                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-            },
-        };
-        ret.depth = vk::RenderingAttachmentInfo{
-            .imageView =
-                gRenderResources.images->resource(inOutTargets.depth).view,
-            .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::eClear,
-            .storeOp = vk::AttachmentStoreOp::eStore,
-            .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-        };
-    }
-
-    return ret;
+    m_nextFrameRecord++;
 }

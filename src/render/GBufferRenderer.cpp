@@ -1,7 +1,5 @@
 #include "GBufferRenderer.hpp"
 
-#include <imgui.h>
-
 #include "../gfx/DescriptorAllocator.hpp"
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
@@ -18,6 +16,8 @@
 #include "MeshletCuller.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
+#include "wheels/assert.hpp"
+#include <cstdint>
 
 using namespace glm;
 using namespace wheels;
@@ -35,7 +35,7 @@ enum BindingSet : uint32_t
     MaterialTexturesBindingSet,
     GeometryBuffersBindingSet,
     SceneInstancesBindingSet,
-    DrawStatsBindingSet,
+    MeshShaderBindingSet,
     BindingSetCount,
 };
 
@@ -55,9 +55,12 @@ struct Attachments
 
 void GBufferRenderer::init(
     ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const WorldDSLayouts &worldDSLayouts, MeshletCuller *meshletCuller,
+    HierarchicalDepthDownsampler *hierarchicalDepthDownsampler)
 {
     WHEELS_ASSERT(!m_initialized);
+    WHEELS_ASSERT(meshletCuller != nullptr);
+    WHEELS_ASSERT(hierarchicalDepthDownsampler != nullptr);
 
     LOG_INFO("Creating GBufferRenderer");
 
@@ -66,6 +69,9 @@ void GBufferRenderer::init(
 
     createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
+
+    m_meshletCuller = meshletCuller;
+    m_hierarchicalDepthDownsampler = hierarchicalDepthDownsampler;
 
     m_initialized = true;
 }
@@ -104,14 +110,12 @@ void GBufferRenderer::recompileShaders(
 }
 
 GBufferRendererOutput GBufferRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-    const vk::Rect2D &renderArea, Optional<ImageHandle> inHierarchicalDepth,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Rect2D &renderArea,
     BufferHandle inOutDrawStats, DrawType drawType, const uint32_t nextFrame,
     DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
-    WHEELS_ASSERT(meshletCuller != nullptr);
     WHEELS_ASSERT(drawStats != nullptr);
 
     PROFILER_CPU_SCOPE("GBuffer");
@@ -145,144 +149,101 @@ GBufferRendererOutput GBufferRenderer::record(
             .depth = createDepth(renderArea.extent, "depth"),
         };
 
-        const MeshletCullerOutput cullerOutput = meshletCuller->record(
-            scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque, world,
-            cam, nextFrame, inHierarchicalDepth, "GBuffer", drawStats);
+        Optional<ImageHandle> prevHierarchicalDepth;
+        if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
+            prevHierarchicalDepth = m_previousHierarchicalDepth;
 
-        updateDescriptorSet(
-            scopeAlloc.child_scope(), nextFrame, cullerOutput, inOutDrawStats);
+        // Conservative two-phase culling from GPU-Driven Rendering Pipelines
+        // by Sebastian Aaltonen
 
-        transition(
-            WHEELS_MOV(scopeAlloc), cb,
-            Transitions{
-                .images = StaticArray<ImageTransition, 4>{{
-                    {ret.albedoRoughness, ImageState::ColorAttachmentWrite},
-                    {ret.normalMetalness, ImageState::ColorAttachmentWrite},
-                    {ret.velocity, ImageState::ColorAttachmentWrite},
-                    {ret.depth, ImageState::DepthAttachmentReadWrite},
-                }},
-                .buffers = StaticArray<BufferTransition, 3>{{
-                    {inOutDrawStats, BufferState::MeshShaderReadWrite},
-                    {cullerOutput.dataBuffer, BufferState::MeshShaderRead},
-                    {cullerOutput.argumentBuffer,
-                     BufferState::DrawIndirectRead},
-                }},
-            });
+        // First phase:
+        // Cull with previous frame hierarchical depth and draw. Store a second
+        // draw list with potential culling false positives: all meshlets that
+        // were culled based on depth.
+        const MeshletCullerFirstPhaseOutput firstPhaseCullingOutput =
+            m_meshletCuller->recordFirstPhase(
+                scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Opaque,
+                world, cam, nextFrame, prevHierarchicalDepth, "GBuffer",
+                drawStats);
 
-        const Attachments attachments{
-            .color = {{
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        gRenderResources.images->resource(ret.albedoRoughness)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+        if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
+            gRenderResources.images->release(m_previousHierarchicalDepth);
+
+        {
+            recordDraw(
+                scopeAlloc.child_scope(), cb, world, cam, renderArea, nextFrame,
+                RecordInOut{
+                    .inDataBuffer = firstPhaseCullingOutput.dataBuffer,
+                    .inArgumentBuffer = firstPhaseCullingOutput.argumentBuffer,
+                    .inOutDrawStats = inOutDrawStats,
+                    .outAlbedoRoughness = ret.albedoRoughness,
+                    .outNormalMetalness = ret.normalMetalness,
+                    .outVelocity = ret.velocity,
+                    .outDepth = ret.depth,
                 },
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        gRenderResources.images->resource(ret.normalMetalness)
-                            .view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+                drawType, false, drawStats);
+
+            gRenderResources.buffers->release(
+                firstPhaseCullingOutput.dataBuffer);
+            gRenderResources.buffers->release(
+                firstPhaseCullingOutput.argumentBuffer);
+        }
+
+        if (firstPhaseCullingOutput.secondPhaseInput.has_value())
+        {
+            // Second phase:
+            // Another pass over the meshelets that got culled by depth in the
+            // first pass, now with hierarchical depth built from the first pass
+            // result. This way we'll now draw any meshlets that got disoccluded
+            // in the curret frame.
+            const ImageHandle currentHierarchicalDepth =
+                m_hierarchicalDepthDownsampler->record(
+                    scopeAlloc.child_scope(), cb, ret.depth, nextFrame,
+                    "GBufferFirstPhase");
+
+            const MeshletCullerSecondPhaseOutput secondPhaseCullingOutput =
+                m_meshletCuller->recordSecondPhase(
+                    scopeAlloc.child_scope(), cb, world, cam, nextFrame,
+                    *firstPhaseCullingOutput.secondPhaseInput,
+                    currentHierarchicalDepth, "GBuffer");
+
+            gRenderResources.images->release(currentHierarchicalDepth);
+            gRenderResources.buffers->release(
+                *firstPhaseCullingOutput.secondPhaseInput);
+
+            recordDraw(
+                scopeAlloc.child_scope(), cb, world, cam, renderArea, nextFrame,
+                RecordInOut{
+                    .inDataBuffer = secondPhaseCullingOutput.dataBuffer,
+                    .inArgumentBuffer = secondPhaseCullingOutput.argumentBuffer,
+                    .inOutDrawStats = inOutDrawStats,
+                    .outAlbedoRoughness = ret.albedoRoughness,
+                    .outNormalMetalness = ret.normalMetalness,
+                    .outVelocity = ret.velocity,
+                    .outDepth = ret.depth,
                 },
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        gRenderResources.images->resource(ret.velocity).view,
-                    .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-                },
-            }},
-            .depth =
-                vk::RenderingAttachmentInfo{
-                    .imageView =
-                        gRenderResources.images->resource(ret.depth).view,
-                    .imageLayout =
-                        vk::ImageLayout::eDepthStencilAttachmentOptimal,
-                    .loadOp = vk::AttachmentLoadOp::eClear,
-                    .storeOp = vk::AttachmentStoreOp::eStore,
-                    .clearValue =
-                        vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
-                },
-        };
+                drawType, true, drawStats);
 
-        PROFILER_GPU_SCOPE_WITH_STATS(cb, "GBuffer");
+            gRenderResources.buffers->release(
+                secondPhaseCullingOutput.dataBuffer);
+            gRenderResources.buffers->release(
+                secondPhaseCullingOutput.argumentBuffer);
+        }
 
-        cb.beginRendering(vk::RenderingInfo{
-            .renderArea = renderArea,
-            .layerCount = 1,
-            .colorAttachmentCount =
-                asserted_cast<uint32_t>(attachments.color.size()),
-            .pColorAttachments = attachments.color.data(),
-            .pDepthAttachment = &attachments.depth,
-        });
-
-        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
-
-        const Scene &scene = world.currentScene();
-        const WorldDescriptorSets &worldDSes = world.descriptorSets();
-        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
-
-        StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
-            VK_NULL_HANDLE};
-        descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[MaterialDatasBindingSet] =
-            worldDSes.materialDatas[nextFrame];
-        descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
-        descriptorSets[GeometryBuffersBindingSet] =
-            worldDSes.geometry[nextFrame];
-        descriptorSets[SceneInstancesBindingSet] =
-            scene.sceneInstancesDescriptorSet;
-        descriptorSets[DrawStatsBindingSet] = m_meshSets[nextFrame];
-
-        const StaticArray dynamicOffsets{{
-            cam.bufferOffset(),
-            worldByteOffsets.globalMaterialConstants,
-            worldByteOffsets.modelInstanceTransforms,
-            worldByteOffsets.previousModelInstanceTransforms,
-            worldByteOffsets.modelInstanceScales,
-        }};
-
-        cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
-            0, // firstSet
-            asserted_cast<uint32_t>(descriptorSets.size()),
-            descriptorSets.data(),
-            asserted_cast<uint32_t>(dynamicOffsets.size()),
-            dynamicOffsets.data());
-
-        setViewportScissor(cb, renderArea);
-
-        const PCBlock pcBlock{
-            .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
-            .drawType = static_cast<uint32_t>(drawType),
-        };
-        cb.pushConstants(
-            m_pipelineLayout,
-            vk::ShaderStageFlagBits::eMeshEXT |
-                vk::ShaderStageFlagBits::eFragment,
-            0, // offset
-            sizeof(PCBlock), &pcBlock);
-
-        const vk::Buffer argumentHandle =
-            gRenderResources.buffers->nativeHandle(cullerOutput.argumentBuffer);
-        cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
-
-        cb.endRendering();
-
-        gRenderResources.buffers->release(cullerOutput.dataBuffer);
-        gRenderResources.buffers->release(cullerOutput.argumentBuffer);
+        // Potential previous pyramid was already freed during first phase
+        m_previousHierarchicalDepth = m_hierarchicalDepthDownsampler->record(
+            scopeAlloc.child_scope(), cb, ret.depth, nextFrame,
+            "GBufferSecondPhase");
+        gRenderResources.images->preserve(m_previousHierarchicalDepth);
     }
 
     return ret;
+}
+
+void GBufferRenderer::releasePreserved()
+{
+    if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
+        gRenderResources.images->release(m_previousHierarchicalDepth);
 }
 
 bool GBufferRenderer::compileShaders(
@@ -297,7 +258,7 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(meshDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     appendDefineStr(
         meshDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
-    appendDefineStr(meshDefines, "MESH_SHADER_SET", DrawStatsBindingSet);
+    appendDefineStr(meshDefines, "MESH_SHADER_SET", MeshShaderBindingSet);
     appendDefineStr(meshDefines, "USE_GBUFFER_PC");
     appendDefineStr(meshDefines, "MAX_MS_VERTS", sMaxMsVertices);
     appendDefineStr(meshDefines, "MAX_MS_PRIMS", sMaxMsTriangles);
@@ -380,34 +341,29 @@ void GBufferRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(m_meshReflection.has_value());
     m_meshSetLayout = m_meshReflection->createDescriptorSetLayout(
-        WHEELS_MOV(scopeAlloc), DrawStatsBindingSet,
+        WHEELS_MOV(scopeAlloc), MeshShaderBindingSet,
         vk::ShaderStageFlagBits::eMeshEXT);
 
-    const StaticArray<vk::DescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts{
+    const StaticArray<vk::DescriptorSetLayout, sDescriptorSetCount> layouts{
         m_meshSetLayout};
-    const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
+    const StaticArray<const char *, sDescriptorSetCount> debugNames{
         "GBufferMesh"};
     gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_meshSets.mut_span());
 }
 
 void GBufferRenderer::updateDescriptorSet(
-    ScopedScratch scopeAlloc, uint32_t nextFrame,
-    const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats)
+    ScopedScratch scopeAlloc, vk::DescriptorSet ds,
+    const DescriptorSetBuffers &buffers) const
 {
-    // TODO:
-    // Don't update if resources are the same as before (for this DS index)?
-    // Have to compare against both extent and previous native handle?
-    const vk::DescriptorSet ds = m_meshSets[nextFrame];
-
     const StaticArray infos{{
         DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = gRenderResources.buffers->nativeHandle(inOutDrawStats),
+            .buffer = gRenderResources.buffers->nativeHandle(buffers.drawStats),
             .range = VK_WHOLE_SIZE,
         }},
         DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer =
-                gRenderResources.buffers->nativeHandle(cullerOutput.dataBuffer),
+                gRenderResources.buffers->nativeHandle(buffers.dataBuffer),
             .range = VK_WHOLE_SIZE,
         }},
     }};
@@ -415,7 +371,7 @@ void GBufferRenderer::updateDescriptorSet(
     WHEELS_ASSERT(m_meshReflection.has_value());
     const wheels::Array descriptorWrites =
         m_meshReflection->generateDescriptorWrites(
-            scopeAlloc, DrawStatsBindingSet, ds, infos);
+            scopeAlloc, MeshShaderBindingSet, ds, infos);
 
     gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
@@ -439,7 +395,7 @@ void GBufferRenderer::createGraphicsPipelines(
     setLayouts[MaterialTexturesBindingSet] = worldDSLayouts.materialTextures;
     setLayouts[GeometryBuffersBindingSet] = worldDSLayouts.geometry;
     setLayouts[SceneInstancesBindingSet] = worldDSLayouts.sceneInstances;
-    setLayouts[DrawStatsBindingSet] = m_meshSetLayout;
+    setLayouts[MeshShaderBindingSet] = m_meshSetLayout;
 
     const vk::PushConstantRange pcRange{
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
@@ -479,4 +435,152 @@ void GBufferRenderer::createGraphicsPipelines(
                 },
             .debugName = "GBufferRenderer",
         });
+}
+
+void GBufferRenderer::recordDraw(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const vk::Rect2D &renderArea, uint32_t nextFrame,
+    const RecordInOut &inputsOutputs, DrawType drawType, bool isSecondPhase,
+    DrawStats *drawStats)
+{
+    WHEELS_ASSERT(drawStats != nullptr);
+
+    const vk::DescriptorSet ds =
+        m_meshSets[nextFrame * 2 + (isSecondPhase ? 1u : 0u)];
+
+    const char *debugName =
+        isSecondPhase ? "GBufferSecondPass" : "GBufferFirstPass";
+
+    updateDescriptorSet(
+        scopeAlloc.child_scope(), ds,
+        DescriptorSetBuffers{
+            .dataBuffer = inputsOutputs.inDataBuffer,
+            .drawStats = inputsOutputs.inOutDrawStats,
+        });
+
+    const ImageState colorAttachmentState =
+        isSecondPhase ? ImageState::ColorAttachmentReadWrite
+                      : ImageState::ColorAttachmentWrite;
+
+    transition(
+        WHEELS_MOV(scopeAlloc), cb,
+        Transitions{
+            .images = StaticArray<ImageTransition, 4>{{
+                {inputsOutputs.outAlbedoRoughness, colorAttachmentState},
+                {inputsOutputs.outNormalMetalness, colorAttachmentState},
+                {inputsOutputs.outVelocity, colorAttachmentState},
+                {inputsOutputs.outDepth, ImageState::DepthAttachmentReadWrite},
+            }},
+            .buffers = StaticArray<BufferTransition, 3>{{
+                {inputsOutputs.inOutDrawStats,
+                 BufferState::MeshShaderReadWrite},
+                {inputsOutputs.inDataBuffer, BufferState::MeshShaderRead},
+                {inputsOutputs.inArgumentBuffer, BufferState::DrawIndirectRead},
+            }},
+        });
+
+    const vk::AttachmentLoadOp loadOp = isSecondPhase
+                                            ? vk::AttachmentLoadOp::eLoad
+                                            : vk::AttachmentLoadOp::eClear;
+    const Attachments attachments{
+        .color = {{
+            vk::RenderingAttachmentInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(inputsOutputs.outAlbedoRoughness)
+                                 .view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = loadOp,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+            vk::RenderingAttachmentInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(inputsOutputs.outNormalMetalness)
+                                 .view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = loadOp,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    gRenderResources.images->resource(inputsOutputs.outVelocity)
+                        .view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = loadOp,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+        }},
+        .depth =
+            vk::RenderingAttachmentInfo{
+                .imageView =
+                    gRenderResources.images->resource(inputsOutputs.outDepth)
+                        .view,
+                .imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                .loadOp = loadOp,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+                .clearValue = vk::ClearValue{std::array{0.f, 0.f, 0.f, 0.f}},
+            },
+    };
+
+    PROFILER_GPU_SCOPE_WITH_STATS(cb, debugName);
+
+    cb.beginRendering(vk::RenderingInfo{
+        .renderArea = renderArea,
+        .layerCount = 1,
+        .colorAttachmentCount =
+            asserted_cast<uint32_t>(attachments.color.size()),
+        .pColorAttachments = attachments.color.data(),
+        .pDepthAttachment = &attachments.depth,
+    });
+
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+
+    const Scene &scene = world.currentScene();
+    const WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+
+    StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
+        VK_NULL_HANDLE};
+    descriptorSets[CameraBindingSet] = cam.descriptorSet();
+    descriptorSets[MaterialDatasBindingSet] =
+        worldDSes.materialDatas[nextFrame];
+    descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
+    descriptorSets[GeometryBuffersBindingSet] = worldDSes.geometry[nextFrame];
+    descriptorSets[SceneInstancesBindingSet] =
+        scene.sceneInstancesDescriptorSet;
+    descriptorSets[MeshShaderBindingSet] = ds;
+
+    const StaticArray dynamicOffsets{{
+        cam.bufferOffset(),
+        worldByteOffsets.globalMaterialConstants,
+        worldByteOffsets.modelInstanceTransforms,
+        worldByteOffsets.previousModelInstanceTransforms,
+        worldByteOffsets.modelInstanceScales,
+    }};
+
+    cb.bindDescriptorSets(
+        vk::PipelineBindPoint::eGraphics, m_pipelineLayout,
+        0, // firstSet
+        asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
+        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+
+    setViewportScissor(cb, renderArea);
+
+    const PCBlock pcBlock{
+        .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
+        .drawType = static_cast<uint32_t>(drawType),
+    };
+    cb.pushConstants(
+        m_pipelineLayout,
+        vk::ShaderStageFlagBits::eMeshEXT | vk::ShaderStageFlagBits::eFragment,
+        0, // offset
+        sizeof(PCBlock), &pcBlock);
+
+    const vk::Buffer argumentHandle =
+        gRenderResources.buffers->nativeHandle(inputsOutputs.inArgumentBuffer);
+    cb.drawMeshTasksIndirectEXT(argumentHandle, 0, 1, 0);
+
+    cb.endRendering();
 }

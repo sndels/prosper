@@ -17,20 +17,21 @@ struct DrawMeshletInstance
     uint drawInstanceID;
     uint meshletID;
 };
+
 layout(std430, set = STORAGE_SET, binding = 0) readonly buffer InDrawList
 {
     uint count;
     DrawMeshletInstance instance[];
 }
 inDrawList;
-layout(std430, set = STORAGE_SET, binding = 1) writeonly buffer OutDrawList
+
+layout(std430, set = STORAGE_SET, binding = 1) buffer OutDrawList
 {
     uint count;
     DrawMeshletInstance instance[];
 }
 outDrawList;
-
-layout(std430, set = STORAGE_SET, binding = 2) buffer DispatchArguments
+layout(std430, set = STORAGE_SET, binding = 2) buffer OutDispatchArguments
 {
     uint groupsX;
     uint groupsY;
@@ -38,15 +39,23 @@ layout(std430, set = STORAGE_SET, binding = 2) buffer DispatchArguments
 }
 outDispatchArguments;
 
-layout(set = STORAGE_SET, binding = 3) uniform texture2D
+layout(std430, set = STORAGE_SET, binding = 3) buffer OutSecondPhaseDrawList
+{
+    uint count;
+    DrawMeshletInstance instance[];
+}
+outSecondPhaseDrawList;
+
+layout(set = STORAGE_SET, binding = 4) uniform texture2D
     inHierarchicalDepth[MAX_HIZ_MIPS];
 // This should clamp to 1 on/beyond edges
-layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
+layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
 
 layout(push_constant) uniform DrawListCullerPC
 {
     // 0 means no hiz bound
     uint hizMipCount;
+    uint outputSecondPhaseInput;
 }
 PC;
 
@@ -152,7 +161,8 @@ bool isSphereOccluded(MeshletBounds bounds)
     // Let's not worry about the cases when the whole bounds are guaranteed to
     // fit in one px. Sub-pixel meshlets are a bad time for perf regardless.
     vec4 hizDepths = textureGather(
-        sampler2D(inHierarchicalDepth[nonuniformEXT(hizMip)], depthSampler), uv, 0);
+        sampler2D(inHierarchicalDepth[nonuniformEXT(hizMip)], depthSampler), uv,
+        0);
 
     // Reverse-Z so furthest away point is the smallest depth value and we know
     // the cluster is occluded if its depth value is smaller than the depth
@@ -174,6 +184,8 @@ layout(local_size_x = GROUP_X) in;
 void main()
 {
     // These were zeroed before the pass to init X for use as the write pointer
+    // without barriers after this init that now just sets the other group
+    // counts to 1
     if (gl_GlobalInvocationID.x == 0)
     {
         outDispatchArguments.groupsY = 1;
@@ -196,6 +208,7 @@ void main()
 
     float scale = modelInstanceScales.instance[instance.modelInstanceID];
     bool meshletVisible = true;
+    bool meshletOccluded = false;
     if (scale != 0.)
     {
         MeshletBounds bounds =
@@ -207,25 +220,51 @@ void main()
         if (meshletVisible)
             meshletVisible = !isConeCapHidden(bounds);
         if (meshletVisible)
-            meshletVisible = !isSphereOccluded(bounds);
+        {
+            meshletOccluded = isSphereOccluded(bounds);
+            meshletVisible = !meshletOccluded;
+        }
     }
 
-    // Figure out the subgroup offset for writes
-    uvec4 visibleMeshletsMask = subgroupBallot(meshletVisible);
-    uint subgroupMeshletCount = subgroupBallotBitCount(visibleMeshletsMask);
-    uint subgroupStartOffset;
-    if (subgroupElect())
     {
-        // Keep count in the buffer in sync for consistency
-        atomicAdd(outDrawList.count, subgroupMeshletCount);
-        subgroupStartOffset =
-            atomicAdd(outDispatchArguments.groupsX, subgroupMeshletCount);
-    }
-    subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
+        // Figure out the subgroup offset for writes
+        uvec4 visibleMeshletsMask = subgroupBallot(meshletVisible);
+        uint subgroupMeshletCount = subgroupBallotBitCount(visibleMeshletsMask);
+        uint subgroupStartOffset;
+        if (subgroupElect())
+        {
+            // Keep count in the buffer in sync for consistency
+            atomicAdd(outDrawList.count, subgroupMeshletCount);
+            subgroupStartOffset =
+                atomicAdd(outDispatchArguments.groupsX, subgroupMeshletCount);
+        }
+        subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
 
-    // Write out within the subgroup block
-    uint threadOffset = subgroupBallotExclusiveBitCount(visibleMeshletsMask);
-    if (meshletVisible)
-        outDrawList.instance[subgroupStartOffset + threadOffset] =
-            meshletInstance;
+        // Write out within the subgroup block
+        uint threadOffset =
+            subgroupBallotExclusiveBitCount(visibleMeshletsMask);
+        if (meshletVisible)
+            outDrawList.instance[subgroupStartOffset + threadOffset] =
+                meshletInstance;
+    }
+
+    if (PC.outputSecondPhaseInput == 1)
+    {
+        // Figure out the subgroup offset for writes
+        uvec4 occludedMeshletsMask = subgroupBallot(meshletOccluded);
+        uint subgroupMeshletCount =
+            subgroupBallotBitCount(occludedMeshletsMask);
+        uint subgroupStartOffset;
+        if (subgroupElect())
+            subgroupStartOffset =
+                atomicAdd(outSecondPhaseDrawList.count, subgroupMeshletCount);
+        subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
+
+        // Write out within the subgroup block
+        uint threadOffset =
+            subgroupBallotExclusiveBitCount(occludedMeshletsMask);
+        if (meshletOccluded)
+            outSecondPhaseDrawList
+                .instance[subgroupStartOffset + threadOffset] = meshletInstance;
+    }
 }

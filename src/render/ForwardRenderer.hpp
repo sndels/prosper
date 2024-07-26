@@ -31,12 +31,16 @@ class ForwardRenderer
         const WorldDSLayouts &world;
     };
     void init(
-        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
+        wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts,
+        MeshletCuller *meshletCuller,
+        HierarchicalDepthDownsampler *hierarchicalDepthDownsampler);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         const InputDSLayouts &dsLayouts);
+
+    void startFrame();
 
     struct OpaqueOutput
     {
@@ -46,12 +50,10 @@ class ForwardRenderer
     };
     [[nodiscard]] OpaqueOutput recordOpaque(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-        const vk::Rect2D &renderArea,
-        const LightClusteringOutput &lightClusters,
-        wheels::Optional<ImageHandle> inHierarchicalDepth,
-        BufferHandle inOutDrawStats, uint32_t nextFrame, bool applyIbl,
-        DrawType drawType, DrawStats *drawStats);
+        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
+        uint32_t nextFrame, bool applyIbl, DrawType drawType,
+        DrawStats *drawStats);
 
     struct TransparentInOut
     {
@@ -65,15 +67,22 @@ class ForwardRenderer
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         uint32_t nextFrame, DrawType drawType, DrawStats *drawStats);
 
+    void releasePreserved();
+
   private:
     [[nodiscard]] bool compileShaders(
         wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
 
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
 
+    struct DescriptorSetBuffers
+    {
+        BufferHandle dataBuffer;
+        BufferHandle drawStats;
+    };
     void updateDescriptorSet(
-        wheels::ScopedScratch scopeAlloc, uint32_t nextFrame, bool transparents,
-        const MeshletCullerOutput &cullerOutput, BufferHandle inOutDrawStats);
+        wheels::ScopedScratch scopeAlloc, vk::DescriptorSet ds,
+        const DescriptorSetBuffers &buffers) const;
 
     void destroyGraphicsPipelines();
     void createGraphicsPipelines(const InputDSLayouts &dsLayouts);
@@ -82,32 +91,29 @@ class ForwardRenderer
     {
         bool transparents{false};
         bool ibl{false};
+        bool secondPhase{false};
         DrawType drawType{DrawType::Default};
     };
     struct RecordInOut
     {
-        ImageHandle illumination;
-        ImageHandle velocity;
-        ImageHandle depth;
+        ImageHandle inOutIllumination;
+        ImageHandle inOutVelocity;
+        ImageHandle inOutDepth;
+        BufferHandle inOutDrawStats;
+        BufferHandle inDataBuffer;
+        BufferHandle inArgumentBuffer;
     };
-    void record(
+    void recordDraw(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-        uint32_t nextFrame, const RecordInOut &inOutTargets,
-        const LightClusteringOutput &lightClusters,
-        wheels::Optional<ImageHandle> inHierarchicalDepth,
-        BufferHandle inOutDrawStats, const Options &options,
+        const World &world, const Camera &cam, uint32_t nextFrame,
+        const RecordInOut &inputsOutputs,
+        const LightClusteringOutput &lightClusters, const Options &options,
         DrawStats *drawStats, const char *debugName);
 
-    struct Attachments
-    {
-        wheels::InlineArray<vk::RenderingAttachmentInfo, 2> color;
-        vk::RenderingAttachmentInfo depth;
-    };
-    [[nodiscard]] static Attachments createAttachments(
-        const RecordInOut &inOutTargets, bool transparents);
-
     bool m_initialized{false};
+
+    MeshletCuller *m_meshletCuller{nullptr};
+    HierarchicalDepthDownsampler *m_hierarchicalDepthDownsampler{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
     wheels::Optional<ShaderReflection> m_meshReflection;
@@ -117,9 +123,14 @@ class ForwardRenderer
     wheels::StaticArray<vk::Pipeline, 2> m_pipelines;
 
     vk::DescriptorSetLayout m_meshSetLayout;
-    // Separate sets for transparents and opaque
-    wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT * 2> m_meshSets{
+    uint32_t m_nextFrameRecord{0};
+    // Separate sets for transparents and opaque, and for the two culling phases
+    // for each
+    static const uint32_t sDescriptorSetCount = MAX_FRAMES_IN_FLIGHT * 2 * 2;
+    wheels::StaticArray<vk::DescriptorSet, sDescriptorSetCount> m_meshSets{
         VK_NULL_HANDLE};
+
+    ImageHandle m_previousHierarchicalDepth;
 };
 
 #endif // PROSPER_RENDER_FORWARD_RENDERER_HPP

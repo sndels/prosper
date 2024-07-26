@@ -11,6 +11,7 @@
 #include "../utils/Profiler.hpp"
 #include "DrawStats.hpp"
 #include "RenderResources.hpp"
+#include "render/RenderResourceHandle.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -40,13 +41,14 @@ enum GeneratorBindingSet : uint32_t
 
 struct GeneratorPCBlock
 {
-    uint matchTransparents;
+    uint32_t matchTransparents;
 };
 
 struct CullerPCBlock
 {
     // 0 means no hiz bound
     uint hizMipCount{0};
+    uint32_t outputSecondPhaseInput{0};
 };
 
 enum CullerBindingSet : uint32_t
@@ -164,13 +166,15 @@ void MeshletCuller::init(
     m_cullerArgumentsWriter.init(
         scopeAlloc.child_scope(), argumentsWriterDefinitionCallback,
         ComputePassOptions{
-            .perFrameRecordLimit = sMaxRecordsPerFrame,
+            // Twice the records of for two-phase culling
+            .perFrameRecordLimit = sMaxRecordsPerFrame * 2,
         });
     m_drawListCuller.init(
         WHEELS_MOV(scopeAlloc), cullerDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = CullerStorageBindingSet,
-            .perFrameRecordLimit = sMaxRecordsPerFrame,
+            // Twice the records of for two-phase culling
+            .perFrameRecordLimit = sMaxRecordsPerFrame * 2,
             .externalDsLayouts =
                 cullerExternalDsLayouts(worldDsLayouts, camDsLayout),
         });
@@ -207,17 +211,17 @@ void MeshletCuller::startFrame()
     m_drawListCuller.startFrame();
 }
 
-MeshletCullerOutput MeshletCuller::record(
+MeshletCullerFirstPhaseOutput MeshletCuller::recordFirstPhase(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, const Camera &cam, uint32_t nextFrame,
-    Optional<ImageHandle> inHierarchicalDepth, const char *debugPrefix,
+    const Optional<ImageHandle> &inHierarchicalDepth, StrSpan debugPrefix,
     DrawStats *drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
     String scopeName{scopeAlloc};
     scopeName.extend(debugPrefix);
-    scopeName.extend("DrawList");
+    scopeName.extend("DrawListFirstPhase");
 
     PROFILER_CPU_GPU_SCOPE(cb, scopeName.c_str());
 
@@ -228,24 +232,70 @@ MeshletCullerOutput MeshletCuller::record(
     const BufferHandle cullerArgs = recordWriteCullerArgs(
         scopeAlloc.child_scope(), cb, nextFrame, initialList, debugPrefix);
 
-    const MeshletCullerOutput culledList = recordCullList(
+    const bool outputSecondPhaseInput = inHierarchicalDepth.has_value();
+    const CullOutput culledList = recordCullList(
         WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
-        CullerInput{
+        CullInput{
             .dataBuffer = initialList,
             .argumentBuffer = cullerArgs,
             .hierarchicalDepth = inHierarchicalDepth,
         },
-        debugPrefix);
+        outputSecondPhaseInput, debugPrefix);
 
     gRenderResources.buffers->release(initialList);
     gRenderResources.buffers->release(cullerArgs);
 
-    return culledList;
+    MeshletCullerFirstPhaseOutput ret{
+        .dataBuffer = culledList.dataBuffer,
+        .argumentBuffer = culledList.argumentBuffer,
+        .secondPhaseInput = culledList.secondPhaseInput,
+    };
+
+    return ret;
+}
+
+MeshletCullerSecondPhaseOutput MeshletCuller::recordSecondPhase(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, uint32_t nextFrame, BufferHandle inputBuffer,
+    ImageHandle inHierarchicalDepth, StrSpan debugPrefix)
+{
+    WHEELS_ASSERT(m_initialized);
+
+    String scopeName{scopeAlloc};
+    scopeName.extend(debugPrefix);
+    scopeName.extend("DrawListSecondPhase");
+
+    PROFILER_CPU_GPU_SCOPE(cb, scopeName.c_str());
+
+    String argsPrefix{scopeAlloc};
+    argsPrefix.extend(debugPrefix);
+    argsPrefix.extend("SecondPhase");
+
+    const BufferHandle argumentBuffer = recordWriteCullerArgs(
+        scopeAlloc.child_scope(), cb, nextFrame, inputBuffer, argsPrefix);
+
+    const CullOutput culledList = recordCullList(
+        WHEELS_MOV(scopeAlloc), cb, world, cam, nextFrame,
+        CullInput{
+            .dataBuffer = inputBuffer,
+            .argumentBuffer = argumentBuffer,
+            .hierarchicalDepth = inHierarchicalDepth,
+        },
+        false, debugPrefix);
+
+    gRenderResources.buffers->release(argumentBuffer);
+
+    MeshletCullerSecondPhaseOutput ret{
+        .dataBuffer = culledList.dataBuffer,
+        .argumentBuffer = culledList.argumentBuffer,
+    };
+
+    return ret;
 }
 
 BufferHandle MeshletCuller::recordGenerateList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
-    const World &world, uint32_t nextFrame, const char *debugPrefix,
+    const World &world, uint32_t nextFrame, StrSpan debugPrefix,
     DrawStats *drawStats)
 {
     uint32_t meshletCountUpperBound = 0;
@@ -365,7 +415,7 @@ BufferHandle MeshletCuller::recordGenerateList(
 
 BufferHandle MeshletCuller::recordWriteCullerArgs(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t nextFrame,
-    BufferHandle drawList, const char *debugPrefix)
+    BufferHandle drawList, StrSpan debugPrefix)
 {
     String argumentsName{scopeAlloc};
     argumentsName.extend(debugPrefix);
@@ -410,21 +460,34 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
     return ret;
 }
 
-MeshletCullerOutput MeshletCuller::recordCullList(
+MeshletCuller::CullOutput MeshletCuller::recordCullList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, uint32_t nextFrame, const CullerInput &input,
-    const char *debugPrefix)
+    const Camera &cam, uint32_t nextFrame, const CullInput &input,
+    bool outputSecondPhaseInput, StrSpan debugPrefix)
 {
     String dataName{scopeAlloc};
     dataName.extend(debugPrefix);
+    if (outputSecondPhaseInput)
+        dataName.extend("FirstPhase");
+    // Second phase outputs might be skipped for first phase too so let's not
+    // confuse debug naming by adding 'SecondPhase' in that case.
     dataName.extend("CulledMeshletDrawList");
+
+    String secondPhaseDataName{scopeAlloc};
+    secondPhaseDataName.extend(debugPrefix);
+    secondPhaseDataName.extend("SecondPhaseInputDrawList");
 
     String argumentsName{scopeAlloc};
     argumentsName.extend(debugPrefix);
+    if (outputSecondPhaseInput)
+        argumentsName.extend("FirstPhase");
+    // Second phase outputs might be skipped for first phase too so let's not
+    // confuse debug naming by adding 'SecondPhase' in that case.
     argumentsName.extend("MeshDiscpatchArguments");
 
+    const bool hierarchicalDepthGiven = input.hierarchicalDepth.has_value();
     ImageHandle dummyHierarchicalDepth;
-    if (!input.hierarchicalDepth.has_value())
+    if (!hierarchicalDepthGiven)
     {
         String dummyHizName{scopeAlloc};
         dummyHizName.extend(debugPrefix);
@@ -471,11 +534,12 @@ MeshletCullerOutput MeshletCuller::recordCullList(
 
     const vk::DeviceSize drawListByteSize =
         gRenderResources.buffers->resource(input.dataBuffer).byteSize;
-    const MeshletCullerOutput ret{
+    CullOutput ret{
         .dataBuffer = gRenderResources.buffers->create(
             BufferDescription{
                 .byteSize = drawListByteSize,
-                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                .usage = vk::BufferUsageFlagBits::eTransferDst |
+                         vk::BufferUsageFlagBits::eStorageBuffer,
                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
             },
             dataName.c_str()),
@@ -488,7 +552,24 @@ MeshletCullerOutput MeshletCuller::recordCullList(
                 .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
             },
             argumentsName.c_str()),
+        .secondPhaseInput =
+            outputSecondPhaseInput
+                ? gRenderResources.buffers->create(
+                      BufferDescription{
+                          .byteSize = drawListByteSize,
+                          .usage = vk::BufferUsageFlagBits::eTransferDst |
+                                   vk::BufferUsageFlagBits::eStorageBuffer,
+                          .properties =
+                              vk::MemoryPropertyFlagBits::eDeviceLocal,
+                      },
+                      secondPhaseDataName.c_str())
+                : Optional<BufferHandle>{},
     };
+
+    // Bind the first buffer pair twice when we don't have hierarchical depth.
+    // These binds won't be accessed in the shader
+    const BufferHandle secondPhaseDataBindBuffer =
+        outputSecondPhaseInput ? *ret.secondPhaseInput : ret.dataBuffer;
 
     m_drawListCuller.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
@@ -508,33 +589,74 @@ MeshletCullerOutput MeshletCuller::recordCullList(
                     gRenderResources.buffers->nativeHandle(ret.argumentBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = gRenderResources.buffers->nativeHandle(
+                    secondPhaseDataBindBuffer),
+                .range = VK_WHOLE_SIZE,
+            }},
             DescriptorInfo{hierarchicalDepthInfos},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.nearestBorderBlackFloatSampler,
             }},
         }});
 
-    gRenderResources.buffers->transition(
-        cb, ret.argumentBuffer, BufferState::TransferDst);
+    {
+        InlineArray<BufferTransition, 3> bufferTransitions;
+        bufferTransitions.emplace_back(
+            ret.dataBuffer, BufferState::TransferDst);
+        bufferTransitions.emplace_back(
+            ret.argumentBuffer, BufferState::TransferDst);
+        if (outputSecondPhaseInput)
+            bufferTransitions.emplace_back(
+                *ret.secondPhaseInput, BufferState::TransferDst);
+
+        transition(
+            WHEELS_MOV(scopeAlloc), cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 1>{{
+                    {hierarchicalDepth, ImageState::ComputeShaderSampledRead},
+                }},
+                .buffers = bufferTransitions,
+            });
+    }
 
     // Clear args first as X will be used for atomic adds
     cb.fillBuffer(
         gRenderResources.buffers->nativeHandle(ret.argumentBuffer), 0,
         sArgumentsByteSize, 0u);
+    // Count is also mirrored in data buffer
+    cb.fillBuffer(
+        gRenderResources.buffers->nativeHandle(ret.dataBuffer), 0,
+        sizeof(uint32_t), 0u);
+    if (outputSecondPhaseInput)
+        // Same goes for count in second phase input
+        cb.fillBuffer(
+            gRenderResources.buffers->nativeHandle(*ret.secondPhaseInput), 0,
+            sizeof(uint32_t), 0u);
 
-    transition(
-        WHEELS_MOV(scopeAlloc), cb,
-        Transitions{
-            .images = StaticArray<ImageTransition, 1>{{
-                {hierarchicalDepth, ImageState::ComputeShaderSampledRead},
-            }},
-            .buffers = StaticArray<BufferTransition, 4>{{
-                {input.dataBuffer, BufferState::ComputeShaderRead},
-                {input.argumentBuffer, BufferState::DrawIndirectRead},
-                {ret.dataBuffer, BufferState::ComputeShaderWrite},
-                {ret.argumentBuffer, BufferState::ComputeShaderReadWrite},
-            }},
-        });
+    {
+        InlineArray<BufferTransition, 5> bufferTransitions;
+        bufferTransitions.emplace_back(
+            input.dataBuffer, BufferState::ComputeShaderRead);
+        bufferTransitions.emplace_back(
+            input.argumentBuffer, BufferState::DrawIndirectRead);
+        bufferTransitions.emplace_back(
+            ret.dataBuffer, BufferState::ComputeShaderReadWrite);
+        bufferTransitions.emplace_back(
+            ret.argumentBuffer, BufferState::ComputeShaderReadWrite);
+        if (outputSecondPhaseInput)
+            bufferTransitions.emplace_back(
+                *ret.secondPhaseInput, BufferState::ComputeShaderReadWrite);
+
+        transition(
+            WHEELS_MOV(scopeAlloc), cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 1>{{
+                    {hierarchicalDepth, ImageState::ComputeShaderSampledRead},
+                }},
+                .buffers = bufferTransitions,
+            });
+    }
 
     const Scene &scene = world.currentScene();
     const WorldDescriptorSets &worldDSes = world.descriptorSets();
@@ -562,6 +684,7 @@ MeshletCullerOutput MeshletCuller::recordCullList(
                 ? gRenderResources.images->resource(*input.hierarchicalDepth)
                       .mipCount
                 : 0,
+        .outputSecondPhaseInput = outputSecondPhaseInput ? 1u : 0u,
     };
 
     const vk::Buffer argumentsHandle =

@@ -3,6 +3,7 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/span.hpp>
 
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
@@ -30,10 +31,13 @@ class HierarchicalDepthDownsampler
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles);
 
+    void startFrame();
+
     // Downsamples a depth pyramid, keeping it non-linear to match the input.
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle inNonLinearDepth, uint32_t nextFrame);
+        ImageHandle inNonLinearDepth, uint32_t nextFrame,
+        wheels::StrSpan debugPrefix);
 
   private:
     bool m_initialized{false};

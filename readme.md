@@ -23,6 +23,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Mesh shaders
   - Drawlist generation and meshlet culling in compute
     - Not all HW supports task shaders so let's have a unified implementation
+    - Hierarchical depth culling without explicit blocker geometry
+      - Based on Aaltonen's work in [GPU-Driven Rendering Pipelines](https://www.advances.realtimerendering.com/s2015/aaltonenhaar_siggraph2015_combined_final_footer_220dpi.pdf)
 - ReSTIR DI in deferred path
   - Initial candidate sampling and biased spatial reuse implemented so far
 - Path tracing reference

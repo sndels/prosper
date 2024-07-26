@@ -74,6 +74,9 @@ class Renderer
     void readbackDrawStats(
         vk::CommandBuffer cb, uint32_t nextFrame, BufferHandle srcBuffer);
 
+    wheels::OwningPtr<MeshletCuller> m_meshletCuller;
+    wheels::OwningPtr<HierarchicalDepthDownsampler>
+        m_hierarchicalDepthDownsampler;
     wheels::OwningPtr<LightClustering> m_lightClustering;
     wheels::OwningPtr<ForwardRenderer> m_forwardRenderer;
     wheels::OwningPtr<GBufferRenderer> m_gbufferRenderer;
@@ -88,14 +91,10 @@ class Renderer
     wheels::OwningPtr<DepthOfField> m_depthOfField;
     wheels::OwningPtr<ImageBasedLighting> m_imageBasedLighting;
     wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
-    wheels::OwningPtr<MeshletCuller> m_meshletCuller;
     wheels::OwningPtr<TextureReadback> m_textureReadback;
-    wheels::OwningPtr<HierarchicalDepthDownsampler> m_hizDownsampler;
 
     wheels::StaticArray<DrawStats, MAX_FRAMES_IN_FLIGHT> m_drawStats;
     wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> m_gpuDrawStats;
-
-    ImageHandle m_prevHierarchicalDepth;
 
     vk::Extent2D m_viewportExtentInUi{};
 

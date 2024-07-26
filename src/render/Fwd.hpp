@@ -40,7 +40,9 @@ class LightClustering;
 struct LightClusteringOutput;
 
 // MeshletCuller.hpp
-struct MeshletCullerOutput;
+struct MeshletCullerSecondPhaseInputBuffers;
+struct MeshletCullerFirstPhaseOutput;
+struct MeshletCullerSecondPhaseOutput;
 class MeshletCuller;
 
 // Renderer.hpp

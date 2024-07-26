@@ -4,6 +4,7 @@
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
+#include "render/ComputePass.hpp"
 
 using namespace glm;
 using namespace wheels;
@@ -61,7 +62,12 @@ void HierarchicalDepthDownsampler::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+    m_computePass.init(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        ComputePassOptions{
+            // GBuffer HiZ before and after second culling pass
+            .perFrameRecordLimit = 2,
+        });
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
     m_atomicCounter = gDevice.createBuffer(BufferCreateInfo{
@@ -86,15 +92,19 @@ void HierarchicalDepthDownsampler::recompileShaders(
     m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
+void HierarchicalDepthDownsampler::startFrame() { m_computePass.startFrame(); }
 
 ImageHandle HierarchicalDepthDownsampler::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    ImageHandle inNonLinearDepth, const uint32_t nextFrame)
+    ImageHandle inNonLinearDepth, const uint32_t nextFrame, StrSpan debugPrefix)
 {
     WHEELS_ASSERT(m_initialized);
 
-    const char *const passName = "HiZDownsampler";
-    PROFILER_CPU_SCOPE(passName);
+    String passName{scopeAlloc};
+    passName.extend(debugPrefix);
+    passName.extend("HiZDownsampler");
+
+    PROFILER_CPU_SCOPE(passName.c_str());
 
     const Image &inDepth = gRenderResources.images->resource(inNonLinearDepth);
     WHEELS_ASSERT(
@@ -127,6 +137,10 @@ ImageHandle HierarchicalDepthDownsampler::record(
     SpdSetup(
         dispatchThreadGroupCountXY, pcBlock.numWorkGroupsPerSlice, rectInfo);
 
+    String outName{scopeAlloc};
+    outName.extend(debugPrefix);
+    outName.extend("HierarchicalDepth");
+
     const ImageHandle outHierarchicalDepth = gRenderResources.images->create(
         ImageDescription{
             .format = sHierarchicalDepthFormat,
@@ -136,7 +150,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
             .usageFlags = vk::ImageUsageFlagBits::eSampled |
                           vk::ImageUsageFlagBits::eStorage,
         },
-        "HierarchicalDepth");
+        outName.c_str());
 
     const Span<const vk::ImageView> mipViews =
         gRenderResources.images->subresourceViews(outHierarchicalDepth);
@@ -196,7 +210,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
         m_counterNotCleared = false;
     }
 
-    PROFILER_GPU_SCOPE(cb, passName);
+    PROFILER_GPU_SCOPE(cb, passName.c_str());
 
     const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 

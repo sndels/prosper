@@ -131,7 +131,10 @@ void blitFinalComposite(
 } // namespace
 
 Renderer::Renderer() noexcept
-: m_lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
+: m_meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
+, m_hierarchicalDepthDownsampler{OwningPtr<HierarchicalDepthDownsampler>{
+      gAllocators.general}}
+, m_lightClustering{OwningPtr<LightClustering>{gAllocators.general}}
 , m_forwardRenderer{OwningPtr<ForwardRenderer>{gAllocators.general}}
 , m_gbufferRenderer{OwningPtr<GBufferRenderer>{gAllocators.general}}
 , m_deferredShading{OwningPtr<DeferredShading>{gAllocators.general}}
@@ -145,9 +148,7 @@ Renderer::Renderer() noexcept
 , m_depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
 , m_imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
 , m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
-, m_meshletCuller{OwningPtr<MeshletCuller>{gAllocators.general}}
 , m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
-, m_hizDownsampler{OwningPtr<HierarchicalDepthDownsampler>{gAllocators.general}}
 {
 }
 
@@ -160,6 +161,9 @@ void Renderer::init(
     vk::DescriptorSetLayout camDsLayout, const WorldDSLayouts &worldDsLayouts)
 {
     const Timer gpuPassesInitTimer;
+    m_meshletCuller->init(
+        scopeAlloc.child_scope(), worldDsLayouts, camDsLayout);
+    m_hierarchicalDepthDownsampler->init(scopeAlloc.child_scope());
     m_lightClustering->init(
         scopeAlloc.child_scope(), camDsLayout, worldDsLayouts);
     m_forwardRenderer->init(
@@ -168,9 +172,11 @@ void Renderer::init(
             .camera = camDsLayout,
             .lightClusters = m_lightClustering->descriptorSetLayout(),
             .world = worldDsLayouts,
-        });
+        },
+        m_meshletCuller.get(), m_hierarchicalDepthDownsampler.get());
     m_gbufferRenderer->init(
-        scopeAlloc.child_scope(), camDsLayout, worldDsLayouts);
+        scopeAlloc.child_scope(), camDsLayout, worldDsLayouts,
+        m_meshletCuller.get(), m_hierarchicalDepthDownsampler.get());
     m_deferredShading->init(
         scopeAlloc.child_scope(),
         DeferredShading::InputDSLayouts{
@@ -190,10 +196,7 @@ void Renderer::init(
     m_depthOfField->init(scopeAlloc.child_scope(), camDsLayout);
     m_imageBasedLighting->init(scopeAlloc.child_scope());
     m_temporalAntiAliasing->init(scopeAlloc.child_scope(), camDsLayout);
-    m_meshletCuller->init(
-        scopeAlloc.child_scope(), worldDsLayouts, camDsLayout);
     m_textureReadback->init(scopeAlloc.child_scope());
-    m_hizDownsampler->init(scopeAlloc.child_scope());
     LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 }
 
@@ -201,6 +204,8 @@ void Renderer::startFrame()
 {
     gRenderResources.startFrame();
     m_meshletCuller->startFrame();
+    m_hierarchicalDepthDownsampler->startFrame();
+    m_forwardRenderer->startFrame();
     m_depthOfField->startFrame();
     m_textureReadback->startFrame();
 
@@ -255,7 +260,8 @@ void Renderer::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout);
     m_meshletCuller->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, worldDsLayouts, camDsLayout);
-    m_hizDownsampler->recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_hierarchicalDepthDownsampler->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles);
 
     LOG_INFO("Shaders recompiled in %.2fs", t.getSeconds());
 }
@@ -375,6 +381,8 @@ void Renderer::render(
     ImageHandle illumination;
     if (m_referenceRt)
     {
+        m_forwardRenderer->releasePreserved();
+        m_gbufferRenderer->releasePreserved();
         m_rtDirectIllumination->releasePreserved();
         m_temporalAntiAliasing->releasePreserved();
 
@@ -401,20 +409,11 @@ void Renderer::render(
         // Opaque
         if (m_renderDeferred)
         {
-            Optional<ImageHandle> prevHierarchicalDepth;
-            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
-                prevHierarchicalDepth = m_prevHierarchicalDepth;
+            m_forwardRenderer->releasePreserved();
 
             const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
-                scopeAlloc.child_scope(), cb, m_meshletCuller.get(), world, cam,
-                renderArea, prevHierarchicalDepth, gpuDrawStats, m_drawType,
-                nextFrame, &drawStats);
-
-            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
-                gRenderResources.images->release(m_prevHierarchicalDepth);
-            m_prevHierarchicalDepth = m_hizDownsampler->record(
-                scopeAlloc.child_scope(), cb, gbuffer.depth, nextFrame);
-            gRenderResources.images->preserve(m_prevHierarchicalDepth);
+                scopeAlloc.child_scope(), cb, world, cam, renderArea,
+                gpuDrawStats, m_drawType, nextFrame, &drawStats);
 
             if (m_deferredRt)
                 illumination =
@@ -446,24 +445,14 @@ void Renderer::render(
         }
         else
         {
+            m_gbufferRenderer->releasePreserved();
             m_rtDirectIllumination->releasePreserved();
-
-            Optional<ImageHandle> prevHierarchicalDepth;
-            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
-                prevHierarchicalDepth = m_prevHierarchicalDepth;
 
             const ForwardRenderer::OpaqueOutput output =
                 m_forwardRenderer->recordOpaque(
-                    scopeAlloc.child_scope(), cb, m_meshletCuller.get(), world,
-                    cam, renderArea, lightClusters, prevHierarchicalDepth,
-                    gpuDrawStats, nextFrame, m_applyIbl, m_drawType,
-                    &drawStats);
-
-            if (gRenderResources.images->isValidHandle(m_prevHierarchicalDepth))
-                gRenderResources.images->release(m_prevHierarchicalDepth);
-            m_prevHierarchicalDepth = m_hizDownsampler->record(
-                scopeAlloc.child_scope(), cb, output.depth, nextFrame);
-            gRenderResources.images->preserve(m_prevHierarchicalDepth);
+                    scopeAlloc.child_scope(), cb, world, cam, renderArea,
+                    lightClusters, gpuDrawStats, nextFrame, m_applyIbl,
+                    m_drawType, &drawStats);
 
             illumination = output.illumination;
             velocity = output.velocity;
