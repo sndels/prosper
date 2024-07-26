@@ -23,6 +23,20 @@ void RenderResources::init()
     this->texelBuffers =
         OwningPtr<RenderTexelBufferCollection>(gAllocators.general);
 
+    this->nearestBorderBlackFloatSampler =
+        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eNearest,
+            .minFilter = vk::Filter::eNearest,
+            .mipmapMode = vk::SamplerMipmapMode::eNearest,
+            .addressModeU = vk::SamplerAddressMode::eClampToBorder,
+            .addressModeV = vk::SamplerAddressMode::eClampToBorder,
+            .addressModeW = vk::SamplerAddressMode::eClampToBorder,
+            .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+            .borderColor = vk::BorderColor::eFloatOpaqueBlack,
+        });
     this->nearestSampler =
         gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
@@ -36,30 +50,32 @@ void RenderResources::init()
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         });
-    bilinearSampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eNearest,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 1,
-        .minLod = 0,
-        .maxLod = VK_LOD_CLAMP_NONE,
-    });
-    trilinearSampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 1,
-        .minLod = 0,
-        .maxLod = VK_LOD_CLAMP_NONE,
-    });
+    this->bilinearSampler =
+        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eNearest,
+            .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+            .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+        });
+    this->trilinearSampler =
+        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eLinear,
+            .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+            .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+        });
 
     m_initialized = true;
 }
@@ -68,6 +84,7 @@ void RenderResources::destroy()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
+    gDevice.logical().destroy(nearestBorderBlackFloatSampler);
     gDevice.logical().destroy(nearestSampler);
     gDevice.logical().destroy(bilinearSampler);
     gDevice.logical().destroy(trilinearSampler);

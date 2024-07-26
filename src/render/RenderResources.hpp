@@ -56,6 +56,7 @@ class RenderResources
     wheels::OwningPtr<RenderTexelBufferCollection> texelBuffers;
     wheels::OwningPtr<RenderBufferCollection> buffers;
 
+    vk::Sampler nearestBorderBlackFloatSampler;
     vk::Sampler nearestSampler;
     vk::Sampler bilinearSampler;
     vk::Sampler trilinearSampler;
