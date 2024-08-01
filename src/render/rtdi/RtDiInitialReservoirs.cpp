@@ -104,7 +104,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
 
     PROFILER_CPU_SCOPE("  InitialReservoirs");
 
-    m_frameIndex = ++m_frameIndex % sFramePeriod;
+    m_frameIndex = (m_frameIndex + 1) % sFramePeriod;
 
     Output ret;
     {
