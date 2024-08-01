@@ -281,6 +281,8 @@
                 "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
                 // Ninja color output
                 "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
+                // mold is significantly faster than the default linkers
+                "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold",
                 "-G",
                 "Ninja",
                 "-B",
@@ -305,6 +307,8 @@
                 "-DCMAKE_BUILD_TYPE=Debug",
                 // Ninja color output
                 "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
+                // mold is significantly faster than the default linkers
+                "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold",
                 "-G",
                 "Ninja",
                 "-B",
