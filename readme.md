@@ -113,6 +113,7 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 - [mikktspace](https://github.com/mmikk/MikkTSpace)
 - [shaderc](https://github.com/google/shaderc)
 - [stb](https://github.com/nothings/stb)
+- [tomlcpp](https://github.com/cktan/tomlcpp)
 - [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 - [wheels](https://github.com/sndels/wheels)
 

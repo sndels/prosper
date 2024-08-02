@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include <cxxopts.hpp>
+#include <tomlcpp.hpp>
 
 #include "Allocators.hpp"
 #include "App.hpp"
@@ -34,48 +35,93 @@ const char *const sWindowTitle = "prosper";
 const char *const s_default_scene_path =
     "glTF/FlightHelmet/glTF/FlightHelmet.gltf";
 
+const char *const sConfigArg = "config";
+// These can be given in the config TOML as root level key-values
+const char *const sDebugLayersArg = "debugLayers";                     // bool
+const char *const sShaderDisassemblyArg = "dumpShaderDisassembly";     // bool
+const char *const sBreakOnValidationErrArg = "breakOnValidationError"; // bool
+const char *const sRobustAccessArg = "robustAccess";                   // bool
+const char *const sSceneFileArg = "sceneFile"; // string, path
+
 // NOLINTNEXTLINE(*-avoid-c-arrays): Mandatory
 App::Settings parseCli(int argc, char *argv[])
 {
     cxxopts::Options options("prosper", "A toy Vulkan renderer");
     // clang-format off
         options.add_options()
-            ("debugLayers", "Enable Vulkan debug layers")
-            ("dumpShaderDisassembly", "Dump shader disassembly to info log")
-            ("breakOnValidationError", "Break debugger on Vulkan validation error")
-            ("robustAccess", "Enable VK_EXT_robustness2 for buffers and images")
-            ("sceneFile", std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
+            (sConfigArg, "Config file to use. Any CLI flags take precedence.",
+             cxxopts::value<std::string>()->default_value(""))
+            (sDebugLayersArg, "Enable Vulkan debug layers")
+            (sShaderDisassemblyArg, "Dump shader disassembly to info log")
+            (sBreakOnValidationErrArg, "Break debugger on Vulkan validation error")
+            (sRobustAccessArg, "Enable VK_EXT_robustness2 for buffers and images")
+            (sSceneFileArg, std::string{"Scene to open (default: '"} + s_default_scene_path +"')",
              cxxopts::value<std::string>()->default_value(""));
     // clang-format on
     options.parse_positional({"sceneFile"});
     const cxxopts::ParseResult args = options.parse(argc, argv);
 
-    std::filesystem::path scenePath{args["sceneFile"].as<std::string>()};
-    if (scenePath.empty())
+    std::filesystem::path scenePath;
+    Device::Settings deviceSettings;
+
+    // Try to parse toml first as we'll override any of its settings with values
+    // given in the CLI
+    const std::filesystem::path configPath = args["config"].as<std::string>();
+    if (!configPath.empty() && std::filesystem::is_regular_file(configPath))
     {
-        const auto sceneConfPath = resPath("scene.txt");
-        if (std::filesystem::exists(sceneConfPath))
+        const toml::Result result = toml::parseFile(configPath.string());
+        if (result.table == nullptr)
+            LOG_ERR(
+                "Couldn't parse config from '%s': %s",
+                configPath.string().c_str(), result.errmsg.c_str());
+        else
         {
-            std::ifstream file{sceneConfPath};
-            std::string scenePathStr;
-            std::getline(file, scenePathStr);
-            scenePath = scenePathStr;
+            {
+                auto [ok, path] = result.table->getString(sSceneFileArg);
+                if (ok)
+                    scenePath = path;
+            }
+
+            const auto tryGetFlag = [&result](bool &dst, const char *name)
+            {
+                auto [ok, flag] = result.table->getBool(name);
+                if (ok)
+                    dst = flag;
+            };
+
+            tryGetFlag(deviceSettings.enableDebugLayers, sDebugLayersArg);
+            tryGetFlag(
+                deviceSettings.dumpShaderDisassembly, sShaderDisassemblyArg);
+            tryGetFlag(
+                deviceSettings.breakOnValidationError,
+                sBreakOnValidationErrArg);
+            tryGetFlag(deviceSettings.robustAccess, sRobustAccessArg);
         }
     }
+
+    // Parse explicit CLI flags after TOML to give them precedence
+    if (args.count(sSceneFileArg) > 0)
+        scenePath = args[sSceneFileArg].as<std::string>();
+
+    {
+        const auto tryGetFlag = [&args](bool &dst, const char *name)
+        {
+            if (args.count(name) > 0)
+                dst = args[name].as<bool>();
+        };
+        tryGetFlag(deviceSettings.enableDebugLayers, sDebugLayersArg);
+        tryGetFlag(deviceSettings.dumpShaderDisassembly, sShaderDisassemblyArg);
+        tryGetFlag(
+            deviceSettings.breakOnValidationError, sBreakOnValidationErrArg);
+        tryGetFlag(deviceSettings.robustAccess, sRobustAccessArg);
+    }
+
     if (scenePath.empty())
         scenePath = s_default_scene_path;
 
     return App::Settings{
         .scene = scenePath,
-        .device =
-            Device::Settings{
-                .enableDebugLayers = args["debugLayers"].as<bool>(),
-                .dumpShaderDisassembly =
-                    args["dumpShaderDisassembly"].as<bool>(),
-                .breakOnValidationError =
-                    args["breakOnValidationError"].as<bool>(),
-                .robustAccess = args["robustAccess"].as<bool>(),
-            },
+        .device = deviceSettings,
     };
 }
 

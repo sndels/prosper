@@ -2,7 +2,6 @@ build/*
 build-analysis/*
 imgui.ini
 prosper_imgui.ini
-scene.txt
-_scene.txt
+dev_settings.toml
 **/prosper_cache/*
 res/shader/cache/*

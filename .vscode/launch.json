@@ -22,9 +22,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/RelWithDebInfo/prosper.exe",
             "args": [
-                // "--breakOnValidationError",
-                // "--robustAccess",
-                "--debugLayers"
+                "--config=dev_settings.toml"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -38,9 +36,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/Debug/prosper.exe",
             "args": [
-                // "--breakOnValidationError",
-                // "--robustAccess",
-                "--debugLayers"
+                "--config=dev_settings.toml"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -54,9 +50,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/prosper",
             "args": [
-                // "--breakOnValidationError",
-                // "--robustAccess",
-                "--debugLayers"
+                "--config=dev_settings.toml"
             ],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
