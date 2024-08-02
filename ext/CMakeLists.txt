@@ -109,5 +109,17 @@ target_include_directories(imgui
     ${CMAKE_CURRENT_LIST_DIR}/mikktspace
 )
 
+add_library(tomlcpp STATIC)
+target_sources(tomlcpp
+    PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/tomlcpp/toml.c
+    ${CMAKE_CURRENT_LIST_DIR}/tomlcpp/tomlcpp.cpp
+)
+target_include_directories(tomlcpp
+    SYSTEM
+    PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}/tomlcpp
+)
+
 # TODO: Why does compilation fail for any modules that are added after this ispc "include"?
 include(ispc_texcomp_CMakeLists.txt)

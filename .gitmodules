@@ -34,3 +34,6 @@
 [submodule "ext/stb"]
 	path = ext/stb
 	url = https://github.com/nothings/stb.git
+[submodule "ext/tomlcpp"]
+	path = ext/tomlcpp
+	url = https://github.com/cktan/tomlcpp.git

@@ -115,6 +115,7 @@ target_link_libraries(prosper
     shaderc
     spirv_headers
     stb
+    tomlcpp
     vma
     vulkan
     wheels
