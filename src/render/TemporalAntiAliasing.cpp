@@ -59,11 +59,9 @@ uint32_t pcFlags(PCBlock::Flags flags)
     ret |= (uint32_t)flags.ignoreHistory;
     ret |= (uint32_t)flags.catmullRom << 1;
     ret |= (uint32_t)flags.colorClipping << 2;
-    // Two bits reserved for color clipping type
     static_assert(
         (uint32_t)TemporalAntiAliasing::ColorClippingType::Count - 1 < 0b11);
     ret |= (uint32_t)flags.velocitySampling << 4;
-    // Two bits reserved for velocity sampling type
     static_assert(
         (uint32_t)TemporalAntiAliasing::VelocitySamplingType::Count - 1 < 0b11);
     ret |= (uint32_t)flags.luminanceWeighting << 6;
@@ -169,12 +167,14 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             if (gRenderResources.images->isValidHandle(m_previousResolveOutput))
                 gRenderResources.images->release(m_previousResolveOutput);
 
-            // Create dummy texture that won't be read from to satisfy binds
+            // Create dummy texture to satisfy binds even though it won't be
+            // read from
             m_previousResolveOutput =
                 createIllumination(renderExtent, resolveDebugName);
             ignoreHistory = true;
         }
-        else // We clear debug names each frame
+        else
+            // We clear debug names each frame
             gRenderResources.images->appendDebugName(
                 m_previousResolveOutput, resolveDebugName);
 

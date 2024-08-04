@@ -33,8 +33,6 @@ struct UncompressedPixelData
     uint32_t channels{0};
 };
 
-// Returns path of the corresponding cached file, creating the folders up to
-// it if those don't exist
 std::filesystem::path cachePath(const std::filesystem::path &source)
 {
     const auto cacheFolder = source.parent_path() / "prosper_cache";

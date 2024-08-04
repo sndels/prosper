@@ -76,7 +76,6 @@ GpuFrameProfiler::GpuFrameProfiler(GpuFrameProfiler &&other) noexcept
 , m_queryScopeIndices{WHEELS_MOV(other.m_queryScopeIndices)}
 , m_scopeHasStats{WHEELS_MOV(other.m_scopeHasStats)}
 {
-    // Avoid dtor destroying what we moved
     other.m_timestampBuffer.handle = vk::Buffer{};
     other.m_statisticsBuffer.handle = vk::Buffer{};
     other.m_pools.statistics = vk::QueryPool{};
@@ -96,7 +95,6 @@ GpuFrameProfiler &GpuFrameProfiler::operator=(GpuFrameProfiler &&other) noexcept
         m_queryScopeIndices = WHEELS_MOV(other.m_queryScopeIndices);
         m_scopeHasStats = WHEELS_MOV(other.m_scopeHasStats);
 
-        // Avoid dtor destroying what we moved
         other.m_timestampBuffer.handle = vk::Buffer{};
         other.m_statisticsBuffer.handle = vk::Buffer{};
         other.m_pools.statistics = vk::QueryPool{};

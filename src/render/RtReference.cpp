@@ -208,7 +208,8 @@ RtReference::Output RtReference::record(
             if (gRenderResources.images->isValidHandle(m_previousIllumination))
                 gRenderResources.images->release(m_previousIllumination);
 
-            // Create dummy texture that won't be read from to satisfy binds
+            // Create dummy texture to satisfy binds even though it won't be
+            // read from
             m_previousIllumination = gRenderResources.images->create(
                 ImageDescription{
                     .format = vk::Format::eR32G32B32A32Sfloat,
@@ -221,7 +222,8 @@ RtReference::Output RtReference::record(
                 "previousRTIllumination");
             m_accumulationDirty = true;
         }
-        else // We clear debug names each frame
+        else
+            // We clear debug names each frame
             gRenderResources.images->appendDebugName(
                 m_previousIllumination, "previousRTIllumination");
 

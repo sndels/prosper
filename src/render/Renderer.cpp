@@ -659,7 +659,13 @@ vec2 Renderer::viewportOffsetInUi() const
     return vec2{offset.x, offset.y};
 }
 
-float Renderer::lodBias() const { return m_applyTaa ? -1.f : 0.f; }
+float Renderer::lodBias() const
+{
+    // -1 seems like a safe value here since an 8 sample halton sequence is
+    // used. See A Survey of Temporal Antialiasing Techniques by Yang, Liu and
+    // Salvi for details.
+    return m_applyTaa ? -1.f : 0.f;
+}
 
 bool Renderer::rtInUse() const { return m_referenceRt || m_deferredRt; }
 

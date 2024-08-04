@@ -725,7 +725,6 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 
     buildInfo.scratchData = scratchBuffer.deviceAddress;
 
-    // Make sure we can use the scratch
     scratchBuffer.transition(cb, BufferState::AccelerationStructureBuild);
 
     const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo =
@@ -795,7 +794,6 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 
 Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
 {
-    // See if we have a big enough buffer available
     for (ScratchBuffer &sb : m_scratchBuffers)
     {
         // Don't check for use within this frame as we assume barriers will be
@@ -807,7 +805,6 @@ Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
         }
     }
 
-    // Didn't find a viable buffer so allocate a new one
     m_scratchBuffers.push_back(ScratchBuffer{
         .buffer = gDevice.createBuffer(BufferCreateInfo{
             .desc =

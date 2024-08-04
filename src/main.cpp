@@ -139,18 +139,14 @@ int main(int argc, char *argv[])
     const Timer t;
 
 #ifdef LIVEPP_PATH
-    // create a default agent, loading the Live++ agent from the given path
     lpp::LppDefaultAgent lppAgent =
         lpp::LppCreateDefaultAgent(nullptr, LIVEPP_PATH);
-
-    // bail out in case the agent is not valid
     if (!lpp::LppIsValidDefaultAgent(&lppAgent))
     {
         LOG_ERR("Couldn't create Live++ agent. Is LIVEPP_PATH correct?");
         return 1;
     }
 
-    // enable Live++ for all loaded modules
     lppAgent.EnableModule(
         lpp::LppGetCurrentModulePath(),
         lpp::LPP_MODULES_OPTION_ALL_IMPORT_MODULES, nullptr, nullptr);
@@ -215,7 +211,6 @@ int main(int argc, char *argv[])
     }
 
 #ifdef LIVEPP_PATH
-    // destroy the Live++ agent
     lpp::LppDestroyDefaultAgent(&lppAgent);
 #endif // LIVEPP_PATH
 

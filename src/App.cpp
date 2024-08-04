@@ -219,7 +219,7 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
     // queue simultaneously
     gDevice.graphicsQueue().waitIdle();
 
-    { // Drop the config as we should always use swapchain's active config
+    {
         const SwapchainConfig config{
             scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
         m_swapchain->recreate(config);
@@ -512,9 +512,6 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
     m_world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 
-    // -1 seems like a safe value here since an 8 sample halton sequence is
-    // used. See A Survey of Temporal Antialiasing Techniques by Yang, Liu and
-    // Salvi for details.
     const float lodBias = m_renderer->lodBias();
     m_world->uploadMaterialDatas(nextFrame, lodBias);
 
@@ -533,8 +530,8 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
             m_cameraParameters = params;
             m_cam->setParameters(params);
             if (m_forceCamUpdate)
-                // Disable free look for animated cameras when update is forced
-                // (camera changed)
+                // Disable free look for animated cameras when the camera
+                // changed
                 m_camFreeLook = !m_world->isCurrentCameraDynamic();
             m_forceCamUpdate = false;
         }
@@ -559,7 +556,6 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    // We need to build TLAS if things are animated or we can build new BLASes
     if (m_renderer->rtInUse() || m_world->unbuiltBlases())
     {
         PROFILER_CPU_GPU_SCOPE(cb, "BuildTLAS");
@@ -598,7 +594,6 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         const Optional<vec4> nonLinearDepth = m_renderer->tryDepthReadback();
         if (nonLinearDepth.has_value())
         {
-            // First we get the projected direction and linear depth
             const vec2 uv =
                 (m_pickedFocusPx + 0.5f) /
                 vec2{m_viewportExtent.width, m_viewportExtent.height};
@@ -609,7 +604,6 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
             const float projectedDepth = length(projectedDir);
             projectedDir /= projectedDepth;
 
-            // Camera looks at -Z in view space
             const float cosTheta = dot(vec3{0.f, 0.f, -1.f}, projectedDir);
 
             CameraParameters params = m_cam->parameters();
@@ -649,7 +643,6 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
             gDevice.graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
             "recreate_swap_dummy_submit");
 
-        // Recreate the swap chain as necessary
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
         nextImage = m_swapchain->acquireNextImage(imageAvailable);
     }
@@ -673,7 +666,6 @@ float App::currentTimelineTimeS() const
 
 void App::capFramerate()
 {
-    // Enforce fps cap by spinlocking to have any hope to be somewhat consistent
     // Note that this is always based on the previous frame so it only limits
     // fps and doesn't help actual frame timing
     const float minDt =
@@ -755,7 +747,6 @@ void App::drawProfiling(
         if (t.name.size() > longestNameLength)
             longestNameLength = asserted_cast<size_t>(t.name.size());
 
-    // Double the maximum name length for headroom
     String tmp{scopeAlloc};
     tmp.resize(longestNameLength * 2);
     const auto leftJustified =
@@ -1066,7 +1057,7 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 {
     auto &debugLines = gRenderResources.debugLines[nextFrame];
     debugLines.reset();
-    { // Add debug geom for lights
+    {
         constexpr auto debugLineLength = 0.2f;
         constexpr auto debugRed = vec3{1.f, 0.05f, 0.05f};
         constexpr auto debugGreen = vec3{0.05f, 1.f, 0.05f};
@@ -1163,12 +1154,13 @@ void App::handleResizes(ScopedScratch scopeAlloc, bool shouldResizeSwapchain)
 {
     const bool viewportResized = m_renderer->viewportResized();
 
-    // Recreate swapchain if so indicated and explicitly handle resizes
     if (shouldResizeSwapchain || gWindow.resized())
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
     else if (viewportResized || m_forceViewportRecreate)
-    { // Don't recreate viewport related on the same frame as swapchain is
-      // resized since we don't know the new viewport area until the next frame
+    {
+        // Don't recreate viewport related on the same frame as swapchain is
+        // resized since we don't know the new viewport area until the next
+        // frame
         recreateViewportRelated();
         m_forceViewportRecreate = false;
     }

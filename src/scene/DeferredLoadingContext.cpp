@@ -965,7 +965,7 @@ void loadNextTexture(DeferredLoadingContext *ctx)
     Texture2D tex;
     tex.init(
         ScopedScratch{scopeBacking}, ctx->sceneDir / image.uri, ctx->cb,
-        ctx->stagingBuffers[0],
+        ctx->stagingBuffer,
         Texture2DOptions{
             .generateMipMaps = true,
             .colorSpace = colorSpace,
@@ -1068,7 +1068,6 @@ Buffer createTextureStaging()
         .debugName = "Texture2DStaging",
     });
 }
-
 DeferredLoadingContext::~DeferredLoadingContext()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
@@ -1079,8 +1078,7 @@ DeferredLoadingContext::~DeferredLoadingContext()
         worker->join();
     }
 
-    for (Buffer &buffer : stagingBuffers)
-        gDevice.destroy(buffer);
+    gDevice.destroy(stagingBuffer);
 
     gDevice.destroy(geometryUploadBuffer);
     cgltf_free(gltfData);
@@ -1104,10 +1102,7 @@ void DeferredLoadingContext::init(
     loadedTextures.reserve(gltfData->images_count);
     materials.reserve(gltfData->materials_count);
 
-    // One of these is used by the worker implementation, all by the
-    // single threaded one
-    for (uint32_t i = 0; i < stagingBuffers.capacity(); ++i)
-        stagingBuffers[i] = createTextureStaging();
+    stagingBuffer = createTextureStaging();
 
     geometryUploadBuffer = gDevice.createBuffer(BufferCreateInfo{
         .desc =
@@ -1129,7 +1124,6 @@ void DeferredLoadingContext::launch()
     WHEELS_ASSERT(
         !worker.has_value() && "Tried to launch deferred loading worker twice");
 
-    // Fill sets to query image colorspaces from
     for (const cgltf_material &material :
          Span{gltfData->materials, gltfData->materials_count})
     {
@@ -1227,7 +1221,6 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
     // count of the previous one.
     geometryBufferRemainingByteCounts[dstBufferI] -= cacheHeader.blobByteCount;
 
-    // Offsets into GPU buffer are for u32
     const uint32_t startOffsetU32 =
         startByteOffset / asserted_cast<uint32_t>(sizeof(uint32_t));
     const uint32_t startOffsetU16 =

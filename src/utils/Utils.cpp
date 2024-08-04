@@ -49,7 +49,6 @@ std::filesystem::path binPath(const std::filesystem::path &path)
 
 String readFileString(Allocator &alloc, const std::filesystem::path &path)
 {
-    // Open from end to find size from initial position
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error(
@@ -60,7 +59,6 @@ String readFileString(Allocator &alloc, const std::filesystem::path &path)
     String buffer{alloc, fileSize};
     buffer.resize(fileSize);
 
-    // Seek to beginning and read
     file.seekg(0);
     file.read(
         reinterpret_cast<char *>(buffer.data()),

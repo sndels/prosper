@@ -45,7 +45,6 @@ uint32_t pcFlags(PCBlock::Flags flags)
     uint32_t ret = 0;
 
     ret |= (uint32_t)flags.channelType;
-    // Three bits reserved for the channel type
     static_assert((uint32_t)TextureDebug::ChannelType::Count - 1 < 0b111);
     ret |= (uint32_t)flags.absBeforeRange << 3;
     ret |= (uint32_t)flags.zoom << 4;

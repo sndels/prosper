@@ -7,7 +7,6 @@
 
 struct DebugLines
 {
-    // Writing more than 100k lines per frame sounds slow
     static const vk::DeviceSize sMaxLineCount = 100'000;
     // A line is two positions and a color
     static const vk::DeviceSize sLineBytes = sizeof(float) * 9;

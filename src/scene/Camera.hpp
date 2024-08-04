@@ -43,7 +43,6 @@ struct CameraParameters
     float focalLength{0.f};
 };
 
-// Vector types in uniforms need to be aligned to 16 bytes
 struct CameraUniforms
 {
     glm::mat4 worldToCamera;

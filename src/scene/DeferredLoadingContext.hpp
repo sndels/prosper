@@ -149,7 +149,7 @@ class DeferredLoadingContext
     uint32_t loadedImageCount{0};
     uint32_t loadedMaterialCount{0};
     wheels::Array<Material> materials{gAllocators.loadingWorker};
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> stagingBuffers;
+    Buffer stagingBuffer;
 
   private:
     uint32_t getGeometryBuffer(uint32_t byteCount);
