@@ -13,7 +13,6 @@
 #include "scene/Model.hpp"
 #include "scene/Scene.hpp"
 #include "scene/WorldRenderStructs.hpp"
-#include "utils/Profiler.hpp"
 
 #include <cstdint>
 #include <wheels/allocators/allocator.hpp>

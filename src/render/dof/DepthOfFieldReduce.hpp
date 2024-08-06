@@ -6,8 +6,6 @@
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
-#include "utils/Fwd.hpp"
-#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>

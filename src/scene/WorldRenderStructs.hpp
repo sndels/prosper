@@ -3,6 +3,7 @@
 
 #include "gfx/Resources.hpp"
 #include "scene/Texture.hpp"
+#include "utils/Utils.hpp"
 
 #include <cstdint>
 #include <vulkan/vulkan.hpp>

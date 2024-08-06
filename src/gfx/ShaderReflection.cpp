@@ -1,6 +1,7 @@
 #include "ShaderReflection.hpp"
 
 #include "Device.hpp"
+#include "utils/Utils.hpp"
 
 #include <algorithm>
 #include <cstring>

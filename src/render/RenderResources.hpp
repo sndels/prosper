@@ -2,7 +2,6 @@
 #define PROSPER_RENDER_RESOURCES_HPP
 
 #include "gfx/Resources.hpp"
-#include "gfx/RingBuffer.hpp"
 #include "render/RenderImageCollection.hpp"
 #include "render/RenderResourceCollection.hpp"
 #include "scene/DebugGeometry.hpp"

@@ -3,7 +3,6 @@
 
 #include "gfx/Fwd.hpp"
 #include "gfx/ShaderReflection.hpp"
-#include "utils/Fwd.hpp"
 #include "utils/Utils.hpp"
 
 #include <functional>

@@ -2,12 +2,11 @@
 #define PROSPER_RENDER_DEBUG_RENDERER_HPP
 
 #include "gfx/Fwd.hpp"
-#include "gfx/Resources.hpp"
 #include "gfx/ShaderReflection.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "scene/Fwd.hpp"
-#include "utils/Fwd.hpp"
+#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_set.hpp>
@@ -52,7 +51,7 @@ class DebugRenderer
 
     bool m_initialized{false};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages{};
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
     wheels::Optional<ShaderReflection> m_vertReflection;
     wheels::Optional<ShaderReflection> m_fragReflection;
 

@@ -8,7 +8,6 @@
 
 #include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
-#include <iostream>
 
 using namespace glm;
 using namespace wheels;

@@ -6,7 +6,6 @@
 #include "gfx/Resources.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
-#include "utils/Fwd.hpp"
 
 #include <glm/glm.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>

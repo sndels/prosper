@@ -1,7 +1,7 @@
 #include "App.hpp"
 
 #include "Allocators.hpp"
-#include "gfx/DescriptorAllocator.hpp"
+#include "Window.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/RenderResources.hpp"
 #include "render/Renderer.hpp"
@@ -10,7 +10,6 @@
 #include "utils/InputHandler.hpp"
 #include "utils/Logger.hpp"
 #include "utils/SceneStats.hpp"
-#include "utils/Ui.hpp"
 #include "utils/Utils.hpp"
 
 #include <GLFW/glfw3.h>
@@ -19,8 +18,6 @@
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/transform.hpp>
 #include <imgui.h>
-#include <iostream>
-#include <limits>
 #include <stdexcept>
 #include <thread>
 #include <wheels/allocators/linear_allocator.hpp>

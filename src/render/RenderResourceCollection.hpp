@@ -3,7 +3,6 @@
 
 #include "Allocators.hpp"
 #include "gfx/Device.hpp"
-#include "render/RenderResourceHandle.hpp"
 #include "utils/Utils.hpp"
 
 #include <vulkan/vulkan.hpp>

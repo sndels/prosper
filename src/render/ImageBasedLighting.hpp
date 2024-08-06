@@ -1,7 +1,6 @@
 #ifndef PROSPER_RENDER_IMAGE_BASED_LIGHTING_HPP
 #define PROSPER_RENDER_IMAGE_BASED_LIGHTING_HPP
 
-#include "gfx/Fwd.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "scene/Fwd.hpp"

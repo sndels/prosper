@@ -1,14 +1,11 @@
 #ifndef PROSPER_RENDER_DEFERRED_SHADING_HPP
 #define PROSPER_RENDER_DEFERRED_SHADING_HPP
 
-#include "gfx/Fwd.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
-#include "utils/Fwd.hpp"
-#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>

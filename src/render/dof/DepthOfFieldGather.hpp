@@ -1,13 +1,9 @@
 #ifndef PROSPER_RENDER_DEPTH_OF_FIELD_GATHER_HPP
 #define PROSPER_RENDER_DEPTH_OF_FIELD_GATHER_HPP
 
-#include "gfx/Fwd.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
-#include "scene/Fwd.hpp"
-#include "utils/Fwd.hpp"
-#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

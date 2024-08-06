@@ -2,6 +2,7 @@
 
 #include "gfx/Device.hpp"
 #include "utils/Logger.hpp"
+#include "utils/Profiler.hpp"
 
 #include <cstdio>
 #include <glm/gtc/type_ptr.hpp>

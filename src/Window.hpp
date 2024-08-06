@@ -1,8 +1,6 @@
 #ifndef PROSPER_WINDOW_HPP
 #define PROSPER_WINDOW_HPP
 
-#include "utils/InputHandler.hpp"
-
 #include <wheels/allocators/tlsf_allocator.hpp>
 #include <wheels/containers/pair.hpp>
 

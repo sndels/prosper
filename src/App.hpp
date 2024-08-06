@@ -1,14 +1,11 @@
 #ifndef PROSPER_APP_HPP
 #define PROSPER_APP_HPP
 
-#include "Window.hpp"
 #include "gfx/Device.hpp"
 #include "gfx/RingBuffer.hpp"
 #include "gfx/Swapchain.hpp"
 #include "render/Fwd.hpp"
-#include "render/RenderResourceHandle.hpp"
 #include "scene/Camera.hpp"
-#include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/SceneStats.hpp"

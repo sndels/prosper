@@ -5,7 +5,6 @@
 #include "gfx/Fwd.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
-#include "utils/Fwd.hpp"
 
 #include <imgui.h>
 #include <vulkan/vulkan.hpp>

@@ -1,6 +1,5 @@
 #include "DeferredShading.hpp"
 
-#include "gfx/VkUtils.hpp"
 #include "render/GBufferRenderer.hpp"
 #include "render/LightClustering.hpp"
 #include "render/RenderResources.hpp"
@@ -13,7 +12,6 @@
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
 
-#include <fstream>
 #include <imgui.h>
 
 using namespace glm;

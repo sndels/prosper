@@ -6,7 +6,6 @@
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "scene/Fwd.hpp"
-#include "utils/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

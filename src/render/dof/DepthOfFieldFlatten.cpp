@@ -1,6 +1,6 @@
 #include "DepthOfFieldFlatten.hpp"
 
-#include "gfx/VkUtils.hpp"
+#include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"

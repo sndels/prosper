@@ -9,11 +9,9 @@
 #include "scene/Fwd.hpp"
 #include "scene/Material.hpp"
 #include "utils/Timer.hpp"
-#include "utils/Utils.hpp"
 
 #include <atomic>
 #include <cgltf.h>
-#include <condition_variable>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <mutex>
@@ -24,6 +22,7 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
+#include <wheels/containers/string.hpp>
 
 enum class IndicesType
 {

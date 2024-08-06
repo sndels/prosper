@@ -1,12 +1,10 @@
 #ifndef PROSPER_RENDER_RTDI_SPATIAL_REUSE_HPP
 #define PROSPER_RENDER_RTDI_SPATIAL_REUSE_HPP
 
-#include "gfx/Fwd.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "scene/Fwd.hpp"
-#include "utils/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>

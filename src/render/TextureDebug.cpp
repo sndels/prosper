@@ -1,6 +1,5 @@
 #include "TextureDebug.hpp"
 
-#include "gfx/VkUtils.hpp"
 #include "render/RenderResources.hpp"
 #include "utils/Hashes.hpp"
 #include "utils/Profiler.hpp"
@@ -8,7 +7,6 @@
 #include "utils/Utils.hpp"
 
 #include <algorithm>
-#include <fstream>
 #include <imgui.h>
 
 using namespace glm;

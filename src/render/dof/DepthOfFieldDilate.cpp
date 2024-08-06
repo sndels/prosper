@@ -1,6 +1,5 @@
 #include "DepthOfFieldDilate.hpp"
 
-#include "gfx/VkUtils.hpp"
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
 #include "render/dof/DepthOfField.hpp"

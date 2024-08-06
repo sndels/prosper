@@ -1,6 +1,10 @@
 #ifndef PROSPER_UTILS_HASHES_HPP
 #define PROSPER_UTILS_HASHES_HPP
 
+// include-cleaner can't figure out when HashMap/HashSet require these
+// implementations
+// IWYU pragma: always_keep
+
 #include <filesystem>
 #include <wheels/containers/hash.hpp>
 #include <wheels/containers/span.hpp>

@@ -2,12 +2,9 @@
 #define PROSPER_RENDER_TONE_MAP_HPP
 
 #include "RenderResourceHandle.hpp"
-#include "gfx/Fwd.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "scene/Texture.hpp"
-#include "utils/Fwd.hpp"
-#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

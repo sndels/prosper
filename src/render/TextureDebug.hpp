@@ -8,7 +8,6 @@
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "utils/ForEach.hpp"
-#include "utils/Fwd.hpp"
 #include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>

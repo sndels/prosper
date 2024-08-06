@@ -3,7 +3,6 @@
 #include <cinttypes>
 #include <cstring>
 #include <iostream>
-#include <memory>
 #include <stdexcept>
 
 #ifdef _WIN32

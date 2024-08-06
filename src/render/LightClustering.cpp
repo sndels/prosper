@@ -1,6 +1,5 @@
 #include "LightClustering.hpp"
 
-#include "gfx/VkUtils.hpp"
 #include "render/RenderResources.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Light.hpp"

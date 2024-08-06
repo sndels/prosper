@@ -11,8 +11,6 @@
 #include "render/Utils.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Light.hpp"
-#include "scene/Material.hpp"
-#include "scene/Mesh.hpp"
 #include "scene/Scene.hpp"
 #include "scene/World.hpp"
 #include "scene/WorldRenderStructs.hpp"

@@ -11,9 +11,6 @@
 #include <cstdlib>
 #include <cxxopts.hpp>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
 #include <tomlcpp.hpp>
 
 #ifdef LIVEPP_PATH

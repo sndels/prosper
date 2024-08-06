@@ -1,7 +1,7 @@
 #ifndef PROSPER_RENDER_UTILS_HPP
 #define PROSPER_RENDER_UTILS_HPP
 
-#include "RenderResources.hpp"
+#include "render/RenderResourceHandle.hpp"
 
 #include <vulkan/vulkan.hpp>
 

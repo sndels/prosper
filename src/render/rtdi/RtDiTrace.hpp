@@ -8,7 +8,7 @@
 #include "render/RenderResourceHandle.hpp"
 #include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
-#include "utils/Fwd.hpp"
+#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
