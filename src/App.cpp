@@ -1,4 +1,5 @@
 #include "App.hpp"
+#include "utils/SceneStats.hpp"
 
 #include <chrono>
 #include <iostream>
@@ -506,9 +507,13 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     const float timeS = currentTimelineTimeS();
     m_world->updateAnimations(timeS);
 
+    // TODO:
+    // Why separate stats for frames in flight? Do these actually match
+    // DrawStats when shown in UI?
+    SceneStats &sceneStats = m_sceneStats[nextFrame];
+    sceneStats = {};
     m_world->updateScene(
-        scopeAlloc.child_scope(), &m_sceneCameraTransform,
-        &m_sceneStats[nextFrame]);
+        scopeAlloc.child_scope(), &m_sceneCameraTransform, &sceneStats);
 
     m_world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 
