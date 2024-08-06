@@ -1,6 +1,6 @@
 #include "Light.hpp"
 
-#include "../gfx/RingBuffer.hpp"
+#include "gfx/RingBuffer.hpp"
 
 using namespace wheels;
 

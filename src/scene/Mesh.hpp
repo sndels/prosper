@@ -1,7 +1,7 @@
 #ifndef PROSPER_SCENE_MESH_HPP
 #define PROSPER_SCENE_MESH_HPP
 
-#include "../gfx/Resources.hpp"
+#include "gfx/Resources.hpp"
 
 constexpr vk::Format sVertexPositionFormat = vk::Format::eR16G16B16A16Sfloat;
 constexpr uint32_t sVertexPositionByteSize = 8;

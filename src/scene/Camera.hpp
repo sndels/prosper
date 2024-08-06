@@ -1,9 +1,9 @@
 #ifndef PROSPER_SCENE_CAMERA_HPP
 #define PROSPER_SCENE_CAMERA_HPP
 
-#include "../gfx/Fwd.hpp"
-#include "../gfx/ShaderReflection.hpp"
-#include "../utils/Utils.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/ShaderReflection.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
 #include <wheels/containers/optional.hpp>

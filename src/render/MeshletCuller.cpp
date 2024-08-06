@@ -1,17 +1,17 @@
 #include "MeshletCuller.hpp"
 
-#include "../gfx/Device.hpp"
-#include "../scene/Camera.hpp"
-#include "../scene/Material.hpp"
-#include "../scene/Mesh.hpp"
-#include "../scene/Model.hpp"
-#include "../scene/Scene.hpp"
-#include "../scene/World.hpp"
-#include "../scene/WorldRenderStructs.hpp"
-#include "../utils/Profiler.hpp"
-#include "DrawStats.hpp"
-#include "RenderResources.hpp"
+#include "gfx/Device.hpp"
+#include "render/DrawStats.hpp"
 #include "render/RenderResourceHandle.hpp"
+#include "render/RenderResources.hpp"
+#include "scene/Camera.hpp"
+#include "scene/Material.hpp"
+#include "scene/Mesh.hpp"
+#include "scene/Model.hpp"
+#include "scene/Scene.hpp"
+#include "scene/World.hpp"
+#include "scene/WorldRenderStructs.hpp"
+#include "utils/Profiler.hpp"
 
 using namespace glm;
 using namespace wheels;

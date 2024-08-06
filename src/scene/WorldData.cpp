@@ -1,6 +1,7 @@
-#include "../gfx/Device.hpp"
-#include "../utils/Logger.hpp"
 #include "WorldData.hpp"
+
+#include "gfx/Device.hpp"
+#include "utils/Logger.hpp"
 
 #include <cstdio>
 #include <glm/gtc/type_ptr.hpp>

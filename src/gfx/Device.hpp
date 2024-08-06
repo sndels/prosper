@@ -1,9 +1,9 @@
 #ifndef PROSPER_GFX_DEVICE_HPP
 #define PROSPER_GFX_DEVICE_HPP
 
-#include "../utils/Hashes.hpp"
-#include "Resources.hpp"
-#include "ShaderReflection.hpp"
+#include "gfx/Resources.hpp"
+#include "gfx/ShaderReflection.hpp"
+#include "utils/Hashes.hpp"
 
 #include <atomic>
 #include <filesystem>

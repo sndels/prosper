@@ -1,10 +1,10 @@
 #ifndef PROSPER_RENDER_RESOURCE_COLLECTION_HPP
 #define PROSPER_RENDER_RESOURCE_COLLECTION_HPP
 
-#include "../Allocators.hpp"
-#include "../gfx/Device.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderResourceHandle.hpp"
+#include "Allocators.hpp"
+#include "gfx/Device.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "utils/Utils.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>

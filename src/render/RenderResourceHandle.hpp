@@ -1,7 +1,7 @@
 #ifndef PROSPER_RENDER_RESOURCE_HANDLE_HPP
 #define PROSPER_RENDER_RESOURCE_HANDLE_HPP
 
-#include "../gfx/Fwd.hpp"
+#include "gfx/Fwd.hpp"
 
 #include <wheels/containers/pair.hpp>
 

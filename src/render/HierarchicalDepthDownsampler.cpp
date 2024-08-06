@@ -1,10 +1,10 @@
 #include "HierarchicalDepthDownsampler.hpp"
 
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Profiler.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderResources.hpp"
+#include "gfx/VkUtils.hpp"
 #include "render/ComputePass.hpp"
+#include "render/RenderResources.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 using namespace glm;
 using namespace wheels;

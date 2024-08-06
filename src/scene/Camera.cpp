@@ -1,10 +1,10 @@
 #include "Camera.hpp"
 
-#include "../gfx/DescriptorAllocator.hpp"
-#include "../gfx/Device.hpp"
-#include "../gfx/RingBuffer.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
+#include "gfx/DescriptorAllocator.hpp"
+#include "gfx/Device.hpp"
+#include "gfx/RingBuffer.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>

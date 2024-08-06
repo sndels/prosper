@@ -1,7 +1,7 @@
 #include "Profiler.hpp"
 
-#include "../gfx/Device.hpp"
-#include "Utils.hpp"
+#include "gfx/Device.hpp"
+#include "utils/Utils.hpp"
 
 using namespace wheels;
 

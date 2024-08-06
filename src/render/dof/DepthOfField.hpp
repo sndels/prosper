@@ -1,19 +1,19 @@
 #ifndef PROSPER_RENDER_DEPTH_OF_FIELD_HPP
 #define PROSPER_RENDER_DEPTH_OF_FIELD_HPP
 
-#include "../../gfx/Fwd.hpp"
-#include "../../scene/Fwd.hpp"
-#include "../../utils/Fwd.hpp"
-#include "../../utils/Utils.hpp"
-#include "../Fwd.hpp"
-#include "../RenderResourceHandle.hpp"
-#include "DepthOfFieldCombine.hpp"
-#include "DepthOfFieldDilate.hpp"
-#include "DepthOfFieldFilter.hpp"
-#include "DepthOfFieldFlatten.hpp"
-#include "DepthOfFieldGather.hpp"
-#include "DepthOfFieldReduce.hpp"
-#include "DepthOfFieldSetup.hpp"
+#include "gfx/Fwd.hpp"
+#include "render/Fwd.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "render/dof/DepthOfFieldCombine.hpp"
+#include "render/dof/DepthOfFieldDilate.hpp"
+#include "render/dof/DepthOfFieldFilter.hpp"
+#include "render/dof/DepthOfFieldFlatten.hpp"
+#include "render/dof/DepthOfFieldGather.hpp"
+#include "render/dof/DepthOfFieldReduce.hpp"
+#include "render/dof/DepthOfFieldSetup.hpp"
+#include "scene/Fwd.hpp"
+#include "utils/Fwd.hpp"
+#include "utils/Utils.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

@@ -1,7 +1,7 @@
 #include "ShaderIncludes.hpp"
 
-#include "../utils/Hashes.hpp"
-#include "../utils/Utils.hpp"
+#include "utils/Hashes.hpp"
+#include "utils/Utils.hpp"
 
 #include <charconv>
 #include <wheels/containers/pair.hpp>

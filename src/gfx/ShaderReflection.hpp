@@ -1,10 +1,10 @@
 #ifndef PROSPER_GFX_SHADER_REFLECTION_HPP
 #define PROSPER_GFX_SHADER_REFLECTION_HPP
 
-#include "../Allocators.hpp"
-#include "../utils/Hashes.hpp"
-#include "../utils/Utils.hpp"
-#include "Fwd.hpp"
+#include "Allocators.hpp"
+#include "gfx/Fwd.hpp"
+#include "utils/Hashes.hpp"
+#include "utils/Utils.hpp"
 
 #include <filesystem>
 #include <variant>

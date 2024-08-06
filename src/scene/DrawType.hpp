@@ -1,7 +1,7 @@
 #ifndef PROSPER_SCENE_DRAW_TYPE_HPP
 #define PROSPER_SCENE_DRAW_TYPE_HPP
 
-#include "../utils/ForEach.hpp"
+#include "utils/ForEach.hpp"
 
 #include <wheels/containers/static_array.hpp>
 

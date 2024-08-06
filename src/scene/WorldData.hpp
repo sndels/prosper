@@ -1,19 +1,19 @@
 #ifndef PROSPER_SCENE_WORLD_DATA_HPP
 #define PROSPER_SCENE_WORLD_DATA_HPP
 
-#include "../Allocators.hpp"
-#include "../gfx/DescriptorAllocator.hpp"
-#include "../gfx/Fwd.hpp"
-#include "../gfx/RingBuffer.hpp"
-#include "../utils/Profiler.hpp"
-#include "Animations.hpp"
-#include "Camera.hpp"
-#include "DeferredLoadingContext.hpp"
-#include "Material.hpp"
-#include "Mesh.hpp"
-#include "Model.hpp"
-#include "Scene.hpp"
-#include "WorldRenderStructs.hpp"
+#include "Allocators.hpp"
+#include "gfx/DescriptorAllocator.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/RingBuffer.hpp"
+#include "scene/Animations.hpp"
+#include "scene/Camera.hpp"
+#include "scene/DeferredLoadingContext.hpp"
+#include "scene/Material.hpp"
+#include "scene/Mesh.hpp"
+#include "scene/Model.hpp"
+#include "scene/Scene.hpp"
+#include "scene/WorldRenderStructs.hpp"
+#include "utils/Profiler.hpp"
 
 #include <cstdint>
 #include <wheels/allocators/allocator.hpp>

@@ -1,9 +1,9 @@
 #include "DepthOfFieldFilter.hpp"
 
-#include "../../utils/Profiler.hpp"
-#include "../../utils/Utils.hpp"
-#include "../RenderResources.hpp"
-#include "../RenderTargets.hpp"
+#include "render/RenderResources.hpp"
+#include "render/RenderTargets.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 using namespace glm;
 using namespace wheels;

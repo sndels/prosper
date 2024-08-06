@@ -1,15 +1,15 @@
 #ifndef PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 #define PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 
-#include "../../gfx/Fwd.hpp"
-#include "../../scene/DrawType.hpp"
-#include "../../scene/Fwd.hpp"
-#include "../../utils/Fwd.hpp"
-#include "../Fwd.hpp"
-#include "../RenderResourceHandle.hpp"
-#include "RtDiInitialReservoirs.hpp"
-#include "RtDiSpatialReuse.hpp"
 #include "RtDiTrace.hpp"
+#include "gfx/Fwd.hpp"
+#include "render/Fwd.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "render/rtdi/RtDiInitialReservoirs.hpp"
+#include "render/rtdi/RtDiSpatialReuse.hpp"
+#include "scene/DrawType.hpp"
+#include "scene/Fwd.hpp"
+#include "utils/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

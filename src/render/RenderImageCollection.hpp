@@ -1,11 +1,11 @@
 #ifndef PROSPER_RENDER_IMAGE_COLLECTION_HPP
 #define PROSPER_RENDER_IMAGE_COLLECTION_HPP
 
-#include "../Allocators.hpp"
-#include "../gfx/Fwd.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderResourceCollection.hpp"
-#include "RenderResourceHandle.hpp"
+#include "Allocators.hpp"
+#include "gfx/Fwd.hpp"
+#include "render/RenderResourceCollection.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "utils/Utils.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>

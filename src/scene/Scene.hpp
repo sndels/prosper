@@ -1,10 +1,10 @@
 #ifndef PROSPER_SCENE_HPP
 #define PROSPER_SCENE_HPP
 
-#include "../Allocators.hpp"
-#include "../gfx/Resources.hpp"
-#include "Light.hpp"
-#include "Model.hpp"
+#include "Allocators.hpp"
+#include "gfx/Resources.hpp"
+#include "scene/Light.hpp"
+#include "scene/Model.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>

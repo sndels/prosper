@@ -1,8 +1,8 @@
 #ifndef PROSPER_GFX_SWAPCHAIN_HPP
 #define PROSPER_GFX_SWAPCHAIN_HPP
 
-#include "../utils/Utils.hpp"
-#include "Fwd.hpp"
+#include "gfx/Fwd.hpp"
+#include "utils/Utils.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>

@@ -1,13 +1,13 @@
 #include "DepthOfFieldSetup.hpp"
 
-#include "../../gfx/VkUtils.hpp"
-#include "../../scene/Camera.hpp"
-#include "../../utils/Profiler.hpp"
-#include "../../utils/Utils.hpp"
-#include "../RenderResources.hpp"
-#include "../RenderTargets.hpp"
-#include "../Utils.hpp"
-#include "DepthOfField.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/RenderResources.hpp"
+#include "render/RenderTargets.hpp"
+#include "render/Utils.hpp"
+#include "render/dof/DepthOfField.hpp"
+#include "scene/Camera.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 #include <imgui.h>
 

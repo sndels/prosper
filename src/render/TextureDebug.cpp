@@ -1,11 +1,11 @@
 #include "TextureDebug.hpp"
 
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Hashes.hpp"
-#include "../utils/Profiler.hpp"
-#include "../utils/Ui.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderResources.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/RenderResources.hpp"
+#include "utils/Hashes.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Ui.hpp"
+#include "utils/Utils.hpp"
 
 #include <algorithm>
 #include <fstream>

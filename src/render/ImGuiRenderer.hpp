@@ -2,10 +2,10 @@
 #ifndef PROSPER_RENDER_IMGUI_RENDERER_HPP
 #define PROSPER_RENDER_IMGUI_RENDERER_HPP
 
-#include "../gfx/Fwd.hpp"
-#include "../render/RenderResourceHandle.hpp"
-#include "../utils/Fwd.hpp"
-#include "Fwd.hpp"
+#include "gfx/Fwd.hpp"
+#include "render/Fwd.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "utils/Fwd.hpp"
 
 #include <imgui.h>
 #include <vulkan/vulkan.hpp>

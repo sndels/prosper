@@ -1,13 +1,13 @@
 #ifndef PROSPER_RENDER_FORWARD_RENDERER_HPP
 #define PROSPER_RENDER_FORWARD_RENDERER_HPP
 
-#include "../gfx/Fwd.hpp"
-#include "../gfx/ShaderReflection.hpp"
-#include "../scene/DrawType.hpp"
-#include "../scene/Fwd.hpp"
-#include "../utils/Fwd.hpp"
-#include "Fwd.hpp"
-#include "RenderResourceHandle.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/ShaderReflection.hpp"
+#include "render/Fwd.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "scene/DrawType.hpp"
+#include "scene/Fwd.hpp"
+#include "utils/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/inline_array.hpp>

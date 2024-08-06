@@ -1,8 +1,8 @@
 #include "TextureReadback.hpp"
 
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Profiler.hpp"
-#include "RenderResources.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/RenderResources.hpp"
+#include "utils/Profiler.hpp"
 
 using namespace glm;
 using namespace wheels;

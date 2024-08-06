@@ -1,14 +1,14 @@
 #include "RtDiInitialReservoirs.hpp"
 
-#include "../../scene/Camera.hpp"
-#include "../../scene/Light.hpp"
-#include "../../scene/World.hpp"
-#include "../../scene/WorldRenderStructs.hpp"
-#include "../../utils/Profiler.hpp"
-#include "../../utils/Utils.hpp"
-#include "../GBufferRenderer.hpp"
-#include "../RenderResources.hpp"
-#include "../Utils.hpp"
+#include "render/GBufferRenderer.hpp"
+#include "render/RenderResources.hpp"
+#include "render/Utils.hpp"
+#include "scene/Camera.hpp"
+#include "scene/Light.hpp"
+#include "scene/World.hpp"
+#include "scene/WorldRenderStructs.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 using namespace glm;
 using namespace wheels;

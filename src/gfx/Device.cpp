@@ -11,15 +11,15 @@
 #include <intrin.h>
 #endif // _WIN32
 
-#include "../Allocators.hpp"
-#include "../Window.hpp"
-#include "../utils/ForEach.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
-#include "ShaderIncludes.hpp"
-#include "ShaderReflection.hpp"
-#include "Swapchain.hpp"
-#include "VkUtils.hpp"
+#include "Allocators.hpp"
+#include "Window.hpp"
+#include "gfx/ShaderIncludes.hpp"
+#include "gfx/ShaderReflection.hpp"
+#include "gfx/Swapchain.hpp"
+#include "gfx/VkUtils.hpp"
+#include "utils/ForEach.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Utils.hpp"
 
 #include <GLFW/glfw3.h>
 #include <wheels/containers/hash_map.hpp>

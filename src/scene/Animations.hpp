@@ -2,8 +2,8 @@
 #ifndef PROSPER_SCENE_ANIMATIONS_HPP
 #define PROSPER_SCENE_ANIMATIONS_HPP
 
-#include "../Allocators.hpp"
-#include "Accessors.hpp"
+#include "Allocators.hpp"
+#include "scene/Accessors.hpp"
 
 #include <cmath>
 #include <glm/glm.hpp>

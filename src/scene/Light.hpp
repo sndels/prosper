@@ -1,8 +1,8 @@
 #ifndef PROSPER_SCENE_LIGHT_HPP
 #define PROSPER_SCENE_LIGHT_HPP
 
-#include "../gfx/Fwd.hpp"
-#include "../utils/Utils.hpp"
+#include "gfx/Fwd.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
 #include <wheels/containers/inline_array.hpp>

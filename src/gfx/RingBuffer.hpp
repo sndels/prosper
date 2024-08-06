@@ -1,9 +1,9 @@
 #ifndef PROSPER_GFX_RING_BUFFER_HPP
 #define PROSPER_GFX_RING_BUFFER_HPP
 
-#include "../utils/Utils.hpp"
-#include "Fwd.hpp"
-#include "Resources.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/Resources.hpp"
+#include "utils/Utils.hpp"
 
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/span.hpp>

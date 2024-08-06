@@ -1,7 +1,7 @@
 #include "RtDirectIllumination.hpp"
 
-#include "../../utils/Profiler.hpp"
-#include "../RenderResources.hpp"
+#include "render/RenderResources.hpp"
+#include "utils/Profiler.hpp"
 
 #include <imgui.h>
 

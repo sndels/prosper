@@ -1,9 +1,9 @@
 #include "DeferredLoadingContext.hpp"
 
-#include "../gfx/Device.hpp"
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
+#include "gfx/Device.hpp"
+#include "gfx/VkUtils.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/gtc/packing.hpp>
 #include <meshoptimizer.h>

@@ -1,6 +1,6 @@
 #include "Utils.hpp"
 
-#include "../utils/Utils.hpp"
+#include "utils/Utils.hpp"
 
 vk::Extent2D getExtent2D(ImageHandle image)
 {

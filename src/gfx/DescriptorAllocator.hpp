@@ -1,8 +1,8 @@
 #ifndef PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP
 #define PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP
 
-#include "../Allocators.hpp"
-#include "Fwd.hpp"
+#include "Allocators.hpp"
+#include "gfx/Fwd.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>

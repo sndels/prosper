@@ -1,13 +1,13 @@
 #include "ImGuiRenderer.hpp"
 
-#include "../Window.hpp"
-#include "../gfx/Swapchain.hpp"
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Profiler.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderResources.hpp"
-#include "RenderTargets.hpp"
+#include "Window.hpp"
+#include "gfx/Swapchain.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/RenderResources.hpp"
+#include "render/RenderTargets.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>

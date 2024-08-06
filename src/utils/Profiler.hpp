@@ -1,10 +1,10 @@
 #ifndef PROSPER_UTILS_PROFILER_HPP
 #define PROSPER_UTILS_PROFILER_HPP
 
-#include "../Allocators.hpp"
-#include "../gfx/Fwd.hpp"
-#include "../gfx/Resources.hpp"
-#include "../utils/Utils.hpp"
+#include "Allocators.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/Resources.hpp"
+#include "utils/Utils.hpp"
 
 #include <chrono>
 #include <wheels/assert.hpp>

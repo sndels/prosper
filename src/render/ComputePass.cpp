@@ -1,11 +1,11 @@
 #include "ComputePass.hpp"
 
-#include "../gfx/DescriptorAllocator.hpp"
-#include "../gfx/Device.hpp"
-#include "../gfx/VkUtils.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
-#include "RenderTargets.hpp"
+#include "gfx/DescriptorAllocator.hpp"
+#include "gfx/Device.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/RenderTargets.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
 #include <imgui.h>

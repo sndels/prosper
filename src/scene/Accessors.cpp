@@ -1,6 +1,6 @@
 #include "Accessors.hpp"
 
-#include "../utils/Utils.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>

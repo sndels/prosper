@@ -1,7 +1,7 @@
 #ifndef PROSPER_SCENE_DEBUG_GEOMETRY_HPP
 #define PROSPER_SCENE_DEBUG_GEOMETRY_HPP
 
-#include "../gfx/Resources.hpp"
+#include "gfx/Resources.hpp"
 
 #include <glm/glm.hpp>
 

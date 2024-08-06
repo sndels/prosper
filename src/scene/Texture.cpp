@@ -1,10 +1,10 @@
 #include "Texture.hpp"
 
-#include "../gfx/Device.hpp"
-#include "../utils/Dds.hpp"
-#include "../utils/Ktx.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
+#include "gfx/Device.hpp"
+#include "utils/Dds.hpp"
+#include "utils/Ktx.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Utils.hpp"
 
 #include <cmath>
 #include <fstream>

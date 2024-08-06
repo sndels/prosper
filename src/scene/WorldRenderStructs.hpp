@@ -1,8 +1,8 @@
 #ifndef PROSPER_SCENE_WORLD_RENDER_STRUCTS_HPP
 #define PROSPER_SCENE_WORLD_RENDER_STRUCTS_HPP
 
-#include "../gfx/Resources.hpp"
-#include "Texture.hpp"
+#include "gfx/Resources.hpp"
+#include "scene/Texture.hpp"
 
 #include <cstdint>
 #include <vulkan/vulkan.hpp>

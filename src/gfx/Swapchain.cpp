@@ -1,9 +1,9 @@
 #include "Swapchain.hpp"
 
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
-#include "Device.hpp"
-#include "VkUtils.hpp"
+#include "gfx/Device.hpp"
+#include "gfx/VkUtils.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Utils.hpp"
 
 #include <stdexcept>
 #include <wheels/containers/span.hpp>

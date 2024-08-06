@@ -1,7 +1,7 @@
 #ifndef PROSPER_SCENE_MODEL_HPP
 #define PROSPER_SCENE_MODEL_HPP
 
-#include "../Allocators.hpp"
+#include "Allocators.hpp"
 
 #include <glm/glm.hpp>
 #include <wheels/allocators/allocator.hpp>

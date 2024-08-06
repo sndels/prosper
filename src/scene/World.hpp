@@ -1,9 +1,9 @@
 #ifndef PROSPER_SCENE_WORLD_HPP
 #define PROSPER_SCENE_WORLD_HPP
 
-#include "../gfx/Fwd.hpp"
-#include "../utils/Fwd.hpp"
-#include "Fwd.hpp"
+#include "gfx/Fwd.hpp"
+#include "scene/Fwd.hpp"
+#include "utils/Fwd.hpp"
 
 #include <filesystem>
 #include <vulkan/vulkan.hpp>

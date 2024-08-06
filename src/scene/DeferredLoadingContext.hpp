@@ -1,15 +1,15 @@
 #ifndef PROSPER_SCENE_DEFERRED_LOADING_CONTEXT
 #define PROSPER_SCENE_DEFERRED_LOADING_CONTEXT
 
-#include "../Allocators.hpp"
-#include "../gfx/Fwd.hpp"
-#include "../gfx/Resources.hpp"
-#include "../utils/Timer.hpp"
-#include "../utils/Utils.hpp"
-#include "Fwd.hpp"
-#include "Material.hpp"
+#include "Allocators.hpp"
 #include "Mesh.hpp"
 #include "Texture.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/Resources.hpp"
+#include "scene/Fwd.hpp"
+#include "scene/Material.hpp"
+#include "utils/Timer.hpp"
+#include "utils/Utils.hpp"
 
 #include <atomic>
 #include <cgltf.h>

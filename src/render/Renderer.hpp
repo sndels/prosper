@@ -1,13 +1,13 @@
 #ifndef PROSPER_RENDER_RENDERER_HPP
 #define PROSPER_RENDER_RENDERER_HPP
 
-#include "../gfx/Fwd.hpp"
-#include "../scene/DrawType.hpp"
-#include "../scene/Fwd.hpp"
-#include "../utils/Utils.hpp"
-#include "DrawStats.hpp"
-#include "Fwd.hpp"
-#include "RenderResourceHandle.hpp"
+#include "gfx/Fwd.hpp"
+#include "render/DrawStats.hpp"
+#include "render/Fwd.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "scene/DrawType.hpp"
+#include "scene/Fwd.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>

@@ -1,6 +1,6 @@
 #include "DebugGeometry.hpp"
 
-#include "../utils/Utils.hpp"
+#include "utils/Utils.hpp"
 
 void DebugLines::reset() { count = 0; }
 

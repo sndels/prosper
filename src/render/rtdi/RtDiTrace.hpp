@@ -1,14 +1,14 @@
 #ifndef PROSPER_RENDER_RTDI_TRACE_HPP
 #define PROSPER_RENDER_RTDI_TRACE_HPP
 
-#include "../../gfx/Fwd.hpp"
-#include "../../gfx/Resources.hpp"
-#include "../../gfx/ShaderReflection.hpp"
-#include "../../scene/DrawType.hpp"
-#include "../../scene/Fwd.hpp"
-#include "../../utils/Fwd.hpp"
-#include "../Fwd.hpp"
-#include "../RenderResourceHandle.hpp"
+#include "gfx/Fwd.hpp"
+#include "gfx/Resources.hpp"
+#include "gfx/ShaderReflection.hpp"
+#include "render/Fwd.hpp"
+#include "render/RenderResourceHandle.hpp"
+#include "scene/DrawType.hpp"
+#include "scene/Fwd.hpp"
+#include "utils/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>

@@ -1,15 +1,15 @@
 #include "DebugRenderer.hpp"
 
-#include "../gfx/DescriptorAllocator.hpp"
-#include "../gfx/VkUtils.hpp"
-#include "../scene/Camera.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Profiler.hpp"
-#include "../utils/Utils.hpp"
-#include "LightClustering.hpp"
-#include "RenderResources.hpp"
-#include "RenderTargets.hpp"
-#include "Utils.hpp"
+#include "gfx/DescriptorAllocator.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/LightClustering.hpp"
+#include "render/RenderResources.hpp"
+#include "render/RenderTargets.hpp"
+#include "render/Utils.hpp"
+#include "scene/Camera.hpp"
+#include "utils/Logger.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 #include <imgui.h>
 

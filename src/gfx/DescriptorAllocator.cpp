@@ -1,8 +1,8 @@
 #include "DescriptorAllocator.hpp"
 
-#include "../utils/Utils.hpp"
-#include "Device.hpp"
-#include "VkUtils.hpp"
+#include "gfx/Device.hpp"
+#include "gfx/VkUtils.hpp"
+#include "utils/Utils.hpp"
 
 #include <wheels/containers/static_array.hpp>
 

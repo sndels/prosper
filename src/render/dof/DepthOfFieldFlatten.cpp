@@ -1,9 +1,9 @@
 #include "DepthOfFieldFlatten.hpp"
 
-#include "../../gfx/VkUtils.hpp"
-#include "../../utils/Profiler.hpp"
-#include "../../utils/Utils.hpp"
-#include "../Utils.hpp"
+#include "gfx/VkUtils.hpp"
+#include "render/Utils.hpp"
+#include "utils/Profiler.hpp"
+#include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
 #include <imgui.h>
