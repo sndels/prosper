@@ -3,6 +3,7 @@
 #include "../../scene/Camera.hpp"
 #include "../../scene/Light.hpp"
 #include "../../scene/World.hpp"
+#include "../../scene/Scene.hpp"
 #include "../../scene/WorldRenderStructs.hpp"
 #include "../../utils/Profiler.hpp"
 #include "../../utils/Utils.hpp"
@@ -22,6 +23,7 @@ enum BindingSet : uint32_t
 {
     LightsBindingSet,
     CameraBindingSet,
+    RtBindingSet,
     StorageBindingSet,
     BindingSetCount,
 };
@@ -38,6 +40,7 @@ ComputePass::Shader shaderDefinitionCallback(
     String defines{alloc, len};
     appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
+    appendDefineStr(defines, "RAY_TRACING_SET", RtBindingSet);
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
     appendDefineStr(
         defines, "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
@@ -59,6 +62,7 @@ StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
         VK_NULL_HANDLE};
     setLayouts[LightsBindingSet] = dsLayouts.world.lights;
     setLayouts[CameraBindingSet] = dsLayouts.camera;
+    setLayouts[RtBindingSet] = dsLayouts.world.rayTracing;
     return setLayouts;
 }
 
@@ -166,10 +170,13 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
         const WorldDescriptorSets &worldDSes = world.descriptorSets();
         const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
+        const Scene &scene = world.currentScene();
+
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[LightsBindingSet] = worldDSes.lights;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
+        descriptorSets[RtBindingSet] = scene.rtDescriptorSet;
         descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
 
         const StaticArray dynamicOffsets{{
