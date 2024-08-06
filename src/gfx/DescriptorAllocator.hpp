@@ -62,6 +62,9 @@ class DescriptorAllocator
 // This allocator should only be used for the descriptors that can live
 // until the end of the program. As such, reset() shouldn't be called so
 // that users can rely on the descriptors being there once allocated.
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern DescriptorAllocator gStaticDescriptorsAlloc;
 
 #endif // PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP

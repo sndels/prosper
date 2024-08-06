@@ -31,9 +31,8 @@ namespace
 // This should be plenty for even the worst shader error messes and still small
 // enough to comfortably fit the 1MB stack on windows.
 const int sTmpStrLength = static_cast<int>(kilobytes(8));
-const char *const sOutOfSpaceError =
+const StaticArray sOutOfSpaceError =
     "\n[ ERROR: Logger ran out of tmp formatting space ]\n";
-const int sOutOfSpaceErrorLength = static_cast<int>(strlen(sOutOfSpaceError));
 
 // TODO:
 // InlineArray and resize_uninitialized() instead?
@@ -97,7 +96,7 @@ struct TmpStr
 
         // Include final null after the overflow error
         const int space = sTmpStrLength - asserted_cast<int>(writePtr) -
-                          sOutOfSpaceErrorLength - 1;
+                          asserted_cast<int>(sOutOfSpaceError.size()) - 1;
         WHEELS_ASSERT(space >= 0);
 
         const int charsWritten =
@@ -162,11 +161,11 @@ struct TmpStr
         {
             WHEELS_ASSERT(
                 sTmpStrLength - asserted_cast<int>(writePtr) >=
-                sOutOfSpaceErrorLength + 1);
+                asserted_cast<int>(sOutOfSpaceError.size()) + 1);
             // Copy the final null too
             memcpy(
-                str.data() + writePtr, sOutOfSpaceError,
-                sOutOfSpaceErrorLength + 1);
+                str.data() + writePtr, sOutOfSpaceError.data(),
+                asserted_cast<int>(sOutOfSpaceError.size()) + 1);
         }
     }
 };

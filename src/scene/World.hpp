@@ -30,8 +30,8 @@ class World
     void endFrame();
 
     // Returns true if the visible scene was changed.
-    bool handleDeferredLoading(vk::CommandBuffer cb);
-    bool unbuiltBlases() const;
+    [[nodiscard]] bool handleDeferredLoading(vk::CommandBuffer cb);
+    [[nodiscard]] bool unbuiltBlases() const;
 
     void drawDeferredLoadingUi() const;
     // Returns true if the next frame will use a different scene
@@ -57,7 +57,7 @@ class World
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
-    bool buildAccelerationStructures(
+    [[nodiscard]] bool buildAccelerationStructures(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb);
     void drawSkybox(vk::CommandBuffer cb) const;
 

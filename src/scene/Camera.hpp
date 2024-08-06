@@ -121,7 +121,7 @@ class Camera
     // Applies an offset without touching the held one
     void applyOffset(const CameraOffset &offset);
 
-    FrustumCorners getFrustumCorners() const;
+    [[nodiscard]] FrustumCorners getFrustumCorners() const;
 
   private:
     void createBindingsReflection(wheels::ScopedScratch scopeAlloc);

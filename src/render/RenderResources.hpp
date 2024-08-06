@@ -68,6 +68,9 @@ class RenderResources
     bool m_initialized{false};
 };
 
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern RenderResources gRenderResources;
 
 struct Transitions

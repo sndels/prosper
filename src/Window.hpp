@@ -63,6 +63,9 @@ class Window
     bool m_resized{false};
 };
 
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern Window gWindow;
 
 #endif // PROSPER_WINDOW_HPP

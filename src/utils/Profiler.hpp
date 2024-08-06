@@ -284,6 +284,9 @@ class Profiler
         gAllocators.general};
 };
 
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern Profiler gProfiler;
 
 // The scope variable is never accessed so let's reduce the noise with a macro

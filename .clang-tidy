@@ -26,8 +26,13 @@
 #    glm
 # cppcoreguidelines-pro-type-vararg:
 #    fprintf, I really don't like formatting with streams
+# cppcoreguidelines-rvalue-reference-param-not-moved
+#    false positives from WHEELS_MOV
+#    TODO: Is there a way to annotate the macro like custom asserts?
 # misc-no-recursion
 #    I do use recursion in places
+# misc-include-cleaner
+#    Not available on my laptop yet so let's skip it for now
 # modernize-use-trailing-return-type:
 #    Haven't touched professionally, best not add 'noise'
 # modernize-use-auto
@@ -63,6 +68,8 @@ Checks: "*,
         -cppcoreguidelines-pro-type-reinterpret-cast,
         -cppcoreguidelines-pro-type-union-access,
         -cppcoreguidelines-pro-type-vararg,
+        -cppcoreguidelines-rvalue-reference-param-not-moved,
+        -misc-include-cleaner,
         -misc-non-private-member-variables-in-classes,
         -misc-no-recursion,
         -modernize-use-trailing-return-type,
@@ -75,5 +82,5 @@ Checks: "*,
         -readability-uppercase-literal-suffix
 "
 WarningsAsErrors: '*'
-HeaderFilterRegex: '.*/prosper/include/.*'
+HeaderFilterRegex: '.*[/\\]+prosper[/\\]+src[/\\]+.*\.hpp'
 FormatStyle: file

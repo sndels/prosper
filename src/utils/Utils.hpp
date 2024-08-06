@@ -23,19 +23,18 @@ template <typename T, typename V> constexpr T asserted_cast(V a)
 {
 #ifndef NDEBUG
     static_assert(
-        !std::is_floating_point<T>::value &&
+        !std::is_floating_point_v<T> &&
         "No assertions for floating point target type");
 
-    if constexpr (!std::is_same<T, V>::value && std::is_integral<T>::value)
+    if constexpr (!std::is_same_v<T, V> && std::is_integral_v<T>)
     {
         if (a >= 0)
         {
-            if constexpr (std::is_integral<V>::value)
+            if constexpr (std::is_integral_v<V>)
             {
                 if constexpr ((sizeof(T) < sizeof(V) ||
-                               (sizeof(T) == sizeof(V) &&
-                                std::is_signed<T>::value &&
-                                !std::is_signed<V>::value)))
+                               (sizeof(T) == sizeof(V) && std::is_signed_v<T> &&
+                                !std::is_signed_v<V>)))
                 {
                     if (a > static_cast<V>(std::numeric_limits<T>::max()))
                         WHEELS_ASSERT(!"overflow");
@@ -95,7 +94,7 @@ void writeRawSpan(std::ofstream &stream, wheels::Span<const T> span)
 
 inline void writeRawStrSpan(std::ofstream &stream, const wheels::StrSpan span)
 {
-    stream.write(span.data(), span.size());
+    stream.write(span.data(), asserted_cast<std::streamsize>(span.size()));
 }
 
 template <typename T> void writeRaw(std::ofstream &stream, const T &value)
@@ -151,6 +150,7 @@ inline void appendEnumVariantsAsDefines(
 // remainder. Assumes both inputs are positive. Returns 0 when dividend is 0.
 template <typename T>
     requires std::is_integral_v<T>
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 T roundedUpQuotient(T dividend, T divisor)
 {
     if (dividend == 0) [[unlikely]]
@@ -174,9 +174,24 @@ struct DeferDummy
 template <class F> struct Deferrer
 {
     F f;
+    Deferrer(const F &f)
+    : f{f}
+    {
+    }
     ~Deferrer() { f(); }
+
+    Deferrer(const Deferrer<F> &) = delete;
+    Deferrer &operator=(const Deferrer<F> &) = delete;
+    Deferrer(Deferrer<F> &&) = delete;
+    Deferrer &operator=(Deferrer<F> &&) = delete;
 };
-template <class F> Deferrer<F> operator*(DeferDummy, F f) { return {f}; }
+template <class F> Deferrer<F> operator*(DeferDummy dummy, F f)
+{
+    (void)dummy;
+    return {f};
+}
+// Caller supplies the lambda scope, works as intended
+// NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define defer auto TOKEN_APPEND(zzDefer, __LINE__) = DeferDummy{} *[&]()
 
 void setCurrentThreadName(const char *name);

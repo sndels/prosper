@@ -24,7 +24,7 @@ template <typename T> class Animation
         InterpolationType interpolation, TimeAccessor &&timeFrames,
         ValueAccessor<T> &&valueFrames);
 
-    float endTimeS() const;
+    [[nodiscard]] float endTimeS() const;
 
     void registerTarget(T &target);
     void update(float timeS);
@@ -69,7 +69,7 @@ template <typename T> void Animation<T>::update(float timeS)
 {
     const KeyFrameInterpolation interp = m_timeFrames.interpolation(timeS);
 
-    T firstValue;
+    T firstValue{};
     if (interp.t == 0.f && m_interpolation == InterpolationType::CubicSpline)
         // Three values per frame, property value is the middle one
         firstValue = m_valueFrames.read(interp.firstFrame * 3 + 1);

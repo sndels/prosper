@@ -205,6 +205,9 @@ class Device
     MemoryAllocationBytes m_memoryAllocations;
 };
 
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern Device gDevice;
 
 #endif // PROSPER_GFX_DEVICE_HPP

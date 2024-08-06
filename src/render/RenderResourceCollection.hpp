@@ -58,7 +58,7 @@ class RenderResourceCollection
 
   protected:
     void assertValidHandle(Handle handle) const;
-    wheels::StrSpan aliasedDebugName(Handle handle) const;
+    [[nodiscard]] wheels::StrSpan aliasedDebugName(Handle handle) const;
 
   private:
     static const uint64_t sNotInUseGenerationFlag = static_cast<size_t>(1)

@@ -5,6 +5,7 @@
 class DescriptorAllocator;
 
 // Device.hpp
+// NOLINTNEXTLINE(bugprone-forward-declaration-namespace)
 class Device;
 struct DeviceProperties;
 struct MemoryAllocationBytes;

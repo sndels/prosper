@@ -88,6 +88,9 @@ class InputHandler
     wheels::Optional<MouseGesture> m_mouseGesture;
 };
 
+// This is depended on by Device and init()/destroy() order relative to other
+// similar globals is handled in main()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern InputHandler gInputHandler;
 
 #endif // PROSPER_UTILS_INPUT_HANDLER_HPP

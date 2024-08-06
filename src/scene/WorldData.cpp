@@ -185,9 +185,10 @@ vk::Filter getVkFilterMode(cgltf_int glEnum)
     case s_gl_linear_mipmap_nearest:
     case s_gl_linear_mimpap_linear:
         return vk::Filter::eLinear;
+    default:
+        LOG_ERR("Invalid gl filter %d", glEnum);
     }
 
-    LOG_ERR("Invalid gl filter %d", glEnum);
     return vk::Filter::eLinear;
 }
 
@@ -201,8 +202,10 @@ vk::SamplerAddressMode getVkAddressMode(cgltf_int glEnum)
         return vk::SamplerAddressMode::eMirroredRepeat;
     case s_gl_repeat:
         return vk::SamplerAddressMode::eRepeat;
+    default:
+        LOG_ERR("Invalid gl wrapping mode %d", glEnum);
     }
-    LOG_ERR("Invalid gl wrapping mode %d", glEnum);
+
     return vk::SamplerAddressMode::eClampToEdge;
 }
 

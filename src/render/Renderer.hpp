@@ -64,7 +64,7 @@ class Renderer
     void render(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Camera &cam, World &world, const vk::Rect2D &renderArea,
-        const SwapchainImage &swapImage, const uint32_t nextFrame,
+        const SwapchainImage &swapImage, uint32_t nextFrame,
         const Options &options);
 
   private:

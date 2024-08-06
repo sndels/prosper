@@ -185,6 +185,7 @@ struct Buffer
     // NOTE: Remember to amend clone() new members are added
 
     Buffer() noexcept = default;
+    ~Buffer() = default;
     // Copying is probably a mistake so disable implicit copies
     Buffer(const Buffer &) = delete;
     Buffer(Buffer &&) noexcept = default;
@@ -193,7 +194,7 @@ struct Buffer
 
     // There are use cases for mirrored buffers in async loading so expose a
     // convenience clone
-    Buffer clone() const;
+    [[nodiscard]] Buffer clone() const;
 
     [[nodiscard]] wheels::Optional<vk::BufferMemoryBarrier2> transitionBarrier(
         BufferState newState, bool force_barrier = false);
@@ -235,6 +236,7 @@ struct TexelBuffer
     VmaAllocation allocation{nullptr};
 
     TexelBuffer() noexcept = default;
+    ~TexelBuffer() = default;
     // Copying is probably a mistake so disable implicit copies
     TexelBuffer(const TexelBuffer &) = delete;
     TexelBuffer(TexelBuffer &&) noexcept = default;
@@ -309,6 +311,7 @@ struct Image
     vk::DeviceSize rawByteSize{0};
 
     Image() noexcept = default;
+    ~Image() = default;
     // Copying is probably a mistake so disable implicit copies
     Image(const Image &) = delete;
     Image(Image &&) noexcept = default;

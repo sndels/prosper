@@ -120,7 +120,7 @@ class ComputePass
     void destroyPipelines();
 
     void createDescriptorSets(
-        wheels::ScopedScratch scopeAlloc, const char *,
+        wheels::ScopedScratch scopeAlloc, const char *debugName,
         vk::ShaderStageFlags storageStageFlags);
 
     void createPipeline(

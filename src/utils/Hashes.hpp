@@ -24,7 +24,9 @@ template <> struct Hash<std::filesystem::path>
     [[nodiscard]] uint64_t operator()(
         const std::filesystem::path &value) const noexcept
     {
-        return wyhash(value.string().c_str(), value.string().size(), 0, _wyp);
+        return wyhash(
+            value.string().c_str(), value.string().size(), 0,
+            (uint64_t const *)_wyp);
     }
 };
 
