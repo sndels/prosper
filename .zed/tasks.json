@@ -1,0 +1,119 @@
+[
+  {
+    "label": "clang-tidy (Linux)",
+    "command": "./scripts/clang_tidy.sh",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "clang-tidy (Windows)",
+    "tags": ["build"],
+    "command": "scripts/clang_tidy.bat",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "Generate compile commands (Linux)",
+    "command": "./scripts/generate_compile_commands.sh",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "Generate compile commands (Windows)",
+    "tags": ["build"],
+    "command": "scripts/cmake_compile_commands.bat",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "Ninja (Debug)",
+    "command": "./scripts/ninja.sh",
+    "args": ["Debug"],
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "Ninja (Release)",
+    "command": "./scripts/ninja.sh",
+    "args": ["Release"],
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "MSBuild fast (Debug)",
+    "tags": ["build"],
+    "command": "scripts/build_fast.bat Debug",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "MSBuild (Release)",
+    "tags": ["build"],
+    "command": "scripts/build.bat Release",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "MSBuild (RelWithDebInfo)",
+    "tags": ["build"],
+    "command": "scripts/build.bat RelWithDebInfo",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "MSBuild (Debug)",
+    "tags": ["build"],
+    "command": "scripts/build.bat Debug",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "MSBuild (Debug, LivePP)",
+    "tags": ["build"],
+    "command": "scripts/build_livepp.bat Debug",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  },
+  {
+    "label": "Run (Linux)",
+    "command": "./build/prosper --config=dev_settings.toml",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "shell": "system"
+  }
+]

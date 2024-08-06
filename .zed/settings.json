@@ -1,0 +1,38 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run the `zed: Open Default Settings` command
+// from the command palette
+{
+  "languages": {
+    "C++": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clang-format-15.exe
+          "command": "clang-format-15",
+          "arguments": ["--assume-filename", "{buffer_path}"]
+        }
+      }
+    },
+    "GLSL": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clang-format-15.exe
+          "command": "clang-format-15",
+          "arguments": ["--assume-filename", "{buffer_path}"]
+        }
+      }
+    }
+  },
+  "lsp": {
+    // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clangd-15.exe
+    "clangd": { "binary": { "path": "clangd-15" } }
+  },
+  "remove_trailing_whitespace_on_save": true,
+  "ensure_final_newline_on_save": true
+}

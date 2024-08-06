@@ -1,0 +1,9 @@
+If:
+  PathMatch: [src/.*\.cpp, src/.*\.hpp]
+CompileFlags:
+  CompilationDatabase: "build-analysis"
+Diagnostics:
+ # TODO: Add MissingIncludes and move to full 'include what you use' when llvm-17 is used and it's a clang-tidy check
+ ClangTidy:
+    # TODO: Why do we need to duplicate .clang-tidy here for Zed's LSP to work?
+    Remove:  modernize-use-trailing-return-type
