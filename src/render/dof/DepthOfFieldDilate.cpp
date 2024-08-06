@@ -1,8 +1,5 @@
 #include "DepthOfFieldDilate.hpp"
 
-#include <glm/glm.hpp>
-#include <imgui.h>
-
 #include "../../gfx/VkUtils.hpp"
 #include "../../scene/Camera.hpp"
 #include "../../utils/Profiler.hpp"
@@ -10,6 +7,9 @@
 #include "../RenderResources.hpp"
 #include "../Utils.hpp"
 #include "DepthOfField.hpp"
+
+#include <glm/glm.hpp>
+#include <imgui.h>
 
 using namespace glm;
 using namespace wheels;

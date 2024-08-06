@@ -1,18 +1,17 @@
 #ifndef PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP
 #define PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP
 
-#include <wheels/allocators/scoped_scratch.hpp>
-#include <wheels/containers/static_array.hpp>
-
 #include "../gfx/Fwd.hpp"
 #include "../scene/Fwd.hpp"
+#include "../utils/ForEach.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "ComputePass.hpp"
 #include "Fwd.hpp"
 #include "RenderResourceHandle.hpp"
 
-#include "../utils/ForEach.hpp"
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
 
 #define COLOR_CLIPPING_TYPES None, MinMax, Variance
 #define COLOR_CLIPPING_TYPES_AND_COUNT COLOR_CLIPPING_TYPES, Count

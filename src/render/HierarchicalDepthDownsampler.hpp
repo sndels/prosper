@@ -1,15 +1,15 @@
 #ifndef PROSPER_RENDER_HIERARCHICAL_DEPTH_DOWNSAMLPER_HPP
 #define PROSPER_RENDER_HIERARCHICAL_DEPTH_DOWNSAMLPER_HPP
 
-#include <wheels/allocators/scoped_scratch.hpp>
-#include <wheels/containers/hash_set.hpp>
-#include <wheels/containers/span.hpp>
-
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
 #include "ComputePass.hpp"
 #include "Fwd.hpp"
 #include "RenderResourceHandle.hpp"
+
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/span.hpp>
 
 class HierarchicalDepthDownsampler
 {

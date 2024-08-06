@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <vulkan/vulkan.hpp>
-
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 

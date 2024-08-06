@@ -2,6 +2,7 @@
 #define PROSPER_RENDER_UTILS_HPP
 
 #include "RenderResources.hpp"
+
 #include <vulkan/vulkan.hpp>
 
 vk::Extent2D getExtent2D(ImageHandle image);

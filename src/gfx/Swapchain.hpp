@@ -1,8 +1,10 @@
 #ifndef PROSPER_GFX_SWAPCHAIN_HPP
 #define PROSPER_GFX_SWAPCHAIN_HPP
 
-#include <vulkan/vulkan.hpp>
+#include "../utils/Utils.hpp"
+#include "Fwd.hpp"
 
+#include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/array.hpp>
@@ -10,9 +12,6 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
-
-#include "../utils/Utils.hpp"
-#include "Fwd.hpp"
 
 struct SwapchainSupport
 {

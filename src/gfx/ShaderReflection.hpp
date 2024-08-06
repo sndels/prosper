@@ -1,22 +1,20 @@
 #ifndef PROSPER_GFX_SHADER_REFLECTION_HPP
 #define PROSPER_GFX_SHADER_REFLECTION_HPP
 
+#include "../Allocators.hpp"
+#include "../utils/Hashes.hpp"
+#include "../utils/Utils.hpp"
+#include "Fwd.hpp"
+
+#include <filesystem>
+#include <variant>
+#include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_map.hpp>
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/string.hpp>
-
-#include <vulkan/vulkan.hpp>
-
-#include <filesystem>
-#include <variant>
-
-#include "../Allocators.hpp"
-#include "../utils/Hashes.hpp"
-#include "../utils/Utils.hpp"
-#include "Fwd.hpp"
 
 struct DescriptorSetMetadata
 {

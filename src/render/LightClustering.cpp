@@ -1,8 +1,5 @@
 #include "LightClustering.hpp"
 
-#include <wheels/containers/span.hpp>
-#include <wheels/containers/static_array.hpp>
-
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
 #include "../scene/Light.hpp"
@@ -11,6 +8,9 @@
 #include "../utils/Profiler.hpp"
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
+
+#include <wheels/containers/span.hpp>
+#include <wheels/containers/static_array.hpp>
 
 using namespace glm;
 using namespace wheels;

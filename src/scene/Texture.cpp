@@ -1,21 +1,20 @@
 #include "Texture.hpp"
 
+#include "../gfx/Device.hpp"
+#include "../utils/Dds.hpp"
+#include "../utils/Ktx.hpp"
+#include "../utils/Logger.hpp"
+#include "../utils/Utils.hpp"
+
 #include <cmath>
 #include <fstream>
 #include <iostream>
-
 #include <ispc_texcomp.h>
 #include <stb_image.h>
 #include <stb_image_resize2.h>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/pair.hpp>
 #include <wyhash.h>
-
-#include "../gfx/Device.hpp"
-#include "../utils/Dds.hpp"
-#include "../utils/Ktx.hpp"
-#include "../utils/Logger.hpp"
-#include "../utils/Utils.hpp"
 
 using namespace wheels;
 

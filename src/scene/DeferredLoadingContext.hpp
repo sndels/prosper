@@ -10,6 +10,7 @@
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "Texture.hpp"
+
 #include <atomic>
 #include <cgltf.h>
 #include <condition_variable>

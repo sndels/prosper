@@ -1,10 +1,9 @@
 #ifndef PROSPER_UTILS_HASHES_HPP
 #define PROSPER_UTILS_HASHES_HPP
 
+#include <filesystem>
 #include <wheels/containers/hash.hpp>
 #include <wheels/containers/span.hpp>
-
-#include <filesystem>
 
 namespace wheels
 {

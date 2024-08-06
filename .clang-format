@@ -11,4 +11,5 @@ SpaceInEmptyBlock: true
 BreakBeforeBraces: Allman
 AlwaysBreakAfterReturnType: None
 PenaltyReturnTypeOnItsOwnLine: 9999
+IncludeBlocks: Regroup
 ---

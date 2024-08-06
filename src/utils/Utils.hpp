@@ -7,7 +7,6 @@
 #include <limits>
 #include <string>
 #include <type_traits>
-
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/allocators/utils.hpp>
 #include <wheels/containers/span.hpp>

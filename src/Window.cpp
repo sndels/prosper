@@ -1,15 +1,14 @@
 #include "Window.hpp"
 
-#include <GLFW/glfw3.h>
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-
-#include <iostream>
-
 #include "Allocators.hpp"
 #include "utils/InputHandler.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
+
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <iostream>
 
 #ifdef _WIN32
 

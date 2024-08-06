@@ -1,12 +1,12 @@
 #include "Swapchain.hpp"
 
-#include <stdexcept>
-#include <wheels/containers/span.hpp>
-
 #include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 #include "Device.hpp"
 #include "VkUtils.hpp"
+
+#include <stdexcept>
+#include <wheels/containers/span.hpp>
 
 using namespace wheels;
 

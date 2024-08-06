@@ -1,24 +1,4 @@
 #include "App.hpp"
-#include "utils/SceneStats.hpp"
-
-#include <chrono>
-#include <iostream>
-#include <limits>
-#include <stdexcept>
-#include <thread>
-
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#ifndef GLM_ENABLE_EXPERIMENTAL
-#define GLM_ENABLE_EXPERIMENTAL
-#endif // GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/component_wise.hpp>
-#include <glm/gtx/transform.hpp>
-#include <imgui.h>
-#include <wheels/allocators/linear_allocator.hpp>
-#include <wheels/allocators/utils.hpp>
-#include <wheels/containers/hash_set.hpp>
-#include <wheels/containers/string.hpp>
 
 #include "Allocators.hpp"
 #include "gfx/DescriptorAllocator.hpp"
@@ -29,8 +9,24 @@
 #include "scene/World.hpp"
 #include "utils/InputHandler.hpp"
 #include "utils/Logger.hpp"
+#include "utils/SceneStats.hpp"
 #include "utils/Ui.hpp"
 #include "utils/Utils.hpp"
+
+#include <GLFW/glfw3.h>
+#include <chrono>
+#include <glm/glm.hpp>
+#include <glm/gtx/component_wise.hpp>
+#include <glm/gtx/transform.hpp>
+#include <imgui.h>
+#include <iostream>
+#include <limits>
+#include <stdexcept>
+#include <thread>
+#include <wheels/allocators/linear_allocator.hpp>
+#include <wheels/allocators/utils.hpp>
+#include <wheels/containers/hash_set.hpp>
+#include <wheels/containers/string.hpp>
 
 using namespace glm;
 using namespace wheels;

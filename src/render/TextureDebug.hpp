@@ -1,21 +1,20 @@
 #ifndef PROSPER_RENDER_TEXTURE_DEBUG_HPP
 #define PROSPER_RENDER_TEXTURE_DEBUG_HPP
 
-#include <glm/glm.hpp>
-#include <wheels/allocators/scoped_scratch.hpp>
-#include <wheels/containers/hash_map.hpp>
-#include <wheels/containers/static_array.hpp>
-
 #include "../Allocators.hpp"
 #include "../gfx/Fwd.hpp"
 #include "../gfx/Resources.hpp"
+#include "../utils/ForEach.hpp"
 #include "../utils/Fwd.hpp"
 #include "../utils/Utils.hpp"
 #include "ComputePass.hpp"
 #include "Fwd.hpp"
 #include "RenderResourceHandle.hpp"
 
-#include "../utils/ForEach.hpp"
+#include <glm/glm.hpp>
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/hash_map.hpp>
+#include <wheels/containers/static_array.hpp>
 
 #define TEXTURE_DEBUG_CHANNEL_TYPES R, G, B, A, RGB
 

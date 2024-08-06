@@ -4,7 +4,6 @@
 #include "../Allocators.hpp"
 
 #include <glm/glm.hpp>
-
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 

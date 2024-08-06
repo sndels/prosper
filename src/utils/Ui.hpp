@@ -1,9 +1,8 @@
 #ifndef WHEELS_UTILS_UI_HPP
 #define WHEELS_UTILS_UI_HPP
 
-#include <wheels/containers/static_array.hpp>
-
 #include <imgui.h>
+#include <wheels/containers/static_array.hpp>
 
 // Creates a dropdown for the value and returns true if it was changed
 template <typename Enum, size_t N>

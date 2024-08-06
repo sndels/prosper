@@ -137,6 +137,7 @@ target_compile_definitions(prosper
     VULKAN_HPP_NO_SPACESHIP_OPERATOR
     VULKAN_HPP_NO_STRING
     GLM_FORCE_XYZW_ONLY
+    GLM_ENABLE_EXPERIMENTAL
     ${LIVEPP_DEFINE}
 
     # Set up absolute path to resources and binaries

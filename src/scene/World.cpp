@@ -1,10 +1,5 @@
 #include "World.hpp"
 
-#include <glm/gtc/matrix_access.hpp>
-#include <imgui.h>
-#include <wheels/allocators/utils.hpp>
-#include <wheels/containers/hash_set.hpp>
-
 #include "../gfx/Device.hpp"
 #include "../gfx/RingBuffer.hpp"
 #include "../utils/Logger.hpp"
@@ -19,6 +14,11 @@
 #include "Model.hpp"
 #include "Scene.hpp"
 #include "WorldData.hpp"
+
+#include <glm/gtc/matrix_access.hpp>
+#include <imgui.h>
+#include <wheels/allocators/utils.hpp>
+#include <wheels/containers/hash_set.hpp>
 
 using namespace glm;
 using namespace wheels;

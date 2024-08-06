@@ -5,16 +5,14 @@
 #include "Resources.hpp"
 #include "ShaderReflection.hpp"
 
+#include <atomic>
+#include <filesystem>
+#include <mutex>
 #include <shaderc/shaderc.hpp>
-
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/optional.hpp>
 #include <wheels/owning_ptr.hpp>
-
-#include <atomic>
-#include <filesystem>
-#include <mutex>
 
 struct QueueFamilies
 {

@@ -4,6 +4,7 @@
 #include "../gfx/VkUtils.hpp"
 #include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
+
 #include <glm/gtc/packing.hpp>
 #include <meshoptimizer.h>
 #include <mikktspace.h>

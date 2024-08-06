@@ -6,11 +6,10 @@
 #include "../utils/Utils.hpp"
 #include "RenderResourceHandle.hpp"
 
+#include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/static_array.hpp>
-
-#include <vulkan/vulkan.hpp>
 
 // TODO:
 // This template signature is a mess. Is there a cleaner way without going full

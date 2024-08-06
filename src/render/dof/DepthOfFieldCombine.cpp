@@ -1,7 +1,5 @@
 #include "DepthOfFieldCombine.hpp"
 
-#include <imgui.h>
-
 #include "../../gfx/VkUtils.hpp"
 #include "../../scene/Camera.hpp"
 #include "../../utils/Profiler.hpp"
@@ -9,6 +7,8 @@
 #include "../RenderResources.hpp"
 #include "../RenderTargets.hpp"
 #include "../Utils.hpp"
+
+#include <imgui.h>
 
 using namespace glm;
 using namespace wheels;

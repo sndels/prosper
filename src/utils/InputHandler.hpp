@@ -2,7 +2,6 @@
 #define PROSPER_UTILS_INPUT_HANDLER_HPP
 
 #include <glm/glm.hpp>
-
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 

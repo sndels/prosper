@@ -1,9 +1,6 @@
 #ifndef PROSPER_RENDER_DEPTH_OF_FIELD_HPP
 #define PROSPER_RENDER_DEPTH_OF_FIELD_HPP
 
-#include <wheels/allocators/scoped_scratch.hpp>
-#include <wheels/containers/static_array.hpp>
-
 #include "../../gfx/Fwd.hpp"
 #include "../../scene/Fwd.hpp"
 #include "../../utils/Fwd.hpp"
@@ -17,6 +14,9 @@
 #include "DepthOfFieldGather.hpp"
 #include "DepthOfFieldReduce.hpp"
 #include "DepthOfFieldSetup.hpp"
+
+#include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/static_array.hpp>
 
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm

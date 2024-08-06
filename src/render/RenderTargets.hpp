@@ -3,6 +3,7 @@
 
 #include "Fwd.hpp"
 #include "RenderResourceHandle.hpp"
+
 #include <vulkan/vulkan.hpp>
 
 const vk::Format sDepthFormat = vk::Format::eD32Sfloat;

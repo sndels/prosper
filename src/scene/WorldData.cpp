@@ -1,14 +1,10 @@
-#include "WorldData.hpp"
-
-#include <glm/gtc/type_ptr.hpp>
-#ifndef GLM_ENABLE_EXPERIMENTAL
-#define GLM_ENABLE_EXPERIMENTAL
-#endif // GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/matrix_decompose.hpp>
-
 #include "../gfx/Device.hpp"
 #include "../utils/Logger.hpp"
+#include "WorldData.hpp"
+
 #include <cstdio>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <imgui.h>
 
 using namespace glm;

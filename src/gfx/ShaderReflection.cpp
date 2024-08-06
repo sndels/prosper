@@ -2,14 +2,13 @@
 
 #include "Device.hpp"
 
-#include <spirv.hpp>
-#include <wheels/containers/array.hpp>
-#include <wheels/containers/optional.hpp>
-
 #include <algorithm>
 #include <cstring>
+#include <spirv.hpp>
 #include <stdexcept>
 #include <variant>
+#include <wheels/containers/array.hpp>
+#include <wheels/containers/optional.hpp>
 
 using namespace wheels;
 

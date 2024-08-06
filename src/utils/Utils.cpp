@@ -1,6 +1,7 @@
 #include "Utils.hpp"
 
 #include "Logger.hpp"
+
 #include <cstring>
 #include <wheels/assert.hpp>
 #include <wheels/containers/static_array.hpp>

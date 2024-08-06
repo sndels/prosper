@@ -1,6 +1,7 @@
 #include "Ktx.hpp"
 
 #include "Utils.hpp"
+
 #include <cstdint>
 #include <fstream>
 #include <wheels/assert.hpp>

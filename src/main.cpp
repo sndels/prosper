@@ -1,12 +1,3 @@
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
-
-#include <cxxopts.hpp>
-#include <tomlcpp.hpp>
-
 #include "Allocators.hpp"
 #include "App.hpp"
 #include "Window.hpp"
@@ -16,6 +7,14 @@
 #include "utils/Logger.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
+
+#include <cstdlib>
+#include <cxxopts.hpp>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
+#include <tomlcpp.hpp>
 
 #ifdef LIVEPP_PATH
 #include "API/x64/LPP_API_x64_CPP.h"

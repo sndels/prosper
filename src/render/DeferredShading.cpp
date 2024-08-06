@@ -1,9 +1,5 @@
 #include "DeferredShading.hpp"
 
-#include <imgui.h>
-
-#include <fstream>
-
 #include "../gfx/VkUtils.hpp"
 #include "../scene/Camera.hpp"
 #include "../scene/Light.hpp"
@@ -16,6 +12,9 @@
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
 #include "Utils.hpp"
+
+#include <fstream>
+#include <imgui.h>
 
 using namespace glm;
 using namespace wheels;

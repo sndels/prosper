@@ -1,13 +1,5 @@
 #include "ImGuiRenderer.hpp"
 
-#include <GLFW/glfw3.h>
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
-#include <imgui_internal.h>
-
-#include <wheels/containers/static_array.hpp>
-
 #include "../Window.hpp"
 #include "../gfx/Swapchain.hpp"
 #include "../gfx/VkUtils.hpp"
@@ -16,6 +8,13 @@
 #include "../utils/Utils.hpp"
 #include "RenderResources.hpp"
 #include "RenderTargets.hpp"
+
+#include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+#include <imgui_internal.h>
+#include <wheels/containers/static_array.hpp>
 
 using namespace wheels;
 

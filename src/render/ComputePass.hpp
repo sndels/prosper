@@ -1,6 +1,11 @@
 #ifndef PROSPER_RENDER_COMPUTE_PASS_HPP
 #define PROSPER_RENDER_COMPUTE_PASS_HPP
 
+#include "../gfx/Fwd.hpp"
+#include "../gfx/ShaderReflection.hpp"
+#include "../utils/Fwd.hpp"
+#include "../utils/Utils.hpp"
+
 #include <functional>
 #include <glm/glm.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -8,11 +13,6 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
-
-#include "../gfx/Fwd.hpp"
-#include "../gfx/ShaderReflection.hpp"
-#include "../utils/Fwd.hpp"
-#include "../utils/Utils.hpp"
 
 struct ComputePassOptions
 {

@@ -1,8 +1,8 @@
 #include "VkUtils.hpp"
 
-#include <wheels/containers/static_array.hpp>
-
 #include "../utils/Utils.hpp"
+
+#include <wheels/containers/static_array.hpp>
 
 using namespace wheels;
 

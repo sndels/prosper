@@ -7,11 +7,10 @@
 #include "RenderResourceCollection.hpp"
 #include "RenderResourceHandle.hpp"
 
+#include <vulkan/vulkan.hpp>
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/inline_array.hpp>
-
-#include <vulkan/vulkan.hpp>
 
 class RenderImageCollection
 : public RenderResourceCollection<

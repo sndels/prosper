@@ -11,14 +11,6 @@
 #include <intrin.h>
 #endif // _WIN32
 
-#include <GLFW/glfw3.h>
-
-#include <wheels/containers/hash_map.hpp>
-#include <wheels/containers/inline_array.hpp>
-#include <wheels/containers/static_array.hpp>
-#include <wheels/containers/string.hpp>
-#include <wheels/owning_ptr.hpp>
-
 #include "../Allocators.hpp"
 #include "../Window.hpp"
 #include "../utils/ForEach.hpp"
@@ -28,6 +20,13 @@
 #include "ShaderReflection.hpp"
 #include "Swapchain.hpp"
 #include "VkUtils.hpp"
+
+#include <GLFW/glfw3.h>
+#include <wheels/containers/hash_map.hpp>
+#include <wheels/containers/inline_array.hpp>
+#include <wheels/containers/static_array.hpp>
+#include <wheels/containers/string.hpp>
+#include <wheels/owning_ptr.hpp>
 
 using namespace wheels;
 

@@ -2,6 +2,7 @@
 #define PROSPER_RENDER_RESOURCE_HANDLE_HPP
 
 #include "../gfx/Fwd.hpp"
+
 #include <wheels/containers/pair.hpp>
 
 // Generation is designed to get incremented each time a handle is released,
