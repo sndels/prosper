@@ -37,7 +37,7 @@ using namespace wheels;
         vk::PhysicalDeviceVulkan13Features,                                    \
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,                       \
-        vk::PhysicalDeviceMeshShaderFeaturesEXT\
+        vk::PhysicalDeviceMeshShaderFeaturesEXT,                               \
         vk::PhysicalDeviceRayQueryFeaturesKHR
 
 #define REQUIRED_FEATURES                                                      \
@@ -71,7 +71,7 @@ using namespace wheels;
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
         accelerationStructure,                                                 \
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,   \
-        vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader\
+        vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader,                   \
         vk::PhysicalDeviceRayQueryFeaturesKHR, rayQuery
 
 namespace
