@@ -41,6 +41,9 @@ Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     // aren't used for multiple frames
     if (views.empty() || image.handle != m_cachedImages[handle.index])
     {
+        if (!views.empty())
+            gDevice.destroy(views);
+
         views.resize(image.subresourceRange.levelCount);
         // TODO:
         // Isolate the last concatenated name if this gets shared resources at
