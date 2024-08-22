@@ -53,12 +53,15 @@ layout(location = 3) out vec4 outPositionNDC[];
 layout(location = 4) out vec4 outPrevPositionNDC[];
 layout(location = 5) out vec3 outNormalWorld[];
 layout(location = 6) out vec4 outTangentWorldSign[];
-layout(location = 7) perprimitiveEXT out flat uint outDrawInstanceID[];
-layout(location = 8) perprimitiveEXT out flat uint outMeshletID[];
+// Usually less vertices than primitives and these are the same for even all the
+// vertices, let alone all triangles that use a given vertex
+layout(location = 7) out flat uint outDrawInstanceID[];
+layout(location = 8) out flat uint outMeshletID[];
 
 void writeTransformedVertex(
-    DrawInstance instance, GeometryMetadata metadata, Transforms trfn,
-    uint globalVertexIndex, uint meshletVertexIndex)
+    DrawInstance instance, MeshletInstance meshletInstance,
+    GeometryMetadata metadata, Transforms trfn, uint globalVertexIndex,
+    uint meshletVertexIndex)
 {
     Vertex vertexModel = loadVertex(metadata, globalVertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
@@ -84,6 +87,9 @@ void writeTransformedVertex(
 
     outNormalWorld[meshletVertexIndex] = vertexWorld.Normal;
     outTangentWorldSign[meshletVertexIndex] = vertexWorld.Tangent;
+
+    outDrawInstanceID[meshletVertexIndex] = meshletInstance.drawInstanceID;
+    outMeshletID[meshletVertexIndex] = meshletInstance.meshletID;
 
     gl_MeshVerticesEXT[meshletVertexIndex].gl_Position = posNDC;
 }
@@ -113,14 +119,15 @@ void main()
     const uint verticesPerThread = (MAX_MS_VERTS - 0) / LOCAL_SIZE_X + 1;
     for (uint i = 0; i < verticesPerThread; ++i)
     {
-        uint meshletID = i * LOCAL_SIZE_X + threadID;
-        if (meshletID < meshletInfo.vertexCount)
+        uint meshletVertexIndex = i * LOCAL_SIZE_X + threadID;
+        if (meshletVertexIndex < meshletInfo.vertexCount)
         {
-            uint vertexIndex =
-                loadMeshletVertexIndex(metadata, meshletInfo, meshletID);
+            uint vertexIndex = loadMeshletVertexIndex(
+                metadata, meshletInfo, meshletVertexIndex);
 
             writeTransformedVertex(
-                instance, metadata, trfn, vertexIndex, meshletID);
+                instance, meshletInstance, metadata, trfn, vertexIndex,
+                meshletVertexIndex);
         }
     }
 
@@ -131,8 +138,6 @@ void main()
         uint triangleID = i * LOCAL_SIZE_X + threadID;
         if (triangleID < meshletInfo.triangleCount)
         {
-            outDrawInstanceID[triangleID] = meshletInstance.drawInstanceID;
-            outMeshletID[triangleID] = meshletInstance.meshletID;
             gl_MeshPrimitivesEXT[triangleID].gl_PrimitiveID = int(triangleID);
 
             uvec3 triIndices =
