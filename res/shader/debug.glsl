@@ -6,9 +6,9 @@
 
 struct DebugInputs
 {
-    uint meshID;
+    uint meshIndex;
     uint primitiveID;
-    uint materialID;
+    uint materialIndex;
     vec3 position;
     vec3 shadingNormal;
     vec2 texCoord0;
@@ -19,9 +19,9 @@ vec3 commonDebugDraw(uint drawType, DebugInputs inputs, Material m)
     if (drawType == DrawType_PrimitiveID)
         return vec3(uintToColor(inputs.primitiveID));
     else if (drawType == DrawType_MeshID)
-        return vec3(uintToColor(inputs.meshID));
+        return vec3(uintToColor(inputs.meshIndex));
     else if (drawType == DrawType_MaterialID)
-        return vec3(uintToColor(inputs.materialID));
+        return vec3(uintToColor(inputs.materialIndex));
     else if (drawType == DrawType_Position)
         return vec3(inputs.position);
     else if (drawType == DrawType_TexCoord0)

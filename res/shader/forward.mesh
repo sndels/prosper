@@ -26,8 +26,8 @@ drawStats;
 
 struct MeshletInstance
 {
-    uint drawInstanceID;
-    uint meshletID;
+    uint drawInstanceIndex;
+    uint meshletIndex;
 };
 layout(std430, set = MESH_SHADER_SET, binding = 1) buffer MeshletInstances
 {
@@ -55,8 +55,8 @@ layout(location = 5) out vec3 outNormalWorld[];
 layout(location = 6) out vec4 outTangentWorldSign[];
 // Usually less vertices than primitives and these are the same for even all the
 // vertices, let alone all triangles that use a given vertex
-layout(location = 7) out flat uint outDrawInstanceID[];
-layout(location = 8) out flat uint outMeshletID[];
+layout(location = 7) out flat uint outDrawInstanceIndex[];
+layout(location = 8) out flat uint outMeshletIndex[];
 
 void writeTransformedVertex(
     DrawInstance instance, MeshletInstance meshletInstance,
@@ -77,8 +77,8 @@ void writeTransformedVertex(
 
     Transforms prevTrfn = trfn;
     if (PC.previousTransformValid == 1)
-        prevTrfn =
-            previousModelInstanceTransforms.instance[instance.modelInstanceID];
+        prevTrfn = previousModelInstanceTransforms
+                       .instance[instance.modelInstanceIndex];
     vec3 prevPositionWorld = worldPosition(vertexModel, prevTrfn);
 
     outPrevPositionNDC[meshletVertexIndex] = camera.previousCameraToClip *
@@ -88,27 +88,28 @@ void writeTransformedVertex(
     outNormalWorld[meshletVertexIndex] = vertexWorld.Normal;
     outTangentWorldSign[meshletVertexIndex] = vertexWorld.Tangent;
 
-    outDrawInstanceID[meshletVertexIndex] = meshletInstance.drawInstanceID;
-    outMeshletID[meshletVertexIndex] = meshletInstance.meshletID;
+    outDrawInstanceIndex[meshletVertexIndex] =
+        meshletInstance.drawInstanceIndex;
+    outMeshletIndex[meshletVertexIndex] = meshletInstance.meshletIndex;
 
     gl_MeshVerticesEXT[meshletVertexIndex].gl_Position = posNDC;
 }
 
 void main()
 {
-    uint threadID = gl_LocalInvocationIndex;
+    uint threadIndex = gl_LocalInvocationIndex;
 
     MeshletInstance meshletInstance =
         meshletInstances.instance[gl_WorkGroupID.x];
     DrawInstance instance =
-        drawInstances.instance[meshletInstance.drawInstanceID];
-    GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
+        drawInstances.instance[meshletInstance.drawInstanceIndex];
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];
     MeshletInfo meshletInfo =
-        loadMeshletInfo(metadata, meshletInstance.meshletID);
+        loadMeshletInfo(metadata, meshletInstance.meshletIndex);
     Transforms trfn =
-        modelInstanceTransforms.instance[instance.modelInstanceID];
+        modelInstanceTransforms.instance[instance.modelInstanceIndex];
 
-    if (threadID == 0)
+    if (threadIndex == 0)
     {
         atomicAdd(drawStats.drawnMeshletCount, 1);
         atomicAdd(drawStats.rasterizedTriangleCount, meshletInfo.triangleCount);
@@ -119,7 +120,7 @@ void main()
     const uint verticesPerThread = (MAX_MS_VERTS - 0) / LOCAL_SIZE_X + 1;
     for (uint i = 0; i < verticesPerThread; ++i)
     {
-        uint meshletVertexIndex = i * LOCAL_SIZE_X + threadID;
+        uint meshletVertexIndex = i * LOCAL_SIZE_X + threadIndex;
         if (meshletVertexIndex < meshletInfo.vertexCount)
         {
             uint vertexIndex = loadMeshletVertexIndex(
@@ -135,14 +136,15 @@ void main()
         roundedUpQuotient(MAX_MS_PRIMS, LOCAL_SIZE_X);
     for (uint i = 0; i < trianglesPerThread; ++i)
     {
-        uint triangleID = i * LOCAL_SIZE_X + threadID;
-        if (triangleID < meshletInfo.triangleCount)
+        uint triangleIndex = i * LOCAL_SIZE_X + threadIndex;
+        if (triangleIndex < meshletInfo.triangleCount)
         {
-            gl_MeshPrimitivesEXT[triangleID].gl_PrimitiveID = int(triangleID);
+            gl_MeshPrimitivesEXT[triangleIndex].gl_PrimitiveID =
+                int(triangleIndex);
 
             uvec3 triIndices =
-                loadMeshletTriangle(metadata, meshletInfo, triangleID);
-            gl_PrimitiveTriangleIndicesEXT[triangleID] = triIndices;
+                loadMeshletTriangle(metadata, meshletInfo, triangleIndex);
+            gl_PrimitiveTriangleIndicesEXT[triangleIndex] = triIndices;
 
             // Per-triangle backface culling seemed to be 2-3% slower on 680M
             // and 4080 when implemented like in

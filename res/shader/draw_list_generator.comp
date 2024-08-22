@@ -14,8 +14,8 @@
 // TODO: Put in a header?
 struct DrawMeshletInstance
 {
-    uint drawInstanceID;
-    uint meshletID;
+    uint drawInstanceIndex;
+    uint meshletIndex;
 };
 layout(std430, set = STORAGE_SET, binding = 0) writeonly buffer DrawList
 {
@@ -30,18 +30,18 @@ PC;
 layout(local_size_x = GROUP_X) in;
 void main()
 {
-    uint threadID = gl_LocalInvocationIndex;
-    uint drawInstanceID = gl_WorkGroupID.x;
+    uint threadIndex = gl_LocalInvocationIndex;
+    uint drawInstanceIndex = gl_WorkGroupID.x;
 
-    DrawInstance instance = drawInstances.instance[drawInstanceID];
+    DrawInstance instance = drawInstances.instance[drawInstanceIndex];
 
     // Skip meshes that haven't been loaded yet
-    uint meshletCount = meshletCounts.data[instance.meshID];
+    uint meshletCount = meshletCounts.data[instance.meshIndex];
     if (meshletCount == 0)
         return;
 
     // Skip transparents or opaques based on mode
-    MaterialData material = materialDatas.materials[instance.materialID];
+    MaterialData material = materialDatas.materials[instance.materialIndex];
     if (PC.matchTransparents == 1)
     {
         if (material.alphaMode != AlphaModeBlend)
@@ -56,7 +56,7 @@ void main()
     // Split writing work between the threads
     uint threadMeshlets = meshletCount / GROUP_X;
     uint extraMeshlets = meshletCount % GROUP_X;
-    if (threadID < extraMeshlets)
+    if (threadIndex < extraMeshlets)
         threadMeshlets += 1;
 
     // Figure out the subgroup offset for writes
@@ -70,18 +70,19 @@ void main()
     // Get active lane count for offsets within group
     uvec4 activeMask = subgroupBallot(true);
     uint activeSubgroupThreadCount = subgroupBallotBitCount(activeMask);
-    uint activeSubgroupThreadID = subgroupBallotExclusiveBitCount(activeMask);
+    uint activeSubgroupThreadIndex =
+        subgroupBallotExclusiveBitCount(activeMask);
 
     for (uint i = 0; i < threadMeshlets; ++i)
     {
         // This works out with the early threads having an extra meshlet when
         // GROUP_X doesn't divide meshletCount evenly
-        uint meshletID = i * GROUP_X + threadID;
+        uint meshletIndex = i * GROUP_X + threadIndex;
         // Interleave writes within the subgroup for efficiency, same logic as
-        // with the meshletID
+        // with the meshletIndex
         uint writeIndex = subgroupStartOffset + i * activeSubgroupThreadCount +
-                          activeSubgroupThreadID;
+                          activeSubgroupThreadIndex;
         outDrawList.instance[writeIndex] =
-            DrawMeshletInstance(drawInstanceID, meshletID);
+            DrawMeshletInstance(drawInstanceIndex, meshletIndex);
     }
 }

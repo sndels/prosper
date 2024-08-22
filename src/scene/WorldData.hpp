@@ -145,7 +145,7 @@ class WorldData
         wheels::Optional<glm::vec3> translation;
         wheels::Optional<glm::quat> rotation;
         wheels::Optional<glm::vec3> scale;
-        wheels::Optional<uint32_t> modelID;
+        wheels::Optional<uint32_t> modelIndex;
         wheels::Optional<uint32_t> camera;
         wheels::Optional<uint32_t> light;
 

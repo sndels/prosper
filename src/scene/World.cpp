@@ -501,12 +501,12 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             // as the custom index for each instance. RT shaders then access
             // each submodel from that using the geometry index of the hit.
             for (const auto &model :
-                 m_data.m_models[instance.modelID].subModels)
+                 m_data.m_models[instance.modelIndex].subModels)
             {
                 drawInstances.push_back(Scene::DrawInstance{
-                    .modelInstanceID = mi,
-                    .meshID = model.meshID,
-                    .materialID = model.materialID,
+                    .modelInstanceIndex = mi,
+                    .meshIndex = model.meshIndex,
+                    .materialIndex = model.materialIndex,
                 });
             }
         }
@@ -597,7 +597,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     for (const Model::SubModel &sm : model.subModels)
     {
         const GeometryMetadata &metadata =
-            m_data.m_geometryMetadatas[sm.meshID];
+            m_data.m_geometryMetadatas[sm.meshIndex];
         if (metadata.bufferIndex == 0xFFFF'FFFF)
             // Mesh is hasn't been uploaded yet
             return false;
@@ -616,8 +616,8 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     for (const Model::SubModel &sm : model.subModels)
     {
         const GeometryMetadata &metadata =
-            m_data.m_geometryMetadatas[sm.meshID];
-        const MeshInfo &info = m_data.m_meshInfos[sm.meshID];
+            m_data.m_geometryMetadatas[sm.meshIndex];
+        const MeshInfo &info = m_data.m_meshInfos[sm.meshIndex];
 
         const Buffer &dataBuffer =
             m_data.m_geometryBuffers[metadata.bufferIndex];
@@ -641,7 +641,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
             .indexData = dataBuffer.deviceAddress + indicesOffset,
         };
 
-        const Material &material = m_data.m_materials[info.materialID];
+        const Material &material = m_data.m_materials[info.materialIndex];
         const vk::GeometryFlagsKHR geomFlags =
             material.alphaMode == Material::AlphaMode::Opaque
                 ? vk::GeometryFlagBitsKHR::eOpaque
@@ -706,7 +706,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     String blasName{scopeAlloc};
     for (const Model::SubModel &sm : model.subModels)
     {
-        const String &smName = m_data.m_meshNames[sm.meshID];
+        const String &smName = m_data.m_meshNames[sm.meshIndex];
         blasName.extend(smName);
         blasName.push_back('|');
     }
@@ -873,7 +873,7 @@ void World::Impl::updateTlasInstances(
     uint32_t rti = 0;
     for (const auto &mi : scene.modelInstances)
     {
-        const auto &model = m_data.m_models[mi.modelID];
+        const auto &model = m_data.m_models[mi.modelIndex];
 
         // This has to be mat3x4 because we assume the transform already has
         // the same memory layout as vk::TransformationMatrixKHR
@@ -884,9 +884,9 @@ void World::Impl::updateTlasInstances(
         // Zero as accelerationStructureReference marks an inactive instance
         // according to the vk spec
         uint64_t asReference = 0;
-        if (m_data.m_blases.size() > mi.modelID)
+        if (m_data.m_blases.size() > mi.modelIndex)
         {
-            const auto &blas = m_data.m_blases[mi.modelID];
+            const auto &blas = m_data.m_blases[mi.modelIndex];
             asReference = blas.address;
         }
 

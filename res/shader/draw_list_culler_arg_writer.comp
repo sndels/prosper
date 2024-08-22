@@ -6,8 +6,8 @@
 // TODO: Put in a header?
 struct DrawMeshletInstance
 {
-    uint drawInstanceID;
-    uint meshletID;
+    uint drawInstanceIndex;
+    uint meshletIndex;
 };
 layout(std430, set = 0, binding = 0) readonly buffer InDrawList
 {

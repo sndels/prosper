@@ -31,9 +31,9 @@ modelInstanceScales;
 
 struct DrawInstance
 {
-    uint modelInstanceID;
-    uint meshID;
-    uint materialID;
+    uint modelInstanceIndex;
+    uint meshIndex;
+    uint materialIndex;
 };
 layout(std430, set = SCENE_INSTANCES_SET, binding = 3) readonly buffer
     DrawInstances

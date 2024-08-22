@@ -267,9 +267,9 @@ Vertex loadVertexThroughIndexBuffer(GeometryMetadata metadata, uint index)
     return loadVertex(metadata, vertexIndex);
 }
 
-vec2 loadUV(uint meshID, uint index)
+vec2 loadUV(uint meshIndex, uint index)
 {
-    GeometryMetadata metadata = geometryMetadatas.data[meshID];
+    GeometryMetadata metadata = geometryMetadatas.data[meshIndex];
 
     uint vertexIndex = loadIndex(
         metadata.bufferIndex, metadata.indicesOffset, index,

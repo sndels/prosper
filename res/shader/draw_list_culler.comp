@@ -14,8 +14,8 @@
 // TODO: Put in a header?
 struct DrawMeshletInstance
 {
-    uint drawInstanceID;
-    uint meshletID;
+    uint drawInstanceIndex;
+    uint meshletIndex;
 };
 
 layout(std430, set = STORAGE_SET, binding = 0) readonly buffer InDrawList
@@ -192,27 +192,27 @@ void main()
         outDispatchArguments.groupsZ = 1;
     }
 
-    uint threadID = gl_GlobalInvocationID.x;
-    if (threadID >= inDrawList.count)
+    uint threadIndex = gl_GlobalInvocationID.x;
+    if (threadIndex >= inDrawList.count)
         return;
 
-    DrawMeshletInstance meshletInstance = inDrawList.instance[threadID];
+    DrawMeshletInstance meshletInstance = inDrawList.instance[threadIndex];
     DrawInstance instance =
-        drawInstances.instance[meshletInstance.drawInstanceID];
-    GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
+        drawInstances.instance[meshletInstance.drawInstanceIndex];
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];
     MeshletInfo meshletInfo =
-        loadMeshletInfo(metadata, meshletInstance.meshletID);
+        loadMeshletInfo(metadata, meshletInstance.meshletIndex);
 
     Transforms trfn =
-        modelInstanceTransforms.instance[instance.modelInstanceID];
+        modelInstanceTransforms.instance[instance.modelInstanceIndex];
 
-    float scale = modelInstanceScales.instance[instance.modelInstanceID];
+    float scale = modelInstanceScales.instance[instance.modelInstanceIndex];
     bool meshletVisible = true;
     bool meshletOccluded = false;
     if (scale != 0.)
     {
         MeshletBounds bounds =
-            loadMeshletBounds(metadata, meshletInstance.meshletID);
+            loadMeshletBounds(metadata, meshletInstance.meshletIndex);
         transformBounds(bounds, trfn, scale);
 
         // TODO: Flip the logic to avoid !s here

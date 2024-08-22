@@ -308,11 +308,11 @@ BufferHandle MeshletCuller::recordGenerateList(
         for (const ModelInstance &instance : scene.modelInstances)
         {
             bool modelDrawn = false;
-            const Model &model = models[instance.modelID];
+            const Model &model = models[instance.modelIndex];
             for (const Model::SubModel &subModel : model.subModels)
             {
-                const Material &material = materials[subModel.materialID];
-                const MeshInfo &info = meshInfos[subModel.meshID];
+                const Material &material = materials[subModel.materialIndex];
+                const MeshInfo &info = meshInfos[subModel.meshIndex];
                 // 0 means invalid or not yet loaded
                 if (info.indexCount > 0)
                 {

@@ -37,7 +37,7 @@ struct MeshInfo
     uint32_t vertexCount{0};
     uint32_t indexCount{0};
     uint32_t meshletCount{0};
-    uint32_t materialID{0};
+    uint32_t materialIndex{0};
 };
 
 #endif // PROSPER_SCENE_MESH_HPP

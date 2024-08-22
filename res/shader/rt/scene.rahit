@@ -20,13 +20,13 @@ void main()
     DrawInstance instance =
         drawInstances.instance[gl_InstanceCustomIndexEXT + gl_GeometryIndexEXT];
 
-    vec2 uv0 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 0);
-    vec2 uv1 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 1);
-    vec2 uv2 = loadUV(instance.meshID, gl_PrimitiveID * 3 + 2);
+    vec2 uv0 = loadUV(instance.meshIndex, gl_PrimitiveID * 3 + 0);
+    vec2 uv1 = loadUV(instance.meshIndex, gl_PrimitiveID * 3 + 1);
+    vec2 uv2 = loadUV(instance.meshIndex, gl_PrimitiveID * 3 + 2);
 
     vec2 uv = interpolate(uv0, uv1, uv2, baryCoord);
 
-    float alpha = sampleAlpha(instance.materialID, uv);
+    float alpha = sampleAlpha(instance.materialIndex, uv);
 
     if (alpha == 0)
         ignoreIntersectionEXT;

@@ -823,7 +823,7 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
     m_geometryMetadatas.resize(totalPrimitiveCount);
     m_meshInfos.resize(totalPrimitiveCount);
 
-    uint32_t meshID = 0;
+    uint32_t meshIndex = 0;
     for (cgltf_size mi = 0; mi < gltfData.meshes_count; ++mi)
     {
         const cgltf_mesh &mesh = gltfData.meshes[mi];
@@ -882,7 +882,7 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
                     asserted_cast<uint32_t>(inputMetadata.positions->count),
                 .indexCount =
                     asserted_cast<uint32_t>(inputMetadata.indices->count),
-                .materialID = material,
+                .materialIndex = material,
             };
 
             WHEELS_ASSERT(
@@ -897,8 +897,8 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
             // generation might also change the number of unique vertices.
 
             model.subModels.push_back(Model::SubModel{
-                .meshID = meshID++,
-                .materialID = material,
+                .meshIndex = meshIndex++,
+                .materialIndex = material,
             });
         }
     }
@@ -1126,7 +1126,7 @@ void WorldData::loadScenes(
         }
 
         if (gltfNode.mesh != nullptr)
-            node.modelID = asserted_cast<uint32_t>(
+            node.modelIndex = asserted_cast<uint32_t>(
                 cgltf_mesh_index(&gltfData, gltfNode.mesh));
         if (gltfNode.camera != nullptr)
         {
@@ -1417,10 +1417,10 @@ void WorldData::gatherScene(
             sceneNode.translation = tmpNode.translation;
             sceneNode.rotation = tmpNode.rotation;
             sceneNode.scale = tmpNode.scale;
-            sceneNode.modelID = tmpNode.modelID;
+            sceneNode.modelIndex = tmpNode.modelIndex;
             sceneNode.camera = tmpNode.camera;
 
-            if (sceneNode.modelID.has_value())
+            if (sceneNode.modelIndex.has_value())
             {
                 sceneNode.modelInstance =
                     asserted_cast<uint32_t>(scene.modelInstances.size());
@@ -1428,11 +1428,11 @@ void WorldData::gatherScene(
                 // Why is id needed here? It's just the index in the array
                 scene.modelInstances.push_back(ModelInstance{
                     .id = *sceneNode.modelInstance,
-                    .modelID = *sceneNode.modelID,
+                    .modelIndex = *sceneNode.modelIndex,
                     .fullName = sceneNode.fullName,
                 });
                 scene.drawInstanceCount += asserted_cast<uint32_t>(
-                    m_models[*sceneNode.modelID].subModels.size());
+                    m_models[*sceneNode.modelIndex].subModels.size());
             }
 
             if (tmpNode.light.has_value())

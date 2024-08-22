@@ -27,7 +27,7 @@ struct Scene
         wheels::Optional<glm::vec3> translation;
         wheels::Optional<glm::quat> rotation;
         wheels::Optional<glm::vec3> scale;
-        wheels::Optional<uint32_t> modelID;
+        wheels::Optional<uint32_t> modelIndex;
         wheels::Optional<uint32_t> modelInstance;
         wheels::Optional<uint32_t> camera;
         wheels::Optional<uint32_t> pointLight;
@@ -56,9 +56,9 @@ struct Scene
 
     struct DrawInstance
     {
-        uint32_t modelInstanceID{0};
-        uint32_t meshID{0xFFFF'FFFF};
-        uint32_t materialID{0xFFFF'FFFF};
+        uint32_t modelInstanceIndex{0};
+        uint32_t meshIndex{0xFFFF'FFFF};
+        uint32_t materialIndex{0xFFFF'FFFF};
     };
     uint32_t drawInstanceCount{0};
     Buffer drawInstancesBuffer;

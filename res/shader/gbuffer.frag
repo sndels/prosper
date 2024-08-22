@@ -17,8 +17,8 @@ layout(location = 3) in vec4 inPositionNDC;
 layout(location = 4) in vec4 inPrevPositionNDC;
 layout(location = 5) in vec3 inNormalWorld;
 layout(location = 6) in vec4 inTangentWorldSign;
-layout(location = 7) in flat uint inDrawInstanceID;
-layout(location = 8) in flat uint inMeshletID;
+layout(location = 7) in flat uint inDrawInstanceIndex;
+layout(location = 8) in flat uint inMeshletIndex;
 
 layout(location = 0) out vec4 outAlbedoRoughness;
 layout(location = 1) out vec4 outNormalMetallic;
@@ -53,8 +53,8 @@ vec3 signedOctEncode(vec3 n)
 
 void main()
 {
-    DrawInstance instance = drawInstances.instance[inDrawInstanceID];
-    Material material = sampleMaterial(instance.materialID, inTexCoord0);
+    DrawInstance instance = drawInstances.instance[inDrawInstanceIndex];
+    Material material = sampleMaterial(instance.materialIndex, inTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (material.alpha == 0)
@@ -85,15 +85,15 @@ void main()
     {
         if (PC.drawType == DrawType_MeshletID)
         {
-            outAlbedoRoughness = vec4(uintToColor(inMeshletID), 1);
+            outAlbedoRoughness = vec4(uintToColor(inMeshletIndex), 1);
             outNormalMetallic = vec4(0);
             return;
         }
 
         DebugInputs di;
-        di.meshID = instance.meshID;
+        di.meshIndex = instance.meshIndex;
         di.primitiveID = gl_PrimitiveID;
-        di.materialID = instance.materialID;
+        di.materialIndex = instance.materialIndex;
         di.shadingNormal = normal;
         di.texCoord0 = inTexCoord0;
         outAlbedoRoughness =

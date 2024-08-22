@@ -16,10 +16,9 @@
 #include "../../scene/lighting.glsl"
 #include "../../scene/materials.glsl"
 #include "../../scene/skybox.glsl"
+#include "../payload.glsl"
 #include "../ray.glsl"
 #include "../rt_data.glsl"
-
-#include "../payload.glsl"
 #include "rtpc.glsl"
 
 layout(set = OUTPUT_SET, binding = 0) uniform image2D previousColor;
@@ -141,9 +140,9 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
     DrawInstance instance = drawInstances.instance[hit.drawInstanceIndex];
 
     Transforms trfn =
-        modelInstanceTransforms.instance[instance.modelInstanceID];
+        modelInstanceTransforms.instance[instance.modelInstanceIndex];
 
-    GeometryMetadata metadata = geometryMetadatas.data[instance.meshID];
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];
 
     Vertex v0 = loadVertexThroughIndexBuffer(metadata, hit.primitiveID * 3 + 0);
     Vertex v1 = loadVertexThroughIndexBuffer(metadata, hit.primitiveID * 3 + 1);
@@ -156,7 +155,7 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
     surface.positionWS = v.Position;
     surface.invViewRayWS = -ray.d;
     surface.uv = v.TexCoord0;
-    surface.material = sampleMaterial(instance.materialID, v.TexCoord0);
+    surface.material = sampleMaterial(instance.materialIndex, v.TexCoord0);
 
     // -2 signals no material normal, w=0 no vertex tangent
     if (surface.material.normal.x != -2 && v.Tangent.w != 0)
@@ -176,9 +175,9 @@ vec3 debugColor(RayPayload hit, VisibleSurface surface)
     DrawInstance instance = drawInstances.instance[hit.drawInstanceIndex];
 
     DebugInputs di;
-    di.meshID = instance.meshID;
+    di.meshIndex = instance.meshIndex;
     di.primitiveID = hit.primitiveID;
-    di.materialID = instance.materialID;
+    di.materialIndex = instance.materialIndex;
     di.position = surface.positionWS;
     di.shadingNormal = surface.normalWS;
     di.texCoord0 = surface.uv;

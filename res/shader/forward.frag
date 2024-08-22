@@ -23,8 +23,8 @@ layout(location = 3) in vec4 inPositionNDC;
 layout(location = 4) in vec4 inPrevPositionNDC;
 layout(location = 5) in vec3 inNormalWorld;
 layout(location = 6) in vec4 inTangentWorldSign;
-layout(location = 7) in flat uint inDrawInstanceID;
-layout(location = 8) in flat uint inMeshletID;
+layout(location = 7) in flat uint inDrawInstanceIndex;
+layout(location = 8) in flat uint inMeshletIndex;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec2 outVelocity;
@@ -41,13 +41,13 @@ vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
 
 void main()
 {
-    DrawInstance instance = drawInstances.instance[inDrawInstanceID];
+    DrawInstance instance = drawInstances.instance[inDrawInstanceIndex];
 
     VisibleSurface surface;
     surface.positionWS = inPositionWorld;
     surface.invViewRayWS = normalize(camera.eye.xyz - inPositionWorld);
     surface.uv = inTexCoord0;
-    surface.material = sampleMaterial(instance.materialID, inTexCoord0);
+    surface.material = sampleMaterial(instance.materialIndex, inTexCoord0);
 
     // Early out if alpha test failed / zero alpha
     if (surface.material.alpha == 0)
@@ -94,14 +94,14 @@ void main()
     {
         if (PC.DrawType == DrawType_MeshletID)
         {
-            outColor = vec4(uintToColor(inMeshletID), 1);
+            outColor = vec4(uintToColor(inMeshletIndex), 1);
             return;
         }
 
         DebugInputs di;
-        di.meshID = instance.meshID;
+        di.meshIndex = instance.meshIndex;
         di.primitiveID = gl_PrimitiveID;
-        di.materialID = instance.materialID;
+        di.materialIndex = instance.materialIndex;
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
         di.texCoord0 = inTexCoord0;
