@@ -7,6 +7,20 @@
 // custom settings, run the `zed: Open Default Settings` command
 // from the command palette
 {
+  "file_types": {
+    // Most of the json I touch permit and use comments
+    "GLSL": [
+      "*.glsl",
+      "*.frag",
+      "*.vert",
+      "*.comp",
+      "*.mesh",
+      "*.rgen",
+      "*.rchit",
+      "*.rahit",
+      "*.rmiss"
+    ]
+  },
   "languages": {
     "C++": {
       "format_on_save": "on",
