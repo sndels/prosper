@@ -1,0 +1,14 @@
+# clang-format changes
+6e499fedefa2c872916d0fed2a266183deecea3e
+ec53f18f2145c461b8dfa1f96cb8faa143cee1cb
+3b528eb2c9d68c667a23fd20726de11e802e0850
+4e65d0d9a991b74329b00f9dca0deb9ad5e40a55
+
+# const all the things
+1bbee00d5d4988c5899d3b2a688781b02a88ddf8
+
+# reorganize sources
+285fb16d388385ea5e4c188b6d0b1011a9199177
+
+# _member -> m_member
+bdabd4b5a74938f26d5d8f89a683d9bd014606d6
