@@ -117,7 +117,7 @@ void main()
 
     SetMeshOutputsEXT(meshletInfo.vertexCount, meshletInfo.triangleCount);
 
-    const uint verticesPerThread = (MAX_MS_VERTS - 0) / LOCAL_SIZE_X + 1;
+    const uint verticesPerThread = (MAX_MS_VERTS - 1) / LOCAL_SIZE_X + 1;
     for (uint i = 0; i < verticesPerThread; ++i)
     {
         uint meshletVertexIndex = i * LOCAL_SIZE_X + threadIndex;
