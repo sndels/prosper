@@ -776,10 +776,10 @@ ImageHandle Renderer::blitColorToFinalComposite(
         },
         vk::Offset3D{
             std::min(
-                asserted_cast<int32_t>(dstOffset.x + dstSize.x),
+                dstOffset.x + dstSize.x,
                 asserted_cast<int32_t>(swapImageExtent.width)),
             std::min(
-                asserted_cast<int32_t>(dstOffset.y + dstSize.y),
+                dstOffset.y + dstSize.y,
                 asserted_cast<int32_t>(swapImageExtent.height)),
             1,
         },

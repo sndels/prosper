@@ -19,46 +19,41 @@ const size_t sMaxMsVertices = 64;
 const size_t sMaxMsTriangles = 124;
 
 // Statically casts a into T, asserts that the value fits in T if T is integral
-template <typename T, typename V> constexpr T asserted_cast(V a)
+template <typename T, typename V>
+constexpr T asserted_cast(V a)
+    requires(!std::is_same_v<T, V> && std::is_integral_v<T>)
 {
 #ifndef NDEBUG
-    static_assert(
-        !std::is_floating_point_v<T> &&
-        "No assertions for floating point target type");
-
-    if constexpr (!std::is_same_v<T, V> && std::is_integral_v<T>)
+    if (a >= 0)
     {
-        if (a >= 0)
+        if constexpr (std::is_integral_v<V>)
         {
-            if constexpr (std::is_integral_v<V>)
+            if constexpr ((sizeof(T) < sizeof(V) ||
+                           (sizeof(T) == sizeof(V) && std::is_signed_v<T> &&
+                            !std::is_signed_v<V>)))
             {
-                if constexpr ((sizeof(T) < sizeof(V) ||
-                               (sizeof(T) == sizeof(V) && std::is_signed_v<T> &&
-                                !std::is_signed_v<V>)))
-                {
-                    if (a > static_cast<V>(std::numeric_limits<T>::max()))
-                        WHEELS_ASSERT(!"overflow");
-                }
-            }
-            else
-            {
-                // NOTE: Some edge cases with large target types will be weird
-                // here because of precision and truncation
                 if (a > static_cast<V>(std::numeric_limits<T>::max()))
                     WHEELS_ASSERT(!"overflow");
-                if (a < static_cast<V>(std::numeric_limits<T>::min()))
-                    WHEELS_ASSERT(!"underflow");
             }
         }
-        else if constexpr (!std::numeric_limits<T>::is_signed)
-            WHEELS_ASSERT(!"Trying to cast negative into unsigned");
         else
         {
-            if constexpr (sizeof(T) < sizeof(V))
-            {
-                if (a < static_cast<V>(std::numeric_limits<T>::min()))
-                    WHEELS_ASSERT(!"underflow");
-            }
+            // NOTE: Some edge cases with large target types will be weird
+            // here because of precision and truncation
+            if (a > static_cast<V>(std::numeric_limits<T>::max()))
+                WHEELS_ASSERT(!"overflow");
+            if (a < static_cast<V>(std::numeric_limits<T>::min()))
+                WHEELS_ASSERT(!"underflow");
+        }
+    }
+    else if constexpr (!std::numeric_limits<T>::is_signed)
+        WHEELS_ASSERT(!"Trying to cast negative into unsigned");
+    else
+    {
+        if constexpr (sizeof(T) < sizeof(V))
+        {
+            if (a < static_cast<V>(std::numeric_limits<T>::min()))
+                WHEELS_ASSERT(!"underflow");
         }
     }
 #endif // NDEBUG

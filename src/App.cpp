@@ -743,7 +743,7 @@ void App::drawProfiling(
     size_t longestNameLength = 0;
     for (const auto &t : profilerDatas)
         if (t.name.size() > longestNameLength)
-            longestNameLength = asserted_cast<size_t>(t.name.size());
+            longestNameLength = t.name.size();
 
     String tmp{scopeAlloc};
     tmp.resize(longestNameLength * 2);
@@ -859,9 +859,7 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
     TlsfAllocator::Stats const &allocStats = gAllocators.general.stats();
 
     ImGui::Text("High watermarks:\n");
-    ImGui::Text(
-        "  ctors : %uKB\n",
-        asserted_cast<uint32_t>(m_ctorScratchHighWatermark) / 1024);
+    ImGui::Text("  ctors : %uKB\n", m_ctorScratchHighWatermark / 1024);
     ImGui::Text(
         "  deferred general: %uMB\n",
         asserted_cast<uint32_t>(

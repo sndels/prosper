@@ -415,8 +415,8 @@ void Texture2D::init(
     WHEELS_ASSERT(!dds.data.empty());
 
     const vk::Extent2D extent{
-        asserted_cast<uint32_t>(dds.width),
-        asserted_cast<uint32_t>(dds.height),
+        dds.width,
+        dds.height,
     };
 
     WHEELS_ASSERT(stagingBuffer.mapped != nullptr);
@@ -461,7 +461,7 @@ void Texture2D::init(
             .imageSubresource =
                 vk::ImageSubresourceLayers{
                     .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .mipLevel = asserted_cast<uint32_t>(i),
+                    .mipLevel = i,
                     .baseArrayLayer = 0,
                     .layerCount = 1,
                 },
@@ -500,9 +500,9 @@ void Texture3D::init(
     WHEELS_ASSERT(!dds.data.empty());
 
     const vk::Extent3D extent{
-        asserted_cast<uint32_t>(dds.width),
-        asserted_cast<uint32_t>(dds.height),
-        asserted_cast<uint32_t>(dds.depth),
+        dds.width,
+        dds.height,
+        dds.depth,
     };
 
     // Just create the staging here as Texture3D are only loaded in during load
@@ -600,8 +600,8 @@ void TextureCubemap::init(
         .desc =
             ImageDescription{
                 .format = cube.format,
-                .width = asserted_cast<uint32_t>(cube.width),
-                .height = asserted_cast<uint32_t>(cube.height),
+                .width = cube.width,
+                .height = cube.height,
                 .mipCount = cube.mipLevelCount,
                 .layerCount = cube.faceCount,
                 .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,

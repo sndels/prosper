@@ -1405,9 +1405,7 @@ void WorldData::gatherScene(
             {
                 const uint32_t childIndex = sceneNode.firstChild + i;
                 scene.nodes[childIndex].parent = indices.sceneNode;
-                nodeStack.emplace_back(
-                    asserted_cast<uint32_t>(tmpNode.children[i]),
-                    asserted_cast<uint32_t>(childIndex));
+                nodeStack.emplace_back(tmpNode.children[i], childIndex);
 
                 scene.fullNodeNames.emplace_back(
                     gAllocators.general, sceneNode.fullName);
