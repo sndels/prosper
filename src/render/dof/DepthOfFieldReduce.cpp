@@ -1,5 +1,6 @@
 #include "DepthOfFieldReduce.hpp"
 
+#include "gfx/Device.hpp"
 #include "render/RenderResources.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"

@@ -15,11 +15,12 @@ set(PROSPER_RENDER_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.hpp
     ${CMAKE_CURRENT_LIST_DIR}/MeshletCuller.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderBufferCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/RenderResourceCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResourceHandle.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderTexelBufferCollection.hpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.hpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/TemporalAntiAliasing.hpp
@@ -44,9 +45,11 @@ set(PROSPER_RENDER_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/LightClustering.cpp
     ${CMAKE_CURRENT_LIST_DIR}/MeshletCuller.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Renderer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderBufferCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderImageCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderResources.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RenderTargets.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/RenderTexelBufferCollection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/RtReference.cpp
     ${CMAKE_CURRENT_LIST_DIR}/SkyboxRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/TemporalAntiAliasing.cpp

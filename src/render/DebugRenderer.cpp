@@ -1,6 +1,7 @@
 #include "DebugRenderer.hpp"
 
 #include "gfx/DescriptorAllocator.hpp"
+#include "gfx/Device.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/RenderResources.hpp"
 #include "render/RenderTargets.hpp"
