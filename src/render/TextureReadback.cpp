@@ -1,5 +1,6 @@
 #include "TextureReadback.hpp"
 
+#include "gfx/Device.hpp"
 #include "render/RenderResources.hpp"
 #include "utils/Profiler.hpp"
 

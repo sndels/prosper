@@ -1,5 +1,6 @@
 #include "HierarchicalDepthDownsampler.hpp"
 
+#include "gfx/Device.hpp"
 #include "render/ComputePass.hpp"
 #include "render/RenderResources.hpp"
 #include "utils/Profiler.hpp"

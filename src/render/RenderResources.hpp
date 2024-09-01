@@ -2,8 +2,9 @@
 #define PROSPER_RENDER_RESOURCES_HPP
 
 #include "gfx/Resources.hpp"
+#include "render/RenderBufferCollection.hpp"
 #include "render/RenderImageCollection.hpp"
-#include "render/RenderResourceCollection.hpp"
+#include "render/RenderTexelBufferCollection.hpp"
 #include "scene/DebugGeometry.hpp"
 #include "utils/Utils.hpp"
 
@@ -21,15 +22,6 @@ using TexelBufferTransition = wheels::Pair<TexelBufferHandle, BufferState>;
 class RenderResources
 {
   public:
-    using RenderBufferCollection = RenderResourceCollection<
-        BufferHandle, Buffer, BufferDescription, BufferCreateInfo, BufferState,
-        vk::BufferMemoryBarrier2, vk::Buffer, VkBuffer,
-        vk::ObjectType::eBuffer>;
-    using RenderTexelBufferCollection = RenderResourceCollection<
-        TexelBufferHandle, TexelBuffer, TexelBufferDescription,
-        TexelBufferCreateInfo, BufferState, vk::BufferMemoryBarrier2,
-        vk::Buffer, VkBuffer, vk::ObjectType::eBuffer>;
-
     // Both alloc and device need to live as long as this
     RenderResources() noexcept = default;
     ~RenderResources();

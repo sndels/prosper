@@ -1,6 +1,7 @@
 #include "ImGuiRenderer.hpp"
 
 #include "Window.hpp"
+#include "gfx/Device.hpp"
 #include "gfx/Swapchain.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/RenderResources.hpp"

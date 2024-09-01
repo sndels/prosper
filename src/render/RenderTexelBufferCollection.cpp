@@ -1,16 +1,14 @@
-#include "RenderImageCollection.hpp"
+#include "RenderTexelBufferCollection.hpp"
 
 #include "gfx/Device.hpp"
 #include "utils/Utils.hpp"
 
-using namespace wheels;
-
-RenderImageCollection::~RenderImageCollection()
+RenderTexelBufferCollection::~RenderTexelBufferCollection()
 {
-    RenderImageCollection::destroyResources();
+    RenderTexelBufferCollection::destroyResources();
 }
 
-void RenderImageCollection::startFrame()
+void RenderTexelBufferCollection::startFrame()
 {
     const size_t resourceCount = m_resources.size();
     WHEELS_ASSERT(resourceCount == m_preserved.size());
@@ -23,7 +21,7 @@ void RenderImageCollection::startFrame()
             m_preserved[i] = false;
         else
             WHEELS_ASSERT(
-                !resourceInUse(asserted_cast<uint32_t>(i)) && "Image leaked");
+                !resourceInUse(asserted_cast<uint32_t>(i)) && "Buffer leaked");
         (void)aliasedDebugName;
     }
 
@@ -53,13 +51,8 @@ void RenderImageCollection::startFrame()
                 WHEELS_ASSERT(!m_preserved[i]);
 
                 gDevice.destroy(m_resources[i]);
-                m_resources[i] = Image{};
-                m_descriptions[i] = ImageDescription{};
-                if (i < m_subresourceViews.size())
-                {
-                    gDevice.destroy(m_subresourceViews[i]);
-                    m_subresourceViews[i].clear();
-                }
+                m_resources[i] = TexelBuffer{};
+                m_descriptions[i] = TexelBufferDescription{};
                 m_aliasedDebugNames[i].clear();
                 // Generations should stay as is, we can reuse the handle for
                 // another resource
@@ -75,16 +68,9 @@ void RenderImageCollection::startFrame()
     m_markedDebugHandle.reset();
 }
 
-void RenderImageCollection::destroyResources()
+void RenderTexelBufferCollection::destroyResources()
 {
-    for (auto &views : m_subresourceViews)
-    {
-        gDevice.destroy(views);
-        views.clear();
-    }
-    m_subresourceViews.clear();
-
-    for (Image &res : m_resources)
+    for (TexelBuffer &res : m_resources)
         gDevice.destroy(res);
 
     m_resources.clear();
@@ -105,8 +91,8 @@ void RenderImageCollection::destroyResources()
     m_freelist.clear();
 }
 
-ImageHandle RenderImageCollection::create(
-    const ImageDescription &desc, const char *debugName)
+TexelBufferHandle RenderTexelBufferCollection::create(
+    const TexelBufferDescription &desc, const char *debugName)
 {
     const uint32_t descCount = asserted_cast<uint32_t>(m_descriptions.size());
     for (uint32_t i = 0; i < descCount; ++i)
@@ -115,7 +101,7 @@ ImageHandle RenderImageCollection::create(
         {
             WHEELS_ASSERT(!m_preserved[i]);
 
-            const ImageDescription &existingDesc = m_descriptions[i];
+            const TexelBufferDescription &existingDesc = m_descriptions[i];
             if (existingDesc.matches(desc))
             {
                 // Don't reuse the actively debugged resource to avoid stomping
@@ -136,7 +122,7 @@ ImageHandle RenderImageCollection::create(
                 m_generations[i] &= ~sNotInUseGenerationFlag;
                 m_framesSinceUsed[i] = 0;
 
-                const ImageHandle handle{
+                const TexelBufferHandle handle{
                     .index = i,
                     .generation = m_generations[i],
                 };
@@ -167,9 +153,9 @@ ImageHandle RenderImageCollection::create(
         index = asserted_cast<uint32_t>(m_resources.size() - 1);
     }
     WHEELS_ASSERT(!resourceInUse(index));
-    WHEELS_ASSERT(m_resources[index].handle == vk::Image{});
+    WHEELS_ASSERT(m_resources[index].handle == vk::Buffer{});
 
-    m_resources[index] = gDevice.create(ImageCreateInfo{
+    m_resources[index] = gDevice.create(TexelBufferCreateInfo{
         .desc = desc,
         .debugName = debugName,
     });
@@ -181,7 +167,7 @@ ImageHandle RenderImageCollection::create(
     m_preserved[index] = false;
     m_framesSinceUsed[index] = 0;
 
-    const ImageHandle handle{
+    const TexelBufferHandle handle{
         .index = index,
         .generation = m_generations[index],
     };
@@ -196,7 +182,7 @@ ImageHandle RenderImageCollection::create(
     return handle;
 }
 
-bool RenderImageCollection::isValidHandle(ImageHandle handle) const
+bool RenderTexelBufferCollection::isValidHandle(TexelBufferHandle handle) const
 {
     // NOTE:
     // Any changes need to be mirrored in assertValidHandle().
@@ -216,74 +202,48 @@ bool RenderImageCollection::isValidHandle(ImageHandle handle) const
             return false;
     }
     else
-        // ImageHandle generation matching means held generation isn't flagged
-        // unused
+        // TexelBufferHandle generation matching means held generation isn't
+        // flagged unused
         if (handle.generation != m_generations[handle.index])
             return false;
     return true;
 }
 
-vk::Image RenderImageCollection::nativeHandle(ImageHandle handle) const
+vk::Buffer RenderTexelBufferCollection::nativeHandle(
+    TexelBufferHandle handle) const
 {
     assertValidHandle(handle);
 
     return m_resources[handle.index].handle;
 }
 
-const Image &RenderImageCollection::resource(ImageHandle handle) const
+const TexelBuffer &RenderTexelBufferCollection::resource(
+    TexelBufferHandle handle) const
 {
     assertValidHandle(handle);
 
     return m_resources[handle.index];
 }
 
-Span<const vk::ImageView> RenderImageCollection::subresourceViews(
-    ImageHandle handle)
-{
-    assertValidHandle(handle);
-    if (m_subresourceViews.size() <= handle.index)
-        m_subresourceViews.resize(handle.index + 1);
-
-    const Image &image = resource(handle);
-    // Let's be nice and return the single mip view for ergonomics in cases
-    // where the logical resource might have one or many mips.
-    if (image.mipCount == 1)
-        return Span{&image.view, 1};
-
-    InlineArray<vk::ImageView, sMaxMipCount> &views =
-        m_subresourceViews[handle.index];
-    if (views.empty())
-    {
-        views.resize(image.subresourceRange.levelCount);
-        // TODO:
-        // Isolate the last concatenated name if this gets shared resources at
-        // some point? Is that always the 'active' logical resource?
-        const StrSpan debugName = aliasedDebugName(handle);
-        gDevice.createSubresourcesViews(image, debugName, views.mut_span());
-    }
-    WHEELS_ASSERT(views.size() == image.subresourceRange.levelCount);
-
-    return views;
-}
-
-void RenderImageCollection::transition(
-    vk::CommandBuffer cb, ImageHandle handle, ImageState state)
+void RenderTexelBufferCollection::transition(
+    vk::CommandBuffer cb, TexelBufferHandle handle, BufferState state)
 {
     assertValidHandle(handle);
 
     m_resources[handle.index].transition(cb, state);
 }
 
-wheels::Optional<vk::ImageMemoryBarrier2> RenderImageCollection::
-    transitionBarrier(ImageHandle handle, ImageState state, bool force_barrier)
+wheels::Optional<vk::BufferMemoryBarrier2> RenderTexelBufferCollection::
+    transitionBarrier(
+        TexelBufferHandle handle, BufferState state, bool force_barrier)
 {
     assertValidHandle(handle);
 
     return m_resources[handle.index].transitionBarrier(state, force_barrier);
 }
 
-void RenderImageCollection::appendDebugName(
-    ImageHandle handle, wheels::StrSpan debugName)
+void RenderTexelBufferCollection::appendDebugName(
+    TexelBufferHandle handle, wheels::StrSpan debugName)
 {
     assertValidHandle(handle);
 
@@ -296,9 +256,9 @@ void RenderImageCollection::appendDebugName(
     // submits?
     gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::eImage,
+            .objectType = vk::ObjectType::eBuffer,
             .objectHandle = reinterpret_cast<uint64_t>(
-                static_cast<VkImage>(m_resources[handle.index].handle)),
+                static_cast<VkBuffer>(m_resources[handle.index].handle)),
             .pObjectName = m_aliasedDebugNames[handle.index].c_str(),
         });
 
@@ -309,7 +269,7 @@ void RenderImageCollection::appendDebugName(
         m_markedDebugHandle = handle;
 }
 
-void RenderImageCollection::release(ImageHandle handle)
+void RenderTexelBufferCollection::release(TexelBufferHandle handle)
 {
     assertValidHandle(handle);
 
@@ -322,32 +282,34 @@ void RenderImageCollection::release(ImageHandle handle)
     m_generations[handle.index] |= sNotInUseGenerationFlag;
 }
 
-void RenderImageCollection::preserve(ImageHandle handle)
+void RenderTexelBufferCollection::preserve(TexelBufferHandle handle)
 {
     assertValidHandle(handle);
     WHEELS_ASSERT(
         !m_preserved[handle.index] &&
-        "Image is being preseved in two places, ownership gets muddy.");
+        "Buffer is being preseved in two places, ownership gets muddy.");
 
     m_preserved[handle.index] = true;
     m_framesSinceUsed[handle.index] = 0;
 }
 
-wheels::Span<const wheels::String> RenderImageCollection::debugNames() const
+wheels::Span<const wheels::String> RenderTexelBufferCollection::debugNames()
+    const
 {
     return m_debugNames;
 }
 
-ImageHandle RenderImageCollection::activeDebugHandle() const
+TexelBufferHandle RenderTexelBufferCollection::activeDebugHandle() const
 {
     if (!m_markedDebugHandle.has_value() ||
         !isValidHandle(*m_markedDebugHandle))
-        return ImageHandle{};
+        return TexelBufferHandle{};
 
     return *m_markedDebugHandle;
 }
 
-wheels::Optional<wheels::StrSpan> RenderImageCollection::activeDebugName() const
+wheels::Optional<wheels::StrSpan> RenderTexelBufferCollection::activeDebugName()
+    const
 {
     if (m_markedDebugName.has_value())
         return wheels::Optional<wheels::StrSpan>{*m_markedDebugName};
@@ -355,7 +317,7 @@ wheels::Optional<wheels::StrSpan> RenderImageCollection::activeDebugName() const
     return wheels::Optional<wheels::StrSpan>{};
 }
 
-void RenderImageCollection::markForDebug(wheels::StrSpan debugName)
+void RenderTexelBufferCollection::markForDebug(wheels::StrSpan debugName)
 {
     m_markedDebugName = wheels::String{gAllocators.general, debugName};
     // Let's not worry about finding the resource immediately, we'll have it on
@@ -363,13 +325,14 @@ void RenderImageCollection::markForDebug(wheels::StrSpan debugName)
     m_markedDebugHandle.reset();
 }
 
-void RenderImageCollection::clearDebug()
+void RenderTexelBufferCollection::clearDebug()
 {
     m_markedDebugName.reset();
     m_markedDebugHandle.reset();
 }
 
-void RenderImageCollection::assertValidHandle(ImageHandle handle) const
+void RenderTexelBufferCollection::assertValidHandle(
+    TexelBufferHandle handle) const
 {
     // NOTE:
     // Any changes need to be mirrored in isValidHandle()!
@@ -388,19 +351,19 @@ void RenderImageCollection::assertValidHandle(ImageHandle handle) const
             (handle.generation + 1) == storedGeneration);
     }
     else
-        // ImageHandle generation matching means held generation isn't flagged
-        // unused
+        // TexelBufferHandle generation matching means held generation isn't
+        // flagged unused
         WHEELS_ASSERT(handle.generation == m_generations[handle.index]);
 }
 
-wheels::StrSpan RenderImageCollection::aliasedDebugName(
-    ImageHandle handle) const
+wheels::StrSpan RenderTexelBufferCollection::aliasedDebugName(
+    TexelBufferHandle handle) const
 {
     WHEELS_ASSERT(isValidHandle(handle));
     return m_aliasedDebugNames[handle.index];
 }
 
-bool RenderImageCollection::resourceInUse(uint32_t i) const
+bool RenderTexelBufferCollection::resourceInUse(uint32_t i) const
 {
     WHEELS_ASSERT(i < m_generations.size());
     return (m_generations[i] & sNotInUseGenerationFlag) == 0;
@@ -408,7 +371,7 @@ bool RenderImageCollection::resourceInUse(uint32_t i) const
 
 // Silence release build warning
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-void RenderImageCollection::assertUniqueDebugName(
+void RenderTexelBufferCollection::assertUniqueDebugName(
     wheels::StrSpan debugName) const
 {
 #ifndef NDEBUG

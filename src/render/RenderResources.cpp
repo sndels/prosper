@@ -1,5 +1,8 @@
 #include "RenderResources.hpp"
 
+#include "gfx/Device.hpp"
+
+#include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/allocators/utils.hpp>
 
 using namespace wheels;

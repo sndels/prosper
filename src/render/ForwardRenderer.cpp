@@ -1,6 +1,7 @@
 #include "ForwardRenderer.hpp"
 
 #include "gfx/DescriptorAllocator.hpp"
+#include "gfx/Device.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/DrawStats.hpp"
 #include "render/HierarchicalDepthDownsampler.hpp"
