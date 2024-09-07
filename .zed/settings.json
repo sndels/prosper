@@ -21,6 +21,19 @@
       "*.rmiss"
     ]
   },
+  "file_scan_exclusions": [
+    "**/ext",
+    "**/build",
+    "**/build-analysis",
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/.classpath",
+    "**/.settings"
+  ],
   "languages": {
     "C++": {
       "format_on_save": "on",
