@@ -141,6 +141,12 @@ inline void appendEnumVariantsAsDefines(
     }
 }
 
+inline uint32_t getMipCount(uint32_t maxDimension)
+{
+    WHEELS_ASSERT(maxDimension > 0);
+    return 32 - std::countl_zero(maxDimension - 1) + 1;
+}
+
 // Completes the division by rounding up to the next integer when there is a
 // remainder. Assumes both inputs are positive. Returns 0 when dividend is 0.
 template <typename T>
