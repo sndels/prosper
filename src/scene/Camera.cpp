@@ -237,6 +237,8 @@ const CameraParameters &Camera::parameters() const
 
 const mat4 &Camera::clipToCamera() const { return m_clipToCamera; }
 
+const uvec2 &Camera::resolution() const { return m_resolution; }
+
 bool Camera::changedThisFrame() const
 {
     WHEELS_ASSERT(m_initialized);

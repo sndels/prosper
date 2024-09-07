@@ -108,6 +108,7 @@ class Camera
     [[nodiscard]] const CameraTransform &transform() const;
     [[nodiscard]] const CameraParameters &parameters() const;
     [[nodiscard]] const glm::mat4 &clipToCamera() const;
+    [[nodiscard]] const glm::uvec2 &resolution() const;
 
     [[nodiscard]] static float sensorWidth() { return 0.035f; }
 
