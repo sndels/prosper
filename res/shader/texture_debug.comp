@@ -37,24 +37,22 @@ ivec2 inRes() { return max(PC.inRes / (1 << PC.lod), ivec2(1)); }
 
 vec2 aspectCorrectedUv(vec2 uv)
 {
-    vec2 outCoord = uv * PC.outRes;
-    float inAspectRatio = float(inRes().x) / float(inRes().y);
-    float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
-    if (!any(equal(inRes(), PC.outRes)))
+    if (any(notEqual(inRes(), PC.outRes)))
     {
+        vec2 outCoord = uv * PC.outRes;
+        float inAspectRatio = float(inRes().x) / float(inRes().y);
+        float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
         if (inAspectRatio > outAspectRatio)
         {
-            // Scale limited by height
-            float scaledHeight = PC.outRes.x / inAspectRatio;
-            float bottomRow = (PC.outRes.y - scaledHeight) / 2;
-            uv.y = (outCoord.y - bottomRow) / scaledHeight;
+            float scale = inAspectRatio / outAspectRatio;
+            uv.y *= scale;
+            uv.y -= (scale - 1) * .5;
         }
         else
         {
-            // Scale limited by width
-            float scaledWidth = PC.outRes.y * inAspectRatio;
-            float leftColumn = (PC.outRes.x - scaledWidth) / 2;
-            uv.x = (outCoord.x - leftColumn) / scaledWidth;
+            float scale = outAspectRatio / inAspectRatio;
+            uv.x *= scale;
+            uv.x -= (scale - 1) * .5;
         }
     }
     return uv;
@@ -62,28 +60,21 @@ vec2 aspectCorrectedUv(vec2 uv)
 
 vec2 unAspectCorrectedUv(vec2 uv)
 {
-    ivec2 outCoord = ivec2(uv * PC.outRes + .5);
-    float inAspectRatio = float(inRes().x) / float(inRes().y);
-    float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
-    if (!any(equal(inRes(), PC.outRes)))
+    if (any(notEqual(inRes(), PC.outRes)))
     {
+        float inAspectRatio = float(inRes().x) / float(inRes().y);
+        float outAspectRatio = float(PC.outRes.x) / float(PC.outRes.y);
         if (inAspectRatio > outAspectRatio)
         {
-            // Scale limited by height
-            float scaledHeight = PC.outRes.x / inAspectRatio;
-            float bottomRow = (PC.outRes.y - scaledHeight) / 2;
-            // 1.8 is a hack here but result lines up better than with 2
-            float offset = (bottomRow * 1.8) / scaledHeight;
-            uv.y -= (uv.y - .5) * offset;
+            float scale = inAspectRatio / outAspectRatio;
+            uv.y += (scale - 1) * .5;
+            uv.y /= scale;
         }
         else
         {
-            // Scale limited by width
-            float scaledWidth = PC.outRes.y * inAspectRatio;
-            float leftColumn = (PC.outRes.x - scaledWidth) / 2;
-            // 1.8 is a hack here but result lines up better than with 2
-            float offset = (leftColumn * 1.8) / scaledWidth;
-            uv.x -= (uv.x - .5) * offset;
+            float scale = outAspectRatio / inAspectRatio;
+            uv.x += (scale - 1) * .5;
+            uv.x /= scale;
         }
     }
     return uv;
@@ -145,13 +136,15 @@ void main()
     vec2 outUv = (vec2(outCoord) + .5) / vec2(PC.outRes);
     vec2 uv = aspectCorrectedUv(outUv);
 
-    // Have most of the magnifier math happen relative to the output resolution
-    float outInRatio = float(PC.outRes.x) / float(inRes().x);
-    if (flagZoom())
-        outInRatio *= 4;
+    // TODO:
+    // The magnifier doesn't line up when the cursor is near the edges
+    // TODO: This should take both x and y scales into account?
+    // float outInRatio = float(PC.outRes.x) / float(inRes().x);
+    // if (flagZoom())
+    //     outInRatio *= 4;
 
-    if (flagMagnifier() && outInRatio < MAGNIFIER_PX_DIM)
-        uv = magnifierUv(uv);
+    // if (flagMagnifier() && outInRatio < MAGNIFIER_PX_DIM)
+    //     uv = magnifierUv(uv);
 
     if (flagZoom())
         uv = zoom4xUv(uv);
