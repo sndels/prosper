@@ -219,11 +219,7 @@ MeshletCullerFirstPhaseOutput MeshletCuller::recordFirstPhase(
 {
     WHEELS_ASSERT(m_initialized);
 
-    String scopeName{scopeAlloc};
-    scopeName.extend(debugPrefix);
-    scopeName.extend("DrawListFirstPhase");
-
-    PROFILER_CPU_GPU_SCOPE(cb, scopeName.c_str());
+    PROFILER_CPU_GPU_SCOPE(cb, "  DrawListFirstPhase");
 
     const BufferHandle initialList = recordGenerateList(
         scopeAlloc.child_scope(), cb, mode, world, nextFrame, debugPrefix,
@@ -261,11 +257,7 @@ MeshletCullerSecondPhaseOutput MeshletCuller::recordSecondPhase(
 {
     WHEELS_ASSERT(m_initialized);
 
-    String scopeName{scopeAlloc};
-    scopeName.extend(debugPrefix);
-    scopeName.extend("DrawListSecondPhase");
-
-    PROFILER_CPU_GPU_SCOPE(cb, scopeName.c_str());
+    PROFILER_CPU_GPU_SCOPE(cb, "  DrawListSecondPhase")
 
     String argsPrefix{scopeAlloc};
     argsPrefix.extend(debugPrefix);

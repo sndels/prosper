@@ -120,6 +120,8 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 {
     WHEELS_ASSERT(m_initialized);
 
+    PROFILER_CPU_GPU_SCOPE(cb, "Opaque");
+
     OpaqueOutput ret;
     ret.illumination = createIllumination(renderArea.extent, "illumination");
     ret.velocity = createVelocity(renderArea.extent, "velocity");
@@ -159,7 +161,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .ibl = applyIbl,
             .drawType = drawType,
         },
-        drawStats, "OpaqueGeometryFirstPhase");
+        drawStats, "  FirstPhase");
 
     gRenderResources.buffers->release(firstPhaseCullingOutput.dataBuffer);
     gRenderResources.buffers->release(firstPhaseCullingOutput.argumentBuffer);
@@ -202,7 +204,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
                 .secondPhase = true,
                 .drawType = drawType,
             },
-            drawStats, "OpaqueGeometrySecondPhase");
+            drawStats, "  SecondPhase");
 
         gRenderResources.buffers->release(secondPhaseCullingOutput.dataBuffer);
         gRenderResources.buffers->release(
@@ -226,6 +228,8 @@ void ForwardRenderer::recordTransparent(
 {
     WHEELS_ASSERT(m_initialized);
 
+    PROFILER_CPU_GPU_SCOPE(cb, "Transparent");
+
     const MeshletCullerFirstPhaseOutput cullerOutput =
         meshletCuller->recordFirstPhase(
             scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Transparent,
@@ -246,7 +250,7 @@ void ForwardRenderer::recordTransparent(
             .transparents = true,
             .drawType = drawType,
         },
-        drawStats, "TransparentGeometry");
+        drawStats, "  Geometry");
 
     gRenderResources.buffers->release(cullerOutput.dataBuffer);
     gRenderResources.buffers->release(cullerOutput.argumentBuffer);

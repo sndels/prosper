@@ -116,7 +116,7 @@ GBufferRendererOutput GBufferRenderer::record(
     WHEELS_ASSERT(m_initialized);
     WHEELS_ASSERT(drawStats != nullptr);
 
-    PROFILER_CPU_SCOPE("GBuffer");
+    PROFILER_CPU_GPU_SCOPE(cb, "GBuffer");
 
     GBufferRendererOutput ret;
     {
@@ -446,8 +446,7 @@ void GBufferRenderer::recordDraw(
     const vk::DescriptorSet ds =
         m_meshSets[nextFrame * 2 + (isSecondPhase ? 1u : 0u)];
 
-    const char *debugName =
-        isSecondPhase ? "GBufferSecondPass" : "GBufferFirstPass";
+    const char *debugName = isSecondPhase ? "  SecondPhase" : "  FirstPhase";
 
     updateDescriptorSet(
         scopeAlloc.child_scope(), ds,

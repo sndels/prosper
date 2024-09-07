@@ -99,11 +99,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
 {
     WHEELS_ASSERT(m_initialized);
 
-    String passName{scopeAlloc};
-    passName.extend(debugPrefix);
-    passName.extend("HiZDownsampler");
-
-    PROFILER_CPU_SCOPE(passName.c_str());
+    PROFILER_CPU_SCOPE("  HiZDownsampler");
 
     const Image &inDepth = gRenderResources.images->resource(inNonLinearDepth);
     WHEELS_ASSERT(
@@ -209,7 +205,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
         m_counterNotCleared = false;
     }
 
-    PROFILER_GPU_SCOPE(cb, passName.c_str());
+    PROFILER_GPU_SCOPE(cb, "  HiZDownsampler");
 
     const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
