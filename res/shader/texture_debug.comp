@@ -193,8 +193,17 @@ void main()
         sampleUv /= inRes();
 
         if (all(equal(outCoord, ivec2(0, 0))))
-            outPeekColor.color = textureLod(
-                sampler2D(inColor, nearestSampler), sampleUv, float(PC.lod));
+        {
+            if (all(greaterThanEqual(sampleUv, vec2(0))) &&
+                all(lessThanEqual(sampleUv, vec2(1))))
+            {
+                outPeekColor.color = textureLod(
+                    sampler2D(inColor, nearestSampler), sampleUv,
+                    float(PC.lod));
+            }
+            else
+                outPeekColor.color = vec4(1.0 / 0.0);
+        }
 
         // Snap cursor in output resolution to tie it to the correct texel
         // visually
