@@ -214,9 +214,8 @@ void compress(
     // First calculate mip count down to 1x1
     const int32_t fullMipLevelCount =
         options.generateMipMaps
-            ? asserted_cast<int32_t>(floor(
-                  log2(std::max(pixels.extent.width, pixels.extent.height)))) +
-                  1
+            ? asserted_cast<int32_t>(getMipCount(
+                  std::max(pixels.extent.width, pixels.extent.height)))
             : 1;
     // Truncate to 4x4 for the final level
     const uint32_t mipLevelCount =

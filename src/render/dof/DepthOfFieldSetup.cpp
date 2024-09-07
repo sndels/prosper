@@ -88,9 +88,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             getRoundedUpHalfExtent2D(input.illumination);
 
         const uint32_t mipCount =
-            static_cast<uint32_t>(floor(log2(static_cast<float>(
-                std::max(renderExtent.width, renderExtent.height))))) +
-            1;
+            getMipCount(std::max(renderExtent.width, renderExtent.height));
         ret.halfResIllumination = gRenderResources.images->create(
             ImageDescription{
                 .format = sIlluminationFormat,

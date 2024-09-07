@@ -354,9 +354,7 @@ void WorldData::init(
     }
 
     const uint32_t radianceMips =
-        asserted_cast<uint32_t>(floor(std::log2((
-            static_cast<float>(SkyboxResources::sSkyboxRadianceResolution))))) +
-        1;
+        getMipCount(SkyboxResources::sSkyboxRadianceResolution);
     m_skyboxResources.radiance = gDevice.createImage(ImageCreateInfo{
         .desc =
             ImageDescription{

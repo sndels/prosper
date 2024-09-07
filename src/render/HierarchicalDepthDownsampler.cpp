@@ -119,7 +119,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
     const uint32_t hizMip0Width = std::bit_ceil(inDepth.extent.width) / 2;
     const uint32_t hizMip0Height = std::bit_ceil(inDepth.extent.height) / 2;
     const uint32_t hizMipCount =
-        32 - std::countl_zero(std::max(hizMip0Width, hizMip0Height));
+        getMipCount(std::max(hizMip0Width, hizMip0Height));
     WHEELS_ASSERT(hizMipCount <= sMaxMips);
 
     uvec2 dispatchThreadGroupCountXY{};
