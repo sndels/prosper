@@ -46,6 +46,8 @@ struct GeneratorPCBlock
 
 struct CullerPCBlock
 {
+    uvec2 hizResolution{0};
+    vec2 hizUvScale{1.f};
     // 0 means no hiz bound
     uint hizMipCount{0};
     uint32_t outputSecondPhaseInput{0};
@@ -670,14 +672,20 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
         worldByteOffsets.modelInstanceScales,
     }};
 
-    const CullerPCBlock pcBlock{
-        .hizMipCount =
-            input.hierarchicalDepth.has_value()
-                ? gRenderResources.images->resource(*input.hierarchicalDepth)
-                      .mipCount
-                : 0,
+    CullerPCBlock pcBlock{
         .outputSecondPhaseInput = outputSecondPhaseInput ? 1u : 0u,
     };
+    if (input.hierarchicalDepth.has_value())
+    {
+        const Image &hizImage =
+            gRenderResources.images->resource(*input.hierarchicalDepth);
+
+        pcBlock.hizResolution =
+            uvec2{hizImage.extent.width, hizImage.extent.height};
+        pcBlock.hizUvScale =
+            vec2{cam.resolution()} / (2.f * vec2{pcBlock.hizResolution});
+        pcBlock.hizMipCount = hizImage.mipCount;
+    }
 
     const vk::Buffer argumentsHandle =
         gRenderResources.buffers->nativeHandle(input.argumentBuffer);

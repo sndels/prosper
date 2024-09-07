@@ -17,6 +17,7 @@ spdGlobalAtomic;
 
 layout(push_constant) uniform ReducePC
 {
+    ivec2 inputResolution;
     ivec2 topMipResolution;
     uint numWorkGroupsPerSlice;
     uint mips;
@@ -33,7 +34,7 @@ shared AU1 spdCounter;
 AF4 SpdLoadSourceImage(ASU2 p, AU1 slice)
 {
     // Clamp to edge
-    p = min(p, PC.topMipResolution - 1);
+    p = min(p, PC.inputResolution - 1);
 
     // TODO:
     // Single fetch per pixel feels excessive instead of 4 texel gather. Does

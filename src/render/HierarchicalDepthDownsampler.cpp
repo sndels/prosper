@@ -5,6 +5,8 @@
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
 
+#include <bit>
+
 using namespace glm;
 using namespace wheels;
 
@@ -12,6 +14,7 @@ namespace
 {
 
 const uint32_t sGroupSizeX = 256u;
+// This should work up to 4k
 const uint32_t sMaxMips = 12;
 const vk::Format sHierarchicalDepthFormat = vk::Format::eR32Sfloat;
 
@@ -34,6 +37,7 @@ void SpdSetup(
 
 struct PCBlock
 {
+    ivec2 inputResolution;
     ivec2 topMipResolution;
     uint32_t numWorkGroupsPerSlice;
     uint32_t mips;
@@ -110,25 +114,29 @@ ImageHandle HierarchicalDepthDownsampler::record(
     WHEELS_ASSERT(inDepth.extent.width > 1);
     WHEELS_ASSERT(inDepth.extent.height > 1);
 
-    // Only floor as we want the number of mips to generate, not including mip 0
+    // Round up to the next power of two to stay conservative on the
+    // bottom/right edge that could get cut out otherwise
+    const uint32_t hizMip0Width = std::bit_ceil(inDepth.extent.width) / 2;
+    const uint32_t hizMip0Height = std::bit_ceil(inDepth.extent.height) / 2;
     const uint32_t hizMipCount =
-        asserted_cast<uint32_t>(floor(std::log2((static_cast<float>(
-            std::max(inDepth.extent.width, inDepth.extent.height))))));
-    // This should work up to 4k
+        32 - std::countl_zero(std::max(hizMip0Width, hizMip0Height));
     WHEELS_ASSERT(hizMipCount <= sMaxMips);
-    const uint32_t hizMip0Width = inDepth.extent.width >> 1;
-    const uint32_t hizMip0Height = inDepth.extent.height >> 1;
 
     uvec2 dispatchThreadGroupCountXY{};
     PCBlock pcBlock{
-        .topMipResolution =
+        .inputResolution =
             ivec2{
                 asserted_cast<int32_t>(inDepth.extent.width),
                 asserted_cast<int32_t>(inDepth.extent.height),
             },
+        .topMipResolution =
+            ivec2{
+                asserted_cast<int32_t>(hizMip0Width),
+                asserted_cast<int32_t>(hizMip0Height),
+            },
         .mips = hizMipCount,
     };
-    const uvec4 rectInfo{0, 0, inDepth.extent.width, inDepth.extent.height};
+    const uvec4 rectInfo{0, 0, hizMip0Width * 2, hizMip0Height * 2};
     SpdSetup(
         dispatchThreadGroupCountXY, pcBlock.numWorkGroupsPerSlice, rectInfo);
 

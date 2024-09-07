@@ -53,6 +53,8 @@ layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
 
 layout(push_constant) uniform DrawListCullerPC
 {
+    uvec2 hizResolution;
+    vec2 hizUvScale;
     // 0 means no hiz bound
     uint hizMipCount;
     uint outputSecondPhaseInput;
@@ -126,27 +128,12 @@ bool isSphereOccluded(MeshletBounds bounds)
         return false;
     vec2 aabbDiagonalPx = aabbScreen.zw - aabbScreen.xy;
     aabbDiagonalPx *= camera.resolution;
-    float pxRadius = length(aabbDiagonalPx);
+    float pxDiameter = length(aabbDiagonalPx);
 
     // Sample from the first mip where the whole sphere will fit a 2x2 texel
     // area. floor without + 1 as hiz mip 0 is depth mip 1. clamp to 0 as < 1
     // radii would be negative.
-    uint hizMip = uint(max(floor(log2(pxRadius)), 0));
-    if (hizMip >= PC.hizMipCount)
-        return false;
-
-    // Figure out what uv to sample hiz from
-    vec4 centerClipPos = camera.cameraToClip * centerInView;
-    centerClipPos.xyz /= centerClipPos.w;
-
-    vec2 uv = centerClipPos.xy * .5 + .5;
-    // Pick the closest 2x2 set of texels around the sample for gather
-    uv *= camera.resolution;
-    uv -= .5;
-    uv = floor(uv);
-    uv /= camera.resolution;
-    // Sampler should clamp to a border of 1 so that out of bounds samples don't
-    // get incorrectly culled
+    uint hizMip = uint(max(floor(log2(pxDiameter)), 0));
 
     // Figure out the closest depth on the bounds for conservative culling
     // TODO:
@@ -156,6 +143,35 @@ bool isSphereOccluded(MeshletBounds bounds)
     vec4 closestClipPos =
         camera.cameraToClip * camera.worldToCamera * vec4(closestWorldPos, 1);
     float closestDepth = closestClipPos.z / closestClipPos.w;
+
+    if (hizMip >= PC.hizMipCount - 1)
+    {
+        float hizDepth =
+            texture(
+                sampler2D(
+                    inHierarchicalDepth[nonuniformEXT(PC.hizMipCount - 1)],
+                    depthSampler),
+                vec2(0))
+                .r;
+        return closestDepth < hizDepth;
+    }
+    uvec2 mipResolution = PC.hizResolution >> hizMip;
+
+    // Figure out what uv to sample hiz from
+    vec4 centerClipPos = camera.cameraToClip * centerInView;
+    centerClipPos.xyz /= centerClipPos.w;
+
+    vec2 uv = centerClipPos.xy * .5 + .5;
+    // HiZ is rounded up to the next power of 2 so we need to fix up the uv
+    uv *= PC.hizUvScale;
+    // Pick the closest 2x2 set of texels around the sample for gather
+    uv *= mipResolution;
+    uv -= .5;
+    uv = floor(uv);
+    uv += .5;
+    uv /= mipResolution;
+    // Sampler should clamp to a border of 1 so that out of bounds samples don't
+    // get incorrectly culled
 
     // Gather the neighborhood around the sample point
     // Let's not worry about the cases when the whole bounds are guaranteed to
