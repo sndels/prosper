@@ -33,7 +33,7 @@ bool flagMagnifier() { return bitfieldExtract(PC.flags, 5, 1) == 1; }
 vec2 zoom4xUv(vec2 uv) { return uv * .25 + .375; }
 vec2 unzoom4xUv(vec2 uv) { return (uv - .375) * 4.; }
 
-ivec2 inRes() { return PC.inRes / (1 << PC.lod); }
+ivec2 inRes() { return max(PC.inRes / (1 << PC.lod), ivec2(1)); }
 
 vec2 aspectCorrectedUv(vec2 uv)
 {
