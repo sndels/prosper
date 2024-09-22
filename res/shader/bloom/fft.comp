@@ -1,0 +1,120 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+#include "../common/math.glsl"
+#include "../shared/shader_structs/push_constants/bloom/fft.h"
+
+layout(set = 0, binding = 0) uniform readonly image2D inDataReal;
+layout(set = 0, binding = 1) uniform readonly image2D inDataImag;
+layout(set = 0, binding = 2) uniform writeonly image2D outDataReal;
+layout(set = 0, binding = 3) uniform writeonly image2D outDataImag;
+
+layout(push_constant) uniform PushConstants { FftPC PC; };
+
+bool flagTranspose() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
+
+vec2 loadInput(ivec2 p)
+{
+    // TODO:
+    // This check should only be needed for the first pass that samples from the
+    // potentially smaller input texture
+    if (any(greaterThanEqual(p, PC.inputResolution)))
+        return vec2(0);
+
+    vec2 c;
+    c.x = imageLoad(inDataReal, p).x;
+    c.y = imageLoad(inDataImag, p).x;
+    return c;
+}
+
+void storeOutput(ivec2 p, vec2 c)
+{
+    imageStore(outDataReal, p, vec4(c.x, 0, 0, 0));
+    imageStore(outDataImag, p, vec4(c.y, 0, 0, 0));
+}
+
+// Based on
+// High Performance Discrete Fourier Transforms on Graphics Processors
+// By Govindaraju et al.
+
+uint expand(uint idxL, uint N1, uint N2)
+{
+    return (idxL / N1) * N1 * N2 + (idxL % N1);
+}
+
+vec2 mulI(vec2 c) { return vec2(-c.y, c.x); }
+
+vec2 mulComplex(vec2 a, vec2 b)
+{
+    return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+void decimateRadix2(inout vec2 v[2])
+{
+    vec2 v0 = v[0];
+    vec2 v1 = v[1];
+    v[0] = v0 + v1;
+    v[1] = v0 - v1;
+}
+
+void decimateRadix4(inout vec2 v[4])
+{
+    vec2 v0 = v[0];
+    vec2 v1 = v[1];
+    vec2 v2 = v[2];
+    vec2 v3 = v[3];
+    v[0] = v0 + v1 + v2 + v3;
+    v[1] = v0 - mulI(v1) - v2 + mulI(v3);
+    v[2] = v0 - v1 + v2 - v3;
+    v[3] = v0 + mulI(v1) - v2 - mulI(v3);
+}
+
+void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
+{
+    const uint R = 2;
+    vec2 v[R];
+
+    uint idxS = j;
+    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
+    for (uint r = 0; r < R; ++r)
+    {
+        ivec2 p = doTranspose ? ivec2(row, idxS + r * N / R)
+                              : ivec2(idxS + r * N / R, row);
+        // TODO:
+        // Use some approximation of cos/sin here? These are expensive
+        v[r] = mulComplex(loadInput(p), vec2(cos(r * angle), sin(r * angle)));
+    }
+
+    decimateRadix2(v);
+
+    uint idxD = expand(j, Ns, R);
+    for (uint r = 0; r < R; ++r)
+    {
+        ivec2 p =
+            doTranspose ? ivec2(row, idxD + r * Ns) : ivec2(idxD + r * Ns, row);
+        storeOutput(p, v[r]);
+    }
+}
+
+// TODO: fftIterationRadix4
+
+layout(local_size_x = GROUP_X) in;
+void main()
+{
+    uint b = gl_WorkGroupID.x;
+    uint t = gl_LocalInvocationIndex;
+    bool doTranspose = flagTranspose();
+    uint n = doTranspose ? PC.outputResolution.y : PC.outputResolution.x;
+    uint j = b * GROUP_X + t;
+    uint row = gl_WorkGroupID.y;
+
+    if (j >= n / PC.r)
+        return;
+
+    if (PC.r == 2)
+        fftIterationRadix2(j, row, n, PC.ns, doTranspose);
+    // TODO:
+    // else if (PC.radix == 4)
+    //     fftIterationRadix4(j, row, PC.inputLength, PC.Ns);
+}
