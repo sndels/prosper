@@ -90,6 +90,7 @@ class Renderer
     wheels::OwningPtr<ImGuiRenderer> m_imguiRenderer;
     wheels::OwningPtr<TextureDebug> m_textureDebug;
     wheels::OwningPtr<DepthOfField> m_depthOfField;
+    wheels::OwningPtr<Bloom> m_bloom;
     wheels::OwningPtr<ImageBasedLighting> m_imageBasedLighting;
     wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
     wheels::OwningPtr<TextureReadback> m_textureReadback;
@@ -104,6 +105,7 @@ class Renderer
     bool m_renderDeferred{true};
     bool m_deferredRt{false};
     bool m_renderDoF{false};
+    bool m_applyBloom{false};
     bool m_applyIbl{false};
     bool m_applyTaa{true};
     bool m_applyJitter{true};
