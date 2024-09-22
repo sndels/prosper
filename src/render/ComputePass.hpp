@@ -134,7 +134,10 @@ class ComputePass
 
     vk::DescriptorSetLayout m_storageSetLayout;
     uint32_t m_storageSetIndex{0xFFFF'FFFF};
-    static const size_t sPerFrameRecordLimit = 5;
+    // TODO:
+    // This much is only needed by FFT. Should use a small vector with less
+    // inline space instead?
+    static const size_t sPerFrameRecordLimit = 64;
     size_t m_nextRecordIndex{0};
     wheels::StaticArray<
         wheels::InlineArray<vk::DescriptorSet, sPerFrameRecordLimit>,
