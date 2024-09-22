@@ -74,6 +74,7 @@ ComplexImagePair BloomFft::record(
     WHEELS_ASSERT(m_initialized);
 
     // TODO:
+    // - Twiddle LUT
     // - Shared memory version
     // - Two components at a time
     // - Two passes over the data for four components
