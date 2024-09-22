@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_FWD_HPP
 #define PROSPER_RENDER_FWD_HPP
 
+#include "bloom/Fwd.hpp"
 #include "dof/Fwd.hpp"
 #include "rtdi/Fwd.hpp"
 
