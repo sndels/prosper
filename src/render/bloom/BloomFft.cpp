@@ -7,6 +7,7 @@
 #include <bit>
 #include <imgui.h>
 #include <shader_structs/push_constants/bloom/fft.h>
+#include <utility>
 
 using namespace glm;
 using namespace wheels;
@@ -23,6 +24,16 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
         .debugName = String{alloc, "BloomFftCS"},
         .groupSize = {64, 1, 1},
     };
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+bool isPowerOf(uint32_t n, uint32_t base)
+{
+    uint32_t v = base;
+    while (v < n)
+        v *= base;
+
+    return v == n;
 }
 
 } // namespace
@@ -63,7 +74,6 @@ ComplexImagePair BloomFft::record(
     WHEELS_ASSERT(m_initialized);
 
     // TODO:
-    // - Radix4
     // - Shared memory version
     // - Two components at a time
     // - Two passes over the data for four components
@@ -85,44 +95,23 @@ ComplexImagePair BloomFft::record(
         .width = outputDim,
         .height = outputDim,
     };
+    const ImageDescription targetDesc{
+        .format = sFftFormat,
+        .width = outputExtent.width,
+        .height = outputExtent.height,
+        .usageFlags =
+            vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage,
+    };
+    const ImageHandle pingReal = gRenderResources.images->create(
+        targetDesc, inverse ? "BloomInvFftPingReal" : "BloomFftPingReal");
+    const ImageHandle pingImag = gRenderResources.images->create(
+        targetDesc, inverse ? "BloomInvFftPingImag" : "BloomFftPingImag");
+    const ImageHandle pongReal = gRenderResources.images->create(
+        targetDesc, inverse ? "BloomInvFftPongReal" : "BloomFftPongReal");
+    const ImageHandle pongImag = gRenderResources.images->create(
+        targetDesc, inverse ? "BloomInvFftPongImag" : "BloomFftPongImag");
 
-    ImageHandle const pingReal = gRenderResources.images->create(
-        ImageDescription{
-            .format = sFftFormat,
-            .width = outputExtent.width,
-            .height = outputExtent.height,
-            .usageFlags = vk::ImageUsageFlagBits::eSampled |
-                          vk::ImageUsageFlagBits::eStorage,
-        },
-        inverse ? "BloomInvFftPingReal" : "BloomFftPingReal");
-    ImageHandle const pingImag = gRenderResources.images->create(
-        ImageDescription{
-            .format = sFftFormat,
-            .width = outputExtent.width,
-            .height = outputExtent.height,
-            .usageFlags = vk::ImageUsageFlagBits::eSampled |
-                          vk::ImageUsageFlagBits::eStorage,
-        },
-        inverse ? "BloomInvFftPingImag" : "BloomFftPingImag");
-    ImageHandle const pongReal = gRenderResources.images->create(
-        ImageDescription{
-            .format = sFftFormat,
-            .width = outputExtent.width,
-            .height = outputExtent.height,
-            .usageFlags = vk::ImageUsageFlagBits::eSampled |
-                          vk::ImageUsageFlagBits::eStorage,
-        },
-        inverse ? "BloomInvFftPongReal" : "BloomFftPongReal");
-    ImageHandle const pongImag = gRenderResources.images->create(
-        ImageDescription{
-            .format = sFftFormat,
-            .width = outputExtent.width,
-            .height = outputExtent.height,
-            .usageFlags = vk::ImageUsageFlagBits::eSampled |
-                          vk::ImageUsageFlagBits::eStorage,
-        },
-        inverse ? "BloomInvFftPongImag" : "BloomFftPongImag");
-
+    const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first
     IterationData iterData{
         .input =
@@ -136,10 +125,9 @@ ComplexImagePair BloomFft::record(
                 .imag = pingImag,
             },
         .ns = 1,
-        .transpose = inverse,
+        .r = needsRadix2 ? 2u : 4u,
+        .transpose = false,
     };
-    iterData.r = 2;
-    // TODO: Start with  R=4 if divides evenly already?
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
     iterData.input = ComplexImagePair{
         .real = pingReal,
@@ -150,7 +138,7 @@ ComplexImagePair BloomFft::record(
         .imag = pongImag,
     };
     iterData.ns *= iterData.r;
-    // TODO: iterData.r=4;
+    iterData.r = 4;
 
     while (iterData.ns < outputDim)
     {
@@ -163,9 +151,8 @@ ComplexImagePair BloomFft::record(
 
     // Columns next
     iterData.ns = 1;
-    iterData.r = 2;
-    iterData.transpose = !inverse;
-    // TODO: Start with  R=4 if divides evenly already?
+    iterData.r = needsRadix2 ? 2u : 4u;
+    iterData.transpose = true;
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
     {
         const ComplexImagePair tmp = iterData.input;
@@ -173,7 +160,7 @@ ComplexImagePair BloomFft::record(
         iterData.output = tmp;
     }
     iterData.ns *= iterData.r;
-    // TODO: iterData.r=4;
+    iterData.r = 4;
 
     while (iterData.ns < outputDim)
     {
@@ -240,7 +227,7 @@ void BloomFft::doIteration(
             }},
         });
 
-    vk::DescriptorSet const descriptorSet = m_computePass.storageSet(nextFrame);
+    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     const FftPC pcBlock{
         .inputResolution =
