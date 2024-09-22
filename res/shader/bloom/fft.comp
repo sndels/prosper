@@ -97,7 +97,32 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
     }
 }
 
-// TODO: fftIterationRadix4
+void fftIterationRadix4(uint j, uint row, uint N, uint Ns, bool doTranspose)
+{
+    const uint R = 4;
+    vec2 v[R];
+
+    uint idxS = j;
+    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
+    for (uint r = 0; r < R; ++r)
+    {
+        float col = idxS + r * N / R;
+        ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
+        // TODO:
+        // Use some approximation of cos/sin here? These are expensive
+        v[r] = mulComplex(loadInput(p), vec2(cos(r * angle), sin(r * angle)));
+    }
+
+    decimateRadix4(v);
+
+    uint idxD = expand(j, Ns, R);
+    for (uint r = 0; r < R; ++r)
+    {
+        float col = idxD + r * Ns;
+        ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
+        storeOutput(p, v[r]);
+    }
+}
 
 layout(local_size_x = GROUP_X) in;
 void main()
@@ -114,7 +139,6 @@ void main()
 
     if (PC.r == 2)
         fftIterationRadix2(j, row, n, PC.ns, doTranspose);
-    // TODO:
-    // else if (PC.radix == 4)
-    //     fftIterationRadix4(j, row, PC.inputLength, PC.Ns);
+    else if (PC.r == 4)
+        fftIterationRadix4(j, row, n, PC.ns, doTranspose);
 }
