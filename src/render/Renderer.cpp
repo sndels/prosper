@@ -19,6 +19,7 @@
 #include "render/TextureDebug.hpp"
 #include "render/TextureReadback.hpp"
 #include "render/ToneMap.hpp"
+#include "render/bloom/Bloom.hpp"
 #include "render/dof/DepthOfField.hpp"
 #include "rtdi/RtDirectIllumination.hpp"
 #include "scene/Camera.hpp"
@@ -141,6 +142,7 @@ Renderer::Renderer() noexcept
 , m_imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
 , m_textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
 , m_depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
+, m_bloom{OwningPtr<Bloom>{gAllocators.general}}
 , m_imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
 , m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
 , m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
@@ -189,6 +191,7 @@ void Renderer::init(
     m_imguiRenderer->init(swapchainConfig);
     m_textureDebug->init(scopeAlloc.child_scope());
     m_depthOfField->init(scopeAlloc.child_scope(), camDsLayout);
+    m_bloom->init(scopeAlloc.child_scope());
     m_imageBasedLighting->init(scopeAlloc.child_scope());
     m_temporalAntiAliasing->init(scopeAlloc.child_scope(), camDsLayout);
     m_textureReadback->init(scopeAlloc.child_scope());
@@ -202,6 +205,7 @@ void Renderer::startFrame()
     m_hierarchicalDepthDownsampler->startFrame();
     m_forwardRenderer->startFrame();
     m_depthOfField->startFrame();
+    m_bloom->startFrame();
     m_textureReadback->startFrame();
 
     // TODO:
@@ -249,6 +253,7 @@ void Renderer::recompileShaders(
     m_textureDebug->recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_depthOfField->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout);
+    m_bloom->recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_imageBasedLighting->recompileShaders(
         scopeAlloc.child_scope(), changedFiles);
     m_temporalAntiAliasing->recompileShaders(
@@ -291,6 +296,9 @@ bool Renderer::drawUi(Camera &cam)
     // TODO: Droplist for main renderer type
     rtDirty |= ImGui::Checkbox("Reference RT", &m_referenceRt) && m_referenceRt;
     rtDirty |= ImGui::Checkbox("Depth of field (WIP)", &m_renderDoF);
+    ImGui::Checkbox("Bloom", &m_applyBloom);
+    if (m_applyBloom)
+        m_bloom->drawUi();
     ImGui::Checkbox("Temporal Anti-Aliasing", &m_applyTaa);
 
     if (!m_referenceRt)
@@ -518,6 +526,17 @@ void Renderer::render(
 
             gRenderResources.images->release(illumination);
             illumination = dofOutput.combinedIlluminationDoF;
+        }
+
+        if (m_applyBloom)
+        {
+            const Bloom::Output bloomOutput = m_bloom->record(
+                scopeAlloc.child_scope(), cb,
+                Bloom::Input{
+                    .illumination = illumination,
+                },
+                nextFrame);
+            gRenderResources.images->release(bloomOutput.illuminationWithBloom);
         }
 
         gRenderResources.images->release(velocity);
