@@ -82,7 +82,8 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
         ivec2 p = doTranspose ? ivec2(row, idxS + r * N / R)
                               : ivec2(idxS + r * N / R, row);
         // TODO:
-        // Use some approximation of cos/sin here? These are expensive
+        // Use some kind of LUT for the sines and cosines here, like ryg
+        // suggests?
         v[r] = mulComplex(loadInput(p), vec2(cos(r * angle), sin(r * angle)));
     }
 
@@ -109,7 +110,8 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns, bool doTranspose)
         float col = idxS + r * N / R;
         ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
         // TODO:
-        // Use some approximation of cos/sin here? These are expensive
+        // Use some kind of LUT for the sines and cosines here, like ryg
+        // suggests?
         v[r] = mulComplex(loadInput(p), vec2(cos(r * angle), sin(r * angle)));
     }
 
