@@ -25,6 +25,16 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     };
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+bool isPowerOf(uint32_t n, uint32_t base)
+{
+    uint32_t v = base;
+    while (v < n)
+        v *= base;
+
+    return v == n;
+}
+
 } // namespace
 
 void BloomFft::init(ScopedScratch scopeAlloc)
@@ -63,7 +73,6 @@ ComplexImagePair BloomFft::record(
     WHEELS_ASSERT(m_initialized);
 
     // TODO:
-    // - Radix4
     // - Shared memory version
     // - Two components at a time
     // - Two passes over the data for four components
@@ -124,6 +133,10 @@ ComplexImagePair BloomFft::record(
         inverse ? "BloomInvFftPongImag" : "BloomFftPongImag");
 
     // Rows first
+    const bool needsRadix2 = !isPowerOf(outputDim, 4u);
+    // Need to mirror the order of the radix passes on inverse
+    const bool radix2First = needsRadix2 && !inverse;
+    const bool radix2Last = needsRadix2 && inverse;
     IterationData iterData{
         .input =
             ComplexImagePair{
@@ -136,9 +149,9 @@ ComplexImagePair BloomFft::record(
                 .imag = pingImag,
             },
         .ns = 1,
+        .r = radix2First ? 2u : 4u,
         .transpose = inverse,
     };
-    iterData.r = 2;
     // TODO: Start with  R=4 if divides evenly already?
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
     iterData.input = ComplexImagePair{
@@ -150,10 +163,15 @@ ComplexImagePair BloomFft::record(
         .imag = pongImag,
     };
     iterData.ns *= iterData.r;
-    // TODO: iterData.r=4;
+    iterData.r = 4;
 
     while (iterData.ns < outputDim)
     {
+        // Make sure we switch back to radix2 on the final iteration if the
+        // input is not a power of 4 and we didn't do radix2 on the first pass'
+        if (radix2Last && iterData.ns * 2 == outputDim)
+            iterData.r = 2;
+
         doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
         const ComplexImagePair tmp = iterData.input;
         iterData.input = iterData.output;
@@ -163,7 +181,7 @@ ComplexImagePair BloomFft::record(
 
     // Columns next
     iterData.ns = 1;
-    iterData.r = 2;
+    iterData.r = radix2First ? 2u : 4u;
     iterData.transpose = !inverse;
     // TODO: Start with  R=4 if divides evenly already?
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
@@ -173,10 +191,15 @@ ComplexImagePair BloomFft::record(
         iterData.output = tmp;
     }
     iterData.ns *= iterData.r;
-    // TODO: iterData.r=4;
+    iterData.r = 4;
 
     while (iterData.ns < outputDim)
     {
+        // Make sure we switch back to radix2 on the final iteration if the
+        // input is not a power of 4 and we didn't do radix2 on the first pass'
+        if (radix2Last && iterData.ns * 2 == outputDim)
+            iterData.r = 2;
+
         doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
         const ComplexImagePair tmp = iterData.input;
         iterData.input = iterData.output;
