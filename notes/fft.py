@@ -33,17 +33,54 @@ def decimate(v: List[complex]) -> None:
 def expand(idxL: int, N1: int, N2: int) -> int:
     return (idxL // N1) * N1 * N2 + (idxL % N1)
 
+# Accessed with twiddleLut[R][Ns][j][r]
+twiddleLut = dict()
+
+def fillTwiddleLut(N: int):
+    global twiddleLut
+
+    twiddleLut[2] = dict()
+    twiddleLut[4] = dict()
+
+    R=4
+    Ns=1
+    while Ns < N:
+        twiddleLut[R][Ns] = dict()
+        for j in range(0, N // R):
+            angle = -2.0 * math.pi * (j % Ns) / (Ns * R)
+            twiddleLut[R][Ns][j] = [complex(math.cos(r * angle), math.sin(r * angle)) for r in range(0, R)]
+        Ns *= R
+
+    # Radix-2 is only used as the first iteration
+    R=2
+    Ns=1
+    twiddleLut[R][Ns] = dict()
+    for j in range(0, N // R):
+        angle = -2.0 * math.pi * (j % Ns) / (Ns * R)
+        twiddleLut[R][Ns][j] = [complex(math.cos(r * angle), math.sin(r * angle)) for r in range(0, R)]
+    Ns *= R
+
+    # Radix-4 Ns differ when Radix-2 is applied on the first pass
+    R=4
+    while Ns < N:
+        twiddleLut[R][Ns] = dict()
+        for j in range(0, N // R):
+            angle = -2.0 * math.pi * (j % Ns) / (Ns * R)
+            twiddleLut[R][Ns][j] = [complex(math.cos(r * angle), math.sin(r * angle)) for r in range(0, R)]
+        Ns *= R
+
+
+def twiddle(j:int, r:int, Ns:int, R:int):
+    return twiddleLut[R][Ns][j][r]
 
 def fftIteration(
     j: int, N: int, R: int, Ns: int, data0: List[complex], data1: List[complex]
 ) -> None:
     v = [complex(0, 0) for i in range(R)]
     idxS = j
-    angle = -2.0 * math.pi * (j % Ns) / (Ns * R)
     for r in range(R):
         v[r] = data0[idxS + r * (N // R)]
-        # TODO: sin/cos are expensive. lookups or some approx better?
-        v[r] *= complex(math.cos(r * angle), math.sin(r * angle))
+        v[r] *= twiddle(j, r, Ns, R);
 
     decimate(v)
 
@@ -113,11 +150,13 @@ def main():
     N = 2
     while N < 20000:
         print(f"N={N}")
+        fillTwiddleLut(N)
         fv = [f(i, N) for i in range(N)]
         data = [complex(v, 0) for v in fv]
         data = fft(N, data)
         data = ifft(N, data)
         delta = sum([abs(v - c) for (v, c) in zip(fv, data)])
+        assert delta <  1e-10
         print(delta)
         N *= 2
 
