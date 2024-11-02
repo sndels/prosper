@@ -33,17 +33,47 @@ def decimate(v: List[complex]) -> None:
 def expand(idxL: int, N1: int, N2: int) -> int:
     return (idxL // N1) * N1 * N2 + (idxL % N1)
 
+twiddleLutFlat = []
+
+def getR4Offset(Ns: int):
+    # These are integers so we could do this with clz
+    offset = 0
+    while Ns > 1:
+        Ns //= 2
+        offset += Ns
+
+    # One set for R=2, Ns ==1 and the rest for R=4 Ns=1,2,4,8...
+    return offset * 4
+
+def fillTwiddleLut(N: int):
+    global twiddleLutFlat
+
+    twiddleLutFlat = []
+
+    R=4
+    Ns=1
+    while Ns < N:
+        for j in range(0, Ns):
+            angle = -2.0 * math.pi * j / (Ns * R)
+            for r in range(0, R):
+                twiddleLutFlat.append(complex(math.cos(r * angle), math.sin(r * angle)))
+        # We'll hit Ns for all powers of 2, half with first iteration at R=4 and half with first iteration at R=2
+        Ns *= 2
+
+def twiddle(j:int, r:int, Ns:int, N:int, R:int):
+    if (R == 2):
+        return complex(1, 0);
+
+    return twiddleLutFlat[getR4Offset(Ns) + (j % Ns) * R + r]
 
 def fftIteration(
    i:int, j: int, N: int, R: int, Ns: int, data0: List[List[complex]], data1: List[List[complex]]
 ) -> None:
     v = [complex(0, 0) for i in range(R)]
     idxS = j
-    angle = -2.0 * math.pi * (j % Ns) / (Ns * R)
     for r in range(R):
         v[r] = data0[i][idxS + r * (N // R)]
-        # TODO: sin/cos are expensive. lookups or some approx better?
-        v[r] *= complex(math.cos(r * angle), math.sin(r * angle))
+        v[r] *= twiddle(j, r, Ns, N, R)
 
     decimate(v)
 
@@ -109,6 +139,7 @@ def main():
     N = 2
     while N < 20000:
         print(f"N={N}")
+        fillTwiddleLut(N)
         fv = [[f(i, N) for i in range(N)] for j in range(N)]
 
         data = [[complex(v, 0) for v in row] for row in fv]
