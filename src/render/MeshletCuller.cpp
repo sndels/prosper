@@ -217,7 +217,7 @@ MeshletCullerFirstPhaseOutput MeshletCuller::recordFirstPhase(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, const Camera &cam, uint32_t nextFrame,
     const Optional<ImageHandle> &inHierarchicalDepth, StrSpan debugPrefix,
-    DrawStats *drawStats)
+    DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -290,7 +290,7 @@ MeshletCullerSecondPhaseOutput MeshletCuller::recordSecondPhase(
 BufferHandle MeshletCuller::recordGenerateList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
     const World &world, uint32_t nextFrame, StrSpan debugPrefix,
-    DrawStats *drawStats)
+    DrawStats &drawStats)
 {
     uint32_t meshletCountUpperBound = 0;
     {
@@ -317,13 +317,13 @@ BufferHandle MeshletCuller::recordGenerateList(
 
                     if (shouldDraw)
                     {
-                        drawStats->totalMeshCount++;
-                        drawStats->totalTriangleCount += info.indexCount / 3;
-                        drawStats->totalMeshletCount += info.meshletCount;
+                        drawStats.totalMeshCount++;
+                        drawStats.totalTriangleCount += info.indexCount / 3;
+                        drawStats.totalMeshletCount += info.meshletCount;
                         meshletCountUpperBound += info.meshletCount;
                         if (!modelDrawn)
                         {
-                            drawStats->totalModelCount++;
+                            drawStats.totalModelCount++;
                             modelDrawn = true;
                         }
                     }

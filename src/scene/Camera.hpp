@@ -91,7 +91,7 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void init(wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing);
+    void init(wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing);
     void endFrame();
 
     void lookAt(const CameraTransform &transform);

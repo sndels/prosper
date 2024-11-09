@@ -144,12 +144,12 @@ struct SpvResult
 const size_t firstOpOffset = 5;
 
 void firstPass(
-    Allocator &alloc, const uint32_t *words, size_t wordCount,
-    Span<SpvResult> results, uint32_t &pushConstantMetadataId)
+    Allocator &alloc, Span<const uint32_t> words, Span<SpvResult> results,
+    uint32_t &pushConstantMetadataId)
 {
     // Collect names and types
     size_t opFirstWord = firstOpOffset;
-    while (opFirstWord < wordCount)
+    while (opFirstWord < words.size())
     {
         const uint16_t opWordCount =
             static_cast<uint16_t>(words[opFirstWord] >> 16);
@@ -368,12 +368,11 @@ void firstPass(
     }
 }
 
-void secondPass(
-    const uint32_t *words, size_t wordCount, Span<SpvResult> results)
+void secondPass(Span<const uint32_t> words, Span<SpvResult> results)
 {
     // Collect decorations
     size_t opFirstWord = firstOpOffset;
-    while (opFirstWord < wordCount)
+    while (opFirstWord < words.size())
     {
         const uint16_t opWordCount =
             static_cast<uint16_t>(words[opFirstWord] >> 16);
@@ -814,19 +813,16 @@ void ShaderReflection::init(
     for (const std::filesystem::path &include : sourceFiles)
         m_sourceFiles.insert(include);
 
-    const uint32_t *words = spvWords.data();
-    const size_t wordCount = spvWords.size();
-
     const uint32_t spvMagic = 0x0723'0203;
-    if (words[0] != spvMagic)
+    if (spvWords[0] != spvMagic)
         throw std::runtime_error(
             "Tried to read reflection from invalid SPIR-V words");
 
     // bytes 0 | major | minor | 0, 0x0001'0300 is 1.3
     // const uint32_t version = words[1];
-    // const uint32_t generatorMagic = words[2];
-    const uint32_t idBound = words[3];
-    // const uint32_t schema = words[4];
+    // const uint32_t generatorMagic = spvWords[2];
+    const uint32_t idBound = spvWords[3];
+    // const uint32_t schema = spvWords[4];
 
     Array<SpvResult> results{scopeAlloc};
     results.resize(idBound);
@@ -835,10 +831,8 @@ void ShaderReflection::init(
 
     // Run in two passes because type definitons come after decorations.
     // Data relations are simpler this way.
-    firstPass(
-        scopeAlloc, words, wordCount, results.mut_span(),
-        pushConstantMetadataId);
-    secondPass(words, wordCount, results.mut_span());
+    firstPass(scopeAlloc, spvWords, results.mut_span(), pushConstantMetadataId);
+    secondPass(spvWords, results.mut_span());
 
     if (pushConstantMetadataId != sUninitialized)
         m_pushConstantsBytesize =

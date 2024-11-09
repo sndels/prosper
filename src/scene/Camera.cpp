@@ -50,12 +50,11 @@ Camera::~Camera()
     gDevice.logical().destroy(m_descriptorSetLayout);
 }
 
-void Camera::init(wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing)
+void Camera::init(wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(constantsRing != nullptr);
 
-    m_constantsRing = constantsRing;
+    m_constantsRing = &constantsRing;
 
     LOG_INFO("Creating Camera");
 

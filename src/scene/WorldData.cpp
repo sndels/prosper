@@ -431,7 +431,7 @@ void WorldData::init(
     // Deferred context is responsible for freeing gltfData. Dispatch happens
     // after other loading finishes and WorldData will then always go through
     // the deferred context when it needs gltfData.
-    m_deferredLoadingContext->init(m_sceneDir, sourceWriteTime, gltfData);
+    m_deferredLoadingContext->init(m_sceneDir, sourceWriteTime, *gltfData);
 
     const auto &tl = [&](const char *stage, std::function<void()> const &fn)
     {

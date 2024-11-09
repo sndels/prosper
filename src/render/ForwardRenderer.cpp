@@ -69,12 +69,10 @@ ForwardRenderer::~ForwardRenderer()
 
 void ForwardRenderer::init(
     ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts,
-    MeshletCuller *meshletCuller,
-    HierarchicalDepthDownsampler *hierarchicalDepthDownsampler)
+    MeshletCuller &meshletCuller,
+    HierarchicalDepthDownsampler &hierarchicalDepthDownsampler)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(meshletCuller != nullptr);
-    WHEELS_ASSERT(hierarchicalDepthDownsampler != nullptr);
 
     LOG_INFO("Creating ForwardRenderer");
 
@@ -84,8 +82,8 @@ void ForwardRenderer::init(
     createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipelines(dsLayouts);
 
-    m_meshletCuller = meshletCuller;
-    m_hierarchicalDepthDownsampler = hierarchicalDepthDownsampler;
+    m_meshletCuller = &meshletCuller;
+    m_hierarchicalDepthDownsampler = &hierarchicalDepthDownsampler;
 
     m_initialized = true;
 }
@@ -116,7 +114,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Rect2D &renderArea,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, bool applyIbl, DrawType drawType, DrawStats *drawStats)
+    uint32_t nextFrame, bool applyIbl, DrawType drawType, DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -161,7 +159,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
             .ibl = applyIbl,
             .drawType = drawType,
         },
-        drawStats, "  FirstPhase");
+        "  FirstPhase");
 
     gRenderResources.buffers->release(firstPhaseCullingOutput.dataBuffer);
     gRenderResources.buffers->release(firstPhaseCullingOutput.argumentBuffer);
@@ -204,7 +202,7 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
                 .secondPhase = true,
                 .drawType = drawType,
             },
-            drawStats, "  SecondPhase");
+            "  SecondPhase");
 
         gRenderResources.buffers->release(secondPhaseCullingOutput.dataBuffer);
         gRenderResources.buffers->release(
@@ -220,18 +218,17 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 }
 
 void ForwardRenderer::recordTransparent(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    MeshletCuller *meshletCuller, const World &world, const Camera &cam,
-    const TransparentInOut &inOutTargets,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
+    const Camera &cam, const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, DrawType drawType, DrawStats *drawStats)
+    uint32_t nextFrame, DrawType drawType, DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_GPU_SCOPE(cb, "Transparent");
 
     const MeshletCullerFirstPhaseOutput cullerOutput =
-        meshletCuller->recordFirstPhase(
+        m_meshletCuller->recordFirstPhase(
             scopeAlloc.child_scope(), cb, MeshletCuller::Mode::Transparent,
             world, cam, nextFrame, {}, "Transparent", drawStats);
     WHEELS_ASSERT(!cullerOutput.secondPhaseInput.has_value());
@@ -250,7 +247,7 @@ void ForwardRenderer::recordTransparent(
             .transparents = true,
             .drawType = drawType,
         },
-        drawStats, "  Geometry");
+        "  Geometry");
 
     gRenderResources.buffers->release(cullerOutput.dataBuffer);
     gRenderResources.buffers->release(cullerOutput.argumentBuffer);
@@ -488,10 +485,8 @@ void ForwardRenderer::recordDraw(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, uint32_t nextFrame, const RecordInOut &inputsOutputs,
     const LightClusteringOutput &lightClusters, const Options &options,
-    DrawStats *drawStats, const char *debugName)
+    const char *debugName)
 {
-    WHEELS_ASSERT(drawStats != nullptr);
-
     PROFILER_CPU_SCOPE(debugName);
 
     const vk::Rect2D renderArea = getRect2D(inputsOutputs.inOutIllumination);

@@ -53,12 +53,10 @@ struct Attachments
 
 void GBufferRenderer::init(
     ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts, MeshletCuller *meshletCuller,
-    HierarchicalDepthDownsampler *hierarchicalDepthDownsampler)
+    const WorldDSLayouts &worldDSLayouts, MeshletCuller &meshletCuller,
+    HierarchicalDepthDownsampler &hierarchicalDepthDownsampler)
 {
     WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(meshletCuller != nullptr);
-    WHEELS_ASSERT(hierarchicalDepthDownsampler != nullptr);
 
     LOG_INFO("Creating GBufferRenderer");
 
@@ -68,8 +66,8 @@ void GBufferRenderer::init(
     createDescriptorSets(scopeAlloc.child_scope());
     createGraphicsPipelines(camDSLayout, worldDSLayouts);
 
-    m_meshletCuller = meshletCuller;
-    m_hierarchicalDepthDownsampler = hierarchicalDepthDownsampler;
+    m_meshletCuller = &meshletCuller;
+    m_hierarchicalDepthDownsampler = &hierarchicalDepthDownsampler;
 
     m_initialized = true;
 }
@@ -111,10 +109,9 @@ GBufferRendererOutput GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Rect2D &renderArea,
     BufferHandle inOutDrawStats, DrawType drawType, const uint32_t nextFrame,
-    DrawStats *drawStats)
+    DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
-    WHEELS_ASSERT(drawStats != nullptr);
 
     PROFILER_CPU_GPU_SCOPE(cb, "GBuffer");
 
@@ -179,7 +176,7 @@ GBufferRendererOutput GBufferRenderer::record(
                     .outVelocity = ret.velocity,
                     .outDepth = ret.depth,
                 },
-                drawType, false, drawStats);
+                drawType, false);
 
             gRenderResources.buffers->release(
                 firstPhaseCullingOutput.dataBuffer);
@@ -220,7 +217,7 @@ GBufferRendererOutput GBufferRenderer::record(
                     .outVelocity = ret.velocity,
                     .outDepth = ret.depth,
                 },
-                drawType, true, drawStats);
+                drawType, true);
 
             gRenderResources.buffers->release(
                 secondPhaseCullingOutput.dataBuffer);
@@ -438,11 +435,8 @@ void GBufferRenderer::createGraphicsPipelines(
 void GBufferRenderer::recordDraw(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
     const Camera &cam, const vk::Rect2D &renderArea, uint32_t nextFrame,
-    const RecordInOut &inputsOutputs, DrawType drawType, bool isSecondPhase,
-    DrawStats *drawStats)
+    const RecordInOut &inputsOutputs, DrawType drawType, bool isSecondPhase)
 {
-    WHEELS_ASSERT(drawStats != nullptr);
-
     const vk::DescriptorSet ds =
         m_meshSets[nextFrame * 2 + (isSecondPhase ? 1u : 0u)];
 

@@ -260,22 +260,21 @@ void flattenAttribute(Array<T> &attribute, const Array<uint32_t> &indices)
     attribute = WHEELS_MOV(flattened);
 }
 
-void generateTangents(MeshData *meshData)
+void generateTangents(MeshData &meshData)
 {
-    WHEELS_ASSERT(meshData != nullptr);
-    WHEELS_ASSERT(meshData->tangents.empty());
-    WHEELS_ASSERT(meshData->positions.size() == meshData->normals.size());
-    WHEELS_ASSERT(meshData->positions.size() == meshData->texCoord0s.size());
+    WHEELS_ASSERT(meshData.tangents.empty());
+    WHEELS_ASSERT(meshData.positions.size() == meshData.normals.size());
+    WHEELS_ASSERT(meshData.positions.size() == meshData.texCoord0s.size());
 
     // Flatten data first as instructed in the mikktspace header
     // TODO: tmp buffers here
-    const size_t flattenedVertexCount = meshData->indices.size();
-    flattenAttribute(meshData->positions, meshData->indices);
-    flattenAttribute(meshData->normals, meshData->indices);
-    flattenAttribute(meshData->texCoord0s, meshData->indices);
-    meshData->indices.clear();
+    const size_t flattenedVertexCount = meshData.indices.size();
+    flattenAttribute(meshData.positions, meshData.indices);
+    flattenAttribute(meshData.normals, meshData.indices);
+    flattenAttribute(meshData.texCoord0s, meshData.indices);
+    meshData.indices.clear();
 
-    meshData->tangents.resize(flattenedVertexCount);
+    meshData.tangents.resize(flattenedVertexCount);
 
     // Now we can generate the tangents
     SMikkTSpaceInterface sMikkTInterface{
@@ -289,7 +288,7 @@ void generateTangents(MeshData *meshData)
 
     const SMikkTSpaceContext mikkCtx{
         .m_pInterface = &sMikkTInterface,
-        .m_pUserData = meshData,
+        .m_pUserData = &meshData,
     };
 
     genTangSpaceDefault(&mikkCtx);
@@ -297,22 +296,22 @@ void generateTangents(MeshData *meshData)
     // And now that we have tangents, we can re-generate indices
     const StaticArray vertexStreams{{
         meshopt_Stream{
-            .data = meshData->positions.data(),
+            .data = meshData.positions.data(),
             .size = sizeof(vec3),
             .stride = sizeof(vec3),
         },
         meshopt_Stream{
-            .data = meshData->normals.data(),
+            .data = meshData.normals.data(),
             .size = sizeof(vec3),
             .stride = sizeof(vec3),
         },
         meshopt_Stream{
-            .data = meshData->tangents.data(),
+            .data = meshData.tangents.data(),
             .size = sizeof(vec4),
             .stride = sizeof(vec4),
         },
         meshopt_Stream{
-            .data = meshData->texCoord0s.data(),
+            .data = meshData.texCoord0s.data(),
             .size = sizeof(vec2),
             .stride = sizeof(vec2),
         },
@@ -324,103 +323,100 @@ void generateTangents(MeshData *meshData)
         remapTable.data(), nullptr, flattenedVertexCount, flattenedVertexCount,
         vertexStreams.data(), vertexStreams.size());
 
-    meshData->indices.resize(flattenedVertexCount);
+    meshData.indices.resize(flattenedVertexCount);
     meshopt_remapIndexBuffer(
-        meshData->indices.data(), nullptr, flattenedVertexCount,
+        meshData.indices.data(), nullptr, flattenedVertexCount,
         remapTable.data());
 
-    remapVertexAttribute(meshData->positions, remapTable, uniqueVertexCount);
-    remapVertexAttribute(meshData->normals, remapTable, uniqueVertexCount);
-    remapVertexAttribute(meshData->tangents, remapTable, uniqueVertexCount);
-    remapVertexAttribute(meshData->texCoord0s, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData.positions, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData.normals, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData.tangents, remapTable, uniqueVertexCount);
+    remapVertexAttribute(meshData.texCoord0s, remapTable, uniqueVertexCount);
 }
 
 void optimizeMeshData(
-    MeshData *meshData, MeshInfo *meshInfo, const char *meshName)
+    MeshData &meshData, MeshInfo &meshInfo, const char *meshName)
 {
-    WHEELS_ASSERT(meshData != nullptr);
-
-    const size_t indexCount = meshData->indices.size();
-    const size_t vertexCount = meshData->positions.size();
+    const size_t indexCount = meshData.indices.size();
+    const size_t vertexCount = meshData.positions.size();
 
     Array<uint32_t> tmpIndices{gAllocators.loadingWorker};
-    tmpIndices.resize(meshData->indices.size());
+    tmpIndices.resize(meshData.indices.size());
     meshopt_optimizeVertexCache(
-        tmpIndices.data(), meshData->indices.data(), indexCount, vertexCount);
+        tmpIndices.data(), meshData.indices.data(), indexCount, vertexCount);
 
     const float vertexCacheDegradationThreshod = 1.00f;
     meshopt_optimizeOverdraw(
-        meshData->indices.data(), tmpIndices.data(), tmpIndices.size(),
-        &meshData->positions.data()[0].x, vertexCount, sizeof(vec3),
+        meshData.indices.data(), tmpIndices.data(), tmpIndices.size(),
+        &meshData.positions.data()[0].x, vertexCount, sizeof(vec3),
         vertexCacheDegradationThreshod);
 
     Array<uint32_t> remapIndices{gAllocators.loadingWorker};
     remapIndices.resize(vertexCount);
     const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
-        remapIndices.data(), meshData->indices.data(), indexCount, vertexCount);
+        remapIndices.data(), meshData.indices.data(), indexCount, vertexCount);
     if (uniqueVertexCount < vertexCount)
         LOG_WARN("Mesh '%s' has unused vertices", meshName);
 
     // Reuse tmpIndices as it's not required after optimizeOverdraw
     meshopt_remapIndexBuffer(
-        tmpIndices.data(), meshData->indices.data(), indexCount,
+        tmpIndices.data(), meshData.indices.data(), indexCount,
         remapIndices.data());
-    meshData->indices = WHEELS_MOV(tmpIndices);
+    meshData.indices = WHEELS_MOV(tmpIndices);
 
-    remapVertexAttribute(meshData->positions, remapIndices, uniqueVertexCount);
-    remapVertexAttribute(meshData->normals, remapIndices, uniqueVertexCount);
-    remapVertexAttribute(meshData->tangents, remapIndices, uniqueVertexCount);
-    remapVertexAttribute(meshData->texCoord0s, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData.positions, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData.normals, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData.tangents, remapIndices, uniqueVertexCount);
+    remapVertexAttribute(meshData.texCoord0s, remapIndices, uniqueVertexCount);
 
-    meshInfo->vertexCount = asserted_cast<uint32_t>(uniqueVertexCount);
+    meshInfo.vertexCount = asserted_cast<uint32_t>(uniqueVertexCount);
 }
 
-void generateMeshlets(MeshData *meshData)
+void generateMeshlets(MeshData &meshData)
 {
-    WHEELS_ASSERT(meshData != nullptr);
-    WHEELS_ASSERT(meshData->meshlets.empty());
-    WHEELS_ASSERT(meshData->meshletVertices.empty());
-    WHEELS_ASSERT(meshData->meshletTriangles.empty());
+    WHEELS_ASSERT(meshData.meshlets.empty());
+    WHEELS_ASSERT(meshData.meshletVertices.empty());
+    WHEELS_ASSERT(meshData.meshletTriangles.empty());
 
     const size_t maxMeshlets = meshopt_buildMeshletsBound(
-        meshData->indices.size(), sMaxMsVertices, sMaxMsTriangles);
+        meshData.indices.size(), sMaxMsVertices, sMaxMsTriangles);
     WHEELS_ASSERT(maxMeshlets > 0);
 
-    meshData->meshlets.resize(maxMeshlets);
-    meshData->meshletVertices.resize(maxMeshlets * sMaxMsVertices);
-    meshData->meshletTriangles.resize(maxMeshlets * sMaxMsTriangles * 3);
+    meshData.meshlets.resize(maxMeshlets);
+    meshData.meshletVertices.resize(maxMeshlets * sMaxMsVertices);
+    meshData.meshletTriangles.resize(maxMeshlets * sMaxMsTriangles * 3);
 
     const size_t meshletCount = meshopt_buildMeshlets(
-        meshData->meshlets.data(), meshData->meshletVertices.data(),
-        meshData->meshletTriangles.data(), meshData->indices.data(),
-        meshData->indices.size(), &meshData->positions[0].x,
-        meshData->positions.size(), sizeof(vec3), sMaxMsVertices,
+        meshData.meshlets.data(), meshData.meshletVertices.data(),
+        meshData.meshletTriangles.data(), meshData.indices.data(),
+        meshData.indices.size(), &meshData.positions[0].x,
+        meshData.positions.size(), sizeof(vec3), sMaxMsVertices,
         sMaxMsTriangles, sConeWeight);
     WHEELS_ASSERT(meshletCount > 0);
 
     // Need to trim the buffers now that we know the tight sizes
-    meshData->meshlets.resize(meshletCount);
+    meshData.meshlets.resize(meshletCount);
 
-    const meshopt_Meshlet &lastMeshlet = meshData->meshlets.back();
+    const meshopt_Meshlet &lastMeshlet = meshData.meshlets.back();
 
-    meshData->meshletVertices.resize(
+    meshData.meshletVertices.resize(
         lastMeshlet.vertex_offset + lastMeshlet.vertex_count);
     // Pad up to a u32 boundary
     const uint32_t trianglesSize =
         asserted_cast<uint32_t>(wheels::aligned_offset(
             lastMeshlet.triangle_offset + lastMeshlet.triangle_count,
             sizeof(uint32_t)));
-    meshData->meshletTriangles.resize(asserted_cast<size_t>(trianglesSize) * 3);
+    meshData.meshletTriangles.resize(asserted_cast<size_t>(trianglesSize) * 3);
 
-    meshData->meshletBounds.reserve(meshData->meshlets.size());
-    for (const meshopt_Meshlet &meshlet : meshData->meshlets)
+    meshData.meshletBounds.reserve(meshData.meshlets.size());
+    for (const meshopt_Meshlet &meshlet : meshData.meshlets)
     {
         const meshopt_Bounds bounds = meshopt_computeMeshletBounds(
-            &meshData->meshletVertices[meshlet.vertex_offset],
-            &meshData->meshletTriangles[meshlet.triangle_offset],
-            meshlet.triangle_count, &meshData->positions[0].x,
-            meshData->positions.size(), sizeof(vec3));
-        meshData->meshletBounds.push_back(MeshletBounds{
+            &meshData.meshletVertices[meshlet.vertex_offset],
+            &meshData.meshletTriangles[meshlet.triangle_offset],
+            meshlet.triangle_count, &meshData.positions[0].x,
+            meshData.positions.size(), sizeof(vec3));
+        meshData.meshletBounds.push_back(MeshletBounds{
             .center =
                 vec3{
                     bounds.center[0],
@@ -799,10 +795,8 @@ void writeCache(
     std::filesystem::rename(cacheTmpPath, cachePath);
 }
 
-void loadNextMesh(DeferredLoadingContext *ctx)
+void loadNextMesh(DeferredLoadingContext &ctx)
 {
-    WHEELS_ASSERT(ctx != nullptr);
-
     // Set up a custom allocator for meshopt, let's keep track of allocations
     // there too
     sMeshoptAllocator = &gAllocators.loadingWorker;
@@ -812,12 +806,12 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     { sMeshoptAllocator->deallocate(ptr); };
     meshopt_setAllocator(meshoptAllocate, meshoptDeallocate);
 
-    const uint32_t meshIndex = ctx->workerLoadedMeshCount;
-    WHEELS_ASSERT(meshIndex < ctx->meshes.size());
+    const uint32_t meshIndex = ctx.workerLoadedMeshCount;
+    WHEELS_ASSERT(meshIndex < ctx.meshes.size());
 
     // Ctx member functions will use the command buffer
-    ctx->cb.reset();
-    ctx->cb.begin(vk::CommandBufferBeginInfo{
+    ctx.cb.reset();
+    ctx.cb.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
@@ -826,34 +820,34 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     WHEELS_ASSERT(families.transferFamily.has_value());
 
     const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
-        ctx->meshes[meshIndex];
+        ctx.meshes[meshIndex];
     const InputGeometryMetadata &metadata = nextMesh.first;
     MeshInfo info = nextMesh.second;
 
-    const char *meshName = ctx->gltfData->meshes[metadata.sourceMeshIndex].name;
-    ctx->meshNames.emplace_back(gAllocators.loadingWorker, meshName);
+    const char *meshName = ctx.gltfData->meshes[metadata.sourceMeshIndex].name;
+    ctx.meshNames.emplace_back(gAllocators.loadingWorker, meshName);
 
     const std::filesystem::path cachePath =
-        getCachePath(ctx->sceneDir, meshIndex);
-    if (!cacheValid(cachePath, ctx->sceneWriteTime))
+        getCachePath(ctx.sceneDir, meshIndex);
+    if (!cacheValid(cachePath, ctx.sceneWriteTime))
     {
         MeshData meshData = getMeshData(metadata, info);
 
         if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
         {
-            generateTangents(&meshData);
+            generateTangents(meshData);
             info.vertexCount =
                 asserted_cast<uint32_t>(meshData.positions.size());
         }
 
-        optimizeMeshData(&meshData, &info, meshName);
+        optimizeMeshData(meshData, info, meshName);
 
-        generateMeshlets(&meshData);
+        generateMeshlets(meshData);
 
         PackedMeshData packedMeshData = packMeshData(WHEELS_MOV(meshData));
 
         writeCache(
-            ctx->sceneDir, ctx->sceneWriteTime, meshIndex,
+            ctx.sceneDir, ctx.sceneWriteTime, meshIndex,
             WHEELS_MOV(packedMeshData), info);
     }
 
@@ -867,13 +861,13 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     info.vertexCount = cacheHeader->vertexCount;
     info.meshletCount = cacheHeader->meshletCount;
 
-    const UploadedGeometryData uploadData = ctx->uploadGeometryData(
-        *cacheHeader, dataBlob, ctx->meshNames[meshIndex]);
+    const UploadedGeometryData uploadData = ctx.uploadGeometryData(
+        *cacheHeader, dataBlob, ctx.meshNames[meshIndex]);
 
     if (*families.graphicsFamily != *families.transferFamily)
     {
         const Buffer &buffer =
-            ctx->geometryBuffers[uploadData.metadata.bufferIndex];
+            ctx.geometryBuffers[uploadData.metadata.bufferIndex];
 
         // Transfer ownership of the newly pushed buffer range.
         // NOTE: This expects the subsequent ranges to be packed tightly.
@@ -890,18 +884,18 @@ void loadNextMesh(DeferredLoadingContext *ctx)
             .offset = uploadData.byteOffset,
             .size = uploadData.byteCount,
         };
-        ctx->cb.pipelineBarrier2(vk::DependencyInfo{
+        ctx.cb.pipelineBarrier2(vk::DependencyInfo{
             .bufferMemoryBarrierCount = 1,
             .pBufferMemoryBarriers = &releaseBarrier,
         });
     }
 
-    ctx->cb.end();
+    ctx.cb.end();
 
     const vk::Queue transferQueue = gDevice.transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
-        .pCommandBuffers = &ctx->cb,
+        .pCommandBuffers = &ctx.cb,
     };
     checkSuccess(
         transferQueue.submit(1, &submitInfo, vk::Fence{}),
@@ -909,41 +903,39 @@ void loadNextMesh(DeferredLoadingContext *ctx)
     // We could have multiple uploads in flight, but let's be simple for now
     transferQueue.waitIdle();
 
-    ctx->workerLoadedMeshCount++;
+    ctx.workerLoadedMeshCount++;
 
     {
-        const std::lock_guard lock{ctx->loadedMeshesMutex};
+        const std::lock_guard lock{ctx.loadedMeshesMutex};
 
-        ctx->loadedMeshes.emplace_back(uploadData, info);
+        ctx.loadedMeshes.emplace_back(uploadData, info);
     }
 
-    if (ctx->workerLoadedMeshCount == ctx->meshes.size())
+    if (ctx.workerLoadedMeshCount == ctx.meshes.size())
     {
-        LOG_INFO("Mesh loading took %.2fs", ctx->meshTimer.getSeconds());
-        ctx->textureTimer.reset();
+        LOG_INFO("Mesh loading took %.2fs", ctx.meshTimer.getSeconds());
+        ctx.textureTimer.reset();
     }
 }
 
-void loadNextTexture(DeferredLoadingContext *ctx)
+void loadNextTexture(DeferredLoadingContext &ctx)
 {
-    WHEELS_ASSERT(ctx != nullptr);
-
-    const uint32_t imageIndex = ctx->workerLoadedImageCount;
-    if (imageIndex == ctx->gltfData->images_count)
+    const uint32_t imageIndex = ctx.workerLoadedImageCount;
+    if (imageIndex == ctx.gltfData->images_count)
     {
-        LOG_INFO("Texture loading took %.2fs", ctx->textureTimer.getSeconds());
-        ctx->interruptLoading = true;
+        LOG_INFO("Texture loading took %.2fs", ctx.textureTimer.getSeconds());
+        ctx.interruptLoading = true;
         return;
     }
 
-    WHEELS_ASSERT(ctx->gltfData->images_count > imageIndex);
-    const cgltf_image &image = ctx->gltfData->images[imageIndex];
+    WHEELS_ASSERT(ctx.gltfData->images_count > imageIndex);
+    const cgltf_image &image = ctx.gltfData->images[imageIndex];
     if (image.uri == nullptr)
         throw std::runtime_error("Embedded glTF textures aren't supported. "
                                  "Scene should be glTF + bin + textures.");
 
-    ctx->cb.reset();
-    ctx->cb.begin(vk::CommandBufferBeginInfo{
+    ctx.cb.reset();
+    ctx.cb.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
@@ -951,22 +943,22 @@ void loadNextTexture(DeferredLoadingContext *ctx)
         gAllocators.loadingWorker, Allocators::sLoadingScratchSize};
 
     TextureColorSpace colorSpace = TextureColorSpace::sRgb;
-    if (ctx->linearColorImages.contains(imageIndex))
+    if (ctx.linearColorImages.contains(imageIndex))
     {
         WHEELS_ASSERT(
-            !ctx->sRgbColorImages.contains(imageIndex) &&
+            !ctx.sRgbColorImages.contains(imageIndex) &&
             "Image should belong to exactly one colorspace set");
         colorSpace = TextureColorSpace::Linear;
     }
     else
         WHEELS_ASSERT(
-            ctx->sRgbColorImages.contains(imageIndex) &&
+            ctx.sRgbColorImages.contains(imageIndex) &&
             "Image should belong to exactly one colorspace set");
 
     Texture2D tex;
     tex.init(
-        ScopedScratch{scopeBacking}, ctx->sceneDir / image.uri, ctx->cb,
-        ctx->stagingBuffer,
+        ScopedScratch{scopeBacking}, ctx.sceneDir / image.uri, ctx.cb,
+        ctx.stagingBuffer,
         Texture2DOptions{
             .generateMipMaps = true,
             .colorSpace = colorSpace,
@@ -997,18 +989,18 @@ void loadNextTexture(DeferredLoadingContext *ctx)
                     .layerCount = VK_REMAINING_ARRAY_LAYERS,
                 },
         };
-        ctx->cb.pipelineBarrier2(vk::DependencyInfo{
+        ctx.cb.pipelineBarrier2(vk::DependencyInfo{
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = &releaseBarrier,
         });
     }
 
-    ctx->cb.end();
+    ctx.cb.end();
 
     const vk::Queue transferQueue = gDevice.transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
-        .pCommandBuffers = &ctx->cb,
+        .pCommandBuffers = &ctx.cb,
     };
     checkSuccess(
         transferQueue.submit(1, &submitInfo, vk::Fence{}),
@@ -1016,12 +1008,12 @@ void loadNextTexture(DeferredLoadingContext *ctx)
     // We could have multiple uploads in flight, but let's be simple for now
     transferQueue.waitIdle();
 
-    ctx->workerLoadedImageCount++;
+    ctx.workerLoadedImageCount++;
 
     {
-        const std::lock_guard lock{ctx->loadedTexturesMutex};
+        const std::lock_guard lock{ctx.loadedTexturesMutex};
 
-        ctx->loadedTextures.emplace_back(WHEELS_MOV(tex));
+        ctx.loadedTextures.emplace_back(WHEELS_MOV(tex));
     }
 }
 
@@ -1037,7 +1029,7 @@ void loadingWorker(DeferredLoadingContext *ctx)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
         {
-            loadNextMesh(ctx);
+            loadNextMesh(*ctx);
 
             // Only update for meshes as textures will always allocate a big
             // worst case tmp chunk for linear allocation
@@ -1046,7 +1038,7 @@ void loadingWorker(DeferredLoadingContext *ctx)
                     .allocated_byte_count_high_watermark;
         }
         else
-            loadNextTexture(ctx);
+            loadNextTexture(*ctx);
     }
 }
 
@@ -1087,14 +1079,13 @@ DeferredLoadingContext::~DeferredLoadingContext()
 
 void DeferredLoadingContext::init(
     std::filesystem::path inSceneDir,
-    std::filesystem::file_time_type inSceneWriteTime, cgltf_data *inGltfData)
+    std::filesystem::file_time_type inSceneWriteTime, cgltf_data &inGltfData)
 {
     WHEELS_ASSERT(!initialized);
-    WHEELS_ASSERT(inGltfData != nullptr);
 
     sceneDir = WHEELS_MOV(inSceneDir);
     sceneWriteTime = inSceneWriteTime;
-    gltfData = inGltfData;
+    gltfData = &inGltfData;
     cb = gDevice.logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
         .commandPool = gDevice.transferPool(),
         .level = vk::CommandBufferLevel::ePrimary,

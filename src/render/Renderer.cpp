@@ -171,10 +171,10 @@ void Renderer::init(
             .lightClusters = m_lightClustering->descriptorSetLayout(),
             .world = worldDsLayouts,
         },
-        m_meshletCuller.get(), m_hierarchicalDepthDownsampler.get());
+        *m_meshletCuller, *m_hierarchicalDepthDownsampler);
     m_gbufferRenderer->init(
-        scopeAlloc.child_scope(), camDsLayout, worldDsLayouts,
-        m_meshletCuller.get(), m_hierarchicalDepthDownsampler.get());
+        scopeAlloc.child_scope(), camDsLayout, worldDsLayouts, *m_meshletCuller,
+        *m_hierarchicalDepthDownsampler);
     m_deferredShading->init(
         scopeAlloc.child_scope(),
         DeferredShading::InputDSLayouts{
@@ -411,7 +411,7 @@ void Renderer::render(
 
             const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, world, cam, renderArea,
-                gpuDrawStats, m_drawType, nextFrame, &drawStats);
+                gpuDrawStats, m_drawType, nextFrame, drawStats);
 
             if (m_deferredRt)
                 illumination =
@@ -450,7 +450,7 @@ void Renderer::render(
                 m_forwardRenderer->recordOpaque(
                     scopeAlloc.child_scope(), cb, world, cam, renderArea,
                     lightClusters, gpuDrawStats, nextFrame, m_applyIbl,
-                    m_drawType, &drawStats);
+                    m_drawType, drawStats);
 
             illumination = output.illumination;
             velocity = output.velocity;
@@ -467,12 +467,12 @@ void Renderer::render(
 
         // Transparent
         m_forwardRenderer->recordTransparent(
-            scopeAlloc.child_scope(), cb, m_meshletCuller.get(), world, cam,
+            scopeAlloc.child_scope(), cb, world, cam,
             ForwardRenderer::TransparentInOut{
                 .illumination = illumination,
                 .depth = depth,
             },
-            lightClusters, gpuDrawStats, nextFrame, m_drawType, &drawStats);
+            lightClusters, gpuDrawStats, nextFrame, m_drawType, drawStats);
 
         m_debugRenderer->record(
             scopeAlloc.child_scope(), cb, cam,

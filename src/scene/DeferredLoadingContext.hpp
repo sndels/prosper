@@ -89,7 +89,7 @@ class DeferredLoadingContext
     void init(
         std::filesystem::path inSceneDir,
         std::filesystem::file_time_type inSceneWriteTime,
-        cgltf_data *inGltfData);
+        cgltf_data &inGltfData);
 
     void launch();
     void kill();

@@ -24,10 +24,8 @@ const StrSpan sLinePrefix{sLinePrefixCStr};
 Pair<std::filesystem::path, String> getInclude(
     Allocator &alloc, const std::filesystem::path &requestingSource,
     StrSpan requestedSourceRelative,
-    HashSet<std::filesystem::path> *uniqueIncludes)
+    HashSet<std::filesystem::path> &uniqueIncludes)
 {
-    WHEELS_ASSERT(uniqueIncludes != nullptr);
-
     const std::filesystem::path requestingDir = requestingSource.parent_path();
     const std::filesystem::path requestedSource =
         (requestingDir /
@@ -39,7 +37,7 @@ Pair<std::filesystem::path, String> getInclude(
             std::string{"Could not find '"} + requestedSource.generic_string() +
             '\'');
 
-    uniqueIncludes->insert(requestedSource);
+    uniqueIncludes.insert(requestedSource);
 
     String content = readFileString(alloc, requestedSource);
 
@@ -142,38 +140,33 @@ uint32_t parseLineNumber(StrSpan span)
 }
 
 StrSpan parseIncludePath(
-    StrSpan span, size_t *includePathStart, size_t *includePathLength)
+    StrSpan span, size_t &includePathStart, size_t &includePathLength)
 {
     WHEELS_ASSERT(span.starts_with(sIncludePrefix));
-    WHEELS_ASSERT(includePathStart != nullptr);
-    WHEELS_ASSERT(includePathLength != nullptr);
 
     // Parse the include path
     const Optional<size_t> includePathFrontQuatation = span.find_first('"');
     if (!includePathFrontQuatation.has_value())
         throw std::runtime_error("Parser expects relative paths.");
-    *includePathStart = *includePathFrontQuatation + 1;
+    includePathStart = *includePathFrontQuatation + 1;
 
     const Optional<size_t> includePathNextQuotation =
-        StrSpan{&span[*includePathStart + 1], span.size() - *includePathStart}
+        StrSpan{&span[includePathStart + 1], span.size() - includePathStart}
             .find_first('"');
     if (!includePathNextQuotation.has_value())
         throw std::runtime_error("Parser expects relative paths.");
-    *includePathLength = *includePathNextQuotation + 1;
+    includePathLength = *includePathNextQuotation + 1;
 
-    return StrSpan{&span[*includePathStart], *includePathLength};
+    return StrSpan{&span[includePathStart], includePathLength};
 }
 
 } // namespace
 
 void expandIncludes(
     Allocator &alloc, const std::filesystem::path &currentPath,
-    StrSpan currentSource, String *fullSource,
-    HashSet<std::filesystem::path> *uniqueIncludes, size_t includeDepth)
+    StrSpan currentSource, String &fullSource,
+    HashSet<std::filesystem::path> &uniqueIncludes, size_t includeDepth)
 {
-    WHEELS_ASSERT(fullSource != nullptr);
-    WHEELS_ASSERT(uniqueIncludes != nullptr);
-
     if (includeDepth > 100)
         throw std::runtime_error(
             currentPath.generic_string() +
@@ -236,7 +229,7 @@ void expandIncludes(
             // Reached the end so copy the remaning span
             const StrSpan frontSpan{
                 &currentSource[frontCursor], backCursor - frontCursor};
-            fullSource->extend(frontSpan);
+            fullSource.extend(frontSpan);
             frontCursor = backCursor;
             break;
         }
@@ -271,15 +264,15 @@ void expandIncludes(
         // Let's copy what's between the cursors before the include
         const StrSpan frontSpan{
             &currentSource[frontCursor], backCursor - frontCursor};
-        fullSource->extend(frontSpan);
+        fullSource.extend(frontSpan);
 
         size_t includePathStart = 0;
         size_t includePathLength = 0;
         Optional<Pair<std::filesystem::path, String>> include;
         try
         {
-            const StrSpan includeRelPath = parseIncludePath(
-                tailSpan, &includePathStart, &includePathLength);
+            const StrSpan includeRelPath =
+                parseIncludePath(tailSpan, includePathStart, includePathLength);
 
             include =
                 getInclude(alloc, currentPath, includeRelPath, uniqueIncludes);
@@ -297,10 +290,10 @@ void expandIncludes(
             genericIncludePath.data(), genericIncludePath.size()};
 
         // Tag include source for error reporting
-        fullSource->extend("\n#line 1 \"");
-        fullSource->extend(genericIncludeSpan);
-        fullSource->push_back('"');
-        fullSource->push_back('\n');
+        fullSource.extend("\n#line 1 \"");
+        fullSource.extend(genericIncludeSpan);
+        fullSource.push_back('"');
+        fullSource.push_back('\n');
 
         expandIncludes(
             alloc, include->first.string().c_str(), include->second, fullSource,
@@ -311,12 +304,12 @@ void expandIncludes(
         snprintf(lineNumberStr.data(), 7, "%u", lineNumber + 1);
 
         // Tag current source for error reporting
-        fullSource->extend("\n#line ");
-        fullSource->extend(lineNumberStr.data());
-        fullSource->push_back(' ');
-        fullSource->push_back('"');
-        fullSource->extend(genericCurrentSpan);
-        fullSource->push_back('"');
+        fullSource.extend("\n#line ");
+        fullSource.extend(lineNumberStr.data());
+        fullSource.push_back(' ');
+        fullSource.push_back('"');
+        fullSource.extend(genericCurrentSpan);
+        fullSource.push_back('"');
         // No newline as we don't skip the one after the include directive
 
         // Move cursors past the include path

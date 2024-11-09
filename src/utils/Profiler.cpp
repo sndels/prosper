@@ -226,9 +226,9 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
     return ret;
 }
 
-CpuFrameProfiler::Scope::Scope(std::chrono::nanoseconds *output)
+CpuFrameProfiler::Scope::Scope(std::chrono::nanoseconds &output)
 : m_start{std::chrono::high_resolution_clock::now()}
-, m_output{output}
+, m_output{&output}
 {
 }
 
@@ -282,7 +282,7 @@ void CpuFrameProfiler::startFrame()
     m_queryScopeIndices.push_back(index);
     m_nanos.emplace_back();
 
-    return Scope{&m_nanos.back()};
+    return Scope{m_nanos.back()};
 }
 
 Array<CpuFrameProfiler::ScopeTime> CpuFrameProfiler::getTimes(Allocator &alloc)

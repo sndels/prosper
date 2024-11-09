@@ -115,7 +115,7 @@ class World::Impl
     Impl &operator=(Impl &&other) = delete;
 
     void init(
-        ScopedScratch scopeAlloc, RingBuffer *constantsRing,
+        ScopedScratch scopeAlloc, RingBuffer &constantsRing,
         const std::filesystem::path &scene);
 
     void startFrame();
@@ -134,8 +134,8 @@ class World::Impl
     void updateAnimations(float timeS);
     // Has to be called after updateAnimations()
     void updateScene(
-        ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-        SceneStats *sceneStats);
+        ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
+        SceneStats &sceneStats);
     void updateBuffers(ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
@@ -190,12 +190,10 @@ World::Impl::~Impl()
 }
 
 void World::Impl::init(
-    ScopedScratch scopeAlloc, RingBuffer *constantsRing,
+    ScopedScratch scopeAlloc, RingBuffer &constantsRing,
     const std::filesystem::path &scene)
 {
-    WHEELS_ASSERT(constantsRing != nullptr);
-
-    m_constantsRing = constantsRing;
+    m_constantsRing = &constantsRing;
 
     const uint32_t lightDataBufferSize =
         (DirectionalLight::sBufferByteSize + RingBuffer::sAlignment +
@@ -209,7 +207,7 @@ void World::Impl::init(
     m_data.init(
         WHEELS_MOV(scopeAlloc),
         WorldData::RingBuffers{
-            .constantsRing = constantsRing,
+            .constantsRing = &constantsRing,
             .lightDataRing = &m_lightDataRing,
         },
         scene);
@@ -352,12 +350,9 @@ void World::Impl::updateAnimations(float timeS)
 }
 
 void World::Impl::updateScene(
-    ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-    SceneStats *sceneStats)
+    ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
+    SceneStats &sceneStats)
 {
-    WHEELS_ASSERT(cameraTransform != nullptr);
-    WHEELS_ASSERT(sceneStats != nullptr);
-
     PROFILER_CPU_SCOPE("World::updateScene");
 
     Scene &scene = currentScene();
@@ -413,13 +408,13 @@ void World::Impl::updateScene(
 
                 if (node.camera.has_value() && *node.camera == m_currentCamera)
                 {
-                    cameraTransform->eye =
+                    cameraTransform.eye =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, 0.f, 1.f}};
                     // TODO: Halfway from camera to scene bb end if inside
                     // bb / halfway of bb if outside of bb?
-                    cameraTransform->target =
+                    cameraTransform.target =
                         vec3{modelToWorld4x4 * vec4{0.f, 0.f, -1.f, 1.f}};
-                    cameraTransform->up =
+                    cameraTransform.up =
                         mat3{modelToWorld4x4} * vec3{0.f, 1.f, 0.f};
                 }
 
@@ -455,9 +450,9 @@ void World::Impl::updateScene(
                 }
                 parentTransforms.emplace_back(modelToWorld4x4);
 
-                sceneStats->totalNodeCount++;
+                sceneStats.totalNodeCount++;
                 if (node.dynamicTransform)
-                    sceneStats->animatedNodeCount++;
+                    sceneStats.animatedNodeCount++;
             }
         }
     }
@@ -952,7 +947,7 @@ World::World() noexcept
 World::~World() = default;
 
 void World::init(
-    wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
+    wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing,
     const std::filesystem::path &scene)
 {
     WHEELS_ASSERT(!m_initialized);
@@ -1055,8 +1050,8 @@ void World::updateAnimations(float timeS)
 }
 
 void World::updateScene(
-    ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-    SceneStats *sceneStats)
+    ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
+    SceneStats &sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
     m_impl->updateScene(WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats);

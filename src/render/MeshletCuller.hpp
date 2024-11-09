@@ -59,7 +59,7 @@ class MeshletCuller
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
         const World &world, const Camera &cam, uint32_t nextFrame,
         const wheels::Optional<ImageHandle> &inHierarchicalDepth,
-        wheels::StrSpan debugPrefix, DrawStats *drawStats);
+        wheels::StrSpan debugPrefix, DrawStats &drawStats);
 
     // Culls the input draw lists. Intended to use with depth drawn with the
     // first pass outputs
@@ -73,7 +73,7 @@ class MeshletCuller
     [[nodiscard]] BufferHandle recordGenerateList(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
         const World &world, uint32_t nextFrame, wheels::StrSpan debugPrefix,
-        DrawStats *drawStats);
+        DrawStats &drawStats);
 
     [[nodiscard]] BufferHandle recordWriteCullerArgs(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

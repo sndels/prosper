@@ -23,7 +23,7 @@ class World
     World &operator=(World &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RingBuffer *constantsRing,
+        wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing,
         const std::filesystem::path &scene);
 
     void startFrame();
@@ -52,8 +52,8 @@ class World
     void updateAnimations(float timeS);
     // Has to be called after updateAnimations()
     void updateScene(
-        wheels::ScopedScratch scopeAlloc, CameraTransform *cameraTransform,
-        SceneStats *sceneStats);
+        wheels::ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
+        SceneStats &sceneStats);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.

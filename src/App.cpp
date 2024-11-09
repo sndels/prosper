@@ -92,9 +92,9 @@ void App::init(ScopedScratch scopeAlloc)
         vk::BufferUsageFlagBits::eStorageBuffer,
         asserted_cast<uint32_t>(kilobytes(16)), "ConstantsRing");
 
-    m_cam->init(scopeAlloc.child_scope(), &m_constantsRing);
+    m_cam->init(scopeAlloc.child_scope(), m_constantsRing);
 
-    m_world->init(scopeAlloc.child_scope(), &m_constantsRing, m_scenePath);
+    m_world->init(scopeAlloc.child_scope(), m_constantsRing, m_scenePath);
 
     m_renderer->init(
         scopeAlloc.child_scope(), m_swapchain->config(),
@@ -506,7 +506,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     SceneStats &sceneStats = m_sceneStats[nextFrame];
     sceneStats = {};
     m_world->updateScene(
-        scopeAlloc.child_scope(), &m_sceneCameraTransform, &sceneStats);
+        scopeAlloc.child_scope(), m_sceneCameraTransform, sceneStats);
 
     m_world->uploadMeshDatas(scopeAlloc.child_scope(), nextFrame);
 

@@ -8,8 +8,8 @@
 
 void expandIncludes(
     wheels::Allocator &alloc, const std::filesystem::path &currentPath,
-    wheels::StrSpan currentSource, wheels::String *fullSource,
-    wheels::HashSet<std::filesystem::path> *uniqueIncludes,
+    wheels::StrSpan currentSource, wheels::String &fullSource,
+    wheels::HashSet<std::filesystem::path> &uniqueIncludes,
     size_t includeDepth);
 
 #endif // PROSPER_GFX_SHADER_INCLUDES_HPP

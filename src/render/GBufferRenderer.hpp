@@ -33,8 +33,8 @@ class GBufferRenderer
 
     void init(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts, MeshletCuller *meshletCuller,
-        HierarchicalDepthDownsampler *hierarchicalDepthDownsampler);
+        const WorldDSLayouts &worldDSLayouts, MeshletCuller &meshletCuller,
+        HierarchicalDepthDownsampler &hierarchicalDepthDownsampler);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -46,7 +46,7 @@ class GBufferRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         BufferHandle inOutDrawStats, DrawType drawType, uint32_t nextFrame,
-        DrawStats *drawStats);
+        DrawStats &drawStats);
     void releasePreserved();
 
   private:
@@ -83,7 +83,7 @@ class GBufferRenderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         uint32_t nextFrame, const RecordInOut &inputsOutputs, DrawType drawType,
-        bool isSecondPhase, DrawStats *drawStats);
+        bool isSecondPhase);
 
     bool m_initialized{false};
 

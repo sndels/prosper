@@ -112,7 +112,7 @@ class CpuFrameProfiler
         Scope &operator=(Scope &&) = delete;
 
       protected:
-        Scope(std::chrono::nanoseconds *output);
+        Scope(std::chrono::nanoseconds &output);
 
       private:
         std::chrono::time_point<std::chrono::high_resolution_clock> m_start;

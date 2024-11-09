@@ -1706,7 +1706,7 @@ std::filesystem::path Device::updateShaderCache(
     try
     {
         expandIncludes(
-            alloc, sourcePath, topLevelSource, &fullSource, &uniqueIncludes, 0);
+            alloc, sourcePath, topLevelSource, fullSource, uniqueIncludes, 0);
     }
     catch (const std::exception &e)
     {

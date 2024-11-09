@@ -32,8 +32,8 @@ class ForwardRenderer
     };
     void init(
         wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts,
-        MeshletCuller *meshletCuller,
-        HierarchicalDepthDownsampler *hierarchicalDepthDownsampler);
+        MeshletCuller &meshletCuller,
+        HierarchicalDepthDownsampler &hierarchicalDepthDownsampler);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -53,7 +53,7 @@ class ForwardRenderer
         const World &world, const Camera &cam, const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
         uint32_t nextFrame, bool applyIbl, DrawType drawType,
-        DrawStats *drawStats);
+        DrawStats &drawStats);
 
     struct TransparentInOut
     {
@@ -62,10 +62,10 @@ class ForwardRenderer
     };
     void recordTransparent(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        MeshletCuller *meshletCuller, const World &world, const Camera &cam,
+        const World &world, const Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, DrawType drawType, DrawStats *drawStats);
+        uint32_t nextFrame, DrawType drawType, DrawStats &drawStats);
 
     void releasePreserved();
 
@@ -108,7 +108,7 @@ class ForwardRenderer
         const World &world, const Camera &cam, uint32_t nextFrame,
         const RecordInOut &inputsOutputs,
         const LightClusteringOutput &lightClusters, const Options &options,
-        DrawStats *drawStats, const char *debugName);
+        const char *debugName);
 
     bool m_initialized{false};
 
