@@ -154,7 +154,9 @@ void firstPass(
         const uint16_t opWordCount =
             static_cast<uint16_t>(words[opFirstWord] >> 16);
         const uint16_t op = static_cast<uint16_t>(words[opFirstWord] & 0xFFFF);
-        const uint32_t *args = &words[opFirstWord + 1];
+        const Span<const uint32_t> args =
+            opWordCount > 1 ? Span{&words[opFirstWord + 1], opWordCount - 1u}
+                            : Span<const uint32_t>{};
 
         switch (op)
         {
@@ -377,7 +379,9 @@ void secondPass(Span<const uint32_t> words, Span<SpvResult> results)
         const uint16_t opWordCount =
             static_cast<uint16_t>(words[opFirstWord] >> 16);
         const uint16_t op = static_cast<uint16_t>(words[opFirstWord] & 0xFFFF);
-        const uint32_t *args = &words[opFirstWord + 1];
+        const Span<const uint32_t> args =
+            opWordCount > 1 ? Span{&words[opFirstWord + 1], opWordCount - 1u}
+                            : Span<const uint32_t>{};
 
         switch (op)
         {
