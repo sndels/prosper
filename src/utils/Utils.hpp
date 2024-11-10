@@ -144,7 +144,7 @@ inline void appendEnumVariantsAsDefines(
 inline uint32_t getMipCount(uint32_t maxDimension)
 {
     WHEELS_ASSERT(maxDimension > 0);
-    return 32 - std::countl_zero(maxDimension - 1) + 1;
+    return 32 - std::countl_zero(maxDimension);
 }
 
 // Completes the division by rounding up to the next integer when there is a
