@@ -7,6 +7,7 @@
 #include "utils/Utils.hpp"
 
 #include <bit>
+#include <shader_structs/push_constants/hiz_downsampler.h>
 
 using namespace glm;
 using namespace wheels;
@@ -35,14 +36,6 @@ void SpdSetup(
     numWorkGroups =
         (dispatchThreadGroupCountXY[0]) * (dispatchThreadGroupCountXY[1]);
 }
-
-struct PCBlock
-{
-    ivec2 inputResolution;
-    ivec2 topMipResolution;
-    uint32_t numWorkGroupsPerSlice;
-    uint32_t mips;
-};
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -124,7 +117,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
     WHEELS_ASSERT(hizMipCount <= sMaxMips);
 
     uvec2 dispatchThreadGroupCountXY{};
-    PCBlock pcBlock{
+    HizDownsamplerPC pcBlock{
         .inputResolution =
             ivec2{
                 asserted_cast<int32_t>(inDepth.extent.width),

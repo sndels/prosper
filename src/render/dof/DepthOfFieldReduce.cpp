@@ -6,6 +6,7 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/dof/reduce.h>
 
 using namespace glm;
 using namespace wheels;
@@ -32,13 +33,6 @@ void SpdSetup(
     numWorkGroups =
         (dispatchThreadGroupCountXY[0]) * (dispatchThreadGroupCountXY[1]);
 }
-
-struct PCBlock
-{
-    ivec2 topMipResolution;
-    uint32_t numWorkGroupsPerSlice;
-    uint32_t mips;
-};
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -103,7 +97,7 @@ void DepthOfFieldReduce::record(
     WHEELS_ASSERT(inOutRes.mipCount <= sMaxMips + 1);
 
     uvec2 dispatchThreadGroupCountXY{};
-    PCBlock pcBlock{
+    ReducePC pcBlock{
         .topMipResolution =
             ivec2{
                 asserted_cast<int32_t>(inOutRes.extent.width),

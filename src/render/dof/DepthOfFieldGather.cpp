@@ -6,19 +6,13 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/dof/gather.h>
 
 using namespace glm;
 using namespace wheels;
 
 namespace
 {
-
-struct PCBlock
-{
-    ivec2 halfResolution{};
-    vec2 invHalfResolution{};
-    uint frameIndex{0};
-};
 
 ComputePass::Shader backgroundDefinitionCallback(Allocator &alloc)
 {
@@ -152,7 +146,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
 
         PROFILER_GPU_SCOPE(cb, debugString);
 
-        const PCBlock pcBlock{
+        const GatherPC pcBlock{
             .halfResolution =
                 ivec2{
                     asserted_cast<int32_t>(renderExtent.width),

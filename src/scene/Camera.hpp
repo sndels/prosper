@@ -5,6 +5,7 @@
 #include "gfx/ShaderReflection.hpp"
 
 #include <glm/glm.hpp>
+#include <shader_structs/scene/camera.h>
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
@@ -41,29 +42,6 @@ struct CameraParameters
     float apertureDiameter{0.00001f};
     float focusDistance{1.f};
     float focalLength{0.f};
-};
-
-struct CameraUniforms
-{
-    glm::mat4 worldToCamera;
-    glm::mat4 cameraToWorld;
-    glm::mat4 cameraToClip;
-    glm::mat4 clipToWorld;
-    glm::mat4 previousWorldToCamera;
-    glm::mat4 previousCameraToClip;
-    glm::vec4 eye;
-    glm::vec4 nearPlane;
-    glm::vec4 farPlane;
-    glm::vec4 leftPlane;
-    glm::vec4 rightPlane;
-    glm::vec4 topPlane;
-    glm::vec4 bottomPlane;
-    glm::uvec2 resolution;
-    glm::vec2 currentJitter;
-    glm::vec2 previousJitter;
-    float near;
-    float far;
-    float maxViewScale;
 };
 
 struct FrustumCorners

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <imgui.h>
+#include <shader_structs/push_constants/texture_debug.h>
 
 using namespace glm;
 using namespace wheels;
@@ -18,27 +19,15 @@ namespace
 
 const Hash<StrSpan> sStrSpanHash = Hash<StrSpan>{};
 
-struct PCBlock
+struct TextureDebugPCFlags
 {
-    ivec2 inRes{};
-    ivec2 outRes{};
-
-    vec2 range{0.f, 1.f};
-    uint32_t lod{0};
-    uint32_t flags{0};
-
-    vec2 cursorUv{};
-
-    struct Flags
-    {
-        TextureDebug::ChannelType channelType{TextureDebug::ChannelType::RGB};
-        bool absBeforeRange{false};
-        bool zoom{false};
-        bool magnifier{false};
-    };
+    TextureDebug::ChannelType channelType{TextureDebug::ChannelType::RGB};
+    bool absBeforeRange{false};
+    bool zoom{false};
+    bool magnifier{false};
 };
 
-uint32_t pcFlags(PCBlock::Flags flags)
+uint32_t pcFlags(TextureDebugPCFlags flags)
 {
     uint32_t ret = 0;
 
@@ -356,7 +345,7 @@ ImageHandle TextureDebug::record(
                     ? (vec2(*cursorCoord) + 0.5f) /
                           vec2(outExtent.width, outExtent.height)
                     : vec2{};
-            const PCBlock pcBlock{
+            const TextureDebugPC pcBlock{
                 .inRes =
                     uvec2{
                         asserted_cast<int32_t>(inExtent.width),
@@ -369,7 +358,7 @@ ImageHandle TextureDebug::record(
                     },
                 .range = settings.range,
                 .lod = asserted_cast<uint32_t>(settings.lod),
-                .flags = pcFlags(PCBlock::Flags{
+                .flags = pcFlags(TextureDebugPCFlags{
                     .channelType = settings.channelType,
                     .absBeforeRange = settings.absBeforeRange,
                     .zoom = m_zoom,

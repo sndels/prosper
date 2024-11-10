@@ -1,0 +1,12 @@
+#ifndef SHARED_SHADER_STRUCTS_SCENE_MODEL_INSTANCE_TRANSFORMS_H
+#define SHARED_SHADER_STRUCTS_SCENE_MODEL_INSTANCE_TRANSFORMS_H
+
+#include "../fields.h"
+
+struct ModelInstanceTransforms
+{
+    STRUCT_FIELD_GLM(mat3x4, modelToWorld, 1.f);
+    STRUCT_FIELD_GLM(mat3x4, normalToWorld, 1.f);
+};
+
+#endif // SHARED_SHADER_STRUCTS_SCENE_MODEL_INSTANCE_TRANSFORMS_H

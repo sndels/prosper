@@ -1,24 +1,8 @@
 #ifndef SCENE_MATERIALS_GLSL
 #define SCENE_MATERIALS_GLSL
 
+#include "../shared/shader_structs/scene/material_data.h"
 #include "material.glsl"
-
-const uint AlphaModeOpaque = 0;
-const uint AlphaModeMask = 1;
-const uint AlphaModeBlend = 2;
-
-struct MaterialData
-{
-    vec4 baseColorFactor;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaCutoff;
-    uint alphaMode;
-    uint baseColorTexture;
-    uint metallicRoughnessTexture;
-    uint normalTexture;
-    uint pad;
-};
 
 layout(std430, set = MATERIAL_DATAS_SET, binding = 0) readonly buffer
     MaterialDatas
@@ -66,8 +50,8 @@ Material sampleMaterial(uint index, vec2 uv)
     Material ret;
 
     vec4 linearBaseColor;
-    uint baseColorTex = data.baseColorTexture & 0xFFFFFF;
-    uint baseColorSampler = data.baseColorTexture >> 24;
+    uint baseColorTex = data.baseColorTextureSampler & 0xFFFFFF;
+    uint baseColorSampler = data.baseColorTextureSampler >> 24;
     if (baseColorTex > 0)
         linearBaseColor = sRGBtoLinear(sampleMaterialTexture(
             sampler2D(
@@ -94,8 +78,8 @@ Material sampleMaterial(uint index, vec2 uv)
     }
     ret.albedo = linearBaseColor.rgb;
 
-    uint metallicRoughnessTex = data.metallicRoughnessTexture & 0xFFFFFF;
-    uint metallicRoughnessSampler = data.metallicRoughnessTexture >> 24;
+    uint metallicRoughnessTex = data.metallicRoughnessTextureSampler & 0xFFFFFF;
+    uint metallicRoughnessSampler = data.metallicRoughnessTextureSampler >> 24;
     if (metallicRoughnessTex > 0)
     {
         vec3 mr = sampleMaterialTexture(
@@ -115,8 +99,8 @@ Material sampleMaterial(uint index, vec2 uv)
     // Avoid losing specular at zero roughness
     ret.roughness = max(ret.roughness, 0.05);
 
-    uint normalTextureTex = data.normalTexture & 0xFFFFFF;
-    uint normalTextureSampler = data.normalTexture >> 24;
+    uint normalTextureTex = data.normalTextureSampler & 0xFFFFFF;
+    uint normalTextureSampler = data.normalTextureSampler >> 24;
     if (normalTextureTex > 0)
     {
         vec3 texture_normal =
@@ -139,8 +123,8 @@ float sampleAlpha(uint index, vec2 uv)
     MaterialData data = materialDatas.materials[index];
 
     float linearAlpha = 1;
-    uint baseColorTex = data.baseColorTexture & 0xFFFFFF;
-    uint baseColorSampler = data.baseColorTexture >> 24;
+    uint baseColorTex = data.baseColorTextureSampler & 0xFFFFFF;
+    uint baseColorSampler = data.baseColorTextureSampler >> 24;
     if (baseColorTex > 0)
         linearAlpha =
             sRGBtoLinear(sampleMaterialTexture(

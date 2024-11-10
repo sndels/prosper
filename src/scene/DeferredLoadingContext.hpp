@@ -148,7 +148,7 @@ class DeferredLoadingContext
     uint32_t loadedMeshCount{0};
     uint32_t loadedImageCount{0};
     uint32_t loadedMaterialCount{0};
-    wheels::Array<Material> materials{gAllocators.loadingWorker};
+    wheels::Array<MaterialData> materials{gAllocators.loadingWorker};
     Buffer stagingBuffer;
 
   private:

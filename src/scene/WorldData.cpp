@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <imgui.h>
+#include <shader_structs/scene/draw_instance.h>
 
 using namespace glm;
 using namespace wheels;
@@ -561,8 +562,8 @@ void WorldData::uploadMaterialDatas(uint32_t nextFrame)
         m_deferredLoadingContext->materialsGeneration)
         return;
 
-    Material *mapped =
-        static_cast<Material *>(m_materialsBuffers[nextFrame].mapped);
+    MaterialData *mapped =
+        static_cast<MaterialData *>(m_materialsBuffers[nextFrame].mapped);
     memcpy(
         mapped, m_materials.data(),
         m_materials.size() * sizeof(m_materials[0]));
@@ -743,12 +744,12 @@ void WorldData::loadMaterials(
     const cgltf_data &gltfData,
     const Array<Texture2DSampler> &texture2DSamplers)
 {
-    m_materials.push_back(Material{});
+    m_materials.push_back(MaterialData{});
 
     for (const cgltf_material &material :
          Span{gltfData.materials, gltfData.materials_count})
     {
-        Material mat;
+        MaterialData mat;
         if (material.has_pbr_metallic_roughness == 0)
         {
             LOG_WARN(
@@ -783,18 +784,19 @@ void WorldData::loadMaterials(
         const cgltf_pbr_metallic_roughness &pbrParams =
             material.pbr_metallic_roughness;
 
-        mat.baseColor =
+        mat.baseColorTextureSampler =
             getTexture2dSampler(pbrParams.base_color_texture, "base color");
         mat.baseColorFactor = make_vec4(&pbrParams.base_color_factor[0]);
-        mat.metallicRoughness = getTexture2dSampler(
+        mat.metallicRoughnessTextureSampler = getTexture2dSampler(
             pbrParams.metallic_roughness_texture, "metallic roughness");
         mat.metallicFactor = pbrParams.metallic_factor;
         mat.roughnessFactor = pbrParams.roughness_factor;
-        mat.normal = getTexture2dSampler(material.normal_texture, "normal");
+        mat.normalTextureSampler =
+            getTexture2dSampler(material.normal_texture, "normal");
         if (material.alpha_mode == cgltf_alpha_mode_mask)
-            mat.alphaMode = Material::AlphaMode::Mask;
+            mat.alphaMode = AlphaMode_Mask;
         else if (material.alpha_mode == cgltf_alpha_mode_blend)
-            mat.alphaMode = Material::AlphaMode::Blend;
+            mat.alphaMode = AlphaMode_Blend;
         else if (material.alpha_mode != cgltf_alpha_mode_opaque)
             LOG_ERR(
                 "%s: Unsupported alpha mode '%s'", material.name,
@@ -803,7 +805,7 @@ void WorldData::loadMaterials(
 
         // Copy the alpha mode of the real material because that's used to
         // set opaque flag in rt
-        m_materials.push_back(Material{
+        m_materials.push_back(MaterialData{
             .alphaMode = mat.alphaMode,
         });
         WHEELS_ASSERT(m_deferredLoadingContext.has_value());
@@ -1548,8 +1550,8 @@ void WorldData::createBuffers()
             scene.drawInstancesBuffer = gDevice.createBuffer(BufferCreateInfo{
                 .desc =
                     BufferDescription{
-                        .byteSize = sizeof(Scene::DrawInstance) *
-                                    scene.drawInstanceCount,
+                        .byteSize =
+                            sizeof(DrawInstance) * scene.drawInstanceCount,
                         .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                         .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                                       vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -1561,7 +1563,7 @@ void WorldData::createBuffers()
         // Make room for one extra frame because the previous frame's transforms
         // are read for motion
         const uint32_t bufferSize = asserted_cast<uint32_t>(
-            ((maxModelInstanceTransforms * sizeof(ModelInstance::Transforms) +
+            ((maxModelInstanceTransforms * sizeof(ModelInstanceTransforms) +
               static_cast<size_t>(RingBuffer::sAlignment)) +
              (maxModelInstanceTransforms * sizeof(float) +
               static_cast<size_t>(RingBuffer::sAlignment))) *
@@ -1874,7 +1876,7 @@ void WorldData::createDescriptorSets(
             DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = ringBuffers.lightDataRing->buffer(),
                 .offset = 0,
-                .range = sizeof(DirectionalLight::Parameters),
+                .range = sizeof(DirectionalLightParameters),
             }},
             DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = ringBuffers.lightDataRing->buffer(),
@@ -1911,12 +1913,12 @@ void WorldData::createDescriptorSets(
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
-                             sizeof(ModelInstance::Transforms),
+                             sizeof(ModelInstanceTransforms),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
-                             sizeof(ModelInstance::Transforms),
+                             sizeof(ModelInstanceTransforms),
                 }},
                 DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_modelInstanceTransformsRing.buffer(),
@@ -2186,11 +2188,12 @@ bool WorldData::updateMaterials()
     bool materialsUpdated = false;
     for (size_t i = ctx.loadedMaterialCount; i < ctx.materials.size(); ++i)
     {
-        const Material &material = ctx.materials[i];
-        const uint32_t baseColorIndex = material.baseColor.texture();
-        const uint32_t normalIndex = material.normal.texture();
+        const MaterialData &material = ctx.materials[i];
+        const uint32_t baseColorIndex =
+            material.baseColorTextureSampler.texture();
+        const uint32_t normalIndex = material.normalTextureSampler.texture();
         const uint32_t metallicRoughnessIndex =
-            material.metallicRoughness.texture();
+            material.metallicRoughnessTextureSampler.texture();
         // Inclusive as 0 is our default, starting gltf indices from 1
         if (baseColorIndex <= ctx.loadedImageCount &&
             normalIndex <= ctx.loadedImageCount &&

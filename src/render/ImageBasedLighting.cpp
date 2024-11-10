@@ -5,6 +5,7 @@
 #include "utils/Profiler.hpp"
 
 #include <glm/glm.hpp>
+#include <shader_structs/push_constants/prefilter_radiance.h>
 
 using namespace wheels;
 using namespace glm;
@@ -43,11 +44,6 @@ ComputePass::Shader integrateSpecularBrdfShaderDefinitionCallback(
         .defines = WHEELS_MOV(defines),
     };
 }
-
-struct PrefilterRadiancePC
-{
-    uint mipCount{0};
-};
 
 ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
 {

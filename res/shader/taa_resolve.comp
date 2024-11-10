@@ -9,9 +9,9 @@
 
 #include "common/math.glsl"
 #include "scene/camera.glsl"
+#include "shared/shader_structs/push_constants/taa_resolve.h"
 
-layout(push_constant) uniform TaaResolvePC { uint flags; }
-PC;
+layout(push_constant) uniform PushConstants { TaaResolvePC PC; };
 
 bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
 bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }

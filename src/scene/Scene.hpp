@@ -54,12 +54,6 @@ struct Scene
     wheels::Array<ModelInstance> modelInstances{gAllocators.world};
     bool previousTransformsValid{false};
 
-    struct DrawInstance
-    {
-        uint32_t modelInstanceIndex{0};
-        uint32_t meshIndex{0xFFFF'FFFF};
-        uint32_t materialIndex{0xFFFF'FFFF};
-    };
     uint32_t drawInstanceCount{0};
     Buffer drawInstancesBuffer;
     vk::DescriptorSet sceneInstancesDescriptorSet;

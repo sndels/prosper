@@ -1,7 +1,8 @@
 #pragma shader_stage(compute)
 
-layout(push_constant) uniform TextureReadbackPC { vec2 uv; }
-PC;
+#include "shared/shader_structs/push_constants/texture_readback.h"
+
+layout(push_constant) uniform PushConstants { TextureReadbackPC PC; };
 
 layout(binding = 0) uniform texture2D inTexture;
 layout(binding = 1) uniform sampler nearestSampler;

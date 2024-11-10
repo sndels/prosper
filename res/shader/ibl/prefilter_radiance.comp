@@ -1,16 +1,16 @@
 #pragma shader_stage(compute)
 
-layout(push_constant) uniform PrefilterRadiancePC { uint mipCount; }
-PC;
-
-layout(binding = 0) uniform samplerCube inEnvironment;
-// 15 levels == 16k texture
-layout(binding = 1, r11f_g11f_b10f) uniform writeonly imageCube outRadiance[15];
-
 #include "../brdf.glsl"
 #include "../common/math.glsl"
 #include "../common/random.glsl"
 #include "../common/sampling.glsl"
+#include "../shared/shader_structs/push_constants/prefilter_radiance.h"
+
+layout(push_constant) uniform PushConstants { PrefilterRadiancePC PC; };
+
+layout(binding = 0) uniform samplerCube inEnvironment;
+// 15 levels == 16k texture
+layout(binding = 1, r11f_g11f_b10f) uniform writeonly imageCube outRadiance[15];
 
 // From Real Shading in Unreal Engine 4
 // by Brian Karis

@@ -7,6 +7,7 @@
 
 #include "../common/math.glsl"
 #include "../scene/camera.glsl"
+#include "../shared/shader_structs/push_constants/dof/setup.h"
 #include "bilateral.glsl"
 
 layout(set = STORAGE_SET, binding = 0) uniform readonly image2D inIllumination;
@@ -18,13 +19,7 @@ layout(set = STORAGE_SET, binding = 2) uniform image2D outIllumination;
 layout(set = STORAGE_SET, binding = 3) uniform image2D outCircleOfConfusion;
 layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
 
-layout(push_constant) uniform SetupPC
-{
-    float focusDistance;
-    float maxBackgroundCoC;
-    float maxCoC;
-}
-PC;
+layout(push_constant) uniform PushConstants { SetupPC PC; };
 
 float circleOfConfusion(float viewDepth)
 {

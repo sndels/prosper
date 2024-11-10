@@ -29,6 +29,7 @@ endif() # PROSPER_ALLOCATOR_DEBUG
 # Set up sub-builds and sources
 add_subdirectory(ext)
 add_subdirectory(src)
+add_subdirectory(res)
 
 if(PROSPER_ALWAYS_O2_DEPENDENCIES)
     # Only optimize the dependencies that have a noticeable impact
@@ -113,6 +114,7 @@ target_link_libraries(prosper
     meshoptimizer
     mikktspace
     shaderc
+    shared_shader_structs
     spirv_headers
     stb
     tomlcpp

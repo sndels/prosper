@@ -5,12 +5,12 @@
 #include "common/math.glsl"
 #include "scene/camera.glsl"
 #include "scene/lights.glsl"
+#include "shared/shader_structs/push_constants/light_clustering.h"
 
 #define WRITE_CULLING_BINDS
 #include "scene/light_clusters.glsl"
 
-layout(push_constant) uniform ClusteringPC { uvec2 resolution; }
-clusteringPC;
+layout(push_constant) uniform PushConstants { LightClusteringPC clusteringPC; };
 
 const uint maxPointIndices = 128;
 const uint maxSpotIndices = 128;

@@ -13,6 +13,7 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/deferred_shading.h>
 
 using namespace glm;
 using namespace wheels;
@@ -30,12 +31,6 @@ enum BindingSet : uint32_t
     SkyboxBindingSet,
     StorageBindingSet,
     BindingSetCount,
-};
-
-struct PCBlock
-{
-    uint drawType{0};
-    uint ibl{0};
 };
 
 ComputePass::Shader shaderDefinitionCallback(
@@ -186,7 +181,7 @@ DeferredShading::Output DeferredShading::record(
 
         PROFILER_GPU_SCOPE(cb, "DeferredShading");
 
-        const PCBlock pcBlock{
+        const DeferredShadingPC pcBlock{
             .drawType = static_cast<uint32_t>(drawType),
             .ibl = static_cast<uint32_t>(applyIbl),
         };

@@ -10,6 +10,7 @@
 #include "scene/geometry.glsl"
 #include "scene/instances.glsl"
 #include "scene/materials.glsl"
+#include "shared/shader_structs/push_constants/draw_list_generator.h"
 
 // TODO: Put in a header?
 struct DrawMeshletInstance
@@ -24,8 +25,7 @@ layout(std430, set = STORAGE_SET, binding = 0) writeonly buffer DrawList
 }
 outDrawList;
 
-layout(push_constant) uniform DrawListGeneratorPC { uint matchTransparents; }
-PC;
+layout(push_constant) uniform PushConstants { DrawListGeneratorPC PC; };
 
 layout(local_size_x = GROUP_X) in;
 void main()

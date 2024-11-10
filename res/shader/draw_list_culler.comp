@@ -10,6 +10,7 @@
 #include "scene/camera.glsl"
 #include "scene/geometry.glsl"
 #include "scene/instances.glsl"
+#include "shared/shader_structs/push_constants/draw_list_culler.h"
 
 // TODO: Put in a header?
 struct DrawMeshletInstance
@@ -51,19 +52,12 @@ layout(set = STORAGE_SET, binding = 4) uniform texture2D
 // This should clamp to 1 on/beyond edges
 layout(set = STORAGE_SET, binding = 5) uniform sampler depthSampler;
 
-layout(push_constant) uniform DrawListCullerPC
-{
-    uvec2 hizResolution;
-    vec2 hizUvScale;
-    // 0 means no hiz bound
-    uint hizMipCount;
-    uint outputSecondPhaseInput;
-}
-PC;
+layout(push_constant) uniform PushConstants { DrawListCullerPC PC; };
 
 float signedDistance(vec4 plane, vec3 p) { return dot(plane, vec4(p, 1)); }
 
-void transformBounds(inout MeshletBounds bounds, Transforms trfn, float scale)
+void transformBounds(
+    inout MeshletBounds bounds, ModelInstanceTransforms trfn, float scale)
 {
     // Need full SRT for center as it's the cluster center in model space
     bounds.center = (vec4(bounds.center, 1.0) * trfn.modelToWorld).xyz;
@@ -219,7 +213,7 @@ void main()
     MeshletInfo meshletInfo =
         loadMeshletInfo(metadata, meshletInstance.meshletIndex);
 
-    Transforms trfn =
+    ModelInstanceTransforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceIndex];
 
     float scale = modelInstanceScales.instance[instance.modelInstanceIndex];

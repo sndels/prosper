@@ -9,6 +9,7 @@
 #include "scene/lighting.glsl"
 #include "scene/lights.glsl"
 #include "scene/skybox.glsl"
+#include "shared/shader_structs/push_constants/deferred_shading.h"
 
 layout(set = STORAGE_SET, binding = 0) uniform readonly image2D
     inAlbedoRoughness;
@@ -18,12 +19,7 @@ layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
 layout(set = STORAGE_SET, binding = 3) uniform image2D outColor;
 layout(set = STORAGE_SET, binding = 4) uniform sampler depthSampler;
 
-layout(push_constant) uniform DeferredShadingPC
-{
-    uint DrawType;
-    uint ibl;
-}
-PC;
+layout(push_constant) uniform PushConstants { DeferredShadingPC PC; };
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
@@ -63,15 +59,15 @@ void main()
     if (PC.ibl == 1)
         color += evalIBL(surface);
 
-    if (PC.DrawType != DrawType_Default)
+    if (PC.drawType != DrawType_Default)
     {
-        if (PC.DrawType == DrawType_Position)
+        if (PC.drawType == DrawType_Position)
         {
             DebugInputs di;
             di.position = surface.positionWS;
             imageStore(
                 outColor, coord,
-                vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1));
+                vec4(commonDebugDraw(PC.drawType, di, surface.material), 1));
         }
         else
         {

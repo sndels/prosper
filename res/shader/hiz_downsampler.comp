@@ -6,6 +6,8 @@
 // https://advances.realtimerendering.com/s2018/index.htm
 // implemented using https://github.com/GPUOpen-Effects/FidelityFX-SPD
 
+#include "shared/shader_structs/push_constants/hiz_downsampler.h"
+
 layout(set = 0, binding = 0) uniform texture2D depthSrc;
 layout(set = 0, binding = 1) uniform sampler depthSampler;
 layout(set = 0, binding = 2) uniform coherent image2D depthDst[12];
@@ -15,14 +17,7 @@ layout(std430, set = 0, binding = 3) coherent buffer SpdGlobalAtomicBuffer
 }
 spdGlobalAtomic;
 
-layout(push_constant) uniform ReducePC
-{
-    ivec2 inputResolution;
-    ivec2 topMipResolution;
-    uint numWorkGroupsPerSlice;
-    uint mips;
-}
-PC;
+layout(push_constant) uniform PushConstants { HizDownsamplerPC PC; };
 
 #define A_GPU 1
 #define A_GLSL 1

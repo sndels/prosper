@@ -16,6 +16,7 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/rt_reference.h>
 
 using namespace wheels;
 
@@ -61,28 +62,16 @@ enum class GroupIndex : uint32_t
     Miss,
 };
 
-struct PCBlock
+struct ReferencePCFlags
 {
-    uint32_t drawType{0};
-    uint32_t flags{0};
-    uint32_t frameIndex{0};
-    float apertureDiameter{0.00001f};
-    float focusDistance{1.f};
-    float focalLength{0.f};
-    uint32_t rouletteStartBounce{3};
-    uint32_t maxBounces{RtReference::sMaxBounces};
-
-    struct Flags
-    {
-        bool skipHistory{false};
-        bool accumulate{false};
-        bool ibl{false};
-        bool depthOfField{false};
-        bool clampIndirect{false};
-    };
+    bool skipHistory{false};
+    bool accumulate{false};
+    bool ibl{false};
+    bool depthOfField{false};
+    bool clampIndirect{false};
 };
 
-uint32_t pcFlags(PCBlock::Flags flags)
+uint32_t pcFlags(ReferencePCFlags flags)
 {
     uint32_t ret = 0;
 
@@ -284,9 +273,9 @@ RtReference::Output RtReference::record(
 
         const CameraParameters &camParams = cam.parameters();
 
-        const PCBlock pcBlock{
+        const ReferencePC pcBlock{
             .drawType = static_cast<uint32_t>(options.drawType),
-            .flags = pcFlags(PCBlock::Flags{
+            .flags = pcFlags(ReferencePCFlags{
                 .skipHistory = cam.changedThisFrame() || options.colorDirty ||
                                m_accumulationDirty,
                 .accumulate = m_accumulate,
@@ -302,7 +291,7 @@ RtReference::Output RtReference::record(
             .maxBounces = m_maxBounces,
         };
         cb.pushConstants(
-            m_pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
+            m_pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(pcBlock),
             &pcBlock);
 
         WHEELS_ASSERT(m_shaderBindingTable.deviceAddress != 0);
@@ -490,22 +479,24 @@ bool RtReference::compileShaders(
 
         m_raygenReflection = WHEELS_MOV(raygenResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == m_raygenReflection->pushConstantsBytesize());
+            sizeof(ReferencePC) == m_raygenReflection->pushConstantsBytesize());
 
         m_rayMissReflection = WHEELS_MOV(rayMissResult->reflection);
         WHEELS_ASSERT(
             m_rayMissReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == m_rayMissReflection->pushConstantsBytesize());
+            sizeof(ReferencePC) ==
+                m_rayMissReflection->pushConstantsBytesize());
 
         m_closestHitReflection = WHEELS_MOV(closestHitResult->reflection);
         WHEELS_ASSERT(
             m_closestHitReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == m_closestHitReflection->pushConstantsBytesize());
+            sizeof(ReferencePC) ==
+                m_closestHitReflection->pushConstantsBytesize());
 
         m_anyHitReflection = WHEELS_MOV(anyHitResult->reflection);
         WHEELS_ASSERT(
             m_anyHitReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == m_anyHitReflection->pushConstantsBytesize());
+            sizeof(ReferencePC) == m_anyHitReflection->pushConstantsBytesize());
 
         m_shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,
@@ -628,7 +619,7 @@ void RtReference::createPipeline(
     const vk::PushConstantRange pcRange{
         .stageFlags = sVkShaderStageFlagsAllRt,
         .offset = 0,
-        .size = sizeof(PCBlock),
+        .size = sizeof(ReferencePC),
     };
     m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{

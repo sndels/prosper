@@ -6,6 +6,7 @@
 #include "utils/Fwd.hpp"
 
 #include <filesystem>
+#include <shader_structs/scene/fwd.hpp>
 #include <vulkan/vulkan.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
@@ -65,7 +66,7 @@ class World
     [[nodiscard]] const WorldDescriptorSets &descriptorSets() const;
     [[nodiscard]] const WorldByteOffsets &byteOffsets() const;
     [[nodiscard]] wheels::Span<const Model> models() const;
-    [[nodiscard]] wheels::Span<const Material> materials() const;
+    [[nodiscard]] wheels::Span<const MaterialData> materials() const;
     [[nodiscard]] wheels::Span<const MeshInfo> meshInfos() const;
     [[nodiscard]] SkyboxResources &skyboxResources();
 

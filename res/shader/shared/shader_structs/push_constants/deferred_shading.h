@@ -1,0 +1,12 @@
+#ifndef SHADER_STRUCTS_PUSH_CONSTANTS_DEFERRED_SHADING_H
+#define SHADER_STRUCTS_PUSH_CONSTANTS_DEFERRED_SHADING_H
+
+#include "../fields.h"
+
+struct DeferredShadingPC
+{
+    STRUCT_FIELD_GLM(uint, drawType, 0);
+    STRUCT_FIELD_GLM(uint, ibl, 0);
+};
+
+#endif // SHADER_STRUCTS_PUSH_CONSTANTS_DEFERRED_SHADING_H

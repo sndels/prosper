@@ -20,6 +20,7 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/forward.h>
 
 using namespace glm;
 using namespace wheels;
@@ -39,13 +40,6 @@ enum BindingSet : uint32_t
     SkyboxBindingSet,
     DrawStatsBindingSet,
     BindingSetCount,
-};
-
-struct PCBlock
-{
-    uint32_t drawType{0};
-    uint32_t ibl{0};
-    uint32_t previousTransformValid{0};
 };
 
 struct Attachments
@@ -328,11 +322,11 @@ bool ForwardRenderer::compileShaders(
 
         m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == m_meshReflection->pushConstantsBytesize());
+            sizeof(ForwardPC) == m_meshReflection->pushConstantsBytesize());
 
         m_fragReflection = WHEELS_MOV(fragResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == m_fragReflection->pushConstantsBytesize());
+            sizeof(ForwardPC) == m_fragReflection->pushConstantsBytesize());
 
         m_shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
@@ -424,7 +418,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(PCBlock),
+        .size = sizeof(ForwardPC),
     };
     m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
@@ -612,7 +606,7 @@ void ForwardRenderer::recordDraw(
 
     setViewportScissor(cb, renderArea);
 
-    const PCBlock pcBlock{
+    const ForwardPC pcBlock{
         .drawType = static_cast<uint32_t>(options.drawType),
         .ibl = static_cast<uint32_t>(options.ibl),
         .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
@@ -621,7 +615,7 @@ void ForwardRenderer::recordDraw(
         m_pipelineLayout,
         vk::ShaderStageFlagBits::eMeshEXT | vk::ShaderStageFlagBits::eFragment,
         0, // offset
-        sizeof(PCBlock), &pcBlock);
+        sizeof(pcBlock), &pcBlock);
 
     const vk::Buffer argumentHandle =
         gRenderResources.buffers->nativeHandle(inputsOutputs.inArgumentBuffer);

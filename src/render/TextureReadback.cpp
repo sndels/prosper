@@ -4,16 +4,13 @@
 #include "render/RenderResources.hpp"
 #include "utils/Profiler.hpp"
 
+#include <shader_structs/push_constants/texture_readback.h>
+
 using namespace glm;
 using namespace wheels;
 
 namespace
 {
-
-struct PCBlock
-{
-    vec2 uv{};
-};
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -127,7 +124,7 @@ void TextureReadback::record(
 
         const vk::Extent3D inRes =
             gRenderResources.images->resource(inTexture).extent;
-        const PCBlock pcBlock{
+        const TextureReadbackPC pcBlock{
             .uv = px / vec2(inRes.width, inRes.height),
         };
 

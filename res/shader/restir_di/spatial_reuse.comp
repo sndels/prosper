@@ -9,11 +9,11 @@
 #include "../scene/camera.glsl"
 #include "../scene/lighting.glsl"
 #include "../scene/material.glsl"
+#include "../shared/shader_structs/push_constants/restir_di/spatial_reuse.h"
 #include "resampling_phat.glsl"
 #include "reservoir.glsl"
 
-layout(push_constant) uniform RtDiInitialReservoirsPC { uint frameIndex; }
-PC;
+layout(push_constant) uniform PushConstants { SpatialReusePC PC; };
 
 layout(set = STORAGE_SET, binding = 0) uniform readonly image2D
     inAlbedoRoughness;

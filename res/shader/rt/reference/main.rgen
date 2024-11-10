@@ -16,10 +16,18 @@
 #include "../../scene/lighting.glsl"
 #include "../../scene/materials.glsl"
 #include "../../scene/skybox.glsl"
+#include "../../shared/shader_structs/push_constants/rt_reference.h"
 #include "../payload.glsl"
 #include "../ray.glsl"
 #include "../rt_data.glsl"
-#include "rtpc.glsl"
+
+layout(push_constant) uniform PushConstant { ReferencePC PC; };
+
+bool flagSkipHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
+bool flagAccumulate() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
+bool flagIBL() { return bitfieldExtract(PC.flags, 2, 1) == 1; }
+bool flagDepthOfField() { return bitfieldExtract(PC.flags, 3, 1) == 1; }
+bool flagClampIndirect() { return bitfieldExtract(PC.flags, 4, 1) == 1; }
 
 layout(set = OUTPUT_SET, binding = 0) uniform image2D previousColor;
 layout(set = OUTPUT_SET, binding = 1) uniform image2D outColor;
@@ -139,7 +147,7 @@ VisibleSurface evaluateSurface(Ray ray, RayPayload hit)
 {
     DrawInstance instance = drawInstances.instance[hit.drawInstanceIndex];
 
-    Transforms trfn =
+    ModelInstanceTransforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceIndex];
 
     GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];

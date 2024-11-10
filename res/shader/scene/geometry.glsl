@@ -1,33 +1,9 @@
 #ifndef SCENE_GEOMETRY_GLSL
 #define SCENE_GEOMETRY_GLSL
 
+#include "../shared/shader_structs/scene/geometry_metadata.h"
 #include "vertex.glsl"
 
-struct MeshBuffer
-{
-    uint index;
-    uint offset;
-};
-
-struct GeometryMetadata
-{
-    uint bufferIndex;
-    // These offsets are into the geometry data buffers. Most are for U32/F32
-    // and an offset of 0xFFFFFFFF signals an unused attribute.
-    // This addresses U16 if short indices are in use.
-    uint indicesOffset;
-    uint positionsOffset;
-    uint normalsOffset;
-    uint tangentsOffset;
-    uint texCoord0sOffset;
-    uint meshletsOffset;
-    uint meshletBoundsOffset;
-    // This addresses U16 if short indices are in use.
-    uint meshletVerticesOffset;
-    // This addresses U8.
-    uint meshletTrianglesByteOffset;
-    uint usesShortIndices;
-};
 layout(std430, set = GEOMETRY_SET, binding = 0) readonly buffer
     GeometryMetadatas
 {

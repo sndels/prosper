@@ -17,6 +17,7 @@
 
 #include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
+#include <shader_structs/scene/draw_instance.h>
 #include <wheels/allocators/utils.hpp>
 #include <wheels/containers/hash_set.hpp>
 
@@ -401,7 +402,7 @@ void World::Impl::updateScene(
 
                 if (node.modelInstance.has_value())
                     scene.modelInstances[*node.modelInstance].transforms =
-                        ModelInstance::Transforms{
+                        ModelInstanceTransforms{
                             .modelToWorld = modelToWorld,
                             .normalToWorld = normalToWorld,
                         };
@@ -463,9 +464,8 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
     const auto &scene = currentScene();
 
     {
-        Array<Scene::DrawInstance> drawInstances{
-            scopeAlloc, scene.drawInstanceCount};
-        Array<ModelInstance::Transforms> transforms{
+        Array<DrawInstance> drawInstances{scopeAlloc, scene.drawInstanceCount};
+        Array<ModelInstanceTransforms> transforms{
             scopeAlloc, scene.modelInstances.size()};
         Array<float> scales{scopeAlloc, scene.modelInstances.size()};
 
@@ -498,7 +498,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             for (const auto &model :
                  m_data.m_models[instance.modelIndex].subModels)
             {
-                drawInstances.push_back(Scene::DrawInstance{
+                drawInstances.push_back(DrawInstance{
                     .modelInstanceIndex = mi,
                     .meshIndex = model.meshIndex,
                     .materialIndex = model.materialIndex,
@@ -517,7 +517,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 
         memcpy(
             scene.drawInstancesBuffer.mapped, drawInstances.data(),
-            sizeof(Scene::DrawInstance) * drawInstances.size());
+            sizeof(DrawInstance) * drawInstances.size());
     }
 
     updateTlasInstances(scopeAlloc.child_scope(), scene);
@@ -636,9 +636,9 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
             .indexData = dataBuffer.deviceAddress + indicesOffset,
         };
 
-        const Material &material = m_data.m_materials[info.materialIndex];
+        const MaterialData &material = m_data.m_materials[info.materialIndex];
         const vk::GeometryFlagsKHR geomFlags =
-            material.alphaMode == Material::AlphaMode::Opaque
+            material.alphaMode == AlphaMode_Opaque
                 ? vk::GeometryFlagBitsKHR::eOpaque
                 : vk::GeometryFlagsKHR{};
         geometries.push_back(vk::AccelerationStructureGeometryKHR{
@@ -1100,7 +1100,7 @@ Span<const Model> World::models() const
     return m_impl->m_data.m_models;
 }
 
-Span<const Material> World::materials() const
+Span<const MaterialData> World::materials() const
 {
     WHEELS_ASSERT(m_initialized);
     return m_impl->m_data.m_materials;

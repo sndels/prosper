@@ -17,11 +17,15 @@
 #include "../../scene/lighting.glsl"
 #include "../../scene/materials.glsl"
 #include "../../scene/skybox.glsl"
+#include "../../shared/shader_structs/push_constants/restir_di/trace.h"
+#include "../payload.glsl"
 #include "../ray.glsl"
 #include "../rt_data.glsl"
 
-#include "../payload.glsl"
-#include "pc.glsl"
+layout(push_constant) uniform PushConstant { TracePC PC; };
+
+bool flagSkipHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
+bool flagAccumulate() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
 
 layout(set = STORAGE_SET, binding = 0) uniform readonly image2D
     inAlbedoRoughness;

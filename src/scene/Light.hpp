@@ -5,27 +5,17 @@
 #include "utils/Utils.hpp"
 
 #include <glm/glm.hpp>
+#include <shader_structs/scene/lights.h>
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/span.hpp>
 
 struct DirectionalLight
 {
-    struct Parameters
-    {
-        // Use vec4 because vec3 alignment is no fun between glsl, c++
-        glm::vec4 irradiance{2.f};
-        glm::vec4 direction{-1.f, -1.f, -1.f, 1.f};
-    } parameters;
+    DirectionalLightParameters parameters;
 
-    static const uint32_t sBufferByteSize = sizeof(Parameters);
+    static const uint32_t sBufferByteSize = sizeof(DirectionalLightParameters);
 
     [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
-};
-
-struct PointLight
-{
-    glm::vec4 radianceAndRadius{0.f};
-    glm::vec4 position{0.f};
 };
 
 struct PointLights
@@ -44,13 +34,6 @@ struct PointLights
         sMaxCount * sizeof(PointLight) + sizeof(uint32_t);
 
     [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
-};
-
-struct SpotLight
-{
-    glm::vec4 radianceAndAngleScale{0.f};
-    glm::vec4 positionAndAngleOffset{0.f};
-    glm::vec4 direction{0.f};
 };
 
 struct SpotLights

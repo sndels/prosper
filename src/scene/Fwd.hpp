@@ -13,7 +13,6 @@ class Camera;
 struct CameraOffset;
 struct CameraParameters;
 struct CameraTransform;
-struct CameraUniforms;
 struct PerspectiveParameters;
 
 // DebugGeometry.hpp
@@ -29,12 +28,7 @@ struct PointLights;
 struct SpotLight;
 struct SpotLights;
 
-// Material.hpp
-struct Material;
-struct Texture2DSampler;
-
 // Mesh.hpp
-struct GeometryMetadata;
 struct MeshInfo;
 
 // Model.hpp

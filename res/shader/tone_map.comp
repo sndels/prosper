@@ -3,13 +3,9 @@
 #extension GL_EXT_shader_image_load_formatted : require
 
 #include "common/math.glsl"
+#include "shared/shader_structs/push_constants/tone_map.h"
 
-layout(push_constant) uniform ToneMapPC
-{
-    float exposure;
-    float contrast;
-}
-PC;
+layout(push_constant) uniform PushConstants { ToneMapPC PC; };
 
 layout(binding = 0) uniform readonly image2D inColor;
 layout(binding = 1) uniform texture3D inLut;

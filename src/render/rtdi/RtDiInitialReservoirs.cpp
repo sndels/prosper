@@ -10,6 +10,8 @@
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
 
+#include <shader_structs/push_constants/restir_di/initial_reservoirs.h>
+
 using namespace glm;
 using namespace wheels;
 
@@ -24,11 +26,6 @@ enum BindingSet : uint32_t
     CameraBindingSet,
     StorageBindingSet,
     BindingSetCount,
-};
-
-struct PCBlock
-{
-    uint32_t frameIndex{0};
 };
 
 ComputePass::Shader shaderDefinitionCallback(
@@ -182,7 +179,7 @@ RtDiInitialReservoirs::Output RtDiInitialReservoirs::record(
         const uvec3 groupCount = m_computePass.groupCount(
             glm::uvec3{renderExtent.width, renderExtent.height, 1u});
 
-        const PCBlock pcBlock{
+        const InitialReservoirsPC pcBlock{
             .frameIndex = m_frameIndex,
         };
 

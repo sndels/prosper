@@ -7,9 +7,11 @@
 #extension GL_EXT_shader_8bit_storage : require
 
 #ifdef USE_GBUFFER_PC
-#include "gbuffer_pc.glsl"
+#include "shared/shader_structs/push_constants/gbuffer.h"
+layout(push_constant) uniform PushConstants { GBufferPC PC; };
 #else // !USE_GBUFFER_PC
-#include "forward_pc.glsl"
+#include "shared/shader_structs/push_constants/forward.h"
+layout(push_constant) uniform PushConstants { ForwardPC PC; };
 #endif // USE_GBUFFER_PC
 
 #include "common/math.glsl"
@@ -60,8 +62,8 @@ layout(location = 8) out flat uint outMeshletIndex[];
 
 void writeTransformedVertex(
     DrawInstance instance, MeshletInstance meshletInstance,
-    GeometryMetadata metadata, Transforms trfn, uint globalVertexIndex,
-    uint meshletVertexIndex)
+    GeometryMetadata metadata, ModelInstanceTransforms trfn,
+    uint globalVertexIndex, uint meshletVertexIndex)
 {
     Vertex vertexModel = loadVertex(metadata, globalVertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
@@ -75,7 +77,7 @@ void writeTransformedVertex(
     vec4 posNDC = camera.cameraToClip * posCam;
     outPositionNDC[meshletVertexIndex] = posNDC;
 
-    Transforms prevTrfn = trfn;
+    ModelInstanceTransforms prevTrfn = trfn;
     if (PC.previousTransformValid == 1)
         prevTrfn = previousModelInstanceTransforms
                        .instance[instance.modelInstanceIndex];
@@ -106,7 +108,7 @@ void main()
     GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];
     MeshletInfo meshletInfo =
         loadMeshletInfo(metadata, meshletInstance.meshletIndex);
-    Transforms trfn =
+    ModelInstanceTransforms trfn =
         modelInstanceTransforms.instance[instance.modelInstanceIndex];
 
     if (threadIndex == 0)

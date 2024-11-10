@@ -1,17 +1,11 @@
 #ifndef SCENE_LIGHTS_GLSL
 #define SCENE_LIGHTS_GLSL
 
+#include "../shared/shader_structs/scene/lights.h"
+
 layout(set = LIGHTS_SET, binding = 0) buffer DirectionalLightDSB
 {
-    vec4 irradiance;
-    vec4 direction;
-}
-directionalLight;
-
-struct PointLight
-{
-    vec4 radianceAndRadius;
-    vec4 position;
+    DirectionalLightParameters directionalLight;
 };
 
 layout(set = LIGHTS_SET, binding = 1) buffer PointLightsDSB
@@ -20,13 +14,6 @@ layout(set = LIGHTS_SET, binding = 1) buffer PointLightsDSB
     uint count;
 }
 pointLights;
-
-struct SpotLight
-{
-    vec4 radianceAndAngleScale;
-    vec4 positionAndAngleOffset;
-    vec4 direction;
-};
 
 layout(set = LIGHTS_SET, binding = 2) buffer SpotLightsDSB
 {

@@ -5,17 +5,13 @@
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
+#include "../shared/shader_structs/push_constants/dof/dilate.h"
+
 layout(set = 0, binding = 0) uniform texture2D inTileMinMaxCoC;
 layout(set = 0, binding = 1) uniform writeonly image2D outDilatedTileMinMaxCoC;
 layout(set = 0, binding = 2) uniform sampler nearestSampler;
 
-layout(push_constant) uniform DilatePC
-{
-    ivec2 res;
-    vec2 invRes;
-    int gatherRadius;
-}
-PC;
+layout(push_constant) uniform PushConstants { DilatePC PC; };
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()

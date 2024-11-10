@@ -7,18 +7,13 @@
 
 #include <glm/glm.hpp>
 #include <imgui.h>
+#include <shader_structs/push_constants/tone_map.h>
 
 using namespace glm;
 using namespace wheels;
 
 namespace
 {
-
-struct PCBlock
-{
-    float exposure{1.f};
-    float contrast{1.f};
-};
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -125,7 +120,7 @@ ToneMap::Output ToneMap::record(
             m_computePass.storageSet(nextFrame);
         m_computePass.record(
             cb,
-            PCBlock{
+            ToneMapPC{
                 .exposure = m_exposure,
                 .contrast = m_contrast,
             },

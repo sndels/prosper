@@ -17,6 +17,7 @@
 #include "wheels/assert.hpp"
 
 #include <cstdint>
+#include <shader_structs/push_constants/gbuffer.h>
 
 using namespace glm;
 using namespace wheels;
@@ -36,12 +37,6 @@ enum BindingSet : uint32_t
     SceneInstancesBindingSet,
     MeshShaderBindingSet,
     BindingSetCount,
-};
-
-struct PCBlock
-{
-    uint32_t previousTransformValid{0};
-    uint32_t drawType{0};
 };
 
 struct Attachments
@@ -305,7 +300,7 @@ bool GBufferRenderer::compileShaders(
 
         m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == m_meshReflection->pushConstantsBytesize());
+            sizeof(GBufferPC) == m_meshReflection->pushConstantsBytesize());
 
         m_fragReflection = WHEELS_MOV(fragResult->reflection);
 
@@ -397,7 +392,7 @@ void GBufferRenderer::createGraphicsPipelines(
         .stageFlags = vk::ShaderStageFlagBits::eMeshEXT |
                       vk::ShaderStageFlagBits::eFragment,
         .offset = 0,
-        .size = sizeof(PCBlock),
+        .size = sizeof(GBufferPC),
     };
     m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
@@ -560,7 +555,7 @@ void GBufferRenderer::recordDraw(
 
     setViewportScissor(cb, renderArea);
 
-    const PCBlock pcBlock{
+    const GBufferPC pcBlock{
         .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
         .drawType = static_cast<uint32_t>(drawType),
     };
@@ -568,7 +563,7 @@ void GBufferRenderer::recordDraw(
         m_pipelineLayout,
         vk::ShaderStageFlagBits::eMeshEXT | vk::ShaderStageFlagBits::eFragment,
         0, // offset
-        sizeof(PCBlock), &pcBlock);
+        sizeof(pcBlock), &pcBlock);
 
     const vk::Buffer argumentHandle =
         gRenderResources.buffers->nativeHandle(inputsOutputs.inArgumentBuffer);

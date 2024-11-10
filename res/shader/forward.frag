@@ -7,7 +7,6 @@
 #include "brdf.glsl"
 #include "common/random.glsl"
 #include "debug.glsl"
-#include "forward_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/instances.glsl"
 #include "scene/light_clusters.glsl"
@@ -15,6 +14,9 @@
 #include "scene/lights.glsl"
 #include "scene/materials.glsl"
 #include "scene/skybox.glsl"
+#include "shared/shader_structs/push_constants/forward.h"
+
+layout(push_constant) uniform PushConstants { ForwardPC PC; };
 
 layout(location = 0) in vec3 inPositionWorld;
 layout(location = 1) in float inZCam;
@@ -90,9 +92,9 @@ void main()
     // Write before debug to not break TAA
     outVelocity = clamp(velocity, vec2(-1), vec2(1));
 
-    if (PC.DrawType >= DrawType_PrimitiveID)
+    if (PC.drawType >= DrawType_PrimitiveID)
     {
-        if (PC.DrawType == DrawType_MeshletID)
+        if (PC.drawType == DrawType_MeshletID)
         {
             outColor = vec4(uintToColor(inMeshletIndex), 1);
             return;
@@ -105,7 +107,7 @@ void main()
         di.position = surface.positionWS;
         di.shadingNormal = surface.normalWS;
         di.texCoord0 = inTexCoord0;
-        outColor = vec4(commonDebugDraw(PC.DrawType, di, surface.material), 1);
+        outColor = vec4(commonDebugDraw(PC.drawType, di, surface.material), 1);
         return;
     }
 

@@ -16,6 +16,7 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/restir_di/trace.h>
 
 using namespace wheels;
 
@@ -61,20 +62,13 @@ enum class GroupIndex : uint32_t
     Miss,
 };
 
-struct PCBlock
+struct TracePCFlags
 {
-    uint32_t drawType{0};
-    uint32_t frameIndex{0};
-    uint32_t flags{0};
-
-    struct Flags
-    {
-        bool skipHistory{false};
-        bool accumulate{false};
-    };
+    bool skipHistory{false};
+    bool accumulate{false};
 };
 
-uint32_t pcFlags(PCBlock::Flags flags)
+inline uint32_t pcFlags(TracePCFlags flags)
 {
     uint32_t ret = 0;
 
@@ -252,17 +246,17 @@ RtDiTrace::Output RtDiTrace::record(
             asserted_cast<uint32_t>(dynamicOffsets.size()),
             dynamicOffsets.data());
 
-        const PCBlock pcBlock{
+        const TracePC pcBlock{
             .drawType = static_cast<uint32_t>(drawType),
             .frameIndex = m_frameIndex,
-            .flags = pcFlags(PCBlock::Flags{
+            .flags = pcFlags(TracePCFlags{
                 .skipHistory = cam.changedThisFrame() || resetAccumulation ||
                                m_accumulationDirty,
                 .accumulate = m_accumulate,
             }),
         };
         cb.pushConstants(
-            m_pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(PCBlock),
+            m_pipelineLayout, sVkShaderStageFlagsAllRt, 0, sizeof(pcBlock),
             &pcBlock);
 
         WHEELS_ASSERT(m_shaderBindingTable.deviceAddress != 0);
@@ -444,22 +438,22 @@ bool RtDiTrace::compileShaders(
 
         m_raygenReflection = WHEELS_MOV(raygenResult->reflection);
         WHEELS_ASSERT(
-            sizeof(PCBlock) == m_raygenReflection->pushConstantsBytesize());
+            sizeof(TracePC) == m_raygenReflection->pushConstantsBytesize());
 
         m_rayMissReflection = WHEELS_MOV(rayMissResult->reflection);
         WHEELS_ASSERT(
             m_rayMissReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == m_rayMissReflection->pushConstantsBytesize());
+            sizeof(TracePC) == m_rayMissReflection->pushConstantsBytesize());
 
         m_closestHitReflection = WHEELS_MOV(closestHitResult->reflection);
         WHEELS_ASSERT(
             m_closestHitReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == m_closestHitReflection->pushConstantsBytesize());
+            sizeof(TracePC) == m_closestHitReflection->pushConstantsBytesize());
 
         m_anyHitReflection = WHEELS_MOV(anyHitResult->reflection);
         WHEELS_ASSERT(
             m_anyHitReflection->pushConstantsBytesize() == 0 ||
-            sizeof(PCBlock) == m_anyHitReflection->pushConstantsBytesize());
+            sizeof(TracePC) == m_anyHitReflection->pushConstantsBytesize());
 
         m_shaderStages[static_cast<uint32_t>(StageIndex::RayGen)] = {
             .stage = vk::ShaderStageFlagBits::eRaygenKHR,
@@ -608,7 +602,7 @@ void RtDiTrace::createPipeline(
     const vk::PushConstantRange pcRange{
         .stageFlags = sVkShaderStageFlagsAllRt,
         .offset = 0,
-        .size = sizeof(PCBlock),
+        .size = sizeof(TracePC),
     };
     m_pipelineLayout =
         gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{

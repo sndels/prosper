@@ -9,6 +9,7 @@
 
 #include <glm/glm.hpp>
 #include <imgui.h>
+#include <shader_structs/push_constants/dof/dilate.h>
 
 using namespace glm;
 using namespace wheels;
@@ -23,13 +24,6 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
         .debugName = String{alloc, "DepthOfFieldDilateCS"},
     };
 }
-
-struct PcBlock
-{
-    ivec2 res{};
-    vec2 invRes{};
-    int32_t gatherRadius{1};
-};
 
 } // namespace
 
@@ -122,7 +116,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
                                    std::ceil(DepthOfField::sMaxFgCoCFactor)),
             1);
 
-        const PcBlock pcBlock{
+        const DilatePC pcBlock{
             .res = ivec2(inputExtent.width, inputExtent.height),
             .invRes = 1.f / vec2(inputExtent.width, inputExtent.height),
             .gatherRadius = gatherRadius,

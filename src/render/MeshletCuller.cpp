@@ -13,6 +13,9 @@
 #include "scene/WorldRenderStructs.hpp"
 #include "utils/Profiler.hpp"
 
+#include <shader_structs/push_constants/draw_list_culler.h>
+#include <shader_structs/push_constants/draw_list_generator.h>
+
 using namespace glm;
 using namespace wheels;
 
@@ -37,20 +40,6 @@ enum GeneratorBindingSet : uint32_t
     GeneratorMaterialTexturesBindingSet,
     GeneratorStorageBindingSet,
     GeneratorBindingSetCount,
-};
-
-struct GeneratorPCBlock
-{
-    uint32_t matchTransparents;
-};
-
-struct CullerPCBlock
-{
-    uvec2 hizResolution{0};
-    vec2 hizUvScale{1.f};
-    // 0 means no hiz bound
-    uint hizMipCount{0};
-    uint32_t outputSecondPhaseInput{0};
 };
 
 enum CullerBindingSet : uint32_t
@@ -296,7 +285,7 @@ BufferHandle MeshletCuller::recordGenerateList(
     {
         const Scene &scene = world.currentScene();
         const Span<const Model> models = world.models();
-        const Span<const Material> materials = world.materials();
+        const Span<const MaterialData> materials = world.materials();
         const Span<const MeshInfo> meshInfos = world.meshInfos();
 
         for (const ModelInstance &instance : scene.modelInstances)
@@ -305,15 +294,16 @@ BufferHandle MeshletCuller::recordGenerateList(
             const Model &model = models[instance.modelIndex];
             for (const Model::SubModel &subModel : model.subModels)
             {
-                const Material &material = materials[subModel.materialIndex];
+                const MaterialData &material =
+                    materials[subModel.materialIndex];
                 const MeshInfo &info = meshInfos[subModel.meshIndex];
                 // 0 means invalid or not yet loaded
                 if (info.indexCount > 0)
                 {
                     const bool shouldDraw =
                         mode == Mode::Opaque
-                            ? material.alphaMode != Material::AlphaMode::Blend
-                            : material.alphaMode == Material::AlphaMode::Blend;
+                            ? material.alphaMode != AlphaMode_Blend
+                            : material.alphaMode == AlphaMode_Blend;
 
                     if (shouldDraw)
                     {
@@ -373,7 +363,7 @@ BufferHandle MeshletCuller::recordGenerateList(
     gRenderResources.buffers->transition(
         cb, ret, BufferState::ComputeShaderReadWrite);
 
-    const GeneratorPCBlock pcBlock{
+    const DrawListGeneratorPC pcBlock{
         .matchTransparents = mode == Mode::Transparent ? 1u : 0u,
     };
 
@@ -672,7 +662,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
         worldByteOffsets.modelInstanceScales,
     }};
 
-    CullerPCBlock pcBlock{
+    DrawListCullerPC pcBlock{
         .outputSecondPhaseInput = outputSecondPhaseInput ? 1u : 0u,
     };
     if (input.hierarchicalDepth.has_value())

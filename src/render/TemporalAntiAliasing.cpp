@@ -10,6 +10,7 @@
 
 #include <glm/glm.hpp>
 #include <imgui.h>
+#include <shader_structs/push_constants/taa_resolve.h>
 
 using namespace glm;
 using namespace wheels;
@@ -33,23 +34,18 @@ enum BindingSet : uint32_t
     BindingSetCount,
 };
 
-struct PCBlock
+struct TaaResolveFlags
 {
-    uint32_t flags{0};
-
-    struct Flags
-    {
-        bool ignoreHistory{false};
-        bool catmullRom{false};
-        TemporalAntiAliasing::ColorClippingType colorClipping{
-            TemporalAntiAliasing::ColorClippingType::None};
-        TemporalAntiAliasing::VelocitySamplingType velocitySampling{
-            TemporalAntiAliasing::VelocitySamplingType::Center};
-        bool luminanceWeighting{false};
-    };
+    bool ignoreHistory{false};
+    bool catmullRom{false};
+    TemporalAntiAliasing::ColorClippingType colorClipping{
+        TemporalAntiAliasing::ColorClippingType::None};
+    TemporalAntiAliasing::VelocitySamplingType velocitySampling{
+        TemporalAntiAliasing::VelocitySamplingType::Center};
+    bool luminanceWeighting{false};
 };
 
-uint32_t pcFlags(PCBlock::Flags flags)
+uint32_t pcFlags(TaaResolveFlags flags)
 {
     uint32_t ret = 0;
 
@@ -239,8 +235,8 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
         m_computePass.record(
             cb,
-            PCBlock{
-                .flags = pcFlags(PCBlock::Flags{
+            TaaResolvePC{
+                .flags = pcFlags(TaaResolveFlags{
                     .ignoreHistory = ignoreHistory,
                     .catmullRom = m_catmullRom,
                     .colorClipping = m_colorClipping,

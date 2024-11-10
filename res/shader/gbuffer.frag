@@ -5,10 +5,12 @@
 
 #include "common/math.glsl"
 #include "debug.glsl"
-#include "gbuffer_pc.glsl"
 #include "scene/camera.glsl"
 #include "scene/instances.glsl"
 #include "scene/materials.glsl"
+#include "shared/shader_structs/push_constants/gbuffer.h"
+
+layout(push_constant) uniform PushConstants { GBufferPC PC; };
 
 layout(location = 0) in vec3 inPositionWorld;
 layout(location = 1) in float inZCam;

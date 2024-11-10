@@ -93,7 +93,7 @@ class WorldData
     wheels::Array<CameraParameters> m_cameras{gAllocators.general};
     // True if any instance of the camera is dynamic
     wheels::Array<bool> m_cameraDynamic{gAllocators.general};
-    wheels::Array<Material> m_materials{gAllocators.general};
+    wheels::Array<MaterialData> m_materials{gAllocators.general};
     wheels::Array<Buffer> m_geometryBuffers{gAllocators.general};
     wheels::Array<GeometryMetadata> m_geometryMetadatas{gAllocators.general};
     wheels::Array<MeshInfo> m_meshInfos{gAllocators.general};

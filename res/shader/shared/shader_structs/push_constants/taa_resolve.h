@@ -1,0 +1,11 @@
+#ifndef SHADER_STRUCTS_PUSH_CONSTANTS_TAA_RESOLVE_H
+#define SHADER_STRUCTS_PUSH_CONSTANTS_TAA_RESOLVE_H
+
+#include "../fields.h"
+
+struct TaaResolvePC
+{
+    STRUCT_FIELD_GLM(uint, flags, 0);
+};
+
+#endif // SHADER_STRUCTS_PUSH_CONSTANTS_TAA_RESOLVE_H

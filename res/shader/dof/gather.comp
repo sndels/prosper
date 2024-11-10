@@ -4,6 +4,7 @@
 
 #include "../common/math.glsl"
 #include "../common/random.glsl"
+#include "../shared/shader_structs/push_constants/dof/gather.h"
 
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
@@ -16,13 +17,7 @@ layout(set = 0, binding = 3) uniform writeonly image2D
 layout(set = 0, binding = 4) uniform sampler nearestSampler;
 layout(set = 0, binding = 5) uniform sampler trilinearSampler;
 
-layout(push_constant) uniform GatherPC
-{
-    ivec2 halfResolution;
-    vec2 invHalfResolution;
-    uint frameIndex;
-}
-PC;
+layout(push_constant) uniform PushConstants { GatherPC PC; };
 
 int octawebRingSampleCount(int ring)
 {

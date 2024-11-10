@@ -8,6 +8,7 @@
 #include "utils/Profiler.hpp"
 #include "utils/Utils.hpp"
 
+#include <shader_structs/push_constants/light_clustering.h>
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
 
@@ -27,11 +28,6 @@ enum BindingSet : uint32_t
     CameraBindingSet,
     LightClustersBindingSet,
     BindingSetCount,
-};
-
-struct ClusteringPCBlock
-{
-    uvec2 resolution;
 };
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
@@ -215,7 +211,7 @@ LightClusteringOutput LightClustering::record(
         }
 
         { // Main dispatch
-            const ClusteringPCBlock pcBlock{
+            const LightClusteringPC pcBlock{
                 .resolution = uvec2(renderExtent.width, renderExtent.height),
             };
 

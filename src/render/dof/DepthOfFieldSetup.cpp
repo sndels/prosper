@@ -9,6 +9,7 @@
 #include "utils/Utils.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/dof/setup.h>
 
 using namespace glm;
 using namespace wheels;
@@ -21,13 +22,6 @@ enum BindingSet : uint32_t
     CameraBindingSet,
     StorageBindingSet,
     BindingSetCount,
-};
-
-struct PCBlock
-{
-    float focusDistance{0.f};
-    float maxBackgroundCoC{0.f};
-    float maxCoC{0.f};
 };
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
@@ -173,7 +167,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             (maxBgCoCInUnits / cam.sensorWidth()) *
             static_cast<float>(renderExtent.width);
 
-        const PCBlock pcBlock{
+        const SetupPC pcBlock{
             .focusDistance = camParams.focusDistance,
             .maxBackgroundCoC = maxBgCoCInHalfResPixels,
             .maxCoC = maxBgCoCInHalfResPixels * DepthOfField::sMaxFgCoCFactor,

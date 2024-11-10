@@ -3,7 +3,7 @@
 
 #include "Allocators.hpp"
 
-#include <glm/glm.hpp>
+#include <shader_structs/scene/model_instance_transforms.h>
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 
@@ -20,15 +20,9 @@ struct Model
 
 struct ModelInstance
 {
-    struct Transforms
-    {
-        glm::mat3x4 modelToWorld{1.f};
-        glm::mat3x4 normalToWorld{1.f};
-    };
-
     uint32_t id{0};
     uint32_t modelIndex{0xFFFF'FFFF};
-    Transforms transforms;
+    ModelInstanceTransforms transforms;
     wheels::StrSpan fullName;
 };
 

@@ -1,24 +1,21 @@
 #ifndef SCENE_INTSTANCES_GLSL
 #define SCENE_INTSTANCES_GLSL
 
+#include "../shared/shader_structs/scene/draw_instance.h"
+#include "../shared/shader_structs/scene/model_instance_transforms.h"
 #include "vertex.glsl"
 
-struct Transforms
-{
-    mat3x4 modelToWorld;
-    mat3x4 normalToWorld;
-};
 layout(std430, set = SCENE_INSTANCES_SET, binding = 0) readonly buffer
     ModelInstanceTransformsDSB
 {
-    Transforms instance[];
+    ModelInstanceTransforms instance[];
 }
 modelInstanceTransforms;
 
 layout(std430, set = SCENE_INSTANCES_SET, binding = 1) readonly buffer
     PreviousModelInstanceTransformsDSB
 {
-    Transforms instance[];
+    ModelInstanceTransforms instance[];
 }
 previousModelInstanceTransforms;
 
@@ -29,12 +26,6 @@ layout(std430, set = SCENE_INSTANCES_SET, binding = 2) readonly buffer
 }
 modelInstanceScales;
 
-struct DrawInstance
-{
-    uint modelInstanceIndex;
-    uint meshIndex;
-    uint materialIndex;
-};
 layout(std430, set = SCENE_INSTANCES_SET, binding = 3) readonly buffer
     DrawInstances
 {
@@ -42,7 +33,7 @@ layout(std430, set = SCENE_INSTANCES_SET, binding = 3) readonly buffer
 }
 drawInstances;
 
-Vertex transform(Vertex v, Transforms t)
+Vertex transform(Vertex v, ModelInstanceTransforms t)
 {
     Vertex ret;
     // 3x4 SRT multiplies from the right
@@ -61,7 +52,7 @@ Vertex transform(Vertex v, Transforms t)
     return ret;
 }
 
-vec3 worldPosition(Vertex v, Transforms t)
+vec3 worldPosition(Vertex v, ModelInstanceTransforms t)
 {
     // 3x4 SRT multiplies from the right
     return (vec4(v.Position, 1.0) * t.modelToWorld).xyz;

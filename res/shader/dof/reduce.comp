@@ -6,6 +6,8 @@
 // https://advances.realtimerendering.com/s2018/index.htm
 // implemented using https://github.com/GPUOpen-Effects/FidelityFX-SPD
 
+#include "../shared/shader_structs/push_constants/dof/reduce.h"
+
 layout(set = 0, binding = 0) uniform image2D imgSrc;
 layout(set = 0, binding = 1) uniform coherent image2D imgDst[12];
 layout(std430, set = 0, binding = 2) coherent buffer SpdGlobalAtomicBuffer
@@ -14,13 +16,7 @@ layout(std430, set = 0, binding = 2) coherent buffer SpdGlobalAtomicBuffer
 }
 spdGlobalAtomic;
 
-layout(push_constant) uniform ReducePC
-{
-    ivec2 topMipResolution;
-    uint numWorkGroupsPerSlice;
-    uint mips;
-}
-PC;
+layout(push_constant) uniform PushConstants { ReducePC PC; };
 
 #define A_GPU 1
 #define A_GLSL 1

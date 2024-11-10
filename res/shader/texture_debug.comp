@@ -4,6 +4,7 @@
 #extension GL_EXT_shader_image_load_formatted : require
 
 #include "common/math.glsl"
+#include "shared/shader_structs/push_constants/texture_debug.h"
 
 layout(binding = 0) uniform texture2D inColor;
 layout(binding = 1) uniform writeonly image2D outColor;
@@ -12,18 +13,7 @@ layout(binding = 3) uniform sampler nearestSampler;
 layout(std430, binding = 4) buffer Color { vec4 color; }
 outPeekColor;
 
-layout(push_constant) uniform TextureDebugPC
-{
-    ivec2 inRes;
-    ivec2 outRes;
-
-    vec2 range;
-    uint lod;
-    uint flags;
-
-    vec2 cursorUv;
-}
-PC;
+layout(push_constant) uniform PushConstants { TextureDebugPC PC; };
 
 uint flagChannelType() { return bitfieldExtract(PC.flags, 0, 3); }
 bool flagAbsBeforeRange() { return bitfieldExtract(PC.flags, 3, 1) == 1; }
