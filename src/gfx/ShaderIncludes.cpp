@@ -18,6 +18,21 @@ namespace
 const char *const sIncludePrefixCStr = "#include ";
 const StrSpan sIncludePrefix{sIncludePrefixCStr};
 
+const char *const sIfdefCplusPlusCstr = "#ifdef __cplusplus";
+const StrSpan sIfdefCplusPlus = StrSpan{sIfdefCplusPlusCstr};
+
+const char *const sIfPrefixCstr = "#if";
+const StrSpan sIfPrefix = StrSpan{sIfPrefixCstr};
+
+const char *const sElifPrefixCstr = "#elif";
+const StrSpan sElifPrefix = StrSpan{sElifPrefixCstr};
+
+const char *const sElsePrefixCstr = "#else";
+const StrSpan sElsePrefix = StrSpan{sElsePrefixCstr};
+
+const char *const sEndifPrefixCstr = "#endif";
+const StrSpan sEndifPrefix = StrSpan{sEndifPrefixCstr};
+
 const char *const sLinePrefixCStr = "#line ";
 const StrSpan sLinePrefix{sLinePrefixCStr};
 
@@ -184,6 +199,8 @@ void expandIncludes(
     bool hashFoundOnLine = false;
     bool insideLineComment = false;
     bool insideBlockComment = false;
+    Optional<uint32_t> ifdefCplusplusStart;
+    uint32_t ifsSinceIfdefCplusplusStart = 0;
     while (frontCursor < currentLength)
     {
         // Find next potential include
@@ -226,7 +243,12 @@ void expandIncludes(
 
         if (backCursor == currentLength)
         {
-            // Reached the end so copy the remaning span
+            // Reached the end
+            if (ifdefCplusplusStart.has_value())
+                throw std::runtime_error(
+                    currentPath.generic_string() + ':' +
+                    std::to_string(*ifdefCplusplusStart) +
+                    "#elif, #else or #endif missing for #ifdef __cplusplus");
             const StrSpan frontSpan{
                 &currentSource[frontCursor], backCursor - frontCursor};
             fullSource.extend(frontSpan);
@@ -237,7 +259,36 @@ void expandIncludes(
         const StrSpan tailSpan{
             &currentSource[backCursor], currentLength - backCursor};
 
-        if (!tailSpan.starts_with(sIncludePrefix))
+        // We'll ignore includes inside __cplusplus blocks by naively tracking
+        // the directives
+        if (ifdefCplusplusStart.has_value())
+        {
+            if (tailSpan.starts_with(sIfPrefix))
+                ifsSinceIfdefCplusplusStart++;
+            else
+            {
+                const bool endsWholeIfdef = tailSpan.starts_with(sEndifPrefix);
+                const bool endsIf = tailSpan.starts_with(sElifPrefix) ||
+                                    tailSpan.starts_with(sElsePrefix) ||
+                                    endsWholeIfdef;
+                if (endsIf)
+                {
+                    if (ifsSinceIfdefCplusplusStart > 0 && endsWholeIfdef)
+                        ifsSinceIfdefCplusplusStart--;
+                    else
+                        ifdefCplusplusStart.reset();
+                }
+            }
+        }
+        else
+        {
+            WHEELS_ASSERT(ifsSinceIfdefCplusplusStart == 0);
+            if (tailSpan.starts_with(sIfdefCplusPlus))
+                ifdefCplusplusStart = lineNumber;
+        }
+
+        if (ifdefCplusplusStart.has_value() ||
+            !tailSpan.starts_with(sIncludePrefix))
         {
             // Keep line count on track
             if (tailSpan.starts_with(sLinePrefix))
