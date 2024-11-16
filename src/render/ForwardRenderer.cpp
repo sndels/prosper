@@ -488,8 +488,7 @@ void ForwardRenderer::recordDraw(
 
     const size_t pipelineIndex = options.transparents ? 1 : 0;
 
-    const uint32_t dsIndex =
-        nextFrame * MAX_FRAMES_IN_FLIGHT * 2 + m_nextFrameRecord;
+    const uint32_t dsIndex = nextFrame * 2 * 2 + m_nextFrameRecord;
     const vk::DescriptorSet ds = m_meshSets[dsIndex];
 
     updateDescriptorSet(
