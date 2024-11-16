@@ -47,14 +47,10 @@ void blitFinalComposite(
     const StaticArray barriers{{
         *gRenderResources.images->transitionBarrier(
             finalComposite, ImageState::TransferSrc, true),
+        // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#combined-graphicspresent-queue
         vk::ImageMemoryBarrier2{
-            // TODO:
-            // What's the tight stage for this? Synchronization validation
-            // complained about a hazard after color attachment write which
-            // seems like an oddly specific stage for present source access to
-            // happen in.
-            .srcStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
-            .srcAccessMask = vk::AccessFlags2{},
+            .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            .srcAccessMask = vk::AccessFlagBits2::eNone,
             .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .dstAccessMask = vk::AccessFlagBits2::eTransferWrite,
             .oldLayout = vk::ImageLayout::eUndefined,
@@ -106,10 +102,11 @@ void blitFinalComposite(
     }
 
     {
+        // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#combined-graphicspresent-queue
         const vk::ImageMemoryBarrier2 barrier{
             .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
             .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-            .dstStageMask = vk::PipelineStageFlagBits2::eNone,
+            .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
             .dstAccessMask = vk::AccessFlagBits2::eNone,
             .oldLayout = vk::ImageLayout::eTransferDstOptimal,
             .newLayout = vk::ImageLayout::ePresentSrcKHR,
