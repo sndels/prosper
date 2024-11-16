@@ -37,7 +37,7 @@ GpuFrameProfiler::Scope::Scope(
         .pLabelName = name,
     });
     cb.writeTimestamp2(
-        vk::PipelineStageFlagBits2::eTopOfPipe, m_pools.timestamps,
+        vk::PipelineStageFlagBits2::eAllCommands, m_pools.timestamps,
         m_queryIndex * 2);
     if (m_hasStatistics)
         cb.beginQuery(
@@ -51,7 +51,7 @@ GpuFrameProfiler::Scope::~Scope()
         if (m_hasStatistics)
             m_cb.endQuery(m_pools.statistics, m_queryIndex);
         m_cb.writeTimestamp2(
-            vk::PipelineStageFlagBits2::eBottomOfPipe, m_pools.timestamps,
+            vk::PipelineStageFlagBits2::eAllCommands, m_pools.timestamps,
             m_queryIndex * 2 + 1);
         m_cb.endDebugUtilsLabelEXT();
     }
