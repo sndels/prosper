@@ -1,10 +1,12 @@
 #include "BloomFft.hpp"
 
+#include "gfx/Device.hpp"
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
 #include "utils/Profiler.hpp"
 
 #include <bit>
+#include <glm/gtc/constants.hpp>
 #include <imgui.h>
 #include <shader_structs/push_constants/bloom/fft.h>
 #include <utility>
@@ -39,6 +41,8 @@ bool isPowerOf(uint32_t n, uint32_t base)
 }
 
 } // namespace
+
+BloomFft::~BloomFft() { gDevice.destroy(mTwiddleLut); }
 
 void BloomFft::init(ScopedScratch scopeAlloc)
 {
@@ -114,6 +118,9 @@ ComplexImagePair BloomFft::record(
     const ImageHandle pongImag = gRenderResources.images->create(
         targetDesc, inverse ? "BloomInvFftPongImag" : "BloomFftPongImag");
 
+    if (mTwiddleLutN != outputDim)
+        generateTwiddleLut(scopeAlloc.child_scope(), outputDim);
+
     const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first
     IterationData iterData{
@@ -185,6 +192,60 @@ ComplexImagePair BloomFft::record(
     return ret;
 }
 
+void BloomFft::generateTwiddleLut(wheels::ScopedScratch scopeAlloc, uint32_t n)
+{
+    uint32_t totalTwiddleCount = 0;
+    {
+        uint32_t ns = n / 2;
+        while (ns > 1)
+        {
+            totalTwiddleCount += ns;
+            ns /= 2;
+        }
+    }
+    totalTwiddleCount *= 4;
+
+    Array<vec2> lut{scopeAlloc};
+    lut.reserve(totalTwiddleCount);
+    {
+        // R=2 Ns=1 are trivial (1, 0) twiddles so let's skip them
+        const uint32_t rCount = 4;
+        uint32_t ns = 1;
+        while (ns < n)
+        {
+            // TODO:
+            // These have a lot of symmetries, only ns unique values to be found
+            for (uint32_t j = 0; j < ns; ++j)
+            {
+                const float angle = -two_pi<float>() * static_cast<float>(j) /
+                                    static_cast<float>(ns * rCount);
+                lut.push_back(
+                    vec2{std::cos(0.f * angle), std::sin(0.f * angle)});
+                lut.push_back(
+                    vec2{std::cos(1.f * angle), std::sin(1.f * angle)});
+                lut.push_back(
+                    vec2{std::cos(2.f * angle), std::sin(2.f * angle)});
+                lut.push_back(
+                    vec2{std::cos(3.f * angle), std::sin(3.f * angle)});
+            }
+            ns *= 2;
+        }
+    }
+
+    gDevice.destroy(mTwiddleLut);
+    mTwiddleLut = gDevice.createBuffer(BufferCreateInfo{
+        .desc =
+            BufferDescription{
+                .byteSize = lut.size() * sizeof(float),
+                .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+            },
+        .initialData = lut.data(),
+        .debugName = "FftTwiddleLut",
+    });
+    mTwiddleLutN = n;
+}
+
 void BloomFft::doIteration(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const IterationData &iterData, uint32_t nextFrame)
@@ -209,6 +270,10 @@ void BloomFft::doIteration(
                 .imageView =
                     gRenderResources.images->resource(iterData.input.imag).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = mTwiddleLut.handle,
+                .range = VK_WHOLE_SIZE,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =

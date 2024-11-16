@@ -7,8 +7,13 @@
 
 layout(set = 0, binding = 0) uniform readonly image2D inDataReal;
 layout(set = 0, binding = 1) uniform readonly image2D inDataImag;
-layout(set = 0, binding = 2) uniform writeonly image2D outDataReal;
-layout(set = 0, binding = 3) uniform writeonly image2D outDataImag;
+layout(std430, set = 0, binding = 2) readonly buffer TwiddleLut
+{
+    vec2 twiddles[];
+}
+inTwiddleLut;
+layout(set = 0, binding = 3) uniform writeonly image2D outDataReal;
+layout(set = 0, binding = 4) uniform writeonly image2D outDataImag;
 
 layout(push_constant) uniform PushConstants { FftPC PC; };
 
@@ -32,6 +37,25 @@ void storeOutput(ivec2 p, vec2 c)
 {
     imageStore(outDataReal, p, vec4(c.x, 0, 0, 0));
     imageStore(outDataImag, p, vec4(c.y, 0, 0, 0));
+}
+
+vec2 getTwiddle(uint j, uint r, uint Ns, uint N, uint R)
+{
+    if (R == 2)
+        // R == 2 is only used for the first iteration whose twiddle is trivial
+        return vec2(1, 0);
+
+    // TODO:
+    // There are, what, 13 unique Ns?
+    uint offset = 0;
+    uint tmp = Ns;
+    while (tmp > 1)
+    {
+        tmp /= 2;
+        offset += tmp;
+    }
+
+    return inTwiddleLut.twiddles[(offset + (j % Ns)) * 4 + r];
 }
 
 // Based on
@@ -76,15 +100,13 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
     vec2 v[R];
 
     uint idxS = j;
-    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
     for (uint r = 0; r < R; ++r)
     {
         ivec2 p = doTranspose ? ivec2(row, idxS + r * N / R)
                               : ivec2(idxS + r * N / R, row);
-        // TODO:
-        // Use some kind of LUT for the sines and cosines here, like ryg
-        // suggests?
-        v[r] = mulComplex(loadInput(p), vec2(cos(r * angle), sin(r * angle)));
+        vec2 inValue = loadInput(p);
+        vec2 twiddle = getTwiddle(j, r, Ns, N, R);
+        v[r] = mulComplex(inValue, twiddle);
     }
 
     decimateRadix2(v);
@@ -104,15 +126,13 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns, bool doTranspose)
     vec2 v[R];
 
     uint idxS = j;
-    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
     for (uint r = 0; r < R; ++r)
     {
         float col = idxS + r * N / R;
         ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
-        // TODO:
-        // Use some kind of LUT for the sines and cosines here, like ryg
-        // suggests?
-        v[r] = mulComplex(loadInput(p), vec2(cos(r * angle), sin(r * angle)));
+        vec2 inValue = loadInput(p);
+        vec2 twiddle = getTwiddle(j, r, Ns, N, R);
+        v[r] = mulComplex(inValue, twiddle);
     }
 
     decimateRadix4(v);

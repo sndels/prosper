@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_BLOOM_FFT_HPP
 #define PROSPER_RENDER_BLOOM_FFT_HPP
 
+#include "gfx/Resources.hpp"
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
@@ -19,7 +20,7 @@ class BloomFft
 {
   public:
     BloomFft() noexcept = default;
-    ~BloomFft() = default;
+    ~BloomFft();
 
     BloomFft(const BloomFft &other) = delete;
     BloomFft(BloomFft &&other) = delete;
@@ -39,6 +40,7 @@ class BloomFft
         const ComplexImagePair &input, uint32_t nextFrame, bool inverse);
 
   private:
+    void generateTwiddleLut(wheels::ScopedScratch scopeAlloc, uint32_t n);
     struct IterationData
     {
         ComplexImagePair input;
@@ -52,6 +54,8 @@ class BloomFft
         const IterationData &iterData, uint32_t nextFrame);
 
     bool m_initialized{false};
+    uint32_t mTwiddleLutN{0};
+    Buffer mTwiddleLut;
     ComputePass m_computePass;
 };
 
