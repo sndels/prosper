@@ -161,6 +161,23 @@ void GpuFrameProfiler::startFrame()
 
 void GpuFrameProfiler::endFrame(vk::CommandBuffer cb)
 {
+    // Full pipeline barrier as a workaround for vk::QueryResultFlagBits::eWait
+    // causing a device lost.
+    // TODO:
+    // Why does wait misbehave?
+    const vk::MemoryBarrier2KHR memoryBarrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead |
+                         vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead |
+                         vk::AccessFlagBits2::eMemoryWrite,
+    };
+    cb.pipelineBarrier2(vk::DependencyInfo{
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &memoryBarrier,
+    });
+
     cb.copyQueryPoolResults(
         m_pools.timestamps, 0,
         asserted_cast<uint32_t>(m_queryScopeIndices.size() * 2),
