@@ -17,12 +17,14 @@ namespace
 
 const vk::Format sFftFormat = vk::Format::eR32G32B32A32Sfloat;
 
+const uint32_t sGroupSize = 64;
+
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
     return ComputePass::Shader{
         .relPath = "shader/bloom/fft.comp",
         .debugName = String{alloc, "BloomFftCS"},
-        .groupSize = {64, 1, 1},
+        .groupSize = {sGroupSize, 1, 1},
     };
 }
 
@@ -189,6 +191,11 @@ void BloomFft::doIteration(
 {
     const vk::Extent2D inputExtent = getExtent2D(iterData.input.real);
     const vk::Extent2D outputExtent = getExtent2D(iterData.output.real);
+    WHEELS_ASSERT(outputExtent.width == outputExtent.height);
+    const uint32_t outputDim = outputExtent.width;
+    WHEELS_ASSERT(
+        outputDim % sGroupSize == 0 &&
+        "FFT shader assumes the input is divisible by group size");
 
     m_computePass.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
@@ -236,19 +243,14 @@ void BloomFft::doIteration(
                 inputExtent.width,
                 inputExtent.height,
             },
-        .outputResolution =
-            uvec2{
-                outputExtent.width,
-                outputExtent.height,
-            },
+        .n = outputDim,
         .ns = iterData.ns,
         .r = iterData.r,
         .flags = iterData.transpose ? 1u : 0u,
     };
     const uvec3 groupCount = m_computePass.groupCount(uvec3{
-        (iterData.transpose ? outputExtent.height : outputExtent.width) /
-            iterData.r,
-        iterData.transpose ? outputExtent.width : outputExtent.height,
+        outputDim / iterData.r,
+        outputDim,
         1,
     });
     m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});

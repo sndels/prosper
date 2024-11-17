@@ -129,18 +129,12 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns, bool doTranspose)
 layout(local_size_x = GROUP_X) in;
 void main()
 {
-    uint b = gl_WorkGroupID.x;
-    uint t = gl_LocalInvocationIndex;
     bool doTranspose = flagTranspose();
-    uint n = doTranspose ? PC.outputResolution.y : PC.outputResolution.x;
-    uint j = b * GROUP_X + t;
+    uint j = gl_GlobalInvocationID.x;
     uint row = gl_WorkGroupID.y;
 
-    if (j >= n / PC.r)
-        return;
-
     if (PC.r == 2)
-        fftIterationRadix2(j, row, n, PC.ns, doTranspose);
+        fftIterationRadix2(j, row, PC.n, PC.ns, doTranspose);
     else if (PC.r == 4)
-        fftIterationRadix4(j, row, n, PC.ns, doTranspose);
+        fftIterationRadix4(j, row, PC.n, PC.ns, doTranspose);
 }
