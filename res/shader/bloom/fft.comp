@@ -39,7 +39,7 @@ void storeOutput(ivec2 p, vec2 c)
     imageStore(outDataImag, p, vec4(c.y, 0, 0, 0));
 }
 
-vec2 getTwiddle(uint j, uint r, uint Ns, uint N, uint R)
+vec2 getTwiddle(uint jModNs, uint r, uint Ns, uint N, uint R)
 {
     if (R == 2)
         // R == 2 is only used for the first iteration whose twiddle is trivial
@@ -55,7 +55,7 @@ vec2 getTwiddle(uint j, uint r, uint Ns, uint N, uint R)
         offset += tmp;
     }
 
-    return inTwiddleLut.twiddles[(offset + (j % Ns)) * 4 + r];
+    return inTwiddleLut.twiddles[(offset + jModNs) * 4 + r];
 }
 
 // Based on
@@ -94,7 +94,34 @@ void decimateRadix4(inout vec2 v[4])
     v[3] = v0 + mulI(v1) - v2 - mulI(v3);
 }
 
-void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
+shared vec2 sGroupTwiddles[GROUP_X * 4];
+
+void loadSharedTwiddles(uint localThreadIndex, uint j, uint Ns, uint N, uint R)
+{
+    uint jModNs = Ns <= GROUP_X ? localThreadIndex % Ns : j % Ns;
+    if (Ns > GROUP_X || jModNs == localThreadIndex)
+    {
+        sGroupTwiddles[localThreadIndex * 4] = getTwiddle(jModNs, 0, Ns, N, R);
+        sGroupTwiddles[localThreadIndex * 4 + 1] =
+            getTwiddle(jModNs, 1, Ns, N, R);
+        if (R > 2)
+        {
+            sGroupTwiddles[localThreadIndex * 4 + 2] =
+                getTwiddle(jModNs, 2, Ns, N, R);
+            sGroupTwiddles[localThreadIndex * 4 + 3] =
+                getTwiddle(jModNs, 3, Ns, N, R);
+        }
+    }
+}
+
+vec2 getSharedTwiddle(uint localThreadIndex, uint j, uint r, uint Ns)
+{
+    uint index = Ns <= GROUP_X ? j % Ns : localThreadIndex;
+    return sGroupTwiddles[index * 4 + r];
+}
+
+void fftIterationRadix2(
+    uint localThreadIndex, uint j, uint row, uint N, uint Ns, bool doTranspose)
 {
     const uint R = 2;
     vec2 v[R];
@@ -104,9 +131,18 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
     {
         ivec2 p = doTranspose ? ivec2(row, idxS + r * N / R)
                               : ivec2(idxS + r * N / R, row);
-        vec2 inValue = loadInput(p);
-        vec2 twiddle = getTwiddle(j, r, Ns, N, R);
-        v[r] = mulComplex(inValue, twiddle);
+        v[r] = loadInput(p);
+    }
+
+    loadSharedTwiddles(localThreadIndex, j, PC.ns, PC.n, PC.r);
+    // Do all reads before this barrier to give the mem systems leeway to do
+    // their thing
+    barrier();
+
+    for (uint r = 0; r < R; ++r)
+    {
+        vec2 twiddle = getSharedTwiddle(localThreadIndex, j, r, Ns);
+        v[r] = mulComplex(v[r], twiddle);
     }
 
     decimateRadix2(v);
@@ -120,7 +156,8 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns, bool doTranspose)
     }
 }
 
-void fftIterationRadix4(uint j, uint row, uint N, uint Ns, bool doTranspose)
+void fftIterationRadix4(
+    uint localThreadIndex, uint j, uint row, uint N, uint Ns, bool doTranspose)
 {
     const uint R = 4;
     vec2 v[R];
@@ -128,11 +165,20 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns, bool doTranspose)
     uint idxS = j;
     for (uint r = 0; r < R; ++r)
     {
-        float col = idxS + r * N / R;
-        ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
-        vec2 inValue = loadInput(p);
-        vec2 twiddle = getTwiddle(j, r, Ns, N, R);
-        v[r] = mulComplex(inValue, twiddle);
+        ivec2 p = doTranspose ? ivec2(row, idxS + r * N / R)
+                              : ivec2(idxS + r * N / R, row);
+        v[r] = loadInput(p);
+    }
+
+    loadSharedTwiddles(localThreadIndex, j, PC.ns, PC.n, PC.r);
+    // Do all reads before this barrier to give the mem systems leeway to do
+    // their thing
+    barrier();
+
+    for (uint r = 0; r < R; ++r)
+    {
+        vec2 twiddle = getSharedTwiddle(localThreadIndex, j, r, Ns);
+        v[r] = mulComplex(v[r], twiddle);
     }
 
     decimateRadix4(v);
@@ -150,11 +196,12 @@ layout(local_size_x = GROUP_X) in;
 void main()
 {
     bool doTranspose = flagTranspose();
+    uint localThreadIndex = gl_LocalInvocationID.x;
     uint j = gl_GlobalInvocationID.x;
     uint row = gl_WorkGroupID.y;
 
     if (PC.r == 2)
-        fftIterationRadix2(j, row, PC.n, PC.ns, doTranspose);
+        fftIterationRadix2(localThreadIndex, j, row, PC.n, PC.ns, doTranspose);
     else if (PC.r == 4)
-        fftIterationRadix4(j, row, PC.n, PC.ns, doTranspose);
+        fftIterationRadix4(localThreadIndex, j, row, PC.n, PC.ns, doTranspose);
 }
