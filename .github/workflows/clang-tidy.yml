@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -22,7 +22,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Get dependencies
-        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-tidy-15
+        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-tidy-18
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
@@ -35,7 +35,7 @@ jobs:
         run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPROSPER_USE_PCH=OFF
 
       - name: Run clang-tidy
-        run: run-clang-tidy-15 -p="build" ".*/prosper/src/.*.cpp"
+        run: run-clang-tidy-18 -p="build" ".*/prosper/src/.*.cpp"
 
   clang-tidy-release:
     name: clang-tidy (Release)
@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -55,7 +55,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Get dependencies
-        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-tidy-15
+        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-tidy-18
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
@@ -68,4 +68,4 @@ jobs:
         run: cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPROSPER_USE_PCH=OFF
 
       - name: Run clang-tidy
-        run: run-clang-tidy-15 -p="build" ".*/prosper/src/.*.cpp"
+        run: run-clang-tidy-18 -p="build" ".*/prosper/src/.*.cpp"

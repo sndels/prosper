@@ -1,329 +1,310 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "MSBuild (Release)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake"
-            ],
-            "command": "msbuild",
-            "args": [
-                // Ask msbuild to generate full paths for file names.
-                "/property:GenerateFullPaths=true",
-                "/t:build",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
-                "/consoleloggerparameters:NoSummary",
-                "/property:Configuration=Release",
-                "prosper.vcxproj"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "MSBuild (RelWithDebInfo)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake"
-            ],
-            "command": "msbuild",
-            "args": [
-                // Ask msbuild to generate full paths for file names.
-                "/property:GenerateFullPaths=true",
-                "/t:build",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
-                "/consoleloggerparameters:NoSummary",
-                "/property:Configuration=RelWithDebInfo",
-                "prosper.vcxproj"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "MSBuild fast (Debug)",
-            "type": "shell",
-            "dependsOn": [],
-            "command": "msbuild",
-            "args": [
-                // Ask msbuild to generate full paths for file names.
-                "/property:GenerateFullPaths=true",
-                "/p:BuildProjectReferences=false",
-                "/t:build",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
-                "/consoleloggerparameters:NoSummary",
-                "/property:Configuration=Debug",
-                "prosper.vcxproj"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "MSBuild (Debug)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake"
-            ],
-            "command": "msbuild",
-            "args": [
-                // Ask msbuild to generate full paths for file names.
-                "/property:GenerateFullPaths=true",
-                "/t:build",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
-                "/consoleloggerparameters:NoSummary",
-                "/property:Configuration=Debug",
-                "prosper.vcxproj"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "MSBuild (Debug, LivePP)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake livepp"
-            ],
-            "command": "msbuild",
-            "args": [
-                // Ask msbuild to generate full paths for file names.
-                "/property:GenerateFullPaths=true",
-                "/t:build",
-                // Do not generate summary otherwise it leads to duplicate errors in Problems panel
-                "/consoleloggerparameters:NoSummary",
-                "/property:Configuration=Debug",
-                "prosper.vcxproj"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "Ninja (Release)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake ninja release"
-            ],
-            "command": "ninja",
-            "args": [],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "Ninja (Debug)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake ninja debug"
-            ],
-            "command": "ninja",
-            "args": [],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            "options": {
-                "cwd": "${workspaceRoot}/build",
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "clang-tidy (Windows)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake clang-tidy"
-            ],
-            "command": "python",
-            "args": [
-                "C:/Program Files/LLVM/bin/run-clang-tidy",
-                "-p='build-analysis'",
-                "'.*\\\\prosper\\\\src\\\\.*.cpp'"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "clang-tidy (Linux)",
-            "type": "shell",
-            "dependsOn": [
-                "cmake clang-tidy"
-            ],
-            "command": "run-clang-tidy-15",
-            "args": [
-                "-p='build-analysis'",
-                "'.*/prosper/src/.*.cpp'"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "never"
-            },
-            // Use the standard MS compiler pattern to detect errors, warnings and infos
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "cmake clang-tidy",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-DPROSPER_USE_PCH=OFF",
-                "-GNinja",
-                "-S",
-                ".",
-                "-B",
-                "build-analysis",
-                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "silent"
-            }
-        },
-        {
-            "label": "cmake",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-B",
-                "build",
-                "-DPROSPER_USE_PCH=1",
-                "-DPROSPER_SETUP_DEPENDENCIES=1",
-                "-DPROSPER_ALWAYS_O2_DEPENDENCIES=1",
-                "-DPROSPER_MSVC_CRT_LEAK_CHECK=0",
-                "-DPROSPER_ALLOCATOR_DEBUG=0",
-                "-DLIVEPP_PATH=0"
-            ],
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "silent"
-            }
-        },
-        // Live++ can be included by running this first and then a 'fast' build that skips cmake
-        {
-            "label": "cmake livepp",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-B",
-                "build",
-                "-DPROSPER_USE_PCH=1",
-                "-DPROSPER_SETUP_DEPENDENCIES=1",
-                "-DPROSPER_ALWAYS_O2_DEPENDENCIES=1",
-                "-DPROSPER_MSVC_CRT_LEAK_CHECK=0",
-                "-DPROSPER_ALLOCATOR_DEBUG=0",
-                "-DLIVEPP_PATH=C:/LivePP"
-            ],
-            "group": "build",
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "silent"
-            }
-        },
-        {
-            "label": "cmake ninja release",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
-                // Ninja color output
-                "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
-                // mold is significantly faster than the default linkers
-                "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold",
-                "-G",
-                "Ninja",
-                "-B",
-                "build",
-            ],
-            "options": {
-                "env": {
-                    "CC": "clang",
-                    "CXX": "clang++",
-                }
-            },
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "silent"
-            }
-        },
-        {
-            "label": "cmake ninja debug",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "-DCMAKE_BUILD_TYPE=Debug",
-                // Ninja color output
-                "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
-                // mold is significantly faster than the default linkers
-                "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold",
-                "-G",
-                "Ninja",
-                "-B",
-                "build",
-            ],
-            "options": {
-                "env": {
-                    "CC": "clang",
-                    "CXX": "clang++",
-                }
-            },
-            "presentation": {
-                // Reveal the output only if unrecognized errors occur.
-                "reveal": "silent"
-            }
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "MSBuild (Release)",
+      "type": "shell",
+      "dependsOn": ["cmake"],
+      "command": "msbuild",
+      "args": [
+        // Ask msbuild to generate full paths for file names.
+        "/property:GenerateFullPaths=true",
+        "/t:build",
+        // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+        "/consoleloggerparameters:NoSummary",
+        "/property:Configuration=Release",
+        "prosper.vcxproj"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "MSBuild (RelWithDebInfo)",
+      "type": "shell",
+      "dependsOn": ["cmake"],
+      "command": "msbuild",
+      "args": [
+        // Ask msbuild to generate full paths for file names.
+        "/property:GenerateFullPaths=true",
+        "/t:build",
+        // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+        "/consoleloggerparameters:NoSummary",
+        "/property:Configuration=RelWithDebInfo",
+        "prosper.vcxproj"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "MSBuild fast (Debug)",
+      "type": "shell",
+      "dependsOn": [],
+      "command": "msbuild",
+      "args": [
+        // Ask msbuild to generate full paths for file names.
+        "/property:GenerateFullPaths=true",
+        "/p:BuildProjectReferences=false",
+        "/t:build",
+        // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+        "/consoleloggerparameters:NoSummary",
+        "/property:Configuration=Debug",
+        "prosper.vcxproj"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "MSBuild (Debug)",
+      "type": "shell",
+      "dependsOn": ["cmake"],
+      "command": "msbuild",
+      "args": [
+        // Ask msbuild to generate full paths for file names.
+        "/property:GenerateFullPaths=true",
+        "/t:build",
+        // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+        "/consoleloggerparameters:NoSummary",
+        "/property:Configuration=Debug",
+        "prosper.vcxproj"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "MSBuild (Debug, LivePP)",
+      "type": "shell",
+      "dependsOn": ["cmake livepp"],
+      "command": "msbuild",
+      "args": [
+        // Ask msbuild to generate full paths for file names.
+        "/property:GenerateFullPaths=true",
+        "/t:build",
+        // Do not generate summary otherwise it leads to duplicate errors in Problems panel
+        "/consoleloggerparameters:NoSummary",
+        "/property:Configuration=Debug",
+        "prosper.vcxproj"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Ninja (Release)",
+      "type": "shell",
+      "dependsOn": ["cmake ninja release"],
+      "command": "ninja",
+      "args": [],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Ninja (Debug)",
+      "type": "shell",
+      "dependsOn": ["cmake ninja debug"],
+      "command": "ninja",
+      "args": [],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      "options": {
+        "cwd": "${workspaceRoot}/build"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "clang-tidy (Windows)",
+      "type": "shell",
+      "dependsOn": ["cmake clang-tidy"],
+      "command": "python",
+      "args": [
+        "C:/Program Files/LLVM/bin/run-clang-tidy",
+        "-p='build-analysis'",
+        "'.*\\\\prosper\\\\src\\\\.*.cpp'"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "clang-tidy (Linux)",
+      "type": "shell",
+      "dependsOn": ["cmake clang-tidy"],
+      "command": "run-clang-tidy-18",
+      "args": ["-p='build-analysis'", "'.*/prosper/src/.*.cpp'"],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "never"
+      },
+      // Use the standard MS compiler pattern to detect errors, warnings and infos
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "cmake clang-tidy",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-DPROSPER_USE_PCH=OFF",
+        "-GNinja",
+        "-S",
+        ".",
+        "-B",
+        "build-analysis",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "cmake",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-B",
+        "build",
+        "-DPROSPER_USE_PCH=1",
+        "-DPROSPER_SETUP_DEPENDENCIES=1",
+        "-DPROSPER_ALWAYS_O2_DEPENDENCIES=1",
+        "-DPROSPER_MSVC_CRT_LEAK_CHECK=0",
+        "-DPROSPER_ALLOCATOR_DEBUG=0",
+        "-DLIVEPP_PATH=0"
+      ],
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "silent"
+      }
+    },
+    // Live++ can be included by running this first and then a 'fast' build that skips cmake
+    {
+      "label": "cmake livepp",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-B",
+        "build",
+        "-DPROSPER_USE_PCH=1",
+        "-DPROSPER_SETUP_DEPENDENCIES=1",
+        "-DPROSPER_ALWAYS_O2_DEPENDENCIES=1",
+        "-DPROSPER_MSVC_CRT_LEAK_CHECK=0",
+        "-DPROSPER_ALLOCATOR_DEBUG=0",
+        "-DLIVEPP_PATH=C:/LivePP"
+      ],
+      "group": "build",
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "cmake ninja release",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+        // Ninja color output
+        "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
+        // mold is significantly faster than the default linkers
+        "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold",
+        "-G",
+        "Ninja",
+        "-B",
+        "build"
+      ],
+      "options": {
+        "env": {
+          "CC": "clang",
+          "CXX": "clang++"
         }
-    ]
+      },
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "cmake ninja debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        // Ninja color output
+        "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
+        // mold is significantly faster than the default linkers
+        "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold",
+        "-G",
+        "Ninja",
+        "-B",
+        "build"
+      ],
+      "options": {
+        "env": {
+          "CC": "clang",
+          "CXX": "clang++"
+        }
+      },
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "silent"
+      }
+    }
+  ]
 }

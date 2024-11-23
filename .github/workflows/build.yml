@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -82,7 +82,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -94,7 +94,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Get dependencies
-        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-15
+        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-18
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
@@ -104,13 +104,13 @@ jobs:
           vulkan-use-cache: true
 
       - name: Configure (Debug)
-        run: CC=clang-15 CXX=clang++-15 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+        run: CC=clang-18 CXX=clang++-18 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build (Debug)
         run: cmake --build build --target prosper
 
       - name: Configure (Release)
-        run: CC=clang-15 CXX=clang++-15 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+        run: CC=clang-18 CXX=clang++-18 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (Release)
         run: cmake --build build --target prosper
