@@ -27,7 +27,7 @@
 class TextureDebug
 {
   public:
-    enum class ChannelType : uint32_t
+    enum class ChannelType : uint8_t
     {
         TEXTURE_DEBUG_CHANNEL_TYPES_AND_COUNT
     };

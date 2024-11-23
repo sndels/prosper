@@ -24,7 +24,7 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
-enum class IndicesType
+enum class IndicesType : uint8_t
 {
     Uint8,
     Uint16,

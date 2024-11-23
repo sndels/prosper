@@ -41,7 +41,7 @@ void deallocatefun(void *block, void *user)
 {
     WHEELS_ASSERT(user != nullptr);
     TlsfAllocator *alloc = static_cast<TlsfAllocator *>(user);
-    return alloc->deallocate(block);
+    alloc->deallocate(block);
 }
 
 } // namespace

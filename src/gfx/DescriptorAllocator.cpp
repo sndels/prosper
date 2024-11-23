@@ -142,8 +142,7 @@ void DescriptorAllocator::allocate(
     Span<const char *const> debugNames, Span<vk::DescriptorSet> output)
 {
     WHEELS_ASSERT(m_initialized);
-
-    return allocate(layouts, debugNames, output, nullptr);
+    allocate(layouts, debugNames, output, nullptr);
 }
 
 void DescriptorAllocator::nextPool()

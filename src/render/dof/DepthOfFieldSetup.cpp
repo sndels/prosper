@@ -17,7 +17,7 @@ using namespace wheels;
 namespace
 {
 
-enum BindingSet : uint32_t
+enum BindingSet : uint8_t
 {
     CameraBindingSet,
     StorageBindingSet,

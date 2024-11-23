@@ -21,7 +21,7 @@ using namespace wheels;
 namespace
 {
 
-enum BindingSet : uint32_t
+enum BindingSet : uint8_t
 {
     LightsBindingSet,
     LightClustersBindingSet,
@@ -85,8 +85,7 @@ void DeferredShading::init(
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(
-        WHEELS_MOV(scopeAlloc),
-        [&dsLayouts](Allocator &alloc)
+        WHEELS_MOV(scopeAlloc), [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
         ComputePassOptions{
             .storageSetIndex = StorageBindingSet,
@@ -104,8 +103,7 @@ void DeferredShading::recompileShaders(
     WHEELS_ASSERT(m_initialized);
 
     m_computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), changedFiles,
-        [&dsLayouts](Allocator &alloc)
+        WHEELS_MOV(scopeAlloc), changedFiles, [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
         externalDsLayouts(dsLayouts));
 }

@@ -32,7 +32,7 @@ const uint32_t sMaxRecordsPerFrame = 2;
 
 const uint32_t sMaxHierarchicalDepthMips = 12;
 
-enum GeneratorBindingSet : uint32_t
+enum GeneratorBindingSet : uint8_t
 {
     GeneratorGeometryBindingSet,
     GeneratorSceneInstancesBindingSet,
@@ -42,7 +42,7 @@ enum GeneratorBindingSet : uint32_t
     GeneratorBindingSetCount,
 };
 
-enum CullerBindingSet : uint32_t
+enum CullerBindingSet : uint8_t
 {
     CullerCameraBindingSet,
     CullerGeometryBindingSet,
@@ -146,8 +146,7 @@ void MeshletCuller::init(
     WHEELS_ASSERT(!m_initialized);
 
     m_drawListGenerator.init(
-        scopeAlloc.child_scope(),
-        [&worldDsLayouts](Allocator &alloc)
+        scopeAlloc.child_scope(), [&worldDsLayouts](Allocator &alloc)
         { return generatorDefinitionCallback(alloc, worldDsLayouts); },
         ComputePassOptions{
             .storageSetIndex = GeneratorStorageBindingSet,

@@ -61,9 +61,7 @@ String readFileString(Allocator &alloc, const std::filesystem::path &path)
     buffer.resize(fileSize);
 
     file.seekg(0);
-    file.read(
-        reinterpret_cast<char *>(buffer.data()),
-        asserted_cast<std::streamsize>(fileSize));
+    file.read(buffer.data(), asserted_cast<std::streamsize>(fileSize));
 
     file.close();
     return buffer;

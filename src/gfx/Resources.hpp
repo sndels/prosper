@@ -8,7 +8,7 @@
 
 // TODO:
 // Tighter transfer, shader access flags
-enum class BufferState : uint32_t
+enum class BufferState : uint16_t
 {
     Unknown = 0,
 
@@ -133,6 +133,9 @@ template <typename T>
     requires(wheels::SameAs<T, BufferState> || wheels::SameAs<T, ImageState>)
 constexpr T operator|(T lhs, T rhs)
 {
+    // TODO:
+    // Could the valid combinations be easily enumerated?
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
     return static_cast<T>(
         static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
 }

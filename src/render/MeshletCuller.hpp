@@ -48,7 +48,7 @@ class MeshletCuller
 
     void startFrame();
 
-    enum class Mode
+    enum class Mode : uint8_t
     {
         Opaque,
         Transparent,

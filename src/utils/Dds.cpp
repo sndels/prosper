@@ -44,6 +44,7 @@ struct DdsHeader
 };
 
 // https://learn.microsoft.com/en-us/windows/win32/api/d3d10/ne-d3d10-d3d10_resource_dimension
+// NOLINTNEXTLINE(performance-enum-size) matches the format
 enum class D3d10ResourceDimension
 {
     Unknown = 0,
@@ -165,11 +166,15 @@ void writeDds(const Dds &dds, const std::filesystem::path &path)
     const bool isCompressed = isFormatCompressed(dds.format);
     const uint32_t pixelStride = isCompressed ? 0 : 4;
     const uint32_t pixelBits = isCompressed ? 0 : 32;
-    const uint32_t pitchOrLinearSize =
-        isCompressed ? (dds.mipLevelCount == 1
-                            ? dds.levelByteOffsets[0]
-                            : dds.levelByteOffsets[1] - dds.levelByteOffsets[0])
-                     : dds.width * dds.height * pixelStride;
+    uint32_t pitchOrLinearSize = dds.width * dds.height * pixelStride;
+    if (isCompressed)
+    {
+        if (dds.mipLevelCount == 1)
+            pitchOrLinearSize = dds.levelByteOffsets[0];
+        else
+            pitchOrLinearSize =
+                dds.levelByteOffsets[1] - dds.levelByteOffsets[0];
+    }
 
     // clang-format off
     const uint32_t flags = isCompressed ?

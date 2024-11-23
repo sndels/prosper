@@ -20,7 +20,7 @@ namespace
 
 constexpr uint32_t sFramePeriod = 4096;
 
-enum BindingSet : uint32_t
+enum BindingSet : uint8_t
 {
     LightsBindingSet,
     CameraBindingSet,
@@ -67,8 +67,7 @@ void RtDiInitialReservoirs::init(
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(
-        WHEELS_MOV(scopeAlloc),
-        [&dsLayouts](Allocator &alloc)
+        WHEELS_MOV(scopeAlloc), [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
         ComputePassOptions{
             .storageSetIndex = StorageBindingSet,
@@ -86,8 +85,7 @@ bool RtDiInitialReservoirs::recompileShaders(
     WHEELS_ASSERT(m_initialized);
 
     return m_computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), changedFiles,
-        [&dsLayouts](Allocator &alloc)
+        WHEELS_MOV(scopeAlloc), changedFiles, [&dsLayouts](Allocator &alloc)
         { return shaderDefinitionCallback(alloc, dsLayouts.world); },
         externalDsLayouts(dsLayouts));
 }

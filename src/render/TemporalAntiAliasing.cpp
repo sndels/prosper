@@ -27,7 +27,7 @@ constexpr StaticArray<
     static_cast<size_t>(TemporalAntiAliasing::VelocitySamplingType::Count)>
     sVelocitySamplingTypeNames{{VELOCITY_SAMPLING_TYPE_STRS}};
 
-enum BindingSet : uint32_t
+enum BindingSet : uint8_t
 {
     CameraBindingSet,
     StorageBindingSet,

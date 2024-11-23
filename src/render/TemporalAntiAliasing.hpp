@@ -25,12 +25,12 @@
 class TemporalAntiAliasing
 {
   public:
-    enum class ColorClippingType : uint32_t
+    enum class ColorClippingType : uint8_t
     {
         COLOR_CLIPPING_TYPES_AND_COUNT
     };
 
-    enum class VelocitySamplingType : uint32_t
+    enum class VelocitySamplingType : uint8_t
     {
         VELOCITY_SAMPLING_TYPES_AND_COUNT
     };

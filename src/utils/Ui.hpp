@@ -2,6 +2,7 @@
 #define WHEELS_UTILS_UI_HPP
 
 #include <imgui.h>
+#include <type_traits>
 #include <wheels/containers/static_array.hpp>
 
 // Creates a dropdown for the value and returns true if it was changed
@@ -10,11 +11,13 @@ bool enumDropdown(
     const char *label, Enum &value,
     const wheels::StaticArray<const char *, N> &variantNames)
 {
+    using EnumType = std::underlying_type_t<Enum>;
+
     bool changed = false;
-    auto *currentType = reinterpret_cast<uint32_t *>(&value);
+    auto *currentType = reinterpret_cast<EnumType *>(&value);
     if (ImGui::BeginCombo(label, variantNames[*currentType]))
     {
-        for (auto i = 0u; i < static_cast<uint32_t>(Enum::Count); ++i)
+        for (EnumType i = 0; i < static_cast<EnumType>(Enum::Count); ++i)
         {
             bool selected = *currentType == i;
             if (ImGui::Selectable(variantNames[i], &selected))

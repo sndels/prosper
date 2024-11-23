@@ -10,7 +10,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <wheels/containers/array.hpp>
 
-enum class InterpolationType
+enum class InterpolationType : uint8_t
 {
     Step,
     Linear,

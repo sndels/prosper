@@ -252,7 +252,7 @@ class Profiler
 
   private:
     // Do validation of the calls as it's easy to do things in the wrong order
-    enum class DebugState
+    enum class DebugState : uint8_t
     {
         NewFrame,
         StartCpuCalled,

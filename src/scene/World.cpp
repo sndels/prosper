@@ -982,7 +982,7 @@ bool World::unbuiltBlases() const
 void World::drawDeferredLoadingUi() const
 {
     WHEELS_ASSERT(m_initialized);
-    return m_impl->m_data.drawDeferredLoadingUi();
+    m_impl->m_data.drawDeferredLoadingUi();
 }
 
 bool World::drawSceneUi()

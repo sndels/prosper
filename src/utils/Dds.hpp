@@ -7,6 +7,7 @@
 #include <wheels/containers/array.hpp>
 
 // https://learn.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
+// NOLINTNEXTLINE(performance-enum-size) matches the format
 enum class DxgiFormat
 {
     Unknown = 0,

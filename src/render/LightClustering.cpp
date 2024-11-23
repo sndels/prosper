@@ -22,7 +22,7 @@ constexpr uint32_t sGroupDim = 16;
 constexpr uint32_t maxPointIndicesPerTile = 128;
 constexpr uint32_t maxSpotIndicesPerTile = 128;
 
-enum BindingSet : uint32_t
+enum BindingSet : uint8_t
 {
     LightsBindingSet,
     CameraBindingSet,

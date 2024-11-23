@@ -5,7 +5,7 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
-enum class KeyState
+enum class KeyState : uint8_t
 {
     Neutral,  // Key is just hangin'
     Pressed,  // Key was pressed between previous and current frame
@@ -36,7 +36,7 @@ struct CursorState
     bool shown{true};
 };
 
-enum class MouseGestureType
+enum class MouseGestureType : uint8_t
 {
     TrackBall,
     TrackPlane,

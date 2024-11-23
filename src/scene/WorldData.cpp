@@ -47,7 +47,7 @@ void *cgltf_alloc_func(void *user, cgltf_size size)
 void cgltf_free_func(void *user, void *ptr)
 {
     Allocator *alloc = static_cast<Allocator *>(user);
-    return alloc->deallocate(ptr);
+    alloc->deallocate(ptr);
 }
 
 const StaticArray sCgltfResultStr{{
@@ -1488,13 +1488,10 @@ void WorldData::gatherScene(
 
                     // Angular attenuation rom gltf spec
                     const auto angleScale =
-                        1.f /
-                        max(0.001f, static_cast<float>(
-                                        cos(light.spot_inner_cone_angle) -
-                                        cos(light.spot_outer_cone_angle)));
+                        1.f / max(0.001f, cos(light.spot_inner_cone_angle) -
+                                              cos(light.spot_outer_cone_angle));
                     const auto angleOffset =
-                        static_cast<float>(-cos(light.spot_outer_cone_angle)) *
-                        angleScale;
+                        -cos(light.spot_outer_cone_angle) * angleScale;
 
                     sceneLight.radianceAndAngleScale =
                         vec4{

@@ -14,7 +14,7 @@
 class DepthOfFieldGather
 {
   public:
-    enum GatherType : uint32_t
+    enum GatherType : uint8_t
     {
         GatherType_Foreground,
         GatherType_Background,

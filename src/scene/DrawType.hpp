@@ -15,7 +15,7 @@
 
 #define DRAW_TYPES_STRS FOR_EACH(DRAW_TYPES_STRINGIFY, DRAW_TYPES)
 
-enum class DrawType : uint32_t
+enum class DrawType : uint8_t
 {
     DRAW_TYPES_AND_COUNT
 };

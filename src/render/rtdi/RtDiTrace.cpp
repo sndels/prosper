@@ -27,7 +27,7 @@ namespace
 
 constexpr uint32_t sFramePeriod = 4096;
 
-enum BindingSet : uint32_t
+enum BindingSet : uint8_t
 {
     CameraBindingSet,
     RTBindingSet,
@@ -47,7 +47,7 @@ constexpr vk::ShaderStageFlags sVkShaderStageFlagsAllRt =
     vk::ShaderStageFlagBits::eMissKHR |
     vk::ShaderStageFlagBits::eIntersectionKHR;
 
-enum class StageIndex : uint32_t
+enum class StageIndex : uint8_t
 {
     RayGen,
     ClosestHit,
@@ -55,7 +55,7 @@ enum class StageIndex : uint32_t
     Miss,
 };
 
-enum class GroupIndex : uint32_t
+enum class GroupIndex : uint8_t
 {
     RayGen,
     Hit,
