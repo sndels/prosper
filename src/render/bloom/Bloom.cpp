@@ -47,21 +47,15 @@ Bloom::Output Bloom::record(
     const BloomSeparate::Output separateOutput =
         m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
 
-    const ComplexImagePair fftOutput = m_fft.record(
-        WHEELS_MOV(scopeAlloc), cb,
-        ComplexImagePair{
-            .real = separateOutput.highlights,
-            .imag = separateOutput.highlights,
-        },
-        nextFrame, false);
+    const ImageHandle fftOutput = m_fft.record(
+        WHEELS_MOV(scopeAlloc), cb, separateOutput.highlights, nextFrame,
+        false);
 
-    const ComplexImagePair iFftOutput =
+    const ImageHandle iFftOutput =
         m_fft.record(WHEELS_MOV(scopeAlloc), cb, fftOutput, nextFrame, true);
 
-    gRenderResources.images->release(fftOutput.real);
-    gRenderResources.images->release(fftOutput.imag);
-    gRenderResources.images->release(iFftOutput.real);
-    gRenderResources.images->release(iFftOutput.imag);
+    gRenderResources.images->release(fftOutput);
+    gRenderResources.images->release(iFftOutput);
 
     Output ret{
         .illuminationWithBloom = separateOutput.highlights,
