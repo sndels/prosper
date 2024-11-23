@@ -9,12 +9,6 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
-struct ComplexImagePair
-{
-    ImageHandle real;
-    ImageHandle imag;
-};
-
 class BloomFft
 {
   public:
@@ -34,18 +28,19 @@ class BloomFft
 
     void startFrame();
 
-    [[nodiscard]] ComplexImagePair record(
+    [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const ComplexImagePair &input, uint32_t nextFrame, bool inverse);
+        ImageHandle input, uint32_t nextFrame, bool inverse);
 
   private:
     struct IterationData
     {
-        ComplexImagePair input;
-        ComplexImagePair output;
+        ImageHandle input;
+        ImageHandle output;
         uint32_t ns{1};
         uint32_t r{4};
         bool transpose{false};
+        bool inverse{false};
     };
     void doIteration(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
