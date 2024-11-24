@@ -39,6 +39,7 @@ struct FftFlags
 {
     bool transpose{false};
     bool inverse{false};
+    bool needsRadix2{false};
 };
 
 uint32_t pcFlags(FftFlags flags)
@@ -47,6 +48,7 @@ uint32_t pcFlags(FftFlags flags)
 
     ret |= (uint32_t)flags.transpose;
     ret |= (uint32_t)flags.inverse << 1;
+    ret |= (uint32_t)flags.needsRadix2 << 2;
 
     return ret;
 }
@@ -109,9 +111,12 @@ void BloomFft::record(
 
     const vk::Extent2D fftExtent = getExtent2D(inputOutput);
     WHEELS_ASSERT(fftExtent.width == fftExtent.height);
-    WHEELS_ASSERT(fftExtent.width >= sMinResolution);
-    WHEELS_ASSERT(std::popcount(fftExtent.width) == 1);
+
     const uint32_t outputDim = fftExtent.width;
+    WHEELS_ASSERT(outputDim >= sMinResolution);
+    WHEELS_ASSERT(std::popcount(outputDim) == 1);
+    // Shader has no bounds checks as it assumes no idle threads
+    WHEELS_ASSERT(outputDim % sGroupSize * 4 == 0);
 
     String debugName{scopeAlloc};
     debugName.extend(debugPrefix);
@@ -129,96 +134,89 @@ void BloomFft::record(
         },
         debugName.c_str());
 
-    const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first
-    IterationData iterData{
+    DispatchData dispatchData{
         // For a real input image, this will consider rg/ba as complex pairs
         // to perform four transforms for the price of two. However, this has
         // implications when the DFT is used for convolution.
         // TODO: What are those implications
-        .input = inputOutput,
-        .output = pongImage,
+        .images = StaticArray{{
+            inputOutput,
+            pongImage,
+        }},
         .n = outputDim,
-        .ns = 1,
-        .r = needsRadix2 ? 2u : 4u,
         .transpose = false,
         .inverse = inverse,
+        .needsRadix2 = !isPowerOf(outputDim, 4u),
     };
-    doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
+    dispatch(scopeAlloc.child_scope(), cb, dispatchData, nextFrame);
+    bool flipInOut = dispatchData.needsRadix2;
+    uint32_t ns = dispatchData.needsRadix2 ? 2 : 1;
+    while (ns < outputDim)
     {
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
+        ns *= 4;
+        flipInOut = !flipInOut;
     }
-    iterData.ns *= iterData.r;
-    iterData.r = 4;
+    if (flipInOut)
+        dispatchData.images = StaticArray{{
+            dispatchData.images[1],
+            dispatchData.images[0],
+        }};
 
-    while (iterData.ns < outputDim)
+    dispatchData.transpose = true;
+    dispatch(scopeAlloc.child_scope(), cb, dispatchData, nextFrame);
+    flipInOut = dispatchData.needsRadix2;
+    ns = dispatchData.needsRadix2 ? 2 : 1;
+    while (ns < outputDim)
     {
-        doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
-        iterData.ns *= iterData.r;
+        ns *= 4;
+        flipInOut = !flipInOut;
     }
+    if (flipInOut)
+        dispatchData.images = StaticArray{{
+            dispatchData.images[1],
+            dispatchData.images[0],
+        }};
 
-    // Columns next
-    iterData.ns = 1;
-    iterData.r = needsRadix2 ? 2u : 4u;
-    iterData.transpose = true;
-    doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-    {
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
-    }
-    iterData.ns *= iterData.r;
-    iterData.r = 4;
+    gRenderResources.images->release(dispatchData.images[1]);
 
-    while (iterData.ns < outputDim)
-    {
-        doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
-        iterData.ns *= iterData.r;
-    }
-
-    gRenderResources.images->release(iterData.output);
-
-    inputOutput = iterData.input;
+    inputOutput = dispatchData.images[0];
 }
 
-void BloomFft::doIteration(
+void BloomFft::dispatch(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const IterationData &iterData, uint32_t nextFrame)
+    const DispatchData &dispatchData, uint32_t nextFrame)
 {
-    const uint32_t outputDim = iterData.n;
+    const uint32_t outputDim = dispatchData.n;
     WHEELS_ASSERT(
         outputDim % sGroupSize == 0 &&
         "FFT shader assumes the input is divisible by group size");
 
     m_computePass.updateDescriptorSet(
         scopeAlloc.child_scope(), nextFrame,
-        StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    gRenderResources.images->resource(iterData.input).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    gRenderResources.images->resource(iterData.output).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-        }});
+        StaticArray{
+            DescriptorInfo{StaticArray{{
+                vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(dispatchData.images[0])
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                },
+                vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(dispatchData.images[1])
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                },
+            }}},
+        });
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
-                {iterData.input, ImageState::ComputeShaderRead},
-                {iterData.output, ImageState::ComputeShaderWrite},
+                {dispatchData.images[0], ImageState::ComputeShaderReadWrite},
+                {dispatchData.images[1], ImageState::ComputeShaderReadWrite},
             }},
         });
 
@@ -226,15 +224,14 @@ void BloomFft::doIteration(
 
     const FftPC pcBlock{
         .n = outputDim,
-        .ns = iterData.ns,
-        .r = iterData.r,
         .flags = pcFlags(FftFlags{
-            .transpose = iterData.transpose,
-            .inverse = iterData.inverse,
+            .transpose = dispatchData.transpose,
+            .inverse = dispatchData.inverse,
+            .needsRadix2 = dispatchData.needsRadix2,
         }),
     };
     const uvec3 groupCount = m_computePass.groupCount(uvec3{
-        outputDim / iterData.r,
+        1,
         outputDim,
         1,
     });

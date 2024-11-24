@@ -38,19 +38,17 @@ class BloomFft
         const char *debugPrefix);
 
   private:
-    struct IterationData
+    struct DispatchData
     {
-        ImageHandle input;
-        ImageHandle output;
+        wheels::StaticArray<ImageHandle, 2> images;
         uint32_t n{sMinResolution};
-        uint32_t ns{1};
-        uint32_t r{4};
         bool transpose{false};
         bool inverse{false};
+        bool needsRadix2{false};
     };
-    void doIteration(
+    void dispatch(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const IterationData &iterData, uint32_t nextFrame);
+        const DispatchData &dispatchData, uint32_t nextFrame);
 
     bool m_initialized{false};
     ComputePass m_computePass;

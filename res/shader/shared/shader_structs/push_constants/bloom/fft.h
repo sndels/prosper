@@ -6,8 +6,6 @@
 struct FftPC
 {
     STRUCT_FIELD_GLM(uint, n, 0);
-    STRUCT_FIELD_GLM(uint, ns, 0);
-    STRUCT_FIELD_GLM(uint, r, 0);
     STRUCT_FIELD_GLM(uint, flags, 0);
 };
 
