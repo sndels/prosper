@@ -4,23 +4,24 @@
 
 #include "../shared/shader_structs/push_constants/bloom/separate.h"
 
-layout(set = 0, binding = 0) uniform readonly image2D inIllumination;
+layout(set = 0, binding = 0) uniform texture2D inIllumination;
 layout(set = 0, binding = 1) uniform image2D outHighlights;
+layout(set = 0, binding = 2) uniform sampler bilinearSampler;
 
 layout(push_constant) uniform PushConstants { SeparatePC PC; };
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
-    ivec2 inRes = imageSize(inIllumination);
     ivec2 outRes = imageSize(outHighlights);
-    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    if (any(greaterThanEqual(coord, outRes)))
-    {
-        return;
-    }
+    ivec2 outCoord = ivec2(gl_GlobalInvocationID.xy);
 
-    vec3 illumination = imageLoad(inIllumination, coord).rgb;
+    // No +.5 because we want the middle of the input quad
+    vec2 inUV = outCoord * 2 * PC.invInResolution;
+
+    vec3 illumination =
+        texture(sampler2D(inIllumination, bilinearSampler), inUV).rgb;
     vec3 highlight = max(illumination - PC.threshold, vec3(0));
-    imageStore(outHighlights, coord, vec4(highlight, 0));
+
+    imageStore(outHighlights, outCoord, vec4(highlight, 0));
 }

@@ -108,17 +108,16 @@ ImageHandle BloomFft::record(
 
     PROFILER_CPU_GPU_SCOPE(cb, inverse ? "  InverseFft" : "  Fft");
 
-    const vk::Extent2D inputExtent = getExtent2D(input);
-    const uint32_t outputDim =
-        std::bit_ceil(std::max(inputExtent.width, inputExtent.height));
-    const vk::Extent2D outputExtent{
-        .width = outputDim,
-        .height = outputDim,
-    };
+    const vk::Extent2D fftExtent = getExtent2D(input);
+    WHEELS_ASSERT(fftExtent.width == fftExtent.height);
+    WHEELS_ASSERT(fftExtent.width >= sMinResolution);
+    WHEELS_ASSERT(std::popcount(fftExtent.width) == 1);
+    const uint32_t outputDim = fftExtent.width;
+
     const ImageDescription targetDesc{
         .format = sFftFormat,
-        .width = outputExtent.width,
-        .height = outputExtent.height,
+        .width = fftExtent.width,
+        .height = fftExtent.height,
         .usageFlags =
             vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage,
     };
@@ -136,6 +135,7 @@ ImageHandle BloomFft::record(
         // TODO: What are those implications
         .input = input,
         .output = pingImage,
+        .n = outputDim,
         .ns = 1,
         .r = needsRadix2 ? 2u : 4u,
         .transpose = false,
@@ -187,10 +187,7 @@ void BloomFft::doIteration(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const IterationData &iterData, uint32_t nextFrame)
 {
-    const vk::Extent2D inputExtent = getExtent2D(iterData.input);
-    const vk::Extent2D outputExtent = getExtent2D(iterData.output);
-    WHEELS_ASSERT(outputExtent.width == outputExtent.height);
-    const uint32_t outputDim = outputExtent.width;
+    const uint32_t outputDim = iterData.n;
     WHEELS_ASSERT(
         outputDim % sGroupSize == 0 &&
         "FFT shader assumes the input is divisible by group size");
@@ -222,11 +219,6 @@ void BloomFft::doIteration(
     const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     const FftPC pcBlock{
-        .inputResolution =
-            uvec2{
-                inputExtent.width,
-                inputExtent.height,
-            },
         .n = outputDim,
         .ns = iterData.ns,
         .r = iterData.r,

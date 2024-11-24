@@ -5,6 +5,7 @@
 
 struct SeparatePC
 {
+    STRUCT_FIELD_GLM(vec2, invInResolution, 0.f);
     STRUCT_FIELD(float, threshold, 0.f);
 };
 

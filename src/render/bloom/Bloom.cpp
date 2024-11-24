@@ -44,21 +44,21 @@ Bloom::Output Bloom::record(
 
     PROFILER_CPU_GPU_SCOPE(cb, "Bloom");
 
-    const BloomSeparate::Output separateOutput =
+    ImageHandle workingImage =
         m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
 
     const ImageHandle fftOutput = m_fft.record(
-        WHEELS_MOV(scopeAlloc), cb, separateOutput.highlights, nextFrame,
-        false);
+        WHEELS_MOV(scopeAlloc), cb, workingImage, nextFrame, false);
+
+    gRenderResources.images->release(workingImage);
 
     const ImageHandle iFftOutput =
         m_fft.record(WHEELS_MOV(scopeAlloc), cb, fftOutput, nextFrame, true);
 
     gRenderResources.images->release(fftOutput);
-    gRenderResources.images->release(iFftOutput);
 
     Output ret{
-        .illuminationWithBloom = separateOutput.highlights,
+        .illuminationWithBloom = iFftOutput,
     };
 
     return ret;

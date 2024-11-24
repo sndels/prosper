@@ -15,12 +15,6 @@ bool flagInverse() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
 
 vec4 loadInput(ivec2 p, bool doInverse)
 {
-    // TODO:
-    // This check should only be needed for the first pass that samples from the
-    // potentially smaller input texture
-    if (any(greaterThanEqual(p, PC.inputResolution)))
-        return vec4(0);
-
     vec4 ret = imageLoad(inData, p);
     if (doInverse)
         ret = ret.yxwz;
