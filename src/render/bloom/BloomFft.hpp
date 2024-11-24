@@ -12,6 +12,8 @@
 class BloomFft
 {
   public:
+    static constexpr uint32_t sMinResolution = 256;
+
     BloomFft() noexcept = default;
     ~BloomFft() = default;
 
@@ -37,6 +39,7 @@ class BloomFft
     {
         ImageHandle input;
         ImageHandle output;
+        uint32_t n{sMinResolution};
         uint32_t ns{1};
         uint32_t r{4};
         bool transpose{false};

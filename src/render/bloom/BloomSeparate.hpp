@@ -33,11 +33,7 @@ class BloomSeparate
     {
         ImageHandle illumination;
     };
-    struct Output
-    {
-        ImageHandle highlights;
-    };
-    [[nodiscard]] Output record(
+    [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, uint32_t nextFrame);
 

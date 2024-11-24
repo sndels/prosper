@@ -3,6 +3,7 @@
 #include "render/RenderResources.hpp"
 #include "render/RenderTargets.hpp"
 #include "render/Utils.hpp"
+#include "render/bloom/BloomFft.hpp"
 #include "utils/Profiler.hpp"
 
 #include <imgui.h>
@@ -48,7 +49,7 @@ void BloomSeparate::drawUi()
     ImGui::SliderFloat("Threshold", &m_threshold, 0.f, 10.f);
 }
 
-BloomSeparate::Output BloomSeparate::record(
+ImageHandle BloomSeparate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     const uint32_t nextFrame)
 {
@@ -56,20 +57,24 @@ BloomSeparate::Output BloomSeparate::record(
 
     PROFILER_CPU_SCOPE("  Separate");
 
-    Output ret;
+    ImageHandle ret;
     {
-        const vk::Extent2D renderExtent = getExtent2D(input.illumination);
+        const vk::Extent2D inputExtent = getExtent2D(input.illumination);
 
-        ret.highlights = gRenderResources.images->create(
+        const uint32_t dim = std::max(
+            std::bit_ceil(std::max(inputExtent.width, inputExtent.height)) / 2,
+            BloomFft::sMinResolution);
+
+        ret = gRenderResources.images->create(
             ImageDescription{
                 .format = sIlluminationFormat,
-                .width = renderExtent.width,
-                .height = renderExtent.height,
+                .width = dim,
+                .height = dim,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
 
             },
-            "IlluminationHighlights");
+            "BloomFftPingPing");
 
         m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
@@ -78,12 +83,14 @@ BloomSeparate::Output BloomSeparate::record(
                     .imageView =
                         gRenderResources.images->resource(input.illumination)
                             .view,
+                    .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images->resource(ret).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        gRenderResources.images->resource(ret.highlights).view,
-                    .imageLayout = vk::ImageLayout::eGeneral,
+                    .sampler = gRenderResources.bilinearSampler,
                 }},
             }});
 
@@ -92,7 +99,7 @@ BloomSeparate::Output BloomSeparate::record(
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
                     {input.illumination, ImageState::ComputeShaderRead},
-                    {ret.highlights, ImageState::ComputeShaderWrite},
+                    {ret, ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -102,10 +109,14 @@ BloomSeparate::Output BloomSeparate::record(
             m_computePass.storageSet(nextFrame);
 
         const SeparatePC pcBlock{
+            .invInResolution = 1.f /
+                               vec2{
+                                   static_cast<float>(inputExtent.width),
+                                   static_cast<float>(inputExtent.height),
+                               },
             .threshold = m_threshold,
         };
-        const uvec3 groupCount = m_computePass.groupCount(
-            uvec3{renderExtent.width, renderExtent.height, 1u});
+        const uvec3 groupCount = m_computePass.groupCount(uvec3{dim, dim, 1u});
         m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
     }
 
