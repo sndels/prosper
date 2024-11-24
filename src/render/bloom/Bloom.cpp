@@ -59,33 +59,29 @@ Bloom::Output Bloom::record(
     ImageHandle workingImage =
         m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
 
-    const ImageHandle highlightsDft = m_fft.record(
+    m_fft.record(
         scopeAlloc.child_scope(), cb, workingImage, nextFrame, false, "Bloom");
-
-    gRenderResources.images->release(workingImage);
 
     m_convolution.record(
         scopeAlloc.child_scope(), cb,
         BloomConvolution::InputOutput{
-            .inOutHighlightsDft = highlightsDft,
+            .inOutHighlightsDft = workingImage,
             .inKernelDft = kernelDft,
         },
         nextFrame);
 
-    const ImageHandle convolvedHighlights = m_fft.record(
-        scopeAlloc.child_scope(), cb, highlightsDft, nextFrame, true, "Bloom");
-
-    gRenderResources.images->release(highlightsDft);
+    m_fft.record(
+        scopeAlloc.child_scope(), cb, workingImage, nextFrame, true, "Bloom");
 
     const ImageHandle illuminationWithBloom = m_compose.record(
         WHEELS_MOV(scopeAlloc), cb,
         BloomCompose::Input{
             .illumination = input.illumination,
-            .bloomHighlights = convolvedHighlights,
+            .bloomHighlights = workingImage,
         },
         nextFrame);
 
-    gRenderResources.images->release(convolvedHighlights);
+    gRenderResources.images->release(workingImage);
 
     Output ret{
         .illuminationWithBloom = illuminationWithBloom,

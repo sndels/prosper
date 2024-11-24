@@ -83,8 +83,8 @@ void BloomFft::recompileShaders(
 
 void BloomFft::startFrame() { m_computePass.startFrame(); }
 
-ImageHandle BloomFft::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle input,
+void BloomFft::record(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle &inputOutput,
     const uint32_t nextFrame, bool inverse, const char *debugPrefix)
 {
     WHEELS_ASSERT(m_initialized);
@@ -107,7 +107,7 @@ ImageHandle BloomFft::record(
 
     PROFILER_CPU_GPU_SCOPE(cb, inverse ? "  InverseFft" : "  Fft");
 
-    const vk::Extent2D fftExtent = getExtent2D(input);
+    const vk::Extent2D fftExtent = getExtent2D(inputOutput);
     WHEELS_ASSERT(fftExtent.width == fftExtent.height);
     WHEELS_ASSERT(fftExtent.width >= sMinResolution);
     WHEELS_ASSERT(std::popcount(fftExtent.width) == 1);
@@ -117,20 +117,17 @@ ImageHandle BloomFft::record(
     debugName.extend(debugPrefix);
     if (inverse)
         debugName.extend("Inv");
-    debugName.extend("FftPing");
+    debugName.extend("FftPong");
 
-    const ImageDescription targetDesc{
-        .format = sFftFormat,
-        .width = fftExtent.width,
-        .height = fftExtent.height,
-        .usageFlags =
-            vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage,
-    };
-    const ImageHandle pingImage =
-        gRenderResources.images->create(targetDesc, debugName.c_str());
-    debugName[debugName.size() - 3] = 'o';
-    const ImageHandle pongImage =
-        gRenderResources.images->create(targetDesc, debugName.c_str());
+    const ImageHandle pongImage = gRenderResources.images->create(
+        ImageDescription{
+            .format = sFftFormat,
+            .width = fftExtent.width,
+            .height = fftExtent.height,
+            .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                          vk::ImageUsageFlagBits::eStorage,
+        },
+        debugName.c_str());
 
     const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first
@@ -139,8 +136,8 @@ ImageHandle BloomFft::record(
         // to perform four transforms for the price of two. However, this has
         // implications when the DFT is used for convolution.
         // TODO: What are those implications
-        .input = input,
-        .output = pingImage,
+        .input = inputOutput,
+        .output = pongImage,
         .n = outputDim,
         .ns = 1,
         .r = needsRadix2 ? 2u : 4u,
@@ -148,8 +145,11 @@ ImageHandle BloomFft::record(
         .inverse = inverse,
     };
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-    iterData.input = pingImage;
-    iterData.output = pongImage;
+    {
+        const ImageHandle tmp = iterData.input;
+        iterData.input = iterData.output;
+        iterData.output = tmp;
+    }
     iterData.ns *= iterData.r;
     iterData.r = 4;
 
@@ -186,7 +186,7 @@ ImageHandle BloomFft::record(
 
     gRenderResources.images->release(iterData.output);
 
-    return iterData.input;
+    inputOutput = iterData.input;
 }
 
 void BloomFft::doIteration(

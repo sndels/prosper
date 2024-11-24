@@ -67,14 +67,14 @@ ImageHandle BloomSeparate::record(
 
         ret = gRenderResources.images->create(
             ImageDescription{
-                .format = sIlluminationFormat,
+                .format = BloomFft::sFftFormat,
                 .width = dim,
                 .height = dim,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
 
             },
-            "BloomFftPingPing");
+            "BloomFftPing");
 
         m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,

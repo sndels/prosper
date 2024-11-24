@@ -77,11 +77,10 @@ ImageHandle BloomGenerateKernel::record(
         gRenderResources.images->release(m_kernelDft);
     }
 
-    ImageHandle kernel;
     {
         PROFILER_CPU_SCOPE("  GenerateKernel");
 
-        kernel = gRenderResources.images->create(
+        m_kernelDft = gRenderResources.images->create(
             ImageDescription{
                 .format = BloomFft::sFftFormat,
                 .width = dim,
@@ -96,7 +95,8 @@ ImageHandle BloomGenerateKernel::record(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = gRenderResources.images->resource(kernel).view,
+                    .imageView =
+                        gRenderResources.images->resource(m_kernelDft).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
             }});
@@ -105,7 +105,7 @@ ImageHandle BloomGenerateKernel::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 1>{{
-                    {kernel, ImageState::ComputeShaderWrite},
+                    {m_kernelDft, ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -126,11 +126,10 @@ ImageHandle BloomGenerateKernel::record(
         m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
     }
 
-    m_kernelDft = fft.record(
-        scopeAlloc.child_scope(), cb, kernel, nextFrame, false, "BloomKernel");
+    fft.record(
+        scopeAlloc.child_scope(), cb, m_kernelDft, nextFrame, false,
+        "BloomKernel");
     gRenderResources.images->preserve(m_kernelDft);
-
-    gRenderResources.images->release(kernel);
 
     return m_kernelDft;
 }
