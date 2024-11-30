@@ -1,0 +1,26 @@
+#pragma shader_stage(compute)
+
+#include "../common/math.glsl"
+#include "../shared/shader_structs/push_constants/bloom/generate_kernel.h"
+
+layout(set = 0, binding = 1) uniform image2D outKernel;
+layout(set = 0, binding = 2) uniform sampler bilinearSampler;
+
+layout(push_constant) uniform PushConstants { GenerateKernelPC PC; };
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    // CPU side makes sure output is divisible by the group size
+    vec4 outColor = vec4(0);
+
+    vec2 uv = gl_GlobalInvocationID.xy;
+    uv *= PC.invRenderResolution;
+    if (all(lessThan(uv, vec2(1)))
+    {
+        vec2 p = uv * 2. + 1.;
+        outColor = vec4(saturate(1 - length(p)));
+    }
+
+    imageStore(outKernel, gl_GlobalInvocationID.xy, vec4(outValue, 0));
+}

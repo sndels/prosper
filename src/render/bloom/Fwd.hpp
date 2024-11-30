@@ -8,6 +8,9 @@ class Bloom;
 // BloomFft.hpp
 class BloomFft;
 
+// BloomGenerateKernel.hpp
+class BloomGenerateKernel;
+
 // BloomSeparate.hpp
 class BloomSeparate;
 
