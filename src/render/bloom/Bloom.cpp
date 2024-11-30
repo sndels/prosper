@@ -14,7 +14,8 @@ void Bloom::init(ScopedScratch scopeAlloc)
 
     m_separate.init(scopeAlloc.child_scope());
     m_generateKernel.init(scopeAlloc.child_scope());
-    m_fft.init(WHEELS_MOV(scopeAlloc));
+    m_fft.init(scopeAlloc.child_scope());
+    m_convolution.init(WHEELS_MOV(scopeAlloc));
 
     m_initialized = true;
 }
@@ -27,7 +28,8 @@ void Bloom::recompileShaders(
 
     m_separate.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_generateKernel.recompileShaders(scopeAlloc.child_scope(), changedFiles);
-    m_fft.recompileShaders(WHEELS_MOV(scopeAlloc), changedFiles);
+    m_fft.recompileShaders(scopeAlloc.child_scope(), changedFiles);
+    m_convolution.recompileShaders(WHEELS_MOV(scopeAlloc), changedFiles);
 }
 
 void Bloom::startFrame() { m_fft.startFrame(); }
@@ -55,18 +57,26 @@ Bloom::Output Bloom::record(
     ImageHandle workingImage =
         m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
 
-    const ImageHandle fftOutput = m_fft.record(
+    const ImageHandle highlightsDft = m_fft.record(
         scopeAlloc.child_scope(), cb, workingImage, nextFrame, false, "Bloom");
 
     gRenderResources.images->release(workingImage);
 
-    const ImageHandle iFftOutput = m_fft.record(
-        WHEELS_MOV(scopeAlloc), cb, fftOutput, nextFrame, true, "Bloom");
+    m_convolution.record(
+        scopeAlloc.child_scope(), cb,
+        BloomConvolution::InputOutput{
+            .inOutHighlightsDft = highlightsDft,
+            .inKernelDft = kernelDft,
+        },
+        nextFrame);
 
-    gRenderResources.images->release(fftOutput);
+    const ImageHandle convolvedHighlights = m_fft.record(
+        WHEELS_MOV(scopeAlloc), cb, highlightsDft, nextFrame, true, "Bloom");
+
+    gRenderResources.images->release(highlightsDft);
 
     Output ret{
-        .illuminationWithBloom = iFftOutput,
+        .illuminationWithBloom = convolvedHighlights,
     };
 
     return ret;
