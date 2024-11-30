@@ -1,5 +1,5 @@
-#ifndef PROSPER_RENDER_BLOOM_SEPARATE_HPP
-#define PROSPER_RENDER_BLOOM_SEPARATE_HPP
+#ifndef PROSPER_RENDER_BLOOM_GENERATE_KERNEL_HPP
+#define PROSPER_RENDER_BLOOM_GENERATE_KERNEL_HPP
 
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
@@ -39,4 +39,4 @@ class BloomGenerateKernel
     ComputePass m_computePass;
 };
 
-#endif // PROSPER_RENDER_BLOOM_SEPARATE_HPP
+#endif // PROSPER_RENDER_BLOOM_GENERATE_KERNEL_HPP

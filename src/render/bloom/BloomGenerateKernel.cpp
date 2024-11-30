@@ -1,7 +1,7 @@
 #include "BloomGenerateKernel.hpp"
 
 #include "render/RenderResources.hpp"
-#include "render/RenderTargets.hpp"
+#include "render/Utils.hpp"
 #include "render/bloom/BloomFft.hpp"
 #include "utils/Profiler.hpp"
 
@@ -18,7 +18,7 @@ constexpr uvec3 sGroupSize{16, 16, 1};
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
     return ComputePass::Shader{
-        .relPath = "shader/bloom/kernel_generate.comp",
+        .relPath = "shader/bloom/generate_kernel.comp",
         .debugName = String{alloc, "BloomGenerateKernelCS"},
         .groupSize = sGroupSize,
     };
@@ -41,7 +41,7 @@ void BloomGenerateKernel::recompileShaders(
 {
     WHEELS_ASSERT(m_initialized);
 
-    m_computePass.recompileShader(
+    m_reGenerate |= m_computePass.recompileShader(
         WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
 }
 
@@ -62,21 +62,18 @@ ImageHandle BloomGenerateKernel::record(
     WHEELS_ASSERT(dim % sGroupSize.x == 0 && "Shader doesn't do bounds checks");
     WHEELS_ASSERT(dim % sGroupSize.y == 0 && "Shader doesn't do bounds checks");
 
-    if (!m_reGenerate && gRenderResources.images->isValidHandle(m_kernelDft))
+    if (gRenderResources.images->isValidHandle(m_kernelDft))
     {
-        const vk::Extent3D previousExtent =
-            gRenderResources.images->resource(m_kernelDft).extent;
-        const uint32_t previousDim = std::max(
-            std::bit_ceil(
-                std::max(previousExtent.width, previousExtent.height)) /
-                2,
-            BloomFft::sMinResolution);
-        if (dim == previousDim)
+        if (!m_reGenerate)
         {
-            gRenderResources.images->preserve(m_kernelDft);
-            return m_kernelDft;
+            const vk::Extent2D previousExtent = getExtent2D(m_kernelDft);
+            WHEELS_ASSERT(previousExtent.width == previousExtent.height);
+            if (dim == previousExtent.width)
+            {
+                gRenderResources.images->preserve(m_kernelDft);
+                return m_kernelDft;
+            }
         }
-
         gRenderResources.images->release(m_kernelDft);
     }
 
@@ -86,7 +83,7 @@ ImageHandle BloomGenerateKernel::record(
 
         kernel = gRenderResources.images->create(
             ImageDescription{
-                .format = sIlluminationFormat,
+                .format = BloomFft::sFftFormat,
                 .width = dim,
                 .height = dim,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
@@ -118,7 +115,8 @@ ImageHandle BloomGenerateKernel::record(
             m_computePass.storageSet(nextFrame);
 
         const GenerateKernelPC pcBlock{
-            .invRenderResolution = 1.f /
+            // Bloom happens in half resolution
+            .invRenderResolution = 2.f /
                                    vec2{
                                        static_cast<float>(renderExtent.width),
                                        static_cast<float>(renderExtent.height),

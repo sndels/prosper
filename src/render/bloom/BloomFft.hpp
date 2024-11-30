@@ -11,6 +11,7 @@
 class BloomFft
 {
   public:
+    static constexpr vk::Format sFftFormat = vk::Format::eR32G32B32A32Sfloat;
     static constexpr uint32_t sMinResolution = 256;
 
     BloomFft() noexcept = default;
