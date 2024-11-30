@@ -7,21 +7,36 @@ layout(set = 0, binding = 0) uniform writeonly image2D outKernel;
 
 layout(push_constant) uniform PushConstants { GenerateKernelPC PC; };
 
+float sdPoint(vec2 p, float r) { return length(p) - r; }
+
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     ivec2 outRes = imageSize(outKernel);
     // No bounds checks, CPU side ensures output is divisible by the group size
+
     vec2 p = gl_GlobalInvocationID.xy / vec2(outRes);
     p = p * 2. - 1.;
+    p.x = abs(p.x);
+    p.y = abs(p.y);
+
+    // Center the kernel at the corners and wrap it because that's what gets us
+    // a proper convolution it seems.
+    float dPoint = length(p - vec2(1., 1.)) - .1;
+    float dStripe = p.y * p.y;
+    dStripe *= dStripe;
+    dStripe *= dStripe;
+    dStripe *= dStripe;
+    dStripe *= dStripe;
+    dStripe *= dStripe;
+    dStripe *= p.x * p.x;
+    dStripe *= p.x;
 
     vec3 outValue = vec3(0);
+    outValue += saturate(log(-dPoint * 10. + 1));
+    outValue += saturate(vec3(.05, .05, 1.) * log(dStripe * 10. + 1));
 
-    outValue = vec3(saturate(1 - length(p) * 20.));
-    outValue +=
-        mix(vec3(.2, .2, 1.) * .8 * saturate(1. - abs(p.y) * 20.), vec3(1),
-            saturate(1. - abs(p.y) * 100.) - abs(p.x * 3));
-    outValue = saturate(outValue);
+    outValue *= .001;
 
     imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), vec4(outValue, 1));
 }
