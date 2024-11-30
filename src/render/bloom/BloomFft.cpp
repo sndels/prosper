@@ -65,8 +65,9 @@ void BloomFft::init(ScopedScratch scopeAlloc)
             // 7 passes can transform two components of 16k x 16k by rows
             // Twice that for four components
             // Twice that by columns
+            // Three times that for inverse transform and forward pass on kernel
             // Twice that for inverse transform
-            .perFrameRecordLimit = 7 * 2 * 2 * 2,
+            .perFrameRecordLimit = 7 * 2 * 2 * 3,
         });
 
     m_initialized = true;
@@ -86,7 +87,7 @@ void BloomFft::startFrame() { m_computePass.startFrame(); }
 
 ImageHandle BloomFft::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle input,
-    const uint32_t nextFrame, bool inverse)
+    const uint32_t nextFrame, bool inverse, const char *debugPrefix)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -114,6 +115,12 @@ ImageHandle BloomFft::record(
     WHEELS_ASSERT(std::popcount(fftExtent.width) == 1);
     const uint32_t outputDim = fftExtent.width;
 
+    String debugName{scopeAlloc};
+    debugName.extend(debugPrefix);
+    if (inverse)
+        debugName.extend("Inv");
+    debugName.extend("FftPing");
+
     const ImageDescription targetDesc{
         .format = sFftFormat,
         .width = fftExtent.width,
@@ -121,10 +128,11 @@ ImageHandle BloomFft::record(
         .usageFlags =
             vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage,
     };
-    const ImageHandle pingImage = gRenderResources.images->create(
-        targetDesc, inverse ? "BloomInvFftPing" : "BloomFftPing");
-    const ImageHandle pongImage = gRenderResources.images->create(
-        targetDesc, inverse ? "BloomInvFftPong" : "BloomFftPong");
+    const ImageHandle pingImage =
+        gRenderResources.images->create(targetDesc, debugName.c_str());
+    debugName[debugName.size() - 3] = 'o';
+    const ImageHandle pongImage =
+        gRenderResources.images->create(targetDesc, debugName.c_str());
 
     const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first

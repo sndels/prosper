@@ -31,7 +31,8 @@ class BloomFft
 
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle input, uint32_t nextFrame, bool inverse);
+        ImageHandle input, uint32_t nextFrame, bool inverse,
+        const char *debugPrefix);
 
   private:
     struct IterationData
