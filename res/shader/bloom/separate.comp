@@ -19,8 +19,9 @@ void main()
     // No +.5 because we want the middle of the input quad
     vec2 inUV = outCoord * 2 * PC.invInResolution;
 
-    vec3 outValue =
+    vec3 illumination =
         texture(sampler2D(inIllumination, bilinearSampler), inUV).rgb;
+    vec3 highlight = max(illumination - PC.threshold, vec3(0));
 
-    imageStore(outHighlights, outCoord, vec4(outValue, 0));
+    imageStore(outHighlights, outCoord, vec4(highlight, 0));
 }
