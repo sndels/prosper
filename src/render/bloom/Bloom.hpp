@@ -3,6 +3,7 @@
 
 #include "render/RenderResourceHandle.hpp"
 #include "render/bloom/BloomFft.hpp"
+#include "render/bloom/BloomGenerateKernel.hpp"
 #include "render/bloom/BloomSeparate.hpp"
 
 #include <filesystem>
@@ -42,6 +43,7 @@ class Bloom
 
   private:
     bool m_initialized{false};
+    BloomGenerateKernel m_generateKernel;
     BloomSeparate m_separate;
     BloomFft m_fft;
 };
