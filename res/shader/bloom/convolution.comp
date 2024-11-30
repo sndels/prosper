@@ -1,0 +1,22 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+#include "../common/math.glsl"
+
+layout(set = 0, binding = 0) uniform image2D inOutHighlightsDft;
+layout(set = 0, binding = 1) uniform readonly image2D inKernelDft;
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    // No bounds checks, CPU side ensures output is divisible by the group size
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+
+    vec4 highlights = imageLoad(inOutHighlightsDft, p);
+    vec4 kernel = imageLoad(inKernelDft, p);
+
+    vec4 convolved = highlights * kernel;
+
+    imageStore(inOutHighlightsDft, p, convolved);
+}
