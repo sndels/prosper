@@ -66,6 +66,20 @@ void RenderResources::init()
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         });
+    this->bilinearBorderTransparentBlackSampler =
+        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eNearest,
+            .addressModeU = vk::SamplerAddressMode::eClampToBorder,
+            .addressModeV = vk::SamplerAddressMode::eClampToBorder,
+            .addressModeW = vk::SamplerAddressMode::eClampToBorder,
+            .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1,
+            .minLod = 0,
+            .maxLod = VK_LOD_CLAMP_NONE,
+            .borderColor = vk::BorderColor::eFloatTransparentBlack,
+        });
     this->trilinearSampler =
         gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
@@ -90,6 +104,7 @@ void RenderResources::destroy()
     gDevice.logical().destroy(nearestBorderBlackFloatSampler);
     gDevice.logical().destroy(nearestSampler);
     gDevice.logical().destroy(bilinearSampler);
+    gDevice.logical().destroy(bilinearBorderTransparentBlackSampler);
     gDevice.logical().destroy(trilinearSampler);
 
     nearestSampler = vk::Sampler{};

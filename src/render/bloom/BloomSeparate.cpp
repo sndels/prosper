@@ -90,7 +90,8 @@ ImageHandle BloomSeparate::record(
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .sampler = gRenderResources.bilinearSampler,
+                    .sampler =
+                        gRenderResources.bilinearBorderTransparentBlackSampler,
                 }},
             }});
 

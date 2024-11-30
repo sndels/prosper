@@ -50,6 +50,7 @@ class RenderResources
     vk::Sampler nearestBorderBlackFloatSampler;
     vk::Sampler nearestSampler;
     vk::Sampler bilinearSampler;
+    vk::Sampler bilinearBorderTransparentBlackSampler;
     vk::Sampler trilinearSampler;
 
     // One lines buffer per frame to leave mapped
