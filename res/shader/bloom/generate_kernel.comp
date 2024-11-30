@@ -10,17 +10,18 @@ layout(push_constant) uniform PushConstants { GenerateKernelPC PC; };
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
+    ivec2 outRes = imageSize(outKernel);
     // No bounds checks, CPU side ensures output is divisible by the group size
+    vec2 p = gl_GlobalInvocationID.xy / vec2(outRes);
+    p = p * 2. - 1.;
 
     vec3 outValue = vec3(0);
 
-    vec2 uv = gl_GlobalInvocationID.xy * PC.invRenderResolution;
-    if (all(lessThan(uv, vec2(1))))
-    {
-        vec2 p = uv * 2. - 1.;
-        outValue = vec3(saturate(1 - length(p) * 10.));
-        outValue.b += .8 * saturate(1. - abs(p.y) * 10. - abs(p.x));
-    }
+    outValue = vec3(saturate(1 - length(p) * 20.));
+    outValue +=
+        mix(vec3(.2, .2, 1.) * .8 * saturate(1. - abs(p.y) * 20.), vec3(1),
+            saturate(1. - abs(p.y) * 100.) - abs(p.x * 3));
+    outValue = saturate(outValue);
 
     imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), vec4(outValue, 1));
 }
