@@ -14,8 +14,6 @@ using namespace wheels;
 namespace
 {
 
-const vk::Format sFftFormat = vk::Format::eR32G32B32A32Sfloat;
-
 const uint32_t sGroupSize = 64;
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
