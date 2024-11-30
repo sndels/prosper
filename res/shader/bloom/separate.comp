@@ -6,7 +6,8 @@
 
 layout(set = 0, binding = 0) uniform texture2D inIllumination;
 layout(set = 0, binding = 1) uniform image2D outHighlights;
-layout(set = 0, binding = 2) uniform sampler bilinearSampler;
+layout(set = 0, binding = 2) uniform sampler
+    bilinearBorderTransparentBlackSampler;
 
 layout(push_constant) uniform PushConstants { SeparatePC PC; };
 
@@ -20,7 +21,10 @@ void main()
     vec2 inUV = outCoord * 2 * PC.invInResolution;
 
     vec3 illumination =
-        texture(sampler2D(inIllumination, bilinearSampler), inUV).rgb;
+        texture(
+            sampler2D(inIllumination, bilinearBorderTransparentBlackSampler),
+            inUV)
+            .rgb;
     vec3 highlight = max(illumination - PC.threshold, vec3(0));
 
     imageStore(outHighlights, outCoord, vec4(highlight, 0));
