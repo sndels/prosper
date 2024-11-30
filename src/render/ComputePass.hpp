@@ -160,7 +160,7 @@ class ComputePass
     // TODO:
     // This much is only needed by FFT. Should use a small vector with less
     // inline space instead?
-    static const size_t sPerFrameRecordLimit = 64;
+    static const size_t sPerFrameRecordLimit = 84;
     size_t m_nextRecordIndex{0};
     wheels::StaticArray<
         wheels::InlineArray<vk::DescriptorSet, sPerFrameRecordLimit>,

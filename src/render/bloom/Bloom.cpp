@@ -48,12 +48,12 @@ Bloom::Output Bloom::record(
         m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
 
     const ImageHandle fftOutput = m_fft.record(
-        WHEELS_MOV(scopeAlloc), cb, workingImage, nextFrame, false);
+        scopeAlloc.child_scope(), cb, workingImage, nextFrame, false, "Bloom");
 
     gRenderResources.images->release(workingImage);
 
-    const ImageHandle iFftOutput =
-        m_fft.record(WHEELS_MOV(scopeAlloc), cb, fftOutput, nextFrame, true);
+    const ImageHandle iFftOutput = m_fft.record(
+        WHEELS_MOV(scopeAlloc), cb, fftOutput, nextFrame, true, "Bloom");
 
     gRenderResources.images->release(fftOutput);
 

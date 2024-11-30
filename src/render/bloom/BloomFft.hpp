@@ -29,9 +29,12 @@ class BloomFft
 
     void startFrame();
 
+    // Inverse is unscaled, its values need to be divided by dim^2 when
+    // interpreting
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle input, uint32_t nextFrame, bool inverse);
+        ImageHandle input, uint32_t nextFrame, bool inverse,
+        const char *debugPrefix);
 
   private:
     struct IterationData
