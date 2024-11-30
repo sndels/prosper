@@ -7,7 +7,6 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
-#include <wheels/containers/static_array.hpp>
 
 class BloomFft
 {
