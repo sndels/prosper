@@ -536,7 +536,8 @@ void Renderer::render(
                     .illumination = illumination,
                 },
                 nextFrame);
-            gRenderResources.images->release(bloomOutput.illuminationWithBloom);
+            gRenderResources.images->release(illumination);
+            illumination = bloomOutput.illuminationWithBloom;
         }
 
         gRenderResources.images->release(velocity);
