@@ -42,6 +42,7 @@ class Bloom
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, uint32_t nextFrame);
+    void releasePreserved();
 
   private:
     bool m_initialized{false};

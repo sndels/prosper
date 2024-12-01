@@ -85,9 +85,18 @@ Bloom::Output Bloom::record(
         },
         nextFrame);
 
+    gRenderResources.images->release(convolvedHighlights);
+
     Output ret{
         .illuminationWithBloom = illuminationWithBloom,
     };
 
     return ret;
+}
+
+void Bloom::releasePreserved()
+{
+    WHEELS_ASSERT(m_initialized);
+
+    m_generateKernel.releasePreserved();
 }
