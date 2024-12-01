@@ -31,6 +31,7 @@ class BloomGenerateKernel
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const vk::Extent2D &renderExtent, BloomFft &fft, uint32_t nextFrame);
+    void releasePreserved();
 
   private:
     bool m_initialized{false};

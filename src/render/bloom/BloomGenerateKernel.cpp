@@ -134,3 +134,11 @@ ImageHandle BloomGenerateKernel::record(
 
     return m_kernelDft;
 }
+
+void BloomGenerateKernel::releasePreserved()
+{
+    WHEELS_ASSERT(m_initialized);
+
+    if (gRenderResources.images->isValidHandle(m_kernelDft))
+        gRenderResources.images->release(m_kernelDft);
+}
