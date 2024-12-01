@@ -1,0 +1,39 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+#include "../shared/shader_structs/push_constants/bloom/compose.h"
+
+layout(set = 0, binding = 0) uniform texture2D inIllumination;
+layout(set = 0, binding = 1) uniform texture2D inBloomHighlights;
+layout(set = 0, binding = 2) uniform writeonly image2D outIlluminationWithBloom;
+layout(set = 0, binding = 3) uniform sampler nearestSampler;
+layout(set = 0, binding = 4) uniform sampler bilinearSampler;
+
+layout(push_constant) uniform PushConstants { ComposePC PC; };
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(coord, PC.illuminationResolution)))
+        return;
+
+    // TODO: Calculate this scale on the CPU
+    float dim = 1. / PC.invBloomDimSquared;
+    dim = sqrt(dim);
+    vec2 illuRes = 1.f / PC.invIlluminationResolution;
+    vec2 illuminationUVToHighlightUVScale = illuRes / (dim * 2.);
+    vec2 highlightUV = vec2(coord) * PC.invIlluminationResolution *
+                       illuminationUVToHighlightUVScale;
+
+    vec3 illumination =
+        texelFetch(sampler2D(inIllumination, nearestSampler), coord, 0).rgb;
+    vec3 highlight =
+        texture(sampler2D(inBloomHighlights, bilinearSampler), highlightUV).rgb;
+    highlight *= PC.invBloomDimSquared;
+
+    vec3 composed = illumination + highlight;
+
+    imageStore(outIlluminationWithBloom, coord, vec4(composed, 1));
+}

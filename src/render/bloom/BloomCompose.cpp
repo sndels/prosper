@@ -98,7 +98,7 @@ ImageHandle BloomCompose::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 2>{{
+                .images = StaticArray<ImageTransition, 3>{{
                     {input.illumination, ImageState::ComputeShaderRead},
                     {input.bloomHighlights, ImageState::ComputeShaderRead},
                     {ret, ImageState::ComputeShaderWrite},
@@ -110,9 +110,13 @@ ImageHandle BloomCompose::record(
         const vk::DescriptorSet descriptorSet =
             m_computePass.storageSet(nextFrame);
 
-        const ComposePC pcBlock
-        {
-            .invDimSquared = 1.f / (bloomExtent.width * bloomExtent.width);
+        const ComposePC pcBlock{
+            .illuminationResolution =
+                vec2(illuminationExtent.width, illuminationExtent.height),
+            .invIlluminationResolution =
+                1.f / vec2(illuminationExtent.width, illuminationExtent.height),
+            .invBloomDimSquared =
+                1.f / static_cast<float>(bloomExtent.width * bloomExtent.width),
         };
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{illuminationExtent.width, illuminationExtent.height, 1u});
