@@ -5,6 +5,9 @@
 // Bloom.hpp
 class Bloom;
 
+// BloomCompose.hpp
+class BloomCompose;
+
 // BloomConvolution.hpp
 class BloomConvolution;
 
