@@ -2,6 +2,7 @@
 #define PROSPER_RENDER_BLOOM_HPP
 
 #include "render/RenderResourceHandle.hpp"
+#include "render/bloom/BloomCompose.hpp"
 #include "render/bloom/BloomConvolution.hpp"
 #include "render/bloom/BloomFft.hpp"
 #include "render/bloom/BloomGenerateKernel.hpp"
@@ -49,6 +50,7 @@ class Bloom
     BloomSeparate m_separate;
     BloomFft m_fft;
     BloomConvolution m_convolution;
+    BloomCompose m_compose;
 };
 
 #endif // PROSPER_RENDER_BLOOM_HPP

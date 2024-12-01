@@ -99,8 +99,9 @@ ImageHandle BloomCompose::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 3>{{
-                    {input.illumination, ImageState::ComputeShaderRead},
-                    {input.bloomHighlights, ImageState::ComputeShaderRead},
+                    {input.illumination, ImageState::ComputeShaderSampledRead},
+                    {input.bloomHighlights,
+                     ImageState::ComputeShaderSampledRead},
                     {ret, ImageState::ComputeShaderWrite},
                 }},
             });
