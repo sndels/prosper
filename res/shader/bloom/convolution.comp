@@ -20,10 +20,12 @@ void main()
     // No bounds checks, CPU side ensures output is divisible by the group size
     ivec2 p = ivec2(gl_GlobalInvocationID.xy);
 
+    uint n = imageSize(inOutHighlightsDft).x;
+
     vec4 highlights = imageLoad(inOutHighlightsDft, p);
     vec4 kernel = imageLoad(inKernelDft, p);
 
-    vec4 convolved = mulComplex(highlights, kernel);
+    vec4 convolved = mulComplex(highlights, kernel) / (float(n) * .5);
 
     imageStore(inOutHighlightsDft, p, convolved);
 }
