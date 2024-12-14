@@ -29,7 +29,6 @@ void main()
     if (abs(p.y) > .99)
         outValue += vec3(.01, .01, .5) *
                     gaussian(length(p - vec2(1., 1.)) * 10., .5, 1., 1.);
-    outValue *= .001;
 
     imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), vec4(outValue, 1));
 }
