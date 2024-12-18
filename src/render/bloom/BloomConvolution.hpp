@@ -6,6 +6,7 @@
 #include "render/RenderResourceHandle.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
+#include <wheels/containers/pair.hpp>
 
 class BloomConvolution
 {
@@ -26,8 +27,8 @@ class BloomConvolution
 
     struct InputOutput
     {
-        ImageHandle inOutHighlightsDft;
-        ImageHandle inKernelDft;
+        wheels::Pair<ImageHandle, ImageHandle> inOutHighlightsDft;
+        wheels::Pair<ImageHandle, ImageHandle> inKernelDft;
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

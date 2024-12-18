@@ -4,8 +4,10 @@
 
 #include "../common/math.glsl"
 
-layout(set = 0, binding = 0) uniform image2D inOutHighlightsDft;
-layout(set = 0, binding = 1) uniform readonly image2D inKernelDft;
+layout(set = 0, binding = 0) uniform image2D inOutHighlightsDftRG;
+layout(set = 0, binding = 1) uniform image2D inOutHighlightsDftBA;
+layout(set = 0, binding = 2) uniform readonly image2D inKernelDftRG;
+layout(set = 0, binding = 3) uniform readonly image2D inKernelDftBA;
 
 vec4 mulComplex(vec4 a, vec4 b)
 {
@@ -20,12 +22,16 @@ void main()
     // No bounds checks, CPU side ensures output is divisible by the group size
     ivec2 p = ivec2(gl_GlobalInvocationID.xy);
 
-    uint n = imageSize(inOutHighlightsDft).x;
+    uint n = imageSize(inOutHighlightsDftRG).x;
 
-    vec4 highlights = imageLoad(inOutHighlightsDft, p);
-    vec4 kernel = imageLoad(inKernelDft, p);
+    vec4 highlightsRG = imageLoad(inOutHighlightsDftRG, p);
+    vec4 highlightsBA = imageLoad(inOutHighlightsDftBA, p);
+    vec4 kernelRG = imageLoad(inKernelDftRG, p);
+    vec4 kernelBA = imageLoad(inKernelDftBA, p);
 
-    vec4 convolved = mulComplex(highlights, kernel) / (float(n) * .5);
+    vec4 convolvedRG = mulComplex(highlightsRG, kernelRG) / (float(n) * .5);
+    vec4 convolvedBA = mulComplex(highlightsBA, kernelBA) / (float(n) * .5);
 
-    imageStore(inOutHighlightsDft, p, convolved);
+    imageStore(inOutHighlightsDftRG, p, convolvedRG);
+    imageStore(inOutHighlightsDftBA, p, convolvedBA);
 }

@@ -83,9 +83,10 @@ void BloomFft::recompileShaders(
 
 void BloomFft::startFrame() { m_computePass.startFrame(); }
 
-ImageHandle BloomFft::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle input,
-    const uint32_t nextFrame, bool inverse, const char *debugPrefix)
+Pair<ImageHandle, ImageHandle> BloomFft::record(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    Pair<ImageHandle, ImageHandle> const &input, const uint32_t nextFrame,
+    bool inverse, const char *debugPrefix)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -107,7 +108,7 @@ ImageHandle BloomFft::record(
 
     PROFILER_CPU_GPU_SCOPE(cb, inverse ? "  InverseFft" : "  Fft");
 
-    const vk::Extent2D fftExtent = getExtent2D(input);
+    const vk::Extent2D fftExtent = getExtent2D(input.first);
     WHEELS_ASSERT(fftExtent.width == fftExtent.height);
     WHEELS_ASSERT(fftExtent.width >= sMinResolution);
     WHEELS_ASSERT(std::popcount(fftExtent.width) == 1);
@@ -117,7 +118,7 @@ ImageHandle BloomFft::record(
     debugName.extend(debugPrefix);
     if (inverse)
         debugName.extend("Inv");
-    debugName.extend("FftPing");
+    debugName.extend("FftPingRG");
 
     const ImageDescription targetDesc{
         .format = sFftFormat,
@@ -126,10 +127,23 @@ ImageHandle BloomFft::record(
         .usageFlags =
             vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage,
     };
-    const ImageHandle pingImage =
+    Pair<ImageHandle, ImageHandle> pingImages;
+    pingImages.first =
         gRenderResources.images->create(targetDesc, debugName.c_str());
-    debugName[debugName.size() - 3] = 'o';
-    const ImageHandle pongImage =
+    debugName[debugName.size() - 2] = 'B';
+    debugName[debugName.size() - 1] = 'A';
+    pingImages.second =
+        gRenderResources.images->create(targetDesc, debugName.c_str());
+
+    debugName[debugName.size() - 5] = 'o';
+    debugName[debugName.size() - 2] = 'R';
+    debugName[debugName.size() - 1] = 'G';
+    Pair<ImageHandle, ImageHandle> pongImages;
+    pongImages.first =
+        gRenderResources.images->create(targetDesc, debugName.c_str());
+    debugName[debugName.size() - 2] = 'B';
+    debugName[debugName.size() - 1] = 'A';
+    pongImages.second =
         gRenderResources.images->create(targetDesc, debugName.c_str());
 
     const bool needsRadix2 = !isPowerOf(outputDim, 4u);
@@ -140,7 +154,7 @@ ImageHandle BloomFft::record(
         // implications when the DFT is used for convolution.
         // TODO: What are those implications
         .input = input,
-        .output = pingImage,
+        .output = pingImages,
         .n = outputDim,
         .ns = 1,
         .r = needsRadix2 ? 2u : 4u,
@@ -148,15 +162,15 @@ ImageHandle BloomFft::record(
         .inverse = inverse,
     };
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-    iterData.input = pingImage;
-    iterData.output = pongImage;
+    iterData.input = pingImages;
+    iterData.output = pongImages;
     iterData.ns *= iterData.r;
     iterData.r = 4;
 
     while (iterData.ns < outputDim)
     {
         doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-        const ImageHandle tmp = iterData.input;
+        const Pair<ImageHandle, ImageHandle> tmp = iterData.input;
         iterData.input = iterData.output;
         iterData.output = tmp;
         iterData.ns *= iterData.r;
@@ -168,7 +182,7 @@ ImageHandle BloomFft::record(
     iterData.transpose = true;
     doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
     {
-        const ImageHandle tmp = iterData.input;
+        const Pair<ImageHandle, ImageHandle> tmp = iterData.input;
         iterData.input = iterData.output;
         iterData.output = tmp;
     }
@@ -178,13 +192,14 @@ ImageHandle BloomFft::record(
     while (iterData.ns < outputDim)
     {
         doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-        const ImageHandle tmp = iterData.input;
+        const Pair<ImageHandle, ImageHandle> tmp = iterData.input;
         iterData.input = iterData.output;
         iterData.output = tmp;
         iterData.ns *= iterData.r;
     }
 
-    gRenderResources.images->release(iterData.output);
+    gRenderResources.images->release(iterData.output.first);
+    gRenderResources.images->release(iterData.output.second);
 
     return iterData.input;
 }
@@ -203,12 +218,26 @@ void BloomFft::doIteration(
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    gRenderResources.images->resource(iterData.input).view,
+                    gRenderResources.images->resource(iterData.input.first)
+                        .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    gRenderResources.images->resource(iterData.output).view,
+                    gRenderResources.images->resource(iterData.input.second)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    gRenderResources.images->resource(iterData.output.first)
+                        .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView =
+                    gRenderResources.images->resource(iterData.output.second)
+                        .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }});
@@ -216,9 +245,11 @@ void BloomFft::doIteration(
     transition(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
-            .images = StaticArray<ImageTransition, 2>{{
-                {iterData.input, ImageState::ComputeShaderRead},
-                {iterData.output, ImageState::ComputeShaderWrite},
+            .images = StaticArray<ImageTransition, 4>{{
+                {iterData.input.first, ImageState::ComputeShaderRead},
+                {iterData.input.second, ImageState::ComputeShaderRead},
+                {iterData.output.first, ImageState::ComputeShaderWrite},
+                {iterData.output.second, ImageState::ComputeShaderWrite},
             }},
         });
 

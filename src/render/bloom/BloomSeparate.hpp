@@ -31,7 +31,7 @@ class BloomSeparate
     {
         ImageHandle illumination;
     };
-    [[nodiscard]] ImageHandle record(
+    [[nodiscard]] wheels::Pair<ImageHandle, ImageHandle> record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, uint32_t nextFrame);
 

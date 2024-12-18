@@ -52,8 +52,9 @@ void BloomConvolution::record(
     PROFILER_CPU_SCOPE("  Convolution");
 
     const vk::Extent2D highlightsExtent =
-        getExtent2D(inputOutput.inOutHighlightsDft);
-    const vk::Extent2D kernelExtent = getExtent2D(inputOutput.inKernelDft);
+        getExtent2D(inputOutput.inOutHighlightsDft.first);
+    const vk::Extent2D kernelExtent =
+        getExtent2D(inputOutput.inKernelDft.first);
     WHEELS_ASSERT(highlightsExtent.width == highlightsExtent.height);
     WHEELS_ASSERT(kernelExtent.width == kernelExtent.height);
     WHEELS_ASSERT(highlightsExtent.width == kernelExtent.width);
@@ -64,15 +65,29 @@ void BloomConvolution::record(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView = gRenderResources.images
-                                 ->resource(inputOutput.inOutHighlightsDft)
-                                 .view,
+                .imageView =
+                    gRenderResources.images
+                        ->resource(inputOutput.inOutHighlightsDft.first)
+                        .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
             DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
-                    gRenderResources.images->resource(inputOutput.inKernelDft)
+                    gRenderResources.images
+                        ->resource(inputOutput.inOutHighlightsDft.second)
                         .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(inputOutput.inKernelDft.first)
+                                 .view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(inputOutput.inKernelDft.second)
+                                 .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }});
@@ -80,10 +95,13 @@ void BloomConvolution::record(
     transition(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
-            .images = StaticArray<ImageTransition, 2>{{
-                {inputOutput.inOutHighlightsDft,
+            .images = StaticArray<ImageTransition, 4>{{
+                {inputOutput.inOutHighlightsDft.first,
                  ImageState::ComputeShaderReadWrite},
-                {inputOutput.inKernelDft, ImageState::ComputeShaderRead},
+                {inputOutput.inOutHighlightsDft.second,
+                 ImageState::ComputeShaderReadWrite},
+                {inputOutput.inKernelDft.first, ImageState::ComputeShaderRead},
+                {inputOutput.inKernelDft.second, ImageState::ComputeShaderRead},
             }},
         });
 

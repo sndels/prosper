@@ -7,6 +7,7 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
+#include <wheels/containers/pair.hpp>
 
 class BloomFft
 {
@@ -32,16 +33,16 @@ class BloomFft
 
     // Inverse is unscaled, its values need to be divided by dim^2 when
     // interpreting
-    [[nodiscard]] ImageHandle record(
+    [[nodiscard]] wheels::Pair<ImageHandle, ImageHandle> record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle input, uint32_t nextFrame, bool inverse,
-        const char *debugPrefix);
+        wheels::Pair<ImageHandle, ImageHandle> const &input, uint32_t nextFrame,
+        bool inverse, const char *debugPrefix);
 
   private:
     struct IterationData
     {
-        ImageHandle input;
-        ImageHandle output;
+        wheels::Pair<ImageHandle, ImageHandle> input;
+        wheels::Pair<ImageHandle, ImageHandle> output;
         uint32_t n{sMinResolution};
         uint32_t ns{1};
         uint32_t r{4};

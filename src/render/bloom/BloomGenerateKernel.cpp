@@ -50,7 +50,7 @@ void BloomGenerateKernel::drawUi()
     ImGui::Checkbox("Re-generate kernel", &m_reGenerate);
 }
 
-ImageHandle BloomGenerateKernel::record(
+Pair<ImageHandle, ImageHandle> BloomGenerateKernel::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const vk::Extent2D &renderExtent, BloomFft &fft, const uint32_t nextFrame)
 {
@@ -62,26 +62,28 @@ ImageHandle BloomGenerateKernel::record(
     WHEELS_ASSERT(dim % sGroupSize.x == 0 && "Shader doesn't do bounds checks");
     WHEELS_ASSERT(dim % sGroupSize.y == 0 && "Shader doesn't do bounds checks");
 
-    if (gRenderResources.images->isValidHandle(m_kernelDft))
+    if (gRenderResources.images->isValidHandle(m_kernelDft.first))
     {
         if (!m_reGenerate)
         {
-            const vk::Extent2D previousExtent = getExtent2D(m_kernelDft);
+            const vk::Extent2D previousExtent = getExtent2D(m_kernelDft.first);
             WHEELS_ASSERT(previousExtent.width == previousExtent.height);
             if (dim == previousExtent.width)
             {
-                gRenderResources.images->preserve(m_kernelDft);
+                gRenderResources.images->preserve(m_kernelDft.first);
+                gRenderResources.images->preserve(m_kernelDft.second);
                 return m_kernelDft;
             }
         }
-        gRenderResources.images->release(m_kernelDft);
+        gRenderResources.images->release(m_kernelDft.first);
+        gRenderResources.images->release(m_kernelDft.second);
     }
 
-    ImageHandle kernel;
+    Pair<ImageHandle, ImageHandle> kernel;
     {
         PROFILER_CPU_SCOPE("  GenerateKernel");
 
-        kernel = gRenderResources.images->create(
+        kernel.first = gRenderResources.images->create(
             ImageDescription{
                 .format = BloomFft::sFftFormat,
                 .width = dim,
@@ -90,13 +92,29 @@ ImageHandle BloomGenerateKernel::record(
                               vk::ImageUsageFlagBits::eStorage,
 
             },
-            "BloomKernel");
+            "BloomKernelRG");
+        kernel.second = gRenderResources.images->create(
+            ImageDescription{
+                .format = BloomFft::sFftFormat,
+                .width = dim,
+                .height = dim,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+
+            },
+            "BloomKernelBA");
 
         m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = gRenderResources.images->resource(kernel).view,
+                    .imageView =
+                        gRenderResources.images->resource(kernel.first).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        gRenderResources.images->resource(kernel.second).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
             }});
@@ -104,8 +122,9 @@ ImageHandle BloomGenerateKernel::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 1>{{
-                    {kernel, ImageState::ComputeShaderWrite},
+                .images = StaticArray<ImageTransition, 2>{{
+                    {kernel.first, ImageState::ComputeShaderWrite},
+                    {kernel.second, ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -128,9 +147,11 @@ ImageHandle BloomGenerateKernel::record(
 
     m_kernelDft = fft.record(
         scopeAlloc.child_scope(), cb, kernel, nextFrame, false, "BloomKernel");
-    gRenderResources.images->preserve(m_kernelDft);
+    gRenderResources.images->preserve(m_kernelDft.first);
+    gRenderResources.images->preserve(m_kernelDft.second);
 
-    gRenderResources.images->release(kernel);
+    gRenderResources.images->release(kernel.first);
+    gRenderResources.images->release(kernel.second);
 
     return m_kernelDft;
 }
@@ -139,6 +160,11 @@ void BloomGenerateKernel::releasePreserved()
 {
     WHEELS_ASSERT(m_initialized);
 
-    if (gRenderResources.images->isValidHandle(m_kernelDft))
-        gRenderResources.images->release(m_kernelDft);
+    if (gRenderResources.images->isValidHandle(m_kernelDft.first))
+    {
+        WHEELS_ASSERT(
+            gRenderResources.images->isValidHandle(m_kernelDft.second));
+        gRenderResources.images->release(m_kernelDft.first);
+        gRenderResources.images->release(m_kernelDft.second);
+    }
 }

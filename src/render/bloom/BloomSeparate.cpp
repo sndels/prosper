@@ -49,7 +49,7 @@ void BloomSeparate::drawUi()
     ImGui::SliderFloat("Threshold", &m_threshold, 0.f, 10.f);
 }
 
-ImageHandle BloomSeparate::record(
+Pair<ImageHandle, ImageHandle> BloomSeparate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     const uint32_t nextFrame)
 {
@@ -57,7 +57,7 @@ ImageHandle BloomSeparate::record(
 
     PROFILER_CPU_SCOPE("  Separate");
 
-    ImageHandle ret;
+    Pair<ImageHandle, ImageHandle> ret;
     {
         const vk::Extent2D inputExtent = getExtent2D(input.illumination);
 
@@ -65,7 +65,7 @@ ImageHandle BloomSeparate::record(
             std::bit_ceil(std::max(inputExtent.width, inputExtent.height)) / 2,
             BloomFft::sMinResolution);
 
-        ret = gRenderResources.images->create(
+        ret.first = gRenderResources.images->create(
             ImageDescription{
                 .format = sIlluminationFormat,
                 .width = dim,
@@ -74,7 +74,17 @@ ImageHandle BloomSeparate::record(
                               vk::ImageUsageFlagBits::eStorage,
 
             },
-            "BloomFftPingPing");
+            "BloomFftPingPingRG");
+        ret.second = gRenderResources.images->create(
+            ImageDescription{
+                .format = sIlluminationFormat,
+                .width = dim,
+                .height = dim,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+
+            },
+            "BloomFftPingPingBA");
 
         m_computePass.updateDescriptorSet(
             scopeAlloc.child_scope(), nextFrame,
@@ -86,7 +96,13 @@ ImageHandle BloomSeparate::record(
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = gRenderResources.images->resource(ret).view,
+                    .imageView =
+                        gRenderResources.images->resource(ret.first).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        gRenderResources.images->resource(ret.second).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -98,9 +114,10 @@ ImageHandle BloomSeparate::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 2>{{
+                .images = StaticArray<ImageTransition, 3>{{
                     {input.illumination, ImageState::ComputeShaderRead},
-                    {ret, ImageState::ComputeShaderWrite},
+                    {ret.first, ImageState::ComputeShaderWrite},
+                    {ret.second, ImageState::ComputeShaderWrite},
                 }},
             });
 

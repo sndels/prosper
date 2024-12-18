@@ -5,10 +5,11 @@
 #include "../shared/shader_structs/push_constants/bloom/compose.h"
 
 layout(set = 0, binding = 0) uniform texture2D inIllumination;
-layout(set = 0, binding = 1) uniform texture2D inBloomHighlights;
-layout(set = 0, binding = 2) uniform writeonly image2D outIlluminationWithBloom;
-layout(set = 0, binding = 3) uniform sampler nearestSampler;
-layout(set = 0, binding = 4) uniform sampler bilinearSampler;
+layout(set = 0, binding = 1) uniform texture2D inBloomHighlightsRG;
+layout(set = 0, binding = 2) uniform texture2D inBloomHighlightsBA;
+layout(set = 0, binding = 3) uniform writeonly image2D outIlluminationWithBloom;
+layout(set = 0, binding = 4) uniform sampler nearestSampler;
+layout(set = 0, binding = 5) uniform sampler bilinearSampler;
 
 layout(push_constant) uniform PushConstants { ComposePC PC; };
 
@@ -29,8 +30,11 @@ void main()
 
     vec3 illumination =
         texelFetch(sampler2D(inIllumination, nearestSampler), coord, 0).rgb;
-    vec3 highlight =
-        texture(sampler2D(inBloomHighlights, bilinearSampler), highlightUV).rgb;
+    vec3 highlight = vec3(
+        texture(sampler2D(inBloomHighlightsRG, bilinearSampler), highlightUV)
+            .rb,
+        texture(sampler2D(inBloomHighlightsBA, bilinearSampler), highlightUV)
+            .r);
     highlight *= PC.invBloomDimSquared;
 
     vec3 composed = illumination + highlight;

@@ -53,16 +53,17 @@ Bloom::Output Bloom::record(
     PROFILER_CPU_GPU_SCOPE(cb, "Bloom");
 
     const vk::Extent2D inputExtent = getExtent2D(input.illumination);
-    ImageHandle kernelDft = m_generateKernel.record(
+    Pair<ImageHandle, ImageHandle> kernelDft = m_generateKernel.record(
         scopeAlloc.child_scope(), cb, inputExtent, m_fft, nextFrame);
 
-    ImageHandle workingImage =
+    Pair<ImageHandle, ImageHandle> workingImage =
         m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
 
-    const ImageHandle highlightsDft = m_fft.record(
+    const Pair<ImageHandle, ImageHandle> highlightsDft = m_fft.record(
         scopeAlloc.child_scope(), cb, workingImage, nextFrame, false, "Bloom");
 
-    gRenderResources.images->release(workingImage);
+    gRenderResources.images->release(workingImage.first);
+    gRenderResources.images->release(workingImage.second);
 
     m_convolution.record(
         scopeAlloc.child_scope(), cb,
@@ -72,10 +73,11 @@ Bloom::Output Bloom::record(
         },
         nextFrame);
 
-    const ImageHandle convolvedHighlights = m_fft.record(
+    const Pair<ImageHandle, ImageHandle> convolvedHighlights = m_fft.record(
         scopeAlloc.child_scope(), cb, highlightsDft, nextFrame, true, "Bloom");
 
-    gRenderResources.images->release(highlightsDft);
+    gRenderResources.images->release(highlightsDft.first);
+    gRenderResources.images->release(highlightsDft.second);
 
     const ImageHandle illuminationWithBloom = m_compose.record(
         WHEELS_MOV(scopeAlloc), cb,
@@ -85,7 +87,8 @@ Bloom::Output Bloom::record(
         },
         nextFrame);
 
-    gRenderResources.images->release(convolvedHighlights);
+    gRenderResources.images->release(convolvedHighlights.first);
+    gRenderResources.images->release(convolvedHighlights.second);
 
     Output ret{
         .illuminationWithBloom = illuminationWithBloom,

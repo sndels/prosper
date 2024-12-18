@@ -8,6 +8,7 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
+#include <wheels/containers/pair.hpp>
 
 class BloomGenerateKernel
 {
@@ -28,7 +29,7 @@ class BloomGenerateKernel
 
     void drawUi();
 
-    [[nodiscard]] ImageHandle record(
+    [[nodiscard]] wheels::Pair<ImageHandle, ImageHandle> record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const vk::Extent2D &renderExtent, BloomFft &fft, uint32_t nextFrame);
     void releasePreserved();
@@ -36,7 +37,7 @@ class BloomGenerateKernel
   private:
     bool m_initialized{false};
     bool m_reGenerate{false};
-    ImageHandle m_kernelDft;
+    wheels::Pair<ImageHandle, ImageHandle> m_kernelDft;
     ComputePass m_computePass;
 };
 

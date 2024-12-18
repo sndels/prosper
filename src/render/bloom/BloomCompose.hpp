@@ -7,6 +7,7 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
+#include <wheels/containers/pair.hpp>
 
 class BloomCompose
 {
@@ -28,7 +29,7 @@ class BloomCompose
     struct Input
     {
         ImageHandle illumination;
-        ImageHandle bloomHighlights;
+        wheels::Pair<ImageHandle, ImageHandle> bloomHighlights;
     };
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

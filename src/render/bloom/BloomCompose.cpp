@@ -54,7 +54,8 @@ ImageHandle BloomCompose::record(
     ImageHandle ret;
     {
         const vk::Extent2D illuminationExtent = getExtent2D(input.illumination);
-        const vk::Extent2D bloomExtent = getExtent2D(input.bloomHighlights);
+        const vk::Extent2D bloomExtent =
+            getExtent2D(input.bloomHighlights.first);
         WHEELS_ASSERT(bloomExtent.width == bloomExtent.height);
 
         ret = gRenderResources.images->create(
@@ -78,9 +79,15 @@ ImageHandle BloomCompose::record(
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView =
-                        gRenderResources.images->resource(input.bloomHighlights)
-                            .view,
+                    .imageView = gRenderResources.images
+                                     ->resource(input.bloomHighlights.first)
+                                     .view,
+                    .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView = gRenderResources.images
+                                     ->resource(input.bloomHighlights.second)
+                                     .view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -98,9 +105,12 @@ ImageHandle BloomCompose::record(
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 3>{{
+                .images = StaticArray<ImageTransition, 4>{{
                     {input.illumination, ImageState::ComputeShaderRead},
-                    {input.bloomHighlights, ImageState::ComputeShaderRead},
+                    {input.bloomHighlights.first,
+                     ImageState::ComputeShaderRead},
+                    {input.bloomHighlights.second,
+                     ImageState::ComputeShaderRead},
                     {ret, ImageState::ComputeShaderWrite},
                 }},
             });
