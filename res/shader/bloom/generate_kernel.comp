@@ -25,10 +25,20 @@ void main()
     p.x = abs(p.x);
     p.y = abs(p.y);
 
-    vec3 outValue = vec3(gaussian(length(p - vec2(1., 1.)) * 100., .5, 1., 1.));
+    vec4 outValue = vec4(gaussian(length(p - vec2(1., 1.)) * 100., .5, 1., 1.));
     if (abs(p.y) > .99)
-        outValue += vec3(.01, .01, .5) *
+        outValue += vec4(.01, 0., .5, 0.) *
                     gaussian(length(p - vec2(1., 1.)) * 10., .5, 1., 1.);
+    // Seems like we can get away with treating the RG, BA as two complex
+    // channels in FFT when the filter imaginary components are zero. This means
+    // that there is RG and BA can have different filters.
+    // TODO:
+    // Can we recover the four channel result even when G,A have distinct
+    // filters? Numerical Recipes and other sources only do the two-for-one
+    // trick within the FFT and recover the two DFTs explicitly. UE4 FFT bloom
+    // stream suggested they don't.
+    outValue.g = 0;
+    outValue.a = 0;
 
-    imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), vec4(outValue, 1));
+    imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), outValue);
 }
