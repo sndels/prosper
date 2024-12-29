@@ -26,7 +26,7 @@ void main()
     p.y = abs(p.y);
 
     vec4 outValue = vec4(gaussian(length(p - vec2(1., 1.)) * 100., .5, 1., 1.));
-    if (abs(p.y) > .99)
+    if (abs(p.y) > 1. - (4. / outRes.y))
         outValue += vec4(.01, 0., .5, 0.) *
                     gaussian(length(p - vec2(1., 1.)) * 10., .5, 1., 1.);
     // Seems like we can get away with treating the RG, BA as two complex
