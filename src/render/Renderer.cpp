@@ -495,6 +495,20 @@ void Renderer::render(
                 scopeAlloc.child_scope(), cb, depth, *options.readbackDepthPx,
                 nextFrame);
 
+        if (m_applyBloom)
+        {
+            const Bloom::Output bloomOutput = m_bloom->record(
+                scopeAlloc.child_scope(), cb,
+                Bloom::Input{
+                    .illumination = illumination,
+                },
+                nextFrame);
+            gRenderResources.images->release(illumination);
+            illumination = bloomOutput.illuminationWithBloom;
+        }
+        else
+            m_bloom->releasePreserved();
+
         if (m_applyTaa)
         {
             const TemporalAntiAliasing::Output taaOutput =
@@ -529,20 +543,6 @@ void Renderer::render(
             gRenderResources.images->release(illumination);
             illumination = dofOutput.combinedIlluminationDoF;
         }
-
-        if (m_applyBloom)
-        {
-            const Bloom::Output bloomOutput = m_bloom->record(
-                scopeAlloc.child_scope(), cb,
-                Bloom::Input{
-                    .illumination = illumination,
-                },
-                nextFrame);
-            gRenderResources.images->release(illumination);
-            illumination = bloomOutput.illuminationWithBloom;
-        }
-        else
-            m_bloom->releasePreserved();
 
         gRenderResources.images->release(velocity);
         gRenderResources.images->release(depth);
