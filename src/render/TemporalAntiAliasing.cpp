@@ -244,7 +244,10 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                     .luminanceWeighting = m_luminanceWeighting,
                 }),
             },
-            groupCount, descriptorSets, Span{&camOffset, 1});
+            groupCount, descriptorSets,
+            ComputePassOptionalRecordArgs{
+                .dynamicOffsets = Span{&camOffset, 1},
+            });
 
         gRenderResources.images->release(m_previousResolveOutput);
         m_previousResolveOutput = ret.resolvedIllumination;

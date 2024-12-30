@@ -192,7 +192,10 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
         };
 
         m_computePass.record(
-            cb, pcBlock, groupCount, descriptorSets, dynamicOffsets);
+            cb, pcBlock, groupCount, descriptorSets,
+            ComputePassOptionalRecordArgs{
+                .dynamicOffsets = dynamicOffsets,
+            });
     }
 
     return ret;

@@ -142,13 +142,13 @@ uvec3 ComputePass::groupCount(uvec3 inputSize) const
 void ComputePass::record(
     vk::CommandBuffer cb, const uvec3 &groupCount,
     Span<const vk::DescriptorSet> descriptorSets,
-    wheels::Span<const uint32_t> dynamicOffsets)
+    const ComputePassOptionalRecordArgs &optionalArgs)
 {
     WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(all(greaterThan(groupCount, glm::uvec3{0u})));
     WHEELS_ASSERT(
-        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        optionalArgs.dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
@@ -158,7 +158,8 @@ void ComputePass::record(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+        asserted_cast<uint32_t>(optionalArgs.dynamicOffsets.size()),
+        optionalArgs.dynamicOffsets.data());
 
     cb.dispatch(groupCount.x, groupCount.y, groupCount.z);
 
@@ -172,12 +173,12 @@ void ComputePass::record(
 void ComputePass::record(
     vk::CommandBuffer cb, vk::Buffer argumentBuffer,
     Span<const vk::DescriptorSet> descriptorSets,
-    wheels::Span<const uint32_t> dynamicOffsets)
+    const ComputePassOptionalRecordArgs &optionalArgs)
 {
     WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(
-        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        optionalArgs.dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
@@ -187,7 +188,8 @@ void ComputePass::record(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout,
         0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+        asserted_cast<uint32_t>(optionalArgs.dynamicOffsets.size()),
+        optionalArgs.dynamicOffsets.data());
 
     cb.dispatchIndirect(argumentBuffer, 0);
 
@@ -201,7 +203,7 @@ void ComputePass::record(
 void ComputePass::record(
     vk::CommandBuffer cb, Span<const uint8_t> pcBlockBytes,
     const uvec3 &groupCount, Span<const vk::DescriptorSet> descriptorSets,
-    Span<const uint32_t> dynamicOffsets)
+    const ComputePassOptionalRecordArgs &optionalArgs)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -210,7 +212,7 @@ void ComputePass::record(
     WHEELS_ASSERT(
         pcBlockBytes.size() == m_shaderReflection->pushConstantsBytesize());
     WHEELS_ASSERT(
-        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        optionalArgs.dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
@@ -219,7 +221,8 @@ void ComputePass::record(
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout, 0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+        asserted_cast<uint32_t>(optionalArgs.dynamicOffsets.size()),
+        optionalArgs.dynamicOffsets.data());
 
     cb.pushConstants(
         m_pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
@@ -238,7 +241,7 @@ void ComputePass::record(
     vk::CommandBuffer cb, wheels::Span<const uint8_t> pcBlockBytes,
     vk::Buffer argumentBuffer,
     wheels::Span<const vk::DescriptorSet> descriptorSets,
-    wheels::Span<const uint32_t> dynamicOffsets)
+    const ComputePassOptionalRecordArgs &optionalArgs)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -246,7 +249,7 @@ void ComputePass::record(
     WHEELS_ASSERT(
         pcBlockBytes.size() == m_shaderReflection->pushConstantsBytesize());
     WHEELS_ASSERT(
-        dynamicOffsets.size() < sMaxDynamicOffsets &&
+        optionalArgs.dynamicOffsets.size() < sMaxDynamicOffsets &&
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
@@ -255,7 +258,8 @@ void ComputePass::record(
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout, 0, // firstSet
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
-        asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
+        asserted_cast<uint32_t>(optionalArgs.dynamicOffsets.size()),
+        optionalArgs.dynamicOffsets.data());
 
     cb.pushConstants(
         m_pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,

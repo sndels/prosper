@@ -175,7 +175,10 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{renderExtent.width, renderExtent.height, 1u});
         m_computePass.record(
-            cb, pcBlock, groupCount, descriptorSets, Span{&cameraOffset, 1});
+            cb, pcBlock, groupCount, descriptorSets,
+            ComputePassOptionalRecordArgs{
+                .dynamicOffsets = Span{&cameraOffset, 1},
+            });
     }
 
     return ret;

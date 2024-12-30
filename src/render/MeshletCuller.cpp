@@ -391,7 +391,10 @@ BufferHandle MeshletCuller::recordGenerateList(
 
     const uvec3 groupCount{scene.drawInstanceCount, 1u, 1u};
     m_drawListGenerator.record(
-        cb, pcBlock, groupCount, descriptorSets, dynamicOffsets);
+        cb, pcBlock, groupCount, descriptorSets,
+        ComputePassOptionalRecordArgs{
+            .dynamicOffsets = dynamicOffsets,
+        });
 
     return ret;
 }
@@ -679,7 +682,10 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     const vk::Buffer argumentsHandle =
         gRenderResources.buffers->nativeHandle(input.argumentBuffer);
     m_drawListCuller.record(
-        cb, pcBlock, argumentsHandle, descriptorSets, dynamicOffsets);
+        cb, pcBlock, argumentsHandle, descriptorSets,
+        ComputePassOptionalRecordArgs{
+            .dynamicOffsets = dynamicOffsets,
+        });
 
     if (gRenderResources.images->isValidHandle(dummyHierarchicalDepth))
         gRenderResources.images->release(dummyHierarchicalDepth);

@@ -238,7 +238,10 @@ LightClusteringOutput LightClustering::record(
             const uvec3 groupCount{
                 outputExtent.width, outputExtent.height, outputExtent.depth};
             m_computePass.record(
-                cb, pcBlock, groupCount, descriptorSets, dynamicOffsets);
+                cb, pcBlock, groupCount, descriptorSets,
+                ComputePassOptionalRecordArgs{
+                    .dynamicOffsets = dynamicOffsets,
+                });
         }
     }
 
