@@ -25,6 +25,7 @@ struct ComputePassOptions
 struct ComputePassOptionalRecordArgs
 {
     wheels::Span<const uint32_t> dynamicOffsets;
+    uint32_t specializationIndex{0};
 };
 
 class ComputePass
@@ -50,6 +51,14 @@ class ComputePass
         wheels::ScopedScratch scopeAlloc,
         const std::function<Shader(wheels::Allocator &)>
             &shaderDefinitionCallback,
+        const ComputePassOptions &options = ComputePassOptions{});
+
+    template <typename T>
+    void init(
+        wheels::ScopedScratch scopeAlloc,
+        const std::function<Shader(wheels::Allocator &)>
+            &shaderDefinitionCallback,
+        wheels::Span<const T> specializationConstants,
         const ComputePassOptions &options = ComputePassOptions{});
 
     // Returns true if recompile happened
@@ -106,6 +115,14 @@ class ComputePass
         const ComputePassOptionalRecordArgs &optionalArgs = {});
 
   private:
+    void init(
+        wheels::ScopedScratch scopeAlloc,
+        const std::function<Shader(wheels::Allocator &)>
+            &shaderDefinitionCallback,
+        wheels::Span<const uint8_t> specializationConstants,
+        uint32_t specializationConstantsByteSize,
+        const ComputePassOptions &options = ComputePassOptions{});
+
     [[nodiscard]] bool compileShader(
         wheels::ScopedScratch scopeAlloc,
         const Shader &shaderDefinitionCallback);
@@ -128,7 +145,7 @@ class ComputePass
         wheels::ScopedScratch scopeAlloc, const char *debugName,
         vk::ShaderStageFlags storageStageFlags);
 
-    void createPipeline(
+    void createPipelines(
         wheels::ScopedScratch scopeAlloc,
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts,
         wheels::StrSpan debugName);
@@ -148,10 +165,28 @@ class ComputePass
         m_storageSets;
 
     vk::PipelineLayout m_pipelineLayout;
-    vk::Pipeline m_pipeline;
+    wheels::Array<uint8_t> m_specializationConstants{gAllocators.general};
+    wheels::Array<vk::SpecializationInfo> m_specializationInfos{
+        gAllocators.general};
+    wheels::Array<vk::Pipeline> m_pipelines{gAllocators.general};
 
     glm::uvec3 m_groupSize{16, 16, 1};
 };
+
+template <typename T>
+void ComputePass::init(
+    wheels::ScopedScratch scopeAlloc,
+    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
+    wheels::Span<const T> specializationConstants,
+    const ComputePassOptions &options)
+{
+    init(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        wheels::Span{
+            reinterpret_cast<const uint8_t *>(specializationConstants.data()),
+            specializationConstants.size() * sizeof(T)},
+        sizeof(T), options);
+}
 
 template <typename PCBlock>
 void ComputePass::record(

@@ -31,29 +31,7 @@ void ComputePass::init(
     const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
     const ComputePassOptions &options)
 {
-    WHEELS_ASSERT(!m_initialized);
-    WHEELS_ASSERT(
-        (options.storageSetIndex == options.externalDsLayouts.size()) &&
-        "Implementation assumes that the pass storage set is the last set and "
-        "is placed right after the last external one");
-
-    m_storageSetIndex = options.storageSetIndex;
-
-    for (auto &sets : m_storageSets)
-        sets.resize(options.perFrameRecordLimit);
-
-    const Shader shader = shaderDefinitionCallback(scopeAlloc);
-    LOG_INFO("Creating %s", shader.debugName.c_str());
-    if (!compileShader(scopeAlloc.child_scope(), shader))
-        throw std::runtime_error("Shader compilation failed");
-
-    createDescriptorSets(
-        scopeAlloc.child_scope(), shader.debugName.c_str(),
-        options.storageStageFlags);
-    createPipeline(
-        scopeAlloc.child_scope(), options.externalDsLayouts, shader.debugName);
-
-    m_initialized = true;
+    init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback, {}, 0, options);
 }
 
 bool ComputePass::recompileShader(
@@ -72,7 +50,7 @@ bool ComputePass::recompileShader(
     if (compileShader(scopeAlloc.child_scope(), shader))
     {
         destroyPipelines();
-        createPipeline(
+        createPipelines(
             scopeAlloc.child_scope(), externalDsLayouts, shader.debugName);
         return true;
     }
@@ -152,7 +130,9 @@ void ComputePass::record(
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
+    const vk::Pipeline pipeline = m_pipelines[optionalArgs.specializationIndex];
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout,
@@ -182,7 +162,9 @@ void ComputePass::record(
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
+    const vk::Pipeline pipeline = m_pipelines[optionalArgs.specializationIndex];
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout,
@@ -216,7 +198,9 @@ void ComputePass::record(
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
+    const vk::Pipeline pipeline = m_pipelines[optionalArgs.specializationIndex];
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout, 0, // firstSet
@@ -253,7 +237,9 @@ void ComputePass::record(
         "At least some AMD and Intel drivers limit this to 8 per buffer type. "
         "Let's keep the total under if possible to keep things simple.");
 
-    cb.bindPipeline(vk::PipelineBindPoint::eCompute, m_pipeline);
+    const vk::Pipeline pipeline = m_pipelines[optionalArgs.specializationIndex];
+
+    cb.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 
     cb.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute, m_pipelineLayout, 0, // firstSet
@@ -276,7 +262,8 @@ void ComputePass::record(
 
 void ComputePass::destroyPipelines()
 {
-    gDevice.logical().destroy(m_pipeline);
+    for (const vk::Pipeline pipeline : m_pipelines)
+        gDevice.logical().destroy(pipeline);
     gDevice.logical().destroy(m_pipelineLayout);
 }
 
@@ -298,8 +285,8 @@ void ComputePass::createDescriptorSets(
     }
 }
 
-void ComputePass::createPipeline(
-    wheels::ScopedScratch scopeAlloc,
+void ComputePass::createPipelines(
+    ScopedScratch scopeAlloc,
     Span<const vk::DescriptorSetLayout> externalDsLayouts, StrSpan debugName)
 {
     WHEELS_ASSERT(m_shaderReflection.has_value());
@@ -325,20 +312,119 @@ void ComputePass::createPipeline(
             .pSetLayouts = dsLayouts.data(),
             .pushConstantRangeCount = pcRange.size > 0 ? 1u : 0u,
             .pPushConstantRanges = pcRange.size > 0 ? &pcRange : nullptr,
+
         });
 
-    const vk::ComputePipelineCreateInfo createInfo{
-        .stage =
-            {
-                .stage = vk::ShaderStageFlagBits::eCompute,
-                .module = m_shaderModule,
-                .pName = "main",
-            },
-        .layout = m_pipelineLayout,
-    };
+    if (m_specializationInfos.empty())
+    {
+        const vk::ComputePipelineCreateInfo createInfo{
+            .stage =
+                {
+                    .stage = vk::ShaderStageFlagBits::eCompute,
+                    .module = m_shaderModule,
+                    .pName = "main",
+                },
+            .layout = m_pipelineLayout,
+        };
 
-    m_pipeline =
-        createComputePipeline(gDevice.logical(), createInfo, debugName.data());
+        m_pipelines.push_back(createComputePipeline(
+            gDevice.logical(), createInfo, debugName.data()));
+
+        return;
+    }
+
+    WHEELS_ASSERT(m_specializationInfos.size() < 999);
+    const size_t maxCountLen = 3 + 1;
+    wheels::String fullDebugName{scopeAlloc};
+    fullDebugName.resize(debugName.size() + maxCountLen);
+    memcpy(fullDebugName.c_str(), debugName.data(), debugName.size());
+
+    const uint32_t specializationCount = m_specializationInfos.size();
+    m_pipelines.reserve(specializationCount);
+    for (uint32_t i = 0; i < specializationCount; ++i)
+    {
+        const vk::SpecializationInfo &info = m_specializationInfos[i];
+        const vk::ComputePipelineCreateInfo createInfo{
+            .stage =
+                {
+                    .stage = vk::ShaderStageFlagBits::eCompute,
+                    .module = m_shaderModule,
+                    .pName = "main",
+                    .pSpecializationInfo = &info,
+                },
+            .layout = m_pipelineLayout,
+        };
+
+        snprintf(
+            fullDebugName.c_str() + debugName.size(), maxCountLen + 1, "_%d",
+            i);
+        m_pipelines.push_back(createComputePipeline(
+            gDevice.logical(), createInfo, fullDebugName.data()));
+    }
+}
+
+void ComputePass::init(
+    ScopedScratch scopeAlloc,
+    const std::function<Shader(wheels::Allocator &)> &shaderDefinitionCallback,
+    Span<const uint8_t> specializationConstants,
+    uint32_t specializationConstantsByteSize, const ComputePassOptions &options)
+{
+    WHEELS_ASSERT(
+        (options.storageSetIndex == options.externalDsLayouts.size()) &&
+        "Implementation assumes that the pass storage set is the last set and "
+        "is placed right after the last external one");
+
+    m_storageSetIndex = options.storageSetIndex;
+
+    for (auto &sets : m_storageSets)
+        sets.resize(options.perFrameRecordLimit);
+
+    const Shader shader = shaderDefinitionCallback(scopeAlloc);
+    LOG_INFO("Creating %s", shader.debugName.c_str());
+    if (!compileShader(scopeAlloc.child_scope(), shader))
+        throw std::runtime_error("Shader compilation failed");
+
+    if (!specializationConstants.empty())
+    {
+        WHEELS_ASSERT(
+            specializationConstantsByteSize ==
+            m_shaderReflection->specializationConstantsByteSize());
+        WHEELS_ASSERT(
+            specializationConstants.size() % specializationConstantsByteSize ==
+            0);
+
+        // Keep track of the constants for shader recompilation
+        m_specializationConstants.extend(specializationConstants);
+
+        wheels::Span<const vk::SpecializationMapEntry>
+            specializationMapEntries =
+                m_shaderReflection->specializationMapEntries();
+        const uint32_t specializationMapEntriesCount =
+            specializationMapEntries.size();
+
+        m_specializationInfos.reserve(
+            m_specializationConstants.size() / specializationConstantsByteSize);
+        for (const uint8_t *ptr = m_specializationConstants.data();
+             ptr < m_specializationConstants.data() +
+                       m_specializationConstants.size();
+             ptr += specializationConstantsByteSize)
+        {
+            m_specializationInfos.push_back(vk::SpecializationInfo{
+                .mapEntryCount = specializationMapEntriesCount,
+                .pMapEntries = specializationMapEntries.data(),
+                .dataSize = specializationConstantsByteSize,
+                .pData = ptr,
+            });
+        }
+    }
+
+    createDescriptorSets(
+        scopeAlloc.child_scope(), shader.debugName.c_str(),
+        options.storageStageFlags);
+    createPipelines(
+        scopeAlloc.child_scope(), options.externalDsLayouts, shader.debugName);
+
+    m_initialized = true;
 }
 
 bool ComputePass::compileShader(
