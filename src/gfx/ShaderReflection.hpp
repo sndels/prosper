@@ -48,6 +48,9 @@ class ShaderReflection
     [[nodiscard]] wheels::HashMap<
         uint32_t, wheels::Array<DescriptorSetMetadata>> const &
     descriptorSetMetadatas() const;
+    [[nodiscard]] uint32_t specializationConstantsByteSize() const;
+    [[nodiscard]] wheels::Span<const vk::SpecializationMapEntry>
+    specializationMapEntries() const;
     [[nodiscard]] const wheels::HashSet<std::filesystem::path> &sourceFiles()
         const;
     [[nodiscard]] bool affected(
@@ -74,6 +77,9 @@ class ShaderReflection
     wheels::HashMap<uint32_t, wheels::Array<DescriptorSetMetadata>>
         m_descriptorSetMetadatas{gAllocators.general};
     wheels::HashSet<std::filesystem::path> m_sourceFiles{gAllocators.general};
+    wheels::Array<vk::SpecializationMapEntry> m_specializationMapEntries{
+        gAllocators.general};
+    uint32_t m_specializationConstantsByteSize{0};
 };
 
 #endif // PROSPER_GFX_SHADER_REFLECTION_HPP

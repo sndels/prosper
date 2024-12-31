@@ -16,6 +16,7 @@ using namespace wheels;
 namespace
 {
 
+struct SpvBool;
 struct SpvInt;
 struct SpvFloat;
 struct SpvVector;
@@ -30,12 +31,14 @@ struct SpvPointer;
 struct SpvAccelerationStructure;
 struct SpvConstantU32;
 struct SpvVariable;
+struct SpvSpecializationConstant;
 
 // SpvVariable is not a really a type-type, but it is a type of result
 using SpvType = std::variant<
-    SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampledImage,
+    SpvBool, SpvInt, SpvFloat, SpvVector, SpvMatrix, SpvImage, SpvSampledImage,
     SpvSampler, SpvRuntimeArray, SpvArray, SpvStruct, SpvPointer,
-    SpvAccelerationStructure, SpvConstantU32, SpvVariable>;
+    SpvAccelerationStructure, SpvConstantU32, SpvVariable,
+    SpvSpecializationConstant>;
 
 // From https://en.cppreference.com/w/cpp/utility/variant/visit
 template <class... Ts> struct overloaded : Ts...
@@ -45,6 +48,10 @@ template <class... Ts> struct overloaded : Ts...
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 const uint32_t sUninitialized = 0xFFFF'FFFF;
+
+struct SpvBool
+{
+};
 
 struct SpvInt
 {
@@ -127,6 +134,14 @@ struct SpvVariable
     spv::StorageClass storageClass{spv::StorageClassMax};
 };
 
+struct SpvSpecializationConstant
+{
+    // ID comes from a decoration but all specialization constants have it so
+    // let's store it here
+    uint32_t id{sUninitialized};
+    uint32_t size{sUninitialized};
+};
+
 struct Decorations
 {
     uint32_t descriptorSet{sUninitialized};
@@ -166,6 +181,13 @@ void firstPass(
             const char *name = reinterpret_cast<const char *>(&args[1]);
 
             results[result].name = name;
+        }
+        break;
+        case spv::OpTypeBool:
+        {
+            const uint32_t result = args[0];
+
+            results[result].type.emplace(SpvBool{});
         }
         break;
         case spv::OpTypeInt:
@@ -343,6 +365,73 @@ void firstPass(
             }
         }
         break;
+        case spv::OpSpecConstantTrue:
+        case spv::OpSpecConstantFalse:
+        {
+            const uint32_t typeId = args[0];
+            const uint32_t result = args[1];
+
+            const SpvResult &type = results[typeId];
+            WHEELS_ASSERT(type.type.has_value());
+            WHEELS_ASSERT(std::get_if<SpvBool>(&*type.type) != nullptr);
+
+            results[result].type.emplace(SpvSpecializationConstant{
+                .size = sizeof(VkBool32),
+            });
+        }
+        break;
+        case spv::OpSpecConstant:
+        {
+            const uint32_t typeId = args[0];
+            const uint32_t result = args[1];
+
+            const SpvResult &type = results[typeId];
+            WHEELS_ASSERT(type.type.has_value());
+            SpvSpecializationConstant constant;
+
+            if (const SpvBool *boolPtr = std::get_if<SpvBool>(&*type.type);
+                boolPtr != nullptr)
+            {
+                constant.size = sizeof(VkBool32);
+            }
+            else if (const SpvInt *intPtr = std::get_if<SpvInt>(&*type.type);
+                     intPtr != nullptr)
+            {
+                if (intPtr->width != 32)
+                    throw std::runtime_error(
+                        "Only 32bit integers are supported in specialization "
+                        "constants");
+                constant.size = intPtr->width / 8;
+            }
+            else if (const SpvFloat *floatPtr =
+                         std::get_if<SpvFloat>(&*type.type);
+                     floatPtr != nullptr)
+            {
+                if (floatPtr->width != 32)
+                    throw std::runtime_error("Only 32bit floats are supported "
+                                             "in specialization constants");
+                constant.size = floatPtr->width / 8;
+            }
+
+            if (constant.size == sUninitialized)
+                throw std::runtime_error(
+                    "Unsupported specialization constants type");
+
+            results[result].type.emplace(constant);
+        }
+        break;
+        case spv::OpSpecConstantComposite:
+        {
+            throw std::runtime_error(
+                "Composite specialization constants are not supported");
+        }
+        break;
+        case spv::OpSpecConstantOp:
+        {
+            // Ignore these, they won't be ones that are given as specialization
+            // map entries
+        }
+        break;
         case spv::OpVariable:
         {
             const uint32_t typeId = args[0];
@@ -394,6 +483,9 @@ void secondPass(Span<const uint32_t> words, Span<SpvResult> results)
 
             switch (decoration)
             {
+            case spv::DecorationSpecId:
+                std::get<SpvSpecializationConstant>(*result.type).id = args[2];
+                break;
             case spv::DecorationDescriptorSet:
                 result.decorations.descriptorSet = args[2];
                 break;
@@ -450,6 +542,7 @@ uint32_t memberBytesize(
 
     return std::visit(
         overloaded{
+            [](const SpvBool &) -> uint32_t { return sizeof(VkBool32); },
             [](const SpvInt &v) -> uint32_t { return v.width / 8; },
             [](const SpvFloat &v) -> uint32_t { return v.width / 8; },
             [&results](const SpvVector &v) -> uint32_t
@@ -784,6 +877,59 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> fillDescriptorSetMetadatas(
     return ret;
 }
 
+Array<vk::SpecializationMapEntry> fillSpecializationMap(
+    Span<const SpvResult> results)
+{
+    Array<vk::SpecializationMapEntry> ret{gAllocators.general};
+    for (const SpvResult &result : results)
+    {
+        if (!result.type.has_value())
+            continue;
+
+        if (const SpvSpecializationConstant *constantPtr =
+                std::get_if<SpvSpecializationConstant>(&*result.type);
+            constantPtr != nullptr)
+        {
+            if (constantPtr->id >= ret.size())
+                ret.resize(
+                    constantPtr->id + 1, vk::SpecializationMapEntry{
+                                             .constantID = sUninitialized,
+                                             .offset = sUninitialized,
+                                             .size = sUninitialized,
+                                         });
+
+            ret[constantPtr->id] = vk::SpecializationMapEntry{
+                .constantID = constantPtr->id,
+                .offset = 0,
+                .size = constantPtr->size,
+            };
+        }
+    }
+
+    const uint32_t constantCount = asserted_cast<uint32_t>(ret.size());
+    for (const vk::SpecializationMapEntry &entry : ret)
+    {
+        if (entry.constantID == sUninitialized)
+            throw std::runtime_error(
+                "Specialization constants that are not results from ops have "
+                "to populate the indices from 0 without gaps.");
+    }
+
+    for (uint32_t i = 1; i < constantCount; ++i)
+    {
+        const vk::SpecializationMapEntry &previousEntry = ret[i - 1];
+        vk::SpecializationMapEntry &currentEntry = ret[i];
+        currentEntry.offset = asserted_cast<uint32_t>(
+            asserted_cast<size_t>(previousEntry.offset) + previousEntry.size);
+        WHEELS_ASSERT(
+            currentEntry.offset % currentEntry.size == 0 &&
+            "Inferred specialization constant offset might not satisfy "
+            "alignment");
+    }
+
+    return ret;
+}
+
 } // namespace
 
 ShaderReflection::ShaderReflection(ShaderReflection &&other) noexcept
@@ -791,6 +937,8 @@ ShaderReflection::ShaderReflection(ShaderReflection &&other) noexcept
 , m_pushConstantsBytesize{other.m_pushConstantsBytesize}
 , m_descriptorSetMetadatas{WHEELS_MOV(other.m_descriptorSetMetadatas)}
 , m_sourceFiles{WHEELS_MOV(other.m_sourceFiles)}
+, m_specializationMapEntries{WHEELS_MOV(other.m_specializationMapEntries)}
+, m_specializationConstantsByteSize{other.m_specializationConstantsByteSize}
 {
 }
 
@@ -804,6 +952,10 @@ ShaderReflection &ShaderReflection::operator=(ShaderReflection &&other) noexcept
         m_pushConstantsBytesize = other.m_pushConstantsBytesize;
         m_descriptorSetMetadatas = WHEELS_MOV(other.m_descriptorSetMetadatas);
         m_sourceFiles = WHEELS_MOV(other.m_sourceFiles);
+        m_specializationMapEntries =
+            WHEELS_MOV(other.m_specializationMapEntries);
+        m_specializationConstantsByteSize =
+            other.m_specializationConstantsByteSize;
     }
     return *this;
 }
@@ -845,6 +997,15 @@ void ShaderReflection::init(
     m_descriptorSetMetadatas =
         fillDescriptorSetMetadatas(scopeAlloc.child_scope(), results);
 
+    m_specializationMapEntries = fillSpecializationMap(results);
+    if (!m_specializationMapEntries.empty())
+    {
+        const vk::SpecializationMapEntry &lastConstant =
+            m_specializationMapEntries.back();
+        m_specializationConstantsByteSize =
+            lastConstant.offset + lastConstant.size;
+    }
+
     m_initialized = true;
 }
 
@@ -861,6 +1022,17 @@ HashMap<uint32_t, Array<DescriptorSetMetadata>> const &ShaderReflection::
     WHEELS_ASSERT(m_initialized);
 
     return m_descriptorSetMetadatas;
+}
+
+uint32_t ShaderReflection::specializationConstantsByteSize() const
+{
+    return m_specializationConstantsByteSize;
+}
+
+wheels::Span<const vk::SpecializationMapEntry> ShaderReflection::
+    specializationMapEntries() const
+{
+    return m_specializationMapEntries;
 }
 
 const HashSet<std::filesystem::path> &ShaderReflection::sourceFiles() const
