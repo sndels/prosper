@@ -9,15 +9,12 @@
 
 #include "common/math.glsl"
 #include "scene/camera.glsl"
-#include "shared/shader_structs/push_constants/taa_resolve.h"
 
-layout(push_constant) uniform PushConstants { TaaResolvePC PC; };
-
-bool flagIgnoreHistory() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
-bool flagCatmullRom() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
-uint flagColorClippingType() { return bitfieldExtract(PC.flags, 2, 2); }
-uint flagVelocitySamplingType() { return bitfieldExtract(PC.flags, 4, 2); }
-bool flagLuminanceWeighting() { return bitfieldExtract(PC.flags, 6, 1) == 1; }
+layout(constant_id = 0) const bool IGNORE_HISTORY = false;
+layout(constant_id = 1) const bool CATMULL_ROM = false;
+layout(constant_id = 2) const uint COLOR_CLIPPING_TYPE = 0;
+layout(constant_id = 3) const uint VELOCITY_SAMPLING_TYPE = 0;
+layout(constant_id = 4) const bool LUMINANCE_WEIGHTING = true;
 
 layout(set = STORAGE_SET, binding = 0) uniform texture2D inIllumination;
 layout(set = STORAGE_SET, binding = 1) uniform texture2D inPreviousResolved;
@@ -76,12 +73,11 @@ vec3 varianceClip(ivec2 px, ivec2 res, vec3 previousResolved)
 
 vec3 clipColor(ivec2 px, ivec2 res, vec3 previousResolved)
 {
-    uint colorClipping = flagColorClippingType();
-    if (colorClipping == ColorClipping_None)
+    if (COLOR_CLIPPING_TYPE == ColorClipping_None)
         return previousResolved;
-    if (colorClipping == ColorClipping_MinMax)
+    if (COLOR_CLIPPING_TYPE == ColorClipping_MinMax)
         return minMaxClip(px, res, previousResolved);
-    if (colorClipping == ColorClipping_Variance)
+    if (COLOR_CLIPPING_TYPE == ColorClipping_Variance)
         return varianceClip(px, res, previousResolved);
     return vec3(0);
 }
@@ -180,15 +176,14 @@ vec2 closestVelocity(ivec2 px, ivec2 res)
 
 vec2 sampleVelocity(ivec2 px, ivec2 res)
 {
-    uint samplingType = flagVelocitySamplingType();
-    if (samplingType == VelocitySampling_Center)
+    if (VELOCITY_SAMPLING_TYPE == VelocitySampling_Center)
         return texture(
                    sampler2D(inVelocity, nearestSampler),
                    (vec2(px) + 0.5) / vec2(res))
             .xy;
-    if (samplingType == VelocitySampling_Largest)
+    if (VELOCITY_SAMPLING_TYPE == VelocitySampling_Largest)
         return largestVelocity(px, res);
-    if (samplingType == VelocitySampling_Closest)
+    if (VELOCITY_SAMPLING_TYPE == VelocitySampling_Closest)
         return closestVelocity(px, res);
     return vec2(0);
 }
@@ -207,7 +202,7 @@ void main()
     vec3 illumination =
         texture(sampler2D(inIllumination, nearestSampler), uv).xyz;
 
-    if (flagIgnoreHistory())
+    if (IGNORE_HISTORY)
     {
         imageStore(outResolved, px, vec4(illumination, 1));
         return;
@@ -225,9 +220,12 @@ void main()
 
     // Samples don't fall exactly to texel centers so can't use nearest here.
     // That would cause swimming artifacts in movement.
-    vec3 previousResolved =
-        flagCatmullRom() ? optimizedCatmullRom(reprojectedUv, res)
-                         : samplePrevious(inPreviousResolved, reprojectedUv);
+    vec3 previousResolved;
+    if (CATMULL_ROM)
+        previousResolved = optimizedCatmullRom(reprojectedUv, res);
+    else
+        previousResolved = samplePrevious(inPreviousResolved, reprojectedUv);
+
     previousResolved = clipColor(px, res, previousResolved);
 
     // TODO:
@@ -237,7 +235,7 @@ void main()
 
     float currentWeight = .1;
     float historyWeight = 1. - currentWeight;
-    if (flagLuminanceWeighting())
+    if (LUMINANCE_WEIGHTING)
     {
         // Luminance weighting from Tardif, without the compression step.
         // Skipping it skews toward supressing the flickering highlights more.

@@ -10,7 +10,6 @@
 
 #include <glm/glm.hpp>
 #include <imgui.h>
-#include <shader_structs/push_constants/taa_resolve.h>
 
 using namespace glm;
 using namespace wheels;
@@ -34,30 +33,75 @@ enum BindingSet : uint8_t
     BindingSetCount,
 };
 
-struct TaaResolveFlags
+struct TaaResolveConstants
 {
-    bool ignoreHistory{false};
-    bool catmullRom{false};
+    VkBool32 ignoreHistory{VK_FALSE};
+    VkBool32 catmullRom{VK_FALSE};
     TemporalAntiAliasing::ColorClippingType colorClipping{
         TemporalAntiAliasing::ColorClippingType::None};
     TemporalAntiAliasing::VelocitySamplingType velocitySampling{
         TemporalAntiAliasing::VelocitySamplingType::Center};
-    bool luminanceWeighting{false};
+    VkBool32 luminanceWeighting{VK_FALSE};
 };
 
-uint32_t pcFlags(TaaResolveFlags flags)
+uint32_t specializationIndex(TaaResolveConstants constants)
 {
     uint32_t ret = 0;
 
-    ret |= (uint32_t)flags.ignoreHistory;
-    ret |= (uint32_t)flags.catmullRom << 1;
-    ret |= (uint32_t)flags.colorClipping << 2;
+    ret |= (uint32_t)constants.ignoreHistory;
+    ret |= (uint32_t)constants.catmullRom << 1;
+    ret |= (uint32_t)constants.colorClipping << 2;
     static_assert(
         (uint32_t)TemporalAntiAliasing::ColorClippingType::Count - 1 < 0b11);
-    ret |= (uint32_t)flags.velocitySampling << 4;
+    ret |= (uint32_t)constants.velocitySampling << 4;
     static_assert(
         (uint32_t)TemporalAntiAliasing::VelocitySamplingType::Count - 1 < 0b11);
-    ret |= (uint32_t)flags.luminanceWeighting << 6;
+    ret |= (uint32_t)constants.luminanceWeighting << 6;
+
+    return ret;
+}
+
+Array<TaaResolveConstants> generateSpecializationConstants(Allocator &alloc)
+{
+    Array<TaaResolveConstants> ret{alloc};
+    ret.resize((1 << 7) - 1);
+    for (const VkBool32 ignoreHistory : {VK_FALSE, VK_TRUE})
+    {
+
+        for (const VkBool32 catmullRom : {VK_FALSE, VK_TRUE})
+        {
+            for (const TemporalAntiAliasing::ColorClippingType colorClipping : {
+                     TemporalAntiAliasing::ColorClippingType::MinMax,
+                     TemporalAntiAliasing::ColorClippingType::None,
+                     TemporalAntiAliasing::ColorClippingType::Variance,
+                 })
+            {
+                for (const TemporalAntiAliasing::VelocitySamplingType
+                         velocitySampling :
+                     {
+                         TemporalAntiAliasing::VelocitySamplingType::Center,
+                         TemporalAntiAliasing::VelocitySamplingType::Largest,
+                         TemporalAntiAliasing::VelocitySamplingType::Closest,
+                     })
+                {
+                    for (const VkBool32 luminanceWeighting :
+                         {VK_FALSE, VK_TRUE})
+                    {
+                        const TaaResolveConstants constants{
+                            .ignoreHistory = ignoreHistory,
+                            .catmullRom = catmullRom,
+                            .colorClipping = colorClipping,
+                            .velocitySampling = velocitySampling,
+                            .luminanceWeighting = luminanceWeighting,
+                        };
+                        const uint32_t index = specializationIndex(constants);
+
+                        ret[index] = constants;
+                    }
+                }
+            }
+        }
+    }
 
     return ret;
 }
@@ -93,8 +137,12 @@ void TemporalAntiAliasing::init(
 {
     WHEELS_ASSERT(!m_initialized);
 
+    const Array<TaaResolveConstants> specializationConstants =
+        generateSpecializationConstants(scopeAlloc);
+
     m_computePass.init(
         WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        specializationConstants.span(),
         ComputePassOptions{
             .storageSetIndex = StorageBindingSet,
             .externalDsLayouts = Span{&camDsLayout, 1},
@@ -233,20 +281,19 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
 
         const uint32_t camOffset = cam.bufferOffset();
 
+        const TaaResolveConstants constants{
+            .ignoreHistory = ignoreHistory ? VK_TRUE : VK_FALSE,
+            .catmullRom = m_catmullRom ? VK_TRUE : VK_FALSE,
+            .colorClipping = m_colorClipping,
+            .velocitySampling = m_velocitySampling,
+            .luminanceWeighting = m_luminanceWeighting ? VK_TRUE : VK_FALSE,
+        };
+
         m_computePass.record(
-            cb,
-            TaaResolvePC{
-                .flags = pcFlags(TaaResolveFlags{
-                    .ignoreHistory = ignoreHistory,
-                    .catmullRom = m_catmullRom,
-                    .colorClipping = m_colorClipping,
-                    .velocitySampling = m_velocitySampling,
-                    .luminanceWeighting = m_luminanceWeighting,
-                }),
-            },
-            groupCount, descriptorSets,
+            cb, groupCount, descriptorSets,
             ComputePassOptionalRecordArgs{
                 .dynamicOffsets = Span{&camOffset, 1},
+                .specializationIndex = specializationIndex(constants),
             });
 
         gRenderResources.images->release(m_previousResolveOutput);

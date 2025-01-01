@@ -17,7 +17,6 @@ set(SHARED_SHADER_STRUCTS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/light_clustering.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/prefilter_radiance.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/rt_reference.h
-    ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/taa_resolve.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/texture_debug.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/texture_readback.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/tone_map.h
