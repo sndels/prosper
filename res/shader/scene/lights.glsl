@@ -3,19 +3,19 @@
 
 #include "../shared/shader_structs/scene/lights.h"
 
-layout(set = LIGHTS_SET, binding = 0) buffer DirectionalLightDSB
+layout(set = LIGHTS_SET, binding = 0) readonly buffer DirectionalLightDSB
 {
     DirectionalLightParameters directionalLight;
 };
 
-layout(set = LIGHTS_SET, binding = 1) buffer PointLightsDSB
+layout(set = LIGHTS_SET, binding = 1) readonly buffer PointLightsDSB
 {
     PointLight lights[MAX_POINT_LIGHT_COUNT];
     uint count;
 }
 pointLights;
 
-layout(set = LIGHTS_SET, binding = 2) buffer SpotLightsDSB
+layout(set = LIGHTS_SET, binding = 2) readonly buffer SpotLightsDSB
 {
     SpotLight lights[MAX_SPOT_LIGHT_COUNT];
     uint count;

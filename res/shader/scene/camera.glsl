@@ -3,7 +3,7 @@
 
 #include "../shared/shader_structs/scene/camera.h"
 
-layout(std430, set = CAMERA_SET, binding = 0) buffer CameraDSB
+layout(std430, set = CAMERA_SET, binding = 0) readonly buffer CameraDSB
 {
     CameraUniforms camera;
 };
