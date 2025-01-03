@@ -92,7 +92,7 @@ ImageHandle BloomGenerateKernel::record(
             },
             "BloomKernel");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -110,9 +110,6 @@ ImageHandle BloomGenerateKernel::record(
             });
 
         PROFILER_GPU_SCOPE(cb, "  GenerateKernel");
-
-        const vk::DescriptorSet descriptorSet =
-            m_computePass.storageSet(nextFrame);
 
         const GenerateKernelPC pcBlock{
             // Bloom happens in half resolution

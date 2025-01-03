@@ -135,7 +135,7 @@ void DepthOfFieldReduce::record(
             };
     }
 
-    m_computePass.updateDescriptorSet(
+    const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -163,8 +163,6 @@ void DepthOfFieldReduce::record(
     }
 
     PROFILER_GPU_SCOPE(cb, "  Reduce");
-
-    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     const uvec3 groupCount =
         uvec3{dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1], 1u};

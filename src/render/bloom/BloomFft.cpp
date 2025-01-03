@@ -198,7 +198,7 @@ void BloomFft::doIteration(
         outputDim % sGroupSize == 0 &&
         "FFT shader assumes the input is divisible by group size");
 
-    m_computePass.updateDescriptorSet(
+    const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -221,8 +221,6 @@ void BloomFft::doIteration(
                 {iterData.output, ImageState::ComputeShaderWrite},
             }},
         });
-
-    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     const FftPC pcBlock{
         .n = outputDim,

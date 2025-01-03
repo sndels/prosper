@@ -105,7 +105,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             },
             "HalfResCircleOfConfusion");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -153,7 +153,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = storageSet;
 
         const uint32_t cameraOffset = cam.bufferOffset();
 

@@ -76,7 +76,7 @@ ImageHandle BloomSeparate::record(
             },
             "BloomFftPingPing");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -105,9 +105,6 @@ ImageHandle BloomSeparate::record(
             });
 
         PROFILER_GPU_SCOPE(cb, "  Separate");
-
-        const vk::DescriptorSet descriptorSet =
-            m_computePass.storageSet(nextFrame);
 
         const SeparatePC pcBlock{
             .invInResolution = 1.f /

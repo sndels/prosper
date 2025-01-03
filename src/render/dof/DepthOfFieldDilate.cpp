@@ -68,7 +68,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
             },
             "dilatedTileMinMaxCoC");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -124,8 +124,6 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
 
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{inputExtent.width, inputExtent.height, 1u});
-        const vk::DescriptorSet storageSet =
-            m_computePass.storageSet(nextFrame);
         m_computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
     }
 

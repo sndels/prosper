@@ -119,8 +119,9 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         }};
-        m_sampleIrradiance.updateDescriptorSet(
-            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
+        const vk::DescriptorSet storageSet =
+            m_sampleIrradiance.updateStorageSet(
+                scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.irradiance.transition(
             cb, ImageState::ComputeShaderWrite);
@@ -130,8 +131,6 @@ void ImageBasedLighting::recordGeneration(
         const uvec3 groupCount = m_sampleIrradiance.groupCount(
             uvec3{uvec2{SkyboxResources::sSkyboxIrradianceResolution}, 6u});
 
-        const vk::DescriptorSet storageSet =
-            m_sampleIrradiance.storageSet(nextFrame);
         m_sampleIrradiance.record(cb, groupCount, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition
@@ -151,8 +150,9 @@ void ImageBasedLighting::recordGeneration(
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
         };
-        m_integrateSpecularBrdf.updateDescriptorSet(
-            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
+        const vk::DescriptorSet storageSet =
+            m_integrateSpecularBrdf.updateStorageSet(
+                scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.specularBrdfLut.transition(
             cb, ImageState::ComputeShaderWrite);
@@ -162,8 +162,6 @@ void ImageBasedLighting::recordGeneration(
         const uvec3 groupCount = m_integrateSpecularBrdf.groupCount(
             uvec3{uvec2{SkyboxResources::sSpecularBrdfLutResolution}, 1u});
 
-        const vk::DescriptorSet storageSet =
-            m_integrateSpecularBrdf.storageSet(nextFrame);
         m_integrateSpecularBrdf.record(cb, groupCount, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition for
@@ -196,10 +194,9 @@ void ImageBasedLighting::recordGeneration(
             DescriptorInfo{imageInfos},
         }};
 
-        m_prefilterRadiance.updateDescriptorSet(
-            scopeAlloc.child_scope(), nextFrame, descriptorInfos);
         const vk::DescriptorSet storageSet =
-            m_prefilterRadiance.storageSet(nextFrame);
+            m_prefilterRadiance.updateStorageSet(
+                scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.radiance.transition(cb, ImageState::ComputeShaderWrite);
 

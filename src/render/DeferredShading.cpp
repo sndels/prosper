@@ -124,7 +124,7 @@ DeferredShading::Output DeferredShading::record(
 
         ret.illumination = createIllumination(renderExtent, "illumination");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -197,7 +197,7 @@ DeferredShading::Output DeferredShading::record(
             worldDSes.materialDatas[nextFrame];
         descriptorSets[MaterialTexturesBindingSet] = worldDSes.materialTextures;
         descriptorSets[SkyboxBindingSet] = worldDSes.skybox;
-        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = storageSet;
 
         const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,

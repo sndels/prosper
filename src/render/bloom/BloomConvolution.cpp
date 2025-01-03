@@ -60,7 +60,7 @@ void BloomConvolution::record(
     WHEELS_ASSERT(highlightsExtent.width % sGroupSize.x == 0);
     WHEELS_ASSERT(highlightsExtent.height % sGroupSize.y == 0);
 
-    m_computePass.updateDescriptorSet(
+    const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -88,8 +88,6 @@ void BloomConvolution::record(
         });
 
     PROFILER_GPU_SCOPE(cb, "  Convolution");
-
-    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     const uvec3 groupCount = m_computePass.groupCount(
         uvec3{highlightsExtent.width, highlightsExtent.height, 1u});

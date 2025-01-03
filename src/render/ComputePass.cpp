@@ -61,24 +61,32 @@ void ComputePass::startFrame()
 {
     WHEELS_ASSERT(m_initialized);
 
-    m_nextRecordIndex = 0;
+    m_nextDescriptorSetIndex = 0;
 }
 
-void ComputePass::updateDescriptorSet(
+vk::DescriptorSet ComputePass::updateStorageSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame,
     Span<const DescriptorInfo> descriptorInfos)
 {
     WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(
-        m_nextRecordIndex < m_storageSets[nextFrame].size() &&
+        m_nextDescriptorSetIndex < m_storageSets[nextFrame].size() &&
         "Too many records, forgot to call startFrame() or construct this "
         "ComputePass with enough records?");
 
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
     // Have to compare against both groupCount and previous native handle?
-    const vk::DescriptorSet ds = m_storageSets[nextFrame][m_nextRecordIndex];
+    const vk::DescriptorSet ds =
+        m_storageSets[nextFrame][m_nextDescriptorSetIndex];
+    // TODO:
+    // Require start_frame() for all compute passes and make this unconditional?
+    if (m_storageSets[nextFrame].size() > 1)
+    {
+        // This can equal perFrameRecordLimit if all of them are used
+        m_nextDescriptorSetIndex++;
+    }
 
     WHEELS_ASSERT(m_shaderReflection.has_value());
     const wheels::Array descriptorWrites =
@@ -88,18 +96,8 @@ void ComputePass::updateDescriptorSet(
     gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
-}
 
-vk::DescriptorSet ComputePass::storageSet(uint32_t nextFrame) const
-{
-    WHEELS_ASSERT(m_initialized);
-
-    WHEELS_ASSERT(
-        m_nextRecordIndex < m_storageSets[nextFrame].size() &&
-        "Too many records, forgot to call startFrame() or construct this "
-        "ComputePass with enough records?");
-
-    return m_storageSets[nextFrame][m_nextRecordIndex];
+    return ds;
 }
 
 vk::DescriptorSetLayout ComputePass::storageSetLayout() const
@@ -142,12 +140,6 @@ void ComputePass::record(
         optionalArgs.dynamicOffsets.data());
 
     cb.dispatch(groupCount.x, groupCount.y, groupCount.z);
-
-    if (m_storageSets[0].size() > 1)
-    {
-        // This can equal perFrameRecordLimit if all of them are used
-        m_nextRecordIndex++;
-    }
 }
 
 void ComputePass::record(
@@ -174,12 +166,6 @@ void ComputePass::record(
         optionalArgs.dynamicOffsets.data());
 
     cb.dispatchIndirect(argumentBuffer, 0);
-
-    if (m_storageSets[0].size() > 1)
-    {
-        // This can equal perFrameRecordLimit if all of them are used
-        m_nextRecordIndex++;
-    }
 }
 
 void ComputePass::record(
@@ -213,12 +199,6 @@ void ComputePass::record(
         asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
 
     cb.dispatch(groupCount.x, groupCount.y, groupCount.z);
-
-    if (m_storageSets[0].size() > 1)
-    {
-        // This can equal perFrameRecordLimit if all of them are used
-        m_nextRecordIndex++;
-    }
 }
 
 void ComputePass::record(
@@ -252,12 +232,6 @@ void ComputePass::record(
         asserted_cast<uint32_t>(pcBlockBytes.size()), pcBlockBytes.data());
 
     cb.dispatchIndirect(argumentBuffer, 0);
-
-    if (m_storageSets[0].size() > 1)
-    {
-        // This can equal perFrameRecordLimit if all of them are used
-        m_nextRecordIndex++;
-    }
 }
 
 void ComputePass::destroyPipelines()

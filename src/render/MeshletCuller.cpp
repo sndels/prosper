@@ -344,7 +344,7 @@ BufferHandle MeshletCuller::recordGenerateList(
         },
         dataName.c_str());
 
-    m_drawListGenerator.updateDescriptorSet(
+    const vk::DescriptorSet storageSet = m_drawListGenerator.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{DescriptorInfo{
             vk::DescriptorBufferInfo{
@@ -379,8 +379,7 @@ BufferHandle MeshletCuller::recordGenerateList(
         worldDSes.materialDatas[nextFrame];
     descriptorSets[GeneratorMaterialTexturesBindingSet] =
         worldDSes.materialTextures;
-    descriptorSets[GeneratorStorageBindingSet] =
-        m_drawListGenerator.storageSet(nextFrame);
+    descriptorSets[GeneratorStorageBindingSet] = storageSet;
 
     const StaticArray dynamicOffsets{{
         worldByteOffsets.modelInstanceTransforms,
@@ -416,18 +415,19 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
         },
         argumentsName.c_str());
 
-    m_cullerArgumentsWriter.updateDescriptorSet(
-        scopeAlloc.child_scope(), nextFrame,
-        StaticArray{{
-            DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = gRenderResources.buffers->nativeHandle(drawList),
-                .range = VK_WHOLE_SIZE,
-            }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = gRenderResources.buffers->nativeHandle(ret),
-                .range = VK_WHOLE_SIZE,
-            }},
-        }});
+    const vk::DescriptorSet storageSet =
+        m_cullerArgumentsWriter.updateStorageSet(
+            scopeAlloc.child_scope(), nextFrame,
+            StaticArray{{
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = gRenderResources.buffers->nativeHandle(drawList),
+                    .range = VK_WHOLE_SIZE,
+                }},
+                DescriptorInfo{vk::DescriptorBufferInfo{
+                    .buffer = gRenderResources.buffers->nativeHandle(ret),
+                    .range = VK_WHOLE_SIZE,
+                }},
+            }});
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
@@ -438,10 +438,8 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
             }},
         });
 
-    const vk::DescriptorSet ds = m_cullerArgumentsWriter.storageSet(nextFrame);
-
     const uvec3 groupCount{1, 1, 1};
-    m_cullerArgumentsWriter.record(cb, groupCount, Span{&ds, 1});
+    m_cullerArgumentsWriter.record(cb, groupCount, Span{&storageSet, 1});
 
     return ret;
 }
@@ -557,7 +555,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     const BufferHandle secondPhaseDataBindBuffer =
         outputSecondPhaseInput ? *ret.secondPhaseInput : ret.dataBuffer;
 
-    m_drawListCuller.updateDescriptorSet(
+    const vk::DescriptorSet storageSet = m_drawListCuller.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorBufferInfo{
@@ -654,8 +652,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     descriptorSets[CullerGeometryBindingSet] = worldDSes.geometry[nextFrame];
     descriptorSets[CullerSceneInstancesBindingSet] =
         scene.sceneInstancesDescriptorSet;
-    descriptorSets[CullerStorageBindingSet] =
-        m_drawListCuller.storageSet(nextFrame);
+    descriptorSets[CullerStorageBindingSet] = storageSet;
 
     const StaticArray dynamicOffsets{{
         cam.bufferOffset(),

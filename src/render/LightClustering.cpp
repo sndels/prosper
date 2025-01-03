@@ -170,7 +170,7 @@ LightClusteringOutput LightClustering::record(
     {
         ret = createOutputs(renderExtent);
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -184,7 +184,7 @@ LightClusteringOutput LightClustering::record(
                 DescriptorInfo{
                     gRenderResources.texelBuffers->resource(ret.indices).view},
             }});
-        ret.descriptorSet = m_computePass.storageSet(nextFrame);
+        ret.descriptorSet = storageSet;
 
         transition(
             WHEELS_MOV(scopeAlloc), cb,

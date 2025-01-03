@@ -69,7 +69,7 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
         },
         debugNames.outRes);
 
-    m_computePass.updateDescriptorSet(
+    const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
             DescriptorInfo{vk::DescriptorImageInfo{
@@ -98,8 +98,6 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
         });
 
     PROFILER_GPU_SCOPE(cb, debugNames.scope);
-
-    const vk::DescriptorSet descriptorSet = m_computePass.storageSet(nextFrame);
 
     const uvec3 groupCount = m_computePass.groupCount(
         uvec3{inRes.extent.width, inRes.extent.height, 1});

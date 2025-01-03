@@ -73,15 +73,11 @@ class ComputePass
     // perFrameRecordLimit is 1.
     void startFrame();
 
-    // Updates the descriptor for the next record. record() increments the
-    // conuter.
-    void updateDescriptorSet(
+    // Updates and returns the next available storage set.
+    [[nodiscard]] vk::DescriptorSet updateStorageSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
         wheels::Span<const DescriptorInfo> descriptorInfos);
 
-    // Returns the descriptor for the next record. record() increments the
-    // conuter.
-    [[nodiscard]] vk::DescriptorSet storageSet(uint32_t nextFrame) const;
     [[nodiscard]] vk::DescriptorSetLayout storageSetLayout() const;
 
     // Returns the rounded up group count required to process the input with
@@ -161,7 +157,7 @@ class ComputePass
     // This much is only needed by FFT. Should use a small vector with less
     // inline space instead?
     static const size_t sPerFrameRecordLimit = 84;
-    size_t m_nextRecordIndex{0};
+    size_t m_nextDescriptorSetIndex{0};
     wheels::StaticArray<
         wheels::InlineArray<vk::DescriptorSet, sPerFrameRecordLimit>,
         MAX_FRAMES_IN_FLIGHT>

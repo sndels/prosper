@@ -97,7 +97,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
             gatherType == GatherType_Background ? "halfResBgBokehColorWeight"
                                                 : "halfResFgBokehColorWeight");
 
-        computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -159,7 +159,6 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
         };
         const uvec3 groupCount = computePass.groupCount(
             uvec3{renderExtent.width, renderExtent.height, 1u});
-        const vk::DescriptorSet storageSet = computePass.storageSet(nextFrame);
         computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
     }
 

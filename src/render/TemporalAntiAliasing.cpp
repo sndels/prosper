@@ -254,7 +254,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 .sampler = gRenderResources.bilinearSampler,
             }},
         }};
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         transition(
@@ -277,7 +277,7 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = storageSet;
 
         const uint32_t camOffset = cam.bufferOffset();
 

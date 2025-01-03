@@ -68,7 +68,7 @@ ImageHandle BloomCompose::record(
             },
             "IlluminationWithBloom");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -107,9 +107,6 @@ ImageHandle BloomCompose::record(
             });
 
         PROFILER_GPU_SCOPE(cb, "  Compose");
-
-        const vk::DescriptorSet descriptorSet =
-            m_computePass.storageSet(nextFrame);
 
         const ComposePC pcBlock{
             .illuminationResolution =

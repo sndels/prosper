@@ -87,7 +87,7 @@ void TextureReadback::record(
             },
             "TextureReadbackDeviceBuffer");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -129,8 +129,6 @@ void TextureReadback::record(
         };
 
         const uvec3 groupCount{1u, 1u, 1u};
-        const vk::DescriptorSet storageSet =
-            m_computePass.storageSet(nextFrame);
         m_computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
 
         gRenderResources.buffers->transition(

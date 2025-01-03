@@ -115,7 +115,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             },
             "RtDiSpatialReuseReservoirs");
 
-        m_computePass.updateDescriptorSet(
+        const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -175,7 +175,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             VK_NULL_HANDLE};
         descriptorSets[LightsBindingSet] = worldDSes.lights;
         descriptorSets[CameraBindingSet] = cam.descriptorSet();
-        descriptorSets[StorageBindingSet] = m_computePass.storageSet(nextFrame);
+        descriptorSets[StorageBindingSet] = storageSet;
 
         const StaticArray dynamicOffsets{{
             worldByteOffsets.directionalLight,
