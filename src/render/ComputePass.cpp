@@ -264,6 +264,7 @@ void ComputePass::destroyPipelines()
 {
     for (const vk::Pipeline pipeline : m_pipelines)
         gDevice.logical().destroy(pipeline);
+    m_pipelines.clear();
     gDevice.logical().destroy(m_pipelineLayout);
 }
 
