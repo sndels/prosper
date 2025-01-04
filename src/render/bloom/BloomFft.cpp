@@ -35,18 +35,45 @@ bool isPowerOf(uint32_t n, uint32_t base)
     return v == n;
 }
 
-struct FftFlags
+struct FftConstants
 {
-    bool transpose{false};
-    bool inverse{false};
+    VkBool32 transpose{VK_FALSE};
+    VkBool32 inverse{VK_FALSE};
+    uint32_t radixPower{1};
 };
 
-uint32_t pcFlags(FftFlags flags)
+uint32_t specializationIndex(FftConstants constants)
 {
     uint32_t ret = 0;
 
-    ret |= (uint32_t)flags.transpose;
-    ret |= (uint32_t)flags.inverse << 1;
+    ret |= (uint32_t)constants.transpose;
+    ret |= (uint32_t)constants.inverse << 1;
+    // radixPower starts from 1, but we need tight indices
+    ret |= (constants.radixPower - 1) << 2;
+
+    return ret;
+}
+
+StaticArray<FftConstants, 8> generateSpecializationConstants()
+{
+    StaticArray<FftConstants, 8> ret;
+    for (const VkBool32 transpose : {VK_FALSE, VK_TRUE})
+    {
+        for (const VkBool32 inverse : {VK_FALSE, VK_TRUE})
+        {
+            for (const uint32_t radixPower : {1, 2})
+            {
+                const FftConstants constants{
+                    .transpose = transpose,
+                    .inverse = inverse,
+                    .radixPower = radixPower,
+                };
+                const uint32_t index = specializationIndex(constants);
+
+                ret[index] = constants;
+            }
+        }
+    }
 
     return ret;
 }
@@ -57,15 +84,18 @@ void BloomFft::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
+    const StaticArray specializationConstants =
+        generateSpecializationConstants();
+
     m_computePass.init(
         WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        specializationConstants.span(),
         ComputePassOptions{
-            // 7 passes can transform two components of 16k x 16k by rows
-            // Twice that for four components
-            // Twice that by columns
-            // Three times that for inverse transform and forward pass on kernel
-            // Twice that for inverse transform
-            .perFrameRecordLimit = 7 * 2 * 2 * 3,
+            // Single FFT run uses one set for first pass and two for the rest
+            // for ping/pong binds.
+            // We have at most three FFT runs per frame: kernel forward pass and
+            // two passes for the convolution.
+            .perFrameRecordLimit = 3 * 3,
         });
 
     m_initialized = true;
@@ -132,9 +162,47 @@ ImageHandle BloomFft::record(
     const ImageHandle pongImage =
         gRenderResources.images->create(targetDesc, debugName.c_str());
 
+    const vk::DescriptorSet inputSet = m_computePass.updateStorageSet(
+        scopeAlloc.child_scope(), nextFrame,
+        StaticArray{{
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images->resource(input).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images->resource(pingImage).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+        }});
+    const vk::DescriptorSet pingSet = m_computePass.updateStorageSet(
+        scopeAlloc.child_scope(), nextFrame,
+        StaticArray{{
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images->resource(pingImage).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images->resource(pongImage).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+        }});
+    const vk::DescriptorSet pongSet = m_computePass.updateStorageSet(
+        scopeAlloc.child_scope(), nextFrame,
+        StaticArray{{
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images->resource(pongImage).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+            DescriptorInfo{vk::DescriptorImageInfo{
+                .imageView = gRenderResources.images->resource(pingImage).view,
+                .imageLayout = vk::ImageLayout::eGeneral,
+            }},
+        }});
+
     const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first
     IterationData iterData{
+        .descriptorSet = inputSet,
         // For a real input image, this will consider rg/ba as complex pairs
         // to perform four transforms for the price of two. However, this has
         // implications when the DFT is used for convolution.
@@ -143,45 +211,48 @@ ImageHandle BloomFft::record(
         .output = pingImage,
         .n = outputDim,
         .ns = 1,
-        .r = needsRadix2 ? 2u : 4u,
+        .radixPower = needsRadix2 ? 1u : 2u,
         .transpose = false,
         .inverse = inverse,
     };
-    doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
+    doIteration(scopeAlloc.child_scope(), cb, iterData);
+    iterData.descriptorSet = pingSet;
     iterData.input = pingImage;
     iterData.output = pongImage;
-    iterData.ns *= iterData.r;
-    iterData.r = 4;
+    iterData.ns *= 1 << iterData.radixPower;
+    iterData.radixPower = 2;
 
+    bool swapImages = false;
     while (iterData.ns < outputDim)
     {
-        doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
-        iterData.ns *= iterData.r;
+        doIteration(scopeAlloc.child_scope(), cb, iterData);
+        swapImages = !swapImages;
+        iterData.descriptorSet = swapImages ? pongSet : pingSet;
+        iterData.input = swapImages ? pongImage : pingImage;
+        iterData.output = swapImages ? pingImage : pongImage;
+        iterData.ns *= 1 << iterData.radixPower;
     }
 
     // Columns next
     iterData.ns = 1;
-    iterData.r = needsRadix2 ? 2u : 4u;
+    iterData.radixPower = needsRadix2 ? 1u : 2u;
     iterData.transpose = true;
-    doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-    {
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
-    }
-    iterData.ns *= iterData.r;
-    iterData.r = 4;
+    doIteration(scopeAlloc.child_scope(), cb, iterData);
+    swapImages = !swapImages;
+    iterData.descriptorSet = swapImages ? pongSet : pingSet;
+    iterData.input = swapImages ? pongImage : pingImage;
+    iterData.output = swapImages ? pingImage : pongImage;
+    iterData.ns *= 1 << iterData.radixPower;
+    iterData.radixPower = 2;
 
     while (iterData.ns < outputDim)
     {
-        doIteration(scopeAlloc.child_scope(), cb, iterData, nextFrame);
-        const ImageHandle tmp = iterData.input;
-        iterData.input = iterData.output;
-        iterData.output = tmp;
-        iterData.ns *= iterData.r;
+        doIteration(scopeAlloc.child_scope(), cb, iterData);
+        swapImages = !swapImages;
+        iterData.descriptorSet = swapImages ? pongSet : pingSet;
+        iterData.input = swapImages ? pongImage : pingImage;
+        iterData.output = swapImages ? pingImage : pongImage;
+        iterData.ns *= 1 << iterData.radixPower;
     }
 
     gRenderResources.images->release(iterData.output);
@@ -191,27 +262,12 @@ ImageHandle BloomFft::record(
 
 void BloomFft::doIteration(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const IterationData &iterData, uint32_t nextFrame)
+    const IterationData &iterData)
 {
     const uint32_t outputDim = iterData.n;
     WHEELS_ASSERT(
         outputDim % sGroupSize == 0 &&
         "FFT shader assumes the input is divisible by group size");
-
-    const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
-        scopeAlloc.child_scope(), nextFrame,
-        StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    gRenderResources.images->resource(iterData.input).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-            DescriptorInfo{vk::DescriptorImageInfo{
-                .imageView =
-                    gRenderResources.images->resource(iterData.output).view,
-                .imageLayout = vk::ImageLayout::eGeneral,
-            }},
-        }});
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
@@ -225,16 +281,19 @@ void BloomFft::doIteration(
     const FftPC pcBlock{
         .n = outputDim,
         .ns = iterData.ns,
-        .r = iterData.r,
-        .flags = pcFlags(FftFlags{
-            .transpose = iterData.transpose,
-            .inverse = iterData.inverse,
-        }),
     };
     const uvec3 groupCount = m_computePass.groupCount(uvec3{
-        outputDim / iterData.r,
+        outputDim / (1 << iterData.radixPower),
         outputDim,
         1,
     });
-    m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
+    m_computePass.record(
+        cb, pcBlock, groupCount, Span{&iterData.descriptorSet, 1},
+        ComputePassOptionalRecordArgs{
+            .specializationIndex = specializationIndex(FftConstants{
+                .transpose = iterData.transpose ? VK_TRUE : VK_FALSE,
+                .inverse = iterData.inverse ? VK_TRUE : VK_FALSE,
+                .radixPower = iterData.radixPower,
+            }),
+        });
 }

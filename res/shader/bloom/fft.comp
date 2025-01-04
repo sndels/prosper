@@ -9,21 +9,23 @@ layout(set = 0, binding = 0) uniform readonly image2D inData;
 layout(set = 0, binding = 1) uniform writeonly image2D outData;
 
 layout(push_constant) uniform PushConstants { FftPC PC; };
+layout(constant_id = 0) const bool TRANSPOSE = false;
+layout(constant_id = 1) const bool INVERSE = false;
+layout(constant_id = 2) const uint RADIX_POWER = 1;
 
-bool flagTranspose() { return bitfieldExtract(PC.flags, 0, 1) == 1; }
-bool flagInverse() { return bitfieldExtract(PC.flags, 1, 1) == 1; }
+const uint RADIX = 1 << RADIX_POWER;
 
-vec4 loadInput(ivec2 p, bool doInverse)
+vec4 loadInput(ivec2 p)
 {
     vec4 ret = imageLoad(inData, p);
-    if (doInverse)
+    if (INVERSE)
         ret = ret.yxwz;
     return ret;
 }
 
-void storeOutput(ivec2 p, vec4 c, bool doInverse)
+void storeOutput(ivec2 p, vec4 c)
 {
-    if (doInverse)
+    if (INVERSE)
         c = c.yxwz;
     imageStore(outData, p, c);
 }
@@ -66,8 +68,7 @@ void decimateRadix4(inout vec4 v[4])
     v[3] = v0 + mulI(v1) - v2 - mulI(v3);
 }
 
-void fftIterationRadix2(
-    uint j, uint row, uint N, uint Ns, bool doTranspose, bool doInverse)
+void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
 {
     const uint R = 2;
     vec4 v[R];
@@ -76,12 +77,12 @@ void fftIterationRadix2(
     float angle = -2. * PI * float(j % Ns) / float(Ns * R);
     for (uint r = 0; r < R; ++r)
     {
-        ivec2 p = doTranspose ? ivec2(row, idxS + r * N / R)
-                              : ivec2(idxS + r * N / R, row);
+        ivec2 p = TRANSPOSE ? ivec2(row, idxS + r * N / R)
+                            : ivec2(idxS + r * N / R, row);
         // TODO:
         // Use some kind of LUT for the sines and cosines here, like ryg
         // suggests?
-        vec4 c = loadInput(p, doInverse);
+        vec4 c = loadInput(p);
         vec2 twiddle = vec2(cos(r * angle), sin(r * angle));
         v[r] = mulComplex(c, twiddle.xyxy);
     }
@@ -92,13 +93,12 @@ void fftIterationRadix2(
     for (uint r = 0; r < R; ++r)
     {
         ivec2 p =
-            doTranspose ? ivec2(row, idxD + r * Ns) : ivec2(idxD + r * Ns, row);
-        storeOutput(p, v[r], doInverse);
+            TRANSPOSE ? ivec2(row, idxD + r * Ns) : ivec2(idxD + r * Ns, row);
+        storeOutput(p, v[r]);
     }
 }
 
-void fftIterationRadix4(
-    uint j, uint row, uint N, uint Ns, bool doTranspose, bool doInverse)
+void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
 {
     const uint R = 4;
     vec4 v[R];
@@ -108,11 +108,11 @@ void fftIterationRadix4(
     for (uint r = 0; r < R; ++r)
     {
         float col = idxS + r * N / R;
-        ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
+        ivec2 p = TRANSPOSE ? ivec2(row, col) : ivec2(col, row);
         // TODO:
         // Use some kind of LUT for the sines and cosines here, like ryg
         // suggests?
-        vec4 c = loadInput(p, doInverse);
+        vec4 c = loadInput(p);
         vec2 twiddle = vec2(cos(r * angle), sin(r * angle));
         v[r] = mulComplex(c, twiddle.xyxy);
     }
@@ -123,21 +123,19 @@ void fftIterationRadix4(
     for (uint r = 0; r < R; ++r)
     {
         float col = idxD + r * Ns;
-        ivec2 p = doTranspose ? ivec2(row, col) : ivec2(col, row);
-        storeOutput(p, v[r], doInverse);
+        ivec2 p = TRANSPOSE ? ivec2(row, col) : ivec2(col, row);
+        storeOutput(p, v[r]);
     }
 }
 
 layout(local_size_x = GROUP_X) in;
 void main()
 {
-    bool doTranspose = flagTranspose();
-    bool doInverse = flagInverse();
     uint j = gl_GlobalInvocationID.x;
     uint row = gl_WorkGroupID.y;
 
-    if (PC.r == 2)
-        fftIterationRadix2(j, row, PC.n, PC.ns, doTranspose, doInverse);
-    else if (PC.r == 4)
-        fftIterationRadix4(j, row, PC.n, PC.ns, doTranspose, doInverse);
+    if (RADIX == 2)
+        fftIterationRadix2(j, row, PC.n, PC.ns);
+    else if (RADIX == 4)
+        fftIterationRadix4(j, row, PC.n, PC.ns);
 }

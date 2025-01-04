@@ -40,17 +40,18 @@ class BloomFft
   private:
     struct IterationData
     {
+        vk::DescriptorSet descriptorSet;
         ImageHandle input;
         ImageHandle output;
         uint32_t n{sMinResolution};
         uint32_t ns{1};
-        uint32_t r{4};
+        uint32_t radixPower{1};
         bool transpose{false};
         bool inverse{false};
     };
     void doIteration(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const IterationData &iterData, uint32_t nextFrame);
+        const IterationData &iterData);
 
     bool m_initialized{false};
     ComputePass m_computePass;
