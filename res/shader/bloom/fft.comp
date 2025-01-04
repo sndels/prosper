@@ -15,117 +15,142 @@ layout(constant_id = 2) const uint RADIX_POWER = 1;
 
 const uint RADIX = 1 << RADIX_POWER;
 
-vec4 loadInput(ivec2 p)
-{
-    vec4 ret = imageLoad(inData, p);
-    if (INVERSE)
-        ret = ret.yxwz;
-    return ret;
-}
-
-void storeOutput(ivec2 p, vec4 c)
-{
-    if (INVERSE)
-        c = c.yxwz;
-    imageStore(outData, p, c);
-}
-
 // Based on
 // High Performance Discrete Fourier Transforms on Graphics Processors
 // By Govindaraju et al.
-
-uint expand(uint idxL, uint N1, uint N2)
-{
-    return (idxL / N1) * N1 * N2 + (idxL % N1);
-}
 
 vec4 mulI(vec4 c) { return vec4(-c.y, c.x, -c.w, c.z); }
 
 vec4 mulComplex(vec4 a, vec4 b)
 {
+    // clang-format off
     return vec4(
-        a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x, a.z * b.z - a.w * b.w,
-        a.z * b.w + a.w * b.z);
-}
-
-void decimateRadix2(inout vec4 v[2])
-{
-    vec4 v0 = v[0];
-    vec4 v1 = v[1];
-    v[0] = v0 + v1;
-    v[1] = v0 - v1;
-}
-
-void decimateRadix4(inout vec4 v[4])
-{
-    vec4 v0 = v[0];
-    vec4 v1 = v[1];
-    vec4 v2 = v[2];
-    vec4 v3 = v[3];
-    v[0] = v0 + v1 + v2 + v3;
-    v[1] = v0 - mulI(v1) - v2 + mulI(v3);
-    v[2] = v0 - v1 + v2 - v3;
-    v[3] = v0 + mulI(v1) - v2 - mulI(v3);
+        a.x * b.x - a.y * b.y,
+        a.x * b.y + a.y * b.x,
+        a.z * b.z - a.w * b.w,
+        a.z * b.w + a.w * b.z
+    );
+    // clang-format on
 }
 
 void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
 {
     const uint R = 2;
-    vec4 v[R];
 
     uint idxS = j;
+    ivec2 p0i = ivec2(idxS, row);
+    ivec2 p1i = ivec2(idxS + N / R, row);
+    if (TRANSPOSE)
+    {
+        p0i = p0i.yx;
+        p1i = p1i.yx;
+    }
+
+    vec4 c0 = imageLoad(inData, p0i);
+    vec4 c1 = imageLoad(inData, p1i);
+    if (INVERSE)
+    {
+        c0 = c0.yxwz;
+        c1 = c1.yxwz;
+    }
+
+    // This pass is banddwidth bound so a twiddle LUT won't help
     float angle = -2. * PI * float(j % Ns) / float(Ns * R);
-    for (uint r = 0; r < R; ++r)
-    {
-        ivec2 p = TRANSPOSE ? ivec2(row, idxS + r * N / R)
-                            : ivec2(idxS + r * N / R, row);
-        // TODO:
-        // Use some kind of LUT for the sines and cosines here, like ryg
-        // suggests?
-        vec4 c = loadInput(p);
-        vec2 twiddle = vec2(cos(r * angle), sin(r * angle));
-        v[r] = mulComplex(c, twiddle.xyxy);
-    }
+    vec2 w0 = vec2(1, 0); // cos(0), sin(0)
+    vec2 w1 = vec2(cos(angle), sin(angle));
 
-    decimateRadix2(v);
+    vec4 v0 = mulComplex(c0, w0.xyxy);
+    vec4 v1 = mulComplex(c1, w1.xyxy);
 
-    uint idxD = expand(j, Ns, R);
-    for (uint r = 0; r < R; ++r)
+    vec4 v0d = v0 + v1;
+    vec4 v1d = v0 - v1;
+
+    uint idxD = (j / Ns) * Ns * R + (j % Ns);
+    ivec2 p0o = ivec2(idxD, row);
+    ivec2 p1o = ivec2(idxD + Ns, row);
+    if (TRANSPOSE)
     {
-        ivec2 p =
-            TRANSPOSE ? ivec2(row, idxD + r * Ns) : ivec2(idxD + r * Ns, row);
-        storeOutput(p, v[r]);
+        p0o = p0o.yx;
+        p1o = p1o.yx;
     }
+    if (INVERSE)
+    {
+        v0d = v0d.yxwz;
+        v1d = v1d.yxwz;
+    }
+    imageStore(outData, p0o, v0d);
+    imageStore(outData, p1o, v1d);
 }
 
 void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
 {
     const uint R = 4;
-    vec4 v[R];
 
     uint idxS = j;
+    ivec2 p0i = ivec2(idxS, row);
+    ivec2 p1i = ivec2(idxS + N / R, row);
+    ivec2 p2i = ivec2(idxS + 2 * N / R, row);
+    ivec2 p3i = ivec2(idxS + 3 * N / R, row);
+    if (TRANSPOSE)
+    {
+        p0i = p0i.yx;
+        p1i = p1i.yx;
+        p2i = p2i.yx;
+        p3i = p3i.yx;
+    }
+
+    vec4 c0 = imageLoad(inData, p0i);
+    vec4 c1 = imageLoad(inData, p1i);
+    vec4 c2 = imageLoad(inData, p2i);
+    vec4 c3 = imageLoad(inData, p3i);
+    if (INVERSE)
+    {
+        c0 = c0.yxwz;
+        c1 = c1.yxwz;
+        c2 = c2.yxwz;
+        c3 = c3.yxwz;
+    }
+
+    // This pass is banddwidth bound so a twiddle LUT won't help
     float angle = -2. * PI * float(j % Ns) / float(Ns * R);
-    for (uint r = 0; r < R; ++r)
-    {
-        float col = idxS + r * N / R;
-        ivec2 p = TRANSPOSE ? ivec2(row, col) : ivec2(col, row);
-        // TODO:
-        // Use some kind of LUT for the sines and cosines here, like ryg
-        // suggests?
-        vec4 c = loadInput(p);
-        vec2 twiddle = vec2(cos(r * angle), sin(r * angle));
-        v[r] = mulComplex(c, twiddle.xyxy);
-    }
+    vec2 w0 = vec2(1, 0); // cos(0), sin(0)
+    vec2 w1 = vec2(cos(angle), sin(angle));
+    vec2 w2 = vec2(cos(2 * angle), sin(2 * angle));
+    vec2 w3 = vec2(cos(3 * angle), sin(3 * angle));
 
-    decimateRadix4(v);
+    vec4 v0 = mulComplex(c0, w0.xyxy);
+    vec4 v1 = mulComplex(c1, w1.xyxy);
+    vec4 v2 = mulComplex(c2, w2.xyxy);
+    vec4 v3 = mulComplex(c3, w3.xyxy);
 
-    uint idxD = expand(j, Ns, R);
-    for (uint r = 0; r < R; ++r)
+    vec4 v0d = v0 + v1 + v2 + v3;
+    vec4 v1d = v0 - mulI(v1) - v2 + mulI(v3);
+    vec4 v2d = v0 - v1 + v2 - v3;
+    vec4 v3d = v0 + mulI(v1) - v2 - mulI(v3);
+
+    uint idxD = (j / Ns) * Ns * R + (j % Ns);
+    ivec2 p0o = ivec2(idxD, row);
+    ivec2 p1o = ivec2(idxD + Ns, row);
+    ivec2 p2o = ivec2(idxD + 2 * Ns, row);
+    ivec2 p3o = ivec2(idxD + 3 * Ns, row);
+    if (TRANSPOSE)
     {
-        float col = idxD + r * Ns;
-        ivec2 p = TRANSPOSE ? ivec2(row, col) : ivec2(col, row);
-        storeOutput(p, v[r]);
+        p0o = p0o.yx;
+        p1o = p1o.yx;
+        p2o = p2o.yx;
+        p3o = p3o.yx;
     }
+    if (INVERSE)
+    {
+        v0d = v0d.yxwz;
+        v1d = v1d.yxwz;
+        v2d = v2d.yxwz;
+        v3d = v3d.yxwz;
+    }
+    imageStore(outData, p0o, v0d);
+    imageStore(outData, p1o, v1d);
+    imageStore(outData, p2o, v2d);
+    imageStore(outData, p3o, v3d);
 }
 
 layout(local_size_x = GROUP_X) in;
