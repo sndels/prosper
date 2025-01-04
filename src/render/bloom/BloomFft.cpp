@@ -14,7 +14,7 @@ using namespace wheels;
 namespace
 {
 
-const uint32_t sGroupSize = 64;
+const uint32_t sGroupSize = 32;
 
 ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 {
@@ -25,14 +25,13 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     };
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-bool isPowerOf(uint32_t n, uint32_t base)
+uint32_t firstRadixPower(uint32_t n)
 {
-    uint32_t v = base;
-    while (v < n)
-        v *= base;
+    uint32_t v = n;
+    while (v > 8)
+        v /= 8;
 
-    return v == n;
+    return 32 - std::countl_zero(v) - 1;
 }
 
 struct FftConstants
@@ -54,14 +53,14 @@ uint32_t specializationIndex(FftConstants constants)
     return ret;
 }
 
-StaticArray<FftConstants, 8> generateSpecializationConstants()
+StaticArray<FftConstants, 12> generateSpecializationConstants()
 {
-    StaticArray<FftConstants, 8> ret;
+    StaticArray<FftConstants, 12> ret;
     for (const VkBool32 transpose : {VK_FALSE, VK_TRUE})
     {
         for (const VkBool32 inverse : {VK_FALSE, VK_TRUE})
         {
-            for (const uint32_t radixPower : {1, 2})
+            for (const uint32_t radixPower : {1, 2, 3})
             {
                 const FftConstants constants{
                     .transpose = transpose,
@@ -199,7 +198,6 @@ ImageHandle BloomFft::record(
             }},
         }});
 
-    const bool needsRadix2 = !isPowerOf(outputDim, 4u);
     // Rows first
     IterationData iterData{
         .descriptorSet = inputSet,
@@ -211,7 +209,7 @@ ImageHandle BloomFft::record(
         .output = pingImage,
         .n = outputDim,
         .ns = 1,
-        .radixPower = needsRadix2 ? 1u : 2u,
+        .radixPower = firstRadixPower(outputDim),
         .transpose = false,
         .inverse = inverse,
     };
@@ -220,7 +218,7 @@ ImageHandle BloomFft::record(
     iterData.input = pingImage;
     iterData.output = pongImage;
     iterData.ns *= 1 << iterData.radixPower;
-    iterData.radixPower = 2;
+    iterData.radixPower = 3;
 
     bool swapImages = false;
     while (iterData.ns < outputDim)
@@ -235,7 +233,7 @@ ImageHandle BloomFft::record(
 
     // Columns next
     iterData.ns = 1;
-    iterData.radixPower = needsRadix2 ? 1u : 2u;
+    iterData.radixPower = firstRadixPower(outputDim);
     iterData.transpose = true;
     doIteration(scopeAlloc.child_scope(), cb, iterData);
     swapImages = !swapImages;
@@ -243,7 +241,7 @@ ImageHandle BloomFft::record(
     iterData.input = swapImages ? pongImage : pingImage;
     iterData.output = swapImages ? pingImage : pongImage;
     iterData.ns *= 1 << iterData.radixPower;
-    iterData.radixPower = 2;
+    iterData.radixPower = 3;
 
     while (iterData.ns < outputDim)
     {

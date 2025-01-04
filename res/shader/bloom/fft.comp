@@ -33,6 +33,15 @@ vec4 mulComplex(vec4 a, vec4 b)
     // clang-format on
 }
 
+// The Radix-N DIF butterfly matrix is derived by filling
+// [1      1           1      ...       1       ]
+// [1    w_n^1       w_n^2    ...   w_n^(n-1)   ]
+// [1    w_n^2       w_n^4    ...   w_n^2(n-1)  ]
+// [...   ...         ...              ...      ]
+// [1   w_n^(n-1)  w_n^2(n-1) ... w_n^(n-1)(n-1)]
+//
+// where W_n^k = e^(-2*PI*k/n)
+
 void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
 {
     const uint R = 2;
@@ -54,7 +63,7 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
         c1 = c1.yxwz;
     }
 
-    // This pass is banddwidth bound so a twiddle LUT won't help
+    // This pass is bandwidth bound so a twiddle LUT won't help
     float angle = -2. * PI * float(j % Ns) / float(Ns * R);
     vec2 w0 = vec2(1, 0); // cos(0), sin(0)
     vec2 w1 = vec2(cos(angle), sin(angle));
@@ -62,6 +71,8 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
     vec4 v0 = mulComplex(c0, w0.xyxy);
     vec4 v1 = mulComplex(c1, w1.xyxy);
 
+    //  [1  1]
+    //  [1 -1]
     vec4 v0d = v0 + v1;
     vec4 v1d = v0 - v1;
 
@@ -111,7 +122,7 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
         c3 = c3.yxwz;
     }
 
-    // This pass is banddwidth bound so a twiddle LUT won't help
+    // This pass is bandwidth bound so a twiddle LUT won't help
     float angle = -2. * PI * float(j % Ns) / float(Ns * R);
     vec2 w0 = vec2(1, 0); // cos(0), sin(0)
     vec2 w1 = vec2(cos(angle), sin(angle));
@@ -123,10 +134,19 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
     vec4 v2 = mulComplex(c2, w2.xyxy);
     vec4 v3 = mulComplex(c3, w3.xyxy);
 
-    vec4 v0d = v0 + v1 + v2 + v3;
-    vec4 v1d = v0 - mulI(v1) - v2 + mulI(v3);
-    vec4 v2d = v0 - v1 + v2 - v3;
-    vec4 v3d = v0 + mulI(v1) - v2 - mulI(v3);
+    vec4 v1i = mulI(v1);
+    vec4 v3i = mulI(v3);
+
+    //  [1  1   1  1]
+    //  [1 -i  -1  i]
+    //  [1 -1   1 -1]
+    //  [1  i  -1 -i]
+    // clang-format off
+    vec4 v0d = v0 +  v1 + v2 +  v3;
+    vec4 v1d = v0 - v1i - v2 + v3i;
+    vec4 v2d = v0 -  v1 + v2 -  v3;
+    vec4 v3d = v0 + v1i - v2 - v3i;
+    // clang-format on
 
     uint idxD = (j / Ns) * Ns * R + (j % Ns);
     ivec2 p0o = ivec2(idxD, row);
@@ -153,6 +173,86 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
     imageStore(outData, p3o, v3d);
 }
 
+void fftIterationRadix8(uint j, uint row, uint N, uint Ns)
+{
+    const uint R = 8;
+
+    uint idxS = j;
+    ivec2 pi[R];
+    for (uint r = 0; r < R; ++r)
+    {
+        pi[r] = ivec2(idxS + r * N / R, row);
+        if (TRANSPOSE)
+            pi[r] = pi[r].yx;
+    }
+
+    vec4 c[R];
+    for (uint r = 0; r < R; ++r)
+    {
+        c[r] = imageLoad(inData, pi[r]);
+        if (INVERSE)
+            c[r] = c[r].yxwz;
+    }
+
+    // This pass is bandwidth bound so a twiddle LUT won't help
+    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
+    vec2 w[R];
+    w[0] = vec2(1, 0); // cos(0), sin(0)
+    w[1] = vec2(cos(angle), sin(angle));
+    for (uint r = 2; r < R; ++r)
+        w[r] = vec2(cos(r * angle), sin(r * angle));
+
+    vec4 v[R];
+    for (uint r = 0; r < R; ++r)
+        v[r] = mulComplex(c[r], w[r].xyxy);
+
+    //  a = 1/sqrt(2) + i/sqrt(2)
+    vec2 a = vec2(0.707106781187, 0.707106781187);
+    vec2 ia = vec2(-0.707106781187, 0.707106781187);
+    vec4 vi[R];
+    vec4 va[R];
+    vec4 via[R];
+    for (uint r = 1; r < R; ++r)
+    {
+        vi[r] = mulI(v[r]);
+        va[r] = mulComplex(v[r], a.xyxy);
+        via[r] = mulComplex(v[r], ia.xyxy);
+    }
+
+    //  [1   1  1   1  1   1  1   1]
+    //  [1 -ia -i  -a -1  ia  i   a]
+    //  [1  -i -1   i  1  -i -1   i]
+    //  [1  -a  i -ia -1   a -i  ia]
+    //  [1  -1  1  -1  1  -1  1  -1]
+    //  [1  ia -i   a -1 -ia  i  -a]
+    //  [1   i -1  -i  1   i -1  -i]
+    //  [1   a  i  ia -1  -a -i -ia]
+    // clang-format off
+    vec4 vd[R];
+    vd[0] = v[0] +   v[1] +  v[2] +   v[3] + v[4] +   v[5] +  v[6] +   v[7];
+    vd[1] = v[0] - via[1] - vi[2] -  va[3] - v[4] + via[5] + vi[6] +  va[7];
+    vd[2] = v[0] -  vi[1] -  v[2] +  vi[3] + v[4] -  vi[5] -  v[6] +  vi[7];
+    vd[3] = v[0] -  va[1] + vi[2] - via[3] - v[4] +  va[5] - vi[6] + via[7];
+    vd[4] = v[0] -   v[1] +  v[2] -   v[3] + v[4] -   v[5] +  v[6] -   v[7];
+    vd[5] = v[0] + via[1] - vi[2] +  va[3] - v[4] - via[5] + vi[6] -  va[7];
+    vd[6] = v[0] +  vi[1] -  v[2] -  vi[3] + v[4] +  vi[5] -  v[6] -  vi[7];
+    vd[7] = v[0] +  va[1] + vi[2] + via[3] - v[4] -  va[5] - vi[6] - via[7];
+    // clang-format on
+
+    uint idxD = (j / Ns) * Ns * R + (j % Ns);
+    ivec2 po[R];
+    for (uint r = 0; r < R; ++r)
+    {
+        po[r] = ivec2(idxD + r * Ns, row);
+        if (TRANSPOSE)
+            po[r] = po[r].yx;
+        if (INVERSE)
+            vd[r] = vd[r].yxwz;
+    }
+    for (uint r = 0; r < R; ++r)
+        imageStore(outData, po[r], vd[r]);
+}
+
 layout(local_size_x = GROUP_X) in;
 void main()
 {
@@ -163,4 +263,6 @@ void main()
         fftIterationRadix2(j, row, PC.n, PC.ns);
     else if (RADIX == 4)
         fftIterationRadix4(j, row, PC.n, PC.ns);
+    else if (RADIX == 8)
+        fftIterationRadix8(j, row, PC.n, PC.ns);
 }
