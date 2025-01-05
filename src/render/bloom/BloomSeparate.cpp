@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 #include <shader_structs/push_constants/bloom/separate.h>
+#include <type_traits>
 
 using namespace glm;
 using namespace wheels;
@@ -25,11 +26,39 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 } // namespace
 
+uint32_t specializationIndex(BloomResolutionScale scale)
+{
+    uint32_t ret = 0;
+
+    ret = static_cast<std::underlying_type_t<BloomResolutionScale>>(scale);
+
+    return ret;
+}
+
+StaticArray<uint32_t, 2> generateSpecializationConstants()
+{
+    StaticArray<uint32_t, 2> ret;
+    for (const BloomResolutionScale scale :
+         {BloomResolutionScale::Half, BloomResolutionScale::Quarter})
+    {
+        const uint32_t constants = static_cast<uint32_t>(scale);
+        const uint32_t index = specializationIndex(scale);
+        ret[index] = constants;
+    }
+
+    return ret;
+}
+
 void BloomSeparate::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+    const StaticArray specializationConstants =
+        generateSpecializationConstants();
+
+    m_computePass.init(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        specializationConstants.span());
 
     m_initialized = true;
 }
@@ -51,7 +80,7 @@ void BloomSeparate::drawUi()
 
 ImageHandle BloomSeparate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
-    const uint32_t nextFrame)
+    BloomResolutionScale resolutionScale, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -62,7 +91,8 @@ ImageHandle BloomSeparate::record(
         const vk::Extent2D inputExtent = getExtent2D(input.illumination);
 
         const uint32_t dim = std::max(
-            std::bit_ceil(std::max(inputExtent.width, inputExtent.height)) / 2,
+            std::bit_ceil(std::max(inputExtent.width, inputExtent.height)) /
+                bloomResolutionScale(resolutionScale),
             BloomFft::sMinResolution);
 
         ret = gRenderResources.images->create(
@@ -115,7 +145,11 @@ ImageHandle BloomSeparate::record(
             .threshold = m_threshold,
         };
         const uvec3 groupCount = m_computePass.groupCount(uvec3{dim, dim, 1u});
-        m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
+        m_computePass.record(
+            cb, pcBlock, groupCount, Span{&descriptorSet, 1},
+            ComputePassOptionalRecordArgs{
+                .specializationIndex = specializationIndex(resolutionScale),
+            });
     }
 
     return ret;

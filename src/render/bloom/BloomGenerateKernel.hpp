@@ -4,6 +4,7 @@
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
+#include "render/bloom/BloomResolutionScale.hpp"
 #include "render/bloom/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -30,7 +31,8 @@ class BloomGenerateKernel
 
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const vk::Extent2D &renderExtent, BloomFft &fft, uint32_t nextFrame);
+        const vk::Extent2D &renderExtent, BloomFft &fft,
+        BloomResolutionScale resolutionScale, uint32_t nextFrame);
     void releasePreserved();
 
   private:

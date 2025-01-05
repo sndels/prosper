@@ -3,6 +3,7 @@
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
 #include "utils/Profiler.hpp"
+#include "utils/Ui.hpp"
 
 #include <imgui.h>
 
@@ -39,6 +40,8 @@ void Bloom::startFrame() { m_fft.startFrame(); }
 void Bloom::drawUi()
 {
     ImGui::Indent();
+    enumDropdown(
+        "Resolution scale", m_resolutionScale, sResolutionScaleTypeNames);
     m_separate.drawUi();
     m_generateKernel.drawUi();
     ImGui::Unindent();
@@ -53,11 +56,12 @@ Bloom::Output Bloom::record(
     PROFILER_CPU_GPU_SCOPE(cb, "Bloom");
 
     const vk::Extent2D inputExtent = getExtent2D(input.illumination);
-    ImageHandle kernelDft = m_generateKernel.record(
-        scopeAlloc.child_scope(), cb, inputExtent, m_fft, nextFrame);
+    const ImageHandle kernelDft = m_generateKernel.record(
+        scopeAlloc.child_scope(), cb, inputExtent, m_fft, m_resolutionScale,
+        nextFrame);
 
-    ImageHandle workingImage =
-        m_separate.record(scopeAlloc.child_scope(), cb, input, nextFrame);
+    const ImageHandle workingImage = m_separate.record(
+        scopeAlloc.child_scope(), cb, input, m_resolutionScale, nextFrame);
 
     const ImageHandle highlightsDft = m_fft.record(
         scopeAlloc.child_scope(), cb, workingImage, nextFrame, false, "Bloom");
@@ -83,7 +87,7 @@ Bloom::Output Bloom::record(
             .illumination = input.illumination,
             .bloomHighlights = convolvedHighlights,
         },
-        nextFrame);
+        m_resolutionScale, nextFrame);
 
     gRenderResources.images->release(convolvedHighlights);
 

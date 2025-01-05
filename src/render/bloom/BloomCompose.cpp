@@ -45,7 +45,7 @@ void BloomCompose::recompileShaders(
 
 ImageHandle BloomCompose::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
-    const uint32_t nextFrame)
+    BloomResolutionScale resolutionScale, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -115,6 +115,7 @@ ImageHandle BloomCompose::record(
                 1.f / vec2(illuminationExtent.width, illuminationExtent.height),
             .invBloomDimSquared =
                 1.f / static_cast<float>(bloomExtent.width * bloomExtent.width),
+            .resolutionScale = bloomResolutionScale(resolutionScale),
         };
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{illuminationExtent.width, illuminationExtent.height, 1u});

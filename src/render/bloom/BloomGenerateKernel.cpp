@@ -52,12 +52,15 @@ void BloomGenerateKernel::drawUi()
 
 ImageHandle BloomGenerateKernel::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-    const vk::Extent2D &renderExtent, BloomFft &fft, const uint32_t nextFrame)
+    const vk::Extent2D &renderExtent, BloomFft &fft,
+    BloomResolutionScale resolutionScale, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
+    const uint32_t resolutionScaleUint = bloomResolutionScale(resolutionScale);
     const uint32_t dim = std::max(
-        std::bit_ceil(std::max(renderExtent.width, renderExtent.height)) / 2,
+        std::bit_ceil(std::max(renderExtent.width, renderExtent.height)) /
+            resolutionScaleUint,
         BloomFft::sMinResolution);
     WHEELS_ASSERT(dim % sGroupSize.x == 0 && "Shader doesn't do bounds checks");
     WHEELS_ASSERT(dim % sGroupSize.y == 0 && "Shader doesn't do bounds checks");
@@ -112,8 +115,8 @@ ImageHandle BloomGenerateKernel::record(
         PROFILER_GPU_SCOPE(cb, "  GenerateKernel");
 
         const GenerateKernelPC pcBlock{
-            // Bloom happens in half resolution
-            .invRenderResolution = 2.f /
+            // Bloom happens in quarter resolution
+            .invRenderResolution = static_cast<float>(resolutionScaleUint) /
                                    vec2{
                                        static_cast<float>(renderExtent.width),
                                        static_cast<float>(renderExtent.height),

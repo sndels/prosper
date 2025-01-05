@@ -10,6 +10,7 @@ layout(set = 0, binding = 2) uniform sampler
     bilinearBorderTransparentBlackSampler;
 
 layout(push_constant) uniform PushConstants { SeparatePC PC; };
+layout(constant_id = 0) const uint RESOLUTION_SCALE_ENUM = 0;
 
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
@@ -17,14 +18,54 @@ void main()
     ivec2 outRes = imageSize(outHighlights);
     ivec2 outCoord = ivec2(gl_GlobalInvocationID.xy);
 
-    // No +.5 because we want the middle of the input quad
-    vec2 inUV = outCoord * 2 * PC.invInResolution;
+    vec3 illumination;
+    if (RESOLUTION_SCALE_ENUM == 0)
+    {
+        // No +.5 because we want the middle of the input quads
+        vec2 inUV = outCoord * 2 * PC.invInResolution;
+        illumination =
+            texture(
+                sampler2D(
+                    inIllumination, bilinearBorderTransparentBlackSampler),
+                inUV)
+                .rgb;
+    }
+    else if (RESOLUTION_SCALE_ENUM == 1)
+    {
+        // No +.5 because we want the middle of the input quads
+        vec2 inUV00 = (outCoord * 4 + vec2(-1, -1)) * PC.invInResolution;
+        vec2 inUV01 = (outCoord * 4 + vec2(-1, 1)) * PC.invInResolution;
+        vec2 inUV10 = (outCoord * 4 + vec2(1, -1)) * PC.invInResolution;
+        vec2 inUV11 = (outCoord * 4 + vec2(1, 1)) * PC.invInResolution;
 
-    vec3 illumination =
-        texture(
-            sampler2D(inIllumination, bilinearBorderTransparentBlackSampler),
-            inUV)
-            .rgb;
+        vec3 illumination00 =
+            texture(
+                sampler2D(
+                    inIllumination, bilinearBorderTransparentBlackSampler),
+                inUV00)
+                .rgb;
+        vec3 illumination01 =
+            texture(
+                sampler2D(
+                    inIllumination, bilinearBorderTransparentBlackSampler),
+                inUV01)
+                .rgb;
+        vec3 illumination10 =
+            texture(
+                sampler2D(
+                    inIllumination, bilinearBorderTransparentBlackSampler),
+                inUV10)
+                .rgb;
+        vec3 illumination11 =
+            texture(
+                sampler2D(
+                    inIllumination, bilinearBorderTransparentBlackSampler),
+                inUV11)
+                .rgb;
+        illumination = (illumination00 + illumination01 + illumination10 +
+                        illumination11) /
+                       4.;
+    }
     vec3 highlight = max(illumination - PC.threshold, vec3(0));
 
     imageStore(outHighlights, outCoord, vec4(highlight, 0));

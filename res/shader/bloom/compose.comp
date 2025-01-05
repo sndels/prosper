@@ -23,7 +23,8 @@ void main()
     float dim = 1. / PC.invBloomDimSquared;
     dim = sqrt(dim);
     vec2 illuRes = 1.f / PC.invIlluminationResolution;
-    vec2 illuminationUVToHighlightUVScale = illuRes / (dim * 2.);
+    vec2 illuminationUVToHighlightUVScale =
+        illuRes / (dim * PC.resolutionScale);
     vec2 highlightUV = vec2(coord) * PC.invIlluminationResolution *
                        illuminationUVToHighlightUVScale;
 

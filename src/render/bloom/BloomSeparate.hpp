@@ -4,6 +4,7 @@
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
+#include "render/bloom/BloomResolutionScale.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
@@ -33,7 +34,8 @@ class BloomSeparate
     };
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Input &input, uint32_t nextFrame);
+        const Input &input, BloomResolutionScale resolutionScale,
+        uint32_t nextFrame);
 
   private:
     bool m_initialized{false};
