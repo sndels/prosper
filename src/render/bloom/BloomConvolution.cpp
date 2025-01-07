@@ -5,6 +5,7 @@
 #include "utils/Profiler.hpp"
 
 #include <imgui.h>
+#include <shader_structs/push_constants/bloom/convolution.h>
 
 using namespace glm;
 using namespace wheels;
@@ -89,7 +90,11 @@ void BloomConvolution::record(
 
     PROFILER_GPU_SCOPE(cb, "  Convolution");
 
+    const ConvolutionPC pcBlock{
+        .scale = inputOutput.convolutionScale,
+    };
+
     const uvec3 groupCount = m_computePass.groupCount(
         uvec3{highlightsExtent.width, highlightsExtent.height, 1u});
-    m_computePass.record(cb, groupCount, Span{&descriptorSet, 1});
+    m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
 }

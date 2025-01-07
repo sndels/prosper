@@ -28,6 +28,7 @@ class BloomGenerateKernel
         const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     void drawUi();
+    [[nodiscard]] float convolutionScale() const;
 
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
@@ -36,10 +37,21 @@ class BloomGenerateKernel
     void releasePreserved();
 
   private:
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) private
+    [[nodiscard]] ImageHandle recordGenerate(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t dim,
+        uint32_t nextFrame);
+
+    void recordPrepare(
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, uint32_t dim,
+        BloomFft &fft, ImageHandle inKernel, uint32_t nextFrame);
+
     bool m_initialized{false};
     bool m_reGenerate{false};
     ImageHandle m_kernelDft;
-    ComputePass m_computePass;
+    uint32_t m_previousKernelImageDim{0};
+    ComputePass m_generatePass;
+    ComputePass m_preparePass;
 };
 
 #endif // PROSPER_RENDER_BLOOM_GENERATE_KERNEL_HPP

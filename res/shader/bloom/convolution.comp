@@ -3,9 +3,12 @@
 #extension GL_EXT_shader_image_load_formatted : require
 
 #include "../common/math.glsl"
+#include "../shared/shader_structs/push_constants/bloom/convolution.h"
 
 layout(set = 0, binding = 0) uniform image2D inOutHighlightsDft;
 layout(set = 0, binding = 1) uniform readonly image2D inKernelDft;
+
+layout(push_constant) uniform PushConstants { ConvolutionPC PC; };
 
 vec4 mulComplex(vec4 a, vec4 b)
 {
@@ -25,7 +28,7 @@ void main()
     vec4 highlights = imageLoad(inOutHighlightsDft, p);
     vec4 kernel = imageLoad(inKernelDft, p);
 
-    vec4 convolved = mulComplex(highlights, kernel) / (float(n) * .5);
+    vec4 convolved = mulComplex(highlights, kernel) * PC.scale;
 
     imageStore(inOutHighlightsDft, p, convolved);
 }

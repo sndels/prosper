@@ -68,11 +68,17 @@ Bloom::Output Bloom::record(
 
     gRenderResources.images->release(workingImage);
 
+    float convolutionScale = m_generateKernel.convolutionScale();
+    if (m_resolutionScale == BloomResolutionScale::Quarter)
+        // This seems to match bloom intensity between quarter and half res
+        convolutionScale *= 2.;
+
     m_convolution.record(
         scopeAlloc.child_scope(), cb,
         BloomConvolution::InputOutput{
             .inOutHighlightsDft = highlightsDft,
             .inKernelDft = kernelDft,
+            .convolutionScale = convolutionScale,
         },
         nextFrame);
 

@@ -1,6 +1,8 @@
 # Have this here instead of subdirectories to make wildcard clang-format simpler before the
 # llvm version is new enough for .clang-format-ignores
 set(SHARED_SHADER_STRUCTS_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/bloom/compose.h
+    ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/bloom/convolution.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/bloom/fft.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/bloom/separate.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/dof/dilate.h

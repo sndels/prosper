@@ -1,0 +1,47 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+layout(set = 0, binding = 0) uniform readonly image2D inKernel;
+layout(set = 0, binding = 1) uniform writeonly image2D outKernel;
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    vec2 inRes = vec2(imageSize(inKernel));
+    vec2 outRes = vec2(imageSize(outKernel));
+    // No bounds checks, CPU side ensures output is divisible by the group size
+
+    // Center and wrap the kernel around the corners to get proper convolution
+    vec2 pOut = vec2(gl_GlobalInvocationID.xy);
+    vec2 pIn;
+    vec2 halfInRes = inRes / 2.;
+    if (pOut.x >= outRes.x / 2.)
+        pIn.x = pOut.x + (inRes.x - 2. * outRes.x) / 2.;
+    else
+        pIn.x = pOut.x + halfInRes.x;
+    if (pOut.y >= outRes.y / 2)
+        pIn.y = pOut.y + (inRes.y - 2. * outRes.y) / 2.;
+    else
+        pIn.y = pOut.y + halfInRes.y;
+
+    vec4 outValue;
+    if (all(greaterThanEqual(pIn, vec2(0))) && all(lessThan(pIn, inRes)))
+    {
+        outValue = imageLoad(inKernel, ivec2(pIn));
+    }
+    else
+        outValue = vec4(0);
+    // Seems like we can get away with treating the RG, BA as two complex
+    // channels in FFT when the filter imaginary components are zero. This means
+    // that there is RG and BA can have different filters.
+    // TODO:
+    // Can we recover the four channel result even when G,A have distinct
+    // filters? Numerical Recipes and other sources only do the two-for-one
+    // trick within the FFT and recover the two DFTs explicitly. UE4 FFT bloom
+    // stream suggested they don't.
+    outValue.g = 0;
+    outValue.a = 0;
+
+    imageStore(outKernel, ivec2(pOut), outValue);
+}

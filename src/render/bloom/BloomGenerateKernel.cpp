@@ -6,7 +6,6 @@
 #include "utils/Profiler.hpp"
 
 #include <imgui.h>
-#include <shader_structs/push_constants/bloom/generate_kernel.h>
 
 using namespace glm;
 using namespace wheels;
@@ -15,11 +14,20 @@ namespace
 {
 constexpr uvec3 sGroupSize{16, 16, 1};
 
-ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
+ComputePass::Shader generateShaderDefinitionCallback(Allocator &alloc)
 {
     return ComputePass::Shader{
         .relPath = "shader/bloom/generate_kernel.comp",
         .debugName = String{alloc, "BloomGenerateKernelCS"},
+        .groupSize = sGroupSize,
+    };
+}
+
+ComputePass::Shader prepareShaderDefinitionCallback(Allocator &alloc)
+{
+    return ComputePass::Shader{
+        .relPath = "shader/bloom/prepare_kernel.comp",
+        .debugName = String{alloc, "BloomPrepareKernelCS"},
         .groupSize = sGroupSize,
     };
 }
@@ -30,7 +38,9 @@ void BloomGenerateKernel::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+    m_generatePass.init(
+        scopeAlloc.child_scope(), generateShaderDefinitionCallback);
+    m_preparePass.init(WHEELS_MOV(scopeAlloc), prepareShaderDefinitionCallback);
 
     m_initialized = true;
 }
@@ -41,13 +51,21 @@ void BloomGenerateKernel::recompileShaders(
 {
     WHEELS_ASSERT(m_initialized);
 
-    m_reGenerate |= m_computePass.recompileShader(
-        WHEELS_MOV(scopeAlloc), changedFiles, shaderDefinitionCallback);
+    m_reGenerate |= m_generatePass.recompileShader(
+        scopeAlloc.child_scope(), changedFiles,
+        generateShaderDefinitionCallback);
+    m_reGenerate |= m_preparePass.recompileShader(
+        WHEELS_MOV(scopeAlloc), changedFiles, prepareShaderDefinitionCallback);
 }
 
 void BloomGenerateKernel::drawUi()
 {
     ImGui::Checkbox("Re-generate kernel", &m_reGenerate);
+}
+
+float BloomGenerateKernel::convolutionScale() const
+{
+    return 2.f / static_cast<float>(m_previousKernelImageDim);
 }
 
 ImageHandle BloomGenerateKernel::record(
@@ -58,20 +76,21 @@ ImageHandle BloomGenerateKernel::record(
     WHEELS_ASSERT(m_initialized);
 
     const uint32_t resolutionScaleUint = bloomResolutionScale(resolutionScale);
+    const uint32_t kernelImageDim = renderExtent.height / resolutionScaleUint;
     const uint32_t dim = std::max(
         std::bit_ceil(std::max(renderExtent.width, renderExtent.height)) /
             resolutionScaleUint,
         BloomFft::sMinResolution);
-    WHEELS_ASSERT(dim % sGroupSize.x == 0 && "Shader doesn't do bounds checks");
-    WHEELS_ASSERT(dim % sGroupSize.y == 0 && "Shader doesn't do bounds checks");
+    WHEELS_ASSERT(
+        dim % sGroupSize.x == 0 && "Prepare shader doesn't do bounds checks");
+    WHEELS_ASSERT(
+        dim % sGroupSize.y == 0 && "Prepare shader doesn't do bounds checks");
 
     if (gRenderResources.images->isValidHandle(m_kernelDft))
     {
         if (!m_reGenerate)
         {
-            const vk::Extent2D previousExtent = getExtent2D(m_kernelDft);
-            WHEELS_ASSERT(previousExtent.width == previousExtent.height);
-            if (dim == previousExtent.width)
+            if (kernelImageDim == m_previousKernelImageDim)
             {
                 gRenderResources.images->preserve(m_kernelDft);
                 return m_kernelDft;
@@ -80,6 +99,23 @@ ImageHandle BloomGenerateKernel::record(
         gRenderResources.images->release(m_kernelDft);
     }
 
+    const ImageHandle kernelImage =
+        recordGenerate(scopeAlloc.child_scope(), cb, kernelImageDim, nextFrame);
+
+    recordPrepare(
+        scopeAlloc.child_scope(), cb, dim, fft, kernelImage, nextFrame);
+
+    gRenderResources.images->release(kernelImage);
+
+    return m_kernelDft;
+}
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) private
+ImageHandle BloomGenerateKernel::recordGenerate(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const uint32_t dim,
+    const uint32_t nextFrame)
+// NOLINTEND(bugprone-easily-swappable-parameters)
+{
     ImageHandle kernel;
     {
         PROFILER_CPU_SCOPE("  GenerateKernel");
@@ -93,9 +129,9 @@ ImageHandle BloomGenerateKernel::record(
                               vk::ImageUsageFlagBits::eStorage,
 
             },
-            "BloomKernel");
+            "BloomKernelImageCentered");
 
-        const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
+        const vk::DescriptorSet descriptorSet = m_generatePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
                 DescriptorInfo{vk::DescriptorImageInfo{
@@ -114,25 +150,68 @@ ImageHandle BloomGenerateKernel::record(
 
         PROFILER_GPU_SCOPE(cb, "  GenerateKernel");
 
-        const GenerateKernelPC pcBlock{
-            // Bloom happens in quarter resolution
-            .invRenderResolution = static_cast<float>(resolutionScaleUint) /
-                                   vec2{
-                                       static_cast<float>(renderExtent.width),
-                                       static_cast<float>(renderExtent.height),
-                                   },
-        };
-        const uvec3 groupCount = m_computePass.groupCount(uvec3{dim, dim, 1u});
-        m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
+        const uvec3 groupCount = m_generatePass.groupCount(uvec3{dim, dim, 1u});
+        m_generatePass.record(cb, groupCount, Span{&descriptorSet, 1});
+    }
+    m_previousKernelImageDim = dim;
+
+    return kernel;
+}
+
+void BloomGenerateKernel::recordPrepare(
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const uint32_t dim,
+    BloomFft &fft, ImageHandle inKernel, const uint32_t nextFrame)
+{
+    ImageHandle outKernel;
+    {
+        PROFILER_CPU_SCOPE("  PrepareKernel");
+
+        outKernel = gRenderResources.images->create(
+            ImageDescription{
+                .format = BloomFft::sFftFormat,
+                .width = dim,
+                .height = dim,
+                .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eStorage,
+
+            },
+            "BloomKernelImageScaled");
+
+        const vk::DescriptorSet descriptorSet = m_preparePass.updateStorageSet(
+            scopeAlloc.child_scope(), nextFrame,
+            StaticArray{{
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        gRenderResources.images->resource(inKernel).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+                DescriptorInfo{vk::DescriptorImageInfo{
+                    .imageView =
+                        gRenderResources.images->resource(outKernel).view,
+                    .imageLayout = vk::ImageLayout::eGeneral,
+                }},
+            }});
+
+        transition(
+            scopeAlloc.child_scope(), cb,
+            Transitions{
+                .images = StaticArray<ImageTransition, 2>{{
+                    {inKernel, ImageState::ComputeShaderRead},
+                    {outKernel, ImageState::ComputeShaderWrite},
+                }},
+            });
+
+        PROFILER_GPU_SCOPE(cb, "  PrepareKernel");
+
+        const uvec3 groupCount = m_preparePass.groupCount(uvec3{dim, dim, 1u});
+        m_preparePass.record(cb, groupCount, Span{&descriptorSet, 1});
     }
 
     m_kernelDft = fft.record(
-        scopeAlloc.child_scope(), cb, kernel, nextFrame, false, "BloomKernel");
+        WHEELS_MOV(scopeAlloc), cb, outKernel, nextFrame, false, "BloomKernel");
     gRenderResources.images->preserve(m_kernelDft);
 
-    gRenderResources.images->release(kernel);
-
-    return m_kernelDft;
+    gRenderResources.images->release(outKernel);
 }
 
 void BloomGenerateKernel::releasePreserved()

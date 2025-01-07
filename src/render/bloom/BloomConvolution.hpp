@@ -28,6 +28,7 @@ class BloomConvolution
     {
         ImageHandle inOutHighlightsDft;
         ImageHandle inKernelDft;
+        float convolutionScale{0.f};
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

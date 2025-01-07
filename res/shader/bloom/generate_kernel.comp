@@ -1,11 +1,8 @@
 #pragma shader_stage(compute)
 
 #include "../common/math.glsl"
-#include "../shared/shader_structs/push_constants/bloom/generate_kernel.h"
 
 layout(set = 0, binding = 0) uniform writeonly image2D outKernel;
-
-layout(push_constant) uniform PushConstants { GenerateKernelPC PC; };
 
 float gaussian(float x, float a, float b, float c)
 {
@@ -16,29 +13,20 @@ layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
     ivec2 outRes = imageSize(outKernel);
-    // No bounds checks, CPU side ensures output is divisible by the group size
+    if (any(greaterThanEqual(gl_GlobalInvocationID.xy, outRes)))
+        return;
 
-    // Center the kernel at the corners and wrap it because that's what gets us
-    // a proper convolution it seems.
+    // Center the kernel in the image for easy tweaking. scale_kernel will
+    // handle wrapping it across the corners for convolution.
     vec2 p = gl_GlobalInvocationID.xy / vec2(outRes);
     p = p * 2. - 1.;
-    p.x = abs(p.x);
-    p.y = abs(p.y);
 
-    vec4 outValue = vec4(gaussian(length(p - vec2(1., 1.)) * 100., .5, 1., 1.));
-    if (abs(p.y) > 1. - (4. / outRes.y))
-        outValue += vec4(.01, 0., .5, 0.) *
-                    gaussian(length(p - vec2(1., 1.)) * 10., .5, 1., 1.);
-    // Seems like we can get away with treating the RG, BA as two complex
-    // channels in FFT when the filter imaginary components are zero. This means
-    // that there is RG and BA can have different filters.
-    // TODO:
-    // Can we recover the four channel result even when G,A have distinct
-    // filters? Numerical Recipes and other sources only do the two-for-one
-    // trick within the FFT and recover the two DFTs explicitly. UE4 FFT bloom
-    // stream suggested they don't.
-    outValue.g = 0;
-    outValue.a = 0;
+    // Convolution will use R,B filters for G,A too. See prepare_kernel for
+    // details.
+    vec4 outValue = vec4(gaussian(length(p) * 100., .25, 1., .5));
+    if (abs(p.y) < .005)
+        outValue +=
+            vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
 
     imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), outValue);
 }
