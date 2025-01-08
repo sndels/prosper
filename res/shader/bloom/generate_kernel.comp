@@ -23,7 +23,7 @@ void main()
 
     // Convolution will use R,B filters for G,A too. See prepare_kernel for
     // details.
-    vec4 outValue = vec4(gaussian(length(p) * 100., .25, 1., .5));
+    vec4 outValue = vec4(gaussian(length(p), .01, .175, .045));
     if (abs(p.y) < .005)
         outValue +=
             vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
