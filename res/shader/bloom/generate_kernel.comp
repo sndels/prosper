@@ -9,9 +9,49 @@ float gaussian(float x, float a, float b, float c)
     return a * exp(-(x - b * b) / (2 * c * c));
 }
 
+// From https://mercury.sexy/hg_sdf/
+// Under MIT
+// Rotate around a coordinate axis (i.e. in a plane perpendicular to that axis)
+// by angle <a>. Read like this: R(p.xz, a) rotates "x towards z". This is fast
+// if <a> is a compile-time constant and slower (but still practical) if not.
+void pR(inout vec2 p, float a) { p = cos(a) * p + sin(a) * vec2(p.y, -p.x); }
+
+// From iq under MIT
+// https://www.shadertoy.com/view/3tSGDy
+//  signed distance to a n-star polygon, with external angle w
+float sdStar(in vec2 p, in float r, in float n, in float w)
+{
+    // these 5 lines can be precomputed for a given shape
+    // float m = n*(1.0-w) + w*2.0;
+    float m = n + w * (2.0 - n);
+
+    float an = 3.1415927 / n;
+    float en = 3.1415927 / m;
+    vec2 racs = r * vec2(cos(an), sin(an));
+    vec2 ecs = vec2(
+        cos(en), sin(en)); // ecs=vec2(0,1) and simplify, for regular polygon,
+
+    // symmetry (optional)
+    p.x = abs(p.x);
+
+    // reduce to first sector
+    float bn = mod(atan(p.x, p.y), 2.0 * an) - an;
+    p = length(p) * vec2(cos(bn), abs(sin(bn)));
+
+    // line sdf
+    p -= racs;
+    p += ecs * clamp(-dot(p, ecs), 0.0, racs.y / ecs.y);
+    return length(p) * sign(p.x);
+}
+
 vec4 filterValue(vec2 p)
 {
-    vec4 ret = vec4(gaussian(length(p), .01, .175, .045));
+    vec2 pp = p;
+    float dStar = sdStar(pp, .05, 4, .1);
+    pR(pp.xy, PI / 4);
+    dStar = min(dStar, sdStar(pp, .035, 4, .1));
+    vec4 ret =
+        dStar < 0. ? vec4(2.5 * gaussian(length(p), .1, 1.0, .45)) : vec4(0);
     if (abs(p.y) < .005)
         ret += vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
 
