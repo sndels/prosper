@@ -389,6 +389,7 @@ void Renderer::render(
         m_gbufferRenderer->releasePreserved();
         m_rtDirectIllumination->releasePreserved();
         m_temporalAntiAliasing->releasePreserved();
+        m_bloom->releasePreserved();
 
         illumination =
             m_rtReference
@@ -539,6 +540,8 @@ void Renderer::render(
                 nextFrame);
             gRenderResources.images->release(bloomOutput.illuminationWithBloom);
         }
+        else
+            m_bloom->releasePreserved();
 
         gRenderResources.images->release(velocity);
         gRenderResources.images->release(depth);

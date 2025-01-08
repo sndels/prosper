@@ -3,6 +3,7 @@
 
 #include "render/RenderResourceHandle.hpp"
 #include "render/bloom/BloomFft.hpp"
+#include "render/bloom/BloomGenerateKernel.hpp"
 #include "render/bloom/BloomSeparate.hpp"
 
 #include <filesystem>
@@ -39,9 +40,11 @@ class Bloom
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, uint32_t nextFrame);
+    void releasePreserved();
 
   private:
     bool m_initialized{false};
+    BloomGenerateKernel m_generateKernel;
     BloomSeparate m_separate;
     BloomFft m_fft;
 };
