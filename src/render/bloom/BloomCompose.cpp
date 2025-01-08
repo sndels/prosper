@@ -22,13 +22,40 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     };
 }
 
+uint32_t specializationIndex(bool sampleBiquadratic)
+{
+    uint32_t ret = 0;
+
+    ret = static_cast<uint32_t>(sampleBiquadratic);
+
+    return ret;
+}
+
+StaticArray<uint32_t, 2> generateSpecializationConstants()
+{
+    StaticArray<uint32_t, 2> ret;
+    for (const bool sampleBiquadratic : {false, true})
+    {
+        const uint32_t constants = static_cast<uint32_t>(sampleBiquadratic);
+        const uint32_t index = specializationIndex(sampleBiquadratic);
+        ret[index] = constants;
+    }
+
+    return ret;
+}
+
 } // namespace
 
 void BloomCompose::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
+    const StaticArray specializationConstants =
+        generateSpecializationConstants();
+
+    m_computePass.init(
+        WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
+        specializationConstants.span());
 
     m_initialized = true;
 }
@@ -108,6 +135,9 @@ ImageHandle BloomCompose::record(
 
         PROFILER_GPU_SCOPE(cb, "  Compose");
 
+        const bool sampleBiquadratic =
+            resolutionScale != BloomResolutionScale::Half;
+
         const ComposePC pcBlock{
             .illuminationResolution =
                 vec2(illuminationExtent.width, illuminationExtent.height),
@@ -119,7 +149,11 @@ ImageHandle BloomCompose::record(
         };
         const uvec3 groupCount = m_computePass.groupCount(
             uvec3{illuminationExtent.width, illuminationExtent.height, 1u});
-        m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
+        m_computePass.record(
+            cb, pcBlock, groupCount, Span{&descriptorSet, 1},
+            ComputePassOptionalRecordArgs{
+                .specializationIndex = specializationIndex(sampleBiquadratic),
+            });
     }
 
     return ret;
