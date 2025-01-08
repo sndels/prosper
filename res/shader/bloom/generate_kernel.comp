@@ -9,6 +9,15 @@ float gaussian(float x, float a, float b, float c)
     return a * exp(-(x - b * b) / (2 * c * c));
 }
 
+vec4 filterValue(vec2 p)
+{
+    vec4 ret = vec4(gaussian(length(p), .01, .175, .045));
+    if (abs(p.y) < .005)
+        ret += vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
+
+    return ret;
+}
+
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
@@ -18,15 +27,24 @@ void main()
 
     // Center the kernel in the image for easy tweaking. scale_kernel will
     // handle wrapping it across the corners for convolution.
-    vec2 p = gl_GlobalInvocationID.xy / vec2(outRes);
-    p = p * 2. - 1.;
-
+    // Supersample to get rid of bad aliasing.
     // Convolution will use R,B filters for G,A too. See prepare_kernel for
     // details.
-    vec4 outValue = vec4(gaussian(length(p), .01, .175, .045));
-    if (abs(p.y) < .005)
-        outValue +=
-            vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
+    uint superSampleFactor = 8;
+    vec2 pxSize = 1.f / vec2(outRes * superSampleFactor);
+    vec4 outValue = vec4(0);
+    for (uint j = 0; j < superSampleFactor; ++j)
+    {
+        for (uint i = 0; i < superSampleFactor; ++i)
+        {
+            vec2 p = (gl_GlobalInvocationID.xy * superSampleFactor +
+                      vec2(i, j) + .5) *
+                     pxSize;
+            p = p * 2. - 1.;
+            outValue += filterValue(p);
+        }
+    }
+    outValue /= superSampleFactor * superSampleFactor;
 
     imageStore(outKernel, ivec2(gl_GlobalInvocationID.xy), outValue);
 }
