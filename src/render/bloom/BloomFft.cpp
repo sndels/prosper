@@ -2,6 +2,7 @@
 
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
+#include "utils/Logger.hpp"
 #include "utils/Profiler.hpp"
 
 #include <bit>
@@ -264,8 +265,8 @@ void BloomFft::doIteration(
 {
     const uint32_t outputDim = iterData.n;
     WHEELS_ASSERT(
-        outputDim % sGroupSize == 0 &&
-        "FFT shader assumes the input is divisible by group size");
+        outputDim / (1 << iterData.radixPower) % sGroupSize == 0 &&
+        "FFT shader assumes the thread count is divisible by group size");
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
