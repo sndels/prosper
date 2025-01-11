@@ -41,6 +41,51 @@ vec4 mulComplex(vec4 a, vec4 b)
 // [1   w_n^(n-1)  w_n^2(n-1) ... w_n^(n-1)(n-1)]
 //
 // where W_n^k = e^(-2*PI*k/n)
+//
+
+void fftButterflyRadix2(vec4 in0, vec4 in1, out vec4 out0, out vec4 out1)
+{
+    out0 = in0 + in1;
+    out1 = in0 - in1;
+}
+
+// clang-format off
+void fftButterflyRadix4(
+    vec4 in0, vec4 in1, vec4 in2, vec4 in3,
+    out vec4 out0, out vec4 out1, out vec4 out2, out vec4 out3
+)
+// clang-format on
+{
+    vec4 tmp[4];
+    fftButterflyRadix2(in0, in2, tmp[0], tmp[2]);
+    fftButterflyRadix2(in1, in3, tmp[1], tmp[3]);
+
+    tmp[3] = -mulI(tmp[3]);
+
+    fftButterflyRadix2(tmp[0], tmp[1], out0, out2);
+    fftButterflyRadix2(tmp[2], tmp[3], out1, out3);
+}
+
+// clang-format off
+void fftButterflyRadix8(
+    vec4 in0, vec4 in1, vec4 in2, vec4 in3, vec4 in4, vec4 in5, vec4 in6, vec4 in7,
+    out vec4 out0, out vec4 out1, out vec4 out2, out vec4 out3, out vec4 out4, out vec4 out5, out vec4 out6, out vec4 out7
+)
+// clang-format on
+{
+    vec4 tmp[8];
+    fftButterflyRadix2(in0, in4, tmp[0], tmp[4]);
+    fftButterflyRadix2(in1, in5, tmp[1], tmp[5]);
+    fftButterflyRadix2(in2, in6, tmp[2], tmp[6]);
+    fftButterflyRadix2(in3, in7, tmp[3], tmp[7]);
+
+    tmp[5] = mulComplex(tmp[5], vec2(0.707106781187, -0.707106781187).xyxy);
+    tmp[6] = -mulI(tmp[6]);
+    tmp[7] = mulComplex(tmp[7], vec2(-0.707106781187, -0.707106781187).xyxy);
+
+    fftButterflyRadix4(tmp[0], tmp[1], tmp[2], tmp[3], out0, out2, out4, out6);
+    fftButterflyRadix4(tmp[4], tmp[5], tmp[6], tmp[7], out1, out3, out5, out7);
+}
 
 void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
 {
@@ -68,13 +113,11 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
     vec2 w0 = vec2(1, 0); // cos(0), sin(0)
     vec2 w1 = vec2(cos(angle), sin(angle));
 
-    vec4 v0 = mulComplex(c0, w0.xyxy);
+    vec4 v0 = c0; // mulComplex(c0, w0.xyxy);
     vec4 v1 = mulComplex(c1, w1.xyxy);
 
-    //  [1  1]
-    //  [1 -1]
-    vec4 v0d = v0 + v1;
-    vec4 v1d = v0 - v1;
+    vec4 v0d, v1d;
+    fftButterflyRadix2(v0, v1, v0d, v1d);
 
     uint idxD = (j / Ns) * Ns * R + (j % Ns);
     ivec2 p0o = ivec2(idxD, row);
@@ -129,24 +172,13 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
     vec2 w2 = vec2(cos(2 * angle), sin(2 * angle));
     vec2 w3 = vec2(cos(3 * angle), sin(3 * angle));
 
-    vec4 v0 = mulComplex(c0, w0.xyxy);
+    vec4 v0 = c0; // mulComplex(c0, w0.xyxy);
     vec4 v1 = mulComplex(c1, w1.xyxy);
     vec4 v2 = mulComplex(c2, w2.xyxy);
     vec4 v3 = mulComplex(c3, w3.xyxy);
 
-    vec4 v1i = mulI(v1);
-    vec4 v3i = mulI(v3);
-
-    //  [1  1   1  1]
-    //  [1 -i  -1  i]
-    //  [1 -1   1 -1]
-    //  [1  i  -1 -i]
-    // clang-format off
-    vec4 v0d = v0 +  v1 + v2 +  v3;
-    vec4 v1d = v0 - v1i - v2 + v3i;
-    vec4 v2d = v0 -  v1 + v2 -  v3;
-    vec4 v3d = v0 + v1i - v2 - v3i;
-    // clang-format on
+    vec4 v0d, v1d, v2d, v3d;
+    fftButterflyRadix4(v0, v1, v2, v3, v0d, v1d, v2d, v3d);
 
     uint idxD = (j / Ns) * Ns * R + (j % Ns);
     ivec2 p0o = ivec2(idxD, row);
@@ -203,40 +235,16 @@ void fftIterationRadix8(uint j, uint row, uint N, uint Ns)
         w[r] = vec2(cos(r * angle), sin(r * angle));
 
     vec4 v[R];
-    for (uint r = 0; r < R; ++r)
+    v[0] = c[0]; // mulComplex(c[0], w[0].xyxy);
+    for (uint r = 1; r < R; ++r)
         v[r] = mulComplex(c[r], w[r].xyxy);
 
-    //  a = 1/sqrt(2) + i/sqrt(2)
-    vec2 a = vec2(0.707106781187, 0.707106781187);
-    vec2 ia = vec2(-0.707106781187, 0.707106781187);
-    vec4 vi[R];
-    vec4 va[R];
-    vec4 via[R];
-    for (uint r = 1; r < R; ++r)
-    {
-        vi[r] = mulI(v[r]);
-        va[r] = mulComplex(v[r], a.xyxy);
-        via[r] = mulComplex(v[r], ia.xyxy);
-    }
-
-    //  [1   1  1   1  1   1  1   1]
-    //  [1 -ia -i  -a -1  ia  i   a]
-    //  [1  -i -1   i  1  -i -1   i]
-    //  [1  -a  i -ia -1   a -i  ia]
-    //  [1  -1  1  -1  1  -1  1  -1]
-    //  [1  ia -i   a -1 -ia  i  -a]
-    //  [1   i -1  -i  1   i -1  -i]
-    //  [1   a  i  ia -1  -a -i -ia]
-    // clang-format off
     vec4 vd[R];
-    vd[0] = v[0] +   v[1] +  v[2] +   v[3] + v[4] +   v[5] +  v[6] +   v[7];
-    vd[1] = v[0] - via[1] - vi[2] -  va[3] - v[4] + via[5] + vi[6] +  va[7];
-    vd[2] = v[0] -  vi[1] -  v[2] +  vi[3] + v[4] -  vi[5] -  v[6] +  vi[7];
-    vd[3] = v[0] -  va[1] + vi[2] - via[3] - v[4] +  va[5] - vi[6] + via[7];
-    vd[4] = v[0] -   v[1] +  v[2] -   v[3] + v[4] -   v[5] +  v[6] -   v[7];
-    vd[5] = v[0] + via[1] - vi[2] +  va[3] - v[4] - via[5] + vi[6] -  va[7];
-    vd[6] = v[0] +  vi[1] -  v[2] -  vi[3] + v[4] +  vi[5] -  v[6] -  vi[7];
-    vd[7] = v[0] +  va[1] + vi[2] + via[3] - v[4] -  va[5] - vi[6] - via[7];
+    // clang-format off
+    fftButterflyRadix8(
+        v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7],
+        vd[0], vd[1], vd[2], vd[3], vd[4], vd[5], vd[6], vd[7]
+    );
     // clang-format on
 
     uint idxD = (j / Ns) * Ns * R + (j % Ns);
