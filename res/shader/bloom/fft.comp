@@ -261,6 +261,88 @@ void fftIterationRadix8(uint j, uint row, uint N, uint Ns)
         imageStore(outData, po[r], vd[r]);
 }
 
+void fftIterationRadix16(uint j, uint row, uint N, uint Ns)
+{
+    const uint R = 16;
+
+    uint idxS = j;
+    ivec2 pi[R];
+    for (uint r = 0; r < R; ++r)
+    {
+        pi[r] = ivec2(idxS + r * N / R, row);
+        if (TRANSPOSE)
+            pi[r] = pi[r].yx;
+    }
+
+    vec4 c[R];
+    for (uint r = 0; r < R; ++r)
+    {
+        c[r] = imageLoad(inData, pi[r]);
+        if (INVERSE)
+            c[r] = c[r].yxwz;
+    }
+
+    // This pass is bandwidth bound so a twiddle LUT won't help
+    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
+    vec2 w[R];
+    w[0] = vec2(1, 0); // cos(0), sin(0)
+    w[1] = vec2(cos(angle), sin(angle));
+    for (uint r = 2; r < R; ++r)
+        w[r] = vec2(cos(r * angle), sin(r * angle));
+
+    vec4 v[R];
+    v[0] = c[0]; // mulComplex(c[0], w[0].xyxy);
+    for (uint r = 1; r < R; ++r)
+        v[r] = mulComplex(c[r], w[r].xyxy);
+
+    // A High-Throughput Radix-16 FFT Processor With Parallel and Normal
+    // Input/Output Ordering for IEEE 802.15.3c Systems By Shen-Jui Huang and
+    // Sau-Gee Chen
+
+    vec4 tmp[16];
+    fftButterflyRadix4(
+        v[0], v[4], v[8], v[12], tmp[0], tmp[4], tmp[8], tmp[12]);
+    fftButterflyRadix4(
+        v[1], v[5], v[9], v[13], tmp[1], tmp[5], tmp[9], tmp[13]);
+    fftButterflyRadix4(
+        v[2], v[6], v[10], v[14], tmp[2], tmp[6], tmp[10], tmp[14]);
+    fftButterflyRadix4(
+        v[3], v[7], v[11], v[15], tmp[3], tmp[7], tmp[11], tmp[15]);
+
+    tmp[5] = mulComplex(tmp[5], vec2(0.92387953251, -0.38268343237).xyxy);
+    tmp[6] = mulComplex(tmp[6], vec2(0.707106781187, -0.707106781187).xyxy);
+    tmp[7] = mulComplex(tmp[7], vec2(0.38268343237, -0.92387953251).xyxy);
+    tmp[9] = mulComplex(tmp[9], vec2(0.707106781187, -0.707106781187).xyxy);
+    tmp[10] = -mulI(tmp[10]);
+    tmp[11] = mulComplex(tmp[11], vec2(-0.707106781187, -0.707106781187).xyxy);
+    tmp[13] = mulComplex(tmp[13], vec2(0.38268343237, -0.92387953251).xyxy);
+    tmp[14] = mulComplex(tmp[14], vec2(-0.707106781187, -0.707106781187).xyxy);
+    tmp[15] = mulComplex(tmp[15], vec2(-0.92387953251, 0.38268343237).xyxy);
+
+    vec4 vd[R];
+    fftButterflyRadix4(
+        tmp[0], tmp[1], tmp[2], tmp[3], vd[0], vd[4], vd[8], vd[12]);
+    fftButterflyRadix4(
+        tmp[4], tmp[5], tmp[6], tmp[7], vd[1], vd[5], vd[9], vd[13]);
+    fftButterflyRadix4(
+        tmp[8], tmp[9], tmp[10], tmp[11], vd[2], vd[6], vd[10], vd[14]);
+    fftButterflyRadix4(
+        tmp[12], tmp[13], tmp[14], tmp[15], vd[3], vd[7], vd[11], vd[15]);
+
+    uint idxD = (j / Ns) * Ns * R + (j % Ns);
+    ivec2 po[R];
+    for (uint r = 0; r < R; ++r)
+    {
+        po[r] = ivec2(idxD + r * Ns, row);
+        if (TRANSPOSE)
+            po[r] = po[r].yx;
+        if (INVERSE)
+            vd[r] = vd[r].yxwz;
+    }
+    for (uint r = 0; r < R; ++r)
+        imageStore(outData, po[r], vd[r]);
+}
+
 layout(local_size_x = GROUP_X) in;
 void main()
 {
@@ -273,4 +355,6 @@ void main()
         fftIterationRadix4(j, row, PC.n, PC.ns);
     else if (RADIX == 8)
         fftIterationRadix8(j, row, PC.n, PC.ns);
+    else if (RADIX == 16)
+        fftIterationRadix16(j, row, PC.n, PC.ns);
 }
