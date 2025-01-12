@@ -15,6 +15,9 @@ layout(constant_id = 2) const uint RADIX_POWER = 1;
 
 const uint RADIX = 1 << RADIX_POWER;
 
+const uint LDS_DATA_SIZE = RADIX == 16 ? GROUP_X / 4 * 16 : 1;
+shared vec4 ldsData[LDS_DATA_SIZE];
+
 // Based on
 // High Performance Discrete Fourier Transforms on Graphics Processors
 // By Govindaraju et al.
@@ -265,82 +268,120 @@ void fftIterationRadix16(uint j, uint row, uint N, uint Ns)
 {
     const uint R = 16;
 
-    uint idxS = j;
-    ivec2 pi[R];
-    for (uint r = 0; r < R; ++r)
+    uint idxS = j / 4;
+    uint localRadixIndex = gl_LocalInvocationIndex % 4;
+    uint localR0Strided = 0 + localRadixIndex;
+    uint localR1Strided = 4 + localRadixIndex;
+    uint localR2Strided = 8 + localRadixIndex;
+    uint localR3Strided = 12 + localRadixIndex;
+    uint localRStraightOffset = localRadixIndex * 4;
+    uint localR0Straight = localRStraightOffset + 0;
+    uint localR1Straight = localRStraightOffset + 1;
+    uint localR2Straight = localRStraightOffset + 2;
+    uint localR3Straight = localRStraightOffset + 3;
+    ivec2 p0i = ivec2(idxS + localR0Strided * N / R, row);
+    ivec2 p1i = ivec2(idxS + localR1Strided * N / R, row);
+    ivec2 p2i = ivec2(idxS + localR2Strided * N / R, row);
+    ivec2 p3i = ivec2(idxS + localR3Strided * N / R, row);
+    if (TRANSPOSE)
     {
-        pi[r] = ivec2(idxS + r * N / R, row);
-        if (TRANSPOSE)
-            pi[r] = pi[r].yx;
+        p0i = p0i.yx;
+        p1i = p1i.yx;
+        p2i = p2i.yx;
+        p3i = p3i.yx;
     }
 
-    vec4 c[R];
-    for (uint r = 0; r < R; ++r)
+    vec4 c0 = imageLoad(inData, p0i);
+    vec4 c1 = imageLoad(inData, p1i);
+    vec4 c2 = imageLoad(inData, p2i);
+    vec4 c3 = imageLoad(inData, p3i);
+    if (INVERSE)
     {
-        c[r] = imageLoad(inData, pi[r]);
-        if (INVERSE)
-            c[r] = c[r].yxwz;
+        c0 = c0.yxwz;
+        c1 = c1.yxwz;
+        c2 = c2.yxwz;
+        c3 = c3.yxwz;
     }
 
     // This pass is bandwidth bound so a twiddle LUT won't help
-    float angle = -2. * PI * float(j % Ns) / float(Ns * R);
-    vec2 w[R];
-    w[0] = vec2(1, 0); // cos(0), sin(0)
-    w[1] = vec2(cos(angle), sin(angle));
-    for (uint r = 2; r < R; ++r)
-        w[r] = vec2(cos(r * angle), sin(r * angle));
+    float angle = -2. * PI * float(idxS % Ns) / float(Ns * R);
+    vec2 w0 = vec2(cos(localR0Strided * angle), sin(localR0Strided * angle));
+    vec2 w1 = vec2(cos(localR1Strided * angle), sin(localR1Strided * angle));
+    vec2 w2 = vec2(cos(localR2Strided * angle), sin(localR2Strided * angle));
+    vec2 w3 = vec2(cos(localR3Strided * angle), sin(localR3Strided * angle));
 
-    vec4 v[R];
-    v[0] = c[0]; // mulComplex(c[0], w[0].xyxy);
-    for (uint r = 1; r < R; ++r)
-        v[r] = mulComplex(c[r], w[r].xyxy);
+    vec4 v0 = mulComplex(c0, w0.xyxy);
+    vec4 v1 = mulComplex(c1, w1.xyxy);
+    vec4 v2 = mulComplex(c2, w2.xyxy);
+    vec4 v3 = mulComplex(c3, w3.xyxy);
 
     // A High-Throughput Radix-16 FFT Processor With Parallel and Normal
     // Input/Output Ordering for IEEE 802.15.3c Systems By Shen-Jui Huang and
     // Sau-Gee Chen
+    // Split across four threads using LDS to shuffle results
 
-    vec4 tmp[16];
-    fftButterflyRadix4(
-        v[0], v[4], v[8], v[12], tmp[0], tmp[4], tmp[8], tmp[12]);
-    fftButterflyRadix4(
-        v[1], v[5], v[9], v[13], tmp[1], tmp[5], tmp[9], tmp[13]);
-    fftButterflyRadix4(
-        v[2], v[6], v[10], v[14], tmp[2], tmp[6], tmp[10], tmp[14]);
-    fftButterflyRadix4(
-        v[3], v[7], v[11], v[15], tmp[3], tmp[7], tmp[11], tmp[15]);
+    vec4 tmp0, tmp1, tmp2, tmp3;
+    fftButterflyRadix4(v0, v1, v2, v3, tmp0, tmp1, tmp2, tmp3);
 
-    tmp[5] = mulComplex(tmp[5], vec2(0.92387953251, -0.38268343237).xyxy);
-    tmp[6] = mulComplex(tmp[6], vec2(0.707106781187, -0.707106781187).xyxy);
-    tmp[7] = mulComplex(tmp[7], vec2(0.38268343237, -0.92387953251).xyxy);
-    tmp[9] = mulComplex(tmp[9], vec2(0.707106781187, -0.707106781187).xyxy);
-    tmp[10] = -mulI(tmp[10]);
-    tmp[11] = mulComplex(tmp[11], vec2(-0.707106781187, -0.707106781187).xyxy);
-    tmp[13] = mulComplex(tmp[13], vec2(0.38268343237, -0.92387953251).xyxy);
-    tmp[14] = mulComplex(tmp[14], vec2(-0.707106781187, -0.707106781187).xyxy);
-    tmp[15] = mulComplex(tmp[15], vec2(-0.92387953251, 0.38268343237).xyxy);
+    uint ldsOffset = gl_LocalInvocationIndex / 4 * 16;
+    ldsData[ldsOffset + localR0Strided] = tmp0;
+    ldsData[ldsOffset + localR1Strided] = tmp1;
+    ldsData[ldsOffset + localR2Strided] = tmp2;
+    ldsData[ldsOffset + localR3Strided] = tmp3;
+    barrier();
+    tmp0 = ldsData[ldsOffset + localR0Straight];
+    tmp1 = ldsData[ldsOffset + localR1Straight];
+    tmp2 = ldsData[ldsOffset + localR2Straight];
+    tmp3 = ldsData[ldsOffset + localR3Straight];
 
-    vec4 vd[R];
-    fftButterflyRadix4(
-        tmp[0], tmp[1], tmp[2], tmp[3], vd[0], vd[4], vd[8], vd[12]);
-    fftButterflyRadix4(
-        tmp[4], tmp[5], tmp[6], tmp[7], vd[1], vd[5], vd[9], vd[13]);
-    fftButterflyRadix4(
-        tmp[8], tmp[9], tmp[10], tmp[11], vd[2], vd[6], vd[10], vd[14]);
-    fftButterflyRadix4(
-        tmp[12], tmp[13], tmp[14], tmp[15], vd[3], vd[7], vd[11], vd[15]);
+    vec2 w[16] = {
+        vec2(1, 0),
+        vec2(1, 0),
+        vec2(1, 0),
+        vec2(1, 0),
+        vec2(1, 0),
+        vec2(0.92387953251, -0.38268343237),
+        vec2(0.707106781187, -0.707106781187),
+        vec2(0.38268343237, -0.92387953251),
+        vec2(1, 0),
+        vec2(0.707106781187, -0.707106781187),
+        vec2(0, -1),
+        vec2(-0.707106781187, -0.707106781187),
+        vec2(1, 0),
+        vec2(0.38268343237, -0.92387953251),
+        vec2(-0.707106781187, -0.707106781187),
+        vec2(-0.92387953251, 0.38268343237),
+    };
+    tmp1 = mulComplex(tmp1, w[localR1Straight].xyxy);
+    tmp2 = mulComplex(tmp2, w[localR2Straight].xyxy);
+    tmp3 = mulComplex(tmp3, w[localR3Straight].xyxy);
 
-    uint idxD = (j / Ns) * Ns * R + (j % Ns);
-    ivec2 po[R];
-    for (uint r = 0; r < R; ++r)
+    vec4 v0d, v1d, v2d, v3d;
+    fftButterflyRadix4(tmp0, tmp1, tmp2, tmp3, v0d, v1d, v2d, v3d);
+
+    uint idxD = (idxS / Ns) * Ns * R + (idxS % Ns);
+    ivec2 p0o = ivec2(idxD + localR0Strided * Ns, row);
+    ivec2 p1o = ivec2(idxD + localR1Strided * Ns, row);
+    ivec2 p2o = ivec2(idxD + localR2Strided * Ns, row);
+    ivec2 p3o = ivec2(idxD + localR3Strided * Ns, row);
+    if (TRANSPOSE)
     {
-        po[r] = ivec2(idxD + r * Ns, row);
-        if (TRANSPOSE)
-            po[r] = po[r].yx;
-        if (INVERSE)
-            vd[r] = vd[r].yxwz;
+        p0o = p0o.yx;
+        p1o = p1o.yx;
+        p2o = p2o.yx;
+        p3o = p3o.yx;
     }
-    for (uint r = 0; r < R; ++r)
-        imageStore(outData, po[r], vd[r]);
+    if (INVERSE)
+    {
+        v0d = v0d.yxwz;
+        v1d = v1d.yxwz;
+        v2d = v2d.yxwz;
+        v3d = v3d.yxwz;
+    }
+    imageStore(outData, p0o, v0d);
+    imageStore(outData, p1o, v1d);
+    imageStore(outData, p2o, v2d);
+    imageStore(outData, p3o, v3d);
 }
 
 layout(local_size_x = GROUP_X) in;

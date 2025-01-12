@@ -293,7 +293,8 @@ void BloomFft::doIteration(
         .ns = iterData.ns,
     };
     const uvec3 groupCount = m_computePass.groupCount(uvec3{
-        outputDim / (1 << iterData.radixPower),
+        iterData.radixPower == 4 ? (outputDim / (1 << iterData.radixPower)) * 4
+                                 : outputDim / (1 << iterData.radixPower),
         outputDim,
         1,
     });
