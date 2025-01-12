@@ -295,7 +295,9 @@ void firstPass(
             const uint32_t lengthId = args[2];
 
             const SpvResult &lengthResult = results[lengthId];
-            WHEELS_ASSERT(lengthResult.type.has_value());
+            if (!lengthResult.type.has_value())
+                // Arrays that use specialization constants won't have a size
+                break;
             const SpvConstantU32 *length =
                 std::get_if<SpvConstantU32>(&*lengthResult.type);
             WHEELS_ASSERT(length != nullptr);
