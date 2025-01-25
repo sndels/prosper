@@ -155,7 +155,7 @@ void App::run()
 
             m_world->startFrame();
 
-            m_renderer->startFrame();
+            m_renderer->startFrame(m_drawUi);
 
             drawFrame(
                 scopeAlloc.child_scope(),

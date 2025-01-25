@@ -41,7 +41,7 @@ class Renderer
     static void recreateSwapchainAndRelated();
     void recreateViewportRelated();
 
-    void startFrame();
+    void startFrame(bool drawUi);
     // Returns true if rt should be marked dirty
     [[nodiscard]] bool drawUi(Camera &cam);
 

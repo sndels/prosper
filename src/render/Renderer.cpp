@@ -195,7 +195,7 @@ void Renderer::init(
     LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
 }
 
-void Renderer::startFrame()
+void Renderer::startFrame(bool drawUi)
 {
     gRenderResources.startFrame();
     m_meshletCuller->startFrame();
@@ -204,10 +204,11 @@ void Renderer::startFrame()
     m_depthOfField->startFrame();
     m_textureReadback->startFrame();
 
-    // TODO:
-    // Is this ok here? should it happen after gpu frame starts and we have the
-    // next swapchain index?
-    m_imguiRenderer->startFrame();
+    if (drawUi)
+        // TODO:
+        // Is this ok here? should it happen after gpu frame starts and we have
+        // the next swapchain index?
+        m_imguiRenderer->startFrame();
 }
 
 void Renderer::recompileShaders(
