@@ -11,7 +11,7 @@
 class BloomFft
 {
   public:
-    static constexpr vk::Format sFftFormat = vk::Format::eR32G32B32A32Sfloat;
+    static constexpr vk::Format sFftFormat = vk::Format::eR16G16B16A16Sfloat;
     static constexpr uint32_t sMinResolution =
         256; // groupsize / 8 for radix 8 main passes
 

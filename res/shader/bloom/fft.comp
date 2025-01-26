@@ -110,6 +110,11 @@ void fftIterationRadix2(uint j, uint row, uint N, uint Ns)
         c0 = c0.yxwz;
         c1 = c1.yxwz;
     }
+    else
+    {
+        c0 /= sqrt(R);
+        c1 /= sqrt(R);
+    }
 
     // This pass is bandwidth bound so a twiddle LUT won't help
     float angle = -2. * PI * float(j % Ns) / float(Ns * R);
@@ -166,6 +171,13 @@ void fftIterationRadix4(uint j, uint row, uint N, uint Ns)
         c1 = c1.yxwz;
         c2 = c2.yxwz;
         c3 = c3.yxwz;
+    }
+    else
+    {
+        c0 /= sqrt(R);
+        c1 /= sqrt(R);
+        c2 /= sqrt(R);
+        c3 /= sqrt(R);
     }
 
     // This pass is bandwidth bound so a twiddle LUT won't help
@@ -227,6 +239,8 @@ void fftIterationRadix8(uint j, uint row, uint N, uint Ns)
         c[r] = imageLoad(inData, pi[r]);
         if (INVERSE)
             c[r] = c[r].yxwz;
+        else
+            c[r] /= sqrt(R);
     }
 
     // This pass is bandwidth bound so a twiddle LUT won't help
@@ -301,6 +315,13 @@ void fftIterationRadix16(uint j, uint row, uint N, uint Ns)
         c1 = c1.yxwz;
         c2 = c2.yxwz;
         c3 = c3.yxwz;
+    }
+    else
+    {
+        c0 /= sqrt(R);
+        c1 /= sqrt(R);
+        c2 /= sqrt(R);
+        c3 /= sqrt(R);
     }
 
     // This pass is bandwidth bound so a twiddle LUT won't help
