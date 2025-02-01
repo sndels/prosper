@@ -17,6 +17,9 @@ class BloomFft;
 // BloomGenerateKernel.hpp
 class BloomGenerateKernel;
 
+// BloomReduce.hpp
+class BloomReduce;
+
 // BloomSeparate.hpp
 class BloomSeparate;
 

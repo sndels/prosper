@@ -4,6 +4,7 @@ set(PROSPER_BLOOM_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/BloomConvolution.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomFft.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomGenerateKernel.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/BloomReduce.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomResolutionScale.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomSeparate.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
@@ -16,6 +17,7 @@ set(PROSPER_BLOOM_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/BloomConvolution.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomFft.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomGenerateKernel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/BloomReduce.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomResolutionScale.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomSeparate.cpp
     PARENT_SCOPE

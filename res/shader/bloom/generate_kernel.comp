@@ -46,12 +46,16 @@ float sdStar(in vec2 p, in float r, in float n, in float w)
 
 vec4 filterValue(vec2 p)
 {
+    float a = 1.5;
+    float c = .055;
+    vec4 ret = vec4(gaussian(length(p), a, .0, c));
+
     vec2 pp = p;
-    float dStar = sdStar(pp, .05, 4, .1);
+    float dStar = sdStar(pp, .5, 4, .075);
     pR(pp.xy, PI / 4);
-    dStar = min(dStar, sdStar(pp, .035, 4, .1));
-    vec4 ret =
-        dStar < 0. ? vec4(2.5 * gaussian(length(p), .1, 1.0, .45)) : vec4(0);
+    dStar = min(dStar, sdStar(pp, .35, 4, .05));
+    if (dStar < 0)
+        ret += vec4(gaussian(length(p), a, .0, c));
     if (abs(p.y) < .005)
         ret += vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
 
