@@ -1,0 +1,72 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+#include "../common/math.glsl"
+#include "../shared/shader_structs/push_constants/bloom/blur.h"
+
+layout(set = 0, binding = 0) uniform texture2D inImage;
+layout(set = 0, binding = 1) uniform image2D outImage[4];
+layout(set = 0, binding = 2) uniform sampler bilinearSampler;
+
+layout(push_constant) uniform PushConstants { BlurPC PC; };
+
+// From
+// https://lisyarus.github.io/blog/posts/blur-coefficients-generator.html
+// const int SAMPLE_COUNT = 4;
+
+const int SAMPLE_COUNT = 4;
+
+const float OFFSETS[4] =
+    float[4](-2.089779143016758, -0.38698196063011614, 1.2004365440663936, 3);
+
+const float WEIGHTS[4] = float[4](
+    0.0666055522709221, 0.6249460483713625, 0.3024686099546741,
+    0.005979789403041253);
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(coord, PC.resolution)))
+        return;
+
+    // No .5 offset because the sample offsets take care of it
+    // TODO: Verify that
+    vec2 uv = (coord + .5) * PC.invResolution;
+    vec3 result = vec3(0.0);
+    vec2 blurDirection = PC.transpose == 1 ? vec2(0, 1) : vec2(1, 0);
+    for (int i = 0; i < SAMPLE_COUNT; ++i)
+    {
+        vec2 offset = blurDirection * OFFSETS[i] * PC.invResolution;
+        float weight = WEIGHTS[i];
+        result +=
+            textureLod(
+                sampler2D(inImage, bilinearSampler), uv + offset, PC.mipLevel)
+                .rgb *
+            weight;
+    }
+
+    // TODO:
+    // Put the flare behind a toggle in both techniques and add a separate scale
+    if (PC.transpose == 0 && PC.mipLevel == 1)
+    {
+        vec3 streak = vec3(0);
+        int streakHalfWidth = int(PC.resolution.x) / 2;
+        for (int i = -streakHalfWidth; i < streakHalfWidth; ++i)
+        {
+            vec2 offset = vec2(i, 0) * PC.invResolution;
+            streak +=
+                mix(vec3(.05, .05, 1.), vec3(.01, .01, 1.),
+                    saturate(abs(i) / 10)) *
+                4 * (abs(sin(i * .5)) + abs(cos(i * .95)) + abs(sin(i * .75))) *
+                textureLod(sampler2D(inImage, bilinearSampler), uv + offset, 0)
+                    .rgb *
+                (150. / max(0.015 * i * i + abs(i), 1));
+        }
+        streak /= PC.resolution.x * 2.;
+        result += streak;
+    }
+
+    imageStore(outImage[PC.mipLevel], coord, vec4(result, 1));
+}

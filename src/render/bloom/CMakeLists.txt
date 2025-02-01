@@ -1,5 +1,6 @@
 set(PROSPER_BLOOM_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Bloom.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/BloomBlur.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomCompose.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomConvolution.hpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomFft.hpp
@@ -13,6 +14,7 @@ set(PROSPER_BLOOM_INCLUDES
 
 set(PROSPER_BLOOM_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Bloom.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/BloomBlur.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomCompose.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomConvolution.cpp
     ${CMAKE_CURRENT_LIST_DIR}/BloomFft.cpp
