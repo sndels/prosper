@@ -12,21 +12,27 @@ layout(set = 0, binding = 4) uniform sampler bilinearSampler;
 
 layout(push_constant) uniform PushConstants { ComposePC PC; };
 layout(constant_id = 0) const bool SAMPLE_BIQUADRATIC = false;
+layout(constant_id = 1) const bool MULTI_RESOLUTION = false;
 
 // https://www.shadertoy.com/view/wtXXDl by Leonard Ritter
 // via
 // https://bartwronski.com/2020/04/14/bilinear-texture-filtering-artifacts-alternatives-and-frequency-domain-analysis/
 vec3 sampleBiquadratic(
-    texture2D image, sampler bilinearSampler, vec2 res, vec2 uv)
+    texture2D image, sampler bilinearSampler, vec2 res, vec2 uv, float lod)
 {
     vec2 q = fract(uv * res);
     vec2 c = (q * (q - 1.0) + 0.5) / res;
     vec2 w0 = uv - c;
     vec2 w1 = uv + c;
-    vec3 s = texture(sampler2D(image, bilinearSampler), vec2(w0.x, w0.y)).rgb +
-             texture(sampler2D(image, bilinearSampler), vec2(w0.x, w1.y)).rgb +
-             texture(sampler2D(image, bilinearSampler), vec2(w1.x, w1.y)).rgb +
-             texture(sampler2D(image, bilinearSampler), vec2(w1.x, w0.y)).rgb;
+    vec3 s =
+        textureLod(sampler2D(image, bilinearSampler), vec2(w0.x, w0.y), lod)
+            .rgb +
+        textureLod(sampler2D(image, bilinearSampler), vec2(w0.x, w1.y), lod)
+            .rgb +
+        textureLod(sampler2D(image, bilinearSampler), vec2(w1.x, w1.y), lod)
+            .rgb +
+        textureLod(sampler2D(image, bilinearSampler), vec2(w1.x, w0.y), lod)
+            .rgb;
     return s / 4.0;
 }
 
@@ -37,27 +43,70 @@ void main()
     if (any(greaterThanEqual(coord, PC.illuminationResolution)))
         return;
 
-    // TODO: Calculate this scale on the CPU
-    float dim = 1. / PC.invBloomDimSquared;
-    dim = sqrt(dim);
-    vec2 illuRes = 1.f / PC.invIlluminationResolution;
-    vec2 illuminationUVToHighlightUVScale =
-        illuRes / (dim * PC.resolutionScale);
-    vec2 highlightUV = (vec2(coord) + .5) * PC.invIlluminationResolution *
-                       illuminationUVToHighlightUVScale;
-
     vec3 illumination =
         texelFetch(sampler2D(inIllumination, nearestSampler), coord, 0).rgb;
+
     vec3 highlight;
-    if (SAMPLE_BIQUADRATIC)
-        highlight = sampleBiquadratic(
-            inBloomHighlights, bilinearSampler,
-            vec2(1.f / sqrt(PC.invBloomDimSquared)), highlightUV);
+    if (MULTI_RESOLUTION)
+    {
+        vec2 uv = (coord + .5) * PC.invIlluminationResolution;
+
+        vec3 mip0Highlight;
+        vec3 mip1Highlight;
+        vec3 mip2Highlight;
+        if (SAMPLE_BIQUADRATIC)
+        {
+            mip0Highlight = sampleBiquadratic(
+                inBloomHighlights, bilinearSampler,
+                vec2(PC.illuminationResolution / PC.resolutionScale), uv, 0);
+            mip1Highlight = sampleBiquadratic(
+                inBloomHighlights, bilinearSampler,
+                vec2(PC.illuminationResolution / (PC.resolutionScale * 2.)), uv,
+                1);
+            mip2Highlight = sampleBiquadratic(
+                inBloomHighlights, bilinearSampler,
+                vec2(PC.illuminationResolution / (PC.resolutionScale * 4.)), uv,
+                2);
+        }
+        else
+        {
+            mip0Highlight =
+                textureLod(sampler2D(inBloomHighlights, bilinearSampler), uv, 0)
+                    .rgb;
+            mip1Highlight =
+                textureLod(sampler2D(inBloomHighlights, bilinearSampler), uv, 1)
+                    .rgb;
+            mip2Highlight =
+                textureLod(sampler2D(inBloomHighlights, bilinearSampler), uv, 2)
+                    .rgb;
+        }
+
+        highlight = mip0Highlight * PC.blendFactors[0] +
+                    mip1Highlight * PC.blendFactors[1] +
+                    mip2Highlight * PC.blendFactors[2];
+    }
     else
-        highlight =
-            texture(sampler2D(inBloomHighlights, bilinearSampler), highlightUV)
-                .rgb;
-    // highlight *= PC.invBloomDimSquared;
+    {
+        // TODO: Calculate this scale on the CPU
+        float dim = 1. / PC.invBloomDimSquared;
+        dim = sqrt(dim);
+        vec2 illuRes = 1.f / PC.invIlluminationResolution;
+        vec2 illuminationUVToHighlightUVScale =
+            illuRes / (dim * PC.resolutionScale);
+        vec2 highlightUV = (vec2(coord) + .5) * PC.invIlluminationResolution *
+                           illuminationUVToHighlightUVScale;
+
+        if (SAMPLE_BIQUADRATIC)
+            highlight = sampleBiquadratic(
+                inBloomHighlights, bilinearSampler,
+                vec2(1.f / sqrt(PC.invBloomDimSquared)), highlightUV, 0);
+        else
+            highlight =
+                texture(
+                    sampler2D(inBloomHighlights, bilinearSampler), highlightUV)
+                    .rgb;
+        // highlight *= PC.invBloomDimSquared;
+    }
 
     vec3 composed = illumination + highlight;
 

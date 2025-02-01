@@ -5,6 +5,7 @@
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "render/bloom/BloomResolutionScale.hpp"
+#include "render/bloom/BloomTechnique.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
@@ -35,7 +36,7 @@ class BloomSeparate
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, BloomResolutionScale resolutionScale,
-        uint32_t nextFrame);
+        BloomTechnique technique, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

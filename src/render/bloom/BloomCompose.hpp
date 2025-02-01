@@ -5,7 +5,9 @@
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "render/bloom/BloomResolutionScale.hpp"
+#include "render/bloom/BloomTechnique.hpp"
 
+#include <glm/glm.hpp>
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
@@ -22,6 +24,8 @@ class BloomCompose
 
     void init(wheels::ScopedScratch scopeAlloc);
 
+    void drawUi(BloomTechnique technique);
+
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles);
@@ -34,10 +38,12 @@ class BloomCompose
     [[nodiscard]] ImageHandle record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, BloomResolutionScale resolutionScale,
-        uint32_t nextFrame);
+        BloomTechnique technique, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};
+    bool m_biquadraticSampling{true};
+    glm::vec3 m_blendFactors{.9f, .04f, .04f};
     ComputePass m_computePass;
 };
 

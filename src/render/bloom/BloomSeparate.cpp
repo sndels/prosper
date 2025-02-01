@@ -80,7 +80,8 @@ void BloomSeparate::drawUi()
 
 ImageHandle BloomSeparate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
-    BloomResolutionScale resolutionScale, const uint32_t nextFrame)
+    BloomResolutionScale resolutionScale, BloomTechnique technique,
+    const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -89,22 +90,30 @@ ImageHandle BloomSeparate::record(
     ImageHandle ret;
     {
         const vk::Extent2D inputExtent = getExtent2D(input.illumination);
-
+        const uint32_t u32ResolutionScale =
+            bloomResolutionScale(resolutionScale);
         const uint32_t dim = std::max(
             std::bit_ceil(std::max(inputExtent.width, inputExtent.height)) /
-                bloomResolutionScale(resolutionScale),
+                u32ResolutionScale,
             BloomFft::sMinResolution);
 
         ret = gRenderResources.images->create(
             ImageDescription{
                 .format = sIlluminationFormat,
-                .width = dim,
-                .height = dim,
+                .width = technique == BloomTechnique::Fft
+                             ? dim
+                             : inputExtent.width / u32ResolutionScale,
+                .height = technique == BloomTechnique::Fft
+                              ? dim
+                              : inputExtent.height / u32ResolutionScale,
+                // Three mips from half or quarter resolution
+                .mipCount =
+                    technique == BloomTechnique::MultiResolutionBlur ? 4u : 1u,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
                               vk::ImageUsageFlagBits::eStorage,
 
             },
-            "BloomFftPingPing");
+            "BloomWorkingImage");
 
         const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
@@ -116,7 +125,8 @@ ImageHandle BloomSeparate::record(
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{
-                    .imageView = gRenderResources.images->resource(ret).view,
+                    .imageView =
+                        gRenderResources.images->subresourceViews(ret)[0],
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
                 DescriptorInfo{vk::DescriptorImageInfo{

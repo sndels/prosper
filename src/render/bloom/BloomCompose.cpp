@@ -22,23 +22,39 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     };
 }
 
-uint32_t specializationIndex(bool sampleBiquadratic)
+struct BloomComposeConstants
+{
+    VkBool32 sampleBiquadratic{VK_FALSE};
+    VkBool32 multiResolution{VK_FALSE};
+};
+
+uint32_t specializationIndex(const BloomComposeConstants &constants)
 {
     uint32_t ret = 0;
 
-    ret = static_cast<uint32_t>(sampleBiquadratic);
+    ret = static_cast<uint32_t>(constants.sampleBiquadratic);
+    ret |= static_cast<uint32_t>(constants.multiResolution) << 1;
 
     return ret;
 }
 
-StaticArray<uint32_t, 2> generateSpecializationConstants()
+StaticArray<BloomComposeConstants, 4> generateSpecializationConstants()
 {
-    StaticArray<uint32_t, 2> ret;
-    for (const bool sampleBiquadratic : {false, true})
+    StaticArray<BloomComposeConstants, 4> ret;
+    for (const VkBool32 sampleBiquadratic : {VK_FALSE, VK_TRUE})
     {
-        const uint32_t constants = static_cast<uint32_t>(sampleBiquadratic);
-        const uint32_t index = specializationIndex(sampleBiquadratic);
-        ret[index] = constants;
+        for (const BloomTechnique technique :
+             {BloomTechnique::Fft, BloomTechnique::MultiResolutionBlur})
+        {
+            const BloomComposeConstants constants{
+                .sampleBiquadratic = sampleBiquadratic,
+                .multiResolution =
+                    technique == BloomTechnique::MultiResolutionBlur ? VK_TRUE
+                                                                     : VK_FALSE,
+            };
+            const uint32_t index = specializationIndex(constants);
+            ret[index] = constants;
+        }
     }
 
     return ret;
@@ -60,6 +76,14 @@ void BloomCompose::init(ScopedScratch scopeAlloc)
     m_initialized = true;
 }
 
+void BloomCompose::drawUi(BloomTechnique technique)
+{
+    if (technique == BloomTechnique::MultiResolutionBlur)
+        ImGui::DragFloat3(
+            "Blend factors", &m_blendFactors[0], .01f, .00f, 2.f, "%.2f");
+    ImGui::Checkbox("Biquadratic sampling", &m_biquadraticSampling);
+}
+
 void BloomCompose::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles)
@@ -72,7 +96,8 @@ void BloomCompose::recompileShaders(
 
 ImageHandle BloomCompose::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
-    BloomResolutionScale resolutionScale, const uint32_t nextFrame)
+    BloomResolutionScale resolutionScale, BloomTechnique technique,
+    const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -82,7 +107,6 @@ ImageHandle BloomCompose::record(
     {
         const vk::Extent2D illuminationExtent = getExtent2D(input.illumination);
         const vk::Extent2D bloomExtent = getExtent2D(input.bloomHighlights);
-        WHEELS_ASSERT(bloomExtent.width == bloomExtent.height);
 
         ret = gRenderResources.images->create(
             ImageDescription{
@@ -135,14 +159,18 @@ ImageHandle BloomCompose::record(
 
         PROFILER_GPU_SCOPE(cb, "  Compose");
 
-        const bool sampleBiquadratic =
-            resolutionScale != BloomResolutionScale::Half;
-
+        const BloomComposeConstants constants{
+            .sampleBiquadratic = m_biquadraticSampling ? VK_TRUE : VK_FALSE,
+            .multiResolution = technique == BloomTechnique::MultiResolutionBlur
+                                   ? VK_TRUE
+                                   : VK_FALSE,
+        };
         const ComposePC pcBlock{
             .illuminationResolution =
                 vec2(illuminationExtent.width, illuminationExtent.height),
             .invIlluminationResolution =
                 1.f / vec2(illuminationExtent.width, illuminationExtent.height),
+            .blendFactors = m_blendFactors,
             .invBloomDimSquared =
                 1.f / static_cast<float>(bloomExtent.width * bloomExtent.width),
             .resolutionScale = bloomResolutionScale(resolutionScale),
@@ -152,7 +180,7 @@ ImageHandle BloomCompose::record(
         m_computePass.record(
             cb, pcBlock, groupCount, Span{&descriptorSet, 1},
             ComputePassOptionalRecordArgs{
-                .specializationIndex = specializationIndex(sampleBiquadratic),
+                .specializationIndex = specializationIndex(constants),
             });
     }
 

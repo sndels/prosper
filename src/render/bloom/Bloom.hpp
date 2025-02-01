@@ -2,12 +2,15 @@
 #define PROSPER_RENDER_BLOOM_HPP
 
 #include "render/RenderResourceHandle.hpp"
+#include "render/bloom/BloomBlur.hpp"
 #include "render/bloom/BloomCompose.hpp"
 #include "render/bloom/BloomConvolution.hpp"
 #include "render/bloom/BloomFft.hpp"
 #include "render/bloom/BloomGenerateKernel.hpp"
+#include "render/bloom/BloomReduce.hpp"
 #include "render/bloom/BloomResolutionScale.hpp"
 #include "render/bloom/BloomSeparate.hpp"
+#include "render/bloom/BloomTechnique.hpp"
 
 #include <filesystem>
 #include <vulkan/vulkan.hpp>
@@ -48,11 +51,19 @@ class Bloom
   private:
     bool m_initialized{false};
     BloomResolutionScale m_resolutionScale{BloomResolutionScale::Half};
-    BloomGenerateKernel m_generateKernel;
+    BloomTechnique m_technique{BloomTechnique::MultiResolutionBlur};
+
     BloomSeparate m_separate;
+    BloomCompose m_compose;
+
+    // FFT version
+    BloomGenerateKernel m_generateKernel;
     BloomFft m_fft;
     BloomConvolution m_convolution;
-    BloomCompose m_compose;
+
+    // Multi-resolution blur version
+    BloomReduce m_reduce;
+    BloomBlur m_blur;
 };
 
 #endif // PROSPER_RENDER_BLOOM_HPP
