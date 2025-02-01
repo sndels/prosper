@@ -26,7 +26,7 @@ void DepthOfFieldFilter::init(ScopedScratch scopeAlloc)
     m_computePass.init(
         WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
         ComputePassOptions{
-            .perFrameRecordLimit = 2,
+            .storageSetInstanceCount = 2,
         });
 
     m_initialized = true;

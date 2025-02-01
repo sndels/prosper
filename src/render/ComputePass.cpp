@@ -84,7 +84,7 @@ vk::DescriptorSet ComputePass::updateStorageSet(
     // Require start_frame() for all compute passes and make this unconditional?
     if (m_storageSets[nextFrame].size() > 1)
     {
-        // This can equal perFrameRecordLimit if all of them are used
+        // This can equal storageSetInstanceCount if all of them are used
         m_nextDescriptorSetIndex++;
     }
 
@@ -252,8 +252,8 @@ void ComputePass::createDescriptorSets(
 
     for (auto &sets : m_storageSets)
     {
-        InlineArray<vk::DescriptorSetLayout, sPerFrameRecordLimit> layouts;
-        InlineArray<const char *, sPerFrameRecordLimit> debugNames;
+        InlineArray<vk::DescriptorSetLayout, sStorageSetInstanceCount> layouts;
+        InlineArray<const char *, sStorageSetInstanceCount> debugNames;
         layouts.resize(sets.size(), m_storageSetLayout);
         debugNames.resize(sets.size(), debugName);
         gStaticDescriptorsAlloc.allocate(layouts, debugNames, sets.mut_span());
@@ -352,7 +352,7 @@ void ComputePass::init(
     m_storageSetIndex = options.storageSetIndex;
 
     for (auto &sets : m_storageSets)
-        sets.resize(options.perFrameRecordLimit);
+        sets.resize(options.storageSetInstanceCount);
 
     const Shader shader = shaderDefinitionCallback(scopeAlloc);
     LOG_INFO("Creating %s", shader.debugName.c_str());

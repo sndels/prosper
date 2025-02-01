@@ -150,21 +150,21 @@ void MeshletCuller::init(
         { return generatorDefinitionCallback(alloc, worldDsLayouts); },
         ComputePassOptions{
             .storageSetIndex = GeneratorStorageBindingSet,
-            .perFrameRecordLimit = sMaxRecordsPerFrame,
+            .storageSetInstanceCount = sMaxRecordsPerFrame,
             .externalDsLayouts = generatorExternalDsLayouts(worldDsLayouts),
         });
     m_cullerArgumentsWriter.init(
         scopeAlloc.child_scope(), argumentsWriterDefinitionCallback,
         ComputePassOptions{
             // Twice the records of for two-phase culling
-            .perFrameRecordLimit = sMaxRecordsPerFrame * 2,
+            .storageSetInstanceCount = sMaxRecordsPerFrame * 2,
         });
     m_drawListCuller.init(
         WHEELS_MOV(scopeAlloc), cullerDefinitionCallback,
         ComputePassOptions{
             .storageSetIndex = CullerStorageBindingSet,
             // Twice the records of for two-phase culling
-            .perFrameRecordLimit = sMaxRecordsPerFrame * 2,
+            .storageSetInstanceCount = sMaxRecordsPerFrame * 2,
             .externalDsLayouts =
                 cullerExternalDsLayouts(worldDsLayouts, camDsLayout),
         });

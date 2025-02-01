@@ -103,7 +103,7 @@ void BloomFft::init(ScopedScratch scopeAlloc)
             // for ping/pong binds.
             // We have at most three FFT runs per frame: kernel forward pass and
             // two passes for the convolution.
-            .perFrameRecordLimit = 3 * 3,
+            .storageSetInstanceCount = 3 * 3,
         });
 
     m_initialized = true;

@@ -63,7 +63,7 @@ void HierarchicalDepthDownsampler::init(ScopedScratch scopeAlloc)
         WHEELS_MOV(scopeAlloc), shaderDefinitionCallback,
         ComputePassOptions{
             // GBuffer HiZ before and after second culling pass
-            .perFrameRecordLimit = 2,
+            .storageSetInstanceCount = 2,
         });
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.

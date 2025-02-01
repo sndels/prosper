@@ -17,7 +17,7 @@
 struct ComputePassOptions
 {
     uint32_t storageSetIndex{0};
-    uint32_t perFrameRecordLimit{1};
+    uint32_t storageSetInstanceCount{1};
     wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts;
     vk::ShaderStageFlags storageStageFlags{vk::ShaderStageFlagBits::eCompute};
 };
@@ -70,7 +70,7 @@ class ComputePass
         wheels::Span<const vk::DescriptorSetLayout> externalDsLayouts = {});
 
     // Resets the per frame record count. Doesn't need to be called if
-    // perFrameRecordLimit is 1.
+    // storageSetInstanceCount is 1.
     void startFrame();
 
     // Updates and returns the next available storage set.
@@ -154,12 +154,10 @@ class ComputePass
     vk::DescriptorSetLayout m_storageSetLayout;
     uint32_t m_storageSetIndex{0xFFFF'FFFF};
     // TODO:
-    // This much is only needed by FFT. Should use a small vector with less
-    // inline space instead?
-    static const size_t sPerFrameRecordLimit = 84;
+    static const size_t sStorageSetInstanceCount = 16;
     size_t m_nextDescriptorSetIndex{0};
     wheels::StaticArray<
-        wheels::InlineArray<vk::DescriptorSet, sPerFrameRecordLimit>,
+        wheels::InlineArray<vk::DescriptorSet, sStorageSetInstanceCount>,
         MAX_FRAMES_IN_FLIGHT>
         m_storageSets;
 
