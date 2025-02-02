@@ -33,6 +33,8 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
   - Stochastic transparency
 - Depth of Field
   - Work in progress based on [A Life of a Bokeh](https://www.advances.realtimerendering.com/s2018/index.htm) among other sources
+- Bloom
+  - Multi-resolution blur or FFT based
 - Temporal Anti-Aliasing
   - Includes some of the 'usual' tricks for removing ghosting, blurring and flicker
 - Animation support for transformations
