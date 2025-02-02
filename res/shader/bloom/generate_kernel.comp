@@ -57,7 +57,14 @@ vec4 filterValue(vec2 p)
     if (dStar < 0)
         ret += vec4(gaussian(length(p), a, .0, c));
     if (abs(p.y) < .005)
-        ret += vec4(.01, .01, .5, .5) * gaussian(abs(p.x) * 10., .5, 1., 1.);
+    {
+        ret +=
+            .5 *
+            mix(vec4(.05, .05, 1., 1.), vec4(.01, .01, 1., 1.),
+                saturate(abs(p.x) * 6)) *
+            (abs(sin(p.x * 50.)) + abs(cos(p.x * 95.)) + abs(sin(p.x * 75.))) *
+            gaussian(abs(p.x) * 10., .5, 1., 1.);
+    }
 
     return ret;
 }
