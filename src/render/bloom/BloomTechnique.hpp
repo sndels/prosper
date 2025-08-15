@@ -8,6 +8,9 @@
 #define BLOOM_TECHNIQUES MultiResolutionBlur, Fft
 #define BLOOM_TECHNIQUES_AND_COUNT BLOOM_TECHNIQUES, Count
 
+namespace render::bloom
+{
+
 enum class BloomTechnique : uint8_t
 {
     BLOOM_TECHNIQUES_AND_COUNT
@@ -16,5 +19,7 @@ enum class BloomTechnique : uint8_t
 extern const wheels::StaticArray<
     const char *, static_cast<size_t>(BloomTechnique::Count)>
     sBloomTechniqueNames;
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_BLOOM_TECHNIQUE_HPP

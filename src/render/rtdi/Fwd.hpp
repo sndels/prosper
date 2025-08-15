@@ -1,6 +1,9 @@
 #ifndef PROSPER_RENDER_RTDI_FWD_HPP
 #define PROSPER_RENDER_RTDI_FWD_HPP
 
+namespace render::rtdi
+{
+
 // RtDiInitialReservoirs.hpp
 class RtDiInitialReservoirs;
 
@@ -12,5 +15,7 @@ class RtSpatialReuse;
 
 // RtDiTrace.hpp
 class RtDiTrace;
+
+} // namespace render::rtdi
 
 #endif // PROSPER_RENDER_RTDI_FWD_HPP

@@ -24,6 +24,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace scene
+{
+
 enum class IndicesType : uint8_t
 {
     Uint8,
@@ -44,14 +47,14 @@ struct InputGeometryMetadata
 
 struct UploadedGeometryData
 {
-    GeometryMetadata metadata;
+    shader_structs::GeometryMetadata metadata;
     uint32_t byteOffset{0};
     uint32_t byteCount{0};
     // This is valid while DeferredLoadingContext is
     wheels::StrSpan meshName;
 };
 
-Buffer createTextureStaging();
+gfx::Buffer createTextureStaging();
 
 // Changes to this require changes to sMeshCacheVersion
 struct MeshCacheHeader
@@ -117,12 +120,12 @@ class DeferredLoadingContext
     wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes{
         gAllocators.loadingWorker};
     wheels::Array<wheels::String> meshNames{gAllocators.loadingWorker};
-    Buffer geometryUploadBuffer;
+    gfx::Buffer geometryUploadBuffer;
     wheels::Array<uint32_t> geometryBufferRemainingByteCounts{
         gAllocators.loadingWorker};
     uint32_t workerLoadedMeshCount{0};
-    Timer meshTimer;
-    Timer textureTimer;
+    utils::Timer meshTimer;
+    utils::Timer textureTimer;
 
     // Shared context
     std::mutex geometryBuffersMutex;
@@ -130,7 +133,7 @@ class DeferredLoadingContext
     // them. The managing thread is assumed to copy the buffers from here and is
     // responsible for their destruction. This array should only be read from
     // outside this class, write ops are not allowed.
-    wheels::Array<Buffer> geometryBuffers{gAllocators.loadingWorker};
+    wheels::Array<gfx::Buffer> geometryBuffers{gAllocators.loadingWorker};
     std::mutex loadedMeshesMutex;
     wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes{
         gAllocators.loadingWorker};
@@ -148,11 +151,14 @@ class DeferredLoadingContext
     uint32_t loadedMeshCount{0};
     uint32_t loadedImageCount{0};
     uint32_t loadedMaterialCount{0};
-    wheels::Array<MaterialData> materials{gAllocators.loadingWorker};
-    Buffer stagingBuffer;
+    wheels::Array<shader_structs::MaterialData> materials{
+        gAllocators.loadingWorker};
+    gfx::Buffer stagingBuffer;
 
   private:
     uint32_t getGeometryBuffer(uint32_t byteCount);
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_DEFERRED_LOADING_CONTEXT

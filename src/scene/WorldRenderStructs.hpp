@@ -10,6 +10,9 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace scene
+{
+
 struct WorldDSLayouts
 {
     uint32_t materialSamplerCount{0};
@@ -49,12 +52,14 @@ struct SkyboxResources
     static const uint32_t sSkyboxRadianceResolution = 512;
 
     TextureCubemap texture;
-    Image irradiance;
-    Image specularBrdfLut;
-    Image radiance;
+    gfx::Image irradiance;
+    gfx::Image specularBrdfLut;
+    gfx::Image radiance;
     wheels::Array<vk::ImageView> radianceViews;
-    Buffer vertexBuffer;
+    gfx::Buffer vertexBuffer;
     vk::Sampler sampler;
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_WORLD_RENDER_STRUCTS_HPP

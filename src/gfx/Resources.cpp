@@ -1,5 +1,8 @@
 #include "Resources.hpp"
 
+namespace gfx
+{
+
 namespace
 {
 
@@ -312,3 +315,5 @@ void Image::transition(const vk::CommandBuffer buffer, ImageState newState)
             .pImageMemoryBarriers = &*barrier,
         });
 }
+
+} // namespace gfx

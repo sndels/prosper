@@ -11,6 +11,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::rtdi
+{
+
 class RtDirectIllumination
 {
   public:
@@ -24,21 +27,22 @@ class RtDirectIllumination
 
     void init(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     void drawUi();
 
     using Output = RtDiTrace::Output;
     [[nodiscard]] Output record(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
-        const Camera &cam, const GBufferRendererOutput &gbuffer,
-        bool resetAccumulation, DrawType drawType, uint32_t nextFrame);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        scene::World &world, const scene::Camera &cam,
+        const GBufferRendererOutput &gbuffer, bool resetAccumulation,
+        scene::DrawType drawType, uint32_t nextFrame);
     void releasePreserved();
 
   private:
@@ -51,5 +55,7 @@ class RtDirectIllumination
     RtDiSpatialReuse m_spatialReuse;
     RtDiTrace m_trace;
 };
+
+} // namespace render::rtdi
 
 #endif // PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP

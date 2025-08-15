@@ -13,6 +13,9 @@
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace gfx
+{
+
 struct SwapchainSupport
 {
     vk::SurfaceCapabilitiesKHR capabilities;
@@ -89,5 +92,7 @@ class Swapchain
     wheels::StaticArray<vk::Fence, MAX_FRAMES_IN_FLIGHT> m_inFlightFences;
     size_t m_nextFrame{0};
 };
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_SWAPCHAIN_HPP

@@ -3,6 +3,9 @@
 
 #include <cstdint>
 
+namespace render
+{
+
 struct DrawStats
 {
     uint32_t drawnMeshletCount{0};
@@ -12,5 +15,7 @@ struct DrawStats
     uint32_t totalMeshCount{0};
     uint32_t totalModelCount{0};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_DRAW_STATS_HPP

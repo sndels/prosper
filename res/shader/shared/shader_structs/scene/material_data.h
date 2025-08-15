@@ -8,7 +8,13 @@
 #include <cstdint>
 #include <wheels/assert.hpp>
 
+namespace scene
+{
+
 class Texture;
+
+namespace shader_structs
+{
 
 struct Texture2DSampler
 {
@@ -60,5 +66,10 @@ struct MaterialData
         uint, Texture2DSampler, normalTextureSampler, Texture2DSampler{});
     STRUCT_FIELD_GLM(uint, pad, 0);
 };
+
+#ifdef __cplusplus
+} //  namespace shader_structs
+} //  namespace scene
+#endif // __cplusplus
 
 #endif // SHARED_SHADER_STRUCTS_SCENE_MATERIAL_DATA_H

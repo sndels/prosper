@@ -23,6 +23,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace scene
+{
+
 // This implements loading and is used 'internally' by the world pimpl
 class WorldData
 {
@@ -31,8 +34,8 @@ class WorldData
 
     struct RingBuffers
     {
-        RingBuffer *constantsRing{nullptr};
-        RingBuffer *lightDataRing{nullptr};
+        gfx::RingBuffer *constantsRing{nullptr};
+        gfx::RingBuffer *lightDataRing{nullptr};
     };
     WorldData() noexcept = default;
     ~WorldData();
@@ -57,33 +60,34 @@ class WorldData
     bool m_initialized{false};
     // Use general for descriptors because because we don't know the required
     // storage up front and the internal array will be reallocated
-    DescriptorAllocator m_descriptorAllocator;
+    gfx::DescriptorAllocator m_descriptorAllocator;
 
-    Timer m_materialStreamingTimer;
+    utils::Timer m_materialStreamingTimer;
 
     std::filesystem::path m_sceneDir;
 
     wheels::Array<vk::Sampler> m_samplers{gAllocators.general};
     wheels::Array<Texture2D> m_texture2Ds{gAllocators.general};
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT>
+    wheels::StaticArray<gfx::Buffer, MAX_FRAMES_IN_FLIGHT>
         m_geometryMetadatasBuffers;
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> m_meshletCountsBuffers;
+    wheels::StaticArray<gfx::Buffer, MAX_FRAMES_IN_FLIGHT>
+        m_meshletCountsBuffers;
     wheels::Array<uint32_t> m_geometryBufferAllocatedByteCounts{
         gAllocators.general};
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> m_geometryGenerations{
         0};
 
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> m_materialsBuffers;
+    wheels::StaticArray<gfx::Buffer, MAX_FRAMES_IN_FLIGHT> m_materialsBuffers;
     wheels::StaticArray<uint32_t, MAX_FRAMES_IN_FLIGHT> m_materialsGenerations{
         0};
 
     wheels::Array<uint8_t> m_rawAnimationData{gAllocators.general};
 
-    wheels::Optional<ShaderReflection> m_materialsReflection;
-    wheels::Optional<ShaderReflection> m_geometryReflection;
-    wheels::Optional<ShaderReflection> m_sceneInstancesReflection;
-    wheels::Optional<ShaderReflection> m_lightsReflection;
-    wheels::Optional<ShaderReflection> m_skyboxReflection;
+    wheels::Optional<gfx::ShaderReflection> m_materialsReflection;
+    wheels::Optional<gfx::ShaderReflection> m_geometryReflection;
+    wheels::Optional<gfx::ShaderReflection> m_sceneInstancesReflection;
+    wheels::Optional<gfx::ShaderReflection> m_lightsReflection;
+    wheels::Optional<gfx::ShaderReflection> m_skyboxReflection;
 
   public:
     SkyboxResources m_skyboxResources{
@@ -93,13 +97,15 @@ class WorldData
     wheels::Array<CameraParameters> m_cameras{gAllocators.general};
     // True if any instance of the camera is dynamic
     wheels::Array<bool> m_cameraDynamic{gAllocators.general};
-    wheels::Array<MaterialData> m_materials{gAllocators.general};
-    wheels::Array<Buffer> m_geometryBuffers{gAllocators.general};
-    wheels::Array<GeometryMetadata> m_geometryMetadatas{gAllocators.general};
+    wheels::Array<shader_structs::MaterialData> m_materials{
+        gAllocators.general};
+    wheels::Array<gfx::Buffer> m_geometryBuffers{gAllocators.general};
+    wheels::Array<shader_structs::GeometryMetadata> m_geometryMetadatas{
+        gAllocators.general};
     wheels::Array<MeshInfo> m_meshInfos{gAllocators.general};
     wheels::Array<wheels::String> m_meshNames{gAllocators.general};
-    wheels::Array<AccelerationStructure> m_blases{gAllocators.general};
-    wheels::Array<AccelerationStructure> m_tlases{gAllocators.general};
+    wheels::Array<gfx::AccelerationStructure> m_blases{gAllocators.general};
+    wheels::Array<gfx::AccelerationStructure> m_tlases{gAllocators.general};
     wheels::Array<Model> m_models{gAllocators.general};
     Animations m_animations;
     wheels::Array<Scene> m_scenes{gAllocators.general};
@@ -108,17 +114,18 @@ class WorldData
     WorldDSLayouts m_dsLayouts;
     WorldDescriptorSets m_descriptorSets;
 
-    RingBuffer m_modelInstanceTransformsRing;
+    gfx::RingBuffer m_modelInstanceTransformsRing;
 
     wheels::Optional<DeferredLoadingContext> m_deferredLoadingContext;
 
   private:
     void loadTextures(
         wheels::ScopedScratch scopeAlloc, const cgltf_data &gltfData,
-        wheels::Array<Texture2DSampler> &texture2DSamplers);
+        wheels::Array<shader_structs::Texture2DSampler> &texture2DSamplers);
     void loadMaterials(
         const cgltf_data &gltfData,
-        const wheels::Array<Texture2DSampler> &texture2DSamplers);
+        const wheels::Array<shader_structs::Texture2DSampler>
+            &texture2DSamplers);
     void loadModels(
         wheels::ScopedScratch scopeAlloc, const cgltf_data &gltfData);
 
@@ -172,5 +179,7 @@ class WorldData
     void updateDescriptorsWithNewTextures(size_t newTextureCount);
     bool updateMaterials();
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_WORLD_DATA_HPP

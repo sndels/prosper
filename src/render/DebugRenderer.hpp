@@ -12,6 +12,9 @@
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 class DebugRenderer
 {
   public:
@@ -38,7 +41,7 @@ class DebugRenderer
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Camera &cam, const RecordInOut &inOutTargets,
+        const scene::Camera &cam, const RecordInOut &inOutTargets,
         uint32_t nextFrame) const;
 
   private:
@@ -52,8 +55,8 @@ class DebugRenderer
     bool m_initialized{false};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
-    wheels::Optional<ShaderReflection> m_vertReflection;
-    wheels::Optional<ShaderReflection> m_fragReflection;
+    wheels::Optional<gfx::ShaderReflection> m_vertReflection;
+    wheels::Optional<gfx::ShaderReflection> m_fragReflection;
 
     vk::DescriptorSetLayout m_linesDSLayout;
     wheels::StaticArray<vk::DescriptorSet, MAX_FRAMES_IN_FLIGHT>
@@ -62,5 +65,7 @@ class DebugRenderer
     vk::PipelineLayout m_pipelineLayout;
     vk::Pipeline m_pipeline;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_DEBUG_RENDERER_HPP

@@ -9,6 +9,9 @@
 #include <wheels/containers/array.hpp>
 #include <wheels/containers/span.hpp>
 
+namespace gfx
+{
+
 // Basic idea from
 // https://vkguide.dev/docs/extra-chapter/abstracting_descriptors/
 
@@ -66,5 +69,7 @@ class DescriptorAllocator
 // similar globals is handled in main()
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern DescriptorAllocator gStaticDescriptorsAlloc;
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_DESCRIPTOR_ALLOCATOR_HPP

@@ -9,6 +9,9 @@
 #include <imgui.h>
 #include <vulkan/vulkan.hpp>
 
+namespace render
+{
+
 class ImGuiRenderer
 {
   public:
@@ -20,7 +23,7 @@ class ImGuiRenderer
     ImGuiRenderer &operator=(const ImGuiRenderer &other) = delete;
     ImGuiRenderer &operator=(ImGuiRenderer &&other) = delete;
 
-    void init(const SwapchainConfig &swapConfig);
+    void init(const gfx::SwapchainConfig &swapConfig);
 
     void startFrame();
     void endFrame(
@@ -39,5 +42,7 @@ class ImGuiRenderer
     vk::DescriptorPool m_descriptorPool;
     ImGuiID m_dockAreaID{0};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_IMGUI_RENDERER_HPP

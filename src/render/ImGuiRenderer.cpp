@@ -19,12 +19,15 @@
 
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
 constexpr void checkSuccessImGui(VkResult err)
 {
-    checkSuccess(static_cast<vk::Result>(err), "ImGui");
+    gfx::checkSuccess(static_cast<vk::Result>(err), "ImGui");
 }
 
 const char *const sIniFilename = "prosper_imgui.ini";
@@ -50,11 +53,11 @@ ImGuiRenderer::~ImGuiRenderer()
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
-        gDevice.logical().destroy(m_descriptorPool);
+        gfx::gDevice.logical().destroy(m_descriptorPool);
     }
 }
 
-void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
+void ImGuiRenderer::init(const gfx::SwapchainConfig &swapConfig)
 {
     WHEELS_ASSERT(!m_initialized);
 
@@ -91,11 +94,11 @@ void ImGuiRenderer::init(const SwapchainConfig &swapConfig)
 
     ImGui_ImplGlfw_InitForVulkan(window, false);
     ImGui_ImplVulkan_InitInfo init_info = {
-        .Instance = gDevice.instance(),
-        .PhysicalDevice = gDevice.physical(),
-        .Device = gDevice.logical(),
-        .QueueFamily = *gDevice.queueFamilies().graphicsFamily,
-        .Queue = gDevice.graphicsQueue(),
+        .Instance = gfx::gDevice.instance(),
+        .PhysicalDevice = gfx::gDevice.physical(),
+        .Device = gfx::gDevice.logical(),
+        .QueueFamily = *gfx::gDevice.queueFamilies().graphicsFamily,
+        .Queue = gfx::gDevice.graphicsQueue(),
         .DescriptorPool = m_descriptorPool,
         .MinImageCount = swapConfig.imageCount,
         .ImageCount = swapConfig.imageCount,
@@ -160,7 +163,7 @@ void ImGuiRenderer::endFrame(
         PROFILER_CPU_SCOPE("ImGui::draw");
 
         gRenderResources.images->transition(
-            cb, inOutColor, ImageState::ColorAttachmentReadWrite);
+            cb, inOutColor, gfx::ImageState::ColorAttachmentReadWrite);
 
         PROFILER_GPU_SCOPE_WITH_STATS(cb, "ImGui::draw");
 
@@ -212,8 +215,8 @@ void ImGuiRenderer::createDescriptorPool()
         .type = vk::DescriptorType::eCombinedImageSampler,
         .descriptorCount = 1,
     };
-    m_descriptorPool =
-        gDevice.logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+    m_descriptorPool = gfx::gDevice.logical().createDescriptorPool(
+        vk::DescriptorPoolCreateInfo{
             .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
             .maxSets = 1,
             .poolSizeCount = 1,
@@ -306,3 +309,5 @@ void ImGuiRenderer::setStyle()
     colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
 }
+
+} // namespace render

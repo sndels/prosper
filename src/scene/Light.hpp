@@ -9,13 +9,17 @@
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/span.hpp>
 
+namespace scene
+{
+
 struct DirectionalLight
 {
-    DirectionalLightParameters parameters;
+    shader_structs::DirectionalLightParameters parameters;
 
-    static const uint32_t sBufferByteSize = sizeof(DirectionalLightParameters);
+    static const uint32_t sBufferByteSize =
+        sizeof(shader_structs::DirectionalLightParameters);
 
-    [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
+    [[nodiscard]] uint32_t write(gfx::RingBuffer &buffer) const;
 };
 
 struct PointLights
@@ -27,13 +31,13 @@ struct PointLights
         appendDefineStr(str, "MAX_POINT_LIGHT_COUNT", PointLights::sMaxCount);
     };
 
-    wheels::InlineArray<PointLight, sMaxCount> data;
+    wheels::InlineArray<shader_structs::PointLight, sMaxCount> data;
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
-        (sMaxCount * sizeof(PointLight)) + sizeof(uint32_t);
+        (sMaxCount * sizeof(shader_structs::PointLight)) + sizeof(uint32_t);
 
-    [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
+    [[nodiscard]] uint32_t write(gfx::RingBuffer &buffer) const;
 };
 
 struct SpotLights
@@ -45,13 +49,15 @@ struct SpotLights
         appendDefineStr(str, "MAX_SPOT_LIGHT_COUNT", SpotLights::sMaxCount);
     }
 
-    wheels::InlineArray<SpotLight, sMaxCount> data;
+    wheels::InlineArray<shader_structs::SpotLight, sMaxCount> data;
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
-        (sMaxCount * sizeof(SpotLight)) + sizeof(uint32_t);
+        (sMaxCount * sizeof(shader_structs::SpotLight)) + sizeof(uint32_t);
 
-    [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
+    [[nodiscard]] uint32_t write(gfx::RingBuffer &buffer) const;
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_LIGHT_HPP

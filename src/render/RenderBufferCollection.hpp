@@ -11,6 +11,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace render
+{
+
 class RenderBufferCollection
 {
   public:
@@ -26,18 +29,19 @@ class RenderBufferCollection
     void destroyResources();
 
     [[nodiscard]] BufferHandle create(
-        const BufferDescription &desc, const char *debugName);
+        const gfx::BufferDescription &desc, const char *debugName);
     // Caller is expected to check validity before calling methods with the
     // handle. This design assumes that the code that creates and releases
     // resources is single-threaded and the handle isn't be released between
     // isValidHandle() and following accessor calls.
     [[nodiscard]] bool isValidHandle(BufferHandle handle) const;
     [[nodiscard]] vk::Buffer nativeHandle(BufferHandle handle) const;
-    [[nodiscard]] const Buffer &resource(BufferHandle handle) const;
+    [[nodiscard]] const gfx::Buffer &resource(BufferHandle handle) const;
     void transition(
-        vk::CommandBuffer cb, BufferHandle handle, BufferState state);
+        vk::CommandBuffer cb, BufferHandle handle, gfx::BufferState state);
     [[nodiscard]] wheels::Optional<vk::BufferMemoryBarrier2> transitionBarrier(
-        BufferHandle handle, BufferState state, bool force_barrier = false);
+        BufferHandle handle, gfx::BufferState state,
+        bool force_barrier = false);
     void appendDebugName(BufferHandle handle, wheels::StrSpan name);
     void preserve(BufferHandle handle);
     void release(BufferHandle handle);
@@ -60,8 +64,8 @@ class RenderBufferCollection
     [[nodiscard]] bool resourceInUse(uint32_t i) const;
     void assertUniqueDebugName(wheels::StrSpan debugName) const;
 
-    wheels::Array<Buffer> m_resources{gAllocators.general};
-    wheels::Array<BufferDescription> m_descriptions{gAllocators.general};
+    wheels::Array<gfx::Buffer> m_resources{gAllocators.general};
+    wheels::Array<gfx::BufferDescription> m_descriptions{gAllocators.general};
     wheels::Array<wheels::String> m_aliasedDebugNames{gAllocators.general};
     wheels::Array<uint64_t> m_generations{gAllocators.general};
     wheels::Array<wheels::String> m_debugNames{gAllocators.general};
@@ -73,5 +77,7 @@ class RenderBufferCollection
     // the slot can be reused
     wheels::Array<uint32_t> m_freelist{gAllocators.general};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_BUFFER_COLLECTION_HPP

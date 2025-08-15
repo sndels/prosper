@@ -15,6 +15,9 @@
 
 #define DRAW_TYPES_STRS FOR_EACH(DRAW_TYPES_STRINGIFY, DRAW_TYPES)
 
+namespace scene
+{
+
 enum class DrawType : uint8_t
 {
     DRAW_TYPES_AND_COUNT
@@ -23,5 +26,7 @@ enum class DrawType : uint8_t
 extern const wheels::StaticArray<
     const char *, static_cast<size_t>(DrawType::Count)>
     sDrawTypeNames;
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_DRAW_TYPE_HPP

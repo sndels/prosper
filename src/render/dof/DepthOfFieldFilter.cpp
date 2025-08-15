@@ -6,6 +6,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::dof
+{
+
 namespace
 {
 
@@ -53,14 +56,14 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
 
     PROFILER_CPU_SCOPE(debugNames.scope);
 
-    const Image &inRes =
+    const gfx::Image &inRes =
         gRenderResources.images->resource(inIlluminationWeight);
     Output ret;
     // TODO:
     // Support querying description of a resource to create a new one from it?
     // Or have a dedicated create_matching()?
     ret.filteredIlluminationWeight = gRenderResources.images->create(
-        ImageDescription{
+        gfx::ImageDescription{
             .format = vk::Format::eR16G16B16A16Sfloat,
             .width = inRes.extent.width,
             .height = inRes.extent.height,
@@ -72,17 +75,17 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
     const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = inRes.view,
                 .imageLayout = vk::ImageLayout::eReadOnlyOptimal,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
                                  ->resource(ret.filteredIlluminationWeight)
                                  .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.nearestSampler,
             }},
         }});
@@ -91,9 +94,10 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
-                {inIlluminationWeight, ImageState::ComputeShaderSampledRead},
+                {inIlluminationWeight,
+                 gfx::ImageState::ComputeShaderSampledRead},
                 {ret.filteredIlluminationWeight,
-                 ImageState::ComputeShaderWrite},
+                 gfx::ImageState::ComputeShaderWrite},
             }},
         });
 
@@ -105,3 +109,5 @@ DepthOfFieldFilter::Output DepthOfFieldFilter::record(
 
     return ret;
 }
+
+} // namespace render::dof

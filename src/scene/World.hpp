@@ -12,6 +12,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/owning_ptr.hpp>
 
+namespace scene
+{
+
 class World
 {
   public:
@@ -24,7 +27,7 @@ class World
     World &operator=(World &&other) = delete;
 
     void init(
-        wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing,
+        wheels::ScopedScratch scopeAlloc, gfx::RingBuffer &constantsRing,
         const std::filesystem::path &scene);
 
     void startFrame();
@@ -43,7 +46,7 @@ class World
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
 
-    [[nodiscard]] AccelerationStructure &currentTLAS();
+    [[nodiscard]] gfx::AccelerationStructure &currentTLAS();
 
     [[nodiscard]] CameraParameters const &currentCamera() const;
     [[nodiscard]] bool isCurrentCameraDynamic() const;
@@ -54,7 +57,7 @@ class World
     // Has to be called after updateAnimations()
     void updateScene(
         wheels::ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
-        SceneStats &sceneStats);
+        utils::SceneStats &sceneStats);
     void updateBuffers(wheels::ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
@@ -66,7 +69,8 @@ class World
     [[nodiscard]] const WorldDescriptorSets &descriptorSets() const;
     [[nodiscard]] const WorldByteOffsets &byteOffsets() const;
     [[nodiscard]] wheels::Span<const Model> models() const;
-    [[nodiscard]] wheels::Span<const MaterialData> materials() const;
+    [[nodiscard]] wheels::Span<const shader_structs::MaterialData> materials()
+        const;
     [[nodiscard]] wheels::Span<const MeshInfo> meshInfos() const;
     [[nodiscard]] SkyboxResources &skyboxResources();
 
@@ -76,5 +80,7 @@ class World
     wheels::OwningPtr<Impl> m_impl;
     bool m_initialized{false};
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_WORLD_HPP

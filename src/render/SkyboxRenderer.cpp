@@ -15,6 +15,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -40,12 +43,12 @@ SkyboxRenderer::~SkyboxRenderer()
     destroyGraphicsPipelines();
 
     for (auto const &stage : m_shaderStages)
-        gDevice.logical().destroyShaderModule(stage.module);
+        gfx::gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void SkyboxRenderer::init(
     ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
@@ -63,7 +66,7 @@ void SkyboxRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -81,8 +84,8 @@ void SkyboxRenderer::recompileShaders(
 }
 
 void SkyboxRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const RecordInOut &inOutTargets) const
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const RecordInOut &inOutTargets) const
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -96,10 +99,11 @@ void SkyboxRenderer::record(
             Transitions{
                 .images = StaticArray<ImageTransition, 3>{{
                     {inOutTargets.illumination,
-                     ImageState::ColorAttachmentReadWrite},
+                     gfx::ImageState::ColorAttachmentReadWrite},
                     {inOutTargets.velocity,
-                     ImageState::ColorAttachmentReadWrite},
-                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                     gfx::ImageState::ColorAttachmentReadWrite},
+                    {inOutTargets.depth,
+                     gfx::ImageState::DepthAttachmentReadWrite},
                 }},
             });
 
@@ -149,7 +153,7 @@ void SkyboxRenderer::record(
         // before transparents
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 
-        const WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -164,7 +168,7 @@ void SkyboxRenderer::record(
             asserted_cast<uint32_t>(descriptorSets.size()),
             descriptorSets.data(), 1, &camOffset);
 
-        setViewportScissor(cb, renderArea);
+        gfx::setViewportScissor(cb, renderArea);
 
         world.drawSkybox(cb);
 
@@ -180,16 +184,16 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     WHEELS_ASSERT(defines.size() <= len);
 
-    Optional<Device::ShaderCompileResult> vertResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> vertResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.vert",
                                           .debugName = "skyboxVS",
                                           .defines = defines,
                                       });
-    Optional<Device::ShaderCompileResult> fragResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> fragResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/skybox.frag",
                                           .debugName = "skyboxPS",
                                           .defines = defines,
@@ -198,7 +202,7 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     if (vertResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : m_shaderStages)
-            gDevice.logical().destroyShaderModule(stage.module);
+            gfx::gDevice.logical().destroyShaderModule(stage.module);
 
         m_vertReflection = WHEELS_MOV(vertResult->reflection);
         m_fragReflection = WHEELS_MOV(fragResult->reflection);
@@ -220,22 +224,22 @@ bool SkyboxRenderer::compileShaders(ScopedScratch scopeAlloc)
     }
 
     if (vertResult.has_value())
-        gDevice.logical().destroy(vertResult->module);
+        gfx::gDevice.logical().destroy(vertResult->module);
     if (fragResult.has_value())
-        gDevice.logical().destroy(fragResult->module);
+        gfx::gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
 
 void SkyboxRenderer::destroyGraphicsPipelines()
 {
-    gDevice.logical().destroy(m_pipeline);
-    gDevice.logical().destroy(m_pipelineLayout);
+    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void SkyboxRenderer::createGraphicsPipelines(
     const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     const vk::VertexInputBindingDescription vertexBindingDescription{
         .binding = 0,
@@ -260,8 +264,8 @@ void SkyboxRenderer::createGraphicsPipelines(
     setLayouts[SkyboxBindingSet] = worldDSLayouts.skybox;
     setLayouts[CameraBindingSet] = camDSLayout;
 
-    m_pipelineLayout =
-        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
+        vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
         });
@@ -272,11 +276,11 @@ void SkyboxRenderer::createGraphicsPipelines(
     }};
 
     const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
-        colorBlendAttachments{opaqueColorBlendAttachment()};
+        colorBlendAttachments{gfx::opaqueColorBlendAttachment()};
 
-    m_pipeline = createGraphicsPipeline(
-        gDevice.logical(),
-        GraphicsPipelineInfo{
+    m_pipeline = gfx::createGraphicsPipeline(
+        gfx::gDevice.logical(),
+        gfx::GraphicsPipelineInfo{
             .layout = m_pipelineLayout,
             .vertInputInfo = &vertInputInfo,
             .colorBlendAttachments = colorBlendAttachments,
@@ -293,3 +297,5 @@ void SkyboxRenderer::createGraphicsPipelines(
             .debugName = "SkyboxRenderer",
         });
 }
+
+} // namespace render

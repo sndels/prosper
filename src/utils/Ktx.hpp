@@ -7,6 +7,9 @@
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 
+namespace utils
+{
+
 // https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html
 struct Ktx
 {
@@ -24,5 +27,7 @@ struct Ktx
 };
 
 Ktx readKtx(wheels::Allocator &alloc, const std::filesystem::path &path);
+
+} // namespace utils
 
 #endif // PROSPER_UTILS_KTX_HPP

@@ -14,6 +14,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::dof
+{
+
 namespace
 {
 
@@ -69,7 +72,7 @@ void DepthOfFieldSetup::recompileShaders(
 }
 
 DepthOfFieldSetup::Output DepthOfFieldSetup::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::Camera &cam,
     const Input &input, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
@@ -84,7 +87,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
         const uint32_t mipCount =
             getMipCount(std::max(renderExtent.width, renderExtent.height));
         ret.halfResIllumination = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = sIlluminationFormat,
                 .width = renderExtent.width,
                 .height = renderExtent.height,
@@ -96,7 +99,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             "HalfResIllumination");
 
         ret.halfResCircleOfConfusion = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR16Sfloat,
                 .width = renderExtent.width,
                 .height = renderExtent.height,
@@ -108,30 +111,30 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.illumination)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.depth).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(ret.halfResIllumination)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(ret.halfResCircleOfConfusion)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
             }});
@@ -140,11 +143,12 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 4>{{
-                    {input.illumination, ImageState::ComputeShaderRead},
-                    {input.depth, ImageState::ComputeShaderRead},
-                    {ret.halfResIllumination, ImageState::ComputeShaderWrite},
+                    {input.illumination, gfx::ImageState::ComputeShaderRead},
+                    {input.depth, gfx::ImageState::ComputeShaderRead},
+                    {ret.halfResIllumination,
+                     gfx::ImageState::ComputeShaderWrite},
                     {ret.halfResCircleOfConfusion,
-                     ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -157,7 +161,7 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
         const uint32_t cameraOffset = cam.bufferOffset();
 
-        const CameraParameters &camParams = cam.parameters();
+        const scene::CameraParameters &camParams = cam.parameters();
         const float maxBgCoCInUnits =
             (camParams.apertureDiameter * camParams.focalLength) /
             (camParams.focusDistance - camParams.focalLength);
@@ -183,3 +187,5 @@ DepthOfFieldSetup::Output DepthOfFieldSetup::record(
 
     return ret;
 }
+
+} // namespace render::dof

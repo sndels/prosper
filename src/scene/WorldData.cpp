@@ -13,6 +13,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace scene
+{
+
 namespace
 {
 
@@ -134,7 +137,7 @@ cgltf_data *loadGltf(const std::filesystem::path &path)
     return data;
 }
 
-Buffer createSkyboxVertexBuffer()
+gfx::Buffer createSkyboxVertexBuffer()
 {
     // Avoid large global allocation
     const StaticArray<glm::vec3, WorldData::sSkyboxVertsCount> skyboxVerts{{
@@ -163,9 +166,9 @@ Buffer createSkyboxVertexBuffer()
         vec3{-1.0f, -1.0f, 1.0f},  vec3{1.0f, -1.0f, 1.0f},
     }};
 
-    return gDevice.createBuffer(BufferCreateInfo{
+    return gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeof(skyboxVerts[0]) * skyboxVerts.size(),
                 .usage = vk::BufferUsageFlagBits::eVertexBuffer |
                          vk::BufferUsageFlagBits::eTransferDst,
@@ -257,45 +260,45 @@ WorldData::~WorldData()
         }
     }
 
-    gDevice.logical().destroy(m_dsLayouts.lights);
-    gDevice.logical().destroy(m_dsLayouts.skybox);
-    gDevice.logical().destroy(m_dsLayouts.rayTracing);
-    gDevice.logical().destroy(m_dsLayouts.sceneInstances);
-    gDevice.logical().destroy(m_dsLayouts.geometry);
-    gDevice.logical().destroy(m_dsLayouts.materialTextures);
-    gDevice.logical().destroy(m_dsLayouts.materialDatas);
+    gfx::gDevice.logical().destroy(m_dsLayouts.lights);
+    gfx::gDevice.logical().destroy(m_dsLayouts.skybox);
+    gfx::gDevice.logical().destroy(m_dsLayouts.rayTracing);
+    gfx::gDevice.logical().destroy(m_dsLayouts.sceneInstances);
+    gfx::gDevice.logical().destroy(m_dsLayouts.geometry);
+    gfx::gDevice.logical().destroy(m_dsLayouts.materialTextures);
+    gfx::gDevice.logical().destroy(m_dsLayouts.materialDatas);
 
-    gDevice.destroy(m_skyboxResources.vertexBuffer);
+    gfx::gDevice.destroy(m_skyboxResources.vertexBuffer);
     for (const vk::ImageView view : m_skyboxResources.radianceViews)
-        gDevice.logical().destroy(view);
-    gDevice.destroy(m_skyboxResources.radiance);
-    gDevice.destroy(m_skyboxResources.specularBrdfLut);
-    gDevice.destroy(m_skyboxResources.irradiance);
-    gDevice.logical().destroy(m_skyboxResources.sampler);
+        gfx::gDevice.logical().destroy(view);
+    gfx::gDevice.destroy(m_skyboxResources.radiance);
+    gfx::gDevice.destroy(m_skyboxResources.specularBrdfLut);
+    gfx::gDevice.destroy(m_skyboxResources.irradiance);
+    gfx::gDevice.logical().destroy(m_skyboxResources.sampler);
 
-    for (Buffer &buffer : m_materialsBuffers)
-        gDevice.destroy(buffer);
+    for (gfx::Buffer &buffer : m_materialsBuffers)
+        gfx::gDevice.destroy(buffer);
 
-    for (AccelerationStructure &blas : m_blases)
+    for (gfx::AccelerationStructure &blas : m_blases)
     {
-        gDevice.logical().destroy(blas.handle);
-        gDevice.destroy(blas.buffer);
+        gfx::gDevice.logical().destroy(blas.handle);
+        gfx::gDevice.destroy(blas.buffer);
     }
-    for (AccelerationStructure &tlas : m_tlases)
+    for (gfx::AccelerationStructure &tlas : m_tlases)
     {
-        gDevice.logical().destroy(tlas.handle);
-        gDevice.destroy(tlas.buffer);
+        gfx::gDevice.logical().destroy(tlas.handle);
+        gfx::gDevice.destroy(tlas.buffer);
     }
     for (Scene &scene : m_scenes)
-        gDevice.destroy(scene.drawInstancesBuffer);
-    for (Buffer &buffer : m_geometryBuffers)
-        gDevice.destroy(buffer);
-    for (Buffer &buffer : m_geometryMetadatasBuffers)
-        gDevice.destroy(buffer);
-    for (Buffer &buffer : m_meshletCountsBuffers)
-        gDevice.destroy(buffer);
+        gfx::gDevice.destroy(scene.drawInstancesBuffer);
+    for (gfx::Buffer &buffer : m_geometryBuffers)
+        gfx::gDevice.destroy(buffer);
+    for (gfx::Buffer &buffer : m_geometryMetadatasBuffers)
+        gfx::gDevice.destroy(buffer);
+    for (gfx::Buffer &buffer : m_meshletCountsBuffers)
+        gfx::gDevice.destroy(buffer);
     for (const vk::Sampler sampler : m_samplers)
-        gDevice.logical().destroy(sampler);
+        gfx::gDevice.logical().destroy(sampler);
 
     m_descriptorAllocator.destroy();
 }
@@ -312,53 +315,55 @@ void WorldData::init(
     m_skyboxResources.texture.init(
         scopeAlloc.child_scope(), resPath("env/storm.ktx"));
 
-    m_skyboxResources.irradiance = gDevice.createImage(ImageCreateInfo{
-        .desc =
-            ImageDescription{
-                .format = vk::Format::eR16G16B16A16Sfloat,
-                .width = SkyboxResources::sSkyboxIrradianceResolution,
-                .height = SkyboxResources::sSkyboxIrradianceResolution,
-                .layerCount = 6,
-                .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
-                .usageFlags = vk::ImageUsageFlagBits::eSampled |
-                              vk::ImageUsageFlagBits::eStorage,
-            },
-        .debugName = "SkyboxIrradiance",
-    });
+    m_skyboxResources.irradiance =
+        gfx::gDevice.createImage(gfx::ImageCreateInfo{
+            .desc =
+                gfx::ImageDescription{
+                    .format = vk::Format::eR16G16B16A16Sfloat,
+                    .width = SkyboxResources::sSkyboxIrradianceResolution,
+                    .height = SkyboxResources::sSkyboxIrradianceResolution,
+                    .layerCount = 6,
+                    .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
+                    .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                                  vk::ImageUsageFlagBits::eStorage,
+                },
+            .debugName = "SkyboxIrradiance",
+        });
     {
-        const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
+        const vk::CommandBuffer cb = gfx::gDevice.beginGraphicsCommands();
         m_skyboxResources.irradiance.transition(
-            cb, ImageState::FragmentShaderSampledRead |
-                    ImageState::ComputeShaderSampledRead |
-                    ImageState::RayTracingSampledRead);
-        gDevice.endGraphicsCommands(cb);
+            cb, gfx::ImageState::FragmentShaderSampledRead |
+                    gfx::ImageState::ComputeShaderSampledRead |
+                    gfx::ImageState::RayTracingSampledRead);
+        gfx::gDevice.endGraphicsCommands(cb);
     }
 
-    m_skyboxResources.specularBrdfLut = gDevice.createImage(ImageCreateInfo{
-        .desc =
-            ImageDescription{
-                .format = vk::Format::eR16G16Unorm,
-                .width = SkyboxResources::sSpecularBrdfLutResolution,
-                .height = SkyboxResources::sSpecularBrdfLutResolution,
-                .usageFlags = vk::ImageUsageFlagBits::eSampled |
-                              vk::ImageUsageFlagBits::eStorage,
-            },
-        .debugName = "SpecularBrdfLut",
-    });
+    m_skyboxResources.specularBrdfLut =
+        gfx::gDevice.createImage(gfx::ImageCreateInfo{
+            .desc =
+                gfx::ImageDescription{
+                    .format = vk::Format::eR16G16Unorm,
+                    .width = SkyboxResources::sSpecularBrdfLutResolution,
+                    .height = SkyboxResources::sSpecularBrdfLutResolution,
+                    .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                                  vk::ImageUsageFlagBits::eStorage,
+                },
+            .debugName = "SpecularBrdfLut",
+        });
     {
-        const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
+        const vk::CommandBuffer cb = gfx::gDevice.beginGraphicsCommands();
         m_skyboxResources.specularBrdfLut.transition(
-            cb, ImageState::FragmentShaderSampledRead |
-                    ImageState::ComputeShaderSampledRead |
-                    ImageState::RayTracingSampledRead);
-        gDevice.endGraphicsCommands(cb);
+            cb, gfx::ImageState::FragmentShaderSampledRead |
+                    gfx::ImageState::ComputeShaderSampledRead |
+                    gfx::ImageState::RayTracingSampledRead);
+        gfx::gDevice.endGraphicsCommands(cb);
     }
 
     const uint32_t radianceMips =
         getMipCount(SkyboxResources::sSkyboxRadianceResolution);
-    m_skyboxResources.radiance = gDevice.createImage(ImageCreateInfo{
+    m_skyboxResources.radiance = gfx::gDevice.createImage(gfx::ImageCreateInfo{
         .desc =
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
                 .width = SkyboxResources::sSkyboxRadianceResolution,
                 .height = SkyboxResources::sSkyboxRadianceResolution,
@@ -372,7 +377,7 @@ void WorldData::init(
     });
     for (uint32_t i = 0; i < radianceMips; ++i)
         m_skyboxResources.radianceViews.push_back(
-            gDevice.logical().createImageView(vk::ImageViewCreateInfo{
+            gfx::gDevice.logical().createImageView(vk::ImageViewCreateInfo{
                 .image = m_skyboxResources.radiance.handle,
                 .viewType = vk::ImageViewType::eCube,
                 .format = m_skyboxResources.radiance.format,
@@ -385,7 +390,7 @@ void WorldData::init(
                         .layerCount = 6,
                     },
             }));
-    gDevice.logical().setDebugUtilsObjectNameEXT(
+    gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eImageView,
             .objectHandle = reinterpret_cast<uint64_t>(static_cast<VkImageView>(
@@ -393,16 +398,16 @@ void WorldData::init(
             .pObjectName = "SkyboxRadiance",
         });
     {
-        const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
+        const vk::CommandBuffer cb = gfx::gDevice.beginGraphicsCommands();
         m_skyboxResources.radiance.transition(
-            cb, ImageState::FragmentShaderSampledRead |
-                    ImageState::ComputeShaderSampledRead |
-                    ImageState::RayTracingSampledRead);
-        gDevice.endGraphicsCommands(cb);
+            cb, gfx::ImageState::FragmentShaderSampledRead |
+                    gfx::ImageState::ComputeShaderSampledRead |
+                    gfx::ImageState::RayTracingSampledRead);
+        gfx::gDevice.endGraphicsCommands(cb);
     }
 
     m_skyboxResources.sampler =
-        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -423,7 +428,7 @@ void WorldData::init(
     const std::filesystem::file_time_type sourceWriteTime =
         std::filesystem::last_write_time(fullScenePath);
 
-    Timer t;
+    utils::Timer t;
     cgltf_data *gltfData = loadGltf(fullScenePath);
     WHEELS_ASSERT(gltfData != nullptr);
     LOG_INFO("glTF model loading took %.2fs", t.getSeconds());
@@ -441,7 +446,7 @@ void WorldData::init(
         LOG_INFO("%s took %.2fs", stage, t.getSeconds());
     };
 
-    Array<Texture2DSampler> texture2DSamplers{
+    Array<shader_structs::Texture2DSampler> texture2DSamplers{
         gAllocators.general, gltfData->images_count + 1};
     tl("Texture loading",
        [&]()
@@ -539,9 +544,9 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
     }
 
     const StaticArray descriptorInfos{{
-        DescriptorInfo{bufferInfos[0]},
-        DescriptorInfo{bufferInfos[1]},
-        DescriptorInfo{bufferInfos.span(2, bufferInfos.size())},
+        gfx::DescriptorInfo{bufferInfos[0]},
+        gfx::DescriptorInfo{bufferInfos[1]},
+        gfx::DescriptorInfo{bufferInfos.span(2, bufferInfos.size())},
     }};
 
     const Array descriptorWrites =
@@ -549,7 +554,7 @@ void WorldData::uploadMeshDatas(ScopedScratch scopeAlloc, uint32_t nextFrame)
             scopeAlloc, sGeometryReflectionSet,
             m_descriptorSets.geometry[nextFrame], descriptorInfos);
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
@@ -563,8 +568,9 @@ void WorldData::uploadMaterialDatas(uint32_t nextFrame)
         m_deferredLoadingContext->materialsGeneration)
         return;
 
-    MaterialData *mapped =
-        static_cast<MaterialData *>(m_materialsBuffers[nextFrame].mapped);
+    shader_structs::MaterialData *mapped =
+        static_cast<shader_structs::MaterialData *>(
+            m_materialsBuffers[nextFrame].mapped);
     memcpy(
         mapped, m_materials.data(),
         m_materials.size() * sizeof(m_materials[0]));
@@ -668,7 +674,7 @@ void WorldData::drawDeferredLoadingUi() const
 
 void WorldData::loadTextures(
     ScopedScratch scopeAlloc, const cgltf_data &gltfData,
-    Array<Texture2DSampler> &texture2DSamplers)
+    Array<shader_structs::Texture2DSampler> &texture2DSamplers)
 {
     {
         const vk::SamplerCreateInfo info{
@@ -683,7 +689,7 @@ void WorldData::loadTextures(
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
-        m_samplers.push_back(gDevice.logical().createSampler(info));
+        m_samplers.push_back(gfx::gDevice.logical().createSampler(info));
     }
     WHEELS_ASSERT(
         gltfData.samplers_count < 0xFE &&
@@ -703,24 +709,24 @@ void WorldData::loadTextures(
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         };
-        m_samplers.push_back(gDevice.logical().createSampler(info));
+        m_samplers.push_back(gfx::gDevice.logical().createSampler(info));
     }
 
-    Buffer stagingBuffer = createTextureStaging();
-    defer { gDevice.destroy(stagingBuffer); };
+    gfx::Buffer stagingBuffer = createTextureStaging();
+    defer { gfx::gDevice.destroy(stagingBuffer); };
 
     m_texture2Ds.reserve(gltfData.images_count + 1);
     {
-        const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
+        const vk::CommandBuffer cb = gfx::gDevice.beginGraphicsCommands();
         m_texture2Ds.emplace_back();
         m_texture2Ds.back().init(
             scopeAlloc.child_scope(), resPath("texture/empty.png"), cb,
             stagingBuffer,
             Texture2DOptions{
-                .initialState =
-                    ImageState::FragmentShaderRead | ImageState::RayTracingRead,
+                .initialState = gfx::ImageState::FragmentShaderRead |
+                                gfx::ImageState::RayTracingRead,
             });
-        gDevice.endGraphicsCommands(cb);
+        gfx::gDevice.endGraphicsCommands(cb);
 
         texture2DSamplers.emplace_back();
     }
@@ -743,14 +749,14 @@ void WorldData::loadTextures(
 
 void WorldData::loadMaterials(
     const cgltf_data &gltfData,
-    const Array<Texture2DSampler> &texture2DSamplers)
+    const Array<shader_structs::Texture2DSampler> &texture2DSamplers)
 {
-    m_materials.push_back(MaterialData{});
+    m_materials.push_back(shader_structs::MaterialData{});
 
     for (const cgltf_material &material :
          Span{gltfData.materials, gltfData.materials_count})
     {
-        MaterialData mat;
+        shader_structs::MaterialData mat;
         if (material.has_pbr_metallic_roughness == 0)
         {
             LOG_WARN(
@@ -761,7 +767,7 @@ void WorldData::loadMaterials(
 
         auto const getTexture2dSampler =
             [&](cgltf_texture_view const &tv,
-                const char *channelName) -> Texture2DSampler
+                const char *channelName) -> shader_structs::Texture2DSampler
         {
             if (tv.texture != nullptr)
             {
@@ -779,7 +785,7 @@ void WorldData::loadMaterials(
                     cgltf_texture_index(&gltfData, tv.texture);
                 return texture2DSamplers[index + 1];
             }
-            return Texture2DSampler{};
+            return shader_structs::Texture2DSampler{};
         };
 
         const cgltf_pbr_metallic_roughness &pbrParams =
@@ -795,9 +801,9 @@ void WorldData::loadMaterials(
         mat.normalTextureSampler =
             getTexture2dSampler(material.normal_texture, "normal");
         if (material.alpha_mode == cgltf_alpha_mode_mask)
-            mat.alphaMode = AlphaMode_Mask;
+            mat.alphaMode = shader_structs::AlphaMode_Mask;
         else if (material.alpha_mode == cgltf_alpha_mode_blend)
-            mat.alphaMode = AlphaMode_Blend;
+            mat.alphaMode = shader_structs::AlphaMode_Blend;
         else if (material.alpha_mode != cgltf_alpha_mode_opaque)
             LOG_ERR(
                 "%s: Unsupported alpha mode '%s'", material.name,
@@ -806,7 +812,7 @@ void WorldData::loadMaterials(
 
         // Copy the alpha mode of the real material because that's used to
         // set opaque flag in rt
-        m_materials.push_back(MaterialData{
+        m_materials.push_back(shader_structs::MaterialData{
             .alphaMode = mat.alphaMode,
         });
         WHEELS_ASSERT(m_deferredLoadingContext.has_value());
@@ -905,19 +911,21 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
     }
 
     for (size_t i = 0; i < m_geometryMetadatasBuffers.size(); ++i)
-        m_geometryMetadatasBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = asserted_cast<uint32_t>(
-                        m_geometryMetadatas.size() * sizeof(GeometryMetadata)),
-                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
-                },
-            .initialData = m_geometryMetadatas.data(),
-            .debugName = "GeometryMetadatas",
-        });
+        m_geometryMetadatasBuffers[i] =
+            gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize = asserted_cast<uint32_t>(
+                            m_geometryMetadatas.size() *
+                            sizeof(shader_structs::GeometryMetadata)),
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                                 vk::BufferUsageFlagBits::eTransferDst,
+                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                      vk::MemoryPropertyFlagBits::eHostCoherent,
+                    },
+                .initialData = m_geometryMetadatas.data(),
+                .debugName = "GeometryMetadatas",
+            });
 
     Array<uint32_t> zeroMeshletCounts{scopeAlloc};
     zeroMeshletCounts.resize(m_meshInfos.size());
@@ -925,19 +933,20 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
         zeroMeshletCounts.data(), 0,
         zeroMeshletCounts.size() * sizeof(uint32_t));
     for (size_t i = 0; i < m_meshletCountsBuffers.size(); ++i)
-        m_meshletCountsBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = asserted_cast<uint32_t>(
-                        m_meshInfos.size() * sizeof(uint32_t)),
-                    .usage = vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
-                },
-            .initialData = zeroMeshletCounts.data(),
-            .debugName = "MeshletCounts",
-        });
+        m_meshletCountsBuffers[i] =
+            gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize = asserted_cast<uint32_t>(
+                            m_meshInfos.size() * sizeof(uint32_t)),
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer |
+                                 vk::BufferUsageFlagBits::eTransferDst,
+                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                      vk::MemoryPropertyFlagBits::eHostCoherent,
+                    },
+                .initialData = zeroMeshletCounts.data(),
+                .debugName = "MeshletCounts",
+            });
 }
 
 HashMap<uint32_t, WorldData::NodeAnimations> WorldData::loadAnimations(
@@ -1525,9 +1534,9 @@ void WorldData::gatherScene(
 void WorldData::createBuffers()
 {
     for (size_t i = 0; i < m_materialsBuffers.capacity(); ++i)
-        m_materialsBuffers[i] = gDevice.createBuffer(BufferCreateInfo{
+        m_materialsBuffers[i] = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
             .desc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = m_materials.size() * sizeof(m_materials[0]),
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                              vk::BufferUsageFlagBits::eTransferDst,
@@ -1545,26 +1554,29 @@ void WorldData::createBuffers()
             maxModelInstanceTransforms = std::max(
                 maxModelInstanceTransforms, scene.modelInstances.size());
 
-            scene.drawInstancesBuffer = gDevice.createBuffer(BufferCreateInfo{
-                .desc =
-                    BufferDescription{
-                        .byteSize =
-                            sizeof(DrawInstance) * scene.drawInstanceCount,
-                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                      vk::MemoryPropertyFlagBits::eHostCoherent,
-                    },
-                .debugName = "DrawInstances",
-            });
+            scene.drawInstancesBuffer =
+                gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
+                    .desc =
+                        gfx::BufferDescription{
+                            .byteSize = sizeof(shader_structs::DrawInstance) *
+                                        scene.drawInstanceCount,
+                            .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                            .properties =
+                                vk::MemoryPropertyFlagBits::eHostVisible |
+                                vk::MemoryPropertyFlagBits::eHostCoherent,
+                        },
+                    .debugName = "DrawInstances",
+                });
         }
 
         // Make room for one extra frame because the previous frame's transforms
         // are read for motion
         const uint32_t bufferSize = asserted_cast<uint32_t>(
-            ((maxModelInstanceTransforms * sizeof(ModelInstanceTransforms) +
-              static_cast<size_t>(RingBuffer::sAlignment)) +
+            ((maxModelInstanceTransforms *
+                  sizeof(shader_structs::ModelInstanceTransforms) +
+              static_cast<size_t>(gfx::RingBuffer::sAlignment)) +
              (maxModelInstanceTransforms * sizeof(float) +
-              static_cast<size_t>(RingBuffer::sAlignment))) *
+              static_cast<size_t>(gfx::RingBuffer::sAlignment))) *
             (MAX_FRAMES_IN_FLIGHT + 1));
         m_modelInstanceTransformsRing.init(
             vk::BufferUsageFlagBits::eStorageBuffer, bufferSize,
@@ -1577,9 +1589,9 @@ void WorldData::reflectBindings(ScopedScratch scopeAlloc)
     const auto reflect =
         [&](const String &defines, const std::filesystem::path &relPath)
     {
-        Optional<ShaderReflection> compResult = gDevice.reflectShader(
+        Optional<gfx::ShaderReflection> compResult = gfx::gDevice.reflectShader(
             scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
+            gfx::Device::CompileShaderModuleArgs{
                 .relPath = relPath,
                 .defines = defines,
             },
@@ -1686,11 +1698,11 @@ void WorldData::createDescriptorSets(
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         const StaticArray descriptorInfos{{
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = m_materialsBuffers[i].handle,
                 .range = VK_WHOLE_SIZE,
             }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = ringBuffers.constantsRing->buffer(),
                 .range = sizeof(float),
             }},
@@ -1699,7 +1711,7 @@ void WorldData::createDescriptorSets(
             m_materialsReflection->generateDescriptorWrites(
                 scopeAlloc, sMaterialDatasReflectionSet,
                 m_descriptorSets.materialDatas[i], descriptorInfos);
-        gDevice.logical().updateDescriptorSets(
+        gfx::gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
@@ -1752,15 +1764,15 @@ void WorldData::createDescriptorSets(
             m_dsLayouts.materialTextures, "MaterialTextures", imageInfoCount);
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{materialSamplerInfos},
-            DescriptorInfo{materialImageInfos},
+            gfx::DescriptorInfo{materialSamplerInfos},
+            gfx::DescriptorInfo{materialImageInfos},
         }};
 
         const Array descriptorWrites =
             m_materialsReflection->generateDescriptorWrites(
                 scopeAlloc, sMaterialTexturesReflectionSet,
                 m_descriptorSets.materialTextures, descriptorInfos);
-        gDevice.logical().updateDescriptorSets(
+        gfx::gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
 
@@ -1797,15 +1809,15 @@ void WorldData::createDescriptorSets(
                 m_dsLayouts.geometry, "Geometry", bufferCount);
 
             const StaticArray descriptorInfos{{
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_geometryMetadatasBuffers[i].handle,
                     .range = VK_WHOLE_SIZE,
                 }},
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_meshletCountsBuffers[i].handle,
                     .range = VK_WHOLE_SIZE,
                 }},
-                DescriptorInfo{Span<const vk::DescriptorBufferInfo>{}},
+                gfx::DescriptorInfo{Span<const vk::DescriptorBufferInfo>{}},
             }};
 
             const Array descriptorWrites =
@@ -1813,7 +1825,7 @@ void WorldData::createDescriptorSets(
                     scopeAlloc, sGeometryReflectionSet,
                     m_descriptorSets.geometry[i], descriptorInfos);
 
-            gDevice.logical().updateDescriptorSets(
+            gfx::gDevice.logical().updateDescriptorSets(
                 asserted_cast<uint32_t>(descriptorWrites.size()),
                 descriptorWrites.data(), 0, nullptr);
         }
@@ -1845,7 +1857,7 @@ void WorldData::createDescriptorSets(
             .pBindings = layoutBindings.data(),
         };
         m_dsLayouts.rayTracing =
-            gDevice.logical().createDescriptorSetLayout(createInfo);
+            gfx::gDevice.logical().createDescriptorSetLayout(createInfo);
     }
 
     WHEELS_ASSERT(m_sceneInstancesReflection.has_value());
@@ -1871,17 +1883,17 @@ void WorldData::createDescriptorSets(
             m_descriptorAllocator.allocate(m_dsLayouts.lights, "Lights");
 
         const StaticArray lightInfos{{
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = ringBuffers.lightDataRing->buffer(),
                 .offset = 0,
-                .range = sizeof(DirectionalLightParameters),
+                .range = sizeof(shader_structs::DirectionalLightParameters),
             }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = ringBuffers.lightDataRing->buffer(),
                 .offset = 0,
                 .range = PointLights::sBufferByteSize,
             }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = ringBuffers.lightDataRing->buffer(),
                 .offset = 0,
                 .range = SpotLights::sBufferByteSize,
@@ -1893,7 +1905,7 @@ void WorldData::createDescriptorSets(
                 scopeAlloc, sLightsReflectionSet, m_descriptorSets.lights,
                 lightInfos);
 
-        gDevice.logical().updateDescriptorSets(
+        gfx::gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
@@ -1908,21 +1920,21 @@ void WorldData::createDescriptorSets(
                 m_dsLayouts.sceneInstances, "SceneInstances");
 
             const StaticArray descriptorInfos{{
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
-                             sizeof(ModelInstanceTransforms),
+                             sizeof(shader_structs::ModelInstanceTransforms),
                 }},
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() *
-                             sizeof(ModelInstanceTransforms),
+                             sizeof(shader_structs::ModelInstanceTransforms),
                 }},
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = m_modelInstanceTransformsRing.buffer(),
                     .range = scene.modelInstances.size() * sizeof(float),
                 }},
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = scene.drawInstancesBuffer.handle,
                     .range = VK_WHOLE_SIZE,
                 }},
@@ -1932,7 +1944,7 @@ void WorldData::createDescriptorSets(
                     scopeAlloc, sSceneInstancesReflectionSet,
                     scene.sceneInstancesDescriptorSet, descriptorInfos);
 
-            gDevice.logical().updateDescriptorSets(
+            gfx::gDevice.logical().updateDescriptorSets(
                 asserted_cast<uint32_t>(descriptorWrites.size()),
                 descriptorWrites.data(), 0, nullptr);
         }
@@ -1956,18 +1968,18 @@ void WorldData::createDescriptorSets(
             m_descriptorAllocator.allocate(m_dsLayouts.skybox, "Skybox");
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{m_skyboxResources.texture.imageInfo()},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{m_skyboxResources.texture.imageInfo()},
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = m_skyboxResources.sampler,
                 .imageView = m_skyboxResources.irradiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = m_skyboxResources.sampler,
                 .imageView = m_skyboxResources.specularBrdfLut.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = m_skyboxResources.sampler,
                 .imageView = m_skyboxResources.radiance.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -1978,7 +1990,7 @@ void WorldData::createDescriptorSets(
                 scopeAlloc, sSkyboxReflectionSet, m_descriptorSets.skybox,
                 descriptorInfos);
 
-        gDevice.logical().updateDescriptorSets(
+        gfx::gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
@@ -2041,13 +2053,14 @@ bool WorldData::pollMeshWorker(vk::CommandBuffer cb)
                 "Uploaded data ranges have to be tight for valid ownership "
                 "transfer");
 
-            const QueueFamilies &families = gDevice.queueFamilies();
+            const gfx::QueueFamilies &families = gfx::gDevice.queueFamilies();
             WHEELS_ASSERT(families.graphicsFamily.has_value());
             WHEELS_ASSERT(families.transferFamily.has_value());
 
             if (*families.graphicsFamily != *families.transferFamily)
             {
-                const Buffer &geometryBuffer = m_geometryBuffers[targetBufferI];
+                const gfx::Buffer &geometryBuffer =
+                    m_geometryBuffers[targetBufferI];
 
                 const vk::BufferMemoryBarrier2 acquireBarrier{
                     .srcStageMask = vk::PipelineStageFlagBits2::eNone,
@@ -2114,7 +2127,7 @@ size_t WorldData::pollTextureWorker(vk::CommandBuffer cb)
         {
             newTexturesLoaded++;
 
-            const QueueFamilies &families = gDevice.queueFamilies();
+            const gfx::QueueFamilies &families = gfx::gDevice.queueFamilies();
             WHEELS_ASSERT(families.graphicsFamily.has_value());
             WHEELS_ASSERT(families.transferFamily.has_value());
 
@@ -2172,7 +2185,8 @@ void WorldData::updateDescriptorsWithNewTextures(size_t newTextureCount)
             .descriptorType = vk::DescriptorType::eSampledImage,
             .pImageInfo = &imageInfo,
         };
-        gDevice.logical().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+        gfx::gDevice.logical().updateDescriptorSets(
+            1, &descriptorWrite, 0, nullptr);
 
         ctx.loadedImageCount++;
     }
@@ -2186,7 +2200,7 @@ bool WorldData::updateMaterials()
     bool materialsUpdated = false;
     for (size_t i = ctx.loadedMaterialCount; i < ctx.materials.size(); ++i)
     {
-        const MaterialData &material = ctx.materials[i];
+        const shader_structs::MaterialData &material = ctx.materials[i];
         const uint32_t baseColorIndex =
             material.baseColorTextureSampler.texture();
         const uint32_t normalIndex = material.normalTextureSampler.texture();
@@ -2212,3 +2226,5 @@ bool WorldData::updateMaterials()
 
     return materialsUpdated;
 }
+
+} // namespace scene

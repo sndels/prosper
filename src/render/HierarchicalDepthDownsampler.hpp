@@ -11,6 +11,9 @@
 #include <wheels/containers/hash_set.hpp>
 #include <wheels/containers/span.hpp>
 
+namespace render
+{
+
 class HierarchicalDepthDownsampler
 {
   public:
@@ -42,8 +45,10 @@ class HierarchicalDepthDownsampler
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
-    Buffer m_atomicCounter;
+    gfx::Buffer m_atomicCounter;
     bool m_counterNotCleared{true};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_HIERARCHICAL_DEPTH_DOWNSAMPLER_HPP

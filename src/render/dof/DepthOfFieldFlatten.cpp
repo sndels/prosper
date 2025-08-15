@@ -11,6 +11,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::dof
+{
+
 namespace
 {
 
@@ -60,7 +63,7 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
         const vk::Extent2D inputExtent = getExtent2D(halfResCircleOfConfusion);
 
         ret.tileMinMaxCircleOfConfusion = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
                 .width = roundedUpQuotient(
                     inputExtent.width, DepthOfFieldFlatten::sFlattenFactor),
@@ -74,13 +77,13 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(halfResCircleOfConfusion)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(ret.tileMinMaxCircleOfConfusion)
                                      .view,
@@ -92,9 +95,10 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {halfResCircleOfConfusion, ImageState::ComputeShaderRead},
+                    {halfResCircleOfConfusion,
+                     gfx::ImageState::ComputeShaderRead},
                     {ret.tileMinMaxCircleOfConfusion,
-                     ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -107,3 +111,5 @@ DepthOfFieldFlatten::Output DepthOfFieldFlatten::record(
 
     return ret;
 }
+
+} // namespace render::dof

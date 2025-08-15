@@ -1,6 +1,9 @@
 #ifndef PROSPER_SCENE_FWD_HPP
 #define PROSPER_SCENE_FWD_HPP
 
+namespace scene
+{
+
 // Accessors.hpp
 class TimeAccessor;
 struct KeyFrameInterpolation;
@@ -23,9 +26,7 @@ class DeferredLoadingContext;
 
 // Lights.hpp
 struct DirectionalLight;
-struct PointLight;
 struct PointLights;
-struct SpotLight;
 struct SpotLights;
 
 // Mesh.hpp
@@ -54,5 +55,7 @@ struct WorldDSLayouts;
 struct WorldByteOffsets;
 struct WorldDescriptorSets;
 struct SkyboxResources;
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_FWD_HPP

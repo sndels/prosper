@@ -37,12 +37,12 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
     StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> ret;
 
     const vk::CommandBufferAllocateInfo allocInfo{
-        .commandPool = gDevice.graphicsPool(),
+        .commandPool = gfx::gDevice.graphicsPool(),
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
     };
-    checkSuccess(
-        gDevice.logical().allocateCommandBuffers(&allocInfo, ret.data()),
+    gfx::checkSuccess(
+        gfx::gDevice.logical().allocateCommandBuffers(&allocInfo, ret.data()),
         "Failed to allocate command buffers");
 
     return ret;
@@ -53,10 +53,10 @@ StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> allocateCommandBuffers()
 App::App(std::filesystem::path scenePath) noexcept
 : m_fileChangePollingAlloc{megabytes(1)}
 , m_scenePath{WHEELS_MOV(scenePath)}
-, m_swapchain{OwningPtr<Swapchain>{gAllocators.general}}
-, m_cam{OwningPtr<Camera>{gAllocators.general}}
-, m_world{OwningPtr<World>{gAllocators.general}}
-, m_renderer{OwningPtr<Renderer>{gAllocators.general}}
+, m_swapchain{OwningPtr<gfx::Swapchain>{gAllocators.general}}
+, m_cam{OwningPtr<scene::Camera>{gAllocators.general}}
+, m_world{OwningPtr<scene::World>{gAllocators.general}}
+, m_renderer{OwningPtr<render::Renderer>{gAllocators.general}}
 {
 }
 
@@ -65,19 +65,19 @@ App::~App()
     for (auto &semaphore : m_renderFinishedSemaphores)
     {
         if (semaphore)
-            gDevice.logical().destroy(semaphore);
+            gfx::gDevice.logical().destroy(semaphore);
     }
     for (auto &semaphore : m_imageAvailableSemaphores)
     {
         if (semaphore)
-            gDevice.logical().destroy(semaphore);
+            gfx::gDevice.logical().destroy(semaphore);
     }
 }
 
 void App::init(ScopedScratch scopeAlloc)
 {
     {
-        const SwapchainConfig &config = SwapchainConfig{
+        const gfx::SwapchainConfig config{
             scopeAlloc.child_scope(),
             vk::Extent2D{
                 .width = gWindow.width(),
@@ -115,9 +115,9 @@ void App::init(ScopedScratch scopeAlloc)
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         m_imageAvailableSemaphores[i] =
-            gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
+            gfx::gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
         m_renderFinishedSemaphores[i] =
-            gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
+            gfx::gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
     }
 }
 
@@ -129,14 +129,14 @@ void App::setInitScratchHighWatermark(size_t value)
 void App::run()
 {
     LinearAllocator scopeBackingAlloc{megabytes(16)};
-    Timer updateDelta;
+    utils::Timer updateDelta;
     m_lastTimeChange = std::chrono::high_resolution_clock::now();
 
     try
     {
         while (gWindow.open())
         {
-            gProfiler.startCpuFrame();
+            utils::gProfiler.startCpuFrame();
 
             scopeBackingAlloc.reset();
             ScopedScratch scopeAlloc{scopeBackingAlloc};
@@ -167,12 +167,12 @@ void App::run()
                 asserted_cast<uint32_t>(
                     scopeBackingAlloc.allocated_byte_count_high_watermark()));
 
-            gInputHandler.clearSingleFrameGestures();
+            utils::gInputHandler.clearSingleFrameGestures();
             m_cam->endFrame();
 
             m_world->endFrame();
 
-            gProfiler.endCpuFrame();
+            utils::gProfiler.endCpuFrame();
         }
     }
     catch (std::exception &)
@@ -180,7 +180,7 @@ void App::run()
         // Wait for in flight rendering actions to finish to make app cleanup
         // valid. Don't wait for device idle as async loading might be using the
         // transfer queue simultaneously
-        gDevice.graphicsQueue().waitIdle();
+        gfx::gDevice.graphicsQueue().waitIdle();
         throw;
     }
     LOG_INFO("Closing window");
@@ -188,7 +188,7 @@ void App::run()
     // Wait for in flight rendering actions to finish
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    gDevice.graphicsQueue().waitIdle();
+    gfx::gDevice.graphicsQueue().waitIdle();
 }
 
 void App::recreateViewportRelated()
@@ -196,7 +196,7 @@ void App::recreateViewportRelated()
     // Wait for resources to be out of use
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    gDevice.graphicsQueue().waitIdle();
+    gfx::gDevice.graphicsQueue().waitIdle();
 
     m_renderer->recreateViewportRelated();
     m_viewportExtent = m_drawUi ? m_renderer->viewportExtentInUi()
@@ -216,10 +216,10 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
     // Wait for resources to be out of use
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    gDevice.graphicsQueue().waitIdle();
+    gfx::gDevice.graphicsQueue().waitIdle();
 
     {
-        const SwapchainConfig config{
+        const gfx::SwapchainConfig config{
             scopeAlloc.child_scope(),
             vk::Extent2D{
                 .width = gWindow.width(),
@@ -251,7 +251,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
             std::launch::async,
             [this]()
             {
-                const Timer checkTime;
+                const utils::Timer checkTime;
                 auto shadersIterator =
                     std::filesystem::recursive_directory_iterator(
                         resPath("shader"));
@@ -290,7 +290,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
     // Wait for resources to be out of use
     // Don't wait for device idle as async loading might be using the transfer
     // queue simultaneously
-    gDevice.graphicsQueue().waitIdle();
+    gfx::gDevice.graphicsQueue().waitIdle();
 
     // We might get here before the changed shaders are retouched completely,
     // e.g. if clang-format takes a bit. Let's try to be safe with an extra
@@ -311,10 +311,10 @@ void App::handleMouseGestures()
     // Gestures adapted from Max Liani
     // https://maxliani.wordpress.com/2021/06/08/offline-to-realtime-camera-manipulation/
 
-    const auto &gesture = gInputHandler.mouseGesture();
+    const auto &gesture = utils::gInputHandler.mouseGesture();
     if (gesture.has_value() && m_camFreeLook)
     {
-        if (gesture->type == MouseGestureType::TrackBall)
+        if (gesture->type == utils::MouseGestureType::TrackBall)
         {
 
             const auto dragScale = 1.f / 400.f;
@@ -335,12 +335,12 @@ void App::handleMouseGestures()
             const auto flipUp =
                 dot(right, cross(newFromTarget, transform.up)) < 0.0;
 
-            m_cam->gestureOffset = CameraOffset{
+            m_cam->gestureOffset = scene::CameraOffset{
                 .eye = newFromTarget - fromTarget,
                 .flipUp = flipUp,
             };
         }
-        else if (gesture->type == MouseGestureType::TrackPlane)
+        else if (gesture->type == utils::MouseGestureType::TrackPlane)
         {
             const auto transform = m_cam->transform();
             const auto from_target = transform.eye - transform.target;
@@ -362,12 +362,12 @@ void App::handleMouseGestures()
 
             const auto offset = right * (drag.x) + cam_up * (drag.y);
 
-            m_cam->gestureOffset = CameraOffset{
+            m_cam->gestureOffset = scene::CameraOffset{
                 .eye = offset,
                 .target = offset,
             };
         }
-        else if (gesture->type == MouseGestureType::TrackZoom)
+        else if (gesture->type == utils::MouseGestureType::TrackZoom)
         {
             if (!m_cam->gestureOffset.has_value())
             {
@@ -379,7 +379,7 @@ void App::handleMouseGestures()
 
                 const auto scroll_scale = dist_target * 0.1f;
 
-                const auto offset = CameraOffset{
+                const auto offset = scene::CameraOffset{
                     .eye = fwd * gesture->verticalScroll * scroll_scale,
                 };
 
@@ -395,7 +395,7 @@ void App::handleMouseGestures()
                 }
             }
         }
-        else if (gesture->type == MouseGestureType::SelectPoint)
+        else if (gesture->type == utils::MouseGestureType::SelectPoint)
         {
             // Reference RT doesn't write a depth buffer so can't use the
             // texture readback
@@ -416,9 +416,10 @@ void App::handleMouseGestures()
 
 void App::handleKeyboardInput(float deltaS)
 {
-    const StaticArray<KeyState, KeyCount> &keyStates = gInputHandler.keyboard();
+    const StaticArray<utils::KeyState, utils::KeyCount> &keyStates =
+        utils::gInputHandler.keyboard();
 
-    if (keyStates[KeyI] == KeyState::Pressed)
+    if (keyStates[utils::KeyI] == utils::KeyState::Pressed)
     {
         m_drawUi = !m_drawUi;
         m_forceViewportRecreate = true;
@@ -429,36 +430,36 @@ void App::handleKeyboardInput(float deltaS)
         const float baseSpeed = 2.f;
         vec3 speed{0.f};
 
-        if (keyStates[KeyW] == KeyState::Pressed ||
-            keyStates[KeyW] == KeyState::Held)
+        if (keyStates[utils::KeyW] == utils::KeyState::Pressed ||
+            keyStates[utils::KeyW] == utils::KeyState::Held)
             speed.z += baseSpeed;
-        if (keyStates[KeyS] == KeyState::Pressed ||
-            keyStates[KeyS] == KeyState::Held)
+        if (keyStates[utils::KeyS] == utils::KeyState::Pressed ||
+            keyStates[utils::KeyS] == utils::KeyState::Held)
             speed.z -= baseSpeed;
-        if (keyStates[KeyD] == KeyState::Pressed ||
-            keyStates[KeyD] == KeyState::Held)
+        if (keyStates[utils::KeyD] == utils::KeyState::Pressed ||
+            keyStates[utils::KeyD] == utils::KeyState::Held)
             speed.x += baseSpeed;
-        if (keyStates[KeyA] == KeyState::Pressed ||
-            keyStates[KeyA] == KeyState::Held)
+        if (keyStates[utils::KeyA] == utils::KeyState::Pressed ||
+            keyStates[utils::KeyA] == utils::KeyState::Held)
             speed.x -= baseSpeed;
-        if (keyStates[KeyE] == KeyState::Pressed ||
-            keyStates[KeyE] == KeyState::Held)
+        if (keyStates[utils::KeyE] == utils::KeyState::Pressed ||
+            keyStates[utils::KeyE] == utils::KeyState::Held)
             speed.y += baseSpeed;
-        if (keyStates[KeyQ] == KeyState::Pressed ||
-            keyStates[KeyQ] == KeyState::Held)
+        if (keyStates[utils::KeyQ] == utils::KeyState::Pressed ||
+            keyStates[utils::KeyQ] == utils::KeyState::Held)
             speed.y -= baseSpeed;
 
-        if (keyStates[KeyShift] == KeyState::Held)
+        if (keyStates[utils::KeyShift] == utils::KeyState::Held)
             speed *= 2.f;
-        if (keyStates[KeyCtrl] == KeyState::Held)
+        if (keyStates[utils::KeyCtrl] == utils::KeyState::Held)
             speed *= 0.5f;
 
         speed *= deltaS;
 
         if (length(speed) > 0.f)
         {
-            const CameraTransform &transform = m_cam->transform();
-            const Optional<CameraOffset> &offset = m_cam->gestureOffset;
+            const scene::CameraTransform &transform = m_cam->transform();
+            const Optional<scene::CameraOffset> &offset = m_cam->gestureOffset;
 
             const vec3 eye = offset.has_value() ? transform.eye + offset->eye
                                                 : transform.eye;
@@ -473,7 +474,7 @@ void App::handleKeyboardInput(float deltaS)
             const vec3 movement =
                 right * speed.x + fwd * speed.z + up * speed.y;
 
-            m_cam->applyOffset(CameraOffset{
+            m_cam->applyOffset(scene::CameraOffset{
                 .eye = movement,
                 .target = movement,
             });
@@ -490,9 +491,9 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     const uint32_t nextImage =
         nextSwapchainImage(scopeAlloc.child_scope(), nextFrame);
 
-    gProfiler.startGpuFrame(nextFrame);
+    utils::gProfiler.startGpuFrame(nextFrame);
 
-    const auto profilerDatas = gProfiler.getPreviousData(scopeAlloc);
+    const auto profilerDatas = utils::gProfiler.getPreviousData(scopeAlloc);
 
     capFramerate();
 
@@ -513,7 +514,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     // TODO:
     // Why separate stats for frames in flight? Do these actually match
     // DrawStats when shown in UI?
-    SceneStats &sceneStats = m_sceneStats[nextFrame];
+    utils::SceneStats &sceneStats = m_sceneStats[nextFrame];
     sceneStats = {};
     m_world->updateScene(
         scopeAlloc.child_scope(), m_sceneCameraTransform, sceneStats);
@@ -532,7 +533,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         {
             m_cam->lookAt(m_sceneCameraTransform);
 
-            const CameraParameters &params = m_world->currentCamera();
+            const scene::CameraParameters &params = m_world->currentCamera();
             // This makes sure we copy the new params over when a camera is
             // changed, or for the first camera
             m_cameraParameters = params;
@@ -570,13 +571,14 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         uiChanges.rtDirty |=
             m_world->buildAccelerationStructures(scopeAlloc.child_scope(), cb);
     }
-    Renderer::Options renderOptions{
+    render::Renderer::Options renderOptions{
         .rtDirty = uiChanges.rtDirty,
         .drawUi = m_drawUi,
     };
     if (m_pickFocusDistance)
     {
-        const Optional<MouseGesture> &gesture = gInputHandler.mouseGesture();
+        const Optional<utils::MouseGesture> &gesture =
+            utils::gInputHandler.mouseGesture();
         WHEELS_ASSERT(gesture.has_value());
 
         const vec2 offset = m_renderer->viewportOffsetInUi();
@@ -586,14 +588,14 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         m_pickFocusDistance = false;
         m_waitFocusDistance = true;
     }
-    const SwapchainImage swapImage = m_swapchain->image(nextImage);
+    const gfx::SwapchainImage swapImage = m_swapchain->image(nextImage);
     m_renderer->render(
         scopeAlloc.child_scope(), cb, *m_cam, *m_world, renderArea, swapImage,
         nextFrame, renderOptions);
 
     m_newSceneDataLoaded = m_world->handleDeferredLoading(cb);
 
-    gProfiler.endGpuFrame(cb);
+    utils::gProfiler.endGpuFrame(cb);
 
     cb.end();
 
@@ -614,7 +616,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
 
             const float cosTheta = dot(vec3{0.f, 0.f, -1.f}, projectedDir);
 
-            CameraParameters params = m_cam->parameters();
+            scene::CameraParameters params = m_cam->parameters();
             params.focusDistance = projectedDepth * cosTheta;
             m_cam->setParameters(params);
 
@@ -647,8 +649,8 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
             .pWaitDstStageMask = &dstMask,
         };
 
-        checkSuccess(
-            gDevice.graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
+        gfx::checkSuccess(
+            gfx::gDevice.graphicsQueue().submit(1, &submitInfo, vk::Fence{}),
             "recreate_swap_dummy_submit");
 
         recreateSwapchainAndRelated(scopeAlloc.child_scope());
@@ -687,7 +689,7 @@ void App::capFramerate()
 
 App::UiChanges App::drawUi(
     ScopedScratch scopeAlloc, uint32_t nextFrame,
-    const Array<Profiler::ScopeData> &profilerDatas,
+    const Array<utils::Profiler::ScopeData> &profilerDatas,
     uint32_t scopeHighWatermark)
 {
     PROFILER_CPU_SCOPE("App::drawUi");
@@ -744,7 +746,8 @@ void App::drawOptions()
 }
 
 void App::drawProfiling(
-    ScopedScratch scopeAlloc, const Array<Profiler::ScopeData> &profilerDatas)
+    ScopedScratch scopeAlloc,
+    const Array<utils::Profiler::ScopeData> &profilerDatas)
 
 {
     ImGui::SetNextWindowPos(ImVec2{600.f, 60.f}, ImGuiCond_FirstUseEver);
@@ -792,7 +795,8 @@ void App::drawProfiling(
                 const int scopeCount = asserted_cast<int>(profilerDatas.size());
                 for (int n = 0; n < scopeCount; n++)
                 {
-                    const Profiler::ScopeData &scopeData = profilerDatas[n];
+                    const utils::Profiler::ScopeData &scopeData =
+                        profilerDatas[n];
                     // Only have scopes that have gpu stats
                     if (scopeData.gpuStats.has_value())
                     {
@@ -853,7 +857,7 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
 
     ImGui::Begin("Memory", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    const MemoryAllocationBytes &allocs = gDevice.memoryAllocations();
+    const gfx::MemoryAllocationBytes &allocs = gfx::gDevice.memoryAllocations();
     ImGui::Text("Active GPU allocations:\n");
     ImGui::Text(
         "  Buffers: %uMB\n",
@@ -903,7 +907,7 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
 bool App::drawTimeline()
 {
     bool timeTweaked = false;
-    const Scene &scene = m_world->currentScene();
+    const scene::Scene &scene = m_world->currentScene();
     if (scene.endTimeS > 0.f)
     {
         ImGui::SetNextWindowPos(ImVec2{400, 50}, ImGuiCond_FirstUseEver);
@@ -985,7 +989,7 @@ bool App::drawCameraUi()
     if (m_world->isCurrentCameraDynamic())
         ImGui::Checkbox("Free look", &m_camFreeLook);
 
-    CameraParameters params = m_cam->parameters();
+    scene::CameraParameters params = m_cam->parameters();
 
     if (m_camFreeLook)
     {
@@ -1041,7 +1045,7 @@ bool App::drawCameraUi()
 
 void App::drawSceneStats(uint32_t nextFrame)
 {
-    const DrawStats &drawStats = m_renderer->drawStats(nextFrame);
+    const render::DrawStats &drawStats = m_renderer->drawStats(nextFrame);
 
     ImGui::SetNextWindowPos(ImVec2{60.f, 60.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -1058,9 +1062,9 @@ void App::drawSceneStats(uint32_t nextFrame)
     ImGui::End();
 }
 
-void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
+void App::updateDebugLines(const scene::Scene &scene, uint32_t nextFrame)
 {
-    auto &debugLines = gRenderResources.debugLines[nextFrame];
+    auto &debugLines = render::gRenderResources.debugLines[nextFrame];
     debugLines.reset();
     {
         constexpr auto debugLineLength = 0.2f;
@@ -1094,7 +1098,7 @@ void App::updateDebugLines(const Scene &scene, uint32_t nextFrame)
 
     if (m_debugFrustum.has_value())
     {
-        const FrustumCorners &corners = *m_debugFrustum;
+        const scene::FrustumCorners &corners = *m_debugFrustum;
 
         // Near plane
         debugLines.addLine(
@@ -1147,8 +1151,8 @@ bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
         .pSignalSemaphores = signalSemaphores.data(),
     };
 
-    checkSuccess(
-        gDevice.graphicsQueue().submit(
+    gfx::checkSuccess(
+        gfx::gDevice.graphicsQueue().submit(
             1, &submitInfo, m_swapchain->currentFence()),
         "submit");
 

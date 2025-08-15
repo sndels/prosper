@@ -12,6 +12,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace scene
+{
+
 namespace
 {
 
@@ -47,10 +50,11 @@ Camera::~Camera()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.logical().destroy(m_descriptorSetLayout);
+    gfx::gDevice.logical().destroy(m_descriptorSetLayout);
 }
 
-void Camera::init(wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing)
+void Camera::init(
+    wheels::ScopedScratch scopeAlloc, gfx::RingBuffer &constantsRing)
 {
     WHEELS_ASSERT(!m_initialized);
 
@@ -170,7 +174,7 @@ void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
     updateFrustumPlanes(
         debugFrustum.has_value() ? *debugFrustum : getFrustumCorners());
 
-    const CameraUniforms uniforms{
+    const shader_structs::CameraUniforms uniforms{
         .worldToCamera = m_worldToCamera,
         .cameraToWorld = m_cameraToWorld,
         .cameraToClip = m_cameraToClip,
@@ -318,9 +322,9 @@ void Camera::createBindingsReflection(ScopedScratch scopeAlloc)
     appendDefineStr(defines, "CAMERA_SET", sBindingSetIndex);
     WHEELS_ASSERT(defines.size() <= len);
 
-    Optional<ShaderReflection> compResult = gDevice.reflectShader(
+    Optional<gfx::ShaderReflection> compResult = gfx::gDevice.reflectShader(
         scopeAlloc.child_scope(),
-        Device::CompileShaderModuleArgs{
+        gfx::Device::CompileShaderModuleArgs{
             .relPath = "shader/scene/camera.glsl",
             .defines = defines,
         },
@@ -342,19 +346,19 @@ void Camera::createDescriptorSet(ScopedScratch scopeAlloc)
             vk::ShaderStageFlagBits::eMeshEXT);
 
     m_descriptorSet =
-        gStaticDescriptorsAlloc.allocate(m_descriptorSetLayout, "Camera");
+        gfx::gStaticDescriptorsAlloc.allocate(m_descriptorSetLayout, "Camera");
 
     const StaticArray descriptorInfos{
-        DescriptorInfo{vk::DescriptorBufferInfo{
+        gfx::DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer = m_constantsRing->buffer(),
-            .range = sizeof(CameraUniforms),
+            .range = sizeof(shader_structs::CameraUniforms),
         }},
     };
     const Array descriptorWrites =
         m_bindingsReflection->generateDescriptorWrites(
             scopeAlloc, sBindingSetIndex, m_descriptorSet, descriptorInfos);
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
@@ -407,3 +411,5 @@ void Camera::updateFrustumPlanes(const FrustumCorners &corners)
     m_bottomPlane = getPlane(
         corners.bottomLeftNear, corners.bottomRightNear, corners.bottomLeftFar);
 }
+
+} // namespace scene

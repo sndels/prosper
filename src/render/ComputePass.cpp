@@ -12,6 +12,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -22,8 +25,8 @@ const uint32_t sMaxDynamicOffsets = 8;
 ComputePass::~ComputePass()
 {
     destroyPipelines();
-    gDevice.logical().destroy(m_storageSetLayout);
-    gDevice.logical().destroy(m_shaderModule);
+    gfx::gDevice.logical().destroy(m_storageSetLayout);
+    gfx::gDevice.logical().destroy(m_shaderModule);
 }
 
 void ComputePass::init(
@@ -66,7 +69,7 @@ void ComputePass::startFrame()
 
 vk::DescriptorSet ComputePass::updateStorageSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame,
-    Span<const DescriptorInfo> descriptorInfos)
+    Span<const gfx::DescriptorInfo> descriptorInfos)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -93,7 +96,7 @@ vk::DescriptorSet ComputePass::updateStorageSet(
         m_shaderReflection->generateDescriptorWrites(
             scopeAlloc, m_storageSetIndex, ds, descriptorInfos);
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 
@@ -237,9 +240,9 @@ void ComputePass::record(
 void ComputePass::destroyPipelines()
 {
     for (const vk::Pipeline pipeline : m_pipelines)
-        gDevice.logical().destroy(pipeline);
+        gfx::gDevice.logical().destroy(pipeline);
     m_pipelines.clear();
-    gDevice.logical().destroy(m_pipelineLayout);
+    gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void ComputePass::createDescriptorSets(
@@ -256,7 +259,8 @@ void ComputePass::createDescriptorSets(
         InlineArray<const char *, sStorageSetInstanceCount> debugNames;
         layouts.resize(sets.size(), m_storageSetLayout);
         debugNames.resize(sets.size(), debugName);
-        gStaticDescriptorsAlloc.allocate(layouts, debugNames, sets.mut_span());
+        gfx::gStaticDescriptorsAlloc.allocate(
+            layouts, debugNames, sets.mut_span());
     }
 }
 
@@ -281,8 +285,8 @@ void ComputePass::createPipelines(
             externalDsLayouts.size() * sizeof(*externalDsLayouts.data()));
     dsLayouts.back() = m_storageSetLayout;
 
-    m_pipelineLayout =
-        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
+        vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(dsLayouts.size()),
             .pSetLayouts = dsLayouts.data(),
             .pushConstantRangeCount = pcRange.size > 0 ? 1u : 0u,
@@ -302,8 +306,8 @@ void ComputePass::createPipelines(
             .layout = m_pipelineLayout,
         };
 
-        m_pipelines.push_back(createComputePipeline(
-            gDevice.logical(), createInfo, debugName.data()));
+        m_pipelines.push_back(gfx::createComputePipeline(
+            gfx::gDevice.logical(), createInfo, debugName.data()));
 
         return;
     }
@@ -333,8 +337,8 @@ void ComputePass::createPipelines(
         snprintf(
             fullDebugName.c_str() + debugName.size(), maxCountLen + 1, "_%d",
             i);
-        m_pipelines.push_back(createComputePipeline(
-            gDevice.logical(), createInfo, fullDebugName.data()));
+        m_pipelines.push_back(gfx::createComputePipeline(
+            gfx::gDevice.logical(), createInfo, fullDebugName.data()));
     }
 }
 
@@ -418,9 +422,9 @@ bool ComputePass::compileShader(
     appendDefineStr(defines, "GROUP_Z", shader.groupSize.z);
     WHEELS_ASSERT(defines.size() <= len);
 
-    wheels::Optional<Device::ShaderCompileResult> compResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    wheels::Optional<gfx::Device::ShaderCompileResult> compResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = shader.relPath,
                                           .debugName = shader.debugName.c_str(),
                                           .defines = defines,
@@ -428,9 +432,9 @@ bool ComputePass::compileShader(
 
     if (compResult.has_value())
     {
-        gDevice.logical().destroy(m_shaderModule);
+        gfx::gDevice.logical().destroy(m_shaderModule);
 
-        ShaderReflection &reflection = compResult->reflection;
+        gfx::ShaderReflection &reflection = compResult->reflection;
 
         m_shaderModule = compResult->module;
         m_shaderReflection = WHEELS_MOV(reflection);
@@ -440,3 +444,5 @@ bool ComputePass::compileShader(
 
     return false;
 }
+
+} // namespace render

@@ -11,6 +11,9 @@
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 
+namespace scene
+{
+
 struct Scene
 {
     static const uint32_t sDirectionalLight = 0xFFFF'FFFF;
@@ -55,11 +58,13 @@ struct Scene
     bool previousTransformsValid{false};
 
     uint32_t drawInstanceCount{0};
-    Buffer drawInstancesBuffer;
+    gfx::Buffer drawInstancesBuffer;
     vk::DescriptorSet sceneInstancesDescriptorSet;
     vk::DescriptorSet rtDescriptorSet;
 
     Lights lights;
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENENODE_HPP

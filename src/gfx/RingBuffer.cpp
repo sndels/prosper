@@ -3,6 +3,10 @@
 #include "Device.hpp"
 
 using namespace wheels;
+
+namespace gfx
+{
+
 namespace
 {
 
@@ -126,3 +130,5 @@ uint32_t RingBuffer::write_internal(
 
     return writeOffset;
 }
+
+} // namespace gfx

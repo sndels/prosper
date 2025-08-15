@@ -11,6 +11,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
+namespace render
+{
+
 class TextureReadback
 {
   public:
@@ -44,7 +47,9 @@ class TextureReadback
     bool m_initialized{false};
     ComputePass m_computePass;
     int32_t m_framesUntilReady{-1};
-    Buffer m_buffer;
+    gfx::Buffer m_buffer;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_TEXTURE_READBACK_HPP

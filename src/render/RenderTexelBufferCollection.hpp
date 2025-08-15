@@ -11,6 +11,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace render
+{
+
 class RenderTexelBufferCollection
 {
   public:
@@ -28,18 +31,19 @@ class RenderTexelBufferCollection
     void destroyResources();
 
     [[nodiscard]] TexelBufferHandle create(
-        const TexelBufferDescription &desc, const char *debugName);
+        const gfx::TexelBufferDescription &desc, const char *debugName);
     // Caller is expected to check validity before calling methods with the
     // handle. This design assumes that the code that creates and releases
     // resources is single-threaded and the handle isn't be released between
     // isValidHandle() and following accessor calls.
     [[nodiscard]] bool isValidHandle(TexelBufferHandle handle) const;
     [[nodiscard]] vk::Buffer nativeHandle(TexelBufferHandle handle) const;
-    [[nodiscard]] const TexelBuffer &resource(TexelBufferHandle handle) const;
+    [[nodiscard]] const gfx::TexelBuffer &resource(
+        TexelBufferHandle handle) const;
     void transition(
-        vk::CommandBuffer cb, TexelBufferHandle handle, BufferState state);
+        vk::CommandBuffer cb, TexelBufferHandle handle, gfx::BufferState state);
     [[nodiscard]] wheels::Optional<vk::BufferMemoryBarrier2> transitionBarrier(
-        TexelBufferHandle handle, BufferState state,
+        TexelBufferHandle handle, gfx::BufferState state,
         bool force_barrier = false);
     void appendDebugName(TexelBufferHandle handle, wheels::StrSpan name);
     void preserve(TexelBufferHandle handle);
@@ -63,8 +67,9 @@ class RenderTexelBufferCollection
 
     // RenderImageCollection depends on returned handle indices being
     // contiguous.
-    wheels::Array<TexelBuffer> m_resources{gAllocators.general};
-    wheels::Array<TexelBufferDescription> m_descriptions{gAllocators.general};
+    wheels::Array<gfx::TexelBuffer> m_resources{gAllocators.general};
+    wheels::Array<gfx::TexelBufferDescription> m_descriptions{
+        gAllocators.general};
     wheels::Array<wheels::String> m_aliasedDebugNames{gAllocators.general};
     wheels::Array<uint64_t> m_generations{gAllocators.general};
     wheels::Array<wheels::String> m_debugNames{gAllocators.general};
@@ -76,5 +81,7 @@ class RenderTexelBufferCollection
     // the slot can be reused
     wheels::Array<uint32_t> m_freelist{gAllocators.general};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_TEXEL_BUFFER_COLLECTION_HPP

@@ -9,6 +9,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -26,7 +29,7 @@ TextureReadback::~TextureReadback()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.destroy(m_buffer);
+    gfx::gDevice.destroy(m_buffer);
 }
 
 void TextureReadback::init(ScopedScratch scopeAlloc)
@@ -34,9 +37,9 @@ void TextureReadback::init(ScopedScratch scopeAlloc)
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
-    m_buffer = gDevice.createBuffer(BufferCreateInfo{
+    m_buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeof(vec4),
                 .usage = vk::BufferUsageFlagBits::eTransferDst,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -79,7 +82,7 @@ void TextureReadback::record(
 
     {
         const BufferHandle deviceReadback = gRenderResources.buffers->create(
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = m_buffer.byteSize,
                 .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                          vk::BufferUsageFlagBits::eTransferSrc,
@@ -90,15 +93,15 @@ void TextureReadback::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(inTexture).view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer =
                         gRenderResources.buffers->nativeHandle(deviceReadback),
                     .range = VK_WHOLE_SIZE,
@@ -111,12 +114,14 @@ void TextureReadback::record(
                 .images =
                     StaticArray<ImageTransition, 1>{
                         ImageTransition{
-                            inTexture, ImageState::ComputeShaderSampledRead},
+                            inTexture,
+                            gfx::ImageState::ComputeShaderSampledRead},
                     },
                 .buffers =
                     StaticArray<BufferTransition, 1>{
                         BufferTransition{
-                            deviceReadback, BufferState::ComputeShaderWrite},
+                            deviceReadback,
+                            gfx::BufferState::ComputeShaderWrite},
                     },
             });
 
@@ -132,7 +137,7 @@ void TextureReadback::record(
         m_computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
 
         gRenderResources.buffers->transition(
-            cb, deviceReadback, BufferState::TransferSrc);
+            cb, deviceReadback, gfx::BufferState::TransferSrc);
         // We know the host readback buffer is not used this frame so no need
         // for a barrier here
 
@@ -161,3 +166,5 @@ Optional<vec4> TextureReadback::readback()
     m_framesUntilReady = -1;
     return *reinterpret_cast<vec4 *>(m_buffer.mapped);
 }
+
+} // namespace render

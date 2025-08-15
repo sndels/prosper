@@ -10,6 +10,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 constexpr uvec3 sGroupSize{16, 16, 1};
@@ -64,13 +67,13 @@ void BloomConvolution::record(
     const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
                                  ->resource(inputOutput.inOutHighlightsDft)
                                  .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(inputOutput.inKernelDft)
                         .view,
@@ -83,8 +86,8 @@ void BloomConvolution::record(
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
                 {inputOutput.inOutHighlightsDft,
-                 ImageState::ComputeShaderReadWrite},
-                {inputOutput.inKernelDft, ImageState::ComputeShaderRead},
+                 gfx::ImageState::ComputeShaderReadWrite},
+                {inputOutput.inKernelDft, gfx::ImageState::ComputeShaderRead},
             }},
         });
 
@@ -98,3 +101,5 @@ void BloomConvolution::record(
         uvec3{highlightsExtent.width, highlightsExtent.height, 1u});
     m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
 }
+
+} // namespace render::bloom

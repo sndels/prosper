@@ -10,6 +10,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
+namespace render::bloom
+{
+
 class BloomSeparate
 {
   public:
@@ -43,5 +46,7 @@ class BloomSeparate
     float m_threshold{1.f};
     ComputePass m_computePass;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_SEPARATE_HPP

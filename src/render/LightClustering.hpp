@@ -8,6 +8,9 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 
+namespace render
+{
+
 struct LightClusteringOutput
 {
     ImageHandle pointers;
@@ -37,7 +40,7 @@ class LightClustering
 
     void init(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     [[nodiscard]] vk::DescriptorSetLayout descriptorSetLayout() const;
 
@@ -45,16 +48,18 @@ class LightClustering
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     [[nodiscard]] LightClusteringOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const vk::Extent2D &renderExtent,
-        uint32_t nextFrame);
+        const scene::World &world, const scene::Camera &cam,
+        const vk::Extent2D &renderExtent, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_LIGHT_CLUSTERING_HPP

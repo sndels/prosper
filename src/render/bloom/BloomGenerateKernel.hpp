@@ -10,6 +10,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
+namespace render::bloom
+{
+
 class BloomGenerateKernel
 {
   public:
@@ -53,5 +56,7 @@ class BloomGenerateKernel
     ComputePass m_generatePass;
     ComputePass m_preparePass;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_GENERATE_KERNEL_HPP

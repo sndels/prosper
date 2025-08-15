@@ -14,6 +14,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -60,8 +63,8 @@ TextureDebug::~TextureDebug()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    for (Buffer &b : m_readbackBuffers)
-        gDevice.destroy(b);
+    for (gfx::Buffer &b : m_readbackBuffers)
+        gfx::gDevice.destroy(b);
 }
 
 void TextureDebug::init(ScopedScratch scopeAlloc)
@@ -70,11 +73,11 @@ void TextureDebug::init(ScopedScratch scopeAlloc)
 
     m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
 
-    for (Buffer &b : m_readbackBuffers)
+    for (gfx::Buffer &b : m_readbackBuffers)
     {
-        b = gDevice.createBuffer(BufferCreateInfo{
+        b = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
             .desc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = sizeof(vec4),
                     .usage = vk::BufferUsageFlagBits::eTransferDst,
                     .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -184,7 +187,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
         settings->lod = std::clamp(settings->lod, 0, maxLod);
     }
 
-    enumDropdown("Channel", settings->channelType, sChannelTypeNames);
+    utils::enumDropdown("Channel", settings->channelType, sChannelTypeNames);
 
     {
         // Having drag speed react to the absolute range makes this nicer to use
@@ -237,7 +240,7 @@ ImageHandle TextureDebug::record(
     ImageHandle ret;
     {
         ret = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR8G8B8A8Unorm,
                 .width = outSize.width,
                 .height = outSize.height,
@@ -257,9 +260,9 @@ ImageHandle TextureDebug::record(
                 vk::ImageType::e2D)
         {
             gRenderResources.images->transition(
-                cb, ret, ImageState::TransferDst);
+                cb, ret, gfx::ImageState::TransferDst);
 
-            const Image &image = gRenderResources.images->resource(ret);
+            const gfx::Image &image = gRenderResources.images->resource(ret);
             const vk::ClearColorValue clearValue{0.f, 0.f, 0.f, 1.f};
             cb.clearColorImage(
                 image.handle, vk::ImageLayout::eTransferDstOptimal, &clearValue,
@@ -272,7 +275,7 @@ ImageHandle TextureDebug::record(
 
             const BufferHandle deviceReadback =
                 gRenderResources.buffers->create(
-                    BufferDescription{
+                    gfx::BufferDescription{
                         .byteSize = m_readbackBuffers[nextFrame].byteSize,
                         .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                                  vk::BufferUsageFlagBits::eTransferSrc,
@@ -293,25 +296,25 @@ ImageHandle TextureDebug::record(
             const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
                 scopeAlloc.child_scope(), nextFrame,
                 StaticArray{{
-                    DescriptorInfo{vk::DescriptorImageInfo{
+                    gfx::DescriptorInfo{vk::DescriptorImageInfo{
                         .imageView =
                             gRenderResources.images->resource(inColor).view,
                         .imageLayout = vk::ImageLayout::eGeneral,
                     }},
-                    DescriptorInfo{vk::DescriptorImageInfo{
+                    gfx::DescriptorInfo{vk::DescriptorImageInfo{
                         .imageView =
                             gRenderResources.images->resource(ret).view,
                         .imageLayout = vk::ImageLayout::eGeneral,
                     }},
-                    DescriptorInfo{vk::DescriptorImageInfo{
+                    gfx::DescriptorInfo{vk::DescriptorImageInfo{
                         .sampler = settings.useBilinearSampler
                                        ? gRenderResources.bilinearSampler
                                        : gRenderResources.nearestSampler,
                     }},
-                    DescriptorInfo{vk::DescriptorImageInfo{
+                    gfx::DescriptorInfo{vk::DescriptorImageInfo{
                         .sampler = gRenderResources.nearestSampler,
                     }},
-                    DescriptorInfo{vk::DescriptorBufferInfo{
+                    gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                         .buffer = gRenderResources.buffers->nativeHandle(
                             deviceReadback),
                         .range = VK_WHOLE_SIZE,
@@ -322,14 +325,14 @@ ImageHandle TextureDebug::record(
                 WHEELS_MOV(scopeAlloc), cb,
                 Transitions{
                     .images = StaticArray<ImageTransition, 2>{{
-                        {inColor, ImageState::ComputeShaderRead},
-                        {ret, ImageState::ComputeShaderWrite},
+                        {inColor, gfx::ImageState::ComputeShaderRead},
+                        {ret, gfx::ImageState::ComputeShaderWrite},
                     }},
                     .buffers =
                         StaticArray<BufferTransition, 1>{
                             BufferTransition{
                                 deviceReadback,
-                                BufferState::ComputeShaderWrite},
+                                gfx::BufferState::ComputeShaderWrite},
                         },
                 });
 
@@ -372,7 +375,7 @@ ImageHandle TextureDebug::record(
             m_computePass.record(cb, pcBlock, groupCount, Span{&storageSet, 1});
 
             gRenderResources.buffers->transition(
-                cb, deviceReadback, BufferState::TransferSrc);
+                cb, deviceReadback, gfx::BufferState::TransferSrc);
             // We know the host readback buffer is not used this frame so no
             // need for a barrier here
 
@@ -396,3 +399,5 @@ bool TextureDebug::textureSelected()
 {
     return gRenderResources.images->activeDebugName().has_value();
 }
+
+} // namespace render

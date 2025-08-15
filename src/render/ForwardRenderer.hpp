@@ -13,6 +13,9 @@
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 class ForwardRenderer
 {
   public:
@@ -28,7 +31,7 @@ class ForwardRenderer
     {
         vk::DescriptorSetLayout camera;
         vk::DescriptorSetLayout lightClusters;
-        const WorldDSLayouts &world;
+        const scene::WorldDSLayouts &world;
     };
     void init(
         wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts,
@@ -50,9 +53,10 @@ class ForwardRenderer
     };
     [[nodiscard]] OpaqueOutput recordOpaque(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
+        const scene::World &world, const scene::Camera &cam,
+        const vk::Rect2D &renderArea,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, bool applyIbl, DrawType drawType,
+        uint32_t nextFrame, bool applyIbl, scene::DrawType drawType,
         DrawStats &drawStats);
 
     struct TransparentInOut
@@ -62,16 +66,17 @@ class ForwardRenderer
     };
     void recordTransparent(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam,
+        const scene::World &world, const scene::Camera &cam,
         const TransparentInOut &inOutTargets,
         const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-        uint32_t nextFrame, DrawType drawType, DrawStats &drawStats);
+        uint32_t nextFrame, scene::DrawType drawType, DrawStats &drawStats);
 
     void releasePreserved();
 
   private:
     [[nodiscard]] bool compileShaders(
-        wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc,
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
 
@@ -92,7 +97,7 @@ class ForwardRenderer
         bool transparents{false};
         bool ibl{false};
         bool secondPhase{false};
-        DrawType drawType{DrawType::Default};
+        scene::DrawType drawType{scene::DrawType::Default};
     };
     struct RecordInOut
     {
@@ -105,7 +110,7 @@ class ForwardRenderer
     };
     void recordDraw(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, uint32_t nextFrame,
+        const scene::World &world, const scene::Camera &cam, uint32_t nextFrame,
         const RecordInOut &inputsOutputs,
         const LightClusteringOutput &lightClusters, const Options &options,
         const char *debugName);
@@ -116,8 +121,8 @@ class ForwardRenderer
     HierarchicalDepthDownsampler *m_hierarchicalDepthDownsampler{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
-    wheels::Optional<ShaderReflection> m_meshReflection;
-    wheels::Optional<ShaderReflection> m_fragReflection;
+    wheels::Optional<gfx::ShaderReflection> m_meshReflection;
+    wheels::Optional<gfx::ShaderReflection> m_fragReflection;
 
     vk::PipelineLayout m_pipelineLayout;
     wheels::StaticArray<vk::Pipeline, 2> m_pipelines;
@@ -132,5 +137,7 @@ class ForwardRenderer
 
     ImageHandle m_previousHierarchicalDepth;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_FORWARD_RENDERER_HPP

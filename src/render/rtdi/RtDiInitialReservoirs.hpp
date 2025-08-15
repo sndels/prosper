@@ -10,6 +10,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::rtdi
+{
+
 class RtDiInitialReservoirs
 {
   public:
@@ -25,7 +28,7 @@ class RtDiInitialReservoirs
     struct InputDSLayouts
     {
         vk::DescriptorSetLayout camera;
-        const WorldDSLayouts &world;
+        const scene::WorldDSLayouts &world;
     };
     void init(
         wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
@@ -42,7 +45,7 @@ class RtDiInitialReservoirs
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam,
+        const scene::World &world, const scene::Camera &cam,
         const GBufferRendererOutput &gbuffer, uint32_t nextFrame);
 
     bool m_initialized{false};
@@ -50,5 +53,7 @@ class RtDiInitialReservoirs
 
     uint32_t m_frameIndex{0};
 };
+
+} // namespace render::rtdi
 
 #endif // PROSPER_RENDER_RT_DI_INITIAL_RESERVOIRS_HPP

@@ -24,6 +24,9 @@
 #define TEXTURE_DEBUG_CHANNEL_TYPES_STRS                                       \
     FOR_EACH(TEXTURE_DEBUG_CHANNEL_TYPES_STRINGIFY, TEXTURE_DEBUG_CHANNEL_TYPES)
 
+namespace render
+{
+
 class TextureDebug
 {
   public:
@@ -57,7 +60,7 @@ class TextureDebug
 
   private:
     bool m_initialized{false};
-    wheels::StaticArray<Buffer, MAX_FRAMES_IN_FLIGHT> m_readbackBuffers;
+    wheels::StaticArray<gfx::Buffer, MAX_FRAMES_IN_FLIGHT> m_readbackBuffers;
 
     ComputePass m_computePass;
 
@@ -76,5 +79,7 @@ class TextureDebug
         gAllocators.general};
     bool m_zoom{false};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_TEXTURE_DEBUG_HPP

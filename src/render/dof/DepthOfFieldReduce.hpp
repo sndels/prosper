@@ -11,6 +11,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::dof
+{
+
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
@@ -38,8 +41,10 @@ class DepthOfFieldReduce
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
-    Buffer m_atomicCounter;
+    gfx::Buffer m_atomicCounter;
     bool m_counterNotCleared{true};
 };
+
+} // namespace render::dof
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_REDUCE_HPP

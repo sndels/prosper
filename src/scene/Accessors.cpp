@@ -7,6 +7,9 @@
 
 using namespace glm;
 
+namespace scene
+{
+
 TimeAccessor::TimeAccessor(
     const float *data, uint32_t count, const Interval &interval) noexcept
 : m_data{data}
@@ -102,3 +105,5 @@ template <> quat ValueAccessor<quat>::read(uint32_t index) const
     return *reinterpret_cast<const quat *>(
         m_data + (asserted_cast<size_t>(index) * 4 * sizeof(float)));
 }
+
+} // namespace scene

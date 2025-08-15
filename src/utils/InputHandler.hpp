@@ -5,6 +5,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace utils
+{
+
 enum class KeyState : uint8_t
 {
     Neutral,  // Key is just hangin'
@@ -92,5 +95,7 @@ class InputHandler
 // similar globals is handled in main()
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern InputHandler gInputHandler;
+
+} // namespace utils
 
 #endif // PROSPER_UTILS_INPUT_HANDLER_HPP

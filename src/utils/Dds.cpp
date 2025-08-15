@@ -7,6 +7,9 @@
 
 using namespace wheels;
 
+namespace utils
+{
+
 namespace
 {
 
@@ -323,3 +326,5 @@ Dds readDds(Allocator &alloc, const std::filesystem::path &path)
 
     return ret;
 }
+
+} // namespace utils

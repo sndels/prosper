@@ -6,6 +6,9 @@
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 
+namespace utils
+{
+
 // https://learn.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
 // NOLINTNEXTLINE(performance-enum-size) matches the format
 enum class DxgiFormat
@@ -41,5 +44,7 @@ struct Dds
 
 void writeDds(const Dds &dds, const std::filesystem::path &path);
 Dds readDds(wheels::Allocator &alloc, const std::filesystem::path &path);
+
+} // namespace utils
 
 #endif // PROSPER_UTILS_DDS_HPP

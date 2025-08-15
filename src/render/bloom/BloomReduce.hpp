@@ -11,6 +11,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::bloom
+{
+
 class BloomReduce
 {
   public:
@@ -35,8 +38,10 @@ class BloomReduce
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
-    Buffer m_atomicCounter;
+    gfx::Buffer m_atomicCounter;
     bool m_counterNotCleared{true};
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_REDUCE_HPP

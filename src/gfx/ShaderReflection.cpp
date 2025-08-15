@@ -13,6 +13,9 @@
 
 using namespace wheels;
 
+namespace gfx
+{
+
 namespace
 {
 
@@ -1193,3 +1196,5 @@ wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
 
     return descriptorWrites;
 }
+
+} // namespace gfx

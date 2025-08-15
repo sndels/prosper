@@ -14,6 +14,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -167,8 +170,9 @@ void TemporalAntiAliasing::drawUi()
 {
     WHEELS_ASSERT(m_initialized);
 
-    enumDropdown("Color clipping", m_colorClipping, sColorClippingTypeNames);
-    enumDropdown(
+    utils::enumDropdown(
+        "Color clipping", m_colorClipping, sColorClippingTypeNames);
+    utils::enumDropdown(
         "Velocity sampling", m_velocitySampling, sVelocitySamplingTypeNames);
 
     ImGui::Checkbox("Catmull-Rom history samples", &m_catmullRom);
@@ -176,7 +180,7 @@ void TemporalAntiAliasing::drawUi()
 }
 
 TemporalAntiAliasing::Output TemporalAntiAliasing::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::Camera &cam,
     const Input &input, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
@@ -220,37 +224,37 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
                 m_previousResolveOutput, resolveDebugName);
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(input.illumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(m_previousResolveOutput)
                         .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(input.velocity).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(input.depth).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(ret.resolvedIllumination)
                         .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.nearestSampler,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.bilinearSampler,
             }},
         }};
@@ -261,11 +265,13 @@ TemporalAntiAliasing::Output TemporalAntiAliasing::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 5>{{
-                    {input.illumination, ImageState::ComputeShaderRead},
-                    {input.velocity, ImageState::ComputeShaderRead},
-                    {input.depth, ImageState::ComputeShaderRead},
-                    {m_previousResolveOutput, ImageState::ComputeShaderRead},
-                    {ret.resolvedIllumination, ImageState::ComputeShaderWrite},
+                    {input.illumination, gfx::ImageState::ComputeShaderRead},
+                    {input.velocity, gfx::ImageState::ComputeShaderRead},
+                    {input.depth, gfx::ImageState::ComputeShaderRead},
+                    {m_previousResolveOutput,
+                     gfx::ImageState::ComputeShaderRead},
+                    {ret.resolvedIllumination,
+                     gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -311,3 +317,5 @@ void TemporalAntiAliasing::releasePreserved()
     if (gRenderResources.images->isValidHandle(m_previousResolveOutput))
         gRenderResources.images->release(m_previousResolveOutput);
 }
+
+} // namespace render

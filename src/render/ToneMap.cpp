@@ -12,6 +12,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -33,7 +36,7 @@ void ToneMap::init(ScopedScratch scopeAlloc)
 
     m_lut.init(
         WHEELS_MOV(scopeAlloc), resPath("texture/tony_mc_mapface.dds"),
-        ImageState::ComputeShaderSampledRead);
+        gfx::ImageState::ComputeShaderSampledRead);
 
     m_initialized = true;
 }
@@ -70,7 +73,7 @@ ToneMap::Output ToneMap::record(
 
         ret = Output{
             .toneMapped = gRenderResources.images->create(
-                ImageDescription{
+                gfx::ImageDescription{
                     .format = vk::Format::eR8G8B8A8Unorm,
                     .width = renderExtent.width,
                     .height = renderExtent.height,
@@ -85,15 +88,15 @@ ToneMap::Output ToneMap::record(
         };
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(inColor).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{m_lut.imageInfo()},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{m_lut.imageInfo()},
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.bilinearSampler,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(ret.toneMapped).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
@@ -106,8 +109,8 @@ ToneMap::Output ToneMap::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {inColor, ImageState::ComputeShaderRead},
-                    {ret.toneMapped, ImageState::ComputeShaderWrite},
+                    {inColor, gfx::ImageState::ComputeShaderRead},
+                    {ret.toneMapped, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -127,3 +130,5 @@ ToneMap::Output ToneMap::record(
 
     return ret;
 }
+
+} // namespace render

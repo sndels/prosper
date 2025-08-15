@@ -24,6 +24,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace scene
+{
+
 namespace
 {
 
@@ -36,14 +39,14 @@ bool relativeEq(float a, float b, float maxRelativeDiff)
     return diff < scaledEpsilon;
 }
 
-AccelerationStructure createTlas(
+gfx::AccelerationStructure createTlas(
     const Scene &scene, vk::AccelerationStructureBuildSizesInfoKHR sizeInfo,
     vk::AccelerationStructureBuildGeometryInfoKHR buildInfo)
 {
-    AccelerationStructure tlas;
-    tlas.buffer = gDevice.createBuffer(BufferCreateInfo{
+    gfx::AccelerationStructure tlas;
+    tlas.buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeInfo.accelerationStructureSize,
                 .usage =
                     vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
@@ -59,8 +62,9 @@ AccelerationStructure createTlas(
         .size = sizeInfo.accelerationStructureSize,
         .type = buildInfo.type,
     };
-    tlas.handle = gDevice.logical().createAccelerationStructureKHR(createInfo);
-    tlas.address = gDevice.logical().getAccelerationStructureAddressKHR(
+    tlas.handle =
+        gfx::gDevice.logical().createAccelerationStructureKHR(createInfo);
+    tlas.address = gfx::gDevice.logical().getAccelerationStructureAddressKHR(
         vk::AccelerationStructureDeviceAddressInfoKHR{
             .accelerationStructure = tlas.handle,
         });
@@ -95,7 +99,7 @@ AccelerationStructure createTlas(
     };
     descriptorWrites[0].pNext = &asWrite;
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 
@@ -116,7 +120,7 @@ class World::Impl
     Impl &operator=(Impl &&other) = delete;
 
     void init(
-        ScopedScratch scopeAlloc, RingBuffer &constantsRing,
+        ScopedScratch scopeAlloc, gfx::RingBuffer &constantsRing,
         const std::filesystem::path &scene);
 
     void startFrame();
@@ -131,12 +135,12 @@ class World::Impl
 
     [[nodiscard]] Scene &currentScene();
     [[nodiscard]] const Scene &currentScene() const;
-    [[nodiscard]] AccelerationStructure &currentTLAS();
+    [[nodiscard]] gfx::AccelerationStructure &currentTLAS();
     void updateAnimations(float timeS);
     // Has to be called after updateAnimations()
     void updateScene(
         ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
-        SceneStats &sceneStats);
+        utils::SceneStats &sceneStats);
     void updateBuffers(ScopedScratch scopeAlloc);
     // Has to be called after updateBuffers(). Returns true if new BLASes were
     // added.
@@ -145,7 +149,7 @@ class World::Impl
     void drawSkybox(vk::CommandBuffer cb) const;
 
   private:
-    Buffer &reserveScratch(vk::DeviceSize byteSize);
+    gfx::Buffer &reserveScratch(vk::DeviceSize byteSize);
     // Returns true if a blas build was queued
     bool buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb);
     void buildCurrentTlas(vk::CommandBuffer cb);
@@ -158,11 +162,11 @@ class World::Impl
         vk::AccelerationStructureBuildGeometryInfoKHR &buildInfoOut,
         vk::AccelerationStructureBuildSizesInfoKHR &sizeInfoOut);
 
-    RingBuffer *m_constantsRing{nullptr};
-    RingBuffer m_lightDataRing;
+    gfx::RingBuffer *m_constantsRing{nullptr};
+    gfx::RingBuffer m_lightDataRing;
     wheels::Optional<size_t> m_nextScene;
     uint32_t m_framesSinceFinalBlasBuilds{0};
-    Timer m_blasBuildTimer;
+    utils::Timer m_blasBuildTimer;
 
   public:
     WorldData m_data;
@@ -173,11 +177,11 @@ class World::Impl
     struct ScratchBuffer
     {
         uint32_t framesSinceLastUsed{0};
-        Buffer buffer;
+        gfx::Buffer buffer;
     };
     Array<ScratchBuffer> m_scratchBuffers{gAllocators.general};
-    Buffer m_tlasInstancesBuffer;
-    OwningPtr<RingBuffer> m_tlasInstancesUploadRing;
+    gfx::Buffer m_tlasInstancesBuffer;
+    OwningPtr<gfx::RingBuffer> m_tlasInstancesUploadRing;
     uint32_t m_tlasInstancesUploadOffset{0};
 };
 
@@ -186,20 +190,20 @@ World::Impl::~Impl()
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     for (auto &sb : m_scratchBuffers)
-        gDevice.destroy(sb.buffer);
-    gDevice.destroy(m_tlasInstancesBuffer);
+        gfx::gDevice.destroy(sb.buffer);
+    gfx::gDevice.destroy(m_tlasInstancesBuffer);
 }
 
 void World::Impl::init(
-    ScopedScratch scopeAlloc, RingBuffer &constantsRing,
+    ScopedScratch scopeAlloc, gfx::RingBuffer &constantsRing,
     const std::filesystem::path &scene)
 {
     m_constantsRing = &constantsRing;
 
     const uint32_t lightDataBufferSize =
-        (DirectionalLight::sBufferByteSize + RingBuffer::sAlignment +
-         PointLights::sBufferByteSize + RingBuffer::sAlignment +
-         SpotLights::sBufferByteSize + RingBuffer::sAlignment) *
+        (DirectionalLight::sBufferByteSize + gfx::RingBuffer::sAlignment +
+         PointLights::sBufferByteSize + gfx::RingBuffer::sAlignment +
+         SpotLights::sBufferByteSize + gfx::RingBuffer::sAlignment) *
         MAX_FRAMES_IN_FLIGHT;
     m_lightDataRing.init(
         vk::BufferUsageFlagBits::eStorageBuffer, lightDataBufferSize,
@@ -249,7 +253,7 @@ void World::Impl::startFrame()
         {
             // No in-flight frames are using the buffer so it can be safely
             // destroyed
-            gDevice.destroy(sb.buffer);
+            gfx::gDevice.destroy(sb.buffer);
             // The reference held by sb is invalid after this
             m_scratchBuffers.erase(i);
         }
@@ -294,7 +298,7 @@ bool World::Impl::drawSceneUi()
         if (sceneCount > 1)
         {
             uint32_t scene = asserted_cast<uint32_t>(m_data.m_currentScene);
-            if (sliderU32("Active scene", &scene, 0, sceneCount - 1))
+            if (utils::sliderU32("Active scene", &scene, 0, sceneCount - 1))
             {
                 // Make sure the new camera's parameters are copied over from
                 sceneChanged = true;
@@ -316,7 +320,8 @@ bool World::Impl::drawCameraUi()
     bool camChanged = false;
     if (cameraCount > 1)
     {
-        if (sliderU32("Active camera", &m_currentCamera, 0, cameraCount - 1))
+        if (utils::sliderU32(
+                "Active camera", &m_currentCamera, 0, cameraCount - 1))
         {
             // Make sure the new camera's parameters are copied over from
             camChanged = true;
@@ -335,7 +340,7 @@ const Scene &World::Impl::currentScene() const
     return m_data.m_scenes[m_data.m_currentScene];
 }
 
-AccelerationStructure &World::Impl::currentTLAS()
+gfx::AccelerationStructure &World::Impl::currentTLAS()
 {
     return m_data.m_tlases[m_data.m_currentScene];
 }
@@ -352,7 +357,7 @@ void World::Impl::updateAnimations(float timeS)
 
 void World::Impl::updateScene(
     ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
-    SceneStats &sceneStats)
+    utils::SceneStats &sceneStats)
 {
     PROFILER_CPU_SCOPE("World::updateScene");
 
@@ -402,7 +407,7 @@ void World::Impl::updateScene(
 
                 if (node.modelInstance.has_value())
                     scene.modelInstances[*node.modelInstance].transforms =
-                        ModelInstanceTransforms{
+                        shader_structs::ModelInstanceTransforms{
                             .modelToWorld = modelToWorld,
                             .normalToWorld = normalToWorld,
                         };
@@ -428,7 +433,7 @@ void World::Impl::updateScene(
 
                 if (node.pointLight.has_value())
                 {
-                    PointLight &sceneLight =
+                    shader_structs::PointLight &sceneLight =
                         scene.lights.pointLights.data[*node.pointLight];
 
                     sceneLight.position =
@@ -437,7 +442,7 @@ void World::Impl::updateScene(
 
                 if (node.spotLight.has_value())
                 {
-                    SpotLight &sceneLight =
+                    shader_structs::SpotLight &sceneLight =
                         scene.lights.spotLights.data[*node.spotLight];
 
                     const vec3 position =
@@ -464,8 +469,9 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
     const auto &scene = currentScene();
 
     {
-        Array<DrawInstance> drawInstances{scopeAlloc, scene.drawInstanceCount};
-        Array<ModelInstanceTransforms> transforms{
+        Array<shader_structs::DrawInstance> drawInstances{
+            scopeAlloc, scene.drawInstanceCount};
+        Array<shader_structs::ModelInstanceTransforms> transforms{
             scopeAlloc, scene.modelInstances.size()};
         Array<float> scales{scopeAlloc, scene.modelInstances.size()};
 
@@ -498,7 +504,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             for (const auto &model :
                  m_data.m_models[instance.modelIndex].subModels)
             {
-                drawInstances.push_back(DrawInstance{
+                drawInstances.push_back(shader_structs::DrawInstance{
                     .modelInstanceIndex = mi,
                     .meshIndex = model.meshIndex,
                     .materialIndex = model.materialIndex,
@@ -517,7 +523,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 
         memcpy(
             scene.drawInstancesBuffer.mapped, drawInstances.data(),
-            sizeof(DrawInstance) * drawInstances.size());
+            sizeof(shader_structs::DrawInstance) * drawInstances.size());
     }
 
     updateTlasInstances(scopeAlloc.child_scope(), scene);
@@ -591,7 +597,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     // are not loaded in yet
     for (const Model::SubModel &sm : model.subModels)
     {
-        const GeometryMetadata &metadata =
+        const shader_structs::GeometryMetadata &metadata =
             m_data.m_geometryMetadatas[sm.meshIndex];
         if (metadata.bufferIndex == 0xFFFF'FFFF)
             // Mesh is hasn't been uploaded yet
@@ -610,11 +616,11 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     maxPrimitiveCounts.reserve(model.subModels.size());
     for (const Model::SubModel &sm : model.subModels)
     {
-        const GeometryMetadata &metadata =
+        const shader_structs::GeometryMetadata &metadata =
             m_data.m_geometryMetadatas[sm.meshIndex];
         const MeshInfo &info = m_data.m_meshInfos[sm.meshIndex];
 
-        const Buffer &dataBuffer =
+        const gfx::Buffer &dataBuffer =
             m_data.m_geometryBuffers[metadata.bufferIndex];
         WHEELS_ASSERT(dataBuffer.deviceAddress != 0);
 
@@ -636,9 +642,10 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
             .indexData = dataBuffer.deviceAddress + indicesOffset,
         };
 
-        const MaterialData &material = m_data.m_materials[info.materialIndex];
+        const shader_structs::MaterialData &material =
+            m_data.m_materials[info.materialIndex];
         const vk::GeometryFlagsKHR geomFlags =
-            material.alphaMode == AlphaMode_Opaque
+            material.alphaMode == shader_structs::AlphaMode_Opaque
                 ? vk::GeometryFlagBitsKHR::eOpaque
                 : vk::GeometryFlagsKHR{};
         geometries.push_back(vk::AccelerationStructureGeometryKHR{
@@ -665,17 +672,17 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     };
 
     const vk::AccelerationStructureBuildSizesInfoKHR sizeInfo =
-        gDevice.logical().getAccelerationStructureBuildSizesKHR(
+        gfx::gDevice.logical().getAccelerationStructureBuildSizesKHR(
             vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfo,
             {asserted_cast<uint32_t>(maxPrimitiveCounts.size()),
              maxPrimitiveCounts.data()});
 
-    m_data.m_blases.push_back(AccelerationStructure{});
-    AccelerationStructure &blas = m_data.m_blases.back();
+    m_data.m_blases.push_back(gfx::AccelerationStructure{});
+    gfx::AccelerationStructure &blas = m_data.m_blases.back();
 
-    blas.buffer = gDevice.createBuffer(BufferCreateInfo{
+    blas.buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeInfo.accelerationStructureSize,
                 .usage =
                     vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
@@ -691,8 +698,9 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
         .size = sizeInfo.accelerationStructureSize,
         .type = buildInfo.type,
     };
-    blas.handle = gDevice.logical().createAccelerationStructureKHR(createInfo);
-    blas.address = gDevice.logical().getAccelerationStructureAddressKHR(
+    blas.handle =
+        gfx::gDevice.logical().createAccelerationStructureKHR(createInfo);
+    blas.address = gfx::gDevice.logical().getAccelerationStructureAddressKHR(
         vk::AccelerationStructureDeviceAddressInfoKHR{
             .accelerationStructure = blas.handle,
         });
@@ -705,7 +713,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
         blasName.extend(smName);
         blasName.push_back('|');
     }
-    gDevice.logical().setDebugUtilsObjectNameEXT(
+    gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eAccelerationStructureKHR,
             .objectHandle = reinterpret_cast<uint64_t>(
@@ -715,12 +723,12 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 
     buildInfo.dstAccelerationStructure = blas.handle;
 
-    Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
+    gfx::Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
     WHEELS_ASSERT(scratchBuffer.deviceAddress != 0);
 
     buildInfo.scratchData = scratchBuffer.deviceAddress;
 
-    scratchBuffer.transition(cb, BufferState::AccelerationStructureBuild);
+    scratchBuffer.transition(cb, gfx::BufferState::AccelerationStructureBuild);
 
     const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo =
         rangeInfos.data();
@@ -729,7 +737,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 
     // Make sure the following TLAS build waits until the BLAS is ready
     // TODO: Batch these barriers right before the tlas build
-    blas.buffer.transition(cb, BufferState::AccelerationStructureBuild);
+    blas.buffer.transition(cb, gfx::BufferState::AccelerationStructureBuild);
 
     return true;
 }
@@ -737,7 +745,7 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
 void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 {
     const Scene &scene = m_data.m_scenes[m_data.m_currentScene];
-    AccelerationStructure &tlas = m_data.m_tlases[m_data.m_currentScene];
+    gfx::AccelerationStructure &tlas = m_data.m_tlases[m_data.m_currentScene];
 
     vk::AccelerationStructureBuildRangeInfoKHR rangeInfo;
     vk::AccelerationStructureGeometryKHR geometry;
@@ -754,7 +762,7 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 
     buildInfo.dstAccelerationStructure = tlas.handle;
 
-    Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
+    gfx::Buffer &scratchBuffer = reserveScratch(sizeInfo.buildScratchSize);
     WHEELS_ASSERT(scratchBuffer.deviceAddress != 0);
 
     buildInfo.scratchData = scratchBuffer.deviceAddress;
@@ -770,9 +778,9 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
 
     const StaticArray barriers{{
         *scratchBuffer.transitionBarrier(
-            BufferState::AccelerationStructureBuild, true),
+            gfx::BufferState::AccelerationStructureBuild, true),
         *tlas.buffer.transitionBarrier(
-            BufferState::AccelerationStructureBuild, true),
+            gfx::BufferState::AccelerationStructureBuild, true),
     }};
 
     cb.pipelineBarrier2(vk::DependencyInfo{
@@ -787,7 +795,7 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
     // RayTracingAccelerationStructureRead
 }
 
-Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
+gfx::Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
 {
     for (ScratchBuffer &sb : m_scratchBuffers)
     {
@@ -801,9 +809,9 @@ Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
     }
 
     m_scratchBuffers.push_back(ScratchBuffer{
-        .buffer = gDevice.createBuffer(BufferCreateInfo{
+        .buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
             .desc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = byteSize,
                     .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
                              vk::BufferUsageFlagBits::eStorageBuffer,
@@ -825,14 +833,14 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
     {
         // TODO: This destroy isn't safe until all frames in flight have
         // finished
-        gDevice.destroy(m_tlasInstancesBuffer);
+        gfx::gDevice.destroy(m_tlasInstancesBuffer);
         // TODO: This destroy isn't safe until all frames in flight have
         // finished
         m_tlasInstancesUploadRing.reset();
 
-        m_tlasInstancesBuffer = gDevice.createBuffer(BufferCreateInfo{
+        m_tlasInstancesBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
             .desc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = byteSize,
                     .usage = vk::BufferUsageFlagBits::eTransferDst |
                              vk::BufferUsageFlagBits::eShaderDeviceAddress |
@@ -845,8 +853,9 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
         });
 
         const uint32_t ringByteSize = asserted_cast<uint32_t>(
-            (byteSize + RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
-        m_tlasInstancesUploadRing = OwningPtr<RingBuffer>(gAllocators.general);
+            (byteSize + gfx::RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
+        m_tlasInstancesUploadRing =
+            OwningPtr<gfx::RingBuffer>(gAllocators.general);
         m_tlasInstancesUploadRing->init(
             vk::BufferUsageFlagBits::eTransferSrc, ringByteSize,
             "InstancesUploadBuffer");
@@ -933,7 +942,7 @@ void World::Impl::createTlasBuildInfos(
         .pGeometries = &geometryOut,
     };
 
-    sizeInfoOut = gDevice.logical().getAccelerationStructureBuildSizesKHR(
+    sizeInfoOut = gfx::gDevice.logical().getAccelerationStructureBuildSizesKHR(
         vk::AccelerationStructureBuildTypeKHR::eDevice, buildInfoOut,
         {rangeInfoOut.primitiveCount});
 }
@@ -947,7 +956,7 @@ World::World() noexcept
 World::~World() = default;
 
 void World::init(
-    wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing,
+    wheels::ScopedScratch scopeAlloc, gfx::RingBuffer &constantsRing,
     const std::filesystem::path &scene)
 {
     WHEELS_ASSERT(!m_initialized);
@@ -1009,7 +1018,7 @@ const Scene &World::currentScene() const
     return m_impl->currentScene();
 }
 
-AccelerationStructure &World::currentTLAS()
+gfx::AccelerationStructure &World::currentTLAS()
 {
     WHEELS_ASSERT(m_initialized);
     return m_impl->currentTLAS();
@@ -1051,7 +1060,7 @@ void World::updateAnimations(float timeS)
 
 void World::updateScene(
     ScopedScratch scopeAlloc, CameraTransform &cameraTransform,
-    SceneStats &sceneStats)
+    utils::SceneStats &sceneStats)
 {
     WHEELS_ASSERT(m_initialized);
     m_impl->updateScene(WHEELS_MOV(scopeAlloc), cameraTransform, sceneStats);
@@ -1100,7 +1109,7 @@ Span<const Model> World::models() const
     return m_impl->m_data.m_models;
 }
 
-Span<const MaterialData> World::materials() const
+Span<const shader_structs::MaterialData> World::materials() const
 {
     WHEELS_ASSERT(m_initialized);
     return m_impl->m_data.m_materials;
@@ -1117,3 +1126,5 @@ SkyboxResources &World::skyboxResources()
     WHEELS_ASSERT(m_initialized);
     return m_impl->m_data.m_skyboxResources;
 }
+
+} // namespace scene

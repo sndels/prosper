@@ -12,6 +12,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 struct GBufferRendererOutput
 {
     ImageHandle albedoRoughness;
@@ -33,25 +36,27 @@ class GBufferRenderer
 
     void init(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts, MeshletCuller &meshletCuller,
+        const scene::WorldDSLayouts &worldDSLayouts,
+        MeshletCuller &meshletCuller,
         HierarchicalDepthDownsampler &hierarchicalDepthDownsampler);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     [[nodiscard]] GBufferRendererOutput record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        BufferHandle inOutDrawStats, DrawType drawType, uint32_t nextFrame,
-        DrawStats &drawStats);
+        const scene::World &world, const scene::Camera &cam,
+        const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
+        scene::DrawType drawType, uint32_t nextFrame, DrawStats &drawStats);
     void releasePreserved();
 
   private:
     [[nodiscard]] bool compileShaders(
-        wheels::ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts);
+        wheels::ScopedScratch scopeAlloc,
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
     struct DescriptorSetBuffers
@@ -67,7 +72,7 @@ class GBufferRenderer
 
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     struct RecordInOut
     {
@@ -81,8 +86,9 @@ class GBufferRenderer
     };
     void recordDraw(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const vk::Rect2D &renderArea,
-        uint32_t nextFrame, const RecordInOut &inputsOutputs, DrawType drawType,
+        const scene::World &world, const scene::Camera &cam,
+        const vk::Rect2D &renderArea, uint32_t nextFrame,
+        const RecordInOut &inputsOutputs, scene::DrawType drawType,
         bool isSecondPhase);
 
     bool m_initialized{false};
@@ -91,8 +97,8 @@ class GBufferRenderer
     HierarchicalDepthDownsampler *m_hierarchicalDepthDownsampler{nullptr};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
-    wheels::Optional<ShaderReflection> m_meshReflection;
-    wheels::Optional<ShaderReflection> m_fragReflection;
+    wheels::Optional<gfx::ShaderReflection> m_meshReflection;
+    wheels::Optional<gfx::ShaderReflection> m_fragReflection;
 
     vk::PipelineLayout m_pipelineLayout;
     vk::Pipeline m_pipeline;
@@ -105,5 +111,7 @@ class GBufferRenderer
 
     ImageHandle m_previousHierarchicalDepth;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_GBUFFER_RENDERER_HPP

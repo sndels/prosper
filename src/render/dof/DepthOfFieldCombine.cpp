@@ -10,6 +10,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::dof
+{
+
 namespace
 {
 
@@ -58,30 +61,30 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
             createIllumination(renderExtent, "CombinedIllumnationDoF");
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
                                  ->resource(input.halfResFgBokehWeight)
                                  .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
                                  ->resource(input.halfResBgBokehWeight)
                                  .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
                                  ->resource(input.halfResCircleOfConfusion)
                                  .view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView =
                     gRenderResources.images->resource(input.illumination).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
                                  ->resource(ret.combinedIlluminationDoF)
                                  .view,
@@ -95,13 +98,15 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 5>{{
-                    {input.halfResFgBokehWeight, ImageState::ComputeShaderRead},
-                    {input.halfResBgBokehWeight, ImageState::ComputeShaderRead},
+                    {input.halfResFgBokehWeight,
+                     gfx::ImageState::ComputeShaderRead},
+                    {input.halfResBgBokehWeight,
+                     gfx::ImageState::ComputeShaderRead},
                     {input.halfResCircleOfConfusion,
-                     ImageState::ComputeShaderRead},
-                    {input.illumination, ImageState::ComputeShaderRead},
+                     gfx::ImageState::ComputeShaderRead},
+                    {input.illumination, gfx::ImageState::ComputeShaderRead},
                     {ret.combinedIlluminationDoF,
-                     ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -114,3 +119,5 @@ DepthOfFieldCombine::Output DepthOfFieldCombine::record(
 
     return ret;
 }
+
+} // namespace render::dof

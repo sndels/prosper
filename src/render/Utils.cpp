@@ -3,6 +3,9 @@
 #include "render/RenderResources.hpp"
 #include "utils/Utils.hpp"
 
+namespace render
+{
+
 vk::Extent2D getExtent2D(ImageHandle image)
 {
     const vk::Extent3D targetExtent =
@@ -48,3 +51,5 @@ vk::Rect2D getRect2D(ImageHandle image)
 
     return ret;
 }
+
+} // namespace render

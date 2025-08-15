@@ -22,6 +22,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -49,7 +52,7 @@ struct Attachments
 
 void GBufferRenderer::init(
     ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts, MeshletCuller &meshletCuller,
+    const scene::WorldDSLayouts &worldDSLayouts, MeshletCuller &meshletCuller,
     HierarchicalDepthDownsampler &hierarchicalDepthDownsampler)
 {
     WHEELS_ASSERT(!m_initialized);
@@ -74,17 +77,17 @@ GBufferRenderer::~GBufferRenderer()
     // init.
     destroyGraphicsPipeline();
 
-    gDevice.logical().destroy(m_meshSetLayout);
+    gfx::gDevice.logical().destroy(m_meshSetLayout);
 
     for (auto const &stage : m_shaderStages)
-        gDevice.logical().destroyShaderModule(stage.module);
+        gfx::gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void GBufferRenderer::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -102,10 +105,10 @@ void GBufferRenderer::recompileShaders(
 }
 
 GBufferRendererOutput GBufferRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Rect2D &renderArea,
-    BufferHandle inOutDrawStats, DrawType drawType, const uint32_t nextFrame,
-    DrawStats &drawStats)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const vk::Rect2D &renderArea,
+    BufferHandle inOutDrawStats, scene::DrawType drawType,
+    const uint32_t nextFrame, DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -115,7 +118,7 @@ GBufferRendererOutput GBufferRenderer::record(
     {
         ret = GBufferRendererOutput{
             .albedoRoughness = gRenderResources.images->create(
-                ImageDescription{
+                gfx::ImageDescription{
                     .format = sAlbedoRoughnessFormat,
                     .width = renderArea.extent.width,
                     .height = renderArea.extent.height,
@@ -126,7 +129,7 @@ GBufferRendererOutput GBufferRenderer::record(
                 },
                 "albedoRoughness"),
             .normalMetalness = gRenderResources.images->create(
-                ImageDescription{
+                gfx::ImageDescription{
                     .format = sNormalMetalnessFormat,
                     .width = renderArea.extent.width,
                     .height = renderArea.extent.height,
@@ -238,10 +241,10 @@ void GBufferRenderer::releasePreserved()
 }
 
 bool GBufferRenderer::compileShaders(
-    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const scene::WorldDSLayouts &worldDSLayouts)
 {
     const vk::PhysicalDeviceMeshShaderPropertiesEXT &meshShaderProps =
-        gDevice.properties().meshShader;
+        gfx::gDevice.properties().meshShader;
 
     const size_t meshDefsLen = 201;
     String meshDefines{scopeAlloc, meshDefsLen};
@@ -260,9 +263,9 @@ bool GBufferRenderer::compileShaders(
             asserted_cast<uint32_t>(sMaxMsTriangles)));
     WHEELS_ASSERT(meshDefines.size() <= meshDefsLen);
 
-    Optional<Device::ShaderCompileResult> meshResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> meshResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.mesh",
                                           .debugName = "gbufferMS",
                                           .defines = meshDefines,
@@ -282,12 +285,12 @@ bool GBufferRenderer::compileShaders(
     appendDefineStr(fragDefines, "USE_MATERIAL_LOD_BIAS");
     appendEnumVariantsAsDefines(
         fragDefines, "DrawType",
-        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+        Span{scene::sDrawTypeNames.data(), scene::sDrawTypeNames.size()});
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
-    Optional<Device::ShaderCompileResult> fragResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> fragResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/gbuffer.frag",
                                           .debugName = "gbuffferPS",
                                           .defines = fragDefines,
@@ -296,7 +299,7 @@ bool GBufferRenderer::compileShaders(
     if (meshResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : m_shaderStages)
-            gDevice.logical().destroyShaderModule(stage.module);
+            gfx::gDevice.logical().destroyShaderModule(stage.module);
 
         m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
@@ -321,9 +324,9 @@ bool GBufferRenderer::compileShaders(
     }
 
     if (meshResult.has_value())
-        gDevice.logical().destroy(meshResult->module);
+        gfx::gDevice.logical().destroy(meshResult->module);
     if (fragResult.has_value())
-        gDevice.logical().destroy(fragResult->module);
+        gfx::gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
@@ -339,7 +342,7 @@ void GBufferRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
         m_meshSetLayout};
     const StaticArray<const char *, sDescriptorSetCount> debugNames{
         "GBufferMesh"};
-    gStaticDescriptorsAlloc.allocate(
+    gfx::gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_meshSets.mut_span());
 }
 
@@ -348,11 +351,11 @@ void GBufferRenderer::updateDescriptorSet(
     const DescriptorSetBuffers &buffers) const
 {
     const StaticArray infos{{
-        DescriptorInfo{vk::DescriptorBufferInfo{
+        gfx::DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer = gRenderResources.buffers->nativeHandle(buffers.drawStats),
             .range = VK_WHOLE_SIZE,
         }},
-        DescriptorInfo{vk::DescriptorBufferInfo{
+        gfx::DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer =
                 gRenderResources.buffers->nativeHandle(buffers.dataBuffer),
             .range = VK_WHOLE_SIZE,
@@ -364,20 +367,20 @@ void GBufferRenderer::updateDescriptorSet(
         m_meshReflection->generateDescriptorWrites(
             scopeAlloc, MeshShaderBindingSet, ds, infos);
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
 
 void GBufferRenderer::destroyGraphicsPipeline()
 {
-    gDevice.logical().destroy(m_pipeline);
-    gDevice.logical().destroy(m_pipelineLayout);
+    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void GBufferRenderer::createGraphicsPipelines(
     const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
         VK_NULL_HANDLE};
@@ -394,8 +397,8 @@ void GBufferRenderer::createGraphicsPipelines(
         .offset = 0,
         .size = sizeof(GBufferPC),
     };
-    m_pipelineLayout =
-        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
+        vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
@@ -409,11 +412,11 @@ void GBufferRenderer::createGraphicsPipelines(
     }};
 
     const StaticArray<vk::PipelineColorBlendAttachmentState, 3>
-        colorBlendAttachments{opaqueColorBlendAttachment()};
+        colorBlendAttachments{gfx::opaqueColorBlendAttachment()};
 
-    m_pipeline = createGraphicsPipeline(
-        gDevice.logical(),
-        GraphicsPipelineInfo{
+    m_pipeline = gfx::createGraphicsPipeline(
+        gfx::gDevice.logical(),
+        gfx::GraphicsPipelineInfo{
             .layout = m_pipelineLayout,
             .colorBlendAttachments = colorBlendAttachments,
             .shaderStages = m_shaderStages,
@@ -429,9 +432,10 @@ void GBufferRenderer::createGraphicsPipelines(
 }
 
 void GBufferRenderer::recordDraw(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Rect2D &renderArea, uint32_t nextFrame,
-    const RecordInOut &inputsOutputs, DrawType drawType, bool isSecondPhase)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const vk::Rect2D &renderArea, uint32_t nextFrame,
+    const RecordInOut &inputsOutputs, scene::DrawType drawType,
+    bool isSecondPhase)
 {
     const vk::DescriptorSet ds =
         m_meshSets[(nextFrame * 2) + (isSecondPhase ? 1u : 0u)];
@@ -445,9 +449,9 @@ void GBufferRenderer::recordDraw(
             .drawStats = inputsOutputs.inOutDrawStats,
         });
 
-    const ImageState colorAttachmentState =
-        isSecondPhase ? ImageState::ColorAttachmentReadWrite
-                      : ImageState::ColorAttachmentWrite;
+    const gfx::ImageState colorAttachmentState =
+        isSecondPhase ? gfx::ImageState::ColorAttachmentReadWrite
+                      : gfx::ImageState::ColorAttachmentWrite;
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
@@ -456,13 +460,15 @@ void GBufferRenderer::recordDraw(
                 {inputsOutputs.outAlbedoRoughness, colorAttachmentState},
                 {inputsOutputs.outNormalMetalness, colorAttachmentState},
                 {inputsOutputs.outVelocity, colorAttachmentState},
-                {inputsOutputs.outDepth, ImageState::DepthAttachmentReadWrite},
+                {inputsOutputs.outDepth,
+                 gfx::ImageState::DepthAttachmentReadWrite},
             }},
             .buffers = StaticArray<BufferTransition, 3>{{
                 {inputsOutputs.inOutDrawStats,
-                 BufferState::MeshShaderReadWrite},
-                {inputsOutputs.inDataBuffer, BufferState::MeshShaderRead},
-                {inputsOutputs.inArgumentBuffer, BufferState::DrawIndirectRead},
+                 gfx::BufferState::MeshShaderReadWrite},
+                {inputsOutputs.inDataBuffer, gfx::BufferState::MeshShaderRead},
+                {inputsOutputs.inArgumentBuffer,
+                 gfx::BufferState::DrawIndirectRead},
             }},
         });
 
@@ -524,9 +530,9 @@ void GBufferRenderer::recordDraw(
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 
-    const Scene &scene = world.currentScene();
-    const WorldDescriptorSets &worldDSes = world.descriptorSets();
-    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+    const scene::Scene &scene = world.currentScene();
+    const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
     StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
@@ -553,7 +559,7 @@ void GBufferRenderer::recordDraw(
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
-    setViewportScissor(cb, renderArea);
+    gfx::setViewportScissor(cb, renderArea);
 
     const GBufferPC pcBlock{
         .previousTransformValid = scene.previousTransformsValid ? 1u : 0u,
@@ -571,3 +577,5 @@ void GBufferRenderer::recordDraw(
 
     cb.endRendering();
 }
+
+} // namespace render

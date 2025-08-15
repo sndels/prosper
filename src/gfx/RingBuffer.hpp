@@ -8,6 +8,9 @@
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/span.hpp>
 
+namespace gfx
+{
+
 class RingBuffer
 {
   public:
@@ -144,5 +147,7 @@ void RingBuffer::write_full_capacity_unaligned(
             data.capacity() * sizeof(T)},
         false);
 }
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_RING_BUFFER_HPP

@@ -13,6 +13,9 @@
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace utils
+{
+
 constexpr uint32_t sMaxScopeCount = 512;
 
 struct PipelineStatistics
@@ -86,8 +89,8 @@ class GpuFrameProfiler
 
   private:
     bool m_initialized{false};
-    Buffer m_timestampBuffer;
-    Buffer m_statisticsBuffer;
+    gfx::Buffer m_timestampBuffer;
+    gfx::Buffer m_statisticsBuffer;
     QueryPools m_pools;
     wheels::Array<uint32_t> m_queryScopeIndices{
         gAllocators.general, sMaxScopeCount};
@@ -289,34 +292,36 @@ class Profiler
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern Profiler gProfiler;
 
+} // namespace utils
+
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_CPU_SCOPE(name)                                               \
-    const Profiler::Scope TOKEN_APPEND(zzCpuScope, __LINE__) =                 \
-        gProfiler.createCpuScope(name);
+    const utils::Profiler::Scope TOKEN_APPEND(zzCpuScope, __LINE__) =          \
+        utils::gProfiler.createCpuScope(name);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_GPU_SCOPE(cb, name)                                           \
-    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
-        gProfiler.createGpuScope(cb, name, false);
+    const utils::Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =          \
+        utils::gProfiler.createGpuScope(cb, name, false);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_GPU_SCOPE_WITH_STATS(cb, name)                                \
-    const Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =                 \
-        gProfiler.createGpuScope(cb, name, true);
+    const utils::Profiler::Scope TOKEN_APPEND(zzGpuScope, __LINE__) =          \
+        utils::gProfiler.createGpuScope(cb, name, true);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_CPU_GPU_SCOPE(cb, name)                                       \
-    const Profiler::Scope TOKEN_APPEND(zzCpuGpuScope, __LINE__) =              \
-        gProfiler.createCpuGpuScope(cb, name, false);
+    const utils::Profiler::Scope TOKEN_APPEND(zzCpuGpuScope, __LINE__) =       \
+        utils::gProfiler.createCpuGpuScope(cb, name, false);
 
 // The scope variable is never accessed so let's reduce the noise with a macro
 // zz* to push the local variable to the bottom of the locals list in debuggers
 #define PROFILER_CPU_GPU_SCOPE_WITH_STATS(cb, name)                            \
-    const Profiler::Scope TOKEN_APPEND(zzCpuGpuScope, __LINE__) =              \
-        gProfiler.createCpuGpuScope(cb, name, true);
+    const utils::Profiler::Scope TOKEN_APPEND(zzCpuGpuScope, __LINE__) =       \
+        utils::gProfiler.createCpuGpuScope(cb, name, true);
 
 #endif // PROSPER_UTILS_PROFILER_HPP

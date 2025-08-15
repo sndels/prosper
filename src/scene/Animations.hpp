@@ -10,6 +10,9 @@
 #include <glm/gtc/quaternion.hpp>
 #include <wheels/containers/array.hpp>
 
+namespace scene
+{
+
 enum class InterpolationType : uint8_t
 {
     Step,
@@ -120,5 +123,7 @@ template <typename T> void Animation<T>::update(float timeS)
     for (T *target : m_targets)
         *target = value;
 }
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_ANIMATIONS_HPP

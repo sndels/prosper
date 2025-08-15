@@ -14,6 +14,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/owning_ptr.hpp>
 
+namespace gfx
+{
+
 struct QueueFamilies
 {
     wheels::Optional<uint32_t> graphicsFamily;
@@ -209,5 +212,7 @@ class Device
 // similar globals is handled in main()
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern Device gDevice;
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_DEVICE_HPP

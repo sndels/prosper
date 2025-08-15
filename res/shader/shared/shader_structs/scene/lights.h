@@ -6,11 +6,10 @@
 #ifdef __cplusplus
 
 // Cant do {}s in macro arguments
-#define DIRECTIONAL_LIGHT_DEFAULT_DIRECTION                                    \
-    glm::vec4                                                                  \
-    {                                                                          \
-        -1.f, -1.f, -1.f, 1.f                                                  \
-    }
+#define DIRECTIONAL_LIGHT_DEFAULT_DIRECTION glm::vec4{-1.f, -1.f, -1.f, 1.f}
+
+namespace scene::shader_structs
+{
 
 #endif // __cplusplus
 
@@ -32,5 +31,9 @@ struct SpotLight
     STRUCT_FIELD_GLM(vec4, positionAndAngleOffset, 0.f);
     STRUCT_FIELD_GLM(vec4, direction, 0.f);
 };
+
+#ifdef __cplusplus
+} //  namespace scene::shader_structs
+#endif //  __cplusplus
 
 #endif // SHARED_SHADER_STRUCTS_SCENE_LIGHTS_H

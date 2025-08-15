@@ -11,6 +11,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
+namespace render::bloom
+{
+
 class BloomCompose
 {
   public:
@@ -46,5 +49,7 @@ class BloomCompose
     glm::vec3 m_blendFactors{.9f, .04f, .04f};
     ComputePass m_computePass;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_COMPOSE_HPP

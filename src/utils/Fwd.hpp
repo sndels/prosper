@@ -1,6 +1,9 @@
 #ifndef PROSPER_UTILS_FWD_HPP
 #define PROSPER_UTILS_FWD_HPP
 
+namespace utils
+{
+
 // Dds.hpp
 struct Dds;
 
@@ -23,5 +26,7 @@ struct SceneStats;
 
 // Timer.hpp
 class Timer;
+
+} // namespace utils
 
 #endif // PROSPER_UTILS_FWD_HPP

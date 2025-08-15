@@ -17,6 +17,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/hash_set.hpp>
 
+namespace render::bloom
+{
+
 class Bloom
 {
   public:
@@ -65,5 +68,7 @@ class Bloom
     BloomReduce m_reduce;
     BloomBlur m_blur;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_HPP

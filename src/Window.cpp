@@ -149,16 +149,16 @@ void Window::startFrame()
     m_resized = false;
 
     glfwPollEvents();
-    gInputHandler.handleKeyStateUpdate();
+    utils::gInputHandler.handleKeyStateUpdate();
 }
 
 void Window::pollCursorPosition() const
 {
-    const CursorState cursor = gInputHandler.cursor();
+    const utils::CursorState cursor = utils::gInputHandler.cursor();
     double x = static_cast<double>(cursor.position.x);
     double y = static_cast<double>(cursor.position.y);
     glfwGetCursorPos(m_window, &x, &y);
-    gInputHandler.handleMouseMove(x, y);
+    utils::gInputHandler.handleMouseMove(x, y);
 }
 
 void Window::errorCallback(int error, const char *description)
@@ -174,7 +174,7 @@ void Window::keyCallback(
     WHEELS_ASSERT(window == thisPtr->ptr());
 
     if (!ImGui::IsAnyItemActive())
-        gInputHandler.handleKey(key, scancode, action, mods);
+        utils::gInputHandler.handleKey(key, scancode, action, mods);
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }
 
@@ -191,7 +191,7 @@ void Window::cursorPosCallback(GLFWwindow *window, double xpos, double ypos)
     auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
     WHEELS_ASSERT(window == thisPtr->ptr());
 
-    gInputHandler.handleMouseMove(xpos, ypos);
+    utils::gInputHandler.handleMouseMove(xpos, ypos);
 }
 
 void Window::cursorEnterCallback(GLFWwindow *window, int entered)
@@ -199,7 +199,7 @@ void Window::cursorEnterCallback(GLFWwindow *window, int entered)
     auto *thisPtr = static_cast<Window *>(glfwGetWindowUserPointer(window));
     WHEELS_ASSERT(window == thisPtr->ptr());
 
-    gInputHandler.handleCursorEntered(entered == GL_TRUE);
+    utils::gInputHandler.handleCursorEntered(entered == GL_TRUE);
 }
 
 void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
@@ -211,7 +211,7 @@ void Window::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
     if (io.WantCaptureMouse)
         ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
     else
-        gInputHandler.handleMouseScroll(xoffset, yoffset);
+        utils::gInputHandler.handleMouseScroll(xoffset, yoffset);
 }
 
 void Window::mouseButtonCallback(
@@ -226,7 +226,7 @@ void Window::mouseButtonCallback(
     // Make sure we don't just drop camera drag end events when mouse moves over
     // a UI element
     if (!io.WantCaptureMouse || action == GLFW_RELEASE)
-        gInputHandler.handleMouseButton(button, action, mods);
+        utils::gInputHandler.handleMouseButton(button, action, mods);
 }
 
 // NOLINTNEXTLINE mirrors the glfw interface

@@ -10,6 +10,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::dof
+{
+
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
@@ -36,11 +39,14 @@ class DepthOfFieldDilate
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        ImageHandle tileMinMaxCoC, const Camera &cam, uint32_t nextFrame);
+        ImageHandle tileMinMaxCoC, const scene::Camera &cam,
+        uint32_t nextFrame);
 
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render::dof
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_DILATE_HPP

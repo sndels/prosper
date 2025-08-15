@@ -7,6 +7,9 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 
+namespace render::dof
+{
+
 class DepthOfFieldFilter
 {
   public:
@@ -44,5 +47,7 @@ class DepthOfFieldFilter
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render::dof
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_FILTER_HPP

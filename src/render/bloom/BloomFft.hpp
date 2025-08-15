@@ -8,6 +8,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
+namespace render::bloom
+{
+
 class BloomFft
 {
   public:
@@ -57,5 +60,7 @@ class BloomFft
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_FFT_HPP

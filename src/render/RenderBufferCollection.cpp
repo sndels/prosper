@@ -3,6 +3,9 @@
 #include "gfx/Device.hpp"
 #include "utils/Utils.hpp"
 
+namespace render
+{
+
 RenderBufferCollection::~RenderBufferCollection()
 {
     RenderBufferCollection::destroyResources();
@@ -50,9 +53,9 @@ void RenderBufferCollection::startFrame()
             {
                 WHEELS_ASSERT(!m_preserved[i]);
 
-                gDevice.destroy(m_resources[i]);
-                m_resources[i] = Buffer{};
-                m_descriptions[i] = BufferDescription{};
+                gfx::gDevice.destroy(m_resources[i]);
+                m_resources[i] = gfx::Buffer{};
+                m_descriptions[i] = gfx::BufferDescription{};
                 m_aliasedDebugNames[i].clear();
                 // Generations should stay as is, we can reuse the handle for
                 // another resource
@@ -70,8 +73,8 @@ void RenderBufferCollection::startFrame()
 
 void RenderBufferCollection::destroyResources()
 {
-    for (Buffer &res : m_resources)
-        gDevice.destroy(res);
+    for (gfx::Buffer &res : m_resources)
+        gfx::gDevice.destroy(res);
 
     m_resources.clear();
     m_descriptions.clear();
@@ -92,7 +95,7 @@ void RenderBufferCollection::destroyResources()
 }
 
 BufferHandle RenderBufferCollection::create(
-    const BufferDescription &desc, const char *debugName)
+    const gfx::BufferDescription &desc, const char *debugName)
 {
     const uint32_t descCount = asserted_cast<uint32_t>(m_descriptions.size());
     for (uint32_t i = 0; i < descCount; ++i)
@@ -101,7 +104,7 @@ BufferHandle RenderBufferCollection::create(
         {
             WHEELS_ASSERT(!m_preserved[i]);
 
-            const BufferDescription &existingDesc = m_descriptions[i];
+            const gfx::BufferDescription &existingDesc = m_descriptions[i];
             if (existingDesc.matches(desc))
             {
                 // Don't reuse the actively debugged resource to avoid stomping
@@ -155,7 +158,7 @@ BufferHandle RenderBufferCollection::create(
     WHEELS_ASSERT(!resourceInUse(index));
     WHEELS_ASSERT(m_resources[index].handle == vk::Buffer{});
 
-    m_resources[index] = gDevice.create(BufferCreateInfo{
+    m_resources[index] = gfx::gDevice.create(gfx::BufferCreateInfo{
         .desc = desc,
         .debugName = debugName,
     });
@@ -216,7 +219,7 @@ vk::Buffer RenderBufferCollection::nativeHandle(BufferHandle handle) const
     return m_resources[handle.index].handle;
 }
 
-const Buffer &RenderBufferCollection::resource(BufferHandle handle) const
+const gfx::Buffer &RenderBufferCollection::resource(BufferHandle handle) const
 {
     assertValidHandle(handle);
 
@@ -224,7 +227,7 @@ const Buffer &RenderBufferCollection::resource(BufferHandle handle) const
 }
 
 void RenderBufferCollection::transition(
-    vk::CommandBuffer cb, BufferHandle handle, BufferState state)
+    vk::CommandBuffer cb, BufferHandle handle, gfx::BufferState state)
 {
     assertValidHandle(handle);
 
@@ -233,7 +236,7 @@ void RenderBufferCollection::transition(
 
 wheels::Optional<vk::BufferMemoryBarrier2> RenderBufferCollection::
     transitionBarrier(
-        BufferHandle handle, BufferState state, bool force_barrier)
+        BufferHandle handle, gfx::BufferState state, bool force_barrier)
 {
     assertValidHandle(handle);
 
@@ -252,7 +255,7 @@ void RenderBufferCollection::appendDebugName(
 
     // TODO: Set these at once? Need to be careful to set before
     // submits?
-    gDevice.logical().setDebugUtilsObjectNameEXT(
+    gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eBuffer,
             .objectHandle = reinterpret_cast<uint64_t>(
@@ -379,3 +382,5 @@ void RenderBufferCollection::assertUniqueDebugName(
     (void)debugName;
 #endif // NDEBUG
 }
+
+} // namespace render

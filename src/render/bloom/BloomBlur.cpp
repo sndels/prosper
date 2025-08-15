@@ -10,6 +10,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 
@@ -57,7 +60,7 @@ void BloomBlur::record(
     PROFILER_CPU_SCOPE("  Blur");
 
     {
-        const Image &inputResource =
+        const gfx::Image &inputResource =
             gRenderResources.images->resource(inOutHighlights);
         const vk::Extent2D renderExtent = vk::Extent2D{
             .width = inputResource.extent.width,
@@ -65,7 +68,7 @@ void BloomBlur::record(
         };
 
         ImageHandle const pongImage = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = sIlluminationFormat,
                 .width = renderExtent.width,
                 .height = renderExtent.height,
@@ -100,13 +103,13 @@ void BloomBlur::record(
         const vk::DescriptorSet pingSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(inOutHighlights).view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
-                DescriptorInfo{pongWriteInfos},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{pongWriteInfos},
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler =
                         gRenderResources.bilinearBorderTransparentBlackSampler,
                 }},
@@ -114,13 +117,13 @@ void BloomBlur::record(
         const vk::DescriptorSet pongSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(pongImage).view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
-                DescriptorInfo{inputWriteInfos},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{inputWriteInfos},
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler =
                         gRenderResources.bilinearBorderTransparentBlackSampler,
                 }},
@@ -144,8 +147,9 @@ void BloomBlur::record(
             scopeAlloc.child_scope(), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {inOutHighlights, ImageState::ComputeShaderSampledRead},
-                    {pongImage, ImageState::ComputeShaderWrite},
+                    {inOutHighlights,
+                     gfx::ImageState::ComputeShaderSampledRead},
+                    {pongImage, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -168,8 +172,8 @@ void BloomBlur::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {pongImage, ImageState::ComputeShaderSampledRead},
-                    {inOutHighlights, ImageState::ComputeShaderWrite},
+                    {pongImage, gfx::ImageState::ComputeShaderSampledRead},
+                    {inOutHighlights, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -202,3 +206,5 @@ void BloomBlur::recordSinglePass(
         m_computePass.groupCount(uvec3{data.mipResolution, 1});
     m_computePass.record(cb, pcBlock, groupCount, Span{&data.descriptorSet, 1});
 }
+
+} // namespace render::bloom

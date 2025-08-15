@@ -14,6 +14,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace render
+{
+
 struct ComputePassOptions
 {
     uint32_t storageSetIndex{0};
@@ -76,7 +79,7 @@ class ComputePass
     // Updates and returns the next available storage set.
     [[nodiscard]] vk::DescriptorSet updateStorageSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
-        wheels::Span<const DescriptorInfo> descriptorInfos);
+        wheels::Span<const gfx::DescriptorInfo> descriptorInfos);
 
     [[nodiscard]] vk::DescriptorSetLayout storageSetLayout() const;
 
@@ -149,7 +152,7 @@ class ComputePass
     bool m_initialized{false};
 
     vk::ShaderModule m_shaderModule;
-    wheels::Optional<ShaderReflection> m_shaderReflection;
+    wheels::Optional<gfx::ShaderReflection> m_shaderReflection;
 
     vk::DescriptorSetLayout m_storageSetLayout;
     uint32_t m_storageSetIndex{0xFFFF'FFFF};
@@ -210,5 +213,7 @@ void ComputePass::record(
             reinterpret_cast<const uint8_t *>(&pcBlock), sizeof(pcBlock)},
         argumentBuffer, descriptorSets, optionalArgs);
 }
+
+} // namespace render
 
 #endif // PROSPER_RENDER_COMPUTE_PASS_HPP

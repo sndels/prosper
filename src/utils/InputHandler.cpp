@@ -7,6 +7,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace utils
+{
+
 namespace
 {
 
@@ -220,3 +223,5 @@ void InputHandler::showCursor()
         }
     }
 }
+
+} // namespace utils

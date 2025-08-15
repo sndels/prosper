@@ -4,6 +4,9 @@
 #include <vulkan/vulkan.hpp>
 #include <wheels/containers/span.hpp>
 
+namespace gfx
+{
+
 constexpr void checkSuccess(vk::Result result, const char *source)
 {
     if (result != vk::Result::eSuccess)
@@ -102,5 +105,7 @@ transparentColorBlendAttachment()
             vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA,
     };
 }
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_VKUTILS_HPP

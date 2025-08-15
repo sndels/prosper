@@ -16,6 +16,9 @@
 #include <wheels/containers/pair.hpp>
 #include <wyhash.h>
 
+namespace scene
+{
+
 using namespace wheels;
 
 namespace
@@ -221,20 +224,20 @@ void compress(
     const uint32_t mipLevelCount =
         asserted_cast<uint32_t>(std::max(fullMipLevelCount - 2, 1));
 
-    DxgiFormat format = DxgiFormat::BC7Unorm;
+    utils::DxgiFormat format = utils::DxgiFormat::BC7Unorm;
     // All BC7 levels have to divide evenly by 4 in both directions
     for (uint32_t i = 0; i < mipLevelCount; ++i)
     {
         if (std::max(pixels.extent.width >> i, 1u) % 4 != 0 ||
             std::max(pixels.extent.height >> i, 1u) % 4 != 0)
         {
-            format = DxgiFormat::R8G8B8A8Unorm;
+            format = utils::DxgiFormat::R8G8B8A8Unorm;
             break;
         }
     }
 
-    Dds dds{scopeAlloc, pixels.extent.width, pixels.extent.height, 1,
-            format,     mipLevelCount};
+    utils::Dds dds{scopeAlloc, pixels.extent.width, pixels.extent.height, 1,
+                   format,     mipLevelCount};
 
     Array<uint8_t> rawLevels{scopeAlloc};
     // Twice the size of the first level should be plenty for mips
@@ -249,7 +252,7 @@ void compress(
         generateMipLevels(
             rawLevels, rawLevelByteOffsets, pixels, options.colorSpace);
 
-    if (format == DxgiFormat::BC7Unorm)
+    if (format == utils::DxgiFormat::BC7Unorm)
     {
         bc7_enc_settings bc7Settings{};
         // Don't really care about quality at this point, this is much faster
@@ -316,15 +319,15 @@ void transitionImageLayout(
         nullptr, 1, &barrier);
 }
 
-vk::Format asVkFormat(DxgiFormat format)
+vk::Format asVkFormat(utils::DxgiFormat format)
 {
     switch (format)
     {
-    case DxgiFormat::R8G8B8A8Unorm:
+    case utils::DxgiFormat::R8G8B8A8Unorm:
         return vk::Format::eR8G8B8A8Unorm;
-    case DxgiFormat::R9G9B9E5SharedExp:
+    case utils::DxgiFormat::R9G9B9E5SharedExp:
         return vk::Format::eE5B9G9R9UfloatPack32;
-    case DxgiFormat::BC7Unorm:
+    case utils::DxgiFormat::BC7Unorm:
         return vk::Format::eBc7UnormBlock;
     default:
         break;
@@ -339,7 +342,7 @@ Texture::~Texture() { destroy(); }
 Texture::Texture(Texture &&other) noexcept
 : m_image{WHEELS_MOV(other.m_image)}
 {
-    other.m_image = Image{};
+    other.m_image = gfx::Image{};
 }
 
 Texture &Texture::operator=(Texture &&other) noexcept
@@ -350,7 +353,7 @@ Texture &Texture::operator=(Texture &&other) noexcept
 
         m_image = WHEELS_MOV(other.m_image);
 
-        other.m_image = Image{};
+        other.m_image = gfx::Image{};
     }
     return *this;
 }
@@ -361,11 +364,11 @@ vk::Image Texture::nativeHandle() const
     return m_image.handle;
 }
 
-void Texture::destroy() { gDevice.destroy(m_image); }
+void Texture::destroy() { gfx::gDevice.destroy(m_image); }
 
 void Texture2D::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path,
-    vk::CommandBuffer cb, const Buffer &stagingBuffer,
+    vk::CommandBuffer cb, const gfx::Buffer &stagingBuffer,
     const Texture2DOptions &options)
 {
     const std::filesystem::file_time_type sourceWriteTime =
@@ -409,7 +412,7 @@ void Texture2D::init(
 
     // TODO:
     // If cache was invalid, the newly cached one directly from memory
-    Dds dds = readDds(scopeAlloc, cached);
+    utils::Dds dds = utils::readDds(scopeAlloc, cached);
 
     WHEELS_ASSERT(!dds.data.empty());
 
@@ -430,9 +433,9 @@ void Texture2D::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    m_image = gDevice.createImage(ImageCreateInfo{
+    m_image = gfx::gDevice.createImage(gfx::ImageCreateInfo{
         .desc =
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = asVkFormat(dds.format),
                 .width = extent.width,
                 .height = extent.height,
@@ -445,7 +448,7 @@ void Texture2D::init(
         .debugName = relPath.generic_string().c_str(),
     });
 
-    m_image.transition(cb, ImageState::TransferDst);
+    m_image.transition(cb, gfx::ImageState::TransferDst);
 
     std::vector<vk::BufferImageCopy> regions;
     regions.reserve(dds.mipLevelCount);
@@ -479,7 +482,7 @@ void Texture2D::init(
         vk::ImageLayout::eTransferDstOptimal,
         asserted_cast<uint32_t>(regions.size()), regions.data());
 
-    if (options.initialState != ImageState::Unknown)
+    if (options.initialState != gfx::ImageState::Unknown)
         m_image.transition(cb, options.initialState);
 }
 
@@ -493,9 +496,9 @@ vk::DescriptorImageInfo Texture2D::imageInfo() const
 
 void Texture3D::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path,
-    const ImageState initialState)
+    const gfx::ImageState initialState)
 {
-    Dds dds = readDds(scopeAlloc, path);
+    utils::Dds dds = utils::readDds(scopeAlloc, path);
     WHEELS_ASSERT(!dds.data.empty());
 
     const vk::Extent3D extent{
@@ -506,9 +509,9 @@ void Texture3D::init(
 
     // Just create the staging here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
-    Buffer stagingBuffer = gDevice.createBuffer(BufferCreateInfo{
+    gfx::Buffer stagingBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = dds.data.size(),
                 .usage = vk::BufferUsageFlagBits::eTransferSrc,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -516,7 +519,7 @@ void Texture3D::init(
             },
         .debugName = "Texture3DStaging",
     });
-    defer { gDevice.destroy(stagingBuffer); };
+    defer { gfx::gDevice.destroy(stagingBuffer); };
 
     WHEELS_ASSERT(dds.data.size() <= stagingBuffer.byteSize);
     memcpy(stagingBuffer.mapped, dds.data.data(), dds.data.size());
@@ -524,9 +527,9 @@ void Texture3D::init(
     const std::filesystem::path relPath = relativePath(path);
 
     WHEELS_ASSERT(dds.mipLevelCount == 1);
-    m_image = gDevice.createImage(ImageCreateInfo{
+    m_image = gfx::gDevice.createImage(gfx::ImageCreateInfo{
         .desc =
-            ImageDescription{
+            gfx::ImageDescription{
                 .imageType = vk::ImageType::e3D,
                 .format = asVkFormat(dds.format),
                 .width = extent.width,
@@ -542,9 +545,9 @@ void Texture3D::init(
 
     // Just create an ad hoc cb here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
-    const vk::CommandBuffer cb = gDevice.beginGraphicsCommands();
+    const vk::CommandBuffer cb = gfx::gDevice.beginGraphicsCommands();
 
-    m_image.transition(cb, ImageState::TransferDst);
+    m_image.transition(cb, gfx::ImageState::TransferDst);
 
     const vk::BufferImageCopy region{
         .bufferOffset = 0,
@@ -565,10 +568,10 @@ void Texture3D::init(
         stagingBuffer.handle, m_image.handle,
         vk::ImageLayout::eTransferDstOptimal, 1, &region);
 
-    if (initialState != ImageState::Unknown)
+    if (initialState != gfx::ImageState::Unknown)
         m_image.transition(cb, initialState);
 
-    gDevice.endGraphicsCommands(cb);
+    gfx::gDevice.endGraphicsCommands(cb);
 }
 
 vk::DescriptorImageInfo Texture3D::imageInfo() const
@@ -582,7 +585,7 @@ vk::DescriptorImageInfo Texture3D::imageInfo() const
 void TextureCubemap::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path)
 {
-    const Ktx cube = readKtx(scopeAlloc, path);
+    const utils::Ktx cube = utils::readKtx(scopeAlloc, path);
     WHEELS_ASSERT(cube.faceCount == 6);
 
     WHEELS_ASSERT(
@@ -595,9 +598,9 @@ void TextureCubemap::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    m_image = gDevice.createImage(ImageCreateInfo{
+    m_image = gfx::gDevice.createImage(gfx::ImageCreateInfo{
         .desc =
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = cube.format,
                 .width = cube.width,
                 .height = cube.height,
@@ -612,7 +615,7 @@ void TextureCubemap::init(
 
     copyPixels(scopeAlloc.child_scope(), cube, m_image.subresourceRange);
 
-    m_sampler = gDevice.logical().createSampler(vk::SamplerCreateInfo{
+    m_sampler = gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -626,7 +629,7 @@ void TextureCubemap::init(
     });
 }
 
-TextureCubemap::~TextureCubemap() { gDevice.logical().destroy(m_sampler); }
+TextureCubemap::~TextureCubemap() { gfx::gDevice.logical().destroy(m_sampler); }
 
 TextureCubemap::TextureCubemap(TextureCubemap &&other) noexcept
 : Texture{WHEELS_MOV(other)}
@@ -643,7 +646,7 @@ TextureCubemap &TextureCubemap::operator=(TextureCubemap &&other) noexcept
         m_image = WHEELS_MOV(other.m_image);
         m_sampler = other.m_sampler;
 
-        other.m_image = Image{};
+        other.m_image = gfx::Image{};
         other.m_sampler = vk::Sampler{};
     }
     return *this;
@@ -659,12 +662,12 @@ vk::DescriptorImageInfo TextureCubemap::imageInfo() const
 }
 
 void TextureCubemap::copyPixels(
-    ScopedScratch scopeAlloc, const Ktx &cube,
+    ScopedScratch scopeAlloc, const utils::Ktx &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
-    Buffer stagingBuffer = gDevice.createBuffer(BufferCreateInfo{
+    gfx::Buffer stagingBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = cube.data.size(),
                 .usage = vk::BufferUsageFlagBits::eTransferSrc,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -672,7 +675,7 @@ void TextureCubemap::copyPixels(
             },
         .debugName = "TextureCubemapStaging",
     });
-    defer { gDevice.destroy(stagingBuffer); };
+    defer { gfx::gDevice.destroy(stagingBuffer); };
 
     memcpy(stagingBuffer.mapped, cube.data.data(), cube.data.size());
 
@@ -718,7 +721,7 @@ void TextureCubemap::copyPixels(
         return regions;
     }();
 
-    const auto copyBuffer = gDevice.beginGraphicsCommands();
+    const auto copyBuffer = gfx::gDevice.beginGraphicsCommands();
 
     transitionImageLayout(
         copyBuffer, m_image.handle, subresourceRange,
@@ -740,5 +743,7 @@ void TextureCubemap::copyPixels(
         vk::PipelineStageFlagBits::eTransfer,
         vk::PipelineStageFlagBits::eFragmentShader);
 
-    gDevice.endGraphicsCommands(copyBuffer);
+    gfx::gDevice.endGraphicsCommands(copyBuffer);
 }
+
+} // namespace scene

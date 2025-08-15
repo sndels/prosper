@@ -15,6 +15,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -37,8 +40,8 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     appendDefineStr(defines, "LIGHTS_SET", LightsBindingSet);
     appendDefineStr(defines, "CAMERA_SET", CameraBindingSet);
     appendDefineStr(defines, "LIGHT_CLUSTERS_SET", LightClustersBindingSet);
-    PointLights::appendShaderDefines(defines);
-    SpotLights::appendShaderDefines(defines);
+    scene::PointLights::appendShaderDefines(defines);
+    scene::SpotLights::appendShaderDefines(defines);
     LightClustering::appendShaderDefines(defines);
     WHEELS_ASSERT(defines.size() <= len);
 
@@ -52,7 +55,7 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
 
 StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> externalDsLayouts(
     const vk::DescriptorSetLayout &camDSLayout,
-    const WorldDSLayouts &worldDSLayout)
+    const scene::WorldDSLayouts &worldDSLayout)
 {
     StaticArray<vk::DescriptorSetLayout, BindingSetCount - 1> setLayouts{
         VK_NULL_HANDLE};
@@ -72,7 +75,7 @@ LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
     LightClusteringOutput ret;
 
     ret.pointers = gRenderResources.images->create(
-        ImageDescription{
+        gfx::ImageDescription{
             .imageType = vk::ImageType::e3D,
             .format = vk::Format::eR32G32Uint,
             .width = pointersWidth,
@@ -84,9 +87,9 @@ LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
         "lightClusterPointers");
 
     ret.indicesCount = gRenderResources.texelBuffers->create(
-        TexelBufferDescription{
+        gfx::TexelBufferDescription{
             .bufferDesc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = sizeof(uint32_t),
                     .usage = vk::BufferUsageFlagBits::eTransferDst |
                              vk::BufferUsageFlagBits::eStorageTexelBuffer,
@@ -103,9 +106,9 @@ LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
         pointersWidth * pointersHeight * pointersDepth;
 
     ret.indices = gRenderResources.texelBuffers->create(
-        TexelBufferDescription{
+        gfx::TexelBufferDescription{
             .bufferDesc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = indicesSize * sizeof(uint16_t),
                     .usage = vk::BufferUsageFlagBits::eStorageTexelBuffer,
                     .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
@@ -121,7 +124,7 @@ LightClusteringOutput createOutputs(const vk::Extent2D &renderExtent)
 
 void LightClustering::init(
     ScopedScratch scopeAlloc, const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
@@ -148,7 +151,7 @@ void LightClustering::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     const vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -158,8 +161,8 @@ void LightClustering::recompileShaders(
 }
 
 LightClusteringOutput LightClustering::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Extent2D &renderExtent,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const vk::Extent2D &renderExtent,
     const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
@@ -173,15 +176,15 @@ LightClusteringOutput LightClustering::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(ret.pointers).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{
+                gfx::DescriptorInfo{
                     gRenderResources.texelBuffers->resource(ret.indicesCount)
                         .view},
-                DescriptorInfo{
+                gfx::DescriptorInfo{
                     gRenderResources.texelBuffers->resource(ret.indices).view},
             }});
         ret.descriptorSet = storageSet;
@@ -190,24 +193,24 @@ LightClusteringOutput LightClustering::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 1>{{
-                    {ret.pointers, ImageState::ComputeShaderWrite},
+                    {ret.pointers, gfx::ImageState::ComputeShaderWrite},
                 }},
                 .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
-                    {ret.indices, BufferState::ComputeShaderWrite},
-                    {ret.indicesCount, BufferState::TransferDst},
+                    {ret.indices, gfx::BufferState::ComputeShaderWrite},
+                    {ret.indicesCount, gfx::BufferState::TransferDst},
                 }},
             });
 
         PROFILER_GPU_SCOPE(cb, "LightClustering");
 
         { // Reset count
-            const TexelBuffer &indicesCount =
+            const gfx::TexelBuffer &indicesCount =
                 gRenderResources.texelBuffers->resource(ret.indicesCount);
 
             cb.fillBuffer(indicesCount.handle, 0, indicesCount.size, 0);
 
             gRenderResources.texelBuffers->transition(
-                cb, ret.indicesCount, BufferState::ComputeShaderReadWrite);
+                cb, ret.indicesCount, gfx::BufferState::ComputeShaderReadWrite);
         }
 
         { // Main dispatch
@@ -215,8 +218,10 @@ LightClusteringOutput LightClustering::record(
                 .resolution = uvec2(renderExtent.width, renderExtent.height),
             };
 
-            const WorldDescriptorSets &worldDSes = world.descriptorSets();
-            const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+            const scene::WorldDescriptorSets &worldDSes =
+                world.descriptorSets();
+            const scene::WorldByteOffsets &worldByteOffsets =
+                world.byteOffsets();
 
             StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
                 VK_NULL_HANDLE};
@@ -247,3 +252,5 @@ LightClusteringOutput LightClustering::record(
 
     return ret;
 }
+
+} // namespace render

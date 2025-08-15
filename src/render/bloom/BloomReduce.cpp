@@ -11,6 +11,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 
@@ -49,7 +52,7 @@ BloomReduce::~BloomReduce()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.destroy(m_atomicCounter);
+    gfx::gDevice.destroy(m_atomicCounter);
 }
 
 void BloomReduce::init(ScopedScratch scopeAlloc)
@@ -59,9 +62,9 @@ void BloomReduce::init(ScopedScratch scopeAlloc)
     m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
-    m_atomicCounter = gDevice.createBuffer(BufferCreateInfo{
+    m_atomicCounter = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeof(uint32_t),
                 .usage = vk::BufferUsageFlagBits::eTransferDst |
                          vk::BufferUsageFlagBits::eStorageBuffer,
@@ -90,7 +93,7 @@ void BloomReduce::record(
 
     PROFILER_CPU_SCOPE("  Reduce");
 
-    const Image &inOutRes =
+    const gfx::Image &inOutRes =
         gRenderResources.images->resource(inOutHighlightMips);
     WHEELS_ASSERT(inOutRes.extent.depth == 1);
     // 0 mip is bound as source, rest as dst
@@ -138,27 +141,28 @@ void BloomReduce::record(
     const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = mipViews[0],
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{outputInfos},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{outputInfos},
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = m_atomicCounter.handle,
                 .range = VK_WHOLE_SIZE,
             }},
         }});
 
     gRenderResources.images->transition(
-        cb, inOutHighlightMips, ImageState::ComputeShaderReadWrite);
+        cb, inOutHighlightMips, gfx::ImageState::ComputeShaderReadWrite);
 
     if (m_counterNotCleared)
     {
-        m_atomicCounter.transition(cb, BufferState::TransferDst);
+        m_atomicCounter.transition(cb, gfx::BufferState::TransferDst);
         // Only need to clear once as SPD will leave this zeroed when the
         // dispatch exits
         cb.fillBuffer(m_atomicCounter.handle, 0, m_atomicCounter.byteSize, 0);
-        m_atomicCounter.transition(cb, BufferState::ComputeShaderReadWrite);
+        m_atomicCounter.transition(
+            cb, gfx::BufferState::ComputeShaderReadWrite);
         m_counterNotCleared = false;
     }
 
@@ -168,3 +172,5 @@ void BloomReduce::record(
         uvec3{dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1], 1u};
     m_computePass.record(cb, pcBlock, groupCount, Span{&descriptorSet, 1});
 }
+
+} // namespace render::bloom

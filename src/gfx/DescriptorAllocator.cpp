@@ -8,6 +8,9 @@
 
 using namespace wheels;
 
+namespace gfx
+{
+
 namespace
 {
 
@@ -205,3 +208,5 @@ void DescriptorAllocator::allocate(
         }
     }
 }
+
+} // namespace gfx

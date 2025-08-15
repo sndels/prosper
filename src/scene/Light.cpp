@@ -4,12 +4,15 @@
 
 using namespace wheels;
 
-uint32_t DirectionalLight::write(RingBuffer &buffer) const
+namespace scene
+{
+
+uint32_t DirectionalLight::write(gfx::RingBuffer &buffer) const
 {
     return buffer.write_value(this->parameters);
 }
 
-uint32_t PointLights::write(RingBuffer &buffer) const
+uint32_t PointLights::write(gfx::RingBuffer &buffer) const
 {
     const uint32_t offset = buffer.write_full_capacity(this->data);
 
@@ -19,7 +22,7 @@ uint32_t PointLights::write(RingBuffer &buffer) const
     return offset;
 }
 
-uint32_t SpotLights::write(RingBuffer &buffer) const
+uint32_t SpotLights::write(gfx::RingBuffer &buffer) const
 {
     const uint32_t offset = buffer.write_full_capacity(this->data);
 
@@ -28,3 +31,5 @@ uint32_t SpotLights::write(RingBuffer &buffer) const
 
     return offset;
 }
+
+} // namespace scene

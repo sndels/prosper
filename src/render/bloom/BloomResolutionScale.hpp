@@ -10,6 +10,9 @@
 #define BLOOM_RESOLUTION_SCALE_TYPES_AND_COUNT                                 \
     BLOOM_RESOLUTION_SCALE_TYPES, Count
 
+namespace render::bloom
+{
+
 // NOLINTNEXTLINE(performance-enum-size) specialization constant
 enum class BloomResolutionScale : uint32_t
 {
@@ -21,5 +24,7 @@ uint32_t bloomResolutionScale(BloomResolutionScale scale);
 extern const wheels::StaticArray<
     const char *, static_cast<size_t>(BloomResolutionScale::Count)>
     sResolutionScaleTypeNames;
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_RESOLUTION_SCALE_HPP

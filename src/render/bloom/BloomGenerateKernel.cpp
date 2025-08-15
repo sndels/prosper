@@ -10,6 +10,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 constexpr uvec3 sGroupSize{16, 16, 1};
@@ -121,7 +124,7 @@ ImageHandle BloomGenerateKernel::recordGenerate(
         PROFILER_CPU_SCOPE("  GenerateKernel");
 
         kernel = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = BloomFft::sFftFormat,
                 .width = dim,
                 .height = dim,
@@ -134,7 +137,7 @@ ImageHandle BloomGenerateKernel::recordGenerate(
         const vk::DescriptorSet descriptorSet = m_generatePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images->resource(kernel).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
@@ -144,7 +147,7 @@ ImageHandle BloomGenerateKernel::recordGenerate(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 1>{{
-                    {kernel, ImageState::ComputeShaderWrite},
+                    {kernel, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -167,7 +170,7 @@ void BloomGenerateKernel::recordPrepare(
         PROFILER_CPU_SCOPE("  PrepareKernel");
 
         outKernel = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = BloomFft::sFftFormat,
                 .width = dim,
                 .height = dim,
@@ -180,12 +183,12 @@ void BloomGenerateKernel::recordPrepare(
         const vk::DescriptorSet descriptorSet = m_preparePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(inKernel).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(outKernel).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
@@ -196,8 +199,8 @@ void BloomGenerateKernel::recordPrepare(
             scopeAlloc.child_scope(), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {inKernel, ImageState::ComputeShaderRead},
-                    {outKernel, ImageState::ComputeShaderWrite},
+                    {inKernel, gfx::ImageState::ComputeShaderRead},
+                    {outKernel, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -221,3 +224,5 @@ void BloomGenerateKernel::releasePreserved()
     if (gRenderResources.images->isValidHandle(m_kernelDft))
         gRenderResources.images->release(m_kernelDft);
 }
+
+} // namespace render::bloom

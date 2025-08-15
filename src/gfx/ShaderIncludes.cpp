@@ -9,6 +9,9 @@
 
 using namespace wheels;
 
+namespace gfx
+{
+
 // This not the most robust parser but it handles many common error cases and
 // shaderc catches some more
 
@@ -369,3 +372,5 @@ void expandIncludes(
     }
     WHEELS_ASSERT(frontCursor == backCursor);
 }
+
+} // namespace gfx

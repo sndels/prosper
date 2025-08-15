@@ -10,6 +10,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 class SkyboxRenderer
 {
   public:
@@ -23,13 +26,13 @@ class SkyboxRenderer
 
     void init(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     struct RecordInOut
     {
@@ -39,7 +42,7 @@ class SkyboxRenderer
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &camera,
+        const scene::World &world, const scene::Camera &camera,
         const RecordInOut &inOutTargets) const;
 
   private:
@@ -49,16 +52,18 @@ class SkyboxRenderer
 
     void createGraphicsPipelines(
         vk::DescriptorSetLayout camDSLayout,
-        const WorldDSLayouts &worldDSLayouts);
+        const scene::WorldDSLayouts &worldDSLayouts);
 
     bool m_initialized{false};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
-    wheels::Optional<ShaderReflection> m_vertReflection;
-    wheels::Optional<ShaderReflection> m_fragReflection;
+    wheels::Optional<gfx::ShaderReflection> m_vertReflection;
+    wheels::Optional<gfx::ShaderReflection> m_fragReflection;
 
     vk::PipelineLayout m_pipelineLayout;
     vk::Pipeline m_pipeline;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_SKYBOX_RENDERER_HPP

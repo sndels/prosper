@@ -5,6 +5,9 @@
 
 #include <vulkan/vulkan.hpp>
 
+namespace render
+{
+
 const vk::Format sDepthFormat = vk::Format::eD32Sfloat;
 const vk::Format sIlluminationFormat = vk::Format::eR16G16B16A16Sfloat;
 const vk::Format sVelocityFormat = vk::Format::eR16G16Snorm;
@@ -18,5 +21,7 @@ const vk::Format sFinalCompositeFormat = vk::Format::eR8G8B8A8Unorm;
 
 [[nodiscard]] ImageHandle createVelocity(
     const vk::Extent2D &size, const char *debugName);
+
+} // namespace render
 
 #endif // PROSPER_RENDER_TARGETS_HPP

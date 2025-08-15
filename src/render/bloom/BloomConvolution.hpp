@@ -7,6 +7,9 @@
 
 #include <wheels/allocators/scoped_scratch.hpp>
 
+namespace render::bloom
+{
+
 class BloomConvolution
 {
   public:
@@ -38,5 +41,7 @@ class BloomConvolution
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_CONVOLUTION_HPP

@@ -19,6 +19,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -52,7 +55,7 @@ enum CullerBindingSet : uint8_t
 };
 
 ComputePass::Shader generatorDefinitionCallback(
-    Allocator &alloc, const WorldDSLayouts &worldDSLayouts)
+    Allocator &alloc, const scene::WorldDSLayouts &worldDSLayouts)
 {
     const size_t len = 168;
     String defines{alloc, len};
@@ -77,7 +80,7 @@ ComputePass::Shader generatorDefinitionCallback(
 }
 
 StaticArray<vk::DescriptorSetLayout, GeneratorBindingSetCount - 1>
-generatorExternalDsLayouts(const WorldDSLayouts &worldDsLayouts)
+generatorExternalDsLayouts(const scene::WorldDSLayouts &worldDsLayouts)
 {
     StaticArray<vk::DescriptorSetLayout, GeneratorBindingSetCount - 1>
         setLayouts{VK_NULL_HANDLE};
@@ -127,7 +130,8 @@ ComputePass::Shader cullerDefinitionCallback(Allocator &alloc)
 
 StaticArray<vk::DescriptorSetLayout, CullerBindingSetCount - 1>
 cullerExternalDsLayouts(
-    const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
+    const scene::WorldDSLayouts &worldDsLayouts,
+    vk::DescriptorSetLayout camDsLayout)
 {
     StaticArray<vk::DescriptorSetLayout, CullerBindingSetCount - 1> setLayouts{
         VK_NULL_HANDLE};
@@ -140,7 +144,7 @@ cullerExternalDsLayouts(
 } // namespace
 
 void MeshletCuller::init(
-    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDsLayouts,
+    ScopedScratch scopeAlloc, const scene::WorldDSLayouts &worldDsLayouts,
     vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(!m_initialized);
@@ -175,7 +179,8 @@ void MeshletCuller::init(
 void MeshletCuller::recompileShaders(
     wheels::ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    const WorldDSLayouts &worldDsLayouts, vk::DescriptorSetLayout camDsLayout)
+    const scene::WorldDSLayouts &worldDsLayouts,
+    vk::DescriptorSetLayout camDsLayout)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -203,7 +208,7 @@ void MeshletCuller::startFrame()
 
 MeshletCullerFirstPhaseOutput MeshletCuller::recordFirstPhase(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
-    const World &world, const Camera &cam, uint32_t nextFrame,
+    const scene::World &world, const scene::Camera &cam, uint32_t nextFrame,
     const Optional<ImageHandle> &inHierarchicalDepth, StrSpan debugPrefix,
     DrawStats &drawStats)
 {
@@ -241,8 +246,8 @@ MeshletCullerFirstPhaseOutput MeshletCuller::recordFirstPhase(
 }
 
 MeshletCullerSecondPhaseOutput MeshletCuller::recordSecondPhase(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, uint32_t nextFrame, BufferHandle inputBuffer,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, uint32_t nextFrame, BufferHandle inputBuffer,
     ImageHandle inHierarchicalDepth, StrSpan debugPrefix)
 {
     WHEELS_ASSERT(m_initialized);
@@ -277,32 +282,35 @@ MeshletCullerSecondPhaseOutput MeshletCuller::recordSecondPhase(
 
 BufferHandle MeshletCuller::recordGenerateList(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, Mode mode,
-    const World &world, uint32_t nextFrame, StrSpan debugPrefix,
+    const scene::World &world, uint32_t nextFrame, StrSpan debugPrefix,
     DrawStats &drawStats)
 {
     uint32_t meshletCountUpperBound = 0;
     {
-        const Scene &scene = world.currentScene();
-        const Span<const Model> models = world.models();
-        const Span<const MaterialData> materials = world.materials();
-        const Span<const MeshInfo> meshInfos = world.meshInfos();
+        const scene::Scene &scene = world.currentScene();
+        const Span<const scene::Model> models = world.models();
+        const Span<const scene::shader_structs::MaterialData> materials =
+            world.materials();
+        const Span<const scene::MeshInfo> meshInfos = world.meshInfos();
 
-        for (const ModelInstance &instance : scene.modelInstances)
+        for (const scene::ModelInstance &instance : scene.modelInstances)
         {
             bool modelDrawn = false;
-            const Model &model = models[instance.modelIndex];
-            for (const Model::SubModel &subModel : model.subModels)
+            const scene::Model &model = models[instance.modelIndex];
+            for (const scene::Model::SubModel &subModel : model.subModels)
             {
-                const MaterialData &material =
+                const scene::shader_structs::MaterialData &material =
                     materials[subModel.materialIndex];
-                const MeshInfo &info = meshInfos[subModel.meshIndex];
+                const scene::MeshInfo &info = meshInfos[subModel.meshIndex];
                 // 0 means invalid or not yet loaded
                 if (info.indexCount > 0)
                 {
                     const bool shouldDraw =
                         mode == Mode::Opaque
-                            ? material.alphaMode != AlphaMode_Blend
-                            : material.alphaMode == AlphaMode_Blend;
+                            ? material.alphaMode !=
+                                  scene::shader_structs::AlphaMode_Blend
+                            : material.alphaMode ==
+                                  scene::shader_structs::AlphaMode_Blend;
 
                     if (shouldDraw)
                     {
@@ -322,7 +330,7 @@ BufferHandle MeshletCuller::recordGenerateList(
 
         WHEELS_ASSERT(
             meshletCountUpperBound <=
-                gDevice.properties().meshShader.maxMeshWorkGroupCount[0] &&
+                gfx::gDevice.properties().meshShader.maxMeshWorkGroupCount[0] &&
             "Indirect mesh dispatch group count might not fit in the "
             "supported mesh work group count");
     }
@@ -336,7 +344,7 @@ BufferHandle MeshletCuller::recordGenerateList(
         (meshletCountUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t)));
 
     const BufferHandle ret = gRenderResources.buffers->create(
-        BufferDescription{
+        gfx::BufferDescription{
             .byteSize = drawListByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst |
                      vk::BufferUsageFlagBits::eStorageBuffer,
@@ -346,29 +354,30 @@ BufferHandle MeshletCuller::recordGenerateList(
 
     const vk::DescriptorSet storageSet = m_drawListGenerator.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
-        StaticArray{DescriptorInfo{
+        StaticArray{gfx::DescriptorInfo{
             vk::DescriptorBufferInfo{
                 .buffer = gRenderResources.buffers->nativeHandle(ret),
                 .range = VK_WHOLE_SIZE,
             },
         }});
 
-    gRenderResources.buffers->transition(cb, ret, BufferState::TransferDst);
+    gRenderResources.buffers->transition(
+        cb, ret, gfx::BufferState::TransferDst);
 
     // Clear count as it will be used for atomic adds
     cb.fillBuffer(
         gRenderResources.buffers->nativeHandle(ret), 0, sizeof(uint32_t), 0u);
 
     gRenderResources.buffers->transition(
-        cb, ret, BufferState::ComputeShaderReadWrite);
+        cb, ret, gfx::BufferState::ComputeShaderReadWrite);
 
     const DrawListGeneratorPC pcBlock{
         .matchTransparents = mode == Mode::Transparent ? 1u : 0u,
     };
 
-    const Scene &scene = world.currentScene();
-    const WorldDescriptorSets &worldDSes = world.descriptorSets();
-    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+    const scene::Scene &scene = world.currentScene();
+    const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
     StaticArray<vk::DescriptorSet, GeneratorBindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
@@ -407,7 +416,7 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
     argumentsName.extend("DrawListCullerArguments");
 
     const BufferHandle ret = gRenderResources.buffers->create(
-        BufferDescription{
+        gfx::BufferDescription{
             .byteSize = sArgumentsByteSize,
             .usage = vk::BufferUsageFlagBits::eStorageBuffer |
                      vk::BufferUsageFlagBits::eIndirectBuffer,
@@ -419,11 +428,11 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
         m_cullerArgumentsWriter.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = gRenderResources.buffers->nativeHandle(drawList),
                     .range = VK_WHOLE_SIZE,
                 }},
-                DescriptorInfo{vk::DescriptorBufferInfo{
+                gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                     .buffer = gRenderResources.buffers->nativeHandle(ret),
                     .range = VK_WHOLE_SIZE,
                 }},
@@ -433,8 +442,8 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .buffers = StaticArray<BufferTransition, 2>{{
-                {drawList, BufferState::ComputeShaderRead},
-                {ret, BufferState::ComputeShaderWrite},
+                {drawList, gfx::BufferState::ComputeShaderRead},
+                {ret, gfx::BufferState::ComputeShaderWrite},
             }},
         });
 
@@ -445,8 +454,8 @@ BufferHandle MeshletCuller::recordWriteCullerArgs(
 }
 
 MeshletCuller::CullOutput MeshletCuller::recordCullList(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, uint32_t nextFrame, const CullInput &input,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, uint32_t nextFrame, const CullInput &input,
     bool outputSecondPhaseInput, StrSpan debugPrefix)
 {
     String dataName{scopeAlloc};
@@ -478,7 +487,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
         dummyHizName.extend("DummyHiZ");
 
         dummyHierarchicalDepth = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR32Sfloat,
                 .width = 1,
                 .height = 1,
@@ -520,7 +529,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
         gRenderResources.buffers->resource(input.dataBuffer).byteSize;
     CullOutput ret{
         .dataBuffer = gRenderResources.buffers->create(
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = drawListByteSize,
                 .usage = vk::BufferUsageFlagBits::eTransferDst |
                          vk::BufferUsageFlagBits::eStorageBuffer,
@@ -528,7 +537,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
             },
             dataName.c_str()),
         .argumentBuffer = gRenderResources.buffers->create(
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sArgumentsByteSize,
                 .usage = vk::BufferUsageFlagBits::eTransferDst |
                          vk::BufferUsageFlagBits::eStorageBuffer |
@@ -539,7 +548,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
         .secondPhaseInput =
             outputSecondPhaseInput
                 ? gRenderResources.buffers->create(
-                      BufferDescription{
+                      gfx::BufferDescription{
                           .byteSize = drawListByteSize,
                           .usage = vk::BufferUsageFlagBits::eTransferDst |
                                    vk::BufferUsageFlagBits::eStorageBuffer,
@@ -558,28 +567,28 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     const vk::DescriptorSet storageSet = m_drawListCuller.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer =
                     gRenderResources.buffers->nativeHandle(input.dataBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer =
                     gRenderResources.buffers->nativeHandle(ret.dataBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer =
                     gRenderResources.buffers->nativeHandle(ret.argumentBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = gRenderResources.buffers->nativeHandle(
                     secondPhaseDataBindBuffer),
                 .range = VK_WHOLE_SIZE,
             }},
-            DescriptorInfo{hierarchicalDepthInfos},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{hierarchicalDepthInfos},
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.nearestBorderBlackFloatSampler,
             }},
         }});
@@ -587,18 +596,19 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     {
         InlineArray<BufferTransition, 3> bufferTransitions;
         bufferTransitions.emplace_back(
-            ret.dataBuffer, BufferState::TransferDst);
+            ret.dataBuffer, gfx::BufferState::TransferDst);
         bufferTransitions.emplace_back(
-            ret.argumentBuffer, BufferState::TransferDst);
+            ret.argumentBuffer, gfx::BufferState::TransferDst);
         if (outputSecondPhaseInput)
             bufferTransitions.emplace_back(
-                *ret.secondPhaseInput, BufferState::TransferDst);
+                *ret.secondPhaseInput, gfx::BufferState::TransferDst);
 
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 1>{{
-                    {hierarchicalDepth, ImageState::ComputeShaderSampledRead},
+                    {hierarchicalDepth,
+                     gfx::ImageState::ComputeShaderSampledRead},
                 }},
                 .buffers = bufferTransitions,
             });
@@ -621,30 +631,32 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     {
         InlineArray<BufferTransition, 5> bufferTransitions;
         bufferTransitions.emplace_back(
-            input.dataBuffer, BufferState::ComputeShaderRead);
+            input.dataBuffer, gfx::BufferState::ComputeShaderRead);
         bufferTransitions.emplace_back(
-            input.argumentBuffer, BufferState::DrawIndirectRead);
+            input.argumentBuffer, gfx::BufferState::DrawIndirectRead);
         bufferTransitions.emplace_back(
-            ret.dataBuffer, BufferState::ComputeShaderReadWrite);
+            ret.dataBuffer, gfx::BufferState::ComputeShaderReadWrite);
         bufferTransitions.emplace_back(
-            ret.argumentBuffer, BufferState::ComputeShaderReadWrite);
+            ret.argumentBuffer, gfx::BufferState::ComputeShaderReadWrite);
         if (outputSecondPhaseInput)
             bufferTransitions.emplace_back(
-                *ret.secondPhaseInput, BufferState::ComputeShaderReadWrite);
+                *ret.secondPhaseInput,
+                gfx::BufferState::ComputeShaderReadWrite);
 
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 1>{{
-                    {hierarchicalDepth, ImageState::ComputeShaderSampledRead},
+                    {hierarchicalDepth,
+                     gfx::ImageState::ComputeShaderSampledRead},
                 }},
                 .buffers = bufferTransitions,
             });
     }
 
-    const Scene &scene = world.currentScene();
-    const WorldDescriptorSets &worldDSes = world.descriptorSets();
-    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+    const scene::Scene &scene = world.currentScene();
+    const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
     StaticArray<vk::DescriptorSet, CullerBindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
@@ -666,7 +678,7 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
     };
     if (input.hierarchicalDepth.has_value())
     {
-        const Image &hizImage =
+        const gfx::Image &hizImage =
             gRenderResources.images->resource(*input.hierarchicalDepth);
 
         pcBlock.hizResolution =
@@ -689,3 +701,5 @@ MeshletCuller::CullOutput MeshletCuller::recordCullList(
 
     return ret;
 }
+
+} // namespace render

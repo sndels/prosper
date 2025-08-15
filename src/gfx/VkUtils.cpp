@@ -6,6 +6,9 @@
 
 using namespace wheels;
 
+namespace gfx
+{
+
 void setViewportScissor(vk::CommandBuffer cb, const vk::Rect2D &area)
 {
     const vk::Viewport viewport{
@@ -125,3 +128,5 @@ vk::Pipeline createGraphicsPipeline(
 
     return pipeline.value;
 }
+
+} // namespace gfx

@@ -11,6 +11,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 
@@ -109,7 +112,7 @@ ImageHandle BloomCompose::record(
         const vk::Extent2D bloomExtent = getExtent2D(input.bloomHighlights);
 
         ret = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = sIlluminationFormat,
                 .width = illuminationExtent.width,
                 .height = illuminationExtent.height,
@@ -122,26 +125,26 @@ ImageHandle BloomCompose::record(
         const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.illumination)
                             .view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.bloomHighlights)
                             .view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images->resource(ret).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.bilinearSampler,
                 }},
             }});
@@ -150,10 +153,11 @@ ImageHandle BloomCompose::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 3>{{
-                    {input.illumination, ImageState::ComputeShaderSampledRead},
+                    {input.illumination,
+                     gfx::ImageState::ComputeShaderSampledRead},
                     {input.bloomHighlights,
-                     ImageState::ComputeShaderSampledRead},
-                    {ret, ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderSampledRead},
+                    {ret, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -186,3 +190,5 @@ ImageHandle BloomCompose::record(
 
     return ret;
 }
+
+} // namespace render::bloom

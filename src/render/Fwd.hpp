@@ -5,6 +5,9 @@
 #include "dof/Fwd.hpp"
 #include "rtdi/Fwd.hpp"
 
+namespace render
+{
+
 // ComputePass.hpp
 class ComputePass;
 
@@ -69,5 +72,7 @@ class TextureReadback;
 
 // ToneMap.hpp
 class ToneMap;
+
+} // namespace render
 
 #endif // PROSPER_RENDER_FWD_HPP

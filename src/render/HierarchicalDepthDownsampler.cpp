@@ -12,6 +12,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -52,7 +55,7 @@ HierarchicalDepthDownsampler::~HierarchicalDepthDownsampler()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.destroy(m_atomicCounter);
+    gfx::gDevice.destroy(m_atomicCounter);
 }
 
 void HierarchicalDepthDownsampler::init(ScopedScratch scopeAlloc)
@@ -67,9 +70,9 @@ void HierarchicalDepthDownsampler::init(ScopedScratch scopeAlloc)
         });
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
-    m_atomicCounter = gDevice.createBuffer(BufferCreateInfo{
+    m_atomicCounter = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeof(uint32_t),
                 .usage = vk::BufferUsageFlagBits::eTransferDst |
                          vk::BufferUsageFlagBits::eStorageBuffer,
@@ -99,7 +102,8 @@ ImageHandle HierarchicalDepthDownsampler::record(
 
     PROFILER_CPU_SCOPE("  HiZDownsampler");
 
-    const Image &inDepth = gRenderResources.images->resource(inNonLinearDepth);
+    const gfx::Image &inDepth =
+        gRenderResources.images->resource(inNonLinearDepth);
     WHEELS_ASSERT(
         inDepth.format == vk::Format::eD32Sfloat &&
         "Input depth precision doesn't match HiZ format");
@@ -139,7 +143,7 @@ ImageHandle HierarchicalDepthDownsampler::record(
     outName.extend("HierarchicalDepth");
 
     const ImageHandle outHierarchicalDepth = gRenderResources.images->create(
-        ImageDescription{
+        gfx::ImageDescription{
             .format = sHierarchicalDepthFormat,
             .width = hizMip0Width,
             .height = hizMip0Height,
@@ -174,15 +178,15 @@ ImageHandle HierarchicalDepthDownsampler::record(
     const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = inDepth.view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .sampler = gRenderResources.nearestSampler,
             }},
-            DescriptorInfo{outputInfos},
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{outputInfos},
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = m_atomicCounter.handle,
                 .range = VK_WHOLE_SIZE,
             }},
@@ -192,18 +196,19 @@ ImageHandle HierarchicalDepthDownsampler::record(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
-                {inNonLinearDepth, ImageState::ComputeShaderSampledRead},
-                {outHierarchicalDepth, ImageState::ComputeShaderReadWrite},
+                {inNonLinearDepth, gfx::ImageState::ComputeShaderSampledRead},
+                {outHierarchicalDepth, gfx::ImageState::ComputeShaderReadWrite},
             }},
         });
 
     if (m_counterNotCleared)
     {
-        m_atomicCounter.transition(cb, BufferState::TransferDst);
+        m_atomicCounter.transition(cb, gfx::BufferState::TransferDst);
         // Only need to clear once as SPD will leave this zeroed when the
         // dispatch exits
         cb.fillBuffer(m_atomicCounter.handle, 0, m_atomicCounter.byteSize, 0);
-        m_atomicCounter.transition(cb, BufferState::ComputeShaderReadWrite);
+        m_atomicCounter.transition(
+            cb, gfx::BufferState::ComputeShaderReadWrite);
         m_counterNotCleared = false;
     }
 
@@ -215,3 +220,5 @@ ImageHandle HierarchicalDepthDownsampler::record(
 
     return outHierarchicalDepth;
 }
+
+} // namespace render

@@ -70,6 +70,9 @@ using namespace wheels;
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,   \
         vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader
 
+namespace gfx
+{
+
 namespace
 {
 
@@ -1787,3 +1790,5 @@ std::filesystem::path Device::updateShaderCache(
 
     return cachePath;
 }
+
+} // namespace gfx

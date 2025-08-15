@@ -13,6 +13,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 
@@ -98,7 +101,7 @@ ImageHandle BloomSeparate::record(
             BloomFft::sMinResolution);
 
         ret = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = sIlluminationFormat,
                 .width = technique == BloomTechnique::Fft
                              ? dim
@@ -118,18 +121,18 @@ ImageHandle BloomSeparate::record(
         const vk::DescriptorSet descriptorSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.illumination)
                             .view,
                     .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->subresourceViews(ret)[0],
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler =
                         gRenderResources.bilinearBorderTransparentBlackSampler,
                 }},
@@ -139,8 +142,9 @@ ImageHandle BloomSeparate::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {input.illumination, ImageState::ComputeShaderSampledRead},
-                    {ret, ImageState::ComputeShaderWrite},
+                    {input.illumination,
+                     gfx::ImageState::ComputeShaderSampledRead},
+                    {ret, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -164,3 +168,5 @@ ImageHandle BloomSeparate::record(
 
     return ret;
 }
+
+} // namespace render::bloom

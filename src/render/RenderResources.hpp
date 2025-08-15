@@ -15,9 +15,12 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/owning_ptr.hpp>
 
-using ImageTransition = wheels::Pair<ImageHandle, ImageState>;
-using BufferTransition = wheels::Pair<BufferHandle, BufferState>;
-using TexelBufferTransition = wheels::Pair<TexelBufferHandle, BufferState>;
+namespace render
+{
+
+using ImageTransition = wheels::Pair<ImageHandle, gfx::ImageState>;
+using BufferTransition = wheels::Pair<BufferHandle, gfx::BufferState>;
+using TexelBufferTransition = wheels::Pair<TexelBufferHandle, gfx::BufferState>;
 
 class RenderResources
 {
@@ -54,7 +57,7 @@ class RenderResources
     vk::Sampler trilinearSampler;
 
     // One lines buffer per frame to leave mapped
-    wheels::StaticArray<DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
+    wheels::StaticArray<scene::DebugLines, MAX_FRAMES_IN_FLIGHT> debugLines;
 
   private:
     bool m_initialized{false};
@@ -74,5 +77,7 @@ struct Transitions
 void transition(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const Transitions &transitions);
+
+} // namespace render
 
 #endif // PROSPER_RENDER_RESOURCES_HPP

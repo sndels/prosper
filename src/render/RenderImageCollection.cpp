@@ -5,6 +5,9 @@
 
 using namespace wheels;
 
+namespace render
+{
+
 RenderImageCollection::~RenderImageCollection()
 {
     RenderImageCollection::destroyResources();
@@ -52,12 +55,12 @@ void RenderImageCollection::startFrame()
             {
                 WHEELS_ASSERT(!m_preserved[i]);
 
-                gDevice.destroy(m_resources[i]);
-                m_resources[i] = Image{};
-                m_descriptions[i] = ImageDescription{};
+                gfx::gDevice.destroy(m_resources[i]);
+                m_resources[i] = gfx::Image{};
+                m_descriptions[i] = gfx::ImageDescription{};
                 if (i < m_subresourceViews.size())
                 {
-                    gDevice.destroy(m_subresourceViews[i]);
+                    gfx::gDevice.destroy(m_subresourceViews[i]);
                     m_subresourceViews[i].clear();
                 }
                 m_aliasedDebugNames[i].clear();
@@ -79,13 +82,13 @@ void RenderImageCollection::destroyResources()
 {
     for (auto &views : m_subresourceViews)
     {
-        gDevice.destroy(views);
+        gfx::gDevice.destroy(views);
         views.clear();
     }
     m_subresourceViews.clear();
 
-    for (Image &res : m_resources)
-        gDevice.destroy(res);
+    for (gfx::Image &res : m_resources)
+        gfx::gDevice.destroy(res);
 
     m_resources.clear();
     m_descriptions.clear();
@@ -106,7 +109,7 @@ void RenderImageCollection::destroyResources()
 }
 
 ImageHandle RenderImageCollection::create(
-    const ImageDescription &desc, const char *debugName)
+    const gfx::ImageDescription &desc, const char *debugName)
 {
     const uint32_t descCount = asserted_cast<uint32_t>(m_descriptions.size());
     for (uint32_t i = 0; i < descCount; ++i)
@@ -115,7 +118,7 @@ ImageHandle RenderImageCollection::create(
         {
             WHEELS_ASSERT(!m_preserved[i]);
 
-            const ImageDescription &existingDesc = m_descriptions[i];
+            const gfx::ImageDescription &existingDesc = m_descriptions[i];
             if (existingDesc.matches(desc))
             {
                 // Don't reuse the actively debugged resource to avoid stomping
@@ -169,7 +172,7 @@ ImageHandle RenderImageCollection::create(
     WHEELS_ASSERT(!resourceInUse(index));
     WHEELS_ASSERT(m_resources[index].handle == vk::Image{});
 
-    m_resources[index] = gDevice.create(ImageCreateInfo{
+    m_resources[index] = gfx::gDevice.create(gfx::ImageCreateInfo{
         .desc = desc,
         .debugName = debugName,
     });
@@ -230,7 +233,7 @@ vk::Image RenderImageCollection::nativeHandle(ImageHandle handle) const
     return m_resources[handle.index].handle;
 }
 
-const Image &RenderImageCollection::resource(ImageHandle handle) const
+const gfx::Image &RenderImageCollection::resource(ImageHandle handle) const
 {
     assertValidHandle(handle);
 
@@ -244,7 +247,7 @@ Span<const vk::ImageView> RenderImageCollection::subresourceViews(
     if (m_subresourceViews.size() <= handle.index)
         m_subresourceViews.resize(handle.index + 1);
 
-    const Image &image = resource(handle);
+    const gfx::Image &image = resource(handle);
     // Let's be nice and return the single mip view for ergonomics in cases
     // where the logical resource might have one or many mips.
     if (image.mipCount == 1)
@@ -259,7 +262,8 @@ Span<const vk::ImageView> RenderImageCollection::subresourceViews(
         // Isolate the last concatenated name if this gets shared resources at
         // some point? Is that always the 'active' logical resource?
         const StrSpan debugName = aliasedDebugName(handle);
-        gDevice.createSubresourcesViews(image, debugName, views.mut_span());
+        gfx::gDevice.createSubresourcesViews(
+            image, debugName, views.mut_span());
     }
     WHEELS_ASSERT(views.size() == image.subresourceRange.levelCount);
 
@@ -267,7 +271,7 @@ Span<const vk::ImageView> RenderImageCollection::subresourceViews(
 }
 
 void RenderImageCollection::transition(
-    vk::CommandBuffer cb, ImageHandle handle, ImageState state)
+    vk::CommandBuffer cb, ImageHandle handle, gfx::ImageState state)
 {
     assertValidHandle(handle);
 
@@ -275,7 +279,8 @@ void RenderImageCollection::transition(
 }
 
 wheels::Optional<vk::ImageMemoryBarrier2> RenderImageCollection::
-    transitionBarrier(ImageHandle handle, ImageState state, bool force_barrier)
+    transitionBarrier(
+        ImageHandle handle, gfx::ImageState state, bool force_barrier)
 {
     assertValidHandle(handle);
 
@@ -294,7 +299,7 @@ void RenderImageCollection::appendDebugName(
 
     // TODO: Set these at once? Need to be careful to set before
     // submits?
-    gDevice.logical().setDebugUtilsObjectNameEXT(
+    gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eImage,
             .objectHandle = reinterpret_cast<uint64_t>(
@@ -420,3 +425,5 @@ void RenderImageCollection::assertUniqueDebugName(
     (void)debugName;
 #endif // NDEBUG
 }
+
+} // namespace render

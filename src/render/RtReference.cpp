@@ -20,6 +20,9 @@
 
 using namespace wheels;
 
+namespace render
+{
+
 // Based on RT Gems II chapter 16
 
 namespace
@@ -92,15 +95,15 @@ RtReference::~RtReference()
     // init.
     destroyPipeline();
 
-    gDevice.logical().destroy(m_descriptorSetLayout);
+    gfx::gDevice.logical().destroy(m_descriptorSetLayout);
 
-    gDevice.destroy(m_shaderBindingTable);
+    gfx::gDevice.destroy(m_shaderBindingTable);
     destroyShaders();
 }
 
 void RtReference::init(
     ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
@@ -119,7 +122,8 @@ void RtReference::init(
 void RtReference::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout,
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -148,19 +152,19 @@ void RtReference::drawUi()
     ImGui::Checkbox("Accumulate", &m_accumulate);
 
     m_accumulationDirty |= ImGui::Checkbox("Clamp indirect", &m_clampIndirect);
+    m_accumulationDirty |= utils::sliderU32(
+        "Roulette Start", &m_rouletteStartBounce, 0u, m_maxBounces);
     m_accumulationDirty |=
-        sliderU32("Roulette Start", &m_rouletteStartBounce, 0u, m_maxBounces);
-    m_accumulationDirty |=
-        sliderU32("Max bounces", &m_maxBounces, 1u, sMaxBounces);
+        utils::sliderU32("Max bounces", &m_maxBounces, 1u, sMaxBounces);
 
     m_maxBounces = std::min(m_maxBounces, sMaxBounces);
     m_rouletteStartBounce = std::min(m_rouletteStartBounce, m_maxBounces);
 }
 
 RtReference::Output RtReference::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
-    const Camera &cam, const vk::Rect2D &renderArea, const Options &options,
-    uint32_t nextFrame)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, scene::World &world,
+    const scene::Camera &cam, const vk::Rect2D &renderArea,
+    const Options &options, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -175,7 +179,7 @@ RtReference::Output RtReference::record(
         // This happens to be the same physical image as last frame for now, but
         // resources should support this kind of accumulation use explicitly
         ImageHandle illumination = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR32G32B32A32Sfloat,
                 .width = renderArea.extent.width,
                 .height = renderArea.extent.height,
@@ -201,7 +205,7 @@ RtReference::Output RtReference::record(
             // Create dummy texture to satisfy binds even though it won't be
             // read from
             m_previousIllumination = gRenderResources.images->create(
-                ImageDescription{
+                gfx::ImageDescription{
                     .format = vk::Format::eR32G32B32A32Sfloat,
                     .width = renderArea.extent.width,
                     .height = renderArea.extent.height,
@@ -220,14 +224,15 @@ RtReference::Output RtReference::record(
         updateDescriptorSet(scopeAlloc.child_scope(), nextFrame, illumination);
 
         world.currentTLAS().buffer.transition(
-            cb, BufferState::RayTracingAccelerationStructureRead);
+            cb, gfx::BufferState::RayTracingAccelerationStructureRead);
 
         transition(
             scopeAlloc.child_scope(), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {illumination, ImageState::RayTracingReadWrite},
-                    {m_previousIllumination, ImageState::RayTracingReadWrite},
+                    {illumination, gfx::ImageState::RayTracingReadWrite},
+                    {m_previousIllumination,
+                     gfx::ImageState::RayTracingReadWrite},
                 }},
             });
 
@@ -236,8 +241,8 @@ RtReference::Output RtReference::record(
         cb.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, m_pipeline);
 
         const auto &scene = world.currentScene();
-        const WorldDescriptorSets &worldDSes = world.descriptorSets();
-        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+        const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -271,7 +276,7 @@ RtReference::Output RtReference::record(
             asserted_cast<uint32_t>(dynamicOffsets.size()),
             dynamicOffsets.data());
 
-        const CameraParameters &camParams = cam.parameters();
+        const scene::CameraParameters &camParams = cam.parameters();
 
         const ReferencePC pcBlock{
             .drawType = static_cast<uint32_t>(options.drawType),
@@ -340,8 +345,8 @@ RtReference::Output RtReference::record(
                 WHEELS_MOV(scopeAlloc), cb,
                 Transitions{
                     .images = StaticArray<ImageTransition, 2>{{
-                        {illumination, ImageState::TransferSrc},
-                        {ret.illumination, ImageState::TransferDst},
+                        {illumination, gfx::ImageState::TransferSrc},
+                        {ret.illumination, gfx::ImageState::TransferDst},
                     }},
                 });
 
@@ -390,17 +395,17 @@ void RtReference::releasePreserved()
 void RtReference::destroyShaders()
 {
     for (auto const &stage : m_shaderStages)
-        gDevice.logical().destroyShaderModule(stage.module);
+        gfx::gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void RtReference::destroyPipeline()
 {
-    gDevice.logical().destroy(m_pipeline);
-    gDevice.logical().destroy(m_pipelineLayout);
+    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
 bool RtReference::compileShaders(
-    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const scene::WorldDSLayouts &worldDSLayouts)
 {
     const size_t raygenDefsLen = 768;
     String raygenDefines{scopeAlloc, raygenDefsLen};
@@ -410,7 +415,7 @@ bool RtReference::compileShaders(
     appendDefineStr(raygenDefines, "OUTPUT_SET", OutputBindingSet);
     appendEnumVariantsAsDefines(
         raygenDefines, "DrawType",
-        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+        Span{scene::sDrawTypeNames.data(), scene::sDrawTypeNames.size()});
     appendDefineStr(
         raygenDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
     appendDefineStr(
@@ -423,8 +428,8 @@ bool RtReference::compileShaders(
     appendDefineStr(
         raygenDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     appendDefineStr(raygenDefines, "LIGHTS_SET", LightsBindingSet);
-    PointLights::appendShaderDefines(raygenDefines);
-    SpotLights::appendShaderDefines(raygenDefines);
+    scene::PointLights::appendShaderDefines(raygenDefines);
+    scene::SpotLights::appendShaderDefines(raygenDefines);
     WHEELS_ASSERT(raygenDefines.size() <= raygenDefsLen);
 
     const size_t anyhitDefsLen = 512;
@@ -432,7 +437,7 @@ bool RtReference::compileShaders(
     appendDefineStr(anyhitDefines, "RAY_TRACING_SET", RTBindingSet);
     appendEnumVariantsAsDefines(
         anyhitDefines, "DrawType",
-        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+        Span{scene::sDrawTypeNames.data(), scene::sDrawTypeNames.size()});
     appendDefineStr(
         anyhitDefines, "MATERIAL_DATAS_SET", MaterialDatasBindingSet);
     appendDefineStr(
@@ -445,29 +450,29 @@ bool RtReference::compileShaders(
         anyhitDefines, "SCENE_INSTANCES_SET", SceneInstancesBindingSet);
     WHEELS_ASSERT(anyhitDefines.size() <= anyhitDefsLen);
 
-    Optional<Device::ShaderCompileResult> raygenResult =
-        gDevice.compileShaderModule(
+    Optional<gfx::Device::ShaderCompileResult> raygenResult =
+        gfx::gDevice.compileShaderModule(
             scopeAlloc.child_scope(),
-            Device::CompileShaderModuleArgs{
+            gfx::Device::CompileShaderModuleArgs{
                 .relPath = "shader/rt/reference/main.rgen",
                 .debugName = "referenceRGEN",
                 .defines = raygenDefines,
             });
-    Optional<Device::ShaderCompileResult> rayMissResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> rayMissResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rmiss",
                                           .debugName = "sceneRMISS",
                                       });
-    Optional<Device::ShaderCompileResult> closestHitResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> closestHitResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rchit",
                                           .debugName = "sceneRCHIT",
                                       });
-    Optional<Device::ShaderCompileResult> anyHitResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> anyHitResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/rt/scene.rahit",
                                           .debugName = "sceneRAHIT",
                                           .defines = anyhitDefines,
@@ -546,13 +551,13 @@ bool RtReference::compileShaders(
     }
 
     if (raygenResult.has_value())
-        gDevice.logical().destroy(raygenResult->module);
+        gfx::gDevice.logical().destroy(raygenResult->module);
     if (rayMissResult.has_value())
-        gDevice.logical().destroy(rayMissResult->module);
+        gfx::gDevice.logical().destroy(rayMissResult->module);
     if (closestHitResult.has_value())
-        gDevice.logical().destroy(closestHitResult->module);
+        gfx::gDevice.logical().destroy(closestHitResult->module);
     if (anyHitResult.has_value())
-        gDevice.logical().destroy(anyHitResult->module);
+        gfx::gDevice.logical().destroy(anyHitResult->module);
 
     return false;
 }
@@ -567,7 +572,7 @@ void RtReference::createDescriptorSets(ScopedScratch scopeAlloc)
         m_descriptorSetLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "RtReference"};
-    gStaticDescriptorsAlloc.allocate(
+    gfx::gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_descriptorSets.mut_span());
 }
 
@@ -580,12 +585,12 @@ void RtReference::updateDescriptorSet(
     WHEELS_ASSERT(m_raygenReflection.has_value());
 
     const StaticArray descriptorInfos{{
-        DescriptorInfo{vk::DescriptorImageInfo{
+        gfx::DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
                 gRenderResources.images->resource(m_previousIllumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
-        DescriptorInfo{vk::DescriptorImageInfo{
+        gfx::DescriptorInfo{vk::DescriptorImageInfo{
             .imageView = gRenderResources.images->resource(illumination).view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
@@ -596,13 +601,14 @@ void RtReference::updateDescriptorSet(
         scopeAlloc, OutputBindingSet, m_descriptorSets[nextFrame],
         descriptorInfos);
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
 
 void RtReference::createPipeline(
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout,
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
 
     StaticArray<vk::DescriptorSetLayout, BindingSetCount> setLayouts{
@@ -622,8 +628,8 @@ void RtReference::createPipeline(
         .offset = 0,
         .size = sizeof(ReferencePC),
     };
-    m_pipelineLayout =
-        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
+        vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
@@ -640,14 +646,14 @@ void RtReference::createPipeline(
     };
 
     {
-        auto pipeline = gDevice.logical().createRayTracingPipelineKHR(
+        auto pipeline = gfx::gDevice.logical().createRayTracingPipelineKHR(
             vk::DeferredOperationKHR{}, vk::PipelineCache{}, pipelineInfo);
         if (pipeline.result != vk::Result::eSuccess)
             throw std::runtime_error("Failed to create rt pipeline");
 
         m_pipeline = pipeline.value;
 
-        gDevice.logical().setDebugUtilsObjectNameEXT(
+        gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
             vk::DebugUtilsObjectNameInfoEXT{
                 .objectType = vk::ObjectType::ePipeline,
                 .objectHandle = reinterpret_cast<uint64_t>(
@@ -662,9 +668,9 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
 
     const auto groupCount = asserted_cast<uint32_t>(m_shaderGroups.size());
     const auto groupHandleSize =
-        gDevice.properties().rtPipeline.shaderGroupHandleSize;
+        gfx::gDevice.properties().rtPipeline.shaderGroupHandleSize;
     const auto groupBaseAlignment =
-        gDevice.properties().rtPipeline.shaderGroupBaseAlignment;
+        gfx::gDevice.properties().rtPipeline.shaderGroupBaseAlignment;
     m_sbtGroupSize = static_cast<vk::DeviceSize>(roundedUpQuotient(
                          groupHandleSize, groupBaseAlignment)) *
                      groupBaseAlignment;
@@ -672,14 +678,14 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
     const auto sbtSize = groupCount * m_sbtGroupSize;
 
     Array<uint8_t> shaderHandleStorage{scopeAlloc, sbtSize};
-    checkSuccess(
-        gDevice.logical().getRayTracingShaderGroupHandlesKHR(
+    gfx::checkSuccess(
+        gfx::gDevice.logical().getRayTracingShaderGroupHandlesKHR(
             m_pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),
         "getRayTracingShaderGroupHandlesKHR");
 
-    m_shaderBindingTable = gDevice.createBuffer(BufferCreateInfo{
+    m_shaderBindingTable = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sbtSize,
                 .usage = vk::BufferUsageFlagBits::eTransferSrc |
                          vk::BufferUsageFlagBits::eShaderDeviceAddress |
@@ -700,3 +706,5 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
         pData += m_sbtGroupSize;
     }
 }
+
+} // namespace render

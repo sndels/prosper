@@ -15,6 +15,9 @@
 #include <wheels/containers/span.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace gfx
+{
+
 struct DescriptorSetMetadata
 {
     wheels::String name;
@@ -81,5 +84,7 @@ class ShaderReflection
         gAllocators.general};
     uint32_t m_specializationConstantsByteSize{0};
 };
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_SHADER_REFLECTION_HPP

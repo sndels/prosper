@@ -3,6 +3,11 @@
 
 #include "../fields.h"
 
+#ifdef __cplusplus
+namespace scene::shader_structs
+{
+#endif // __cplusplus
+
 struct CameraUniforms
 {
     STRUCT_FIELD_GLM(mat4, worldToCamera, {});
@@ -27,5 +32,9 @@ struct CameraUniforms
     STRUCT_FIELD(float, far, 0.f);
     STRUCT_FIELD(float, maxViewScale, 0.f);
 };
+
+#ifdef __cplusplus
+} //  namespace scene::shader_structs
+#endif // __cplusplus
 
 #endif // SHARED_SHADER_STRUCTS_SCENE_CAMERA_H

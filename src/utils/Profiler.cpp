@@ -5,6 +5,9 @@
 
 using namespace wheels;
 
+namespace utils
+{
+
 namespace
 {
 
@@ -107,18 +110,18 @@ void GpuFrameProfiler::init()
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_timestampBuffer = gDevice.createBuffer(BufferCreateInfo{
+    m_timestampBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
                 .usage = vk::BufferUsageFlagBits::eTransferDst,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
                               vk::MemoryPropertyFlagBits::eHostCoherent,
             },
         .debugName = "GpuProfilerTimestampReadback"});
-    m_statisticsBuffer = gDevice.createBuffer(BufferCreateInfo{
+    m_statisticsBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
                 .usage = vk::BufferUsageFlagBits::eTransferDst,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -126,11 +129,11 @@ void GpuFrameProfiler::init()
             },
         .debugName = "GpuProfilerStatisticsReadback"});
     m_pools.timestamps =
-        gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
+        gfx::gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::eTimestamp,
             .queryCount = sMaxTimestampCount});
     m_pools.statistics =
-        gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
+        gfx::gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::ePipelineStatistics,
             .queryCount = sMaxScopeCount,
             .pipelineStatistics = sPipelineStatisticsFlags,
@@ -143,18 +146,20 @@ void GpuFrameProfiler::destroy()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.logical().destroyQueryPool(m_pools.statistics);
-    gDevice.logical().destroyQueryPool(m_pools.timestamps);
-    gDevice.destroy(m_statisticsBuffer);
-    gDevice.destroy(m_timestampBuffer);
+    gfx::gDevice.logical().destroyQueryPool(m_pools.statistics);
+    gfx::gDevice.logical().destroyQueryPool(m_pools.timestamps);
+    gfx::gDevice.destroy(m_statisticsBuffer);
+    gfx::gDevice.destroy(m_timestampBuffer);
 }
 
 void GpuFrameProfiler::startFrame()
 {
     // Might be more optimal to do this in a command buffer if we had some other
     // use that was ensured to happen before all other command buffers.
-    gDevice.logical().resetQueryPool(m_pools.timestamps, 0, sMaxTimestampCount);
-    gDevice.logical().resetQueryPool(m_pools.statistics, 0, sMaxScopeCount);
+    gfx::gDevice.logical().resetQueryPool(
+        m_pools.timestamps, 0, sMaxTimestampCount);
+    gfx::gDevice.logical().resetQueryPool(
+        m_pools.statistics, 0, sMaxScopeCount);
     m_queryScopeIndices.clear();
     m_scopeHasStats.clear();
 }
@@ -203,8 +208,8 @@ GpuFrameProfiler::Scope GpuFrameProfiler::createScope(
 
 Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
 {
-    const auto timestampPeriodNanos =
-        static_cast<double>(gDevice.properties().device.limits.timestampPeriod);
+    const auto timestampPeriodNanos = static_cast<double>(
+        gfx::gDevice.properties().device.limits.timestampPeriod);
 
     // This is garbage if no frame has been completed with this profiler yet
     // Caller should make sure that isn't an issue.
@@ -506,3 +511,5 @@ Array<Profiler::ScopeData> Profiler::getPreviousData(Allocator &alloc)
 
     return ret;
 }
+
+} // namespace utils

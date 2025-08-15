@@ -8,6 +8,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::dof
+{
+
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
@@ -57,5 +60,7 @@ class DepthOfFieldGather
 
     uint32_t m_frameIndex{0};
 };
+
+} // namespace render::dof
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_GATHER_HPP

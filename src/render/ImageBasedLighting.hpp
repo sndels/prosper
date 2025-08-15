@@ -8,6 +8,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 class ImageBasedLighting
 {
   public:
@@ -28,8 +31,8 @@ class ImageBasedLighting
         const wheels::HashSet<std::filesystem::path> &changedFiles);
 
     void recordGeneration(
-        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
-        uint32_t nextFrame);
+        wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+        scene::World &world, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};
@@ -39,5 +42,7 @@ class ImageBasedLighting
 
     bool m_generated{false};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_IMAGE_BASED_LIGHTING_HPP

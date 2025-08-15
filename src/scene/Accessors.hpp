@@ -3,6 +3,9 @@
 
 #include <cstdint>
 
+namespace scene
+{
+
 struct KeyFrameInterpolation
 {
     // If t == 0.f, use start frame directly
@@ -49,5 +52,7 @@ template <typename T> class ValueAccessor
 };
 // TODO:
 // Requires or something to give an error for unimplemented value types
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_ACCESSORS_HPP

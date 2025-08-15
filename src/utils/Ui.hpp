@@ -5,6 +5,9 @@
 #include <type_traits>
 #include <wheels/containers/static_array.hpp>
 
+namespace utils
+{
+
 // Creates a dropdown for the value and returns true if it was changed
 template <typename Enum, size_t N>
 bool enumDropdown(
@@ -38,5 +41,7 @@ inline bool sliderU32(
 {
     return ImGui::SliderScalar(label, ImGuiDataType_U32, v, &v_min, &v_max);
 }
+
+} // namespace utils
 
 #endif // WHEELS_UTILS_UI_HPP

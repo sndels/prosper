@@ -11,6 +11,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 class DeferredShading
 {
   public:
@@ -26,7 +29,7 @@ class DeferredShading
     {
         vk::DescriptorSetLayout camera;
         vk::DescriptorSetLayout lightClusters;
-        const WorldDSLayouts &world;
+        const scene::WorldDSLayouts &world;
     };
     void init(
         wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
@@ -47,11 +50,13 @@ class DeferredShading
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const Input &input,
-        uint32_t nextFrame, bool applyIbl, DrawType drawType);
+        const scene::World &world, const scene::Camera &cam, const Input &input,
+        uint32_t nextFrame, bool applyIbl, scene::DrawType drawType);
 
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_DEFERRED_SHADING_HPP

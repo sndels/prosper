@@ -10,6 +10,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::rtdi
+{
+
 class RtDiSpatialReuse
 {
   public:
@@ -24,7 +27,7 @@ class RtDiSpatialReuse
     struct InputDSLayouts
     {
         vk::DescriptorSetLayout camera;
-        const WorldDSLayouts &world;
+        const scene::WorldDSLayouts &world;
     };
     void init(
         wheels::ScopedScratch scopeAlloc, const InputDSLayouts &dsLayouts);
@@ -46,7 +49,7 @@ class RtDiSpatialReuse
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const World &world, const Camera &cam, const Input &input,
+        const scene::World &world, const scene::Camera &cam, const Input &input,
         uint32_t nextFrame);
 
     bool m_initialized{false};
@@ -54,5 +57,7 @@ class RtDiSpatialReuse
 
     uint32_t m_frameIndex{0};
 };
+
+} // namespace render::rtdi
 
 #endif // PROSPER_RENDER_RT_DI_SPATIAL_REUSE_HPP

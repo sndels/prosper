@@ -2,6 +2,9 @@
 
 #include "utils/Utils.hpp"
 
+namespace scene
+{
+
 void DebugLines::reset() { count = 0; }
 
 void DebugLines::addLine(glm::vec3 p0, glm::vec3 p1, glm::vec3 color)
@@ -13,3 +16,5 @@ void DebugLines::addLine(glm::vec3 p0, glm::vec3 p1, glm::vec3 color)
     lineData[2] = color;
     count++;
 }
+
+} // namespace scene

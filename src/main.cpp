@@ -59,7 +59,7 @@ App::Settings parseCli(int argc, char *argv[])
     const cxxopts::ParseResult args = options.parse(argc, argv);
 
     std::filesystem::path scenePath;
-    Device::Settings deviceSettings;
+    gfx::Device::Settings deviceSettings;
 
     // Try to parse toml first as we'll override any of its settings with values
     // given in the CLI
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
     // _CrtSetBreakAlloc(0);
 #endif // _CRTDBG_MAP_ALLOC
 
-    const Timer t;
+    const utils::Timer t;
 
 #ifdef LIVEPP_PATH
     lpp::LppDefaultAgent lppAgent =
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 
         const auto &tl = [](const char *stage, std::function<void()> const &fn)
         {
-            const Timer t;
+            const utils::Timer t;
             fn();
             LOG_INFO("%s took %.2fs", stage, t.getSeconds());
         };
@@ -178,17 +178,17 @@ int main(int argc, char *argv[])
         defer { gWindow.destroy(); };
 
         tl("Device init", [&scopeAlloc, &settings]()
-           { gDevice.init(scopeAlloc.child_scope(), settings.device); });
-        defer { gDevice.destroy(); };
+           { gfx::gDevice.init(scopeAlloc.child_scope(), settings.device); });
+        defer { gfx::gDevice.destroy(); };
 
-        gRenderResources.init();
-        defer { gRenderResources.destroy(); };
+        render::gRenderResources.init();
+        defer { render::gRenderResources.destroy(); };
 
-        gStaticDescriptorsAlloc.init();
-        defer { gStaticDescriptorsAlloc.destroy(); };
+        gfx::gStaticDescriptorsAlloc.init();
+        defer { gfx::gStaticDescriptorsAlloc.destroy(); };
 
-        gProfiler.init();
-        defer { gProfiler.destroy(); };
+        utils::gProfiler.init();
+        defer { utils::gProfiler.destroy(); };
 
         App app{settings.scene};
         app.init(WHEELS_MOV(scopeAlloc));

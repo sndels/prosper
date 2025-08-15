@@ -3,6 +3,9 @@
 
 #include <chrono>
 
+namespace utils
+{
+
 class Timer
 {
   public:
@@ -14,5 +17,7 @@ class Timer
   private:
     std::chrono::time_point<std::chrono::system_clock> m_start;
 };
+
+} // namespace utils
 
 #endif // PROSPER_UTILS_TIMER_HPP

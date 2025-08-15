@@ -10,6 +10,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/optional.hpp>
 
+namespace render::bloom
+{
+
 class BloomBlur
 {
   public:
@@ -47,5 +50,7 @@ class BloomBlur
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render::bloom
 
 #endif // PROSPER_RENDER_BLOOM_BLUR_HPP

@@ -18,6 +18,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -34,7 +37,7 @@ enum BindingSet : uint8_t
 };
 
 ComputePass::Shader shaderDefinitionCallback(
-    Allocator &alloc, const WorldDSLayouts &worldDSLayouts)
+    Allocator &alloc, const scene::WorldDSLayouts &worldDSLayouts)
 {
     const size_t len = 768;
     String defines{alloc, len};
@@ -50,10 +53,10 @@ ComputePass::Shader shaderDefinitionCallback(
     appendDefineStr(defines, "SKYBOX_SET", SkyboxBindingSet);
     appendEnumVariantsAsDefines(
         defines, "DrawType",
-        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+        Span{scene::sDrawTypeNames.data(), scene::sDrawTypeNames.size()});
     LightClustering::appendShaderDefines(defines);
-    PointLights::appendShaderDefines(defines);
-    SpotLights::appendShaderDefines(defines);
+    scene::PointLights::appendShaderDefines(defines);
+    scene::SpotLights::appendShaderDefines(defines);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -109,9 +112,9 @@ void DeferredShading::recompileShaders(
 }
 
 DeferredShading::Output DeferredShading::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const Input &input, const uint32_t nextFrame,
-    bool applyIbl, DrawType drawType)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const Input &input, const uint32_t nextFrame,
+    bool applyIbl, scene::DrawType drawType)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -127,31 +130,31 @@ DeferredShading::Output DeferredShading::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(input.gbuffer.albedoRoughness)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(input.gbuffer.normalMetalness)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.gbuffer.depth)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(ret.illumination)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
             }});
@@ -161,19 +164,19 @@ DeferredShading::Output DeferredShading::record(
             Transitions{
                 .images = StaticArray<ImageTransition, 5>{{
                     {input.gbuffer.albedoRoughness,
-                     ImageState::ComputeShaderRead},
+                     gfx::ImageState::ComputeShaderRead},
                     {input.gbuffer.normalMetalness,
-                     ImageState::ComputeShaderRead},
-                    {input.gbuffer.depth, ImageState::ComputeShaderRead},
-                    {ret.illumination, ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderRead},
+                    {input.gbuffer.depth, gfx::ImageState::ComputeShaderRead},
+                    {ret.illumination, gfx::ImageState::ComputeShaderWrite},
                     {input.lightClusters.pointers,
-                     ImageState::ComputeShaderRead},
+                     gfx::ImageState::ComputeShaderRead},
                 }},
                 .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
                     {input.lightClusters.indicesCount,
-                     BufferState::ComputeShaderRead},
+                     gfx::BufferState::ComputeShaderRead},
                     {input.lightClusters.indices,
-                     BufferState::ComputeShaderRead},
+                     gfx::BufferState::ComputeShaderRead},
                 }},
             });
 
@@ -184,8 +187,8 @@ DeferredShading::Output DeferredShading::record(
             .ibl = static_cast<uint32_t>(applyIbl),
         };
 
-        const WorldDescriptorSets &worldDSes = world.descriptorSets();
-        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+        const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -219,3 +222,5 @@ DeferredShading::Output DeferredShading::record(
 
     return ret;
 }
+
+} // namespace render

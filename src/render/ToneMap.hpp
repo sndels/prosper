@@ -9,6 +9,9 @@
 #include <wheels/allocators/scoped_scratch.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render
+{
+
 class ToneMap
 {
   public:
@@ -39,10 +42,12 @@ class ToneMap
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
-    Texture3D m_lut;
+    scene::Texture3D m_lut;
 
     float m_exposure{1.f};
     float m_contrast{1.f};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_TONE_MAP_HPP

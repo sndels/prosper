@@ -7,9 +7,12 @@
 
 using namespace wheels;
 
+namespace render::rtdi
+{
+
 void RtDirectIllumination::init(
     ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout,
-    const WorldDSLayouts &worldDSLayouts)
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(!m_initialized);
 
@@ -31,7 +34,8 @@ void RtDirectIllumination::init(
 void RtDirectIllumination::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
-    vk::DescriptorSetLayout camDSLayout, const WorldDSLayouts &worldDSLayouts)
+    vk::DescriptorSetLayout camDSLayout,
+    const scene::WorldDSLayouts &worldDSLayouts)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -60,9 +64,9 @@ void RtDirectIllumination::drawUi()
 }
 
 RtDirectIllumination::Output RtDirectIllumination::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
-    const Camera &cam, const GBufferRendererOutput &gbuffer,
-    bool resetAccumulation, DrawType drawType, uint32_t nextFrame)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, scene::World &world,
+    const scene::Camera &cam, const GBufferRendererOutput &gbuffer,
+    bool resetAccumulation, scene::DrawType drawType, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -114,3 +118,5 @@ void RtDirectIllumination::releasePreserved()
 
     m_trace.releasePreserved();
 }
+
+} // namespace render::rtdi

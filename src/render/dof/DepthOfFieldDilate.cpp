@@ -14,6 +14,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::dof
+{
+
 namespace
 {
 
@@ -48,7 +51,7 @@ void DepthOfFieldDilate::recompileShaders(
 
 DepthOfFieldDilate::Output DepthOfFieldDilate::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, ImageHandle tileMinMaxCoC,
-    const Camera &cam, const uint32_t nextFrame)
+    const scene::Camera &cam, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -59,7 +62,7 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
         const vk::Extent2D inputExtent = getExtent2D(tileMinMaxCoC);
 
         ret.dilatedTileMinMaxCoC = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR16G16Sfloat,
                 .width = inputExtent.width,
                 .height = inputExtent.height,
@@ -71,18 +74,18 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(tileMinMaxCoC).view,
                     .imageLayout = vk::ImageLayout::eReadOnlyOptimal,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(ret.dilatedTileMinMaxCoC)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
             }});
@@ -91,14 +94,15 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {tileMinMaxCoC, ImageState::ComputeShaderSampledRead},
-                    {ret.dilatedTileMinMaxCoC, ImageState::ComputeShaderWrite},
+                    {tileMinMaxCoC, gfx::ImageState::ComputeShaderSampledRead},
+                    {ret.dilatedTileMinMaxCoC,
+                     gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
         PROFILER_GPU_SCOPE(cb, "  Dilate");
 
-        const CameraParameters &camParams = cam.parameters();
+        const scene::CameraParameters &camParams = cam.parameters();
         const float maxBgCoCInUnits =
             (camParams.apertureDiameter * camParams.focalLength) /
             (camParams.focusDistance - camParams.focalLength);
@@ -129,3 +133,5 @@ DepthOfFieldDilate::Output DepthOfFieldDilate::record(
 
     return ret;
 }
+
+} // namespace render::dof

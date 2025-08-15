@@ -24,7 +24,7 @@ class App
     struct Settings
     {
         std::filesystem::path scene;
-        Device::Settings device;
+        gfx::Device::Settings device;
     };
 
     App(std::filesystem::path scenePath) noexcept;
@@ -64,12 +64,12 @@ class App
     };
     UiChanges drawUi(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
-        const wheels::Array<Profiler::ScopeData> &profilerDatas,
+        const wheels::Array<utils::Profiler::ScopeData> &profilerDatas,
         uint32_t scopeHighWatermark);
     void drawOptions();
     void drawProfiling(
         wheels::ScopedScratch scopeAlloc,
-        const wheels::Array<Profiler::ScopeData> &profilerDatas);
+        const wheels::Array<utils::Profiler::ScopeData> &profilerDatas);
     void drawMemory(uint32_t scopeHighWatermark) const;
     // Returns true if time was tweaked
     bool drawTimeline();
@@ -77,7 +77,7 @@ class App
     bool drawCameraUi();
     void drawSceneStats(uint32_t nextFrame);
 
-    void updateDebugLines(const Scene &scene, uint32_t nextFrame);
+    void updateDebugLines(const scene::Scene &scene, uint32_t nextFrame);
 
     // Returns true if present succeeded, false if swapchain should be recreated
     [[nodiscard]] bool submitAndPresent(
@@ -89,7 +89,7 @@ class App
     wheels::TlsfAllocator m_fileChangePollingAlloc;
     std::filesystem::path m_scenePath;
 
-    wheels::OwningPtr<Swapchain> m_swapchain;
+    wheels::OwningPtr<gfx::Swapchain> m_swapchain;
     wheels::StaticArray<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT>
         m_commandBuffers;
 
@@ -97,12 +97,12 @@ class App
 
     // TODO:
     // Should this be a global too?
-    RingBuffer m_constantsRing;
+    gfx::RingBuffer m_constantsRing;
 
-    wheels::OwningPtr<Camera> m_cam;
-    wheels::OwningPtr<World> m_world;
+    wheels::OwningPtr<scene::Camera> m_cam;
+    wheels::OwningPtr<scene::World> m_world;
 
-    wheels::OwningPtr<Renderer> m_renderer;
+    wheels::OwningPtr<render::Renderer> m_renderer;
 
     bool m_useFpsLimit{true};
     int32_t m_fpsLimit{140};
@@ -114,15 +114,15 @@ class App
     bool m_newSceneDataLoaded{false};
 
     bool m_camFreeLook{false};
-    CameraTransform m_sceneCameraTransform;
-    CameraParameters m_cameraParameters;
-    wheels::Optional<FrustumCorners> m_debugFrustum;
+    scene::CameraTransform m_sceneCameraTransform;
+    scene::CameraParameters m_cameraParameters;
+    wheels::Optional<scene::FrustumCorners> m_debugFrustum;
     glm::vec3 m_frustumDebugColor{1.f, 1.f, 1.f};
     bool m_pickFocusDistance{false};
     glm::vec2 m_pickedFocusPx{-1.f, -1.f};
     bool m_waitFocusDistance{false};
 
-    wheels::StaticArray<SceneStats, MAX_FRAMES_IN_FLIGHT> m_sceneStats;
+    wheels::StaticArray<utils::SceneStats, MAX_FRAMES_IN_FLIGHT> m_sceneStats;
 
     std::chrono::high_resolution_clock::time_point m_lastTimeChange;
     float m_timeOffsetS{0.f};
@@ -130,7 +130,7 @@ class App
 
     uint32_t m_ctorScratchHighWatermark{0};
 
-    Timer m_frameTimer;
+    utils::Timer m_frameTimer;
     std::chrono::time_point<std::chrono::file_clock> m_recompileTime;
 
     wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>

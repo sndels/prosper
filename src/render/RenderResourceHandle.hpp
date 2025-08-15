@@ -5,6 +5,9 @@
 
 #include <wheels/containers/pair.hpp>
 
+namespace render
+{
+
 // Generation is designed to get incremented each time a handle is released,
 // potentially multiple times per frame. A maximum of e.g. 256 generations
 // would enough within a frame but we should also assert against using stale
@@ -27,8 +30,10 @@ template <typename Resource> struct RenderResourceHandle
     [[nodiscard]] bool isValid() const { return index != sNullIndex; }
 };
 
-using BufferHandle = RenderResourceHandle<Buffer>;
-using TexelBufferHandle = RenderResourceHandle<TexelBuffer>;
-using ImageHandle = RenderResourceHandle<Image>;
+using BufferHandle = RenderResourceHandle<gfx::Buffer>;
+using TexelBufferHandle = RenderResourceHandle<gfx::TexelBuffer>;
+using ImageHandle = RenderResourceHandle<gfx::Image>;
+
+} // namespace render
 
 #endif // PROSPER_RENDER_RESOURCE_HANDLE_HPP

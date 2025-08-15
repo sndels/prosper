@@ -13,6 +13,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace scene
+{
+
 namespace
 {
 
@@ -815,7 +818,7 @@ void loadNextMesh(DeferredLoadingContext &ctx)
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
 
-    const QueueFamilies &families = gDevice.queueFamilies();
+    const gfx::QueueFamilies &families = gfx::gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
     WHEELS_ASSERT(families.transferFamily.has_value());
 
@@ -866,7 +869,7 @@ void loadNextMesh(DeferredLoadingContext &ctx)
 
     if (*families.graphicsFamily != *families.transferFamily)
     {
-        const Buffer &buffer =
+        const gfx::Buffer &buffer =
             ctx.geometryBuffers[uploadData.metadata.bufferIndex];
 
         // Transfer ownership of the newly pushed buffer range.
@@ -892,12 +895,12 @@ void loadNextMesh(DeferredLoadingContext &ctx)
 
     ctx.cb.end();
 
-    const vk::Queue transferQueue = gDevice.transferQueue();
+    const vk::Queue transferQueue = gfx::gDevice.transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
         .pCommandBuffers = &ctx.cb,
     };
-    checkSuccess(
+    gfx::checkSuccess(
         transferQueue.submit(1, &submitInfo, vk::Fence{}),
         "submitTextureUpload");
     // We could have multiple uploads in flight, but let's be simple for now
@@ -964,7 +967,7 @@ void loadNextTexture(DeferredLoadingContext &ctx)
             .colorSpace = colorSpace,
         });
 
-    const QueueFamilies &families = gDevice.queueFamilies();
+    const gfx::QueueFamilies &families = gfx::gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
     WHEELS_ASSERT(families.transferFamily.has_value());
 
@@ -997,12 +1000,12 @@ void loadNextTexture(DeferredLoadingContext &ctx)
 
     ctx.cb.end();
 
-    const vk::Queue transferQueue = gDevice.transferQueue();
+    const vk::Queue transferQueue = gfx::gDevice.transferQueue();
     const vk::SubmitInfo submitInfo{
         .commandBufferCount = 1,
         .pCommandBuffers = &ctx.cb,
     };
-    checkSuccess(
+    gfx::checkSuccess(
         transferQueue.submit(1, &submitInfo, vk::Fence{}),
         "submitTextureUpload");
     // We could have multiple uploads in flight, but let's be simple for now
@@ -1020,7 +1023,7 @@ void loadNextTexture(DeferredLoadingContext &ctx)
 void loadingWorker(DeferredLoadingContext *ctx)
 {
     WHEELS_ASSERT(ctx != nullptr);
-    WHEELS_ASSERT(gDevice.graphicsQueue() != gDevice.transferQueue());
+    WHEELS_ASSERT(gfx::gDevice.graphicsQueue() != gfx::gDevice.transferQueue());
 
     setCurrentThreadName("prosper loading");
 
@@ -1044,15 +1047,15 @@ void loadingWorker(DeferredLoadingContext *ctx)
 
 } // namespace
 
-Buffer createTextureStaging()
+gfx::Buffer createTextureStaging()
 {
     // Assume at most 4k at 8bits per channel
     const vk::DeviceSize stagingSize = static_cast<size_t>(4096) *
                                        static_cast<size_t>(4096) *
                                        sizeof(uint32_t);
-    return gDevice.createBuffer(BufferCreateInfo{
+    return gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = stagingSize,
                 .usage = vk::BufferUsageFlagBits::eTransferSrc,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -1071,9 +1074,9 @@ DeferredLoadingContext::~DeferredLoadingContext()
         worker->join();
     }
 
-    gDevice.destroy(stagingBuffer);
+    gfx::gDevice.destroy(stagingBuffer);
 
-    gDevice.destroy(geometryUploadBuffer);
+    gfx::gDevice.destroy(geometryUploadBuffer);
     cgltf_free(gltfData);
 }
 
@@ -1086,19 +1089,20 @@ void DeferredLoadingContext::init(
     sceneDir = WHEELS_MOV(inSceneDir);
     sceneWriteTime = inSceneWriteTime;
     gltfData = &inGltfData;
-    cb = gDevice.logical().allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-        .commandPool = gDevice.transferPool(),
-        .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1})[0];
+    cb = gfx::gDevice.logical().allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo{
+            .commandPool = gfx::gDevice.transferPool(),
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = 1})[0];
     loadedMeshes.reserve(gltfData->meshes_count);
     loadedTextures.reserve(gltfData->images_count);
     materials.reserve(gltfData->materials_count);
 
     stagingBuffer = createTextureStaging();
 
-    geometryUploadBuffer = gDevice.createBuffer(BufferCreateInfo{
+    geometryUploadBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
         .desc =
-            BufferDescription{
+            gfx::BufferDescription{
                 .byteSize = sGeometryBufferSize,
                 .usage = vk::BufferUsageFlagBits::eTransferSrc,
                 .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -1201,7 +1205,7 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
         .dstOffset = startByteOffset,
         .size = cacheHeader.blobByteCount,
     };
-    const Buffer &dstBuffer = geometryBuffers[dstBufferI];
+    const gfx::Buffer &dstBuffer = geometryBuffers[dstBufferI];
     // Don't use the context command buffer since this method is also used
     // by the non-async loading implementations
     cb.copyBuffer(
@@ -1220,7 +1224,7 @@ UploadedGeometryData DeferredLoadingContext::uploadGeometryData(
 
     const UploadedGeometryData ret{
         .metadata =
-            GeometryMetadata{
+            shader_structs::GeometryMetadata{
                 .bufferIndex = dstBufferI,
                 .indicesOffset =
                     (cacheHeader.usesShortIndices == 1 ? startOffsetU16
@@ -1276,9 +1280,9 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
 
     if (dstBufferI >= geometryBuffers.size())
     {
-        Buffer buffer = gDevice.createBuffer(BufferCreateInfo{
+        gfx::Buffer buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
             .desc =
-                BufferDescription{
+                gfx::BufferDescription{
                     .byteSize = sGeometryBufferSize,
                     .usage = vk::BufferUsageFlagBits::
                                  eAccelerationStructureBuildInputReadOnlyKHR |
@@ -1302,3 +1306,5 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
 
     return dstBufferI;
 }
+
+} // namespace scene

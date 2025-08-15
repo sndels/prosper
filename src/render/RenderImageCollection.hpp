@@ -11,6 +11,9 @@
 #include <wheels/containers/inline_array.hpp>
 #include <wheels/containers/string.hpp>
 
+namespace render
+{
+
 class RenderImageCollection
 {
   public:
@@ -26,19 +29,20 @@ class RenderImageCollection
     void destroyResources();
 
     [[nodiscard]] ImageHandle create(
-        const ImageDescription &desc, const char *debugName);
+        const gfx::ImageDescription &desc, const char *debugName);
     // Caller is expected to check validity before calling methods with the
     // handle. This design assumes that the code that creates and releases
     // resources is single-threaded and the handle isn't be released between
     // isValidHandle() and following accessor calls.
     [[nodiscard]] bool isValidHandle(ImageHandle handle) const;
     [[nodiscard]] vk::Image nativeHandle(ImageHandle handle) const;
-    [[nodiscard]] const Image &resource(ImageHandle handle) const;
+    [[nodiscard]] const gfx::Image &resource(ImageHandle handle) const;
     [[nodiscard]] wheels::Span<const vk::ImageView> subresourceViews(
         ImageHandle handle);
-    void transition(vk::CommandBuffer cb, ImageHandle handle, ImageState state);
+    void transition(
+        vk::CommandBuffer cb, ImageHandle handle, gfx::ImageState state);
     [[nodiscard]] wheels::Optional<vk::ImageMemoryBarrier2> transitionBarrier(
-        ImageHandle handle, ImageState state, bool force_barrier = false);
+        ImageHandle handle, gfx::ImageState state, bool force_barrier = false);
     void appendDebugName(ImageHandle handle, wheels::StrSpan name);
     void preserve(ImageHandle handle);
     void release(ImageHandle handle);
@@ -63,8 +67,8 @@ class RenderImageCollection
     [[nodiscard]] bool resourceInUse(uint32_t i) const;
     void assertUniqueDebugName(wheels::StrSpan debugName) const;
 
-    wheels::Array<Image> m_resources{gAllocators.general};
-    wheels::Array<ImageDescription> m_descriptions{gAllocators.general};
+    wheels::Array<gfx::Image> m_resources{gAllocators.general};
+    wheels::Array<gfx::ImageDescription> m_descriptions{gAllocators.general};
     // TODO:
     // Is the sparsity of this array a memory usage problem?
     wheels::Array<wheels::InlineArray<vk::ImageView, sMaxMipCount>>
@@ -80,5 +84,7 @@ class RenderImageCollection
     // the slot can be reused
     wheels::Array<uint32_t> m_freelist{gAllocators.general};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_IMAGE_COLLECTION_HPP

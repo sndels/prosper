@@ -11,6 +11,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::dof
+{
+
 namespace
 {
 
@@ -87,7 +90,7 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
             getExtent2D(input.halfResIllumination);
 
         ret.halfResBokehColorWeight = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR16G16B16A16Sfloat,
                 .width = renderExtent.width,
                 .height = renderExtent.height,
@@ -100,34 +103,34 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
         const vk::DescriptorSet storageSet = computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(input.halfResIllumination)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.halfResCoC)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(input.dilatedTileMinMaxCoC)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(ret.halfResBokehColorWeight)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.trilinearSampler,
                 }},
             }});
@@ -136,11 +139,13 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 4>{{
-                    {input.halfResIllumination, ImageState::ComputeShaderRead},
-                    {input.halfResCoC, ImageState::ComputeShaderRead},
-                    {input.dilatedTileMinMaxCoC, ImageState::ComputeShaderRead},
+                    {input.halfResIllumination,
+                     gfx::ImageState::ComputeShaderRead},
+                    {input.halfResCoC, gfx::ImageState::ComputeShaderRead},
+                    {input.dilatedTileMinMaxCoC,
+                     gfx::ImageState::ComputeShaderRead},
                     {ret.halfResBokehColorWeight,
-                     ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
@@ -164,3 +169,5 @@ DepthOfFieldGather::Output DepthOfFieldGather::record(
 
     return ret;
 }
+
+} // namespace render::dof

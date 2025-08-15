@@ -25,6 +25,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -56,10 +59,10 @@ ForwardRenderer::~ForwardRenderer()
     // init.
     destroyGraphicsPipelines();
 
-    gDevice.logical().destroy(m_meshSetLayout);
+    gfx::gDevice.logical().destroy(m_meshSetLayout);
 
     for (auto const &stage : m_shaderStages)
-        gDevice.logical().destroyShaderModule(stage.module);
+        gfx::gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void ForwardRenderer::init(
@@ -106,10 +109,11 @@ void ForwardRenderer::recompileShaders(
 void ForwardRenderer::startFrame() { m_nextFrameRecord = 0; }
 
 ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const vk::Rect2D &renderArea,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const vk::Rect2D &renderArea,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, bool applyIbl, DrawType drawType, DrawStats &drawStats)
+    uint32_t nextFrame, bool applyIbl, scene::DrawType drawType,
+    DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -213,10 +217,10 @@ ForwardRenderer::OpaqueOutput ForwardRenderer::recordOpaque(
 }
 
 void ForwardRenderer::recordTransparent(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const TransparentInOut &inOutTargets,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const TransparentInOut &inOutTargets,
     const LightClusteringOutput &lightClusters, BufferHandle inOutDrawStats,
-    uint32_t nextFrame, DrawType drawType, DrawStats &drawStats)
+    uint32_t nextFrame, scene::DrawType drawType, DrawStats &drawStats)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -255,10 +259,10 @@ void ForwardRenderer::releasePreserved()
 }
 
 bool ForwardRenderer::compileShaders(
-    ScopedScratch scopeAlloc, const WorldDSLayouts &worldDSLayouts)
+    ScopedScratch scopeAlloc, const scene::WorldDSLayouts &worldDSLayouts)
 {
     const vk::PhysicalDeviceMeshShaderPropertiesEXT &meshShaderProps =
-        gDevice.properties().meshShader;
+        gfx::gDevice.properties().meshShader;
 
     const size_t meshDefsLen = 178;
     String meshDefines{scopeAlloc, meshDefsLen};
@@ -276,9 +280,9 @@ bool ForwardRenderer::compileShaders(
             asserted_cast<uint32_t>(sMaxMsTriangles)));
     WHEELS_ASSERT(meshDefines.size() <= meshDefsLen);
 
-    Optional<Device::ShaderCompileResult> meshResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> meshResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.mesh",
                                           .debugName = "geometryMS",
                                           .defines = meshDefines,
@@ -300,16 +304,16 @@ bool ForwardRenderer::compileShaders(
     appendDefineStr(fragDefines, "SKYBOX_SET", SkyboxBindingSet);
     appendEnumVariantsAsDefines(
         fragDefines, "DrawType",
-        Span{sDrawTypeNames.data(), sDrawTypeNames.size()});
+        Span{scene::sDrawTypeNames.data(), scene::sDrawTypeNames.size()});
     appendDefineStr(fragDefines, "USE_MATERIAL_LOD_BIAS");
     LightClustering::appendShaderDefines(fragDefines);
-    PointLights::appendShaderDefines(fragDefines);
-    SpotLights::appendShaderDefines(fragDefines);
+    scene::PointLights::appendShaderDefines(fragDefines);
+    scene::SpotLights::appendShaderDefines(fragDefines);
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
-    Optional<Device::ShaderCompileResult> fragResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> fragResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.frag",
                                           .debugName = "geometryPS",
                                           .defines = fragDefines,
@@ -318,7 +322,7 @@ bool ForwardRenderer::compileShaders(
     if (meshResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : m_shaderStages)
-            gDevice.logical().destroyShaderModule(stage.module);
+            gfx::gDevice.logical().destroyShaderModule(stage.module);
 
         m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
@@ -345,9 +349,9 @@ bool ForwardRenderer::compileShaders(
     }
 
     if (meshResult.has_value())
-        gDevice.logical().destroy(meshResult->module);
+        gfx::gDevice.logical().destroy(meshResult->module);
     if (fragResult.has_value())
-        gDevice.logical().destroy(fragResult->module);
+        gfx::gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
@@ -363,7 +367,7 @@ void ForwardRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
         m_meshSetLayout};
     const StaticArray<const char *, sDescriptorSetCount> debugNames{
         "ForwardMesh"};
-    gStaticDescriptorsAlloc.allocate(
+    gfx::gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_meshSets.mut_span());
 }
 
@@ -372,11 +376,11 @@ void ForwardRenderer::updateDescriptorSet(
     const DescriptorSetBuffers &buffers) const
 {
     const StaticArray infos{{
-        DescriptorInfo{vk::DescriptorBufferInfo{
+        gfx::DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer = gRenderResources.buffers->nativeHandle(buffers.drawStats),
             .range = VK_WHOLE_SIZE,
         }},
-        DescriptorInfo{vk::DescriptorBufferInfo{
+        gfx::DescriptorInfo{vk::DescriptorBufferInfo{
             .buffer =
                 gRenderResources.buffers->nativeHandle(buffers.dataBuffer),
             .range = VK_WHOLE_SIZE,
@@ -388,7 +392,7 @@ void ForwardRenderer::updateDescriptorSet(
         m_meshReflection->generateDescriptorWrites(
             scopeAlloc, DrawStatsBindingSet, ds, infos);
 
-    gDevice.logical().updateDescriptorSets(
+    gfx::gDevice.logical().updateDescriptorSets(
         asserted_cast<uint32_t>(descriptorWrites.size()),
         descriptorWrites.data(), 0, nullptr);
 }
@@ -396,8 +400,8 @@ void ForwardRenderer::updateDescriptorSet(
 void ForwardRenderer::destroyGraphicsPipelines()
 {
     for (auto &p : m_pipelines)
-        gDevice.logical().destroy(p);
-    gDevice.logical().destroy(m_pipelineLayout);
+        gfx::gDevice.logical().destroy(p);
+    gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
@@ -420,8 +424,8 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         .offset = 0,
         .size = sizeof(ForwardPC),
     };
-    m_pipelineLayout =
-        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
+        vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
             .pushConstantRangeCount = 1,
@@ -435,11 +439,11 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
         }};
 
         const StaticArray<vk::PipelineColorBlendAttachmentState, 2>
-            colorBlendAttachments{opaqueColorBlendAttachment()};
+            colorBlendAttachments{gfx::opaqueColorBlendAttachment()};
 
-        m_pipelines[0] = createGraphicsPipeline(
-            gDevice.logical(),
-            GraphicsPipelineInfo{
+        m_pipelines[0] = gfx::createGraphicsPipeline(
+            gfx::gDevice.logical(),
+            gfx::GraphicsPipelineInfo{
                 .layout = m_pipelineLayout,
                 .colorBlendAttachments = colorBlendAttachments,
                 .shaderStages = m_shaderStages,
@@ -457,11 +461,11 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
 
     {
         const vk::PipelineColorBlendAttachmentState blendAttachment =
-            transparentColorBlendAttachment();
+            gfx::transparentColorBlendAttachment();
 
-        m_pipelines[1] = createGraphicsPipeline(
-            gDevice.logical(),
-            GraphicsPipelineInfo{
+        m_pipelines[1] = gfx::createGraphicsPipeline(
+            gfx::gDevice.logical(),
+            gfx::GraphicsPipelineInfo{
                 .layout = m_pipelineLayout,
                 .colorBlendAttachments = Span{&blendAttachment, 1},
                 .shaderStages = m_shaderStages,
@@ -477,8 +481,9 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
     }
 }
 void ForwardRenderer::recordDraw(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, uint32_t nextFrame, const RecordInOut &inputsOutputs,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, uint32_t nextFrame,
+    const RecordInOut &inputsOutputs,
     const LightClusteringOutput &lightClusters, const Options &options,
     const char *debugName)
 {
@@ -500,13 +505,16 @@ void ForwardRenderer::recordDraw(
 
     InlineArray<ImageTransition, 4> images;
     images.emplace_back(
-        inputsOutputs.inOutIllumination, ImageState::ColorAttachmentReadWrite);
+        inputsOutputs.inOutIllumination,
+        gfx::ImageState::ColorAttachmentReadWrite);
     images.emplace_back(
-        inputsOutputs.inOutDepth, ImageState::DepthAttachmentReadWrite);
-    images.emplace_back(lightClusters.pointers, ImageState::FragmentShaderRead);
+        inputsOutputs.inOutDepth, gfx::ImageState::DepthAttachmentReadWrite);
+    images.emplace_back(
+        lightClusters.pointers, gfx::ImageState::FragmentShaderRead);
     if (inputsOutputs.inOutVelocity.isValid())
         images.emplace_back(
-            inputsOutputs.inOutVelocity, ImageState::ColorAttachmentReadWrite);
+            inputsOutputs.inOutVelocity,
+            gfx::ImageState::ColorAttachmentReadWrite);
 
     transition(
         WHEELS_MOV(scopeAlloc), cb,
@@ -514,13 +522,15 @@ void ForwardRenderer::recordDraw(
             .images = images,
             .buffers = StaticArray<BufferTransition, 3>{{
                 {inputsOutputs.inOutDrawStats,
-                 BufferState::MeshShaderReadWrite},
-                {inputsOutputs.inDataBuffer, BufferState::MeshShaderRead},
-                {inputsOutputs.inArgumentBuffer, BufferState::DrawIndirectRead},
+                 gfx::BufferState::MeshShaderReadWrite},
+                {inputsOutputs.inDataBuffer, gfx::BufferState::MeshShaderRead},
+                {inputsOutputs.inArgumentBuffer,
+                 gfx::BufferState::DrawIndirectRead},
             }},
             .texelBuffers = StaticArray<TexelBufferTransition, 2>{{
-                {lightClusters.indicesCount, BufferState::FragmentShaderRead},
-                {lightClusters.indices, BufferState::FragmentShaderRead},
+                {lightClusters.indicesCount,
+                 gfx::BufferState::FragmentShaderRead},
+                {lightClusters.indices, gfx::BufferState::FragmentShaderRead},
             }},
         });
 
@@ -568,9 +578,9 @@ void ForwardRenderer::recordDraw(
     cb.bindPipeline(
         vk::PipelineBindPoint::eGraphics, m_pipelines[pipelineIndex]);
 
-    const Scene &scene = world.currentScene();
-    const WorldDescriptorSets &worldDSes = world.descriptorSets();
-    const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+    const scene::Scene &scene = world.currentScene();
+    const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+    const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
     StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
         VK_NULL_HANDLE};
@@ -603,7 +613,7 @@ void ForwardRenderer::recordDraw(
         asserted_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(),
         asserted_cast<uint32_t>(dynamicOffsets.size()), dynamicOffsets.data());
 
-    setViewportScissor(cb, renderArea);
+    gfx::setViewportScissor(cb, renderArea);
 
     const ForwardPC pcBlock{
         .drawType = static_cast<uint32_t>(options.drawType),
@@ -624,3 +634,5 @@ void ForwardRenderer::recordDraw(
 
     m_nextFrameRecord++;
 }
+
+} // namespace render

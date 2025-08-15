@@ -25,6 +25,9 @@ using namespace wheels;
 // va_list is not specified by the standard
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 
+namespace utils
+{
+
 namespace
 {
 
@@ -242,3 +245,5 @@ void zzInternalLogError(const char *format...)
 }
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+
+} // namespace utils

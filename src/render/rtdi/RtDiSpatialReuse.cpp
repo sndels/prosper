@@ -15,6 +15,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::rtdi
+{
+
 namespace
 {
 
@@ -29,7 +32,7 @@ enum BindingSet : uint8_t
 };
 
 ComputePass::Shader shaderDefinitionCallback(
-    Allocator &alloc, const WorldDSLayouts &worldDSLayouts)
+    Allocator &alloc, const scene::WorldDSLayouts &worldDSLayouts)
 {
     const size_t len = 768;
     String defines{alloc, len};
@@ -38,8 +41,8 @@ ComputePass::Shader shaderDefinitionCallback(
     appendDefineStr(defines, "STORAGE_SET", StorageBindingSet);
     appendDefineStr(
         defines, "NUM_MATERIAL_SAMPLERS", worldDSLayouts.materialSamplerCount);
-    PointLights::appendShaderDefines(defines);
-    SpotLights::appendShaderDefines(defines);
+    scene::PointLights::appendShaderDefines(defines);
+    scene::SpotLights::appendShaderDefines(defines);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -91,8 +94,8 @@ bool RtDiSpatialReuse::recompileShaders(
 }
 
 RtDiSpatialReuse::Output RtDiSpatialReuse::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const World &world,
-    const Camera &cam, const Input &input, const uint32_t nextFrame)
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
+    const scene::Camera &cam, const Input &input, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -106,7 +109,7 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             getExtent2D(input.gbuffer.albedoRoughness);
 
         ret.reservoirs = gRenderResources.images->create(
-            ImageDescription{
+            gfx::ImageDescription{
                 .format = vk::Format::eR32G32Sfloat,
                 .width = renderExtent.width,
                 .height = renderExtent.height,
@@ -118,36 +121,36 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame,
             StaticArray{{
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(input.gbuffer.albedoRoughness)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
                                      ->resource(input.gbuffer.normalMetalness)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.gbuffer.depth)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(input.reservoirs)
                             .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView =
                         gRenderResources.images->resource(ret.reservoirs).view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
-                DescriptorInfo{vk::DescriptorImageInfo{
+                gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .sampler = gRenderResources.nearestSampler,
                 }},
             }});
@@ -157,19 +160,19 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
             Transitions{
                 .images = StaticArray<ImageTransition, 5>{{
                     {input.gbuffer.albedoRoughness,
-                     ImageState::ComputeShaderRead},
+                     gfx::ImageState::ComputeShaderRead},
                     {input.gbuffer.normalMetalness,
-                     ImageState::ComputeShaderRead},
-                    {input.gbuffer.depth, ImageState::ComputeShaderRead},
-                    {input.reservoirs, ImageState::ComputeShaderRead},
-                    {ret.reservoirs, ImageState::ComputeShaderWrite},
+                     gfx::ImageState::ComputeShaderRead},
+                    {input.gbuffer.depth, gfx::ImageState::ComputeShaderRead},
+                    {input.reservoirs, gfx::ImageState::ComputeShaderRead},
+                    {ret.reservoirs, gfx::ImageState::ComputeShaderWrite},
                 }},
             });
 
         PROFILER_GPU_SCOPE(cb, "  SpatialReuse");
 
-        const WorldDescriptorSets &worldDSes = world.descriptorSets();
-        const WorldByteOffsets &worldByteOffsets = world.byteOffsets();
+        const scene::WorldDescriptorSets &worldDSes = world.descriptorSets();
+        const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
 
         StaticArray<vk::DescriptorSet, BindingSetCount> descriptorSets{
             VK_NULL_HANDLE};
@@ -200,3 +203,5 @@ RtDiSpatialReuse::Output RtDiSpatialReuse::record(
 
     return ret;
 }
+
+} // namespace render::rtdi

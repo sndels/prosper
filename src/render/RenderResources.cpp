@@ -7,6 +7,9 @@
 
 using namespace wheels;
 
+namespace render
+{
+
 // This is used everywhere and init()/destroy() order relative to other similar
 // globals is handled in main()
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -27,7 +30,7 @@ void RenderResources::init()
         OwningPtr<RenderTexelBufferCollection>(gAllocators.general);
 
     this->nearestBorderBlackFloatSampler =
-        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
             .minFilter = vk::Filter::eNearest,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -41,7 +44,7 @@ void RenderResources::init()
             .borderColor = vk::BorderColor::eFloatOpaqueBlack,
         });
     this->nearestSampler =
-        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
             .minFilter = vk::Filter::eNearest,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -54,7 +57,7 @@ void RenderResources::init()
             .maxLod = VK_LOD_CLAMP_NONE,
         });
     this->bilinearSampler =
-        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -67,7 +70,7 @@ void RenderResources::init()
             .maxLod = VK_LOD_CLAMP_NONE,
         });
     this->bilinearBorderTransparentBlackSampler =
-        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -81,7 +84,7 @@ void RenderResources::init()
             .borderColor = vk::BorderColor::eFloatTransparentBlack,
         });
     this->trilinearSampler =
-        gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -101,11 +104,11 @@ void RenderResources::destroy()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.logical().destroy(nearestBorderBlackFloatSampler);
-    gDevice.logical().destroy(nearestSampler);
-    gDevice.logical().destroy(bilinearSampler);
-    gDevice.logical().destroy(bilinearBorderTransparentBlackSampler);
-    gDevice.logical().destroy(trilinearSampler);
+    gfx::gDevice.logical().destroy(nearestBorderBlackFloatSampler);
+    gfx::gDevice.logical().destroy(nearestSampler);
+    gfx::gDevice.logical().destroy(bilinearSampler);
+    gfx::gDevice.logical().destroy(bilinearBorderTransparentBlackSampler);
+    gfx::gDevice.logical().destroy(trilinearSampler);
 
     nearestSampler = vk::Sampler{};
     bilinearSampler = vk::Sampler{};
@@ -178,3 +181,5 @@ void transition(
         .pImageMemoryBarriers = imageBarriers.data(),
     });
 }
+
+} // namespace render

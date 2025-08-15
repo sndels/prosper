@@ -22,6 +22,9 @@
 #define VELOCITY_SAMPLING_TYPE_STRS                                            \
     FOR_EACH(VELOCITY_SAMPLING_TYPES_STRINGIFY, VELOCITY_SAMPLING_TYPES)
 
+namespace render
+{
+
 class TemporalAntiAliasing
 {
   public:
@@ -67,7 +70,7 @@ class TemporalAntiAliasing
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Camera &cam, const Input &input, uint32_t nextFrame);
+        const scene::Camera &cam, const Input &input, uint32_t nextFrame);
     void releasePreserved();
 
   private:
@@ -80,5 +83,7 @@ class TemporalAntiAliasing
     bool m_catmullRom{true};
     bool m_luminanceWeighting{true};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_TEMPORAL_ANTI_ALIASING_HPP

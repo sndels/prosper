@@ -9,6 +9,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace render::dof
+{
+
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
 
@@ -48,5 +51,7 @@ class DepthOfFieldCombine
     bool m_initialized{false};
     ComputePass m_computePass;
 };
+
+} // namespace render::dof
 
 #endif // PROSPER_RENDER_DEPTH_OF_FIELD_COMBINE_HPP

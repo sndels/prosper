@@ -7,6 +7,9 @@
 #include <wheels/allocators/allocator.hpp>
 #include <wheels/containers/array.hpp>
 
+namespace scene
+{
+
 struct Model
 {
     struct SubModel
@@ -22,8 +25,10 @@ struct ModelInstance
 {
     uint32_t id{0};
     uint32_t modelIndex{0xFFFF'FFFF};
-    ModelInstanceTransforms transforms;
+    shader_structs::ModelInstanceTransforms transforms;
     wheels::StrSpan fullName;
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_MODEL_HPP

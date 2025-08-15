@@ -6,6 +6,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/span.hpp>
 
+namespace gfx
+{
+
 // TODO:
 // Tighter transfer, shader access flags
 enum class BufferState : uint16_t
@@ -332,5 +335,7 @@ struct AccelerationStructure
     Buffer buffer;
     vk::DeviceAddress address{0};
 };
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_RESOURCES_HPP

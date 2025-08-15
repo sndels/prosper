@@ -16,6 +16,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render
+{
+
 namespace
 {
 
@@ -38,15 +41,15 @@ DebugRenderer::~DebugRenderer()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    gDevice.logical().destroy(m_linesDSLayout);
+    gfx::gDevice.logical().destroy(m_linesDSLayout);
 
-    for (DebugLines &ls : gRenderResources.debugLines)
-        gDevice.destroy(ls.buffer);
+    for (scene::DebugLines &ls : gRenderResources.debugLines)
+        gfx::gDevice.destroy(ls.buffer);
 
     destroyGraphicsPipeline();
 
     for (auto const &stage : m_shaderStages)
-        gDevice.logical().destroyShaderModule(stage.module);
+        gfx::gDevice.logical().destroyShaderModule(stage.module);
 }
 
 void DebugRenderer::init(
@@ -60,12 +63,12 @@ void DebugRenderer::init(
         throw std::runtime_error("DebugRenderer shader compilation failed");
 
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
-        gRenderResources.debugLines[i] = DebugLines{
-            .buffer = gDevice.createBuffer(BufferCreateInfo{
+        gRenderResources.debugLines[i] = scene::DebugLines{
+            .buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
                 .desc =
-                    BufferDescription{
-                        .byteSize =
-                            DebugLines::sMaxLineCount * DebugLines::sLineBytes,
+                    gfx::BufferDescription{
+                        .byteSize = scene::DebugLines::sMaxLineCount *
+                                    scene::DebugLines::sLineBytes,
                         .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                         .properties =
                             vk::MemoryPropertyFlagBits::eHostCoherent |
@@ -102,7 +105,7 @@ void DebugRenderer::recompileShaders(
 }
 
 void DebugRenderer::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::Camera &cam,
     const RecordInOut &inOutTargets, const uint32_t nextFrame) const
 {
     WHEELS_ASSERT(m_initialized);
@@ -116,8 +119,10 @@ void DebugRenderer::record(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
                 .images = StaticArray<ImageTransition, 2>{{
-                    {inOutTargets.color, ImageState::ColorAttachmentReadWrite},
-                    {inOutTargets.depth, ImageState::DepthAttachmentReadWrite},
+                    {inOutTargets.color,
+                     gfx::ImageState::ColorAttachmentReadWrite},
+                    {inOutTargets.depth,
+                     gfx::ImageState::DepthAttachmentReadWrite},
                 }},
             });
 
@@ -165,7 +170,7 @@ void DebugRenderer::record(
             asserted_cast<uint32_t>(descriptorSets.size()),
             descriptorSets.data(), 1, &cameraOffset);
 
-        setViewportScissor(cb, renderArea);
+        gfx::setViewportScissor(cb, renderArea);
 
         const auto &lines = gRenderResources.debugLines[nextFrame];
         // No need for lines barrier, writes are mapped
@@ -184,17 +189,17 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     appendDefineStr(vertDefines, "GEOMETRY_SET", GeometryBuffersBindingSet);
     WHEELS_ASSERT(vertDefines.size() <= len);
 
-    Optional<Device::ShaderCompileResult> vertResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> vertResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/debug_lines.vert",
                                           .debugName = "debugLinesVS",
                                           .defines = vertDefines,
                                       });
 
-    Optional<Device::ShaderCompileResult> fragResult =
-        gDevice.compileShaderModule(
-            scopeAlloc.child_scope(), Device::CompileShaderModuleArgs{
+    Optional<gfx::Device::ShaderCompileResult> fragResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/debug_color.frag",
                                           .debugName = "debugColorPS",
                                       });
@@ -202,7 +207,7 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     if (vertResult.has_value() && fragResult.has_value())
     {
         for (auto const &stage : m_shaderStages)
-            gDevice.logical().destroyShaderModule(stage.module);
+            gfx::gDevice.logical().destroyShaderModule(stage.module);
 
         m_shaderStages = {{
             vk::PipelineShaderStageCreateInfo{
@@ -223,17 +228,17 @@ bool DebugRenderer::compileShaders(ScopedScratch scopeAlloc)
     }
 
     if (vertResult.has_value())
-        gDevice.logical().destroy(vertResult->module);
+        gfx::gDevice.logical().destroy(vertResult->module);
     if (fragResult.has_value())
-        gDevice.logical().destroy(fragResult->module);
+        gfx::gDevice.logical().destroy(fragResult->module);
 
     return false;
 }
 
 void DebugRenderer::destroyGraphicsPipeline()
 {
-    gDevice.logical().destroy(m_pipeline);
-    gDevice.logical().destroy(m_pipelineLayout);
+    gfx::gDevice.logical().destroy(m_pipeline);
+    gfx::gDevice.logical().destroy(m_pipelineLayout);
 }
 
 void DebugRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
@@ -247,13 +252,13 @@ void DebugRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
         m_linesDSLayout};
     const StaticArray<const char *, MAX_FRAMES_IN_FLIGHT> debugNames{
         "DebugRenderer"};
-    gStaticDescriptorsAlloc.allocate(
+    gfx::gStaticDescriptorsAlloc.allocate(
         layouts, debugNames, m_linesDescriptorSets.mut_span());
 
     for (size_t i = 0; i < m_linesDescriptorSets.size(); ++i)
     {
         const StaticArray descriptorInfos{
-            DescriptorInfo{vk::DescriptorBufferInfo{
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
                 .buffer = gRenderResources.debugLines[i].buffer.handle,
                 .range = VK_WHOLE_SIZE,
             }},
@@ -265,7 +270,7 @@ void DebugRenderer::createDescriptorSets(ScopedScratch scopeAlloc)
                 loopAlloc, GeometryBuffersBindingSet, m_linesDescriptorSets[i],
                 descriptorInfos);
 
-        gDevice.logical().updateDescriptorSets(
+        gfx::gDevice.logical().updateDescriptorSets(
             asserted_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
@@ -279,21 +284,21 @@ void DebugRenderer::createGraphicsPipeline(
     setLayouts[CameraBindingSet] = camDSLayout;
     setLayouts[GeometryBuffersBindingSet] = m_linesDSLayout;
 
-    m_pipelineLayout =
-        gDevice.logical().createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
+        vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
         });
 
     const vk::PipelineColorBlendAttachmentState blendAttachment =
-        opaqueColorBlendAttachment();
+        gfx::opaqueColorBlendAttachment();
 
     // Empty as we'll load vertices manually from a buffer
     const vk::PipelineVertexInputStateCreateInfo vertInputInfo;
 
-    m_pipeline = ::createGraphicsPipeline(
-        gDevice.logical(),
-        GraphicsPipelineInfo{
+    m_pipeline = gfx::createGraphicsPipeline(
+        gfx::gDevice.logical(),
+        gfx::GraphicsPipelineInfo{
             .layout = m_pipelineLayout,
             .vertInputInfo = &vertInputInfo,
             .colorBlendAttachments = Span{&blendAttachment, 1},
@@ -308,3 +313,5 @@ void DebugRenderer::createGraphicsPipeline(
             .debugName = "DebugRenderer::Lines",
         });
 }
+
+} // namespace render

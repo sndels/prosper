@@ -5,6 +5,9 @@
 
 using namespace wheels;
 
+namespace render::dof
+{
+
 void DepthOfField::init(
     ScopedScratch scopeAlloc, vk::DescriptorSetLayout cameraDsLayout)
 {
@@ -41,7 +44,7 @@ void DepthOfField::recompileShaders(
 void DepthOfField::startFrame() { m_filterPass.startFrame(); }
 
 DepthOfField::Output DepthOfField::record(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::Camera &cam,
     const DepthOfField::Input &input, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
@@ -123,3 +126,5 @@ DepthOfField::Output DepthOfField::record(
     }
     return ret;
 }
+
+} // namespace render::dof

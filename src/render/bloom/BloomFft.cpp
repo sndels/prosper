@@ -12,6 +12,9 @@
 using namespace glm;
 using namespace wheels;
 
+namespace render::bloom
+{
+
 namespace
 {
 
@@ -160,7 +163,7 @@ ImageHandle BloomFft::record(
         debugName.extend("Inv");
     debugName.extend("FftPing");
 
-    const ImageDescription targetDesc{
+    const gfx::ImageDescription targetDesc{
         .format = sFftFormat,
         .width = fftExtent.width,
         .height = fftExtent.height,
@@ -176,11 +179,11 @@ ImageHandle BloomFft::record(
     const vk::DescriptorSet inputSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(input).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(pingImage).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
@@ -188,11 +191,11 @@ ImageHandle BloomFft::record(
     const vk::DescriptorSet pingSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(pingImage).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(pongImage).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
@@ -200,11 +203,11 @@ ImageHandle BloomFft::record(
     const vk::DescriptorSet pongSet = m_computePass.updateStorageSet(
         scopeAlloc.child_scope(), nextFrame,
         StaticArray{{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(pongImage).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images->resource(pingImage).view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
@@ -283,8 +286,8 @@ void BloomFft::doIteration(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
-                {iterData.input, ImageState::ComputeShaderRead},
-                {iterData.output, ImageState::ComputeShaderWrite},
+                {iterData.input, gfx::ImageState::ComputeShaderRead},
+                {iterData.output, gfx::ImageState::ComputeShaderWrite},
             }},
         });
 
@@ -308,3 +311,5 @@ void BloomFft::doIteration(
             }),
         });
 }
+
+} // namespace render::bloom

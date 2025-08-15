@@ -10,6 +10,9 @@
 using namespace wheels;
 using namespace glm;
 
+namespace render
+{
+
 namespace
 {
 
@@ -19,7 +22,7 @@ ComputePass::Shader sampleIrradianceShaderDefinitionCallback(Allocator &alloc)
     String defines{alloc, len};
     appendDefineStr(
         defines, "OUT_RESOLUTION",
-        SkyboxResources::sSkyboxIrradianceResolution);
+        scene::SkyboxResources::sSkyboxIrradianceResolution);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -35,7 +38,8 @@ ComputePass::Shader integrateSpecularBrdfShaderDefinitionCallback(
     const size_t len = 32;
     String defines{alloc, len};
     appendDefineStr(
-        defines, "OUT_RESOLUTION", SkyboxResources::sSpecularBrdfLutResolution);
+        defines, "OUT_RESOLUTION",
+        scene::SkyboxResources::sSpecularBrdfLutResolution);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -50,7 +54,8 @@ ComputePass::Shader prefilterRadianceShaderDefinitionCallback(Allocator &alloc)
     const size_t len = 32;
     String defines{alloc, len};
     appendDefineStr(
-        defines, "OUT_RESOLUTION", SkyboxResources::sSkyboxRadianceResolution);
+        defines, "OUT_RESOLUTION",
+        scene::SkyboxResources::sSkyboxRadianceResolution);
     WHEELS_ASSERT(defines.size() <= len);
 
     return ComputePass::Shader{
@@ -102,19 +107,19 @@ void ImageBasedLighting::recompileShaders(
 }
 
 void ImageBasedLighting::recordGeneration(
-    ScopedScratch scopeAlloc, vk::CommandBuffer cb, World &world,
+    ScopedScratch scopeAlloc, vk::CommandBuffer cb, scene::World &world,
     uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
-    SkyboxResources &skyboxResources = world.skyboxResources();
+    scene::SkyboxResources &skyboxResources = world.skyboxResources();
 
     {
         PROFILER_CPU_SCOPE("SampleIrradiance");
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{skyboxResources.texture.imageInfo()},
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{skyboxResources.texture.imageInfo()},
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = skyboxResources.irradiance.view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
@@ -124,28 +129,28 @@ void ImageBasedLighting::recordGeneration(
                 scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.irradiance.transition(
-            cb, ImageState::ComputeShaderWrite);
+            cb, gfx::ImageState::ComputeShaderWrite);
 
         PROFILER_GPU_SCOPE(cb, "SampleIrradiance");
 
-        const uvec3 groupCount = m_sampleIrradiance.groupCount(
-            uvec3{uvec2{SkyboxResources::sSkyboxIrradianceResolution}, 6u});
+        const uvec3 groupCount = m_sampleIrradiance.groupCount(uvec3{
+            uvec2{scene::SkyboxResources::sSkyboxIrradianceResolution}, 6u});
 
         m_sampleIrradiance.record(cb, groupCount, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition
         // for all users
         skyboxResources.irradiance.transition(
-            cb, ImageState::ComputeShaderSampledRead |
-                    ImageState::FragmentShaderSampledRead |
-                    ImageState::RayTracingSampledRead);
+            cb, gfx::ImageState::ComputeShaderSampledRead |
+                    gfx::ImageState::FragmentShaderSampledRead |
+                    gfx::ImageState::RayTracingSampledRead);
     }
 
     {
         PROFILER_CPU_SCOPE("IntegrateSpecularBrdf");
 
         const StaticArray descriptorInfos{
-            DescriptorInfo{vk::DescriptorImageInfo{
+            gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = skyboxResources.specularBrdfLut.view,
                 .imageLayout = vk::ImageLayout::eGeneral,
             }},
@@ -155,21 +160,21 @@ void ImageBasedLighting::recordGeneration(
                 scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         skyboxResources.specularBrdfLut.transition(
-            cb, ImageState::ComputeShaderWrite);
+            cb, gfx::ImageState::ComputeShaderWrite);
 
         PROFILER_GPU_SCOPE(cb, "IntegrateSpecularBrdf");
 
-        const uvec3 groupCount = m_integrateSpecularBrdf.groupCount(
-            uvec3{uvec2{SkyboxResources::sSpecularBrdfLutResolution}, 1u});
+        const uvec3 groupCount = m_integrateSpecularBrdf.groupCount(uvec3{
+            uvec2{scene::SkyboxResources::sSpecularBrdfLutResolution}, 1u});
 
         m_integrateSpecularBrdf.record(cb, groupCount, Span{&storageSet, 1});
 
         // Transition so that the texture can be bound without transition for
         // all users
         skyboxResources.specularBrdfLut.transition(
-            cb, ImageState::ComputeShaderSampledRead |
-                    ImageState::FragmentShaderSampledRead |
-                    ImageState::RayTracingSampledRead);
+            cb, gfx::ImageState::ComputeShaderSampledRead |
+                    gfx::ImageState::FragmentShaderSampledRead |
+                    gfx::ImageState::RayTracingSampledRead);
     }
 
     {
@@ -190,15 +195,16 @@ void ImageBasedLighting::recordGeneration(
             };
 
         const StaticArray descriptorInfos{{
-            DescriptorInfo{skyboxResources.texture.imageInfo()},
-            DescriptorInfo{imageInfos},
+            gfx::DescriptorInfo{skyboxResources.texture.imageInfo()},
+            gfx::DescriptorInfo{imageInfos},
         }};
 
         const vk::DescriptorSet storageSet =
             m_prefilterRadiance.updateStorageSet(
                 scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        skyboxResources.radiance.transition(cb, ImageState::ComputeShaderWrite);
+        skyboxResources.radiance.transition(
+            cb, gfx::ImageState::ComputeShaderWrite);
 
         PROFILER_GPU_SCOPE(cb, "PrefilterRadiance");
 
@@ -208,7 +214,7 @@ void ImageBasedLighting::recordGeneration(
         // Multiple tighter dispatches or a more complex group assignment in
         // shader?
         const uvec3 groupCount = m_prefilterRadiance.groupCount(uvec3{
-            uvec2{SkyboxResources::sSkyboxRadianceResolution},
+            uvec2{scene::SkyboxResources::sSkyboxRadianceResolution},
             6 * skyboxResources.radiance.mipCount});
 
         m_prefilterRadiance.record(
@@ -221,9 +227,11 @@ void ImageBasedLighting::recordGeneration(
         // Transition so that the texture can be bound without transition
         // for all users
         skyboxResources.radiance.transition(
-            cb, ImageState::ComputeShaderSampledRead |
-                    ImageState::FragmentShaderSampledRead |
-                    ImageState::RayTracingSampledRead);
+            cb, gfx::ImageState::ComputeShaderSampledRead |
+                    gfx::ImageState::FragmentShaderSampledRead |
+                    gfx::ImageState::RayTracingSampledRead);
     }
     m_generated = true;
 }
+
+} // namespace render

@@ -9,6 +9,9 @@
 #include <wheels/containers/optional.hpp>
 #include <wheels/containers/static_array.hpp>
 
+namespace scene
+{
+
 struct CameraOffset
 {
     glm::vec3 eye{0.f, 0.f, 0.f};
@@ -69,7 +72,7 @@ class Camera
     Camera &operator=(const Camera &other) = delete;
     Camera &operator=(Camera &&other) = delete;
 
-    void init(wheels::ScopedScratch scopeAlloc, RingBuffer &constantsRing);
+    void init(wheels::ScopedScratch scopeAlloc, gfx::RingBuffer &constantsRing);
     void endFrame();
 
     void lookAt(const CameraTransform &transform);
@@ -109,7 +112,7 @@ class Camera
     void updateFrustumPlanes(const FrustumCorners &corners);
 
     bool m_initialized{false};
-    RingBuffer *m_constantsRing{nullptr};
+    gfx::RingBuffer *m_constantsRing{nullptr};
 
     CameraTransform m_transform;
     CameraParameters m_parameters;
@@ -134,12 +137,14 @@ class Camera
     glm::vec4 m_bottomPlane{0.f};
     float m_maxViewScale{1.f};
 
-    wheels::Optional<ShaderReflection> m_bindingsReflection;
+    wheels::Optional<gfx::ShaderReflection> m_bindingsReflection;
     vk::DescriptorSetLayout m_descriptorSetLayout;
     vk::DescriptorSet m_descriptorSet;
     bool m_changedThisFrame{true};
     bool m_applyJitter{false};
     size_t m_jitterIndex{0};
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_CAMERA_HPP

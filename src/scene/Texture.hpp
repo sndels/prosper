@@ -8,6 +8,9 @@
 #include <filesystem>
 #include <wheels/allocators/scoped_scratch.hpp>
 
+namespace scene
+{
+
 class Texture
 {
   public:
@@ -25,7 +28,7 @@ class Texture
   protected:
     void destroy();
 
-    Image m_image;
+    gfx::Image m_image;
 };
 
 enum class TextureColorSpace : uint8_t
@@ -38,7 +41,7 @@ struct Texture2DOptions
 {
     bool generateMipMaps{false};
     TextureColorSpace colorSpace{TextureColorSpace::sRgb};
-    ImageState initialState{ImageState::Unknown};
+    gfx::ImageState initialState{gfx::ImageState::Unknown};
 };
 
 class Texture2D : public Texture
@@ -48,7 +51,7 @@ class Texture2D : public Texture
     // and has finished executing.
     void init(
         wheels::ScopedScratch scopeAlloc, const std::filesystem::path &path,
-        vk::CommandBuffer cb, const Buffer &stagingBuffer,
+        vk::CommandBuffer cb, const gfx::Buffer &stagingBuffer,
         const Texture2DOptions &options = Texture2DOptions{});
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
@@ -59,7 +62,7 @@ class Texture3D : public Texture
   public:
     void init(
         wheels::ScopedScratch scopeAlloc, const std::filesystem::path &path,
-        ImageState initialState = ImageState::Unknown);
+        gfx::ImageState initialState = gfx::ImageState::Unknown);
 
     [[nodiscard]] vk::DescriptorImageInfo imageInfo() const override;
 };
@@ -82,10 +85,12 @@ class TextureCubemap : public Texture
 
   private:
     void copyPixels(
-        wheels::ScopedScratch scopeAlloc, const Ktx &cube,
+        wheels::ScopedScratch scopeAlloc, const utils::Ktx &cube,
         const vk::ImageSubresourceRange &subresourceRange) const;
 
     vk::Sampler m_sampler;
 };
+
+} // namespace scene
 
 #endif // PROSPER_SCENE_TEXTURE_HPP

@@ -1,6 +1,9 @@
 #ifndef PROSPER_UTILS_LOGGER_HPP
 #define PROSPER_UTILS_LOGGER_HPP
 
+namespace utils
+{
+
 // This wraps fprintf and isolates <windows.h> in the cpp
 // NOLINTNEXTLINE(cert-dcl50-cpp)
 void zzInternalLogInfo(const char *format...);
@@ -20,8 +23,10 @@ void zzInternalLogError(const char *format...);
 // allow it to be quarantined in Logger.cpp. I didn't look much into the linux
 // build, but total compile time increased by ~30% in debug builds at least.
 
-#define LOG_INFO(...) zzInternalLogInfo(__VA_ARGS__)
-#define LOG_WARN(...) zzInternalLogWarning(__VA_ARGS__)
-#define LOG_ERR(...) zzInternalLogError(__VA_ARGS__)
+} // namespace utils
+
+#define LOG_INFO(...) utils::zzInternalLogInfo(__VA_ARGS__)
+#define LOG_WARN(...) utils::zzInternalLogWarning(__VA_ARGS__)
+#define LOG_ERR(...) utils::zzInternalLogError(__VA_ARGS__)
 
 #endif // PROSPER_UTILS_LOGGER_HPP

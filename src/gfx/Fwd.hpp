@@ -1,6 +1,9 @@
 #ifndef PROSPER_GFX_FWD_HPP
 #define PROSPER_GFX_FWD_HPP
 
+namespace gfx
+{
+
 // DescriptorAllocator.hpp
 class DescriptorAllocator;
 
@@ -35,5 +38,7 @@ class Swapchain;
 struct SwapchainConfig;
 struct SwapchainImage;
 struct SwapchainSupport;
+
+} // namespace gfx
 
 #endif // PROSPER_GFX_FWD_HPP

@@ -94,4 +94,5 @@ void setCurrentThreadName(const char *name)
         LOG_WARN("Failed to set thread name for '%s'", name);
 
 #endif // _WIN32
-}
+
+} // namespace utils

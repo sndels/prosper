@@ -33,6 +33,9 @@
 using namespace wheels;
 using namespace glm;
 
+namespace render
+{
+
 namespace
 {
 
@@ -40,14 +43,14 @@ constexpr uint32_t sDrawStatsByteSize = 2 * sizeof(uint32_t);
 
 void blitFinalComposite(
     vk::CommandBuffer cb, ImageHandle finalComposite,
-    const SwapchainImage &swapImage)
+    const gfx::SwapchainImage &swapImage)
 {
     // Blit to support different internal rendering resolution (and color
     // format?) the future
 
     const StaticArray barriers{{
         *gRenderResources.images->transitionBarrier(
-            finalComposite, ImageState::TransferSrc, true),
+            finalComposite, gfx::ImageState::TransferSrc, true),
         // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#combined-graphicspresent-queue
         vk::ImageMemoryBarrier2{
             .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
@@ -134,15 +137,16 @@ Renderer::Renderer() noexcept
 , m_forwardRenderer{OwningPtr<ForwardRenderer>{gAllocators.general}}
 , m_gbufferRenderer{OwningPtr<GBufferRenderer>{gAllocators.general}}
 , m_deferredShading{OwningPtr<DeferredShading>{gAllocators.general}}
-, m_rtDirectIllumination{OwningPtr<RtDirectIllumination>{gAllocators.general}}
+, m_rtDirectIllumination{OwningPtr<rtdi::RtDirectIllumination>{
+      gAllocators.general}}
 , m_rtReference{OwningPtr<RtReference>{gAllocators.general}}
 , m_skyboxRenderer{OwningPtr<SkyboxRenderer>{gAllocators.general}}
 , m_debugRenderer{OwningPtr<DebugRenderer>{gAllocators.general}}
 , m_toneMap{OwningPtr<ToneMap>{gAllocators.general}}
 , m_imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
 , m_textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
-, m_depthOfField{OwningPtr<DepthOfField>{gAllocators.general}}
-, m_bloom{OwningPtr<Bloom>{gAllocators.general}}
+, m_depthOfField{OwningPtr<dof::DepthOfField>{gAllocators.general}}
+, m_bloom{OwningPtr<bloom::Bloom>{gAllocators.general}}
 , m_imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
 , m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
 , m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
@@ -154,10 +158,12 @@ Renderer::Renderer() noexcept
 Renderer::~Renderer() = default;
 
 void Renderer::init(
-    wheels::ScopedScratch scopeAlloc, const SwapchainConfig &swapchainConfig,
-    vk::DescriptorSetLayout camDsLayout, const WorldDSLayouts &worldDsLayouts)
+    wheels::ScopedScratch scopeAlloc,
+    const gfx::SwapchainConfig &swapchainConfig,
+    vk::DescriptorSetLayout camDsLayout,
+    const scene::WorldDSLayouts &worldDsLayouts)
 {
-    const Timer gpuPassesInitTimer;
+    const utils::Timer gpuPassesInitTimer;
     m_meshletCuller->init(
         scopeAlloc.child_scope(), worldDsLayouts, camDsLayout);
     m_hierarchicalDepthDownsampler->init(scopeAlloc.child_scope());
@@ -217,12 +223,12 @@ void Renderer::startFrame(bool drawUi)
 
 void Renderer::recompileShaders(
     wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout,
-    const WorldDSLayouts &worldDsLayouts,
+    const scene::WorldDSLayouts &worldDsLayouts,
     const HashSet<std::filesystem::path> &changedFiles)
 {
     LOG_INFO("Recompiling shaders");
 
-    const Timer t;
+    const utils::Timer t;
 
     m_lightClustering->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout, worldDsLayouts);
@@ -283,7 +289,7 @@ void Renderer::recreateViewportRelated()
     };
 }
 
-bool Renderer::drawUi(Camera &cam)
+bool Renderer::drawUi(scene::Camera &cam)
 {
     ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin(
@@ -328,7 +334,8 @@ bool Renderer::drawUi(Camera &cam)
 
     if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        rtDirty |= enumDropdown("Draw type", m_drawType, sDrawTypeNames);
+        rtDirty |=
+            utils::enumDropdown("Draw type", m_drawType, scene::sDrawTypeNames);
         if (m_referenceRt)
             m_rtReference->drawUi();
         else
@@ -348,9 +355,10 @@ bool Renderer::drawUi(Camera &cam)
 }
 
 void Renderer::render(
-    wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Camera &cam,
-    World &world, const vk::Rect2D &renderArea, const SwapchainImage &swapImage,
-    const uint32_t nextFrame, const Options &options)
+    wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
+    const scene::Camera &cam, scene::World &world, const vk::Rect2D &renderArea,
+    const gfx::SwapchainImage &swapImage, const uint32_t nextFrame,
+    const Options &options)
 {
     // Clear stats for new frame
     DrawStats &drawStats = m_drawStats[nextFrame];
@@ -367,7 +375,7 @@ void Renderer::render(
         scopeAlloc.child_scope(), cb, world, cam, renderArea.extent, nextFrame);
 
     const BufferHandle gpuDrawStats = gRenderResources.buffers->create(
-        BufferDescription{
+        gfx::BufferDescription{
             .byteSize = sDrawStatsByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst |
                      vk::BufferUsageFlagBits::eTransferSrc |
@@ -377,7 +385,7 @@ void Renderer::render(
         "DrawStats");
 
     gRenderResources.buffers->transition(
-        cb, gpuDrawStats, BufferState::TransferDst);
+        cb, gpuDrawStats, gfx::BufferState::TransferDst);
     cb.fillBuffer(
         gRenderResources.buffers->nativeHandle(gpuDrawStats), 0,
         sDrawStatsByteSize, 0);
@@ -497,9 +505,9 @@ void Renderer::render(
 
         if (m_applyBloom)
         {
-            const Bloom::Output bloomOutput = m_bloom->record(
+            const bloom::Bloom::Output bloomOutput = m_bloom->record(
                 scopeAlloc.child_scope(), cb,
-                Bloom::Input{
+                bloom::Bloom::Input{
                     .illumination = illumination,
                 },
                 nextFrame);
@@ -532,9 +540,9 @@ void Renderer::render(
         // that doesn't blend foreground/background (Karis/Abadie).
         if (m_renderDoF)
         {
-            const DepthOfField::Output dofOutput = m_depthOfField->record(
+            const dof::DepthOfField::Output dofOutput = m_depthOfField->record(
                 scopeAlloc.child_scope(), cb, cam,
-                DepthOfField::Input{
+                dof::DepthOfField::Input{
                     .illumination = illumination,
                     .depth = depth,
                 },
@@ -562,7 +570,7 @@ void Renderer::render(
     {
         const ImVec2 size = m_imguiRenderer->centerAreaSize();
         const ImVec2 offset = m_imguiRenderer->centerAreaOffset();
-        const CursorState cursor = gInputHandler.cursor();
+        const utils::CursorState cursor = utils::gInputHandler.cursor();
 
         // Have magnifier when mouse is on (an active) debug view
         const bool uiHovered = ImGui::IsAnyItemHovered();
@@ -579,16 +587,16 @@ void Renderer::render(
         {
             // Also don't have magnifier when e.g. mouse look is active. Let
             // InputHandler figure out if mouse should be visible or not.
-            if (!gInputHandler.mouseGesture().has_value())
+            if (!utils::gInputHandler.mouseGesture().has_value())
             {
                 // The magnifier has its own pointer so let's not mask the view
                 // with the OS one.
-                gInputHandler.hideCursor();
+                utils::gInputHandler.hideCursor();
                 cursorCoord = cursor.position - vec2(offset.x, offset.y);
             }
         }
         else
-            gInputHandler.showCursor();
+            utils::gInputHandler.showCursor();
 
         const ImageHandle debugOutput = m_textureDebug->record(
             scopeAlloc.child_scope(), cb, renderArea.extent, cursorCoord,
@@ -700,7 +708,7 @@ ImageHandle Renderer::blitColorToFinalComposite(
     const vk::Extent2D &swapImageExtent, bool drawUi)
 {
     const ImageHandle finalComposite = gRenderResources.images->create(
-        ImageDescription{
+        gfx::ImageDescription{
             .format = sFinalCompositeFormat,
             .width = swapImageExtent.width,
             .height = swapImageExtent.height,
@@ -717,8 +725,8 @@ ImageHandle Renderer::blitColorToFinalComposite(
         WHEELS_MOV(scopeAlloc), cb,
         Transitions{
             .images = StaticArray<ImageTransition, 2>{{
-                {toneMapped, ImageState::TransferSrc},
-                {finalComposite, ImageState::TransferDst},
+                {toneMapped, gfx::ImageState::TransferSrc},
+                {finalComposite, gfx::ImageState::TransferDst},
             }},
         });
 
@@ -826,7 +834,7 @@ void Renderer::readbackDrawStats(
     BufferHandle &dstBuffer = m_gpuDrawStats[nextFrame];
     WHEELS_ASSERT(!gRenderResources.buffers->isValidHandle(dstBuffer));
     dstBuffer = gRenderResources.buffers->create(
-        BufferDescription{
+        gfx::BufferDescription{
             .byteSize = sDrawStatsByteSize,
             .usage = vk::BufferUsageFlagBits::eTransferDst,
             .properties = vk::MemoryPropertyFlagBits::eHostVisible |
@@ -839,9 +847,9 @@ void Renderer::readbackDrawStats(
 
     const StaticArray barriers{{
         *gRenderResources.buffers->transitionBarrier(
-            srcBuffer, BufferState::TransferSrc, true),
+            srcBuffer, gfx::BufferState::TransferSrc, true),
         *gRenderResources.buffers->transitionBarrier(
-            dstBuffer, BufferState::TransferDst, true),
+            dstBuffer, gfx::BufferState::TransferDst, true),
     }};
 
     cb.pipelineBarrier2(vk::DependencyInfo{
@@ -858,3 +866,5 @@ void Renderer::readbackDrawStats(
         gRenderResources.buffers->nativeHandle(srcBuffer),
         gRenderResources.buffers->nativeHandle(dstBuffer), 1, &region);
 }
+
+} // namespace render

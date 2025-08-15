@@ -17,6 +17,9 @@
 #include <wheels/containers/static_array.hpp>
 #include <wheels/owning_ptr.hpp>
 
+namespace render
+{
+
 class Renderer
 {
   public:
@@ -30,20 +33,20 @@ class Renderer
 
     void init(
         wheels::ScopedScratch scopeAlloc,
-        const SwapchainConfig &swapchainConfig,
+        const gfx::SwapchainConfig &swapchainConfig,
         vk::DescriptorSetLayout camDsLayout,
-        const WorldDSLayouts &worldDsLayouts);
+        const scene::WorldDSLayouts &worldDsLayouts);
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDsLayout,
-        const WorldDSLayouts &worldDsLayouts,
+        const scene::WorldDSLayouts &worldDsLayouts,
         const wheels::HashSet<std::filesystem::path> &changedFiles);
     static void recreateSwapchainAndRelated();
     void recreateViewportRelated();
 
     void startFrame(bool drawUi);
     // Returns true if rt should be marked dirty
-    [[nodiscard]] bool drawUi(Camera &cam);
+    [[nodiscard]] bool drawUi(scene::Camera &cam);
 
     [[nodiscard]] const DrawStats &drawStats(uint32_t nextFrame);
     [[nodiscard]] const vk::Extent2D &viewportExtentInUi() const;
@@ -63,9 +66,9 @@ class Renderer
     };
     void render(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const Camera &cam, World &world, const vk::Rect2D &renderArea,
-        const SwapchainImage &swapImage, uint32_t nextFrame,
-        const Options &options);
+        const scene::Camera &cam, scene::World &world,
+        const vk::Rect2D &renderArea, const gfx::SwapchainImage &swapImage,
+        uint32_t nextFrame, const Options &options);
 
   private:
     [[nodiscard]] ImageHandle blitColorToFinalComposite(
@@ -82,15 +85,15 @@ class Renderer
     wheels::OwningPtr<ForwardRenderer> m_forwardRenderer;
     wheels::OwningPtr<GBufferRenderer> m_gbufferRenderer;
     wheels::OwningPtr<DeferredShading> m_deferredShading;
-    wheels::OwningPtr<RtDirectIllumination> m_rtDirectIllumination;
+    wheels::OwningPtr<rtdi::RtDirectIllumination> m_rtDirectIllumination;
     wheels::OwningPtr<RtReference> m_rtReference;
     wheels::OwningPtr<SkyboxRenderer> m_skyboxRenderer;
     wheels::OwningPtr<DebugRenderer> m_debugRenderer;
     wheels::OwningPtr<ToneMap> m_toneMap;
     wheels::OwningPtr<ImGuiRenderer> m_imguiRenderer;
     wheels::OwningPtr<TextureDebug> m_textureDebug;
-    wheels::OwningPtr<DepthOfField> m_depthOfField;
-    wheels::OwningPtr<Bloom> m_bloom;
+    wheels::OwningPtr<dof::DepthOfField> m_depthOfField;
+    wheels::OwningPtr<bloom::Bloom> m_bloom;
     wheels::OwningPtr<ImageBasedLighting> m_imageBasedLighting;
     wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
     wheels::OwningPtr<TextureReadback> m_textureReadback;
@@ -109,7 +112,9 @@ class Renderer
     bool m_applyIbl{false};
     bool m_applyTaa{true};
     bool m_applyJitter{true};
-    DrawType m_drawType{DrawType::Default};
+    scene::DrawType m_drawType{scene::DrawType::Default};
 };
+
+} // namespace render
 
 #endif // PROSPER_RENDER_RENDERER_HPP

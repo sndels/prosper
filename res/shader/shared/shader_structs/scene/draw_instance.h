@@ -3,6 +3,11 @@
 
 #include "../fields.h"
 
+#ifdef __cplusplus
+namespace scene::shader_structs
+{
+#endif // __cplusplus
+
 struct DrawInstance
 {
     STRUCT_FIELD_GLM(uint, modelInstanceIndex, 0);
@@ -14,6 +19,8 @@ struct DrawInstance
 
 // These are uploaded onto the gpu and tight packing is assumed
 static_assert(alignof(DrawInstance) == sizeof(uint32_t));
+
+} // namespace scene::shader_structs
 
 #endif // __cplusplus
 

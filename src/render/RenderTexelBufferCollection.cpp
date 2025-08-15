@@ -3,6 +3,9 @@
 #include "gfx/Device.hpp"
 #include "utils/Utils.hpp"
 
+namespace render
+{
+
 RenderTexelBufferCollection::~RenderTexelBufferCollection()
 {
     RenderTexelBufferCollection::destroyResources();
@@ -50,9 +53,9 @@ void RenderTexelBufferCollection::startFrame()
             {
                 WHEELS_ASSERT(!m_preserved[i]);
 
-                gDevice.destroy(m_resources[i]);
-                m_resources[i] = TexelBuffer{};
-                m_descriptions[i] = TexelBufferDescription{};
+                gfx::gDevice.destroy(m_resources[i]);
+                m_resources[i] = gfx::TexelBuffer{};
+                m_descriptions[i] = gfx::TexelBufferDescription{};
                 m_aliasedDebugNames[i].clear();
                 // Generations should stay as is, we can reuse the handle for
                 // another resource
@@ -70,8 +73,8 @@ void RenderTexelBufferCollection::startFrame()
 
 void RenderTexelBufferCollection::destroyResources()
 {
-    for (TexelBuffer &res : m_resources)
-        gDevice.destroy(res);
+    for (gfx::TexelBuffer &res : m_resources)
+        gfx::gDevice.destroy(res);
 
     m_resources.clear();
     m_descriptions.clear();
@@ -92,7 +95,7 @@ void RenderTexelBufferCollection::destroyResources()
 }
 
 TexelBufferHandle RenderTexelBufferCollection::create(
-    const TexelBufferDescription &desc, const char *debugName)
+    const gfx::TexelBufferDescription &desc, const char *debugName)
 {
     const uint32_t descCount = asserted_cast<uint32_t>(m_descriptions.size());
     for (uint32_t i = 0; i < descCount; ++i)
@@ -101,7 +104,7 @@ TexelBufferHandle RenderTexelBufferCollection::create(
         {
             WHEELS_ASSERT(!m_preserved[i]);
 
-            const TexelBufferDescription &existingDesc = m_descriptions[i];
+            const gfx::TexelBufferDescription &existingDesc = m_descriptions[i];
             if (existingDesc.matches(desc))
             {
                 // Don't reuse the actively debugged resource to avoid stomping
@@ -155,7 +158,7 @@ TexelBufferHandle RenderTexelBufferCollection::create(
     WHEELS_ASSERT(!resourceInUse(index));
     WHEELS_ASSERT(m_resources[index].handle == vk::Buffer{});
 
-    m_resources[index] = gDevice.create(TexelBufferCreateInfo{
+    m_resources[index] = gfx::gDevice.create(gfx::TexelBufferCreateInfo{
         .desc = desc,
         .debugName = debugName,
     });
@@ -217,7 +220,7 @@ vk::Buffer RenderTexelBufferCollection::nativeHandle(
     return m_resources[handle.index].handle;
 }
 
-const TexelBuffer &RenderTexelBufferCollection::resource(
+const gfx::TexelBuffer &RenderTexelBufferCollection::resource(
     TexelBufferHandle handle) const
 {
     assertValidHandle(handle);
@@ -226,7 +229,7 @@ const TexelBuffer &RenderTexelBufferCollection::resource(
 }
 
 void RenderTexelBufferCollection::transition(
-    vk::CommandBuffer cb, TexelBufferHandle handle, BufferState state)
+    vk::CommandBuffer cb, TexelBufferHandle handle, gfx::BufferState state)
 {
     assertValidHandle(handle);
 
@@ -235,7 +238,7 @@ void RenderTexelBufferCollection::transition(
 
 wheels::Optional<vk::BufferMemoryBarrier2> RenderTexelBufferCollection::
     transitionBarrier(
-        TexelBufferHandle handle, BufferState state, bool force_barrier)
+        TexelBufferHandle handle, gfx::BufferState state, bool force_barrier)
 {
     assertValidHandle(handle);
 
@@ -254,7 +257,7 @@ void RenderTexelBufferCollection::appendDebugName(
 
     // TODO: Set these at once? Need to be careful to set before
     // submits?
-    gDevice.logical().setDebugUtilsObjectNameEXT(
+    gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
         vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eBuffer,
             .objectHandle = reinterpret_cast<uint64_t>(
@@ -383,3 +386,5 @@ void RenderTexelBufferCollection::assertUniqueDebugName(
     (void)debugName;
 #endif // NDEBUG
 }
+
+} // namespace render

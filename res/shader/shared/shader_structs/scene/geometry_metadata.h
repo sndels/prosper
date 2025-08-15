@@ -3,6 +3,11 @@
 
 #include "../fields.h"
 
+#ifdef __cplusplus
+namespace scene::shader_structs
+{
+#endif // __cplusplus
+
 struct GeometryMetadata
 {
     STRUCT_FIELD_GLM(uint, bufferIndex, 0xFFFF'FFFF);
@@ -27,6 +32,8 @@ struct GeometryMetadata
 
 // These are uploaded onto the gpu and tight packing is assumed
 static_assert(alignof(GeometryMetadata) == sizeof(uint32_t));
+
+} //  namespace scene::shader_structs
 
 #endif // __cplusplus
 

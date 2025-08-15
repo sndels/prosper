@@ -9,6 +9,9 @@
 
 using namespace wheels;
 
+namespace render::bloom
+{
+
 void Bloom::init(ScopedScratch scopeAlloc)
 {
     WHEELS_ASSERT(!m_initialized);
@@ -54,8 +57,8 @@ void Bloom::startFrame()
 void Bloom::drawUi()
 {
     ImGui::Indent();
-    enumDropdown("Technique", m_technique, sBloomTechniqueNames);
-    enumDropdown(
+    utils::enumDropdown("Technique", m_technique, sBloomTechniqueNames);
+    utils::enumDropdown(
         "Resolution scale", m_resolutionScale, sResolutionScaleTypeNames);
     m_separate.drawUi();
     m_generateKernel.drawUi();
@@ -143,3 +146,5 @@ void Bloom::releasePreserved()
 
     m_generateKernel.releasePreserved();
 }
+
+} // namespace render::bloom

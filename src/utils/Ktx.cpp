@@ -9,6 +9,9 @@
 
 using namespace wheels;
 
+namespace utils
+{
+
 // Based on the official specs
 // https://registry.khronos.org/KTX/specs/1.0/ktxspec.v1.html
 // https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html
@@ -161,3 +164,5 @@ Ktx readKtx(Allocator &alloc, const std::filesystem::path &path)
 
     return ret;
 }
+
+} // namespace utils
