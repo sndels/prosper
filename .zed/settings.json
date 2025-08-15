@@ -38,7 +38,7 @@
       "format_on_save": "on",
       "formatter": {
         "external": {
-          // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clang-format-18.exe
+          // To make this work on windows, LLVM/bin needs to be in PATH and clang-format.exe should be duplicated as clang-format-19.exe
           "command": "clang-format-19",
           "arguments": ["--assume-filename", "{buffer_path}"]
         }
@@ -48,7 +48,7 @@
       "format_on_save": "on",
       "formatter": {
         "external": {
-          // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clang-format-18.exe
+          // To make this work on windows, LLVM/bin needs to be in PATH and clang-format.exe should be duplicated as clang-format-19.exe
           "command": "clang-format-19",
           "arguments": ["--assume-filename", "{buffer_path}"]
         }
@@ -56,7 +56,7 @@
     }
   },
   "lsp": {
-    // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clangd-18.exe
+    // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clangd-19.exe
     "clangd": { "binary": { "path": "clangd-19" } }
   },
   "remove_trailing_whitespace_on_save": true,
