@@ -17,13 +17,13 @@ layout(location = 1) in float inZCam;
 layout(location = 2) in vec2 inTexCoord0;
 layout(location = 3) in vec4 inPositionNDC;
 layout(location = 4) in vec4 inPrevPositionNDC;
-layout(location = 5) in vec3 inNormalWorld;
+layout(location = 5) in vec3 inNormalWS;
 layout(location = 6) in vec4 inTangentWorldSign;
 layout(location = 7) in flat uint inDrawInstanceIndex;
 layout(location = 8) in flat uint inMeshletIndex;
 
 layout(location = 0) out vec4 outAlbedoRoughness;
-layout(location = 1) out vec4 outNormalMetallic;
+layout(location = 1) out vec4 outNormalWSMetallic;
 layout(location = 2) out vec2 outVelocity;
 
 vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
@@ -65,10 +65,10 @@ void main()
     vec3 normal;
     if (material.normal.x != -2) // -2 signals no material normal
         normal = mappedNormal(
-            material.normal, inNormalWorld, inTangentWorldSign.xyz,
+            material.normal, inNormalWS, inTangentWorldSign.xyz,
             inTangentWorldSign.w);
     else
-        normal = normalize(inNormalWorld);
+        normal = normalize(inNormalWS);
     vec3 encodedNormal = signedOctEncode(normal);
 
     // Store in NDC like in https://alextardif.com/TAA.html
@@ -88,7 +88,7 @@ void main()
         if (PC.drawType == DrawType_MeshletID)
         {
             outAlbedoRoughness = vec4(uintToColor(inMeshletIndex), 1);
-            outNormalMetallic = vec4(0);
+            outNormalWSMetallic = vec4(0);
             return;
         }
 
@@ -100,11 +100,11 @@ void main()
         di.texCoord0 = inTexCoord0;
         outAlbedoRoughness =
             vec4(commonDebugDraw(PC.drawType, di, material), 1);
-        outNormalMetallic = vec4(0);
+        outNormalWSMetallic = vec4(0);
         return;
     }
 
     outAlbedoRoughness = vec4(material.albedo, material.roughness);
-    outNormalMetallic =
+    outNormalWSMetallic =
         vec4(encodedNormal.xy, material.metallic, encodedNormal.z);
 }
