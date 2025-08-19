@@ -1,7 +1,9 @@
 [
   {
-    "label": "clang-tidy (Linux)",
-    "command": "./scripts/clang_tidy.sh",
+    "label": "Cmake Ninja (Windows)",
+    "tags": ["build"],
+    "command": "./scripts/cmake.bat",
+    "args": [],
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -9,9 +11,10 @@
     "shell": "system"
   },
   {
-    "label": "clang-tidy (Windows)",
+    "label": "Cmake Ninja (Linux)",
     "tags": ["build"],
-    "command": "scripts/clang_tidy.bat",
+    "command": "./scripts/cmake.sh",
+    "args": [],
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -20,6 +23,7 @@
   },
   {
     "label": "Generate compile commands (Linux)",
+    "tags": ["analysis"],
     "command": "./scripts/generate_compile_commands.sh",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
@@ -29,7 +33,7 @@
   },
   {
     "label": "Generate compile commands (Windows)",
-    "tags": ["build"],
+    "tags": ["analysis"],
     "command": "scripts/cmake_compile_commands.bat",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
@@ -38,29 +42,11 @@
     "shell": "system"
   },
   {
-    "label": "Ninja (Debug)",
-    "command": "./scripts/ninja.sh",
-    "args": ["Debug"],
-    "use_new_terminal": false,
-    "allow_concurrent_runs": false,
-    "reveal": "always",
-    "hide": "never",
-    "shell": "system"
-  },
-  {
-    "label": "Ninja (Release)",
-    "command": "./scripts/ninja.sh",
-    "args": ["Release"],
-    "use_new_terminal": false,
-    "allow_concurrent_runs": false,
-    "reveal": "always",
-    "hide": "never",
-    "shell": "system"
-  },
-  {
-    "label": "MSBuild fast (Debug)",
+    "label": "Ninja Debug",
     "tags": ["build"],
-    "command": "scripts/build_fast.bat Debug",
+    "command": "ninja",
+    "args": ["prosper"],
+    "cwd": "$ZED_WORKTREE_ROOT/build_debug",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -68,9 +54,11 @@
     "shell": "system"
   },
   {
-    "label": "MSBuild (Release)",
+    "label": "Ninja Release",
     "tags": ["build"],
-    "command": "scripts/build.bat Release",
+    "command": "ninja",
+    "args": ["prosper"],
+    "cwd": "$ZED_WORKTREE_ROOT/build_release",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -78,9 +66,8 @@
     "shell": "system"
   },
   {
-    "label": "MSBuild (RelWithDebInfo)",
-    "tags": ["build"],
-    "command": "scripts/build.bat RelWithDebInfo",
+    "label": "Run Debug (Linux)",
+    "command": "./build_debug/prosper --config=dev_settings.toml",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -88,9 +75,8 @@
     "shell": "system"
   },
   {
-    "label": "MSBuild (Debug)",
-    "tags": ["build"],
-    "command": "scripts/build.bat Debug",
+    "label": "Run Release (Linux)",
+    "command": "./build_release/prosper --config=dev_settings.toml",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -98,9 +84,9 @@
     "shell": "system"
   },
   {
-    "label": "MSBuild (Debug, LivePP)",
-    "tags": ["build"],
-    "command": "scripts/build_livepp.bat Debug",
+    "label": "clang-tidy (Linux)",
+    "tags": ["analysis"],
+    "command": "./scripts/clang_tidy.sh",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
@@ -108,8 +94,9 @@
     "shell": "system"
   },
   {
-    "label": "Run (Linux)",
-    "command": "./build/prosper --config=dev_settings.toml",
+    "label": "clang-tidy (Windows)",
+    "tags": ["analysis"],
+    "command": "scripts/clang_tidy.bat",
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",

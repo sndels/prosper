@@ -4,8 +4,8 @@ on:
   pull_request:
 
 jobs:
-  build-windows:
-    name: Build (Windows)
+  build-windows-msvc:
+    name: Build (Windows, MSVC)
 
     strategy:
       fail-fast: true
@@ -36,6 +36,48 @@ jobs:
 
       - name: Build (Release)
         run: cmake --build build --parallel --config Release --target prosper
+
+  build-windows-ninja:
+    name: Build (Windows, Ninja)
+
+    strategy:
+      fail-fast: true
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get Clang
+        uses: KyleMayes/install-llvm-action@v2.0.7
+        with:
+          version: "18.1.0"
+          env: true # Sets CC/CXX
+
+      - name: Get Cmake
+        uses: lukka/get-cmake@latest
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: 1.3.261.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure (Debug)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build (Debug)
+        run: cmake --build build --target prosper
+
+      - name: Configure (Release)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Release)
+        run: cmake --build build --target prosper
 
   build-ubuntu-gcc:
     name: Build (Ubuntu, gcc)

@@ -1,5 +1,5 @@
-build/*
-build-analysis/*
+build_*/*
+build_analysis/*
 imgui.ini
 prosper_imgui.ini
 dev_settings.toml

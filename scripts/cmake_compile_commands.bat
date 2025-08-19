@@ -1,7 +1,7 @@
 pushd "%~dp0.."
 
 cmake^
- -B build-analysis^
+ -B build_analysis^
  -DPROSPER_USE_PCH=OFF^
  -G Ninja^
  -S .^

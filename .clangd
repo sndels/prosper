@@ -1,7 +1,7 @@
 If:
   PathMatch: [src/.*\.cpp, src/.*\.hpp]
 CompileFlags:
-  CompilationDatabase: "build-analysis"
+  CompilationDatabase: "build_analysis"
 Diagnostics:
  # TODO: Add MissingIncludes and move to full 'include what you use' when llvm-17 is used and it's a clang-tidy check
  ClangTidy:

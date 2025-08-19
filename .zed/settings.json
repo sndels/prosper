@@ -23,8 +23,7 @@
   },
   "file_scan_exclusions": [
     "**/ext",
-    "**/build",
-    "**/build-analysis",
+    "**/build_*",
     "**/.git",
     "**/.svn",
     "**/.hg",

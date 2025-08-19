@@ -170,7 +170,7 @@
       "command": "python",
       "args": [
         "C:/Program Files/LLVM/bin/run-clang-tidy",
-        "-p='build-analysis'",
+        "-p='build_analysis'",
         "'.*\\\\prosper\\\\src\\\\.*.cpp'"
       ],
       "group": "build",
@@ -186,7 +186,7 @@
       "type": "shell",
       "dependsOn": ["cmake clang-tidy"],
       "command": "run-clang-tidy-18",
-      "args": ["-p='build-analysis'", "'.*/prosper/src/.*.cpp'"],
+      "args": ["-p='build_analysis'", "'.*/prosper/src/.*.cpp'"],
       "group": "build",
       "presentation": {
         // Reveal the output only if unrecognized errors occur.
@@ -205,7 +205,7 @@
         "-S",
         ".",
         "-B",
-        "build-analysis",
+        "build_analysis",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
       ],
       "group": "build",
@@ -224,7 +224,7 @@
         "-DPROSPER_USE_PCH=1",
         "-DPROSPER_SETUP_DEPENDENCIES=1",
         "-DPROSPER_ALWAYS_O2_DEPENDENCIES=1",
-        "-DPROSPER_MSVC_CRT_LEAK_CHECK=0",
+        "-DPROSPER_MS_CRT_LEAK_CHECK=0",
         "-DPROSPER_ALLOCATOR_DEBUG=0",
         "-DLIVEPP_PATH=0"
       ],
@@ -244,7 +244,7 @@
         "-DPROSPER_USE_PCH=1",
         "-DPROSPER_SETUP_DEPENDENCIES=1",
         "-DPROSPER_ALWAYS_O2_DEPENDENCIES=1",
-        "-DPROSPER_MSVC_CRT_LEAK_CHECK=0",
+        "-DPROSPER_MS_CRT_LEAK_CHECK=0",
         "-DPROSPER_ALLOCATOR_DEBUG=0",
         "-DLIVEPP_PATH=C:/LivePP"
       ],
