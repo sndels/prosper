@@ -22,7 +22,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Prepare Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.261.1
           vulkan-components: Vulkan-Headers, Vulkan-Loader
@@ -61,7 +61,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Prepare Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.261.1
           vulkan-components: Vulkan-Headers, Vulkan-Loader
@@ -100,7 +100,7 @@ jobs:
         run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev
 
       - name: Prepare Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.261.1
           vulkan-components: Vulkan-Headers, Vulkan-Loader
@@ -139,7 +139,7 @@ jobs:
         run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-18
 
       - name: Prepare Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.261.1
           vulkan-components: Vulkan-Headers, Vulkan-Loader
