@@ -333,7 +333,7 @@ BufferHandle MeshletCuller::recordGenerateList(
 
     const uint32_t drawListByteSize =
         static_cast<uint32_t>(sizeof(uint32_t)) +
-        meshletCountUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t));
+        (meshletCountUpperBound * 2u * static_cast<uint32_t>(sizeof(uint32_t)));
 
     const BufferHandle ret = gRenderResources.buffers->create(
         BufferDescription{

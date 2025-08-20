@@ -1230,9 +1230,10 @@ void Device::createSubresourcesViews(
         // for char
         if (i >= 10)
             tmp.push_back(asserted_cast<char>(
-                asserted_cast<int32_t>('0') + asserted_cast<int32_t>(i) / 10));
+                asserted_cast<int32_t>('0') +
+                (asserted_cast<int32_t>(i) / 10)));
         tmp.push_back(asserted_cast<char>(
-            asserted_cast<int32_t>('0') + asserted_cast<int32_t>(i) % 10));
+            asserted_cast<int32_t>('0') + (asserted_cast<int32_t>(i) % 10)));
 
         m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
             .objectType = vk::ObjectType::eImageView,
@@ -1719,7 +1720,7 @@ std::filesystem::path Device::updateShaderCache(
     // https://github.com/Cyan4973/xxHash/issues/236#issuecomment-522051621
     const uint64_t sourceHash =
         wyhash(fullSource.data(), fullSource.size(), 0, (uint64_t const *)_wyp);
-    StaticArray<char, sizeof(uint64_t) * 2 + 1> hashStr;
+    StaticArray<char, (sizeof(uint64_t) * 2) + 1> hashStr;
     snprintf(hashStr.data(), hashStr.size(), "%" PRIX64, sourceHash);
 
     std::filesystem::path cachePath =

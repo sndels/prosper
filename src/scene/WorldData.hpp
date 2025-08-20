@@ -101,7 +101,7 @@ class WorldData
     wheels::Array<AccelerationStructure> m_blases{gAllocators.general};
     wheels::Array<AccelerationStructure> m_tlases{gAllocators.general};
     wheels::Array<Model> m_models{gAllocators.general};
-    Animations m_animations{gAllocators.general};
+    Animations m_animations;
     wheels::Array<Scene> m_scenes{gAllocators.general};
     size_t m_currentScene{0};
 

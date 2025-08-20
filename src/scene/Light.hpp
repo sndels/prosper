@@ -31,7 +31,7 @@ struct PointLights
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
-        sMaxCount * sizeof(PointLight) + sizeof(uint32_t);
+        (sMaxCount * sizeof(PointLight)) + sizeof(uint32_t);
 
     [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
 };
@@ -49,7 +49,7 @@ struct SpotLights
 
     // Light data and uint32_t count
     static const uint32_t sBufferByteSize =
-        sMaxCount * sizeof(SpotLight) + sizeof(uint32_t);
+        (sMaxCount * sizeof(SpotLight)) + sizeof(uint32_t);
 
     [[nodiscard]] uint32_t write(RingBuffer &buffer) const;
 };

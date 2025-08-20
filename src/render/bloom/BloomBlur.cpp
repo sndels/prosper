@@ -60,8 +60,8 @@ void BloomBlur::record(
         const Image &inputResource =
             gRenderResources.images->resource(inOutHighlights);
         const vk::Extent2D renderExtent = vk::Extent2D{
-            inputResource.extent.width,
-            inputResource.extent.height,
+            .width = inputResource.extent.width,
+            .height = inputResource.extent.height,
         };
 
         ImageHandle const pongImage = gRenderResources.images->create(

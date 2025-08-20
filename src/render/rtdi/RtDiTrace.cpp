@@ -263,22 +263,23 @@ RtDiTrace::Output RtDiTrace::record(
         const vk::DeviceAddress sbtAddr = m_shaderBindingTable.deviceAddress;
 
         const vk::StridedDeviceAddressRegionKHR rayGenRegion{
-            .deviceAddress = sbtAddr + m_sbtGroupSize * static_cast<uint32_t>(
-                                                            GroupIndex::RayGen),
+            .deviceAddress =
+                sbtAddr +
+                (m_sbtGroupSize * static_cast<uint32_t>(GroupIndex::RayGen)),
             .stride = m_sbtGroupSize,
             .size = m_sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR missRegion{
-            .deviceAddress = sbtAddr + m_sbtGroupSize * static_cast<uint32_t>(
-                                                            GroupIndex::Miss),
+            .deviceAddress = sbtAddr + (m_sbtGroupSize * static_cast<uint32_t>(
+                                                             GroupIndex::Miss)),
             .stride = m_sbtGroupSize,
             .size = m_sbtGroupSize,
         };
 
         const vk::StridedDeviceAddressRegionKHR hitRegion{
-            .deviceAddress = sbtAddr + m_sbtGroupSize * static_cast<uint32_t>(
-                                                            GroupIndex::Hit),
+            .deviceAddress = sbtAddr + (m_sbtGroupSize *
+                                        static_cast<uint32_t>(GroupIndex::Hit)),
             .stride = m_sbtGroupSize,
             .size = m_sbtGroupSize,
         };
@@ -311,11 +312,11 @@ RtDiTrace::Output RtDiTrace::record(
                 .baseArrayLayer = 0,
                 .layerCount = 1};
             const std::array offsets{
-                vk::Offset3D{0, 0, 0},
+                vk::Offset3D{.x = 0, .y = 0, .z = 0},
                 vk::Offset3D{
-                    asserted_cast<int32_t>(renderExtent.width),
-                    asserted_cast<int32_t>(renderExtent.height),
-                    1,
+                    .x = asserted_cast<int32_t>(renderExtent.width),
+                    .y = asserted_cast<int32_t>(renderExtent.height),
+                    .z = 1,
                 },
             };
             const auto blit = vk::ImageBlit{
@@ -677,7 +678,7 @@ void RtDiTrace::createShaderBindingTable(ScopedScratch scopeAlloc)
     for (size_t i = 0; i < groupCount; ++i)
     {
         memcpy(
-            pData, shaderHandleStorage.data() + i * groupHandleSize,
+            pData, shaderHandleStorage.data() + (i * groupHandleSize),
             groupHandleSize);
         pData += m_sbtGroupSize;
     }

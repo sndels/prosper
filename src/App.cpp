@@ -78,7 +78,12 @@ void App::init(ScopedScratch scopeAlloc)
 {
     {
         const SwapchainConfig &config = SwapchainConfig{
-            scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
+            scopeAlloc.child_scope(),
+            vk::Extent2D{
+                .width = gWindow.width(),
+                .height = gWindow.height(),
+            },
+        };
         m_swapchain->init(config);
     }
 
@@ -215,7 +220,12 @@ void App::recreateSwapchainAndRelated(ScopedScratch scopeAlloc)
 
     {
         const SwapchainConfig config{
-            scopeAlloc.child_scope(), {gWindow.width(), gWindow.height()}};
+            scopeAlloc.child_scope(),
+            vk::Extent2D{
+                .width = gWindow.width(),
+                .height = gWindow.height(),
+            },
+        };
         m_swapchain->recreate(config);
     }
 }
@@ -493,7 +503,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
             scopeHighWatermark);
 
     const vk::Rect2D renderArea{
-        .offset = {0, 0},
+        .offset = vk::Offset2D{.x = 0, .y = 0},
         .extent = m_viewportExtent,
     };
 
@@ -742,8 +752,7 @@ void App::drawProfiling(
 
     size_t longestNameLength = 0;
     for (const auto &t : profilerDatas)
-        if (t.name.size() > longestNameLength)
-            longestNameLength = t.name.size();
+        longestNameLength = std::max(longestNameLength, t.name.size());
 
     String tmp{scopeAlloc};
     tmp.resize(longestNameLength * 2);

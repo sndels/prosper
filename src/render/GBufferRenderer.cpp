@@ -434,7 +434,7 @@ void GBufferRenderer::recordDraw(
     const RecordInOut &inputsOutputs, DrawType drawType, bool isSecondPhase)
 {
     const vk::DescriptorSet ds =
-        m_meshSets[nextFrame * 2 + (isSecondPhase ? 1u : 0u)];
+        m_meshSets[(nextFrame * 2) + (isSecondPhase ? 1u : 0u)];
 
     const char *debugName = isSecondPhase ? "  SecondPhase" : "  FirstPhase";
 

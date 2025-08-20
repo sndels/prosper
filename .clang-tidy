@@ -4,6 +4,8 @@
 #    mostly very specific warnings, rarely actionable here
 # cert-err33-c
 #    Only fprintf is used for debug output
+#  clang-analyzer-optin.core.EnumCastOutOfRange
+#    False positives from bitmask enums
 # cppcoreguidelines-avoid-const-or-ref-data-members
 #    Current architecture is built around storing refs to things that live longer,
 #    changing those to raw-pointers don't really make it better. The desing might be
@@ -57,7 +59,9 @@ Checks: "*,
         -hicpp-*,
         -llvm*,
         -zircon-*,
+        -boost-use-ranges,
         -cert-err33-c,
+        -clang-analyzer-optin.core.EnumCastOutOfRange,
         -cppcoreguidelines-avoid-const-or-ref-data-members,
         -cppcoreguidelines-avoid-do-while,
         -cppcoreguidelines-avoid-magic-numbers,
@@ -74,6 +78,7 @@ Checks: "*,
         -misc-no-recursion,
         -modernize-use-trailing-return-type,
         -modernize-use-auto,
+        -modernize-use-ranges,
         -readability-braces-around-statements,
         -readability-function-cognitive-complexity,
         -readability-identifier-length,

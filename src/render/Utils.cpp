@@ -38,11 +38,11 @@ vk::Rect2D getRect2D(ImageHandle image)
     WHEELS_ASSERT(targetExtent.depth == 1);
 
     const vk::Rect2D ret{
-        .offset = {0, 0},
+        .offset = vk::Offset2D{.x = 0, .y = 0},
         .extent =
-            {
-                targetExtent.width,
-                targetExtent.height,
+            vk::Extent2D{
+                .width = targetExtent.width,
+                .height = targetExtent.height,
             },
     };
 

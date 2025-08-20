@@ -84,7 +84,7 @@ template <> vec3 ValueAccessor<vec3>::read(uint32_t index) const
 {
     WHEELS_ASSERT(index < m_count);
     return *reinterpret_cast<const vec3 *>(
-        m_data + asserted_cast<size_t>(index) * 3 * sizeof(float));
+        m_data + (asserted_cast<size_t>(index) * 3 * sizeof(float)));
 }
 
 template <>
@@ -100,5 +100,5 @@ template <> quat ValueAccessor<quat>::read(uint32_t index) const
 {
     WHEELS_ASSERT(index < m_count);
     return *reinterpret_cast<const quat *>(
-        m_data + asserted_cast<size_t>(index) * 4 * sizeof(float));
+        m_data + (asserted_cast<size_t>(index) * 4 * sizeof(float)));
 }

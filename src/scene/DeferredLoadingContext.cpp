@@ -183,7 +183,7 @@ int mikkTVertexIndex(const int iFace, const int iVert)
 {
     // Go through faces in the opposite order, this seems to fix the glTF normal
     // map handedness problem in glTF2.0 NormalTangentTest
-    return iFace * 3 + (2 - iVert);
+    return (iFace * 3) + (2 - iVert);
 }
 
 void mikkTGetPosition(

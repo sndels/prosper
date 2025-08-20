@@ -35,7 +35,7 @@ struct DdsHeader
     uint32_t dwMipMapCount{0};
     // NOLINTNEXTLINE(*-avoid-c-arrays): Match the original docs
     uint32_t dwReserved1[11]{};
-    DdsPixelFormat ddspf{0};
+    DdsPixelFormat ddspf;
     uint32_t dwCaps{0};
     uint32_t dwCaps2{0};
     uint32_t dwCaps3{0};

@@ -16,12 +16,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get clang-format 18
-        run: sudo apt update && sudo apt install clang-format-18
+      - name: Get clang-format
+        run: sudo apt update && sudo apt install clang-format-19
 
       - name: Run clang-format
         run: >
-          clang-format-18
+          clang-format-19
           -Werror
           --dry-run
           src/*.cpp

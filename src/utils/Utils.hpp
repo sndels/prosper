@@ -160,7 +160,7 @@ T roundedUpQuotient(T dividend, T divisor)
     WHEELS_ASSERT(dividend > 0);
     WHEELS_ASSERT(divisor > 0);
 
-    const T ret = (dividend - 1) / divisor + 1;
+    const T ret = ((dividend - 1) / divisor) + 1;
     return ret;
 }
 

@@ -72,7 +72,7 @@ template <typename T> void Animation<T>::update(float timeS)
     T firstValue{};
     if (interp.t == 0.f && m_interpolation == InterpolationType::CubicSpline)
         // Three values per frame, property value is the middle one
-        firstValue = m_valueFrames.read(interp.firstFrame * 3 + 1);
+        firstValue = m_valueFrames.read((interp.firstFrame * 3) + 1);
     else
         firstValue = m_valueFrames.read(interp.firstFrame);
 

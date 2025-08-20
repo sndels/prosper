@@ -20,8 +20,8 @@ vk::SurfaceFormatKHR selectSwapSurfaceFormat(
         availableFormats[0].format == vk::Format::eUndefined)
         // We're free to take our pick
         return {
-            vk::Format::eB8G8R8A8Unorm,
-            vk::ColorSpaceKHR::eSrgbNonlinear,
+            .format = vk::Format::eB8G8R8A8Unorm,
+            .colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear,
         };
 
     // Check if preferred sRGB format is present
@@ -81,10 +81,10 @@ constexpr vk::Extent2D selectSwapExtent(
 
     // Pick best resolution from given bounds
     const vk::Extent2D actualExtent{
-        std::clamp(
+        .width = std::clamp(
             extent.width, capabilities.minImageExtent.width,
             capabilities.maxImageExtent.width),
-        std::clamp(
+        .height = std::clamp(
             extent.height, capabilities.minImageExtent.height,
             capabilities.maxImageExtent.height),
     };

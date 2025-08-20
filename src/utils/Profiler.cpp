@@ -52,7 +52,7 @@ GpuFrameProfiler::Scope::~Scope()
             m_cb.endQuery(m_pools.statistics, m_queryIndex);
         m_cb.writeTimestamp2(
             vk::PipelineStageFlagBits2::eAllCommands, m_pools.timestamps,
-            m_queryIndex * 2 + 1);
+            (m_queryIndex * 2) + 1);
         m_cb.endDebugUtilsLabelEXT();
     }
 }
@@ -218,7 +218,7 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
     {
         // All bits valid should have been asserted on device creation
         const uint64_t start = timestamps[static_cast<size_t>(i) * 2];
-        const uint64_t end = timestamps[static_cast<size_t>(i) * 2 + 1];
+        const uint64_t end = timestamps[(static_cast<size_t>(i) * 2) + 1];
         const double nanos =
             static_cast<double>(end - start) * timestampPeriodNanos;
         const float millis = static_cast<float>(nanos * 1e-6);
@@ -230,7 +230,7 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
                 .clipPrimitives =
                     stats[static_cast<size_t>(i) * sStatTypeCount],
                 .fragInvocations =
-                    stats[static_cast<size_t>(i) * sStatTypeCount + 1],
+                    stats[(static_cast<size_t>(i) * sStatTypeCount) + 1],
             };
 
         ret.push_back(ScopeData{

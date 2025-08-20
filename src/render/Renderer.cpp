@@ -82,11 +82,11 @@ void blitFinalComposite(
         WHEELS_ASSERT(finalCompositeExtent.width == swapImage.extent.width);
         WHEELS_ASSERT(finalCompositeExtent.height == swapImage.extent.height);
         const std::array offsets{
-            vk::Offset3D{0, 0, 0},
+            vk::Offset3D{.x = 0, .y = 0, .z = 0},
             vk::Offset3D{
-                asserted_cast<int32_t>(swapImage.extent.width),
-                asserted_cast<int32_t>(swapImage.extent.height),
-                1,
+                .x = asserted_cast<int32_t>(swapImage.extent.width),
+                .y = asserted_cast<int32_t>(swapImage.extent.height),
+                .z = 1,
             },
         };
         const auto blit = vk::ImageBlit{
@@ -278,8 +278,8 @@ void Renderer::recreateViewportRelated()
 
     const ImVec2 viewportSize = m_imguiRenderer->centerAreaSize();
     m_viewportExtentInUi = vk::Extent2D{
-        asserted_cast<uint32_t>(viewportSize.x),
-        asserted_cast<uint32_t>(viewportSize.y),
+        .width = asserted_cast<uint32_t>(viewportSize.x),
+        .height = asserted_cast<uint32_t>(viewportSize.y),
     };
 }
 
@@ -618,7 +618,7 @@ void Renderer::render(
             m_textureDebug->drawUi(nextFrame);
 
         const vk::Rect2D backbufferArea{
-            .offset = {0, 0},
+            .offset = vk::Offset2D{.x = 0, .y = 0},
             .extent = swapImage.extent,
         };
         m_imguiRenderer->endFrame(cb, backbufferArea, finalComposite);
@@ -760,11 +760,11 @@ ImageHandle Renderer::blitColorToFinalComposite(
     const vk::Extent3D toneMappedExtent =
         gRenderResources.images->resource(toneMapped).extent;
     const std::array srcOffsets{
-        vk::Offset3D{0, 0, 0},
+        vk::Offset3D{.x = 0, .y = 0, .z = 0},
         vk::Offset3D{
-            asserted_cast<int32_t>(toneMappedExtent.width),
-            asserted_cast<int32_t>(toneMappedExtent.height),
-            1,
+            .x = asserted_cast<int32_t>(toneMappedExtent.width),
+            .y = asserted_cast<int32_t>(toneMappedExtent.height),
+            .z = 1,
         },
     };
 
@@ -788,21 +788,21 @@ ImageHandle Renderer::blitColorToFinalComposite(
 
     const std::array dstOffsets{
         vk::Offset3D{
-            std::min(
+            .x = std::min(
                 dstOffset.x, asserted_cast<int32_t>(swapImageExtent.width - 1)),
-            std::min(
+            .y = std::min(
                 dstOffset.y,
                 asserted_cast<int32_t>(swapImageExtent.height - 1)),
-            0,
+            .z = 0,
         },
         vk::Offset3D{
-            std::min(
+            .x = std::min(
                 dstOffset.x + dstSize.x,
                 asserted_cast<int32_t>(swapImageExtent.width)),
-            std::min(
+            .y = std::min(
                 dstOffset.y + dstSize.y,
                 asserted_cast<int32_t>(swapImageExtent.height)),
-            1,
+            .z = 1,
         },
     };
     const vk::ImageBlit blit = {

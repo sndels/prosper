@@ -28,7 +28,7 @@ const uint32_t sTextureCacheVersion = 5;
 struct UncompressedPixelData
 {
     Span<const uint8_t> data;
-    vk::Extent2D extent{0};
+    vk::Extent2D extent{.width = 0, .height = 0};
     uint32_t channels{0};
 };
 
@@ -396,8 +396,8 @@ void Texture2D::init(
                                     asserted_cast<size_t>(channels)},
             .extent =
                 vk::Extent2D{
-                    asserted_cast<uint32_t>(width),
-                    asserted_cast<uint32_t>(height),
+                    .width = asserted_cast<uint32_t>(width),
+                    .height = asserted_cast<uint32_t>(height),
                 },
             .channels = asserted_cast<uint32_t>(channels),
         };
@@ -414,8 +414,8 @@ void Texture2D::init(
     WHEELS_ASSERT(!dds.data.empty());
 
     const vk::Extent2D extent{
-        dds.width,
-        dds.height,
+        .width = dds.width,
+        .height = dds.height,
     };
 
     WHEELS_ASSERT(stagingBuffer.mapped != nullptr);
@@ -464,12 +464,12 @@ void Texture2D::init(
                     .baseArrayLayer = 0,
                     .layerCount = 1,
                 },
-            .imageOffset = {0, 0, 0},
+            .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
             .imageExtent =
-                {
-                    std::max(extent.width >> i, 1u),
-                    std::max(extent.height >> i, 1u),
-                    1u,
+                vk::Extent3D{
+                    .width = std::max(extent.width >> i, 1u),
+                    .height = std::max(extent.height >> i, 1u),
+                    .depth = 1u,
                 },
         });
     }
@@ -499,9 +499,9 @@ void Texture3D::init(
     WHEELS_ASSERT(!dds.data.empty());
 
     const vk::Extent3D extent{
-        dds.width,
-        dds.height,
-        dds.depth,
+        .width = dds.width,
+        .height = dds.height,
+        .depth = dds.depth,
     };
 
     // Just create the staging here as Texture3D are only loaded in during load
@@ -557,7 +557,7 @@ void Texture3D::init(
                 .baseArrayLayer = 0,
                 .layerCount = 1,
             },
-        .imageOffset = {0, 0, 0},
+        .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
         .imageExtent = extent,
     };
 
@@ -692,7 +692,7 @@ void TextureCubemap::copyPixels(
                 const uint32_t width = std::max(cube.width >> iMip, 1u);
                 const uint32_t height = std::max(cube.height >> iMip, 1u);
                 const uint32_t sourceOffset =
-                    cube.levelByteOffsets[iMip * cube.faceCount + iFace];
+                    cube.levelByteOffsets[(iMip * cube.faceCount) + iFace];
 
                 regions.push_back(vk::BufferImageCopy{
                     .bufferOffset = sourceOffset,
@@ -705,8 +705,13 @@ void TextureCubemap::copyPixels(
                             .baseArrayLayer = iFace,
                             .layerCount = 1,
                         },
-                    .imageOffset = vk::Offset3D{0},
-                    .imageExtent = vk::Extent3D{width, height, 1},
+                    .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
+                    .imageExtent =
+                        vk::Extent3D{
+                            .width = width,
+                            .height = height,
+                            .depth = 1,
+                        },
                 });
             }
         }

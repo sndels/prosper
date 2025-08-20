@@ -444,7 +444,8 @@ void WorldData::init(
     Array<Texture2DSampler> texture2DSamplers{
         gAllocators.general, gltfData->images_count + 1};
     tl("Texture loading",
-       [&]() {
+       [&]()
+       {
            loadTextures(scopeAlloc.child_scope(), *gltfData, texture2DSamplers);
        });
     tl("Material loading",

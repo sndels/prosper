@@ -24,8 +24,6 @@ ComputePass::Shader shaderDefinitionCallback(Allocator &alloc)
     };
 }
 
-} // namespace
-
 uint32_t specializationIndex(BloomResolutionScale scale)
 {
     uint32_t ret = 0;
@@ -48,6 +46,8 @@ StaticArray<uint32_t, 2> generateSpecializationConstants()
 
     return ret;
 }
+
+} // namespace
 
 void BloomSeparate::init(ScopedScratch scopeAlloc)
 {
