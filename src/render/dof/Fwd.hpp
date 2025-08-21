@@ -7,23 +7,23 @@ namespace render::dof
 // DepthOfField.hpp
 class DepthOfField;
 
-// DepthOfFieldCombine.hpp
-class DepthOfFieldCombine;
+// Combine.hpp
+class Combine;
 
-// DepthOfFieldDilate.hpp
-class DepthOfFieldDilate;
+// Dilate.hpp
+class Dilate;
 
-// DepthOfFieldFlatten.hpp
-class DepthOfFieldFlatten;
+// Flatten.hpp
+class Flatten;
 
-// DepthOfFieldGather.hpp
-class DepthOfFieldGather;
+// Gather.hpp
+class Gather;
 
-// DepthOfFieldReduce.hpp
-class DepthOfFieldReduce;
+// Reduce.hpp
+class Reduce;
 
-// DepthOfFieldSetup.hpp
-class DepthOfFieldSetup;
+// Setup.hpp
+class Setup;
 
 } // namespace render::dof
 

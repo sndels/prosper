@@ -1,24 +1,24 @@
 set(PROSPER_DOF_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfField.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldCombine.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFilter.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldReduce.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Combine.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Dilate.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Filter.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Flatten.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Gather.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Reduce.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Setup.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     PARENT_SCOPE
 )
 
 set(PROSPER_DOF_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/DepthOfField.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldCombine.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldDilate.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFilter.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldFlatten.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldGather.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldReduce.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/DepthOfFieldSetup.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Combine.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Dilate.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Filter.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Flatten.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Gather.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Reduce.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Setup.cpp
     PARENT_SCOPE
 )

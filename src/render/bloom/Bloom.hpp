@@ -2,15 +2,15 @@
 #define PROSPER_RENDER_BLOOM_HPP
 
 #include "render/RenderResourceHandle.hpp"
-#include "render/bloom/BloomBlur.hpp"
-#include "render/bloom/BloomCompose.hpp"
-#include "render/bloom/BloomConvolution.hpp"
-#include "render/bloom/BloomFft.hpp"
-#include "render/bloom/BloomGenerateKernel.hpp"
-#include "render/bloom/BloomReduce.hpp"
-#include "render/bloom/BloomResolutionScale.hpp"
-#include "render/bloom/BloomSeparate.hpp"
-#include "render/bloom/BloomTechnique.hpp"
+#include "render/bloom/Blur.hpp"
+#include "render/bloom/Compose.hpp"
+#include "render/bloom/Convolution.hpp"
+#include "render/bloom/Fft.hpp"
+#include "render/bloom/GenerateKernel.hpp"
+#include "render/bloom/Reduce.hpp"
+#include "render/bloom/ResolutionScale.hpp"
+#include "render/bloom/Separate.hpp"
+#include "render/bloom/Technique.hpp"
 
 #include <filesystem>
 #include <vulkan/vulkan.hpp>
@@ -19,6 +19,12 @@
 
 namespace render::bloom
 {
+
+using Input = Separate::Input;
+struct Output
+{
+    ImageHandle illuminationWithBloom;
+};
 
 class Bloom
 {
@@ -41,11 +47,6 @@ class Bloom
 
     void drawUi();
 
-    using Input = BloomSeparate::Input;
-    struct Output
-    {
-        ImageHandle illuminationWithBloom;
-    };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const Input &input, uint32_t nextFrame);
@@ -53,20 +54,20 @@ class Bloom
 
   private:
     bool m_initialized{false};
-    BloomResolutionScale m_resolutionScale{BloomResolutionScale::Half};
-    BloomTechnique m_technique{BloomTechnique::MultiResolutionBlur};
+    ResolutionScale m_resolutionScale{ResolutionScale::Half};
+    Technique m_technique{Technique::MultiResolutionBlur};
 
-    BloomSeparate m_separate;
-    BloomCompose m_compose;
+    Separate m_separate;
+    Compose m_compose;
 
     // FFT version
-    BloomGenerateKernel m_generateKernel;
-    BloomFft m_fft;
-    BloomConvolution m_convolution;
+    GenerateKernel m_generateKernel;
+    Fft m_fft;
+    Convolution m_convolution;
 
     // Multi-resolution blur version
-    BloomReduce m_reduce;
-    BloomBlur m_blur;
+    Reduce m_reduce;
+    Blur m_blur;
 };
 
 } // namespace render::bloom

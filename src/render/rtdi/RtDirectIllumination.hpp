@@ -1,10 +1,10 @@
 #ifndef PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 #define PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 
-#include "RtDiTrace.hpp"
+#include "Trace.hpp"
 #include "render/Fwd.hpp"
-#include "render/rtdi/RtDiInitialReservoirs.hpp"
-#include "render/rtdi/RtDiSpatialReuse.hpp"
+#include "render/rtdi/InitialReservoirs.hpp"
+#include "render/rtdi/SpatialReuse.hpp"
 #include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
 
@@ -13,6 +13,8 @@
 
 namespace render::rtdi
 {
+
+using Output = Trace::Output;
 
 class RtDirectIllumination
 {
@@ -37,7 +39,6 @@ class RtDirectIllumination
 
     void drawUi();
 
-    using Output = RtDiTrace::Output;
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         scene::World &world, const scene::Camera &cam,
@@ -51,9 +52,9 @@ class RtDirectIllumination
     bool m_doSpatialReuse{true};
     bool m_resetAccumulation{true};
 
-    RtDiInitialReservoirs m_initialReservoirs;
-    RtDiSpatialReuse m_spatialReuse;
-    RtDiTrace m_trace;
+    InitialReservoirs m_initialReservoirs;
+    SpatialReuse m_spatialReuse;
+    Trace m_trace;
 };
 
 } // namespace render::rtdi

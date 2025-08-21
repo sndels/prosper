@@ -17,12 +17,12 @@ void RtDirectIllumination::init(
     WHEELS_ASSERT(!m_initialized);
 
     m_initialReservoirs.init(
-        scopeAlloc.child_scope(), RtDiInitialReservoirs::InputDSLayouts{
+        scopeAlloc.child_scope(), InitialReservoirs::InputDSLayouts{
                                       .camera = camDSLayout,
                                       .world = worldDSLayouts,
                                   });
     m_spatialReuse.init(
-        scopeAlloc.child_scope(), RtDiSpatialReuse::InputDSLayouts{
+        scopeAlloc.child_scope(), SpatialReuse::InputDSLayouts{
                                       .camera = camDSLayout,
                                       .world = worldDSLayouts,
                                   });
@@ -41,13 +41,13 @@ void RtDirectIllumination::recompileShaders(
 
     m_resetAccumulation |= m_initialReservoirs.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
-        RtDiInitialReservoirs::InputDSLayouts{
+        InitialReservoirs::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
     m_resetAccumulation |= m_spatialReuse.recompileShaders(
         scopeAlloc.child_scope(), changedFiles,
-        RtDiSpatialReuse::InputDSLayouts{
+        SpatialReuse::InputDSLayouts{
             .camera = camDSLayout,
             .world = worldDSLayouts,
         });
@@ -63,7 +63,7 @@ void RtDirectIllumination::drawUi()
     ImGui::Checkbox("Spatial reuse", &m_doSpatialReuse);
 }
 
-RtDirectIllumination::Output RtDirectIllumination::record(
+Output RtDirectIllumination::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, scene::World &world,
     const scene::Camera &cam, const GBufferRendererOutput &gbuffer,
     bool resetAccumulation, scene::DrawType drawType, uint32_t nextFrame)
@@ -75,17 +75,17 @@ RtDirectIllumination::Output RtDirectIllumination::record(
     Output ret;
     {
 
-        const RtDiInitialReservoirs::Output initialReservoirsOutput =
+        const InitialReservoirs::Output initialReservoirsOutput =
             m_initialReservoirs.record(
                 scopeAlloc.child_scope(), cb, world, cam, gbuffer, nextFrame);
 
         ImageHandle reservoirs = initialReservoirsOutput.reservoirs;
         if (m_doSpatialReuse)
         {
-            const RtDiSpatialReuse::Output spatialReuseOutput =
+            const SpatialReuse::Output spatialReuseOutput =
                 m_spatialReuse.record(
                     scopeAlloc.child_scope(), cb, world, cam,
-                    RtDiSpatialReuse::Input{
+                    SpatialReuse::Input{
                         .gbuffer = gbuffer,
                         .reservoirs = initialReservoirsOutput.reservoirs,
                     },
@@ -98,7 +98,7 @@ RtDirectIllumination::Output RtDirectIllumination::record(
 
         ret = m_trace.record(
             scopeAlloc.child_scope(), cb, world, cam,
-            RtDiTrace::Input{
+            Trace::Input{
                 .gbuffer = gbuffer,
                 .reservoirs = reservoirs,
             },

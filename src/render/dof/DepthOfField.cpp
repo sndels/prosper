@@ -43,9 +43,9 @@ void DepthOfField::recompileShaders(
 
 void DepthOfField::startFrame() { m_filterPass.startFrame(); }
 
-DepthOfField::Output DepthOfField::record(
+Output DepthOfField::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::Camera &cam,
-    const DepthOfField::Input &input, uint32_t nextFrame)
+    const Input &input, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -54,49 +54,49 @@ DepthOfField::Output DepthOfField::record(
     Output ret;
     {
 
-        const DepthOfFieldSetup::Output setupOutput = m_setupPass.record(
+        const Setup::Output setupOutput = m_setupPass.record(
             scopeAlloc.child_scope(), cb, cam, input, nextFrame);
 
         m_reducePass.record(
             scopeAlloc.child_scope(), cb, setupOutput.halfResIllumination,
             nextFrame);
 
-        const DepthOfFieldFlatten::Output flattenOutput = m_flattenPass.record(
+        const Flatten::Output flattenOutput = m_flattenPass.record(
             scopeAlloc.child_scope(), cb, setupOutput.halfResCircleOfConfusion,
             nextFrame);
 
-        const DepthOfFieldDilate::Output dilateOutput = m_dilatePass.record(
+        const Dilate::Output dilateOutput = m_dilatePass.record(
             scopeAlloc.child_scope(), cb,
             flattenOutput.tileMinMaxCircleOfConfusion, cam, nextFrame);
 
         gRenderResources.images->release(
             flattenOutput.tileMinMaxCircleOfConfusion);
 
-        const DepthOfFieldGather::Input gatherInput{
+        const Gather::Input gatherInput{
             .halfResIllumination = setupOutput.halfResIllumination,
             .halfResCoC = setupOutput.halfResCircleOfConfusion,
             .dilatedTileMinMaxCoC = dilateOutput.dilatedTileMinMaxCoC,
         };
-        const DepthOfFieldGather::Output fgGatherOutput = m_gatherPass.record(
+        const Gather::Output fgGatherOutput = m_gatherPass.record(
             scopeAlloc.child_scope(), cb, gatherInput,
-            DepthOfFieldGather::GatherType_Foreground, nextFrame);
-        const DepthOfFieldGather::Output bgGatherOutput = m_gatherPass.record(
+            Gather::GatherType_Foreground, nextFrame);
+        const Gather::Output bgGatherOutput = m_gatherPass.record(
             scopeAlloc.child_scope(), cb, gatherInput,
-            DepthOfFieldGather::GatherType_Background, nextFrame);
+            Gather::GatherType_Background, nextFrame);
 
-        const DepthOfFieldFilter::Output fgFilterOutput = m_filterPass.record(
+        const Filter::Output fgFilterOutput = m_filterPass.record(
             scopeAlloc.child_scope(), cb,
             fgGatherOutput.halfResBokehColorWeight, nextFrame,
-            DepthOfFieldFilter::DebugNames{
+            Filter::DebugNames{
                 .scope = "  FilterFG",
                 .outRes = "halfResFgColorWeightdFiltered",
             });
         gRenderResources.images->release(
             fgGatherOutput.halfResBokehColorWeight);
-        const DepthOfFieldFilter::Output bgFilterOutput = m_filterPass.record(
+        const Filter::Output bgFilterOutput = m_filterPass.record(
             scopeAlloc.child_scope(), cb,
             bgGatherOutput.halfResBokehColorWeight, nextFrame,
-            DepthOfFieldFilter::DebugNames{
+            Filter::DebugNames{
                 .scope = "  FilterBG",
                 .outRes = "halfResBgColorWeightdFiltered",
             });
@@ -105,7 +105,7 @@ DepthOfField::Output DepthOfField::record(
 
         ret = m_combinePass.record(
             scopeAlloc.child_scope(), cb,
-            DepthOfFieldCombine::Input{
+            Combine::Input{
                 .halfResFgBokehWeight =
                     fgFilterOutput.filteredIlluminationWeight,
                 .halfResBgBokehWeight =

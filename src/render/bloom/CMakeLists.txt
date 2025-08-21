@@ -1,28 +1,28 @@
 set(PROSPER_BLOOM_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Bloom.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomBlur.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomCompose.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomConvolution.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomFft.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomGenerateKernel.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomReduce.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomResolutionScale.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomSeparate.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomTechnique.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Blur.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Compose.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Convolution.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Fft.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/GenerateKernel.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Reduce.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/ResolutionScale.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Separate.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Technique.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     PARENT_SCOPE
 )
 
 set(PROSPER_BLOOM_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Bloom.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomBlur.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomCompose.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomConvolution.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomFft.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomGenerateKernel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomReduce.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomResolutionScale.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomSeparate.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/BloomTechnique.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Blur.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Compose.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Convolution.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Fft.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/GenerateKernel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Reduce.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ResolutionScale.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Separate.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Technique.cpp
     PARENT_SCOPE
 )

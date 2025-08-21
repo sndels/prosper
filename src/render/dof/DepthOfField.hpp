@@ -1,13 +1,13 @@
 #ifndef PROSPER_RENDER_DEPTH_OF_FIELD_HPP
 #define PROSPER_RENDER_DEPTH_OF_FIELD_HPP
 
-#include "render/dof/DepthOfFieldCombine.hpp"
-#include "render/dof/DepthOfFieldDilate.hpp"
-#include "render/dof/DepthOfFieldFilter.hpp"
-#include "render/dof/DepthOfFieldFlatten.hpp"
-#include "render/dof/DepthOfFieldGather.hpp"
-#include "render/dof/DepthOfFieldReduce.hpp"
-#include "render/dof/DepthOfFieldSetup.hpp"
+#include "render/dof/Combine.hpp"
+#include "render/dof/Dilate.hpp"
+#include "render/dof/Filter.hpp"
+#include "render/dof/Flatten.hpp"
+#include "render/dof/Gather.hpp"
+#include "render/dof/Reduce.hpp"
+#include "render/dof/Setup.hpp"
 #include "scene/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -18,6 +18,9 @@ namespace render::dof
 
 // Based on A Life of a Bokeh by Guillaume Abadie
 // https://advances.realtimerendering.com/s2018/index.htm
+
+using Input = Setup::Input;
+using Output = Combine::Output;
 
 class DepthOfField
 {
@@ -45,8 +48,6 @@ class DepthOfField
 
     void startFrame();
 
-    using Input = DepthOfFieldSetup::Input;
-    using Output = DepthOfFieldCombine::Output;
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const scene::Camera &cam, const Input &input, uint32_t nextFrame);
@@ -54,13 +55,13 @@ class DepthOfField
   private:
     bool m_initialized{false};
 
-    DepthOfFieldSetup m_setupPass;
-    DepthOfFieldReduce m_reducePass;
-    DepthOfFieldFlatten m_flattenPass;
-    DepthOfFieldDilate m_dilatePass;
-    DepthOfFieldGather m_gatherPass;
-    DepthOfFieldFilter m_filterPass;
-    DepthOfFieldCombine m_combinePass;
+    Setup m_setupPass;
+    Reduce m_reducePass;
+    Flatten m_flattenPass;
+    Dilate m_dilatePass;
+    Gather m_gatherPass;
+    Filter m_filterPass;
+    Combine m_combinePass;
 };
 
 } // namespace render::dof

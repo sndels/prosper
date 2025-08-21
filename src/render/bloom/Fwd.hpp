@@ -8,26 +8,26 @@ namespace render::bloom
 // Bloom.hpp
 class Bloom;
 
-// BloomBlur.hpp
-class BloomBlur;
+// Blur.hpp
+class Blur;
 
-// BloomCompose.hpp
-class BloomCompose;
+// Compose.hpp
+class Compose;
 
-// BloomConvolution.hpp
-class BloomConvolution;
+// Convolution.hpp
+class Convolution;
 
-// BloomFft.hpp
-class BloomFft;
+// Fft.hpp
+class Fft;
 
-// BloomGenerateKernel.hpp
-class BloomGenerateKernel;
+// GenerateKernel.hpp
+class GenerateKernel;
 
-// BloomReduce.hpp
-class BloomReduce;
+// Reduce.hpp
+class Reduce;
 
-// BloomSeparate.hpp
-class BloomSeparate;
+// Separate.hpp
+class Separate;
 
 } // namespace render::bloom
 

@@ -48,7 +48,7 @@ void Bloom::recompileShaders(
 
 void Bloom::startFrame()
 {
-    if (m_technique == BloomTechnique::Fft)
+    if (m_technique == Technique::Fft)
         m_fft.startFrame();
     else
         m_blur.startFrame();
@@ -66,7 +66,7 @@ void Bloom::drawUi()
     ImGui::Unindent();
 }
 
-Bloom::Output Bloom::record(
+Output Bloom::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const Input &input,
     const uint32_t nextFrame)
 {
@@ -80,7 +80,7 @@ Bloom::Output Bloom::record(
         nextFrame);
 
     ImageHandle convolvedHighlights;
-    if (m_technique == BloomTechnique::Fft)
+    if (m_technique == Technique::Fft)
     {
         const ImageHandle kernelDft = m_generateKernel.record(
             scopeAlloc.child_scope(), cb, inputExtent, m_fft, m_resolutionScale,
@@ -93,13 +93,13 @@ Bloom::Output Bloom::record(
         gRenderResources.images->release(workingImage);
 
         float convolutionScale = m_generateKernel.convolutionScale();
-        if (m_resolutionScale == BloomResolutionScale::Quarter)
+        if (m_resolutionScale == ResolutionScale::Quarter)
             // This seems to match bloom intensity between quarter and half res
             convolutionScale *= 2.;
 
         m_convolution.record(
             scopeAlloc.child_scope(), cb,
-            BloomConvolution::InputOutput{
+            Convolution::InputOutput{
                 .inOutHighlightsDft = highlightsDft,
                 .inKernelDft = kernelDft,
                 .convolutionScale = convolutionScale,
@@ -125,7 +125,7 @@ Bloom::Output Bloom::record(
 
     const ImageHandle illuminationWithBloom = m_compose.record(
         WHEELS_MOV(scopeAlloc), cb,
-        BloomCompose::Input{
+        Compose::Input{
             .illumination = input.illumination,
             .bloomHighlights = convolvedHighlights,
         },

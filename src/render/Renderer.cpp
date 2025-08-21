@@ -505,9 +505,9 @@ void Renderer::render(
 
         if (m_applyBloom)
         {
-            const bloom::Bloom::Output bloomOutput = m_bloom->record(
+            const bloom::Output bloomOutput = m_bloom->record(
                 scopeAlloc.child_scope(), cb,
-                bloom::Bloom::Input{
+                bloom::Input{
                     .illumination = illumination,
                 },
                 nextFrame);
@@ -540,9 +540,9 @@ void Renderer::render(
         // that doesn't blend foreground/background (Karis/Abadie).
         if (m_renderDoF)
         {
-            const dof::DepthOfField::Output dofOutput = m_depthOfField->record(
+            const dof::Output dofOutput = m_depthOfField->record(
                 scopeAlloc.child_scope(), cb, cam,
-                dof::DepthOfField::Input{
+                dof::Input{
                     .illumination = illumination,
                     .depth = depth,
                 },

@@ -4,8 +4,8 @@
 namespace render::rtdi
 {
 
-// RtDiInitialReservoirs.hpp
-class RtDiInitialReservoirs;
+// InitialReservoirs.hpp
+class InitialReservoirs;
 
 // RtDirectIllumination.hpp
 class RtDirectIllumination;
@@ -13,8 +13,8 @@ class RtDirectIllumination;
 // RtSpatialReuse.hpp
 class RtSpatialReuse;
 
-// RtDiTrace.hpp
-class RtDiTrace;
+// Trace.hpp
+class Trace;
 
 } // namespace render::rtdi
 
