@@ -2,7 +2,6 @@
 
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
-#include "render/bloom/Fft.hpp"
 #include "utils/Profiler.hpp"
 
 #include <imgui.h>

@@ -9,7 +9,6 @@ set(PROSPER_BLOOM_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/ResolutionScale.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Separate.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Technique.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     PARENT_SCOPE
 )
 

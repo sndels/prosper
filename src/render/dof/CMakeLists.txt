@@ -7,7 +7,6 @@ set(PROSPER_DOF_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Gather.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Reduce.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Setup.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/Fwd.hpp
     PARENT_SCOPE
 )
 

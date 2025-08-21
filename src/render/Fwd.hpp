@@ -1,12 +1,38 @@
 #ifndef PROSPER_RENDER_FWD_HPP
 #define PROSPER_RENDER_FWD_HPP
 
-#include "bloom/Fwd.hpp"
-#include "dof/Fwd.hpp"
-#include "rtdi/Fwd.hpp"
-
 namespace render
 {
+
+namespace bloom
+{
+
+// bloom/Bloom.hpp
+class Bloom;
+
+// Rest of the namespace types are internal
+
+} // namespace bloom
+
+namespace dof
+{
+
+// dof/DepthOfField.hpp
+class DepthOfField;
+
+// Rest of the namespace types are internal
+
+} // namespace dof
+
+namespace rtdi
+{
+
+// rtdi/RtDirectIllumination.hpp
+class RtDirectIllumination;
+
+// Rest of the namespace types are internal
+
+} // namespace rtdi
 
 // ComputePass.hpp
 class ComputePass;

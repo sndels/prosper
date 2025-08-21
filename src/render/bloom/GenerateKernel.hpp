@@ -4,7 +4,7 @@
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
 #include "render/RenderResourceHandle.hpp"
-#include "render/bloom/Fwd.hpp"
+#include "render/bloom/Fft.hpp"
 #include "render/bloom/ResolutionScale.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
