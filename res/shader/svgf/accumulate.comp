@@ -1,0 +1,70 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_shader_image_load_formatted : require
+
+// Based on
+// Spatiotemporal Variance-Guided Filtering: Real-Time Reconstruction for
+// Path-Traced Global Illumination
+// by Schied et al.
+
+#include "../common/math.glsl"
+#include "../scene/camera.glsl"
+
+layout(constant_id = 0) const bool IGNORE_HISTORY = false;
+
+layout(set = STORAGE_SET, binding = 0) uniform texture2D inColor;
+layout(set = STORAGE_SET, binding = 1) uniform texture2D inAlbedoRoughness;
+layout(set = STORAGE_SET, binding = 2) uniform texture2D inNormalMetallic;
+layout(set = STORAGE_SET, binding = 3) uniform texture2D inVelocity;
+layout(set = STORAGE_SET, binding = 4) uniform texture2D inNonLinearDepth;
+layout(set = STORAGE_SET, binding = 5) uniform texture2D
+    inPreviousAlbedoRoughness;
+layout(set = STORAGE_SET, binding = 6) uniform texture2D
+    inPreviousNormalMetallic;
+layout(set = STORAGE_SET, binding = 7) uniform texture2D
+    inPreviousNonLinearDepth;
+layout(set = STORAGE_SET, binding = 8) uniform texture2D inIntegratedColor;
+layout(set = STORAGE_SET, binding = 9) uniform texture2D inIntegratedMoments;
+layout(set = STORAGE_SET, binding = 10) uniform writeonly image2D outColor;
+layout(set = STORAGE_SET, binding = 11) uniform writeonly image2D outMoments;
+layout(set = STORAGE_SET, binding = 12) uniform sampler nearestSampler;
+
+#define nearestSample(tex, uv) texture(sampler2D(tex, nearestSampler), uv)
+
+vec3 sampleTap(vec2 uv)
+{
+    // TODO:
+    // Reproject and validate
+    return vec3(0);
+}
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    ivec2 res = imageSize(outColor);
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(px, res)))
+    {
+        return;
+    }
+    vec2 uv = (vec2(px) + .5) / vec2(res);
+
+    vec3 color = nearestSample(inColor, uv).xyz;
+
+    vec2 moments = vec2(0.);
+
+    if (IGNORE_HISTORY)
+    {
+        imageStore(outColor, px, vec4(color, 1));
+        imageStore(outMoments, px, vec4(moments, 0, 0));
+        return;
+    }
+
+    vec3 albedo = nearestSample(inAlbedoRoughness, uv).xyz;
+
+    // Recover raw illumination to avoid "denoising" texture detail
+    color *= PI / albedo;
+
+    imageStore(outColor, px, vec4(color, 1));
+    imageStore(outMoments, px, vec4(moments, 0, 0));
+}

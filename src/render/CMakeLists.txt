@@ -1,11 +1,13 @@
 add_subdirectory(bloom)
 add_subdirectory(dof)
 add_subdirectory(rtdi)
+add_subdirectory(svgf)
 
 set(PROSPER_RENDER_INCLUDES
     ${PROSPER_BLOOM_INCLUDES}
     ${PROSPER_DOF_INCLUDES}
     ${PROSPER_RTDI_INCLUDES}
+    ${PROSPER_SVGF_INCLUDES}
     ${CMAKE_CURRENT_LIST_DIR}/ComputePass.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.hpp
@@ -38,6 +40,7 @@ set(PROSPER_RENDER_SOURCES
     ${PROSPER_BLOOM_SOURCES}
     ${PROSPER_DOF_SOURCES}
     ${PROSPER_RTDI_SOURCES}
+    ${PROSPER_SVGF_SOURCES}
     ${CMAKE_CURRENT_LIST_DIR}/ComputePass.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DeferredShading.cpp

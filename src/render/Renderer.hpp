@@ -96,6 +96,8 @@ class Renderer
     wheels::OwningPtr<dof::DepthOfField> m_depthOfField;
     wheels::OwningPtr<bloom::Bloom> m_bloom;
     wheels::OwningPtr<ImageBasedLighting> m_imageBasedLighting;
+    wheels::OwningPtr<svgf::SpatioTemporalVarianceGuidedFiltering>
+        m_spatioTemporalVarianceGuidedFiltering;
     wheels::OwningPtr<TemporalAntiAliasing> m_temporalAntiAliasing;
     wheels::OwningPtr<TextureReadback> m_textureReadback;
 
