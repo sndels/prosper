@@ -398,6 +398,7 @@ void Renderer::render(
         m_rtDirectIllumination->releasePreserved();
         m_temporalAntiAliasing->releasePreserved();
         m_bloom->releasePreserved();
+        m_previousGBuffer.releaseAll();
 
         illumination =
             m_rtReference
@@ -416,6 +417,7 @@ void Renderer::render(
     {
         // Need to clean up after toggling rt off to not "leak" the resources
         m_rtReference->releasePreserved();
+        m_previousGBuffer.setHistoryDebugNames();
 
         ImageHandle velocity;
         ImageHandle depth;
@@ -424,7 +426,7 @@ void Renderer::render(
         {
             m_forwardRenderer->releasePreserved();
 
-            const GBufferRendererOutput gbuffer = m_gbufferRenderer->record(
+            const GBuffer gbuffer = m_gbufferRenderer->record(
                 scopeAlloc.child_scope(), cb, world, cam, renderArea,
                 gpuDrawStats, m_drawType, nextFrame, drawStats);
 
@@ -450,8 +452,9 @@ void Renderer::render(
                                    .illumination;
             }
 
-            gRenderResources.images->release(gbuffer.albedoRoughness);
-            gRenderResources.images->release(gbuffer.normalMetalness);
+            m_previousGBuffer.releaseAll();
+            m_previousGBuffer = gbuffer;
+            m_previousGBuffer.preserveAll();
 
             velocity = gbuffer.velocity;
             depth = gbuffer.depth;
@@ -460,6 +463,7 @@ void Renderer::render(
         {
             m_gbufferRenderer->releasePreserved();
             m_rtDirectIllumination->releasePreserved();
+            m_previousGBuffer.releaseAll();
 
             const ForwardRenderer::OpaqueOutput output =
                 m_forwardRenderer->recordOpaque(

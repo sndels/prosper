@@ -3,7 +3,7 @@
 #include "gfx/DescriptorAllocator.hpp"
 #include "gfx/Device.hpp"
 #include "gfx/VkUtils.hpp"
-#include "render/GBufferRenderer.hpp"
+#include "render/GBuffer.hpp"
 #include "render/RenderResources.hpp"
 #include "render/RenderTargets.hpp"
 #include "render/Utils.hpp"

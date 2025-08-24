@@ -45,7 +45,7 @@ class InitialReservoirs
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const scene::World &world, const scene::Camera &cam,
-        const GBufferRendererOutput &gbuffer, uint32_t nextFrame);
+        const GBuffer &gbuffer, uint32_t nextFrame);
 
     bool m_initialized{false};
     ComputePass m_computePass;

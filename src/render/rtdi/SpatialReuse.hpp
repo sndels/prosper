@@ -40,7 +40,7 @@ class SpatialReuse
 
     struct Input
     {
-        const GBufferRendererOutput &gbuffer;
+        const GBuffer &gbuffer;
         ImageHandle reservoirs;
     };
     struct Output

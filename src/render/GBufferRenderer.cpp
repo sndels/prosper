@@ -4,6 +4,7 @@
 #include "gfx/Device.hpp"
 #include "gfx/VkUtils.hpp"
 #include "render/DrawStats.hpp"
+#include "render/GBuffer.hpp"
 #include "render/MeshletCuller.hpp"
 #include "render/RenderResources.hpp"
 #include "render/RenderTargets.hpp"
@@ -27,9 +28,6 @@ namespace render
 
 namespace
 {
-
-const vk::Format sAlbedoRoughnessFormat = vk::Format::eR8G8B8A8Unorm;
-const vk::Format sNormalMetalnessFormat = vk::Format::eA2B10G10R10UnormPack32;
 
 enum BindingSet : uint8_t
 {
@@ -104,7 +102,7 @@ void GBufferRenderer::recompileShaders(
     }
 }
 
-GBufferRendererOutput GBufferRenderer::record(
+GBuffer GBufferRenderer::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
     const scene::Camera &cam, const vk::Rect2D &renderArea,
     BufferHandle inOutDrawStats, scene::DrawType drawType,
@@ -114,34 +112,9 @@ GBufferRendererOutput GBufferRenderer::record(
 
     PROFILER_CPU_GPU_SCOPE(cb, "GBuffer");
 
-    GBufferRendererOutput ret;
+    GBuffer ret;
     {
-        ret = GBufferRendererOutput{
-            .albedoRoughness = gRenderResources.images->create(
-                gfx::ImageDescription{
-                    .format = sAlbedoRoughnessFormat,
-                    .width = renderArea.extent.width,
-                    .height = renderArea.extent.height,
-                    .usageFlags =
-                        vk::ImageUsageFlagBits::eSampled |         // Debug
-                        vk::ImageUsageFlagBits::eColorAttachment | // Render
-                        vk::ImageUsageFlagBits::eStorage,          // Shading
-                },
-                "albedoRoughness"),
-            .normalMetalness = gRenderResources.images->create(
-                gfx::ImageDescription{
-                    .format = sNormalMetalnessFormat,
-                    .width = renderArea.extent.width,
-                    .height = renderArea.extent.height,
-                    .usageFlags =
-                        vk::ImageUsageFlagBits::eSampled |         // Debug
-                        vk::ImageUsageFlagBits::eColorAttachment | // Render
-                        vk::ImageUsageFlagBits::eStorage,          // Shading
-                },
-                "normalMetalness"),
-            .velocity = createVelocity(renderArea.extent, "velocity"),
-            .depth = createDepth(renderArea.extent, "depth"),
-        };
+        ret.create(renderArea.extent);
 
         Optional<ImageHandle> prevHierarchicalDepth;
         if (gRenderResources.images->isValidHandle(m_previousHierarchicalDepth))
@@ -406,8 +379,8 @@ void GBufferRenderer::createGraphicsPipelines(
         });
 
     const StaticArray colorAttachmentFormats{{
-        sAlbedoRoughnessFormat,
-        sNormalMetalnessFormat,
+        GBuffer::sAlbedoRoughnessFormat,
+        GBuffer::sNormalMetalnessFormat,
         sVelocityFormat,
     }};
 

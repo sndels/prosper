@@ -65,8 +65,8 @@ void RtDirectIllumination::drawUi()
 
 Output RtDirectIllumination::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, scene::World &world,
-    const scene::Camera &cam, const GBufferRendererOutput &gbuffer,
-    bool resetAccumulation, scene::DrawType drawType, uint32_t nextFrame)
+    const scene::Camera &cam, const GBuffer &gbuffer, bool resetAccumulation,
+    scene::DrawType drawType, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 

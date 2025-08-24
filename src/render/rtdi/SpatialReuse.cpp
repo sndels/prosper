@@ -1,5 +1,6 @@
 #include "SpatialReuse.hpp"
-#include "render/GBufferRenderer.hpp"
+
+#include "render/GBuffer.hpp"
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
 #include "scene/Camera.hpp"

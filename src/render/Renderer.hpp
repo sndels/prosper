@@ -4,6 +4,7 @@
 #include "gfx/Fwd.hpp"
 #include "render/DrawStats.hpp"
 #include "render/Fwd.hpp"
+#include "render/GBuffer.hpp"
 #include "render/RenderResourceHandle.hpp"
 #include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
@@ -102,6 +103,7 @@ class Renderer
     wheels::StaticArray<BufferHandle, MAX_FRAMES_IN_FLIGHT> m_gpuDrawStats;
 
     vk::Extent2D m_viewportExtentInUi{};
+    GBuffer m_previousGBuffer;
 
     bool m_textureDebugActive{false};
     bool m_referenceRt{false};

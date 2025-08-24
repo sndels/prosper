@@ -49,9 +49,11 @@ class DeferredShading;
 // ForwardRenderer.hpp
 class ForwardRenderer;
 
+// GBuffer.hpp
+struct GBuffer;
+
 // GBufferRenderer.hpp
 class GBufferRenderer;
-struct GBufferRendererOutput;
 
 // HierarchicalDepthDownsampler.hpp
 class HierarchicalDepthDownsampler;

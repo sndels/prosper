@@ -1,6 +1,6 @@
 #include "DeferredShading.hpp"
 
-#include "render/GBufferRenderer.hpp"
+#include "render/GBuffer.hpp"
 #include "render/LightClustering.hpp"
 #include "render/RenderResources.hpp"
 #include "render/RenderTargets.hpp"

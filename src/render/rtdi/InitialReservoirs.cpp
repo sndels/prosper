@@ -1,5 +1,6 @@
 #include "InitialReservoirs.hpp"
-#include "render/GBufferRenderer.hpp"
+
+#include "render/GBuffer.hpp"
 #include "render/RenderResources.hpp"
 #include "render/Utils.hpp"
 #include "scene/Camera.hpp"
@@ -94,8 +95,7 @@ bool InitialReservoirs::recompileShaders(
 
 InitialReservoirs::Output InitialReservoirs::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
-    const scene::Camera &cam, const GBufferRendererOutput &gbuffer,
-    const uint32_t nextFrame)
+    const scene::Camera &cam, const GBuffer &gbuffer, const uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 

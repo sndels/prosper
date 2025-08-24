@@ -15,14 +15,6 @@
 namespace render
 {
 
-struct GBufferRendererOutput
-{
-    ImageHandle albedoRoughness;
-    ImageHandle normalMetalness;
-    ImageHandle velocity;
-    ImageHandle depth;
-};
-
 class GBufferRenderer
 {
   public:
@@ -46,7 +38,7 @@ class GBufferRenderer
         vk::DescriptorSetLayout camDSLayout,
         const scene::WorldDSLayouts &worldDSLayouts);
 
-    [[nodiscard]] GBufferRendererOutput record(
+    [[nodiscard]] GBuffer record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const scene::World &world, const scene::Camera &cam,
         const vk::Rect2D &renderArea, BufferHandle inOutDrawStats,
