@@ -34,6 +34,16 @@ class RtDirectIllumination;
 
 } // namespace rtdi
 
+namespace svgf
+{
+
+// rtdi/RtDirectIllumination.hpp
+class SpatioTemporalVarianceGuidedFiltering;
+
+// Rest of the namespace types are internal
+
+} // namespace svgf
+
 // ComputePass.hpp
 class ComputePass;
 
