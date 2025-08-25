@@ -9,6 +9,7 @@
 
 #include "../common/math.glsl"
 #include "../scene/camera.glsl"
+#include "../scene/material.glsl"
 
 layout(constant_id = 0) const bool IGNORE_HISTORY = false;
 
@@ -29,12 +30,19 @@ layout(set = STORAGE_SET, binding = 10) uniform writeonly image2D outColor;
 layout(set = STORAGE_SET, binding = 11) uniform writeonly image2D outMoments;
 layout(set = STORAGE_SET, binding = 12) uniform sampler nearestSampler;
 
-#define nearestSample(tex, uv) texture(sampler2D(tex, nearestSampler), uv)
+#define sampleNearest(tex, uv) texture(sampler2D(tex, nearestSampler), uv)
 
 // TODO:
 // Pre-read all taps for a wave into shared mem
 
-void reprojectTap(vec2 uv, inout vec3 color, inout float weight)
+struct Surface
+{
+    vec3 positionWS;
+    vec3 normalWS;
+};
+
+void reprojectTap(
+    vec2 uv, Surface referenceSurface, inout vec3 color, inout float weight)
 {
     // TODO:
     // Reproject and validate
@@ -55,29 +63,46 @@ void main()
     ivec2 px = ivec2(gl_GlobalInvocationID.xy);
     if (any(greaterThanEqual(px, res)))
         return;
+    vec2 uv = pxToUv(px, res);
+
+    vec3 new_color = sampleNearest(inColor, uv).xyz;
+    vec3 new_albedo = sampleNearest(inAlbedoRoughness, uv).xyz;
+    // Recover raw illumination to avoid "denoising" texture detail
+    new_color *= PI / new_albedo;
 
     if (IGNORE_HISTORY)
     {
-        vec2 uv = pxToUv(px, res);
-        vec3 color = nearestSample(inColor, uv).xyz;
-        vec2 moments = vec2(0.);
+        vec2 moments = vec2(0.); // TODO
 
-        imageStore(outColor, px, vec4(color, 1));
+        imageStore(outColor, px, vec4(new_color, 1));
         imageStore(outMoments, px, vec4(moments, 0, 0));
         return;
     }
 
-    vec3 colors[9];
-    ivec2 offsets[9];
-    float weights[9];
+    Surface referenceSurface;
+    referenceSurface.positionWS =
+        worldPos(uv, sampleNearest(inNonLinearDepth, uv).x);
+    referenceSurface.normalWS =
+        signedOctDecode(sampleNearest(inNormalMetallic, uv).xyz);
 
-    // First sample 2x2
+    vec2 reprojectedUv = uv - velocity * vec2(.5, -.5);
+    vec2 reprojectedPx = reprojectedUv * vec2(res);
+    // TODO:
+    // Bilinear weights from reprojected px
+    // Round reprojected px
+    float weights[4];
+    reprojectedUv = (reprojectedPx - .5) / vec2(res);
+
+    vec3 colors[4];
+    ivec2 offsets[4]; // UV offsets
+    // First try sampling 2x2
     bool foundValidTap = false;
     for (int i = 0; i < 4; ++i)
     {
         weights[i] = 0.25;
-        vec2 uv = pxToUv(px + offsets[i], res);
-        reprojectTap(uv, colors[i], weights[i]);
+        reprojectTap(
+            reprojectedUv + offsets[i], referenceSurface, colors[i],
+            weights[i]);
         if (weights[i] > 0.)
             foundValidTap = true;
         else
@@ -98,6 +123,7 @@ void main()
     {
         // TODO:
         // Sample rest of 3x3
+        // Average of valid taps?
     }
 
     vec3 color = vec3(0);
@@ -110,11 +136,7 @@ void main()
     }
     else
     {
-        vec2 uv = pxToUv(px, res);
-        color = nearestSample(inColor, uv).xyz;
-        vec3 albedo = nearestSample(inAlbedoRoughness, uv).xyz;
-        // Recover raw illumination to avoid "denoising" texture detail
-        color *= PI / albedo;
+        color = new_color;
         // TODO:
         // Calculate moments
     }
