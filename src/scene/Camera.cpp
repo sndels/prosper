@@ -74,6 +74,7 @@ void Camera::endFrame()
 
     m_changedThisFrame = false;
     m_previousCameraToClip = m_cameraToClip;
+    m_previousClipToWorld = m_clipToWorld;
     m_previousWorldToCamera = m_worldToCamera;
     m_previousJitter = m_currentJitter;
     m_jitterIndex = (m_jitterIndex + 1) % sHaltonSampleCount;
@@ -181,6 +182,7 @@ void Camera::updateBuffer(const wheels::Optional<FrustumCorners> &debugFrustum)
         .clipToWorld = m_clipToWorld,
         .previousWorldToCamera = m_previousWorldToCamera,
         .previousCameraToClip = m_previousCameraToClip,
+        .previousClipToWorld = m_previousClipToWorld,
         .eye =
             vec4{
                 gestureOffset.has_value()
