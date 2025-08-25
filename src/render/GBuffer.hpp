@@ -11,11 +11,11 @@ namespace render
 struct GBuffer
 {
     static const vk::Format sAlbedoRoughnessFormat = vk::Format::eR8G8B8A8Unorm;
-    static const vk::Format sNormalMetalnessFormat =
+    static const vk::Format snormalMetallicFormat =
         vk::Format::eA2B10G10R10UnormPack32;
 
     ImageHandle albedoRoughness;
-    ImageHandle normalMetalness;
+    ImageHandle normalMetallic;
     ImageHandle velocity;
     ImageHandle depth;
 

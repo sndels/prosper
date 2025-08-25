@@ -138,7 +138,7 @@ DeferredShading::Output DeferredShading::record(
                 }},
                 gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
-                                     ->resource(input.gbuffer.normalMetalness)
+                                     ->resource(input.gbuffer.normalMetallic)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
@@ -165,7 +165,7 @@ DeferredShading::Output DeferredShading::record(
                 .images = StaticArray<ImageTransition, 5>{{
                     {input.gbuffer.albedoRoughness,
                      gfx::ImageState::ComputeShaderRead},
-                    {input.gbuffer.normalMetalness,
+                    {input.gbuffer.normalMetallic,
                      gfx::ImageState::ComputeShaderRead},
                     {input.gbuffer.depth, gfx::ImageState::ComputeShaderRead},
                     {ret.illumination, gfx::ImageState::ComputeShaderWrite},

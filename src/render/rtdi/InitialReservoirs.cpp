@@ -128,7 +128,7 @@ InitialReservoirs::Output InitialReservoirs::record(
                 }},
                 gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
-                                     ->resource(gbuffer.normalMetalness)
+                                     ->resource(gbuffer.normalMetallic)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
@@ -153,7 +153,7 @@ InitialReservoirs::Output InitialReservoirs::record(
                 .images = StaticArray<ImageTransition, 4>{{
                     {gbuffer.albedoRoughness,
                      gfx::ImageState::ComputeShaderRead},
-                    {gbuffer.normalMetalness,
+                    {gbuffer.normalMetallic,
                      gfx::ImageState::ComputeShaderRead},
                     {gbuffer.depth, gfx::ImageState::ComputeShaderRead},
                     {ret.reservoirs, gfx::ImageState::ComputeShaderWrite},

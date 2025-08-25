@@ -129,7 +129,7 @@ SpatialReuse::Output SpatialReuse::record(
                 }},
                 gfx::DescriptorInfo{vk::DescriptorImageInfo{
                     .imageView = gRenderResources.images
-                                     ->resource(input.gbuffer.normalMetalness)
+                                     ->resource(input.gbuffer.normalMetallic)
                                      .view,
                     .imageLayout = vk::ImageLayout::eGeneral,
                 }},
@@ -161,7 +161,7 @@ SpatialReuse::Output SpatialReuse::record(
                 .images = StaticArray<ImageTransition, 5>{{
                     {input.gbuffer.albedoRoughness,
                      gfx::ImageState::ComputeShaderRead},
-                    {input.gbuffer.normalMetalness,
+                    {input.gbuffer.normalMetallic,
                      gfx::ImageState::ComputeShaderRead},
                     {input.gbuffer.depth, gfx::ImageState::ComputeShaderRead},
                     {input.reservoirs, gfx::ImageState::ComputeShaderRead},
