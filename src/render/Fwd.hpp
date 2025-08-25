@@ -38,7 +38,7 @@ namespace svgf
 {
 
 // rtdi/RtDirectIllumination.hpp
-class SpatioTemporalVarianceGuidedFiltering;
+class SpatiotemporalVarianceGuidedFiltering;
 
 // Rest of the namespace types are internal
 

@@ -161,12 +161,12 @@ Accumulate::Output Accumulate::record(
         ImageHandle previousAlbedoRoughness =
             input.previous_gbuffer.albedoRoughness;
         ImageHandle previousNormalMetallic =
-            input.previous_gbuffer.normalMetalness;
+            input.previous_gbuffer.normalMetallic;
         ImageHandle previousDepth = input.previous_gbuffer.depth;
         if (previousAlbedoRoughness.isValid())
             previousAlbedoRoughness = input.gbuffer.albedoRoughness;
         if (previousNormalMetallic.isValid())
-            previousNormalMetallic = input.gbuffer.normalMetalness;
+            previousNormalMetallic = input.gbuffer.normalMetallic;
         if (previousDepth.isValid())
             previousDepth = input.gbuffer.depth;
         const StaticArray descriptorInfos{{
@@ -183,7 +183,7 @@ Accumulate::Output Accumulate::record(
             }},
             gfx::DescriptorInfo{vk::DescriptorImageInfo{
                 .imageView = gRenderResources.images
-                                 ->resource(input.gbuffer.normalMetalness)
+                                 ->resource(input.gbuffer.normalMetallic)
                                  .view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
@@ -253,18 +253,17 @@ Accumulate::Output Accumulate::record(
                     {input.color, gfx::ImageState::ComputeShaderSampledRead},
                     {input.gbuffer.albedoRoughness,
                      gfx::ImageState::ComputeShaderSampledRead},
-                    {input.gbuffer.normalMetalness,
+                    {input.gbuffer.normalMetallic,
                      gfx::ImageState::ComputeShaderSampledRead},
                     {input.gbuffer.velocity,
                      gfx::ImageState::ComputeShaderSampledRead},
                     {input.gbuffer.depth,
                      gfx::ImageState::ComputeShaderSampledRead},
-                    {input.previous_gbuffer.albedoRoughness,
+                    {previousAlbedoRoughness,
                      gfx::ImageState::ComputeShaderSampledRead},
-                    {input.previous_gbuffer.normalMetalness,
+                    {previousNormalMetallic,
                      gfx::ImageState::ComputeShaderSampledRead},
-                    {input.previous_gbuffer.depth,
-                     gfx::ImageState::ComputeShaderSampledRead},
+                    {previousDepth, gfx::ImageState::ComputeShaderSampledRead},
                     // TODO:
                     // Transition previous integrated color
                     {input.color, gfx::ImageState::ComputeShaderSampledRead},

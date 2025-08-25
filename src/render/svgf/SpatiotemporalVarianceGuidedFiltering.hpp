@@ -16,20 +16,20 @@ namespace render::svgf
 
 using Input = Accumulate::Input;
 
-class SpatioTemporalVarianceGuidedFiltering
+class SpatiotemporalVarianceGuidedFiltering
 {
   public:
-    SpatioTemporalVarianceGuidedFiltering() noexcept = default;
-    ~SpatioTemporalVarianceGuidedFiltering() = default;
+    SpatiotemporalVarianceGuidedFiltering() noexcept = default;
+    ~SpatiotemporalVarianceGuidedFiltering() = default;
 
-    SpatioTemporalVarianceGuidedFiltering(
-        const SpatioTemporalVarianceGuidedFiltering &other) = delete;
-    SpatioTemporalVarianceGuidedFiltering(
-        SpatioTemporalVarianceGuidedFiltering &&other) = delete;
-    SpatioTemporalVarianceGuidedFiltering &operator=(
-        const SpatioTemporalVarianceGuidedFiltering &other) = delete;
-    SpatioTemporalVarianceGuidedFiltering &operator=(
-        SpatioTemporalVarianceGuidedFiltering &&other) = delete;
+    SpatiotemporalVarianceGuidedFiltering(
+        const SpatiotemporalVarianceGuidedFiltering &other) = delete;
+    SpatiotemporalVarianceGuidedFiltering(
+        SpatiotemporalVarianceGuidedFiltering &&other) = delete;
+    SpatiotemporalVarianceGuidedFiltering &operator=(
+        const SpatiotemporalVarianceGuidedFiltering &other) = delete;
+    SpatiotemporalVarianceGuidedFiltering &operator=(
+        SpatiotemporalVarianceGuidedFiltering &&other) = delete;
 
     void init(
         wheels::ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout);
