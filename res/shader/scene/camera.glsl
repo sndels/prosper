@@ -23,9 +23,18 @@ float linearizeDepth(float nonLinearDepth)
 
 vec3 worldPos(vec2 uv, float nonLinearDepth)
 {
-    // TODO: This is broken
+    // TODO: This is broken (Is it really? How?)
     // TODO: Cheaper view ray
     vec4 surfaceVS = camera.clipToWorld * vec4(uv * 2 - 1, nonLinearDepth, 1);
+    return surfaceVS.xyz / surfaceVS.w;
+}
+
+vec3 previousWorldPos(vec2 uv, float nonLinearDepth)
+{
+    // TODO: This is broken (Is it really? How?)
+    // TODO: Cheaper view ray
+    vec4 surfaceVS =
+        camera.previousClipToWorld * vec4(uv * 2 - 1, nonLinearDepth, 1);
     return surfaceVS.xyz / surfaceVS.w;
 }
 

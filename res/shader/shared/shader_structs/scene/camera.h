@@ -16,6 +16,7 @@ struct CameraUniforms
     STRUCT_FIELD_GLM(mat4, clipToWorld, {});
     STRUCT_FIELD_GLM(mat4, previousWorldToCamera, {});
     STRUCT_FIELD_GLM(mat4, previousCameraToClip, {});
+    STRUCT_FIELD_GLM(mat4, previousClipToWorld, {});
     STRUCT_FIELD_GLM(vec4, eye, {});
     // These are world space plane normal,distance and normals point into the
     // frustum

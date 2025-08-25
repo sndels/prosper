@@ -125,6 +125,7 @@ class Camera
     glm::mat4 m_clipToWorld{1.f};
     glm::mat4 m_previousWorldToCamera{1.f};
     glm::mat4 m_previousCameraToClip{1.f};
+    glm::mat4 m_previousClipToWorld{1.f};
     glm::vec2 m_currentJitter{0.f};
     glm::vec2 m_previousJitter{0.f};
     // These are world space plane normal,distance and normals point into the
