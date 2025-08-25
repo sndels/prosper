@@ -1,4 +1,4 @@
-#include "SpatioTemporalVarianceGuidedFiltering.hpp"
+#include "SpatiotemporalVarianceGuidedFiltering.hpp"
 
 #include "render/RenderResources.hpp"
 #include "utils/Profiler.hpp"
@@ -10,7 +10,7 @@ using namespace wheels;
 namespace render::svgf
 {
 
-void SpatioTemporalVarianceGuidedFiltering::init(
+void SpatiotemporalVarianceGuidedFiltering::init(
     ScopedScratch scopeAlloc, vk::DescriptorSetLayout camDSLayout)
 {
     WHEELS_ASSERT(!m_initialized);
@@ -20,7 +20,7 @@ void SpatioTemporalVarianceGuidedFiltering::init(
     m_initialized = true;
 }
 
-void SpatioTemporalVarianceGuidedFiltering::recompileShaders(
+void SpatiotemporalVarianceGuidedFiltering::recompileShaders(
     ScopedScratch scopeAlloc,
     const HashSet<std::filesystem::path> &changedFiles,
     vk::DescriptorSetLayout camDSLayout)
@@ -31,14 +31,14 @@ void SpatioTemporalVarianceGuidedFiltering::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDSLayout);
 }
 
-void SpatioTemporalVarianceGuidedFiltering::drawUi()
+void SpatiotemporalVarianceGuidedFiltering::drawUi()
 {
     WHEELS_ASSERT(m_initialized);
 
     m_ignoreHistory |= ImGui::Button("Reset accumulation");
 }
 
-void SpatioTemporalVarianceGuidedFiltering::record(
+void SpatiotemporalVarianceGuidedFiltering::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::Camera &cam,
     const Input &input, uint32_t nextFrame)
 {
@@ -61,7 +61,7 @@ void SpatioTemporalVarianceGuidedFiltering::record(
     m_ignoreHistory = false;
 }
 
-void SpatioTemporalVarianceGuidedFiltering::releasePreserved()
+void SpatiotemporalVarianceGuidedFiltering::releasePreserved()
 {
     WHEELS_ASSERT(m_initialized);
 
