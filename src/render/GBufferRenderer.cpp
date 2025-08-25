@@ -144,7 +144,7 @@ GBuffer GBufferRenderer::record(
                     .inArgumentBuffer = firstPhaseCullingOutput.argumentBuffer,
                     .inOutDrawStats = inOutDrawStats,
                     .outAlbedoRoughness = ret.albedoRoughness,
-                    .outNormalMetalness = ret.normalMetalness,
+                    .outnormalMetallic = ret.normalMetallic,
                     .outVelocity = ret.velocity,
                     .outDepth = ret.depth,
                 },
@@ -185,7 +185,7 @@ GBuffer GBufferRenderer::record(
                     .inArgumentBuffer = secondPhaseCullingOutput.argumentBuffer,
                     .inOutDrawStats = inOutDrawStats,
                     .outAlbedoRoughness = ret.albedoRoughness,
-                    .outNormalMetalness = ret.normalMetalness,
+                    .outnormalMetallic = ret.normalMetallic,
                     .outVelocity = ret.velocity,
                     .outDepth = ret.depth,
                 },
@@ -380,7 +380,7 @@ void GBufferRenderer::createGraphicsPipelines(
 
     const StaticArray colorAttachmentFormats{{
         GBuffer::sAlbedoRoughnessFormat,
-        GBuffer::sNormalMetalnessFormat,
+        GBuffer::snormalMetallicFormat,
         sVelocityFormat,
     }};
 
@@ -431,7 +431,7 @@ void GBufferRenderer::recordDraw(
         Transitions{
             .images = StaticArray<ImageTransition, 4>{{
                 {inputsOutputs.outAlbedoRoughness, colorAttachmentState},
-                {inputsOutputs.outNormalMetalness, colorAttachmentState},
+                {inputsOutputs.outnormalMetallic, colorAttachmentState},
                 {inputsOutputs.outVelocity, colorAttachmentState},
                 {inputsOutputs.outDepth,
                  gfx::ImageState::DepthAttachmentReadWrite},
@@ -461,7 +461,7 @@ void GBufferRenderer::recordDraw(
             },
             vk::RenderingAttachmentInfo{
                 .imageView = gRenderResources.images
-                                 ->resource(inputsOutputs.outNormalMetalness)
+                                 ->resource(inputsOutputs.outnormalMetallic)
                                  .view,
                 .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
                 .loadOp = loadOp,

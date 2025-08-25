@@ -217,7 +217,7 @@ Trace::Output Trace::record(
                 .images = StaticArray<ImageTransition, 8>{{
                     {input.gbuffer.albedoRoughness,
                      gfx::ImageState::RayTracingRead},
-                    {input.gbuffer.normalMetalness,
+                    {input.gbuffer.normalMetallic,
                      gfx::ImageState::RayTracingRead},
                     {input.gbuffer.depth, gfx::ImageState::RayTracingRead},
                     {input.reservoirs, gfx::ImageState::RayTracingRead},
@@ -538,7 +538,7 @@ void Trace::updateDescriptorSet(
         }},
         gfx::DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                gRenderResources.images->resource(input.gbuffer.normalMetalness)
+                gRenderResources.images->resource(input.gbuffer.normalMetallic)
                     .view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},

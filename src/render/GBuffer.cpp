@@ -10,7 +10,7 @@ namespace render
 void GBuffer::create(const vk::Extent2D &extent)
 {
     WHEELS_ASSERT(!albedoRoughness.isValid());
-    WHEELS_ASSERT(!normalMetalness.isValid());
+    WHEELS_ASSERT(!normalMetallic.isValid());
     WHEELS_ASSERT(!velocity.isValid());
     WHEELS_ASSERT(!depth.isValid());
 
@@ -24,16 +24,16 @@ void GBuffer::create(const vk::Extent2D &extent)
                           vk::ImageUsageFlagBits::eStorage,          // Shading
         },
         "albedoRoughness");
-    normalMetalness = gRenderResources.images->create(
+    normalMetallic = gRenderResources.images->create(
         gfx::ImageDescription{
-            .format = sNormalMetalnessFormat,
+            .format = snormalMetallicFormat,
             .width = extent.width,
             .height = extent.height,
             .usageFlags = vk::ImageUsageFlagBits::eSampled |         // Debug
                           vk::ImageUsageFlagBits::eColorAttachment | // Render
                           vk::ImageUsageFlagBits::eStorage,          // Shading
         },
-        "normalMetalness");
+        "normalMetallic");
     velocity = createVelocity(extent, "velocity");
     depth = createDepth(extent, "depth");
 }
@@ -43,13 +43,13 @@ void GBuffer::setHistoryDebugNames() const
     if (!gRenderResources.images->isValidHandle(albedoRoughness))
         return;
 
-    WHEELS_ASSERT(gRenderResources.images->isValidHandle(normalMetalness));
+    WHEELS_ASSERT(gRenderResources.images->isValidHandle(normalMetallic));
     WHEELS_ASSERT(gRenderResources.images->isValidHandle(depth));
 
     gRenderResources.images->appendDebugName(
         albedoRoughness, "previousAlbedoRoughness");
     gRenderResources.images->appendDebugName(
-        normalMetalness, "previousNormalMetallic");
+        normalMetallic, "previousNormalMetallic");
     // Skip velocity history as no one needs it
     gRenderResources.images->appendDebugName(depth, "previousDepth");
 }
@@ -59,11 +59,11 @@ void GBuffer::releaseAll() const
     if (!gRenderResources.images->isValidHandle(albedoRoughness))
         return;
 
-    WHEELS_ASSERT(gRenderResources.images->isValidHandle(normalMetalness));
+    WHEELS_ASSERT(gRenderResources.images->isValidHandle(normalMetallic));
     WHEELS_ASSERT(gRenderResources.images->isValidHandle(depth));
 
     gRenderResources.images->release(albedoRoughness);
-    gRenderResources.images->release(normalMetalness);
+    gRenderResources.images->release(normalMetallic);
     // Velocity is not present in history gbuffer
     if (gRenderResources.images->isValidHandle(velocity))
         gRenderResources.images->release(velocity);
@@ -73,7 +73,7 @@ void GBuffer::releaseAll() const
 void GBuffer::preserveAll() const
 {
     gRenderResources.images->preserve(albedoRoughness);
-    gRenderResources.images->preserve(normalMetalness);
+    gRenderResources.images->preserve(normalMetallic);
     // Skip velocity history as no one needs it
     gRenderResources.images->preserve(depth);
 }

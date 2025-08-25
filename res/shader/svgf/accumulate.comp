@@ -60,7 +60,30 @@ void main()
         return;
     }
 
-    vec3 albedo = nearestSample(inAlbedoRoughness, uv).xyz;
+    vec3 colors[9] = {};
+    // TODO:
+    // Tap offsets
+    vec2 offsets[9] = {};
+    float weights[9] = {};
+
+    // First sample 2x2
+    for (int i = 0; i < 4; ++i)
+    {
+        weights[i] = 0.25;
+        sampleTap(px + offsets[i], colors[i], weights[i]);
+        if (weights[i] == 0.)
+        {
+            for (int j = 0; j < i; ++j)
+            {
+                if (weights[j] > 0.)
+                {
+                    weights[j] += 0.25 / 4;
+                }
+            }
+            for (int j = i; j < 4; ++j)
+            {
+        }
+    }
 
     // Recover raw illumination to avoid "denoising" texture detail
     color *= PI / albedo;

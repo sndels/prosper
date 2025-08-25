@@ -72,7 +72,7 @@ class GBufferRenderer
         BufferHandle inArgumentBuffer;
         BufferHandle inOutDrawStats;
         ImageHandle outAlbedoRoughness;
-        ImageHandle outNormalMetalness;
+        ImageHandle outnormalMetallic;
         ImageHandle outVelocity;
         ImageHandle outDepth;
     };
