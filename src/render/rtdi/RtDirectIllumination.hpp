@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 #define PROSPER_RENDER_RTDI_RT_DIRECT_ILLUMINATION_HPP
 
+#include "Compose.hpp"
 #include "Trace.hpp"
 #include "render/Fwd.hpp"
 #include "render/rtdi/InitialReservoirs.hpp"
@@ -14,7 +15,7 @@
 namespace render::rtdi
 {
 
-using Output = Trace::Output;
+using Output = Compose::Output;
 
 class RtDirectIllumination
 {
@@ -54,6 +55,7 @@ class RtDirectIllumination
     InitialReservoirs m_initialReservoirs;
     SpatialReuse m_spatialReuse;
     Trace m_trace;
+    Compose m_compose;
 };
 
 } // namespace render::rtdi

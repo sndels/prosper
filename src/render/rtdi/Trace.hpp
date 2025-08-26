@@ -44,7 +44,8 @@ class Trace
     };
     struct Output
     {
-        ImageHandle illumination;
+        ImageHandle diffuseIllumination;
+        ImageHandle specularIllumination;
     };
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
@@ -63,7 +64,7 @@ class Trace
     void createDescriptorSets(wheels::ScopedScratch scopeAlloc);
     void updateDescriptorSet(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame,
-        Input const &inputs, ImageHandle illumination);
+        const Input &inputs, const Output &output);
     void createPipeline(
         vk::DescriptorSetLayout camDSLayout,
         const scene::WorldDSLayouts &worldDSLayouts);
@@ -93,7 +94,8 @@ class Trace
     bool m_accumulate{false};
     uint32_t m_frameIndex{0};
 
-    ImageHandle m_previousIllumination;
+    ImageHandle m_previousDiffuseIllumination;
+    ImageHandle m_previousSpecularIllumination;
 };
 
 } // namespace render::rtdi

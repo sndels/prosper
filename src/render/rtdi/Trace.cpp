@@ -168,32 +168,45 @@ Trace::Output Trace::record(
         // This could be a 'normal' lower bitdepth illumination target when
         // accumulation is skipped. However, glsl needs explicit format for the
         // uniform.
-        ImageHandle illumination = gRenderResources.images->create(
-            accumulateImageDescription, "RtDiTrace32bit");
+        ret.diffuseIllumination = gRenderResources.images->create(
+            accumulateImageDescription, "RtDiTraceDiffuse32bit");
+        ret.specularIllumination = gRenderResources.images->create(
+            accumulateImageDescription, "RtDiTraceSpecular32bit");
 
         vk::Extent3D previousExtent;
-        if (gRenderResources.images->isValidHandle(m_previousIllumination))
+        if (gRenderResources.images->isValidHandle(
+                m_previousDiffuseIllumination))
             previousExtent =
-                gRenderResources.images->resource(m_previousIllumination)
+                gRenderResources.images->resource(m_previousDiffuseIllumination)
                     .extent;
 
         if (resetAccumulation || renderExtent.width != previousExtent.width ||
             renderExtent.height != previousExtent.height)
         {
-            if (gRenderResources.images->isValidHandle(m_previousIllumination))
-                gRenderResources.images->release(m_previousIllumination);
+            if (gRenderResources.images->isValidHandle(
+                    m_previousDiffuseIllumination))
+                gRenderResources.images->release(m_previousDiffuseIllumination);
+            if (gRenderResources.images->isValidHandle(
+                    m_previousSpecularIllumination))
+                gRenderResources.images->release(
+                    m_previousSpecularIllumination);
 
             // Create dummy texture that won't be read from to satisfy binds
-            m_previousIllumination = gRenderResources.images->create(
-                accumulateImageDescription, "previousRtDiTrace");
+            m_previousDiffuseIllumination = gRenderResources.images->create(
+                accumulateImageDescription, "previousRtDiTraceDiffuse");
+            m_previousSpecularIllumination = gRenderResources.images->create(
+                accumulateImageDescription, "previousRtDiTraceSpecular");
             m_accumulationDirty = true;
         }
-        else // We clear debug names each frame
+        else
+        { // We clear debug names each frame
             gRenderResources.images->appendDebugName(
-                m_previousIllumination, "previousRtDiTrace");
+                m_previousDiffuseIllumination, "previousRtDiTraceDiffuse");
+            gRenderResources.images->appendDebugName(
+                m_previousSpecularIllumination, "previousRtDiTraceSpecular");
+        }
 
-        updateDescriptorSet(
-            scopeAlloc.child_scope(), nextFrame, input, illumination);
+        updateDescriptorSet(scopeAlloc.child_scope(), nextFrame, input, ret);
 
         world.currentTLAS().buffer.transition(
             cb, gfx::BufferState::RayTracingAccelerationStructureRead);
@@ -201,15 +214,21 @@ Trace::Output Trace::record(
         transition(
             scopeAlloc.child_scope(), cb,
             Transitions{
-                .images = StaticArray<ImageTransition, 6>{{
+                .images = StaticArray<ImageTransition, 8>{{
                     {input.gbuffer.albedoRoughness,
                      gfx::ImageState::RayTracingRead},
                     {input.gbuffer.normalMetalness,
                      gfx::ImageState::RayTracingRead},
                     {input.gbuffer.depth, gfx::ImageState::RayTracingRead},
                     {input.reservoirs, gfx::ImageState::RayTracingRead},
-                    {m_previousIllumination, gfx::ImageState::RayTracingRead},
-                    {illumination, gfx::ImageState::RayTracingReadWrite},
+                    {m_previousDiffuseIllumination,
+                     gfx::ImageState::RayTracingRead},
+                    {m_previousSpecularIllumination,
+                     gfx::ImageState::RayTracingRead},
+                    {ret.diffuseIllumination,
+                     gfx::ImageState::RayTracingReadWrite},
+                    {ret.specularIllumination,
+                     gfx::ImageState::RayTracingReadWrite},
                 }},
             });
 
@@ -297,48 +316,12 @@ Trace::Output Trace::record(
             &rayGenRegion, &missRegion, &hitRegion, &callableRegion,
             renderExtent.width, renderExtent.height, 1);
 
-        gRenderResources.images->release(m_previousIllumination);
-        m_previousIllumination = illumination;
-        gRenderResources.images->preserve(m_previousIllumination);
-
-        // Further passes expect 16bit illumination with pipelines created with
-        // the attachment format
-        {
-            ret.illumination = createIllumination(renderExtent, "RtDiTrace");
-            transition(
-                WHEELS_MOV(scopeAlloc), cb,
-                Transitions{
-                    .images = StaticArray<ImageTransition, 2>{{
-                        {illumination, gfx::ImageState::TransferSrc},
-                        {ret.illumination, gfx::ImageState::TransferDst},
-                    }},
-                });
-            const vk::ImageSubresourceLayers layers{
-                .aspectMask = vk::ImageAspectFlagBits::eColor,
-                .mipLevel = 0,
-                .baseArrayLayer = 0,
-                .layerCount = 1};
-            const std::array offsets{
-                vk::Offset3D{.x = 0, .y = 0, .z = 0},
-                vk::Offset3D{
-                    .x = asserted_cast<int32_t>(renderExtent.width),
-                    .y = asserted_cast<int32_t>(renderExtent.height),
-                    .z = 1,
-                },
-            };
-            const auto blit = vk::ImageBlit{
-                .srcSubresource = layers,
-                .srcOffsets = offsets,
-                .dstSubresource = layers,
-                .dstOffsets = offsets,
-            };
-            cb.blitImage(
-                gRenderResources.images->nativeHandle(illumination),
-                vk::ImageLayout::eTransferSrcOptimal,
-                gRenderResources.images->nativeHandle(ret.illumination),
-                vk::ImageLayout::eTransferDstOptimal, 1, &blit,
-                vk::Filter::eLinear);
-        }
+        gRenderResources.images->release(m_previousDiffuseIllumination);
+        gRenderResources.images->release(m_previousSpecularIllumination);
+        m_previousDiffuseIllumination = ret.diffuseIllumination;
+        m_previousSpecularIllumination = ret.specularIllumination;
+        gRenderResources.images->preserve(m_previousDiffuseIllumination);
+        gRenderResources.images->preserve(m_previousSpecularIllumination);
     }
 
     m_accumulationDirty = false;
@@ -350,8 +333,10 @@ void Trace::releasePreserved()
 {
     WHEELS_ASSERT(m_initialized);
 
-    if (gRenderResources.images->isValidHandle(m_previousIllumination))
-        gRenderResources.images->release(m_previousIllumination);
+    if (gRenderResources.images->isValidHandle(m_previousDiffuseIllumination))
+        gRenderResources.images->release(m_previousDiffuseIllumination);
+    if (gRenderResources.images->isValidHandle(m_previousSpecularIllumination))
+        gRenderResources.images->release(m_previousSpecularIllumination);
 }
 
 void Trace::destroyShaders()
@@ -537,7 +522,7 @@ void Trace::createDescriptorSets(ScopedScratch scopeAlloc)
 
 void Trace::updateDescriptorSet(
     ScopedScratch scopeAlloc, uint32_t nextFrame, const Input &input,
-    ImageHandle illumination)
+    const Output &output)
 {
     // TODO:
     // Don't update if resources are the same as before (for this DS index)?
@@ -569,11 +554,26 @@ void Trace::updateDescriptorSet(
         }},
         gfx::DescriptorInfo{vk::DescriptorImageInfo{
             .imageView =
-                gRenderResources.images->resource(m_previousIllumination).view,
+                gRenderResources.images->resource(m_previousDiffuseIllumination)
+                    .view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         gfx::DescriptorInfo{vk::DescriptorImageInfo{
-            .imageView = gRenderResources.images->resource(illumination).view,
+            .imageView = gRenderResources.images
+                             ->resource(m_previousSpecularIllumination)
+                             .view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        gfx::DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                gRenderResources.images->resource(output.diffuseIllumination)
+                    .view,
+            .imageLayout = vk::ImageLayout::eGeneral,
+        }},
+        gfx::DescriptorInfo{vk::DescriptorImageInfo{
+            .imageView =
+                gRenderResources.images->resource(output.specularIllumination)
+                    .view,
             .imageLayout = vk::ImageLayout::eGeneral,
         }},
         gfx::DescriptorInfo{vk::DescriptorImageInfo{

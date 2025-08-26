@@ -33,9 +33,13 @@ layout(set = STORAGE_SET, binding = 1) uniform readonly image2D
     inNormalMetallic;
 layout(set = STORAGE_SET, binding = 2) uniform texture2D inNonLinearDepth;
 layout(set = STORAGE_SET, binding = 3) uniform readonly image2D inReservoirs;
-layout(set = STORAGE_SET, binding = 4) uniform readonly image2D previousColor;
-layout(set = STORAGE_SET, binding = 5) uniform image2D outColor;
-layout(set = STORAGE_SET, binding = 6) uniform sampler depthSampler;
+layout(set = STORAGE_SET, binding = 4) uniform readonly image2D
+    previousDiffuseIllumination;
+layout(set = STORAGE_SET, binding = 5) uniform readonly image2D
+    previousSpecularIllumination;
+layout(set = STORAGE_SET, binding = 6) uniform image2D outDiffuseIllumination;
+layout(set = STORAGE_SET, binding = 7) uniform image2D outSpecularIllumination;
+layout(set = STORAGE_SET, binding = 8) uniform sampler depthSampler;
 
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
@@ -84,12 +88,17 @@ vec3 evaluateDirectLighting(VisibleSurface surface)
     return irradiance * evalBRDFTimesNoL(l, surface);
 }
 
-vec3 evaluateDirectLightingReSTIR(
-    VisibleSurface surface, LightReservoir reservoir)
+void evaluateDirectLightingReSTIR(
+    VisibleSurface surface, LightReservoir reservoir, inout vec3 outDiffuse,
+    inout vec3 outSpecular)
 {
     // Alpha=0 hits don't have a valid surface
     if (surface.material.alpha == 0 || reservoir.lightIndex < 0)
-        return vec3(0);
+    {
+        outDiffuse = vec3(0);
+        outSpecular = vec3(0);
+        return;
+    }
 
     vec3 l;
     float d;
@@ -98,12 +107,17 @@ vec3 evaluateDirectLightingReSTIR(
 
     // Don't bother evaluating backface lighting
     if (dot(l, surface.normalWS) <= 0)
-        return vec3(0);
+    {
+        outDiffuse = vec3(0);
+        outSpecular = vec3(0);
+        return;
+    }
 
     irradiance *= shadow(surface.positionWS, l, 0.1, d);
 
-    return irradiance * evalBRDFTimesNoL(l, surface) *
-           reservoir.unbiasedContributionWeight;
+    evalBRDFTimesNoL(l, surface, outDiffuse, outSpecular);
+    outDiffuse *= irradiance * reservoir.unbiasedContributionWeight;
+    outSpecular *= irradiance * reservoir.unbiasedContributionWeight;
 }
 
 void main()
@@ -133,33 +147,47 @@ void main()
             DebugInputs di;
             di.position = surface.positionWS;
             imageStore(
-                outColor, px,
+                outDiffuseIllumination, px,
                 vec4(commonDebugDraw(PC.drawType, di, surface.material), 1));
+            imageStore(outSpecularIllumination, px, vec4(0));
         }
         else
         {
             // GBuffer pass stores debug output in albedo
-            imageStore(outColor, px, vec4(surface.material.albedo, 1));
+            imageStore(
+                outDiffuseIllumination, px, vec4(surface.material.albedo, 1));
+            imageStore(outSpecularIllumination, px, vec4(0));
         }
         return;
     }
 
     // vec3 color = evaluateDirectLighting(surface);
     LightReservoir reservoir = unpackReservoir(imageLoad(inReservoirs, px).xy);
-    vec3 color = evaluateDirectLightingReSTIR(surface, reservoir);
+    vec3 diffuse, specular;
+    evaluateDirectLightingReSTIR(surface, reservoir, diffuse, specular);
 
-    if (flagSkipHistory() || !flagAccumulate())
+    float diffuseHistoryCount = 1;
+    float specularHistoryCount = 1;
+    if (!flagSkipHistory() && flagAccumulate())
     {
-        imageStore(outColor, ivec2(px), vec4(color, 1));
-    }
-    else
-    {
-        vec4 history = imageLoad(previousColor, ivec2(px));
-        vec3 historyColor = history.rgb;
-        float historyCount = history.a + 1;
+        vec4 diffuseHistory = imageLoad(previousDiffuseIllumination, ivec2(px));
+        vec4 specularHistory =
+            imageLoad(previousSpecularIllumination, ivec2(px));
 
-        vec3 newColor = historyColor + (color - historyColor) / historyCount;
+        vec3 diffuseHistoryColor = diffuseHistory.rgb;
+        vec3 specularHistoryColor = specularHistory.rgb;
+        diffuseHistoryCount += diffuseHistory.a;
+        specularHistoryCount += specularHistory.a;
 
-        imageStore(outColor, ivec2(px), vec4(newColor, historyCount));
+        diffuse = diffuseHistoryColor +
+                  (diffuse - diffuseHistoryColor) / diffuseHistoryCount;
+
+        specular = specularHistoryColor +
+                   (specular - specularHistoryColor) / specularHistoryCount;
     }
+    imageStore(
+        outDiffuseIllumination, ivec2(px), vec4(diffuse, diffuseHistoryCount));
+    imageStore(
+        outSpecularIllumination, ivec2(px),
+        vec4(specular, specularHistoryCount));
 }

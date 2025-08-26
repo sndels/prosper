@@ -1,0 +1,30 @@
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_image_load_formatted : require
+
+#pragma shader_stage(compute)
+
+layout(set = STORAGE_SET, binding = 0) uniform texture2D inDiffuseIllumination;
+layout(set = STORAGE_SET, binding = 1) uniform texture2D inSpecularIllumination;
+layout(set = STORAGE_SET, binding = 2) uniform image2D outIllumination;
+layout(set = STORAGE_SET, binding = 3) uniform sampler nearestSampler;
+
+#define sampleNearest(tex, uv) texture(sampler2D(tex, nearestSampler), uv)
+
+layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
+void main()
+{
+    ivec2 res = imageSize(outIllumination);
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(px, res)))
+    {
+        return;
+    }
+    vec2 uv = (vec2(px) + .5) / res;
+
+    vec3 diffuse = sampleNearest(inDiffuseIllumination, uv).xyz;
+    vec3 specular = sampleNearest(inSpecularIllumination, uv).xyz;
+
+    vec3 illumination = diffuse + specular;
+
+    imageStore(outIllumination, ivec2(px), vec4(illumination, 1));
+}

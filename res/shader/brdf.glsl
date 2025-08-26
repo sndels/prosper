@@ -86,4 +86,29 @@ vec3 evalBRDFTimesNoL(vec3 l, VisibleSurface surface)
            NoL;
 }
 
+void evalBRDFTimesNoL(
+    vec3 l, VisibleSurface surface, inout vec3 outDiffuse,
+    inout vec3 outSpecular)
+{
+    // Common dot products
+    vec3 h = normalize(surface.invViewRayWS + l);
+    float NoL = saturate(dot(surface.normalWS, l));
+    float NoH = saturate(dot(surface.normalWS, h));
+    float VoH = saturate(dot(surface.invViewRayWS, h));
+
+    // Use standard approximation of default fresnel
+    vec3 f0 = fresnelZero(surface);
+
+    // Match glTF spec
+    vec3 c_diff =
+        mix(surface.material.albedo.rgb * (1 - 0.04), vec3(0),
+            surface.material.metallic);
+
+    outDiffuse = lambertBRFD(c_diff) * NoL;
+    outSpecular =
+        cookTorranceBRDF(
+            NoL, surface.NoV, NoH, VoH, f0, surface.material.roughness) *
+        NoL;
+}
+
 #endif // BRDF_GLSL

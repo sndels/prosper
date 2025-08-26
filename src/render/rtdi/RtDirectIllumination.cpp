@@ -26,7 +26,8 @@ void RtDirectIllumination::init(
                                       .camera = camDSLayout,
                                       .world = worldDSLayouts,
                                   });
-    m_trace.init(WHEELS_MOV(scopeAlloc), camDSLayout, worldDSLayouts);
+    m_trace.init(scopeAlloc.child_scope(), camDSLayout, worldDSLayouts);
+    m_compose.init(WHEELS_MOV(scopeAlloc));
 
     m_initialized = true;
 }
@@ -54,6 +55,8 @@ void RtDirectIllumination::recompileShaders(
     // Trace handles accumulation so we don't check recompile here
     m_trace.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDSLayout, worldDSLayouts);
+    m_resetAccumulation |=
+        m_compose.recompileShaders(scopeAlloc.child_scope(), changedFiles);
 }
 
 void RtDirectIllumination::drawUi()
@@ -96,13 +99,19 @@ Output RtDirectIllumination::record(
             reservoirs = spatialReuseOutput.reservoirs;
         }
 
-        ret = m_trace.record(
+        const Trace::Output traceOutput = m_trace.record(
             scopeAlloc.child_scope(), cb, world, cam,
             Trace::Input{
                 .gbuffer = gbuffer,
                 .reservoirs = reservoirs,
             },
             resetAccumulation || m_resetAccumulation, drawType, nextFrame);
+
+        ret = m_compose.record(
+            scopeAlloc.child_scope(), cb, traceOutput, nextFrame);
+
+        gRenderResources.images->release(traceOutput.diffuseIllumination);
+        gRenderResources.images->release(traceOutput.specularIllumination);
 
         gRenderResources.images->release(reservoirs);
     }
