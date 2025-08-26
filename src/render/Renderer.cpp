@@ -451,14 +451,6 @@ void Renderer::render(
                             scopeAlloc.child_scope(), cb, world, cam, gbuffer,
                             options.rtDirty, m_drawType, nextFrame)
                         .illumination;
-                m_spatiotemporalVarianceGuidedFiltering->record(
-                    scopeAlloc.child_scope(), cb, cam,
-                    svgf::Input{
-                        .gbuffer = gbuffer,
-                        .previous_gbuffer = m_previousGBuffer,
-                        .color = illumination,
-                    },
-                    nextFrame);
             }
             else
             {

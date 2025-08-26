@@ -107,6 +107,17 @@ Output RtDirectIllumination::record(
             },
             resetAccumulation || m_resetAccumulation, drawType, nextFrame);
 
+        // Move svgf bits here from Renderer and apply to both diffuse and
+        // specular
+        m_spatiotemporalVarianceGuidedFiltering->record(
+            scopeAlloc.child_scope(), cb, cam,
+            svgf::Input{
+                .gbuffer = input.gbuffer,
+                .previous_gbuffer = input.previousGBuffer,
+                .color = traceOutput.diffuseIllumination,
+            },
+            nextFrame);
+
         ret = m_compose.record(
             scopeAlloc.child_scope(), cb, traceOutput, nextFrame);
 
