@@ -111,4 +111,14 @@ void evalBRDFTimesNoL(
         NoL;
 }
 
+vec3 demodulateAlbedo(vec3 c, vec3 albedo, float metallic)
+{
+    return c / mix(albedo * (1 - 0.04), vec3(1), metallic);
+}
+
+vec3 modulateAlbedo(vec3 c, vec3 albedo, float metallic)
+{
+    return c * mix(albedo * (1 - 0.04), vec3(1), metallic);
+}
+
 #endif // BRDF_GLSL

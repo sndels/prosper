@@ -120,7 +120,15 @@ Accumulate::Output Accumulate::record(
         const vk::Extent2D renderExtent = getExtent2D(input.color);
 
         ret = Output{
-            .color = createIllumination(renderExtent, "SvgfIntegratedColor"),
+            .color = gRenderResources.images->create(
+                gfx::ImageDescription{
+                    .format = vk::Format::eR16G16B16A16Sfloat,
+                    .width = renderExtent.width,
+                    .height = renderExtent.height,
+                    .usageFlags = vk::ImageUsageFlagBits::eStorage |
+                                  vk::ImageUsageFlagBits::eSampled,
+                },
+                "SvgfIntegratedColor"),
             .moments = gRenderResources.images->create(
                 gfx::ImageDescription{
                     // TODO: Is 32bit overkill?
@@ -271,9 +279,8 @@ Accumulate::Output Accumulate::record(
                     {previousNormalMetallic,
                      gfx::ImageState::ComputeShaderSampledRead},
                     {previousDepth, gfx::ImageState::ComputeShaderSampledRead},
-                    // TODO:
-                    // Transition previous integrated color
-                    {input.color, gfx::ImageState::ComputeShaderSampledRead},
+                    {m_previousIntegratedColor,
+                     gfx::ImageState::ComputeShaderSampledRead},
                     {m_previousIntegratedMoments,
                      gfx::ImageState::ComputeShaderSampledRead},
                     {ret.color, gfx::ImageState::ComputeShaderWrite},
