@@ -78,8 +78,8 @@ void main()
     vec3 new_albedo = sampleNearest(inAlbedoRoughness, uv).xyz;
     float new_metallic = sampleNearest(inNormalMetallic, uv).z;
     // Recover raw illumination to avoid "denoising" texture detail
+    // TODO: Demodulate doesn't seem to work?
     new_color = demodulateAlbedo(new_color, new_albedo, new_metallic);
-    // new_color = remodulateAlbedo(new_color, new_albedo, new_metallic);
 
     if (IGNORE_HISTORY)
     {
@@ -162,11 +162,9 @@ void main()
         // Average of valid taps?
         history_color = new_color;
     }
-    history_color = new_color;
 
     const float alpha = .2;
-    vec3 color = validTaps > 0 ? history_color : new_color;
-    // alpha * new_color + (1 - alpha) * history_color;
+    vec3 color = alpha * new_color + (1 - alpha) * history_color;
     vec2 moments = history_moments; // TODO
 
     imageStore(outColor, px, vec4(color, 1));

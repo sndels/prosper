@@ -6,6 +6,7 @@
 #include "render/Fwd.hpp"
 #include "render/rtdi/InitialReservoirs.hpp"
 #include "render/rtdi/SpatialReuse.hpp"
+#include "render/svgf/SpatiotemporalVarianceGuidedFiltering.hpp"
 #include "scene/DrawType.hpp"
 #include "scene/Fwd.hpp"
 
@@ -15,6 +16,11 @@
 namespace render::rtdi
 {
 
+struct Input
+{
+    GBuffer gbuffer;
+    GBuffer previousGBuffer;
+};
 using Output = Compose::Output;
 
 class RtDirectIllumination
@@ -42,7 +48,7 @@ class RtDirectIllumination
 
     [[nodiscard]] Output record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        scene::World &world, const scene::Camera &cam, const GBuffer &gbuffer,
+        scene::World &world, const scene::Camera &cam, const Input &input,
         bool resetAccumulation, scene::DrawType drawType, uint32_t nextFrame);
     void releasePreserved();
 
@@ -56,6 +62,8 @@ class RtDirectIllumination
     SpatialReuse m_spatialReuse;
     Trace m_trace;
     Compose m_compose;
+    svgf::SpatiotemporalVarianceGuidedFiltering
+        m_spatiotemporalVarianceGuidedFiltering;
 };
 
 } // namespace render::rtdi

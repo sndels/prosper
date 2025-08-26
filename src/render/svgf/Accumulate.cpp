@@ -177,10 +177,10 @@ Accumulate::Output Accumulate::record(
         }
 
         ImageHandle previousAlbedoRoughness =
-            input.previous_gbuffer.albedoRoughness;
+            input.previousGBuffer.albedoRoughness;
         ImageHandle previousNormalMetallic =
-            input.previous_gbuffer.normalMetallic;
-        ImageHandle previousDepth = input.previous_gbuffer.depth;
+            input.previousGBuffer.normalMetallic;
+        ImageHandle previousDepth = input.previousGBuffer.depth;
         if (previousAlbedoRoughness.isValid())
             previousAlbedoRoughness = input.gbuffer.albedoRoughness;
         if (previousNormalMetallic.isValid())

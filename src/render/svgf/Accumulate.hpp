@@ -36,7 +36,7 @@ class Accumulate
     struct Input
     {
         GBuffer gbuffer;
-        GBuffer previous_gbuffer;
+        GBuffer previousGBuffer;
         ImageHandle color;
     };
     struct Output

@@ -21,7 +21,6 @@
 #include "render/ToneMap.hpp"
 #include "render/bloom/Bloom.hpp"
 #include "render/dof/DepthOfField.hpp"
-#include "render/svgf/SpatiotemporalVarianceGuidedFiltering.hpp"
 #include "rtdi/RtDirectIllumination.hpp"
 #include "scene/Camera.hpp"
 #include "scene/World.hpp"
@@ -149,8 +148,6 @@ Renderer::Renderer() noexcept
 , m_depthOfField{OwningPtr<dof::DepthOfField>{gAllocators.general}}
 , m_bloom{OwningPtr<bloom::Bloom>{gAllocators.general}}
 , m_imageBasedLighting{OwningPtr<ImageBasedLighting>{gAllocators.general}}
-, m_spatiotemporalVarianceGuidedFiltering{OwningPtr<
-      svgf::SpatiotemporalVarianceGuidedFiltering>{gAllocators.general}}
 , m_temporalAntiAliasing{OwningPtr<TemporalAntiAliasing>{gAllocators.general}}
 , m_textureReadback{OwningPtr<TextureReadback>{gAllocators.general}}
 {
@@ -202,8 +199,6 @@ void Renderer::init(
     m_depthOfField->init(scopeAlloc.child_scope(), camDsLayout);
     m_bloom->init(scopeAlloc.child_scope());
     m_imageBasedLighting->init(scopeAlloc.child_scope());
-    m_spatiotemporalVarianceGuidedFiltering->init(
-        scopeAlloc.child_scope(), camDsLayout);
     m_temporalAntiAliasing->init(scopeAlloc.child_scope(), camDsLayout);
     m_textureReadback->init(scopeAlloc.child_scope());
     LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
@@ -268,8 +263,6 @@ void Renderer::recompileShaders(
     m_bloom->recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_imageBasedLighting->recompileShaders(
         scopeAlloc.child_scope(), changedFiles);
-    m_spatiotemporalVarianceGuidedFiltering->recompileShaders(
-        scopeAlloc.child_scope(), changedFiles, camDsLayout);
     m_temporalAntiAliasing->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout);
     m_meshletCuller->recompileShaders(
@@ -352,7 +345,6 @@ bool Renderer::drawUi(scene::Camera &cam)
                 if (m_deferredRt)
                 {
                     m_rtDirectIllumination->drawUi();
-                    m_spatiotemporalVarianceGuidedFiltering->drawUi();
                 }
             }
         }
@@ -406,7 +398,6 @@ void Renderer::render(
         m_forwardRenderer->releasePreserved();
         m_gbufferRenderer->releasePreserved();
         m_rtDirectIllumination->releasePreserved();
-        m_spatiotemporalVarianceGuidedFiltering->releasePreserved();
         m_temporalAntiAliasing->releasePreserved();
         m_bloom->releasePreserved();
         m_previousGBuffer.releaseAll();
@@ -445,17 +436,19 @@ void Renderer::render(
             {
                 // TODO:
                 // Store diffuse and specular separatery for better denoising
-                illumination =
-                    m_rtDirectIllumination
-                        ->record(
-                            scopeAlloc.child_scope(), cb, world, cam, gbuffer,
-                            options.rtDirty, m_drawType, nextFrame)
-                        .illumination;
+                illumination = m_rtDirectIllumination
+                                   ->record(
+                                       scopeAlloc.child_scope(), cb, world, cam,
+                                       rtdi::Input{
+                                           .gbuffer = gbuffer,
+                                           .previousGBuffer = m_previousGBuffer,
+                                       },
+                                       options.rtDirty, m_drawType, nextFrame)
+                                   .illumination;
             }
             else
             {
                 m_rtDirectIllumination->releasePreserved();
-                m_spatiotemporalVarianceGuidedFiltering->releasePreserved();
 
                 illumination = m_deferredShading
                                    ->record(
@@ -479,7 +472,6 @@ void Renderer::render(
         {
             m_gbufferRenderer->releasePreserved();
             m_rtDirectIllumination->releasePreserved();
-            m_spatiotemporalVarianceGuidedFiltering->releasePreserved();
             m_previousGBuffer.releaseAll();
 
             const ForwardRenderer::OpaqueOutput output =
