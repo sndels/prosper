@@ -307,6 +307,14 @@ void RenderImageCollection::appendDebugName(
             .pObjectName = m_aliasedDebugNames[handle.index].c_str(),
         });
 
+    gfx::gDevice.logical().setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImageView,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkImageView>(m_resources[handle.index].view)),
+            .pObjectName = m_aliasedDebugNames[handle.index].c_str(),
+        });
+
     assertUniqueDebugName(debugName);
     m_debugNames.emplace_back(gAllocators.general, debugName);
 
