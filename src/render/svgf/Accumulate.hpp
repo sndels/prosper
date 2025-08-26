@@ -54,6 +54,9 @@ class Accumulate
     bool m_initialized{false};
 
     ComputePass m_computePass;
+    // TODO:
+    // Move this to filter
+    ImageHandle m_previousIntegratedColor;
     ImageHandle m_previousIntegratedMoments;
 };
 

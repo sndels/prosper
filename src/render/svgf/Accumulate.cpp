@@ -139,6 +139,7 @@ Accumulate::Output Accumulate::record(
                 gRenderResources.images->resource(m_previousIntegratedMoments)
                     .extent;
 
+        const char *previousColorDebugName = "SvgfPreviousIntegratedColor";
         const char *previousMomentsDebugName = "SvgfPreviousIntegratedMoments";
         if (ignoreHistory || renderExtent.width != previousExtent.width ||
             renderExtent.height != previousExtent.height)
@@ -146,17 +147,26 @@ Accumulate::Output Accumulate::record(
             if (gRenderResources.images->isValidHandle(
                     m_previousIntegratedMoments))
                 gRenderResources.images->release(m_previousIntegratedMoments);
+            if (gRenderResources.images->isValidHandle(
+                    m_previousIntegratedColor))
+                gRenderResources.images->release(m_previousIntegratedColor);
 
             // Create dummy texture to satisfy binds even though it won't be
             // read from
+            m_previousIntegratedColor =
+                createIllumination(renderExtent, previousColorDebugName);
             m_previousIntegratedMoments =
                 createIllumination(renderExtent, previousMomentsDebugName);
             ignoreHistory = true;
         }
         else
+        {
             // We clear debug names each frame
             gRenderResources.images->appendDebugName(
+                m_previousIntegratedColor, previousColorDebugName);
+            gRenderResources.images->appendDebugName(
                 m_previousIntegratedMoments, previousMomentsDebugName);
+        }
 
         ImageHandle previousAlbedoRoughness =
             input.previous_gbuffer.albedoRoughness;
@@ -216,12 +226,9 @@ Accumulate::Output Accumulate::record(
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
             gfx::DescriptorInfo{vk::DescriptorImageInfo{
-                // TODO:
-                // Take integrated color as input. It should come from the
-                // first
-                // filtering stage of the previous frame.
                 .imageView =
-                    gRenderResources.images->resource(input.color).view,
+                    gRenderResources.images->resource(m_previousIntegratedColor)
+                        .view,
                 .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             }},
             gfx::DescriptorInfo{vk::DescriptorImageInfo{
@@ -297,8 +304,11 @@ Accumulate::Output Accumulate::record(
                 .specializationIndex = specializationIndex(constants),
             });
 
+        gRenderResources.images->release(m_previousIntegratedColor);
         gRenderResources.images->release(m_previousIntegratedMoments);
+        m_previousIntegratedColor = ret.color;
         m_previousIntegratedMoments = ret.moments;
+        gRenderResources.images->preserve(m_previousIntegratedColor);
         gRenderResources.images->preserve(m_previousIntegratedMoments);
     }
 
@@ -309,6 +319,8 @@ void Accumulate::releasePreserved()
 {
     WHEELS_ASSERT(m_initialized);
 
+    if (gRenderResources.images->isValidHandle(m_previousIntegratedColor))
+        gRenderResources.images->release(m_previousIntegratedColor);
     if (gRenderResources.images->isValidHandle(m_previousIntegratedMoments))
         gRenderResources.images->release(m_previousIntegratedMoments);
 }

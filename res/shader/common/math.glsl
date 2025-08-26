@@ -81,6 +81,6 @@ uint roundedUpQuotient(uint dividend, uint divisor)
     return (dividend - 1) / divisor + 1;
 }
 
-vec2 pxToUv(ivec2 px, ivec2 res) { return (vec2(px) + .5) / vec2(res); }
+vec2 pxToUv(ivec2 px, vec2 res) { return (vec2(px) + .5) / res; }
 
 #endif // COMMON_MATH_GLSL
