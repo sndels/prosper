@@ -78,7 +78,9 @@ void main()
     vec3 new_albedo = sampleNearest(inAlbedoRoughness, uv).xyz;
     float new_metallic = sampleNearest(inNormalMetallic, uv).z;
     // Recover raw illumination to avoid "denoising" texture detail
-    // TODO: Demodulate doesn't seem to work?
+    // TODO:
+    // This seems to still retain some extra color info on top of what diffuse
+    // lighting without albedo would have.
     new_color = demodulateAlbedo(new_color, new_albedo, new_metallic);
 
     if (IGNORE_HISTORY)

@@ -63,6 +63,12 @@ vec3 fresnelZero(VisibleSurface surface)
         vec3(0.04), surface.material.albedo.rgb, surface.material.metallic);
 }
 
+vec3 cDiff(vec3 albedo, float metallic)
+{
+    // Match glTF spec
+    return mix(albedo * (1 - 0.04), vec3(0), metallic);
+}
+
 // Evaluate combined diffuse and specular BRDF
 vec3 evalBRDFTimesNoL(vec3 l, VisibleSurface surface)
 {
@@ -75,10 +81,7 @@ vec3 evalBRDFTimesNoL(vec3 l, VisibleSurface surface)
     // Use standard approximation of default fresnel
     vec3 f0 = fresnelZero(surface);
 
-    // Match glTF spec
-    vec3 c_diff =
-        mix(surface.material.albedo.rgb * (1 - 0.04), vec3(0),
-            surface.material.metallic);
+    vec3 c_diff = cDiff(surface.material.albedo.rgb, surface.material.metallic);
 
     return (lambertBRFD(c_diff) +
             cookTorranceBRDF(
@@ -100,9 +103,7 @@ void evalBRDFTimesNoL(
     vec3 f0 = fresnelZero(surface);
 
     // Match glTF spec
-    vec3 c_diff =
-        mix(surface.material.albedo.rgb * (1 - 0.04), vec3(0),
-            surface.material.metallic);
+    vec3 c_diff = cDiff(surface.material.albedo.rgb, surface.material.metallic);
 
     outDiffuse = lambertBRFD(c_diff) * NoL;
     outSpecular =
@@ -113,12 +114,9 @@ void evalBRDFTimesNoL(
 
 vec3 demodulateAlbedo(vec3 c, vec3 albedo, float metallic)
 {
-    return c / mix(albedo * (1 - 0.04), vec3(1), metallic);
+    return c / albedo;
 }
 
-vec3 modulateAlbedo(vec3 c, vec3 albedo, float metallic)
-{
-    return c * mix(albedo * (1 - 0.04), vec3(1), metallic);
-}
+vec3 modulateAlbedo(vec3 c, vec3 albedo, float metallic) { return c * albedo; }
 
 #endif // BRDF_GLSL
