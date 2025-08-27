@@ -28,6 +28,7 @@ struct TextureDebugPCFlags
     bool absBeforeRange{false};
     bool zoom{false};
     bool magnifier{false};
+    bool pinkNaNs{false};
 };
 
 uint32_t pcFlags(TextureDebugPCFlags flags)
@@ -39,6 +40,7 @@ uint32_t pcFlags(TextureDebugPCFlags flags)
     ret |= (uint32_t)flags.absBeforeRange << 3;
     ret |= (uint32_t)flags.zoom << 4;
     ret |= (uint32_t)flags.magnifier << 5;
+    ret |= (uint32_t)flags.pinkNaNs << 6;
 
     return ret;
 }
@@ -225,6 +227,7 @@ void TextureDebug::drawUi(uint32_t nextFrame)
     ImGui::Checkbox("Abs before range", &settings->absBeforeRange);
     ImGui::Checkbox("Bilinear sampler", &settings->useBilinearSampler);
     ImGui::Checkbox("Zoom", &m_zoom);
+    ImGui::Checkbox("Pink NaNs", &settings->pinkNaNs);
 
     ImGui::End();
 }
@@ -366,6 +369,7 @@ ImageHandle TextureDebug::record(
                     .absBeforeRange = settings.absBeforeRange,
                     .zoom = m_zoom,
                     .magnifier = cursorCoord.has_value(),
+                    .pinkNaNs = settings.pinkNaNs,
                 }),
                 .cursorUv = cursorUv,
             };

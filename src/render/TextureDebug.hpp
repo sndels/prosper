@@ -71,6 +71,7 @@ class TextureDebug
         ChannelType channelType{ChannelType::RGB};
         bool absBeforeRange{false};
         bool useBilinearSampler{false};
+        bool pinkNaNs{false};
     };
     // TODO:
     // Not a String because type conversions and allocations from StrSpan. Is

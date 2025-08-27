@@ -19,6 +19,7 @@ uint flagChannelType() { return bitfieldExtract(PC.flags, 0, 3); }
 bool flagAbsBeforeRange() { return bitfieldExtract(PC.flags, 3, 1) == 1; }
 bool flagZoom() { return bitfieldExtract(PC.flags, 4, 1) == 1; }
 bool flagMagnifier() { return bitfieldExtract(PC.flags, 5, 1) == 1; }
+bool flagPinkNaNs() { return bitfieldExtract(PC.flags, 6, 1) == 1; }
 
 vec2 zoom4xUv(vec2 uv) { return uv * .25 + .375; }
 vec2 unzoom4xUv(vec2 uv) { return (uv - .375) * 4.; }
@@ -116,6 +117,10 @@ vec2 magnifierUv(vec2 uv)
     return uv;
 }
 
+// From
+// https://sakibsaikia.github.io/graphics/2022/01/04/Nan-Checks-In-HLSL.html
+bool isNaN(float x) { return (floatBitsToUint(x) & 0x7fffffff) > 0x7f800000; }
+
 layout(local_size_x = GROUP_X, local_size_y = GROUP_Y) in;
 void main()
 {
@@ -151,6 +156,12 @@ void main()
             color = vec3(textureLod(
                 sampler2D(inColor, inSampler), uv, float(PC.lod))[channel]);
         }
+    }
+
+    if (flagPinkNaNs())
+    {
+        if (isNaN(color.x) || isNaN(color.y) || isNaN(color.z))
+            color = vec3(100, 0, 100);
     }
 
     if (flagAbsBeforeRange())
