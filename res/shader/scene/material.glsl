@@ -40,7 +40,7 @@ Material loadFromGbuffer(
     Material m;
     m.albedo = albedoRoughness.xyz;
     m.roughness = albedoRoughness.w;
-    m.normal = signedOctDecode(vec3(normalMetallic.xy, normalMetallic.w));
+    m.normal = signedOctDecode(normalMetallic.xyw);
     m.metallic = normalMetallic.z;
     m.alpha = -1.0;
 
