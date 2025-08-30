@@ -39,6 +39,7 @@ struct Surface
 {
     vec3 positionWS;
     vec3 normalWS;
+    float linearDepth;
 };
 
 bool readTap(vec2 uv, Surface referenceSurface, inout vec3 color)
@@ -47,18 +48,21 @@ bool readTap(vec2 uv, Surface referenceSurface, inout vec3 color)
         return false;
 
     vec3 normalWS =
-        signedOctDecode(sampleNearest(inPreviousNormalMetallic, uv).xyz);
+        signedOctDecode(sampleNearest(inPreviousNormalMetallic, uv).xyw);
     vec3 positionWS =
         previousWorldPos(uv, sampleNearest(inPreviousNonLinearDepth, uv).x);
 
-    const float positionEpsilonSq = .01;
+    // TODO:
+    // Tune this fudge
+    const float depthFudgeScale = .1;
+    float positionEpsilonSq = .1 * referenceSurface.linearDepth;
     vec3 fromPreviousPosition = positionWS - referenceSurface.positionWS;
     if (dot(fromPreviousPosition, fromPreviousPosition) > positionEpsilonSq)
         return false;
 
     const float normalEpsilon = .1;
-    if (1. - dot(normalWS, referenceSurface.normalWS) > normalEpsilon)
-        return false;
+    // if (1. - dot(normalWS, referenceSurface.normalWS) > normalEpsilon)
+    //     return false;
 
     color = sampleNearest(inIntegratedColor, uv).xyz;
     return true;
@@ -92,11 +96,14 @@ void main()
         return;
     }
 
+    float nonLinearDepth = sampleNearest(inNonLinearDepth, uv).x;
     Surface referenceSurface;
-    referenceSurface.positionWS =
-        worldPos(uv, sampleNearest(inNonLinearDepth, uv).x);
+    // TODO:
+    // Add in world space velocity to get expected position in previous frame
+    referenceSurface.positionWS = worldPos(uv, nonLinearDepth);
     referenceSurface.normalWS =
-        signedOctDecode(sampleNearest(inNormalMetallic, uv).xyz);
+        signedOctDecode(sampleNearest(inNormalMetallic, uv).xyw);
+    referenceSurface.linearDepth = -linearizeDepth(nonLinearDepth);
 
     vec2 velocity = sampleNearest(inVelocity, uv).xy;
     vec2 reprojectedUv = uv - velocity * vec2(.5, -.5);
