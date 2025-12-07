@@ -255,9 +255,10 @@ Array<String> getRequiredExtensions(Allocator &alloc)
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-    const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-    const VkDebugUtilsMessageTypeFlagsEXT messageType,
-    const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
+    const vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    const vk::DebugUtilsMessageTypeFlagsEXT messageType,
+    const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
+    void *pUserData)
 {
     (void)messageType;
 
@@ -285,17 +286,16 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             return ret;
     }
 
-    if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0)
+    if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
         LOG_ERR("VkDbg: %s", pCallbackData->pMessage);
     else if (
-        (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) !=
-        0)
+        messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
         LOG_WARN("VkDbg: %s", pCallbackData->pMessage);
     else
         LOG_INFO("VkDbg: %s", pCallbackData->pMessage);
 
     if (breakOnError &&
-        messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        messageSeverity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
         WHEELS_DEBUGBREAK();
 
     return ret;
@@ -504,7 +504,7 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
 
     m_compiler = OwningPtr<shaderc::Compiler>(gAllocators.general);
 
-    const vk::DynamicLoader dl;
+    const vk::detail::DynamicLoader dl;
     auto vkGetInstanceProcAddr =
         dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
@@ -1543,12 +1543,6 @@ void Device::createLogicalDevice(ScopedScratch scopeAlloc)
         .queueCreateInfoCount =
             asserted_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
-        .enabledLayerCount =
-            m_settings.enableDebugLayers
-                ? asserted_cast<uint32_t>(validationLayers.size())
-                : 0,
-        .ppEnabledLayerNames =
-            m_settings.enableDebugLayers ? validationLayers.data() : nullptr,
         .enabledExtensionCount =
             asserted_cast<uint32_t>(enabledExtensions.size()),
         .ppEnabledExtensionNames = enabledExtensions.data(),
