@@ -29,7 +29,9 @@ layout(location = 7) in flat uint inDrawInstanceIndex;
 layout(location = 8) in flat uint inMeshletIndex;
 
 layout(location = 0) out vec4 outColor;
+#ifdef OUTPUT_VELOCITY
 layout(location = 1) out vec2 outVelocity;
+#endif // OUTPUT_VELOCITY
 
 vec3 mappedNormal(vec3 tangentSpaceNormal, vec3 normal, vec3 tangent, float sgn)
 {
@@ -89,8 +91,10 @@ void main()
     // confusion.
     velocity.y = -velocity.y;
 
+#ifdef OUTPUT_VELOCITY
     // Write before debug to not break TAA
     outVelocity = clamp(velocity, vec2(-1), vec2(1));
+#endif // OUTPUT_VELOCITY
 
     if (PC.drawType >= DrawType_PrimitiveID)
     {

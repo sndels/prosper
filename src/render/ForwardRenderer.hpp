@@ -120,9 +120,13 @@ class ForwardRenderer
     MeshletCuller *m_meshletCuller{nullptr};
     HierarchicalDepthDownsampler *m_hierarchicalDepthDownsampler{nullptr};
 
-    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2>
+        m_opaqueShaderStages;
+    wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2>
+        m_transparentShaderStages;
     wheels::Optional<gfx::ShaderReflection> m_meshReflection;
-    wheels::Optional<gfx::ShaderReflection> m_fragReflection;
+    wheels::Optional<gfx::ShaderReflection> m_opaqueFragReflection;
+    wheels::Optional<gfx::ShaderReflection> m_transparentFragReflection;
 
     vk::PipelineLayout m_pipelineLayout;
     wheels::StaticArray<vk::Pipeline, 2> m_pipelines;

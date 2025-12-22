@@ -61,8 +61,11 @@ ForwardRenderer::~ForwardRenderer()
 
     gfx::gDevice.logical().destroy(m_meshSetLayout);
 
-    for (auto const &stage : m_shaderStages)
+    for (auto const &stage : m_opaqueShaderStages)
         gfx::gDevice.logical().destroyShaderModule(stage.module);
+    // Transparents share the MS stage with opaque
+    gfx::gDevice.logical().destroyShaderModule(
+        m_transparentShaderStages[1].module);
 }
 
 void ForwardRenderer::init(
@@ -94,9 +97,9 @@ void ForwardRenderer::recompileShaders(
     WHEELS_ASSERT(m_initialized);
 
     WHEELS_ASSERT(m_meshReflection.has_value());
-    WHEELS_ASSERT(m_fragReflection.has_value());
+    WHEELS_ASSERT(m_opaqueFragReflection.has_value());
     if (!m_meshReflection->affected(changedFiles) &&
-        !m_fragReflection->affected(changedFiles))
+        !m_opaqueFragReflection->affected(changedFiles))
         return;
 
     if (compileShaders(scopeAlloc.child_scope(), dsLayouts.world))
@@ -284,7 +287,7 @@ bool ForwardRenderer::compileShaders(
         gfx::gDevice.compileShaderModule(
             scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.mesh",
-                                          .debugName = "geometryMS",
+                                          .debugName = "forwardMS",
                                           .defines = meshDefines,
                                       });
 
@@ -311,28 +314,47 @@ bool ForwardRenderer::compileShaders(
     scene::SpotLights::appendShaderDefines(fragDefines);
     WHEELS_ASSERT(fragDefines.size() <= fragDefsLen);
 
-    Optional<gfx::Device::ShaderCompileResult> fragResult =
+    Optional<gfx::Device::ShaderCompileResult> transparentFragResult =
         gfx::gDevice.compileShaderModule(
             scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
                                           .relPath = "shader/forward.frag",
-                                          .debugName = "geometryPS",
+                                          .debugName = "forwardTransparentPS",
                                           .defines = fragDefines,
                                       });
 
-    if (meshResult.has_value() && fragResult.has_value())
+    appendDefineStr(fragDefines, "OUTPUT_VELOCITY");
+    Optional<gfx::Device::ShaderCompileResult> opaqueFragResult =
+        gfx::gDevice.compileShaderModule(
+            scopeAlloc.child_scope(), gfx::Device::CompileShaderModuleArgs{
+                                          .relPath = "shader/forward.frag",
+                                          .debugName = "forwardOpaquePS",
+                                          .defines = fragDefines,
+                                      });
+
+    if (meshResult.has_value() && opaqueFragResult.has_value() &&
+        transparentFragResult.has_value())
     {
-        for (auto const &stage : m_shaderStages)
+        for (auto const &stage : m_opaqueShaderStages)
             gfx::gDevice.logical().destroyShaderModule(stage.module);
+        // Transparents share the MS stage with opaque
+        gfx::gDevice.logical().destroyShaderModule(
+            m_transparentShaderStages[1].module);
 
         m_meshReflection = WHEELS_MOV(meshResult->reflection);
         WHEELS_ASSERT(
             sizeof(ForwardPC) == m_meshReflection->pushConstantsBytesize());
 
-        m_fragReflection = WHEELS_MOV(fragResult->reflection);
+        m_opaqueFragReflection = WHEELS_MOV(opaqueFragResult->reflection);
         WHEELS_ASSERT(
-            sizeof(ForwardPC) == m_fragReflection->pushConstantsBytesize());
+            sizeof(ForwardPC) ==
+            m_opaqueFragReflection->pushConstantsBytesize());
+        m_transparentFragReflection =
+            WHEELS_MOV(transparentFragResult->reflection);
+        WHEELS_ASSERT(
+            sizeof(ForwardPC) ==
+            m_transparentFragReflection->pushConstantsBytesize());
 
-        m_shaderStages = {{
+        m_opaqueShaderStages = {{
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eMeshEXT,
                 .module = meshResult->module,
@@ -340,7 +362,20 @@ bool ForwardRenderer::compileShaders(
             },
             vk::PipelineShaderStageCreateInfo{
                 .stage = vk::ShaderStageFlagBits::eFragment,
-                .module = fragResult->module,
+                .module = opaqueFragResult->module,
+                .pName = "main",
+            },
+        }};
+
+        m_transparentShaderStages = {{
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eMeshEXT,
+                .module = meshResult->module,
+                .pName = "main",
+            },
+            vk::PipelineShaderStageCreateInfo{
+                .stage = vk::ShaderStageFlagBits::eFragment,
+                .module = transparentFragResult->module,
                 .pName = "main",
             },
         }};
@@ -350,8 +385,10 @@ bool ForwardRenderer::compileShaders(
 
     if (meshResult.has_value())
         gfx::gDevice.logical().destroy(meshResult->module);
-    if (fragResult.has_value())
-        gfx::gDevice.logical().destroy(fragResult->module);
+    if (opaqueFragResult.has_value())
+        gfx::gDevice.logical().destroy(opaqueFragResult->module);
+    if (transparentFragResult.has_value())
+        gfx::gDevice.logical().destroy(transparentFragResult->module);
 
     return false;
 }
@@ -446,7 +483,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             gfx::GraphicsPipelineInfo{
                 .layout = m_pipelineLayout,
                 .colorBlendAttachments = colorBlendAttachments,
-                .shaderStages = m_shaderStages,
+                .shaderStages = m_opaqueShaderStages,
                 .renderingInfo =
                     vk::PipelineRenderingCreateInfo{
                         .colorAttachmentCount = asserted_cast<uint32_t>(
@@ -468,7 +505,7 @@ void ForwardRenderer::createGraphicsPipelines(const InputDSLayouts &dsLayouts)
             gfx::GraphicsPipelineInfo{
                 .layout = m_pipelineLayout,
                 .colorBlendAttachments = Span{&blendAttachment, 1},
-                .shaderStages = m_shaderStages,
+                .shaderStages = m_transparentShaderStages,
                 .renderingInfo =
                     vk::PipelineRenderingCreateInfo{
                         .colorAttachmentCount = 1,
