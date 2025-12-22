@@ -79,9 +79,14 @@ class App
 
     void updateDebugLines(const scene::Scene &scene, uint32_t nextFrame);
 
+    struct SubmitIndices
+    {
+        uint32_t nextFrame{0xFFFF'FFFF};
+        uint32_t nextImage{0xFFFF'FFFF};
+    };
     // Returns true if present succeeded, false if swapchain should be recreated
     [[nodiscard]] bool submitAndPresent(
-        vk::CommandBuffer cb, uint32_t nextFrame);
+        vk::CommandBuffer cb, SubmitIndices indices);
     void handleResizes(
         wheels::ScopedScratch scopeAlloc, bool shouldResizeSwapchain);
 
@@ -134,9 +139,9 @@ class App
     std::chrono::time_point<std::chrono::file_clock> m_recompileTime;
 
     wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
-        m_imageAvailableSemaphores;
-    wheels::StaticArray<vk::Semaphore, MAX_FRAMES_IN_FLIGHT>
-        m_renderFinishedSemaphores;
+        m_imageAcquireSemaphores;
+    wheels::StaticArray<vk::Semaphore, MAX_SWAPCHAIN_IMAGES>
+        m_imageSubmitSemaphores;
 
     std::future<wheels::HashSet<std::filesystem::path>> m_fileChanges;
 };

@@ -62,12 +62,12 @@ App::App(std::filesystem::path scenePath) noexcept
 
 App::~App()
 {
-    for (auto &semaphore : m_renderFinishedSemaphores)
+    for (auto &semaphore : m_imageSubmitSemaphores)
     {
         if (semaphore)
             gfx::gDevice.logical().destroy(semaphore);
     }
-    for (auto &semaphore : m_imageAvailableSemaphores)
+    for (auto &semaphore : m_imageAcquireSemaphores)
     {
         if (semaphore)
             gfx::gDevice.logical().destroy(semaphore);
@@ -113,12 +113,11 @@ void App::init(ScopedScratch scopeAlloc)
         uvec2{m_viewportExtent.width, m_viewportExtent.height});
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-    {
-        m_imageAvailableSemaphores[i] =
+        m_imageAcquireSemaphores[i] =
             gfx::gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
-        m_renderFinishedSemaphores[i] =
+    for (size_t i = 0; i < MAX_SWAPCHAIN_IMAGES; ++i)
+        m_imageSubmitSemaphores[i] =
             gfx::gDevice.logical().createSemaphore(vk::SemaphoreCreateInfo{});
-    }
 }
 
 void App::setInitScratchHighWatermark(size_t value)
@@ -625,14 +624,18 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
         }
     }
 
-    const bool shouldResizeSwapchain = !submitAndPresent(cb, nextFrame);
+    const bool shouldResizeSwapchain = !submitAndPresent(
+        cb, SubmitIndices{
+                .nextFrame = nextFrame,
+                .nextImage = nextImage,
+            });
 
     handleResizes(scopeAlloc.child_scope(), shouldResizeSwapchain);
 }
 
 uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
 {
-    const vk::Semaphore imageAvailable = m_imageAvailableSemaphores[nextFrame];
+    const vk::Semaphore imageAvailable = m_imageAcquireSemaphores[nextFrame];
     Optional<uint32_t> nextImage =
         m_swapchain->acquireNextImage(imageAvailable);
     while (!nextImage.has_value())
@@ -1134,12 +1137,15 @@ void App::updateDebugLines(const scene::Scene &scene, uint32_t nextFrame)
     }
 }
 
-bool App::submitAndPresent(vk::CommandBuffer cb, uint32_t nextFrame)
+bool App::submitAndPresent(vk::CommandBuffer cb, SubmitIndices indices)
 {
-    const StaticArray waitSemaphores{m_imageAvailableSemaphores[nextFrame]};
+    const StaticArray waitSemaphores{
+        m_imageAcquireSemaphores[indices.nextFrame]};
     const StaticArray waitStages{vk::PipelineStageFlags{
         vk::PipelineStageFlagBits::eColorAttachmentOutput}};
-    const StaticArray signalSemaphores{m_renderFinishedSemaphores[nextFrame]};
+
+    const StaticArray signalSemaphores{
+        m_imageSubmitSemaphores[indices.nextImage]};
     const vk::SubmitInfo submitInfo{
         .waitSemaphoreCount = asserted_cast<uint32_t>(waitSemaphores.size()),
         .pWaitSemaphores = waitSemaphores.data(),
