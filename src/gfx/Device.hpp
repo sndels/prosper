@@ -60,6 +60,7 @@ class Device
         bool enableDebugLayers{false};
         bool dumpShaderDisassembly{false};
         bool breakOnValidationError{false};
+        bool breakOnValidationWarning{false};
         bool robustAccess{false};
     };
 

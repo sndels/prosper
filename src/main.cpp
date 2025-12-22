@@ -37,8 +37,10 @@ const char *const sConfigArg = "config";
 const char *const sDebugLayersArg = "debugLayers";                     // bool
 const char *const sShaderDisassemblyArg = "dumpShaderDisassembly";     // bool
 const char *const sBreakOnValidationErrArg = "breakOnValidationError"; // bool
-const char *const sRobustAccessArg = "robustAccess";                   // bool
-const char *const sSceneFileArg = "sceneFile"; // string, path
+const char *const sBreakOnValidationWarnArg =
+    "breakOnValidationWarning";                      // bool
+const char *const sRobustAccessArg = "robustAccess"; // bool
+const char *const sSceneFileArg = "sceneFile";       // string, path
 
 // NOLINTNEXTLINE(*-avoid-c-arrays): Mandatory
 App::Settings parseCli(int argc, char *argv[])
@@ -92,6 +94,9 @@ App::Settings parseCli(int argc, char *argv[])
             tryGetFlag(
                 deviceSettings.breakOnValidationError,
                 sBreakOnValidationErrArg);
+            tryGetFlag(
+                deviceSettings.breakOnValidationWarning,
+                sBreakOnValidationWarnArg);
             tryGetFlag(deviceSettings.robustAccess, sRobustAccessArg);
         }
     }
@@ -110,6 +115,8 @@ App::Settings parseCli(int argc, char *argv[])
         tryGetFlag(deviceSettings.dumpShaderDisassembly, sShaderDisassemblyArg);
         tryGetFlag(
             deviceSettings.breakOnValidationError, sBreakOnValidationErrArg);
+        tryGetFlag(
+            deviceSettings.breakOnValidationWarning, sBreakOnValidationWarnArg);
         tryGetFlag(deviceSettings.robustAccess, sRobustAccessArg);
     }
 

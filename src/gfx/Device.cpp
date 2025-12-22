@@ -264,6 +264,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
     const bool breakOnError =
         static_cast<Device::Settings *>(pUserData)->breakOnValidationError;
+    const bool breakOnWarning =
+        static_cast<Device::Settings *>(pUserData)->breakOnValidationWarning;
 
     // VK_TRUE is reserved
     constexpr auto ret = VK_FALSE;
@@ -294,8 +296,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     else
         LOG_INFO("VkDbg: %s", pCallbackData->pMessage);
 
-    if (breakOnError &&
-        messageSeverity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
+    if ((breakOnError &&
+         messageSeverity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) ||
+        (breakOnWarning &&
+         messageSeverity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning))
         WHEELS_DEBUGBREAK();
 
     return ret;
