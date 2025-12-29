@@ -1,0 +1,12 @@
+#ifndef SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_INIT_H
+#define SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_INIT_H
+
+#include "../../fields.h"
+
+struct InitPC
+{
+    STRUCT_FIELD_GLM(uint, drawInstanceIndex, 0);
+    STRUCT_FIELD_GLM(uint, vertexCount, 0);
+};
+
+#endif // SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_INIT_H

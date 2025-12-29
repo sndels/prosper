@@ -89,6 +89,7 @@ class Renderer
     wheels::OwningPtr<RtReference> m_rtReference;
     wheels::OwningPtr<SkyboxRenderer> m_skyboxRenderer;
     wheels::OwningPtr<DebugRenderer> m_debugRenderer;
+    wheels::OwningPtr<particles::Particles> m_particles;
     wheels::OwningPtr<ToneMap> m_toneMap;
     wheels::OwningPtr<ImGuiRenderer> m_imguiRenderer;
     wheels::OwningPtr<TextureDebug> m_textureDebug;

@@ -1,0 +1,78 @@
+#pragma shader_stage(compute)
+
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_8bit_storage : require
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+
+#include "../scene/geometry.glsl"
+#include "../scene/instances.glsl"
+#include "../shared/shader_structs/particles/particle.h"
+#include "../shared/shader_structs/push_constants/particles/init.h"
+
+layout(std430, set = STORAGE_SET, binding = 0) buffer OutParticles
+{
+    Particle particles[];
+}
+outParticles;
+
+layout(std430, set = STORAGE_SET, binding = 1) buffer OutIndirectArgs
+{
+    uint vertexCount;
+    uint instanceCount;
+    uint firstVertex;
+    uint firstInstance;
+}
+outIndirectArgs;
+
+layout(push_constant) uniform PushConstants { InitPC PC; };
+
+layout(local_size_x = GROUP_X) in;
+void main()
+{
+    // This was zeroed before the pass to init the instance count for use as the
+    // write pointer without barriers after this init that now just sets the
+    // correct vertex count
+    if (gl_GlobalInvocationID.x == 0)
+        outIndirectArgs.vertexCount = 4;
+
+    DrawInstance instance = drawInstances.instance[PC.drawInstanceIndex];
+    GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];
+
+    uint vertexIndex = gl_GlobalInvocationID.x;
+    // TODO:
+    // Have vertex/index count in geometry metadata
+    if (vertexIndex >= PC.vertexCount)
+        return;
+
+    ModelInstanceTransforms trfn =
+        modelInstanceTransforms.instance[instance.modelInstanceIndex];
+
+    Vertex vertexModel = loadVertex(metadata, vertexIndex);
+    Vertex vertexWorld = transform(vertexModel, trfn);
+
+    // Figure out the subgroup offset for writes
+    uvec4 activeThreadsMask = subgroupBallot(true);
+    uint activeThreadCount = subgroupBallotBitCount(activeThreadsMask);
+    uint subgroupStartOffset;
+    if (subgroupElect())
+        subgroupStartOffset =
+            atomicAdd(outIndirectArgs.instanceCount, activeThreadCount);
+    subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
+
+    // Write out within the subgroup block
+    uint threadOffset = subgroupStartOffset +
+                        subgroupBallotExclusiveBitCount(activeThreadsMask);
+
+    // TODO:
+    // This is a lot of duplication per-particle. Shared fields could be in a
+    // metadata blob
+    outParticles.particles[threadOffset].position_lifetime =
+        vec4(vertexWorld.Position, -1.);
+    outParticles.particles[threadOffset].normal_spawnRate =
+        vec4(vertexWorld.Normal, .1);
+    outParticles.particles[threadOffset].velocity_spawnCounter = vec4(0);
+    outParticles.particles[threadOffset].childLifetime = 1.f;
+    outParticles.particles[threadOffset].mask = ParticleMaskBits_NoGravity;
+}

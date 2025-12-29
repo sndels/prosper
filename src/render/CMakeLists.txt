@@ -1,10 +1,12 @@
 add_subdirectory(bloom)
 add_subdirectory(dof)
+add_subdirectory(particles)
 add_subdirectory(rtdi)
 
 set(PROSPER_RENDER_INCLUDES
     ${PROSPER_BLOOM_INCLUDES}
     ${PROSPER_DOF_INCLUDES}
+    ${PROSPER_PARTICLES_INCLUDES}
     ${PROSPER_RTDI_INCLUDES}
     ${CMAKE_CURRENT_LIST_DIR}/ComputePass.hpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.hpp
@@ -36,6 +38,7 @@ set(PROSPER_RENDER_INCLUDES
 set(PROSPER_RENDER_SOURCES
     ${PROSPER_BLOOM_SOURCES}
     ${PROSPER_DOF_SOURCES}
+    ${PROSPER_PARTICLES_SOURCES}
     ${PROSPER_RTDI_SOURCES}
     ${CMAKE_CURRENT_LIST_DIR}/ComputePass.cpp
     ${CMAKE_CURRENT_LIST_DIR}/DebugRenderer.cpp

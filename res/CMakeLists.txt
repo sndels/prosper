@@ -9,6 +9,7 @@ set(SHARED_SHADER_STRUCTS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/dof/gather.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/dof/reduce.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/dof/setup.h
+    ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/particles/init.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/restir_di/initial_reservoirs.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/restir_di/spatial_reuse.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/restir_di/trace.h
@@ -24,6 +25,7 @@ set(SHARED_SHADER_STRUCTS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/texture_debug.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/texture_readback.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/tone_map.h
+    ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/particles/particle.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/scene/camera.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/scene/draw_instance.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/scene/fwd.hpp

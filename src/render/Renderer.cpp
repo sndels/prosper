@@ -21,6 +21,7 @@
 #include "render/ToneMap.hpp"
 #include "render/bloom/Bloom.hpp"
 #include "render/dof/DepthOfField.hpp"
+#include "render/particles/Particles.hpp"
 #include "rtdi/RtDirectIllumination.hpp"
 #include "scene/Camera.hpp"
 #include "scene/World.hpp"
@@ -142,6 +143,7 @@ Renderer::Renderer() noexcept
 , m_rtReference{OwningPtr<RtReference>{gAllocators.general}}
 , m_skyboxRenderer{OwningPtr<SkyboxRenderer>{gAllocators.general}}
 , m_debugRenderer{OwningPtr<DebugRenderer>{gAllocators.general}}
+, m_particles{OwningPtr<particles::Particles>{gAllocators.general}}
 , m_toneMap{OwningPtr<ToneMap>{gAllocators.general}}
 , m_imguiRenderer{OwningPtr<ImGuiRenderer>{gAllocators.general}}
 , m_textureDebug{OwningPtr<TextureDebug>{gAllocators.general}}
@@ -196,6 +198,7 @@ void Renderer::init(
     m_toneMap->init(scopeAlloc.child_scope());
     m_imguiRenderer->init(swapchainConfig);
     m_textureDebug->init(scopeAlloc.child_scope());
+    m_particles->init(scopeAlloc.child_scope(), camDsLayout, worldDsLayouts);
     m_depthOfField->init(scopeAlloc.child_scope(), camDsLayout);
     m_bloom->init(scopeAlloc.child_scope());
     m_imageBasedLighting->init(scopeAlloc.child_scope());
@@ -256,6 +259,8 @@ void Renderer::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout, worldDsLayouts);
     m_debugRenderer->recompileShaders(
         scopeAlloc.child_scope(), changedFiles, camDsLayout);
+    m_particles->recompileShaders(
+        scopeAlloc.child_scope(), changedFiles, camDsLayout, worldDsLayouts);
     m_toneMap->recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_textureDebug->recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_depthOfField->recompileShaders(
@@ -493,6 +498,14 @@ void Renderer::render(
             scopeAlloc.child_scope(), cb, cam,
             DebugRenderer::RecordInOut{
                 .color = illumination,
+                .depth = depth,
+            },
+            nextFrame);
+
+        m_particles->record(
+            scopeAlloc.child_scope(), cb, cam, world,
+            particles::Particles::InputOutput{
+                .illumination = illumination,
                 .depth = depth,
             },
             nextFrame);

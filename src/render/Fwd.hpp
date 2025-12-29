@@ -24,6 +24,16 @@ class DepthOfField;
 
 } // namespace dof
 
+namespace particles
+{
+
+// particles/Particles.hpp
+class Particles;
+
+// Rest of the namespace types are internal
+
+} // namespace particles
+
 namespace rtdi
 {
 
