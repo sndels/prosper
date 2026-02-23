@@ -466,11 +466,10 @@ void World::Impl::updateScene(
 
 void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
 {
-    const auto &scene = currentScene();
+    auto &scene = currentScene();
 
     {
-        Array<shader_structs::DrawInstance> drawInstances{
-            scopeAlloc, scene.drawInstanceCount};
+        scene.drawInstances.clear();
         Array<shader_structs::ModelInstanceTransforms> transforms{
             scopeAlloc, scene.modelInstances.size()};
         Array<float> scales{scopeAlloc, scene.modelInstances.size()};
@@ -504,7 +503,7 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             for (const auto &model :
                  m_data.m_models[instance.modelIndex].subModels)
             {
-                drawInstances.push_back(shader_structs::DrawInstance{
+                scene.drawInstances.push_back(shader_structs::DrawInstance{
                     .modelInstanceIndex = mi,
                     .meshIndex = model.meshIndex,
                     .materialIndex = model.materialIndex,
@@ -522,8 +521,8 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             m_data.m_modelInstanceTransformsRing.write_elements(scales);
 
         memcpy(
-            scene.drawInstancesBuffer.mapped, drawInstances.data(),
-            sizeof(shader_structs::DrawInstance) * drawInstances.size());
+            scene.drawInstancesBuffer.mapped, scene.drawInstances.data(),
+            sizeof(shader_structs::DrawInstance) * scene.drawInstances.size());
     }
 
     updateTlasInstances(scopeAlloc.child_scope(), scene);

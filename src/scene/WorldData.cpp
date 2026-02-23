@@ -1522,6 +1522,7 @@ void WorldData::gatherScene(
             }
         }
     }
+    scene.drawInstances.reserve(scene.drawInstanceCount);
 
     // Honor scene lighting
     if (!directionalLightFound && (!scene.lights.pointLights.data.empty() ||

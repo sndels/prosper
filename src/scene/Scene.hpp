@@ -5,6 +5,7 @@
 #include "gfx/Resources.hpp"
 #include "scene/Light.hpp"
 #include "scene/Model.hpp"
+#include "shader_structs/scene/draw_instance.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -58,6 +59,8 @@ struct Scene
     bool previousTransformsValid{false};
 
     uint32_t drawInstanceCount{0};
+    wheels::Array<shader_structs::DrawInstance> drawInstances{
+        gAllocators.world};
     gfx::Buffer drawInstancesBuffer;
     vk::DescriptorSet sceneInstancesDescriptorSet;
     vk::DescriptorSet rtDescriptorSet;
