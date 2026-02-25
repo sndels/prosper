@@ -48,11 +48,13 @@ class App
     void handleKeyboardInput(float deltaS);
 
     void drawFrame(
-        wheels::ScopedScratch scopeAlloc, uint32_t scopeHighWatermark);
+        wheels::ScopedScratch scopeAlloc, uint32_t scopeHighWatermark,
+        float deltaTimeS);
 
     uint32_t nextSwapchainImage(
         wheels::ScopedScratch scopeAlloc, uint32_t nextFrame);
 
+    float tickDeltaTimeS();
     float currentTimelineTimeS() const;
 
     void capFramerate();
@@ -130,6 +132,7 @@ class App
     wheels::StaticArray<utils::SceneStats, MAX_FRAMES_IN_FLIGHT> m_sceneStats;
 
     std::chrono::high_resolution_clock::time_point m_lastTimeChange;
+    std::chrono::high_resolution_clock::time_point m_lastTickTime;
     float m_timeOffsetS{0.f};
     bool m_isPlaying{false};
 

@@ -10,6 +10,7 @@ set(SHARED_SHADER_STRUCTS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/dof/reduce.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/dof/setup.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/particles/init.h
+    ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/particles/simulate.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/restir_di/initial_reservoirs.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/restir_di/spatial_reuse.h
     ${CMAKE_CURRENT_LIST_DIR}/shader/shared/shader_structs/push_constants/restir_di/trace.h

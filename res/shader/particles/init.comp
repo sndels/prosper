@@ -69,12 +69,12 @@ void main()
         // This is a lot of duplication per-particle. Shared fields could be in
         // a metadata blob
         outParticles.particles[particleIndex].position_lifetime =
-            vec4(vertexWorld.Position, 0.);
+            vec4(vertexWorld.Position, 2.);
         outParticles.particles[particleIndex].normal_spawnRate =
             vec4(vertexWorld.Normal, .1);
         outParticles.particles[particleIndex].velocity_spawnCounter =
-            vec4(vertexWorld.Normal, 0);
-        outParticles.particles[particleIndex].childLifetime = 1.f;
-        outParticles.particles[particleIndex].mask = ParticleMaskBits_NoGravity;
+            vec4(vertexWorld.Normal * 2., 0);
+        outParticles.particles[particleIndex].childLifetime = 0.;
+        outParticles.particles[particleIndex].mask = 0;
     }
 }

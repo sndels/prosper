@@ -4,6 +4,7 @@
 #include "gfx/Resources.hpp"
 #include "render/particles/Init.hpp"
 #include "render/particles/Render.hpp"
+#include "render/particles/Simulate.hpp"
 #include "scene/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>
@@ -48,7 +49,7 @@ class Particles
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const scene::Camera &cam, const scene::World &world,
-        const InputOutput &inOut, uint32_t nextFrame);
+        const InputOutput &inOut, float deltaTimeS, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};
@@ -61,6 +62,7 @@ class Particles
     vk::DescriptorSet m_particlesRenderDS;
 
     Init m_initPass;
+    Simulate m_simulatePass;
     Render m_renderPass;
 };
 

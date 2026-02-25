@@ -28,12 +28,8 @@ void Particles::init(
 
     {
         ScopedScratch tmpScope = scopeAlloc.child_scope();
-        Array<::particles::shader_structs::Particle> particlesInit(
-            tmpScope, sMaxParticleCount);
-        for (uint32_t i = 0; i < sMaxParticleCount; ++i)
-            particlesInit.emplace_back(::particles::shader_structs::Particle{
-                .position_lifetime = vec4{-1.f},
-            });
+        Array<::particles::shader_structs::Particle> particlesInit(tmpScope);
+        particlesInit.resize(sMaxParticleCount);
         m_particles = gfx::gDevice.create(gfx::BufferCreateInfo{
             .desc =
                 gfx::BufferDescription{
@@ -67,6 +63,7 @@ void Particles::init(
     }
 
     m_initPass.init(scopeAlloc.child_scope(), worldDSLayouts);
+    m_simulatePass.init(scopeAlloc.child_scope());
     m_renderPass.init(scopeAlloc.child_scope(), cameraDsLayout);
 
     m_initialized = true;
@@ -82,6 +79,7 @@ void Particles::recompileShaders(
 
     m_initPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, worldDSLayouts);
+    m_simulatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_renderPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
 }
@@ -91,7 +89,7 @@ void Particles::drawUi() { }
 void Particles::record(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const scene::Camera &cam, const scene::World &world,
-    const InputOutput &inOut, uint32_t nextFrame)
+    const InputOutput &inOut, float deltaTimeS, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -105,6 +103,13 @@ void Particles::record(
                 .particlesFreelist = m_particlesFreelist,
             },
             nextFrame);
+
+        m_simulatePass.record(
+            scopeAlloc.child_scope(), cb,
+            Simulate::InputOutput{
+                .particles = m_particles,
+            },
+            deltaTimeS, nextFrame);
 
         m_renderPass.record(
             scopeAlloc.child_scope(), cb, cam,

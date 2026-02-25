@@ -1,0 +1,12 @@
+#ifndef SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_SIMULATE_H
+#define SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_SIMULATE_H
+
+#include "../../fields.h"
+
+struct SimulatePC
+{
+    STRUCT_FIELD_GLM(uint, maxParticleCount, 0);
+    STRUCT_FIELD(float, deltaTimeS, 0.f);
+};
+
+#endif // SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_SIMULATE_H

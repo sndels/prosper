@@ -362,8 +362,8 @@ bool Renderer::drawUi(scene::Camera &cam)
 void Renderer::render(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
     const scene::Camera &cam, scene::World &world, const vk::Rect2D &renderArea,
-    const gfx::SwapchainImage &swapImage, const uint32_t nextFrame,
-    const Options &options)
+    const gfx::SwapchainImage &swapImage, const float deltaTimeS,
+    const uint32_t nextFrame, const Options &options)
 {
     // Clear stats for new frame
     DrawStats &drawStats = m_drawStats[nextFrame];
@@ -508,7 +508,7 @@ void Renderer::render(
                 .illumination = illumination,
                 .depth = depth,
             },
-            nextFrame);
+            deltaTimeS, nextFrame);
 
         if (options.readbackDepthPx.has_value())
 

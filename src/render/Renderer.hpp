@@ -68,7 +68,7 @@ class Renderer
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
         const scene::Camera &cam, scene::World &world,
         const vk::Rect2D &renderArea, const gfx::SwapchainImage &swapImage,
-        uint32_t nextFrame, const Options &options);
+        float deltaTimeS, uint32_t nextFrame, const Options &options);
 
   private:
     [[nodiscard]] ImageHandle blitColorToFinalComposite(

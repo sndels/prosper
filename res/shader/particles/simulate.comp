@@ -1,0 +1,49 @@
+#pragma shader_stage(compute)
+
+#include "../shared/shader_structs/particles/particle.h"
+#include "../shared/shader_structs/push_constants/particles/simulate.h"
+
+layout(std430, set = 0, binding = 0) buffer InOutParticles
+{
+    Particle particles[];
+}
+inOutParticles;
+// TODO:
+// Bind Freelist to spawn new particles
+
+layout(push_constant) uniform PushConstants { SimulatePC PC; };
+
+layout(local_size_x = GROUP_X) in;
+void main()
+{
+    uint particleIndex = gl_GlobalInvocationID.x;
+    if (particleIndex >= PC.maxParticleCount)
+        return;
+
+    vec4 positionLifetime =
+        inOutParticles.particles[particleIndex].position_lifetime;
+    vec3 position = positionLifetime.xyz;
+    float lifetime = positionLifetime.w;
+
+    vec4 velocity_spawnCounter =
+        inOutParticles.particles[particleIndex].velocity_spawnCounter;
+    vec3 velocity = velocity_spawnCounter.xyz;
+    float spawnCounter = velocity_spawnCounter.w;
+
+    float dt = PC.deltaTimeS;
+    position += velocity * dt;
+
+    uint mask = inOutParticles.particles[particleIndex].mask;
+    if (!noGravityEnabled(mask))
+    {
+        float invDrag = .01;
+        velocity.y -= 9.81 * invDrag * dt;
+    }
+
+    lifetime -= dt;
+
+    inOutParticles.particles[particleIndex].position_lifetime =
+        vec4(position, lifetime);
+    inOutParticles.particles[particleIndex].velocity_spawnCounter =
+        vec4(velocity, spawnCounter);
+}

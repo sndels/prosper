@@ -155,6 +155,8 @@ void App::run()
 
             recompileShaders(scopeAlloc.child_scope());
 
+            const float deltaTimeS = tickDeltaTimeS();
+
             m_constantsRing.startFrame();
 
             m_world->startFrame();
@@ -164,7 +166,8 @@ void App::run()
             drawFrame(
                 scopeAlloc.child_scope(),
                 asserted_cast<uint32_t>(
-                    scopeBackingAlloc.allocated_byte_count_high_watermark()));
+                    scopeBackingAlloc.allocated_byte_count_high_watermark()),
+                deltaTimeS);
 
             utils::gInputHandler.clearSingleFrameGestures();
             m_cam->endFrame();
@@ -481,7 +484,8 @@ void App::handleKeyboardInput(float deltaS)
     }
 }
 
-void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
+void App::drawFrame(
+    ScopedScratch scopeAlloc, uint32_t scopeHighWatermark, float deltaTimeS)
 {
     // Corresponds to the logical swapchain frame [0, MAX_FRAMES_IN_FLIGHT)
     const uint32_t nextFrame =
@@ -590,7 +594,7 @@ void App::drawFrame(ScopedScratch scopeAlloc, uint32_t scopeHighWatermark)
     const gfx::SwapchainImage swapImage = m_swapchain->image(nextImage);
     m_renderer->render(
         scopeAlloc.child_scope(), cb, *m_cam, *m_world, renderArea, swapImage,
-        nextFrame, renderOptions);
+        deltaTimeS, nextFrame, renderOptions);
 
     m_newSceneDataLoaded = m_world->handleDeferredLoading(cb);
 
@@ -661,6 +665,18 @@ uint32_t App::nextSwapchainImage(ScopedScratch scopeAlloc, uint32_t nextFrame)
     }
 
     return *nextImage;
+}
+
+float App::tickDeltaTimeS()
+{
+    const auto now = std::chrono::high_resolution_clock::now();
+
+    const std::chrono::duration<float> dt = now - m_lastTickTime;
+    const float deltaS = dt.count();
+
+    m_lastTickTime = now;
+
+    return deltaS;
 }
 
 float App::currentTimelineTimeS() const

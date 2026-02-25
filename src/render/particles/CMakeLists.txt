@@ -2,6 +2,7 @@ set(PROSPER_PARTICLES_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Init.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Particles.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Render.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/Simulate.hpp
     PARENT_SCOPE
 )
 
@@ -9,5 +10,6 @@ set(PROSPER_PARTICLES_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Init.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Particles.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Render.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/Simulate.cpp
     PARENT_SCOPE
 )

@@ -3,7 +3,6 @@
 
 #include "render/ComputePass.hpp"
 #include "render/Fwd.hpp"
-#include "render/RenderResourceHandle.hpp"
 #include "scene/Fwd.hpp"
 
 #include <wheels/allocators/scoped_scratch.hpp>

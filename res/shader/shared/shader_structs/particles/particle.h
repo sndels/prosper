@@ -9,15 +9,19 @@ namespace particles::shader_structs
 #endif // __cplusplus
 
 #ifndef __cplusplus
+
 const uint ParticleMaskBits_NoGravity = 1 << 0;
+
+bool noGravityEnabled(uint mask) { return bitfieldExtract(mask, 0, 1) == 1; }
+
 #endif // __cplusplus
 
 struct Particle
 {
-    STRUCT_FIELD_GLM(vec4, position_lifetime, {});
+    STRUCT_FIELD_GLM(vec4, position_lifetime, {-1.f});
     STRUCT_FIELD_GLM(vec4, normal_spawnRate, {});
     STRUCT_FIELD_GLM(vec4, velocity_spawnCounter, {});
-    STRUCT_FIELD(float, childLifetime, 1.f);
+    STRUCT_FIELD(float, childLifetime, 0.f);
     STRUCT_FIELD(float, childVelocity, 0.f);
     STRUCT_FIELD_GLM(uint, mask, 0);
     STRUCT_FIELD_GLM(uint, _pad0, 0);
