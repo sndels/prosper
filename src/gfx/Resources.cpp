@@ -31,6 +31,8 @@ vk::PipelineStageFlags2 nativeStages(BufferState state)
 {
     vk::PipelineStageFlags2 flags = nativeStagesCommon(state);
 
+    if (contains(state, BufferState::StageVertexShader))
+        flags |= vk::PipelineStageFlagBits2::eVertexShader;
     if (contains(state, BufferState::StageAccelerationStructureBuild))
         flags |= vk::PipelineStageFlagBits2::eAccelerationStructureBuildKHR;
     if (contains(state, BufferState::StageDrawIndirect))
