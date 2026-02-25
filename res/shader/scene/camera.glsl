@@ -29,6 +29,20 @@ vec3 worldPos(vec2 uv, float nonLinearDepth)
     return surfaceVS.xyz / surfaceVS.w;
 }
 
+vec3 cameraWorldRight()
+{
+    return -vec3(
+        camera.worldToCamera[0].x, camera.worldToCamera[1].x,
+        camera.worldToCamera[2].x);
+}
+
+vec3 cameraWorldUp()
+{
+    return vec3(
+        camera.worldToCamera[0].y, camera.worldToCamera[1].y,
+        camera.worldToCamera[2].y);
+}
+
 vec3 cameraWorldFwd()
 {
     return -vec3(
