@@ -34,14 +34,15 @@ class Init
 
     void drawUi();
 
-    struct Output
+    struct InputOutput
     {
-        BufferHandle particles;
-        BufferHandle indirectArgs;
+        gfx::Buffer &particles;
+        gfx::Buffer &particlesFreelist;
     };
-    [[nodiscard]] Output record(
+    void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const scene::World &world, uint32_t nextFrame);
+        const scene::World &world, const InputOutput &inOut,
+        uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

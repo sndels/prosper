@@ -35,8 +35,7 @@ class Render
 
     struct InputOutput
     {
-        BufferHandle inParticles;
-        BufferHandle inIndirectArgs;
+        gfx::Buffer &inParticles;
         ImageHandle inOutIllumination;
         ImageHandle inOutDepth;
     };

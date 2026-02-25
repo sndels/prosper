@@ -7,6 +7,7 @@
 #include "render/RenderResources.hpp"
 #include "render/RenderTargets.hpp"
 #include "render/Utils.hpp"
+#include "render/particles/Particles.hpp"
 #include "scene/Camera.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Profiler.hpp"
@@ -97,6 +98,7 @@ void Render::record(
 
         updateDescriptorSet(scopeAlloc.child_scope(), ds, inOut);
 
+        inOut.inParticles.transition(cb, gfx::BufferState::VertexShaderRead);
         transition(
             WHEELS_MOV(scopeAlloc), cb,
             Transitions{
@@ -105,10 +107,6 @@ void Render::record(
                      gfx::ImageState::ColorAttachmentReadWrite},
                     {inOut.inOutDepth,
                      gfx::ImageState::DepthAttachmentReadWrite},
-                }},
-                .buffers = StaticArray<BufferTransition, 2>{{
-                    {inOut.inParticles, gfx::BufferState::VertexShaderRead},
-                    {inOut.inIndirectArgs, gfx::BufferState::DrawIndirectRead},
                 }},
             });
 
@@ -149,9 +147,7 @@ void Render::record(
 
         gfx::setViewportScissor(cb, renderArea);
 
-        cb.drawIndirect(
-            gRenderResources.buffers->nativeHandle(inOut.inIndirectArgs), 0, 1,
-            0);
+        cb.draw(4, Particles::sMaxParticleCount, 0, 0);
 
         cb.endRendering();
     }
@@ -232,7 +228,7 @@ void Render::updateDescriptorSet(
 {
     const StaticArray infos{{
         gfx::DescriptorInfo{vk::DescriptorBufferInfo{
-            .buffer = gRenderResources.buffers->nativeHandle(inOut.inParticles),
+            .buffer = inOut.inParticles.handle,
             .range = VK_WHOLE_SIZE,
         }},
     }};

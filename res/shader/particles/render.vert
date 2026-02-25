@@ -18,11 +18,15 @@ layout(location = 2) out vec4 fragPrevPositionNDC;
 void main()
 {
     uint particleIndex = gl_InstanceIndex;
-
     uint vertexIndex = gl_VertexIndex;
 
-    vec3 positionWorld =
-        inParticles.particles[particleIndex].position_lifetime.xyz;
+    vec4 positionLifetime =
+        inParticles.particles[particleIndex].position_lifetime;
+    vec3 positionWorld = positionLifetime.xyz;
+    if (positionLifetime.w < 0.)
+        // No discard so let's abuse clipping
+        // TODO: Compaction step for live particles?
+        positionWorld = vec3(1. / 0.);
 
     // Output topology is a triangle strip
     // 2 ----- 3

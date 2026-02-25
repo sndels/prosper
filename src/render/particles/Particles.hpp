@@ -1,6 +1,7 @@
 #ifndef PROSPER_RENDER_PARTICLES_HPP
 #define PROSPER_RENDER_PARTICLES_HPP
 
+#include "gfx/Resources.hpp"
 #include "render/particles/Init.hpp"
 #include "render/particles/Render.hpp"
 #include "scene/Fwd.hpp"
@@ -23,7 +24,7 @@ class Particles
     static constexpr uint32_t sMaxParticleCount{500'000};
 
     Particles() noexcept = default;
-    ~Particles() = default;
+    ~Particles();
 
     Particles(const Particles &other) = delete;
     Particles(Particles &&other) = delete;
@@ -34,6 +35,7 @@ class Particles
         wheels::ScopedScratch scopeAlloc,
         vk::DescriptorSetLayout cameraDsLayout,
         const scene::WorldDSLayouts &worldDSLayouts);
+    void destroy();
 
     void recompileShaders(
         wheels::ScopedScratch scopeAlloc,
@@ -50,6 +52,13 @@ class Particles
 
   private:
     bool m_initialized{false};
+
+    gfx::Buffer m_particles;
+    gfx::Buffer m_particlesFreelist;
+    vk::DescriptorSetLayout m_particlesRWLayout;
+    vk::DescriptorSetLayout m_particlesRenderLayout;
+    vk::DescriptorSet m_particlesRWDS;
+    vk::DescriptorSet m_particlesRenderDS;
 
     Init m_initPass;
     Render m_renderPass;

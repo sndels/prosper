@@ -17,7 +17,6 @@
 #include <glm/detail/qualifier.hpp>
 #include <glm/glm.hpp>
 #include <imgui.h>
-#include <shader_structs/particles/particle.h>
 #include <shader_structs/push_constants/particles/init.h>
 
 using namespace glm;
@@ -101,64 +100,39 @@ void Init::drawUi()
     // TODO: Drag for source mesh
 }
 
-Init::Output Init::record(
+void Init::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
-    uint32_t nextFrame)
+    const InputOutput &inOut, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE("  Init::Particles");
 
-    Output ret;
     {
-        ret = Output{
-            .particles = gRenderResources.buffers->create(
-                gfx::BufferDescription{
-                    .byteSize = sizeof(::particles::shader_structs::Particle) *
-                                Particles::sMaxParticleCount,
-                    .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-                "ParticleBuffer"),
-            .indirectArgs = gRenderResources.buffers->create(
-                gfx::BufferDescription{
-                    .byteSize = sizeof(uint32_t) * 4,
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eIndirectBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-                "ParticleIndirectArgs")};
-
         const StaticArray descriptorInfos{{
             gfx::DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer = gRenderResources.buffers->nativeHandle(ret.particles),
+                .buffer = inOut.particles.handle,
                 .range = VK_WHOLE_SIZE,
             }},
             gfx::DescriptorInfo{vk::DescriptorBufferInfo{
-                .buffer =
-                    gRenderResources.buffers->nativeHandle(ret.indirectArgs),
+                .buffer = inOut.particlesFreelist.handle,
                 .range = VK_WHOLE_SIZE,
             }},
         }};
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
-        gRenderResources.buffers->transition(
-            cb, ret.indirectArgs, gfx::BufferState::TransferDst);
-
-        cb.fillBuffer(
-            gRenderResources.buffers->nativeHandle(ret.indirectArgs), 0,
-            sizeof(uint32_t) * 3, 0);
-
-        transition(
-            WHEELS_MOV(scopeAlloc), cb,
-            Transitions{
-                .buffers = StaticArray<BufferTransition, 2>{{
-                    {ret.particles, gfx::BufferState::ComputeShaderWrite},
-                    {ret.indirectArgs, gfx::BufferState::ComputeShaderWrite},
-                }},
-            });
+        const StaticArray bufferBarriers{{
+            *inOut.particles.transitionBarrier(
+                gfx::BufferState::ComputeShaderWrite),
+            *inOut.particlesFreelist.transitionBarrier(
+                gfx::BufferState::ComputeShaderReadWrite),
+        }};
+        cb.pipelineBarrier2(vk::DependencyInfo{
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(bufferBarriers.size()),
+            .pBufferMemoryBarriers = bufferBarriers.data(),
+        });
 
         const scene::Scene &currentScene = world.currentScene();
         const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();
@@ -195,6 +169,7 @@ Init::Output Init::record(
                 InitPC{
                     .drawInstanceIndex = m_sourceDrawInstanceIndex,
                     .vertexCount = meshInfo.vertexCount,
+                    .maxParticleCount = Particles::sMaxParticleCount,
                 },
                 groupCount, descriptorSets,
                 ComputePassOptionalRecordArgs{
@@ -202,8 +177,6 @@ Init::Output Init::record(
                 });
         }
     }
-
-    return ret;
 }
 
 } // namespace render::particles

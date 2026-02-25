@@ -11,32 +11,23 @@
 #include "../shared/shader_structs/particles/particle.h"
 #include "../shared/shader_structs/push_constants/particles/init.h"
 
-layout(std430, set = STORAGE_SET, binding = 0) buffer OutParticles
+layout(std430, set = STORAGE_SET, binding = 0) buffer writeonly OutParticles
 {
     Particle particles[];
 }
 outParticles;
-
-layout(std430, set = STORAGE_SET, binding = 1) buffer OutIndirectArgs
+layout(std430, set = STORAGE_SET, binding = 1) buffer InOutParticlesFreelist
 {
-    uint vertexCount;
-    uint instanceCount;
-    uint firstVertex;
-    uint firstInstance;
+    int count;
+    int indices[];
 }
-outIndirectArgs;
+inOutParticlesFreelist;
 
 layout(push_constant) uniform PushConstants { InitPC PC; };
 
 layout(local_size_x = GROUP_X) in;
 void main()
 {
-    // This was zeroed before the pass to init the instance count for use as the
-    // write pointer without barriers after this init that now just sets the
-    // correct vertex count
-    if (gl_GlobalInvocationID.x == 0)
-        outIndirectArgs.vertexCount = 4;
-
     DrawInstance instance = drawInstances.instance[PC.drawInstanceIndex];
     GeometryMetadata metadata = geometryMetadatas.data[instance.meshIndex];
 
@@ -54,25 +45,36 @@ void main()
 
     // Figure out the subgroup offset for writes
     uvec4 activeThreadsMask = subgroupBallot(true);
-    uint activeThreadCount = subgroupBallotBitCount(activeThreadsMask);
-    uint subgroupStartOffset;
+    int activeThreadCount = int(subgroupBallotBitCount(activeThreadsMask));
+    int subgroupStartOffset;
     if (subgroupElect())
+    {
         subgroupStartOffset =
-            atomicAdd(outIndirectArgs.instanceCount, activeThreadCount);
+            atomicAdd(inOutParticlesFreelist.count, -activeThreadCount);
+        if (subgroupStartOffset < activeThreadCount)
+        {
+            subgroupStartOffset = -activeThreadCount - 1;
+            atomicExchange(inOutParticlesFreelist.count, 0);
+        }
+    }
     subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
 
     // Write out within the subgroup block
-    uint threadOffset = subgroupStartOffset +
-                        subgroupBallotExclusiveBitCount(activeThreadsMask);
-
-    // TODO:
-    // This is a lot of duplication per-particle. Shared fields could be in a
-    // metadata blob
-    outParticles.particles[threadOffset].position_lifetime =
-        vec4(vertexWorld.Position, -1.);
-    outParticles.particles[threadOffset].normal_spawnRate =
-        vec4(vertexWorld.Normal, .1);
-    outParticles.particles[threadOffset].velocity_spawnCounter = vec4(0);
-    outParticles.particles[threadOffset].childLifetime = 1.f;
-    outParticles.particles[threadOffset].mask = ParticleMaskBits_NoGravity;
+    int threadOffset = subgroupStartOffset -
+                       int(subgroupBallotExclusiveBitCount(activeThreadsMask));
+    if (threadOffset >= 0)
+    {
+        uint particleIndex = inOutParticlesFreelist.indices[threadOffset];
+        // TODO:
+        // This is a lot of duplication per-particle. Shared fields could be in
+        // a metadata blob
+        outParticles.particles[particleIndex].position_lifetime =
+            vec4(vertexWorld.Position, 0.);
+        outParticles.particles[particleIndex].normal_spawnRate =
+            vec4(vertexWorld.Normal, .1);
+        outParticles.particles[particleIndex].velocity_spawnCounter =
+            vec4(vertexWorld.Normal, 0);
+        outParticles.particles[particleIndex].childLifetime = 1.f;
+        outParticles.particles[particleIndex].mask = ParticleMaskBits_NoGravity;
+    }
 }
