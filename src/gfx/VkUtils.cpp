@@ -59,7 +59,8 @@ vk::Pipeline createGraphicsPipeline(
     vk::PipelineRasterizationStateCreateInfo rasterizerState{
         .lineWidth = 1.0,
     };
-    if (info.topology == vk::PrimitiveTopology::eTriangleList)
+    if (info.topology == vk::PrimitiveTopology::eTriangleList ||
+        info.topology == vk::PrimitiveTopology::eTriangleStrip)
     {
         rasterizerState.polygonMode = vk::PolygonMode::eFill;
         rasterizerState.cullMode = info.cullMode;
