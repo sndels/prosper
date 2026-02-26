@@ -294,7 +294,7 @@ void Renderer::recreateViewportRelated()
     };
 }
 
-bool Renderer::drawUi(scene::Camera &cam)
+bool Renderer::drawUi(scene::Camera &cam, const scene::Scene &scene)
 {
     ImGui::SetNextWindowPos(ImVec2{60.f, 235.f}, ImGuiCond_FirstUseEver);
     ImGui::Begin(
@@ -317,6 +317,8 @@ bool Renderer::drawUi(scene::Camera &cam)
     {
         ImGui::Checkbox("Deferred shading", &m_renderDeferred);
         ImGui::Checkbox("Enable particles", &m_enableParticles);
+        if (m_enableParticles)
+            m_particles->drawUi(scene);
 
         if (m_renderDeferred)
             rtDirty |= ImGui::Checkbox("RT direct illumination", &m_deferredRt);

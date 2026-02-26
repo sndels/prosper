@@ -727,7 +727,7 @@ App::UiChanges App::drawUi(
 
     drawOptions();
 
-    ret.rtDirty |= m_renderer->drawUi(*m_cam);
+    ret.rtDirty |= m_renderer->drawUi(*m_cam, m_world->currentScene());
 
     drawProfiling(scopeAlloc.child_scope(), profilerDatas);
 

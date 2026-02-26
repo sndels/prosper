@@ -86,7 +86,7 @@ void Particles::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
 }
 
-void Particles::drawUi() { }
+void Particles::drawUi(const scene::Scene &scene) { m_initPass.drawUi(scene); }
 
 void Particles::record(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

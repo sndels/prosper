@@ -31,7 +31,7 @@ class Init
         const wheels::HashSet<std::filesystem::path> &changedFiles,
         const scene::WorldDSLayouts &worldDSLayouts);
 
-    void drawUi();
+    void drawUi(const scene::Scene &scene);
 
     struct InputOutput
     {

@@ -45,7 +45,7 @@ class Particles
         vk::DescriptorSetLayout cameraDsLayout,
         const scene::WorldDSLayouts &worldDSLayouts);
 
-    void drawUi();
+    void drawUi(const scene::Scene &scene);
 
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

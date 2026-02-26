@@ -2,14 +2,13 @@
 
 #include "gfx/Resources.hpp"
 #include "render/ComputePass.hpp"
-#include "render/RenderResources.hpp"
 #include "render/particles/Particles.hpp"
 #include "scene/Mesh.hpp"
-#include "scene/Model.hpp"
 #include "scene/Scene.hpp"
 #include "scene/World.hpp"
 #include "scene/WorldRenderStructs.hpp"
 #include "utils/Profiler.hpp"
+#include "utils/Ui.hpp"
 #include "utils/Utils.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -93,11 +92,13 @@ void Init::recompileShaders(
         externalDsLayouts(worldDSLayouts));
 }
 
-void Init::drawUi()
+void Init::drawUi(const scene::Scene &scene)
 {
     WHEELS_ASSERT(m_initialized);
 
-    // TODO: Drag for source mesh
+    utils::sliderU32(
+        "Source mesh", &m_sourceDrawInstanceIndex, 0u,
+        scene.drawInstanceCount - 1);
 }
 
 void Init::record(

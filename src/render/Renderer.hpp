@@ -46,7 +46,7 @@ class Renderer
 
     void startFrame(bool drawUi);
     // Returns true if rt should be marked dirty
-    [[nodiscard]] bool drawUi(scene::Camera &cam);
+    [[nodiscard]] bool drawUi(scene::Camera &cam, const scene::Scene &scene);
 
     [[nodiscard]] const DrawStats &drawStats(uint32_t nextFrame);
     [[nodiscard]] const vk::Extent2D &viewportExtentInUi() const;
