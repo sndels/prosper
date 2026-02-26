@@ -316,6 +316,7 @@ bool Renderer::drawUi(scene::Camera &cam)
     if (!m_referenceRt)
     {
         ImGui::Checkbox("Deferred shading", &m_renderDeferred);
+        ImGui::Checkbox("Enable particles", &m_enableParticles);
 
         if (m_renderDeferred)
             rtDirty |= ImGui::Checkbox("RT direct illumination", &m_deferredRt);
@@ -544,13 +545,14 @@ void Renderer::render(
         // TODO:
         // Particles before TAA might be better for transparent/dithered and
         // particle sim could also write into velocities if that helps.
-        m_particles->record(
-            scopeAlloc.child_scope(), cb, cam, world,
-            particles::Particles::InputOutput{
-                .illumination = illumination,
-                .depth = depth,
-            },
-            deltaTimeS, nextFrame);
+        if (m_enableParticles)
+            m_particles->record(
+                scopeAlloc.child_scope(), cb, cam, world,
+                particles::Particles::InputOutput{
+                    .illumination = illumination,
+                    .depth = depth,
+                },
+                deltaTimeS, nextFrame);
 
         // TODO:
         // Do DoF on raw illumination and have a separate stabilizing TAA pass

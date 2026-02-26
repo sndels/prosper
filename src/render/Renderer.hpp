@@ -109,6 +109,7 @@ class Renderer
     bool m_renderDeferred{true};
     bool m_deferredRt{false};
     bool m_renderDoF{false};
+    bool m_enableParticles{false};
     bool m_applyBloom{true};
     bool m_applyIbl{false};
     bool m_applyTaa{true};
