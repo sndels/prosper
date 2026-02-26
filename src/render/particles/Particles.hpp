@@ -2,6 +2,7 @@
 #define PROSPER_RENDER_PARTICLES_HPP
 
 #include "gfx/Resources.hpp"
+#include "render/particles/Decay.hpp"
 #include "render/particles/Init.hpp"
 #include "render/particles/Render.hpp"
 #include "render/particles/Simulate.hpp"
@@ -62,6 +63,7 @@ class Particles
     vk::DescriptorSet m_particlesRenderDS;
 
     Init m_initPass;
+    Decay m_decayPass;
     Simulate m_simulatePass;
     Render m_renderPass;
 };

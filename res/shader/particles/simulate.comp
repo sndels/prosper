@@ -24,6 +24,8 @@ void main()
         inOutParticles.particles[particleIndex].position_lifetime;
     vec3 position = positionLifetime.xyz;
     float lifetime = positionLifetime.w;
+    if (lifetime < 0.)
+        return;
 
     vec4 velocity_spawnCounter =
         inOutParticles.particles[particleIndex].velocity_spawnCounter;

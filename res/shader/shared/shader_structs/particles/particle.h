@@ -18,7 +18,7 @@ bool noGravityEnabled(uint mask) { return bitfieldExtract(mask, 0, 1) == 1; }
 
 struct Particle
 {
-    STRUCT_FIELD_GLM(vec4, position_lifetime, {-1.f});
+    STRUCT_FIELD_GLM(vec4, position_lifetime, {-9999.f});
     STRUCT_FIELD_GLM(vec4, normal_spawnRate, {});
     STRUCT_FIELD_GLM(vec4, velocity_spawnCounter, {});
     STRUCT_FIELD(float, childLifetime, 0.f);

@@ -1,0 +1,11 @@
+#ifndef SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_DECAY_H
+#define SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_DECAY_H
+
+#include "../../fields.h"
+
+struct DecayPC
+{
+    STRUCT_FIELD_GLM(uint, maxParticleCount, 0);
+};
+
+#endif // SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_DECAY_H

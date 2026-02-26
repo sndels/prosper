@@ -64,6 +64,7 @@ void Particles::init(
 
     m_initPass.init(scopeAlloc.child_scope(), worldDSLayouts);
     m_simulatePass.init(scopeAlloc.child_scope());
+    m_decayPass.init(scopeAlloc.child_scope());
     m_renderPass.init(scopeAlloc.child_scope(), cameraDsLayout);
 
     m_initialized = true;
@@ -79,6 +80,7 @@ void Particles::recompileShaders(
 
     m_initPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, worldDSLayouts);
+    m_decayPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_simulatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_renderPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
@@ -99,6 +101,14 @@ void Particles::record(
         m_initPass.record(
             scopeAlloc.child_scope(), cb, world,
             Init::InputOutput{
+                .particles = m_particles,
+                .particlesFreelist = m_particlesFreelist,
+            },
+            nextFrame);
+
+        m_decayPass.record(
+            scopeAlloc.child_scope(), cb,
+            Decay::InputOutput{
                 .particles = m_particles,
                 .particlesFreelist = m_particlesFreelist,
             },
