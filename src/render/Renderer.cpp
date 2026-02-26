@@ -502,14 +502,6 @@ void Renderer::render(
             },
             nextFrame);
 
-        m_particles->record(
-            scopeAlloc.child_scope(), cb, cam, world,
-            particles::Particles::InputOutput{
-                .illumination = illumination,
-                .depth = depth,
-            },
-            deltaTimeS, nextFrame);
-
         if (options.readbackDepthPx.has_value())
 
             m_textureReadback->record(
@@ -547,6 +539,18 @@ void Renderer::render(
         }
         else
             m_temporalAntiAliasing->releasePreserved();
+
+        // Draw particles after TAA to avoid crispy particles becoming muddy.
+        // TODO:
+        // Particles before TAA might be better for transparent/dithered and
+        // particle sim could also write into velocities if that helps.
+        m_particles->record(
+            scopeAlloc.child_scope(), cb, cam, world,
+            particles::Particles::InputOutput{
+                .illumination = illumination,
+                .depth = depth,
+            },
+            deltaTimeS, nextFrame);
 
         // TODO:
         // Do DoF on raw illumination and have a separate stabilizing TAA pass
