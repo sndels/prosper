@@ -10,9 +10,9 @@ namespace particles::shader_structs
 
 #ifndef __cplusplus
 
-const uint ParticleMaskBits_NoGravity = 1 << 0;
+const uint ParticleMaskBits_Gravity = 1 << 0;
 
-bool noGravityEnabled(uint mask) { return bitfieldExtract(mask, 0, 1) == 1; }
+bool gravityEnabled(uint mask) { return bitfieldExtract(mask, 0, 1) == 1; }
 
 #endif // __cplusplus
 
