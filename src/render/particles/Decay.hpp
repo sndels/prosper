@@ -34,7 +34,7 @@ class Decay
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
-        const InputOutput &inOut, uint32_t nextFrame);
+        const InputOutput &inOut, bool decayEmitters, uint32_t nextFrame);
 
   private:
     bool m_initialized{false};

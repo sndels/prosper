@@ -54,7 +54,7 @@ void Decay::recompileShaders(
 
 void Decay::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const InputOutput &inOut,
-    uint32_t nextFrame)
+    bool decayEmitters, uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
@@ -97,6 +97,7 @@ void Decay::record(
                 // TODO: This should be a constant since it's compile time in
                 // C++ too
                 .maxParticleCount = Particles::sMaxParticleCount,
+                .decayEmitters = decayEmitters ? VK_TRUE : VK_FALSE,
             },
             groupCount, Span{&storageSet, 1});
     }

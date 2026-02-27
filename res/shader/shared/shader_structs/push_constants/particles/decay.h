@@ -6,6 +6,7 @@
 struct DecayPC
 {
     STRUCT_FIELD_GLM(uint, maxParticleCount, 0);
+    STRUCT_FIELD_GLM(uint, decayEmitters, 0);
 };
 
 #endif // SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_DECAY_H

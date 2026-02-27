@@ -115,7 +115,7 @@ void Particles::record(
                 .particles = m_particles,
                 .particlesFreelist = m_particlesFreelist,
             },
-            nextFrame);
+            m_sourceDrawInstanceIndexChanged, nextFrame);
 
         if (m_sourceDrawInstanceIndexChanged)
         {
