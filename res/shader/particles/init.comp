@@ -23,6 +23,8 @@ layout(std430, set = STORAGE_SET, binding = 1) buffer InOutParticlesFreelist
 }
 inOutParticlesFreelist;
 
+#include "freelist.glsl"
+
 layout(push_constant) uniform PushConstants { InitPC PC; };
 
 layout(local_size_x = GROUP_X) in;
@@ -43,38 +45,15 @@ void main()
     Vertex vertexModel = loadVertex(metadata, vertexIndex);
     Vertex vertexWorld = transform(vertexModel, trfn);
 
-    // Figure out the subgroup offset for writes
-    uvec4 activeThreadsMask = subgroupBallot(true);
-    int activeThreadCount = int(subgroupBallotBitCount(activeThreadsMask));
-    int subgroupStartOffset;
-    if (subgroupElect())
+    int popIndex = freelistPopIndex();
+    if (popIndex >= 0)
     {
-        subgroupStartOffset =
-            atomicAdd(inOutParticlesFreelist.count, -activeThreadCount);
-        if (subgroupStartOffset < activeThreadCount)
-        {
-            subgroupStartOffset = -activeThreadCount - 1;
-            atomicExchange(inOutParticlesFreelist.count, 0);
-        }
-    }
-    subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
-
-    // Write out within the subgroup block
-    int threadOffset = subgroupStartOffset -
-                       int(subgroupBallotExclusiveBitCount(activeThreadsMask));
-    if (threadOffset >= 0)
-    {
-        uint particleIndex = inOutParticlesFreelist.indices[threadOffset];
-        // TODO:
-        // This is a lot of duplication per-particle. Shared fields could be in
-        // a metadata blob
+        uint particleIndex = inOutParticlesFreelist.indices[popIndex];
         outParticles.particles[particleIndex].position_lifetime =
-            vec4(vertexWorld.Position, 1.);
-        outParticles.particles[particleIndex].normal_spawnRate =
+            vec4(vertexWorld.Position, 0.);
+        outParticles.particles[particleIndex].normal_spawnRateS =
             vec4(vertexWorld.Normal, .1);
-        outParticles.particles[particleIndex].velocity_spawnCounter =
-            vec4(vertexWorld.Normal * 2., 0);
-        outParticles.particles[particleIndex].childLifetime = 0.;
-        outParticles.particles[particleIndex].mask = 0;
+        outParticles.particles[particleIndex].velocity_spawnTimerS = vec4(0);
+        outParticles.particles[particleIndex].mask = ParticleMaskBits_Emit;
     }
 }

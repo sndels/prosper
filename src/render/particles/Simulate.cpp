@@ -66,12 +66,18 @@ void Simulate::record(
                 .buffer = inOut.particles.handle,
                 .range = VK_WHOLE_SIZE,
             }},
+            gfx::DescriptorInfo{vk::DescriptorBufferInfo{
+                .buffer = inOut.particlesFreelist.handle,
+                .range = VK_WHOLE_SIZE,
+            }},
         }};
         const vk::DescriptorSet storageSet = m_computePass.updateStorageSet(
             scopeAlloc.child_scope(), nextFrame, descriptorInfos);
 
         const StaticArray bufferBarriers{{
             *inOut.particles.transitionBarrier(
+                gfx::BufferState::ComputeShaderReadWrite),
+            *inOut.particlesFreelist.transitionBarrier(
                 gfx::BufferState::ComputeShaderReadWrite),
         }};
         cb.pipelineBarrier2(vk::DependencyInfo{

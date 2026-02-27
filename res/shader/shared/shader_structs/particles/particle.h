@@ -11,20 +11,24 @@ namespace particles::shader_structs
 #ifndef __cplusplus
 
 const uint ParticleMaskBits_Gravity = 1 << 0;
+const uint ParticleMaskBits_Decay = 1 << 1;
+const uint ParticleMaskBits_Emit = 1 << 2;
 
 bool gravityEnabled(uint mask) { return bitfieldExtract(mask, 0, 1) == 1; }
+bool decayEnabled(uint mask) { return bitfieldExtract(mask, 1, 1) == 1; }
+bool emitEnabled(uint mask) { return bitfieldExtract(mask, 2, 1) == 1; }
 
 #endif // __cplusplus
 
 struct Particle
 {
     STRUCT_FIELD_GLM(vec4, position_lifetime, {-9999.f});
-    STRUCT_FIELD_GLM(vec4, normal_spawnRate, {});
-    STRUCT_FIELD_GLM(vec4, velocity_spawnCounter, {});
-    STRUCT_FIELD(float, childLifetime, 0.f);
-    STRUCT_FIELD(float, childVelocity, 0.f);
+    STRUCT_FIELD_GLM(vec4, normal_spawnRateS, {});
+    STRUCT_FIELD_GLM(vec4, velocity_spawnTimerS, {});
     STRUCT_FIELD_GLM(uint, mask, 0);
     STRUCT_FIELD_GLM(uint, _pad0, 0);
+    STRUCT_FIELD_GLM(uint, _pad1, 0);
+    STRUCT_FIELD_GLM(uint, _pad2, 0);
 };
 
 #ifdef __cplusplus

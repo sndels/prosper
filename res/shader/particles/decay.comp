@@ -18,6 +18,8 @@ layout(std430, set = 0, binding = 1) buffer InOutParticlesFreelist
 }
 inOutParticlesFreelist;
 
+#include "freelist.glsl"
+
 layout(push_constant) uniform PushConstants { DecayPC PC; };
 
 layout(local_size_x = GROUP_X) in;
@@ -29,27 +31,15 @@ void main()
 
     vec4 positionLifetime =
         inOutParticles.particles[particleIndex].position_lifetime;
+    uint mask = inOutParticles.particles[particleIndex].mask;
     float lifetime = positionLifetime.w;
-    bool shouldDecay = lifetime <= 0. && lifetime != -9999.;
+    bool shouldDecay =
+        decayEnabled(mask) && lifetime <= 0. && lifetime != -9999.;
     if (!shouldDecay)
         return;
 
-    uvec4 activeThreadsMask = subgroupBallot(true);
-    int activeThreadCount = int(subgroupBallotBitCount(activeThreadsMask));
-    int subgroupStartOffset;
-    if (subgroupElect())
-    {
-        subgroupStartOffset =
-            // Freelist overflow here likelye means a double free happened
-            // somewhere
-            atomicAdd(inOutParticlesFreelist.count, activeThreadCount);
-    }
-    subgroupStartOffset = subgroupBroadcastFirst(subgroupStartOffset);
-
     inOutParticles.particles[particleIndex].position_lifetime = vec4(-9999.);
 
-    // Write out within the subgroup block
-    uint threadOffset = subgroupStartOffset +
-                        subgroupBallotExclusiveBitCount(activeThreadsMask);
-    inOutParticlesFreelist.indices[threadOffset] = int(particleIndex);
+    uint pushIndex = freelistPushIndex();
+    inOutParticlesFreelist.indices[pushIndex] = int(particleIndex);
 }

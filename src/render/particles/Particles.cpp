@@ -1,9 +1,10 @@
 #include "Particles.hpp"
 
 #include "gfx/Device.hpp"
-#include "render/RenderResources.hpp"
+#include "scene/Scene.hpp"
 #include "scene/WorldRenderStructs.hpp"
 #include "utils/Profiler.hpp"
+#include "utils/Ui.hpp"
 #include "vulkan/vulkan.hpp"
 
 #include <shader_structs/particles/particle.h>
@@ -86,7 +87,17 @@ void Particles::recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
 }
 
-void Particles::drawUi(const scene::Scene &scene) { m_initPass.drawUi(scene); }
+void Particles::drawUi(const scene::Scene &scene)
+{
+    WHEELS_ASSERT(m_initialized);
+
+    if (utils::sliderU32(
+            "Source mesh", &m_sourceDrawInstanceIndex, 0u,
+            scene.drawInstanceCount - 1))
+    {
+        m_sourceDrawInstanceIndexChanged = true;
+    }
+}
 
 void Particles::record(
     wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,
@@ -106,18 +117,24 @@ void Particles::record(
             },
             nextFrame);
 
-        m_initPass.record(
-            scopeAlloc.child_scope(), cb, world,
-            Init::InputOutput{
-                .particles = m_particles,
-                .particlesFreelist = m_particlesFreelist,
-            },
-            nextFrame);
+        if (m_sourceDrawInstanceIndexChanged)
+        {
+            const bool initRecorded = m_initPass.record(
+                scopeAlloc.child_scope(), cb, world, m_sourceDrawInstanceIndex,
+                Init::InputOutput{
+                    .particles = m_particles,
+                    .particlesFreelist = m_particlesFreelist,
+                },
+                nextFrame);
+            if (initRecorded)
+                m_sourceDrawInstanceIndexChanged = false;
+        }
 
         m_simulatePass.record(
             scopeAlloc.child_scope(), cb,
             Simulate::InputOutput{
                 .particles = m_particles,
+                .particlesFreelist = m_particlesFreelist,
             },
             deltaTimeS, nextFrame);
 

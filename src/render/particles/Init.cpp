@@ -8,7 +8,6 @@
 #include "scene/World.hpp"
 #include "scene/WorldRenderStructs.hpp"
 #include "utils/Profiler.hpp"
-#include "utils/Ui.hpp"
 #include "utils/Utils.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -92,23 +91,16 @@ void Init::recompileShaders(
         externalDsLayouts(worldDSLayouts));
 }
 
-void Init::drawUi(const scene::Scene &scene)
-{
-    WHEELS_ASSERT(m_initialized);
-
-    utils::sliderU32(
-        "Source mesh", &m_sourceDrawInstanceIndex, 0u,
-        scene.drawInstanceCount - 1);
-}
-
-void Init::record(
+bool Init::record(
     ScopedScratch scopeAlloc, vk::CommandBuffer cb, const scene::World &world,
-    const InputOutput &inOut, uint32_t nextFrame)
+    uint32_t sourceDrawInstanceIndex, const InputOutput &inOut,
+    uint32_t nextFrame)
 {
     WHEELS_ASSERT(m_initialized);
 
     PROFILER_CPU_SCOPE("  Init::Particles");
 
+    bool recorded = false;
     {
         const StaticArray descriptorInfos{{
             gfx::DescriptorInfo{vk::DescriptorBufferInfo{
@@ -155,7 +147,7 @@ void Init::record(
         PROFILER_GPU_SCOPE(cb, "  Init::Particles");
 
         const scene::shader_structs::DrawInstance &drawInstance =
-            currentScene.drawInstances[m_sourceDrawInstanceIndex];
+            currentScene.drawInstances[sourceDrawInstanceIndex];
         const scene::MeshInfo &meshInfo =
             world.meshInfos()[drawInstance.meshIndex];
         // Mesh might not have been loaded in yet
@@ -168,7 +160,7 @@ void Init::record(
             m_computePass.record(
                 cb,
                 InitPC{
-                    .drawInstanceIndex = m_sourceDrawInstanceIndex,
+                    .drawInstanceIndex = sourceDrawInstanceIndex,
                     .vertexCount = meshInfo.vertexCount,
                     .maxParticleCount = Particles::sMaxParticleCount,
                 },
@@ -176,8 +168,10 @@ void Init::record(
                 ComputePassOptionalRecordArgs{
                     .dynamicOffsets = dynamicOffsets,
                 });
+            recorded = true;
         }
     }
+    return recorded;
 }
 
 } // namespace render::particles

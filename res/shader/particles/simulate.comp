@@ -1,5 +1,8 @@
 #pragma shader_stage(compute)
 
+#extension GL_KHR_shader_subgroup_basic : require
+#extension GL_KHR_shader_subgroup_ballot : require
+
 #include "../shared/shader_structs/particles/particle.h"
 #include "../shared/shader_structs/push_constants/particles/simulate.h"
 
@@ -8,8 +11,14 @@ layout(std430, set = 0, binding = 0) buffer InOutParticles
     Particle particles[];
 }
 inOutParticles;
-// TODO:
-// Bind Freelist to spawn new particles
+layout(std430, set = 0, binding = 1) buffer InOutParticlesFreelist
+{
+    int count;
+    int indices[];
+}
+inOutParticlesFreelist;
+
+#include "freelist.glsl"
 
 layout(push_constant) uniform PushConstants { SimulatePC PC; };
 
@@ -27,10 +36,10 @@ void main()
     if (lifetime < 0.)
         return;
 
-    vec4 velocity_spawnCounter =
-        inOutParticles.particles[particleIndex].velocity_spawnCounter;
-    vec3 velocity = velocity_spawnCounter.xyz;
-    float spawnCounter = velocity_spawnCounter.w;
+    vec4 velocity_spawnTimerS =
+        inOutParticles.particles[particleIndex].velocity_spawnTimerS;
+    vec3 velocity = velocity_spawnTimerS.xyz;
+    float spawnTimerS = velocity_spawnTimerS.w;
 
     float dt = PC.deltaTimeS;
     position += velocity * dt;
@@ -42,10 +51,39 @@ void main()
         velocity.y -= 9.81 * invDrag * dt;
     }
 
-    lifetime -= dt;
+    if (decayEnabled(mask))
+        lifetime -= dt;
+
+    if (emitEnabled(mask))
+    {
+        vec4 normal_spawnRateS =
+            inOutParticles.particles[particleIndex].normal_spawnRateS;
+        vec3 normal = normal_spawnRateS.xyz;
+        float spawnRateS = normal_spawnRateS.w;
+
+        spawnTimerS += dt;
+        if (spawnTimerS >= spawnRateS)
+        {
+            spawnTimerS = 0.;
+
+            int popIndex = freelistPopIndex();
+            if (popIndex >= 0)
+            {
+                uint childIndex = inOutParticlesFreelist.indices[popIndex];
+                inOutParticles.particles[childIndex].position_lifetime =
+                    vec4(position, 2.);
+                inOutParticles.particles[childIndex].normal_spawnRateS =
+                    vec4(normal, 0.);
+                inOutParticles.particles[childIndex].velocity_spawnTimerS =
+                    vec4(normal * .1, 0);
+                inOutParticles.particles[childIndex].mask =
+                    ParticleMaskBits_Gravity | ParticleMaskBits_Decay;
+            }
+        }
+    }
 
     inOutParticles.particles[particleIndex].position_lifetime =
         vec4(position, lifetime);
-    inOutParticles.particles[particleIndex].velocity_spawnCounter =
-        vec4(velocity, spawnCounter);
+    inOutParticles.particles[particleIndex].velocity_spawnTimerS =
+        vec4(velocity, spawnTimerS);
 }

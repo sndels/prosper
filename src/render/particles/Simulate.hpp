@@ -30,6 +30,7 @@ class Simulate
     struct InputOutput
     {
         gfx::Buffer &particles;
+        gfx::Buffer &particlesFreelist;
     };
     void record(
         wheels::ScopedScratch scopeAlloc, vk::CommandBuffer cb,

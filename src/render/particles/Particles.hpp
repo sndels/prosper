@@ -62,6 +62,9 @@ class Particles
     vk::DescriptorSet m_particlesRWDS;
     vk::DescriptorSet m_particlesRenderDS;
 
+    uint32_t m_sourceDrawInstanceIndex{0};
+    bool m_sourceDrawInstanceIndexChanged{true};
+
     Init m_initPass;
     Decay m_decayPass;
     Simulate m_simulatePass;
