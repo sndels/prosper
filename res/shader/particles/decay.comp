@@ -34,8 +34,8 @@ void main()
     uint mask = inOutParticles.particles[particleIndex].mask;
     float lifetime = positionLifetime.w;
     bool shouldDecay =
-        (lifetime != -9999. && ((decayEnabled(mask) && lifetime <= 0.) ||
-                                (PC.decayEmitters == 1 && emitEnabled(mask))));
+        (lifetime != -9999. &&
+         (PC.decayAll == 1 || (decayEnabled(mask) && lifetime <= 0.)));
     if (!shouldDecay)
         return;
 

@@ -1,6 +1,7 @@
 #ifndef COMMON_SAMPLING_GLSL
 #define COMMON_SAMPLING_GLSL
 
+#include "../brdf.glsl"
 #include "math.glsl"
 
 // https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#SamplingaUnitDisk

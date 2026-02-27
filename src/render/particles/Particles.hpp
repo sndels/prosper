@@ -63,7 +63,7 @@ class Particles
     vk::DescriptorSet m_particlesRenderDS;
 
     uint32_t m_sourceDrawInstanceIndex{0};
-    bool m_sourceDrawInstanceIndexChanged{true};
+    bool m_resetParticles{true};
 
     Init m_initPass;
     Decay m_decayPass;

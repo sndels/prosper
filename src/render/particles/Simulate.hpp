@@ -39,6 +39,7 @@ class Simulate
   private:
     bool m_initialized{false};
     ComputePass m_computePass;
+    uint32_t m_frameIndex{0};
 };
 
 } // namespace render::particles

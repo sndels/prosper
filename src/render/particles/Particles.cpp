@@ -95,8 +95,9 @@ void Particles::drawUi(const scene::Scene &scene)
             "Source mesh", &m_sourceDrawInstanceIndex, 0u,
             scene.drawInstanceCount - 1))
     {
-        m_sourceDrawInstanceIndexChanged = true;
+        m_resetParticles = true;
     }
+    m_resetParticles |= ImGui::Button("Reset particles");
 }
 
 void Particles::record(
@@ -115,9 +116,9 @@ void Particles::record(
                 .particles = m_particles,
                 .particlesFreelist = m_particlesFreelist,
             },
-            m_sourceDrawInstanceIndexChanged, nextFrame);
+            m_resetParticles, nextFrame);
 
-        if (m_sourceDrawInstanceIndexChanged)
+        if (m_resetParticles)
         {
             const bool initRecorded = m_initPass.record(
                 scopeAlloc.child_scope(), cb, world, m_sourceDrawInstanceIndex,
@@ -127,7 +128,7 @@ void Particles::record(
                 },
                 nextFrame);
             if (initRecorded)
-                m_sourceDrawInstanceIndexChanged = false;
+                m_resetParticles = false;
         }
 
         m_simulatePass.record(

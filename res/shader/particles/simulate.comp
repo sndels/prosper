@@ -3,6 +3,8 @@
 #extension GL_KHR_shader_subgroup_basic : require
 #extension GL_KHR_shader_subgroup_ballot : require
 
+#include "../common/random.glsl"
+#include "../common/sampling.glsl"
 #include "../shared/shader_structs/particles/particle.h"
 #include "../shared/shader_structs/push_constants/particles/simulate.h"
 
@@ -28,6 +30,8 @@ void main()
     uint particleIndex = gl_GlobalInvocationID.x;
     if (particleIndex >= PC.maxParticleCount)
         return;
+
+    pcg_state = uvec3(particleIndex, gl_LocalInvocationID.x, PC.frameIndex);
 
     vec4 positionLifetime =
         inOutParticles.particles[particleIndex].position_lifetime;
@@ -61,6 +65,17 @@ void main()
         vec3 normal = normal_spawnRateS.xyz;
         float spawnRateS = normal_spawnRateS.w;
 
+        velocity += (normal + rnd3d01() * 2. - 1.) * .5 * dt;
+
+        float scalarVelocity = length(velocity);
+        velocity /= scalarVelocity;
+        scalarVelocity = min(scalarVelocity, .05);
+        velocity *= scalarVelocity;
+        normal = normalize(velocity);
+
+        inOutParticles.particles[particleIndex].normal_spawnRateS =
+            vec4(normal, spawnRateS);
+
         spawnTimerS += dt;
         if (spawnTimerS >= spawnRateS)
         {
@@ -71,11 +86,11 @@ void main()
             {
                 uint childIndex = inOutParticlesFreelist.indices[popIndex];
                 inOutParticles.particles[childIndex].position_lifetime =
-                    vec4(position, 2.);
+                    vec4(position, 4.);
                 inOutParticles.particles[childIndex].normal_spawnRateS =
                     vec4(normal, 0.);
                 inOutParticles.particles[childIndex].velocity_spawnTimerS =
-                    vec4(normal * .1, 0);
+                    vec4(normal * scalarVelocity * 2., 0);
                 inOutParticles.particles[childIndex].mask =
                     ParticleMaskBits_Gravity | ParticleMaskBits_Decay;
             }

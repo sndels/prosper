@@ -7,6 +7,7 @@ struct SimulatePC
 {
     STRUCT_FIELD_GLM(uint, maxParticleCount, 0);
     STRUCT_FIELD(float, deltaTimeS, 0.f);
+    STRUCT_FIELD_GLM(uint, frameIndex, 0);
 };
 
 #endif // SHADER_STRUCTS_PUSH_CONSTANTS_PARTICLES_SIMULATE_H

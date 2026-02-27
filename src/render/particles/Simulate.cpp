@@ -58,6 +58,8 @@ void Simulate::record(
 {
     WHEELS_ASSERT(m_initialized);
 
+    m_frameIndex = m_frameIndex + 1;
+
     PROFILER_CPU_SCOPE("  Simulate::Particles");
 
     {
@@ -96,6 +98,7 @@ void Simulate::record(
             SimulatePC{
                 .maxParticleCount = Particles::sMaxParticleCount,
                 .deltaTimeS = deltaTimeS,
+                .frameIndex = m_frameIndex,
             },
             groupCount, Span{&storageSet, 1});
     }
