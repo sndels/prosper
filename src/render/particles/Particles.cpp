@@ -62,9 +62,9 @@ void Particles::init(
             .debugName = "ParticlesFreelist"});
     }
 
+    m_decayPass.init(scopeAlloc.child_scope());
     m_initPass.init(scopeAlloc.child_scope(), worldDSLayouts);
     m_simulatePass.init(scopeAlloc.child_scope());
-    m_decayPass.init(scopeAlloc.child_scope());
     m_renderPass.init(scopeAlloc.child_scope(), cameraDsLayout);
 
     m_initialized = true;
@@ -78,9 +78,9 @@ void Particles::recompileShaders(
 {
     WHEELS_ASSERT(m_initialized);
 
+    m_decayPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_initPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, worldDSLayouts);
-    m_decayPass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_simulatePass.recompileShaders(scopeAlloc.child_scope(), changedFiles);
     m_renderPass.recompileShaders(
         scopeAlloc.child_scope(), changedFiles, cameraDsLayout);
@@ -98,17 +98,17 @@ void Particles::record(
     PROFILER_CPU_GPU_SCOPE(cb, "Particles");
 
     {
-        m_initPass.record(
-            scopeAlloc.child_scope(), cb, world,
-            Init::InputOutput{
+        m_decayPass.record(
+            scopeAlloc.child_scope(), cb,
+            Decay::InputOutput{
                 .particles = m_particles,
                 .particlesFreelist = m_particlesFreelist,
             },
             nextFrame);
 
-        m_decayPass.record(
-            scopeAlloc.child_scope(), cb,
-            Decay::InputOutput{
+        m_initPass.record(
+            scopeAlloc.child_scope(), cb, world,
+            Init::InputOutput{
                 .particles = m_particles,
                 .particlesFreelist = m_particlesFreelist,
             },
