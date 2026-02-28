@@ -525,6 +525,16 @@ void Renderer::render(
         else
             m_bloom->releasePreserved();
 
+        // Draw particles before TAA to get some AA on the dithered transparency
+        if (m_enableParticles)
+            m_particles->record(
+                scopeAlloc.child_scope(), cb, cam, world,
+                particles::Particles::InputOutput{
+                    .inOutIllumination = illumination,
+                    .inOutDepth = depth,
+                },
+                deltaTimeS, nextFrame);
+
         if (m_applyTaa)
         {
             const TemporalAntiAliasing::Output taaOutput =
@@ -542,19 +552,6 @@ void Renderer::render(
         }
         else
             m_temporalAntiAliasing->releasePreserved();
-
-        // Draw particles after TAA to avoid crispy particles becoming muddy.
-        // TODO:
-        // Particles before TAA might be better for transparent/dithered and
-        // particle sim could also write into velocities if that helps.
-        if (m_enableParticles)
-            m_particles->record(
-                scopeAlloc.child_scope(), cb, cam, world,
-                particles::Particles::InputOutput{
-                    .illumination = illumination,
-                    .depth = depth,
-                },
-                deltaTimeS, nextFrame);
 
         // TODO:
         // Do DoF on raw illumination and have a separate stabilizing TAA pass

@@ -56,6 +56,7 @@ class Render
     void createGraphicsPipelines(vk::DescriptorSetLayout cameraDSLayout);
 
     bool m_initialized{false};
+    uint32_t m_frameIndex{0};
 
     wheels::StaticArray<vk::PipelineShaderStageCreateInfo, 2> m_shaderStages;
     wheels::Optional<gfx::ShaderReflection> m_vertReflection;

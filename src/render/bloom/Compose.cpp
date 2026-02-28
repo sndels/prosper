@@ -117,6 +117,7 @@ ImageHandle Compose::record(
                 .width = illuminationExtent.width,
                 .height = illuminationExtent.height,
                 .usageFlags = vk::ImageUsageFlagBits::eSampled |
+                              vk::ImageUsageFlagBits::eColorAttachment |
                               vk::ImageUsageFlagBits::eStorage,
 
             },

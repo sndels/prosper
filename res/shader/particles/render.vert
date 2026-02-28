@@ -2,6 +2,7 @@
 
 #extension GL_ARB_separate_shader_objects : enable
 
+#include "../common/math.glsl"
 #include "../scene/camera.glsl"
 #include "../shared/shader_structs/particles/particle.h"
 
@@ -42,7 +43,9 @@ void main()
     vec4 positionClip =
         camera.cameraToClip * camera.worldToCamera * vec4(positionWorld, 1);
 
-    vec4 color = vec4(1, 0, 1, 1);
+    float lifetime = positionLifetime.w;
+    // Fade out for the last .25s
+    vec4 color = vec4(1, 0, 1, saturate(lifetime * 4.));
     if (emitEnabled(mask))
         color = vec4(1, 1, 0, 1);
 

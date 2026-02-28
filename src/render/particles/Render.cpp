@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <glm/detail/qualifier.hpp>
 #include <glm/glm.hpp>
+#include <shader_structs/push_constants/particles/render.h>
 
 using namespace glm;
 using namespace wheels;
@@ -91,6 +92,11 @@ void Render::record(
 
     PROFILER_CPU_SCOPE("  Render::Particles");
 
+    // TODO:
+    // Match period to TAA period instead of cycling through unique Bayer matrix
+    // offsets?
+    m_frameIndex = (m_frameIndex + 1) % 64;
+
     {
         const vk::Rect2D renderArea = getRect2D(inOut.inOutIllumination);
 
@@ -146,6 +152,14 @@ void Render::record(
             descriptorSets.data(), 1, &camOffset);
 
         gfx::setViewportScissor(cb, renderArea);
+
+        const RenderPC pcBlock{
+            .frameIndex = m_frameIndex,
+        };
+        cb.pushConstants(
+            m_pipelineLayout, vk::ShaderStageFlagBits::eFragment,
+            0, // offset
+            sizeof(pcBlock), &pcBlock);
 
         cb.draw(4, Particles::sMaxParticleCount, 0, 0);
 
@@ -256,10 +270,17 @@ void Render::createGraphicsPipelines(vk::DescriptorSetLayout cameraDSLayout)
     setLayouts[CameraSet] = cameraDSLayout;
     setLayouts[ParticlesSet] = m_setLayout;
 
+    const vk::PushConstantRange pcRange{
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .offset = 0,
+        .size = sizeof(RenderPC),
+    };
     m_pipelineLayout = gfx::gDevice.logical().createPipelineLayout(
         vk::PipelineLayoutCreateInfo{
             .setLayoutCount = asserted_cast<uint32_t>(setLayouts.size()),
             .pSetLayouts = setLayouts.data(),
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &pcRange,
         });
 
     {

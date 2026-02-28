@@ -19,8 +19,8 @@ class Particles
   public:
     struct InputOutput
     {
-        ImageHandle illumination;
-        ImageHandle depth;
+        ImageHandle inOutIllumination;
+        ImageHandle inOutDepth;
     };
 
     static constexpr uint32_t sMaxParticleCount{500'000};

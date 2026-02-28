@@ -143,8 +143,8 @@ void Particles::record(
             scopeAlloc.child_scope(), cb, cam,
             Render::InputOutput{
                 .inParticles = m_particles,
-                .inOutIllumination = inOut.illumination,
-                .inOutDepth = inOut.depth,
+                .inOutIllumination = inOut.inOutIllumination,
+                .inOutDepth = inOut.inOutDepth,
             },
             nextFrame);
     }
