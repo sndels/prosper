@@ -11,9 +11,7 @@ layout(std430, set = PARTICLES_SET, binding = 0) buffer readonly InParticles
 }
 inParticles;
 
-layout(location = 0) out vec3 fragTexCoord;
-layout(location = 1) out vec4 fragPositionNDC;
-layout(location = 2) out vec4 fragPrevPositionNDC;
+layout(location = 0) out vec4 outColor;
 
 void main()
 {
@@ -22,6 +20,8 @@ void main()
 
     vec4 positionLifetime =
         inParticles.particles[particleIndex].position_lifetime;
+    uint mask = inParticles.particles[particleIndex].mask;
+
     vec3 positionWorld = positionLifetime.xyz;
     if (positionLifetime.w < 0.)
         // No discard so let's abuse clipping
@@ -41,5 +41,11 @@ void main()
 
     vec4 positionClip =
         camera.cameraToClip * camera.worldToCamera * vec4(positionWorld, 1);
+
+    vec4 color = vec4(1, 0, 1, 1);
+    if (emitEnabled(mask))
+        color = vec4(1, 1, 0, 1);
+
+    outColor = color;
     gl_Position = positionClip;
 }
