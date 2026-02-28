@@ -2,6 +2,9 @@
 # Why disable some?
 # blanket disables:
 #    mostly very specific warnings, rarely actionable here
+# bugprone-easily-swappable-parameters
+#    I use inlay hints in editor to make parameter assignments obvious. Using input structs
+#    with designated initializers just to avoid this seems excessive.
 # cert-err33-c
 #    Only fprintf is used for debug output
 #  clang-analyzer-optin.core.EnumCastOutOfRange
@@ -60,6 +63,7 @@ Checks: "*,
         -llvm*,
         -zircon-*,
         -boost-use-ranges,
+        -bugprone-easily-swappable-parameters,
         -cert-err33-c,
         -clang-analyzer-optin.core.EnumCastOutOfRange,
         -cppcoreguidelines-avoid-const-or-ref-data-members,
