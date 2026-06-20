@@ -109,6 +109,7 @@ Vulkan renderer spun off from following https://vulkan-tutorial.com/. Work of [S
 
 - [cgltf](https://github.com/jkuhlmann/cgltf)
 - [cxxopts](https://github.com/jarro2783/cxxopts)
+- [fmt](https://github.com/fmtlib/fmt)
 - [glfw](https://github.com/glfw/glfw)
 - [glm](https://github.com/g-truc/glm)
 - [imgui](https://github.com/ocornut/imgui)

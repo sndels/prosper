@@ -111,6 +111,7 @@ target_link_libraries(prosper
     PRIVATE
     cxxopts
     cgltf
+    fmt::fmt
     glfw
     glm
     imgui

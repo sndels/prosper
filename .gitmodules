@@ -37,3 +37,6 @@
 [submodule "ext/tomlcpp"]
 	path = ext/tomlcpp
 	url = https://github.com/cktan/tomlcpp.git
+[submodule "ext/fmt"]
+	path = ext/fmt
+	url = https://github.com/fmtlib/fmt.git

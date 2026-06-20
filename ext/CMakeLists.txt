@@ -121,5 +121,8 @@ target_include_directories(tomlcpp
     ${CMAKE_CURRENT_LIST_DIR}/tomlcpp
 )
 
+set(FMT_SYSTEM_HEADERS ON CACHE BOOL "Expose headers with marking them as system.")
+add_subdirectory(fmt)
+
 # TODO: Why does compilation fail for any modules that are added after this ispc "include"?
 include(ispc_texcomp_CMakeLists.txt)
