@@ -359,7 +359,7 @@ void optimizeMeshData(
     const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
         remapIndices.data(), meshData.indices.data(), indexCount, vertexCount);
     if (uniqueVertexCount < vertexCount)
-        LOG_WARN("Mesh '%s' has unused vertices", meshName);
+        LOG_WARN("Mesh '{}' has unused vertices", meshName);
 
     // Reuse tmpIndices as it's not required after optimizeOverdraw
     meshopt_remapIndexBuffer(
@@ -508,7 +508,7 @@ Optional<MeshCacheHeader> readCache(
 
     if (!std::filesystem::exists(cachePath))
     {
-        LOG_INFO("Missing cache for %s", cachePath.string().c_str());
+        LOG_INFO("Missing cache for {}", cachePath.string().c_str());
         return ret;
     }
 
@@ -527,7 +527,7 @@ Optional<MeshCacheHeader> readCache(
     readRaw(cacheFile, version);
     if (sMeshCacheVersion != version)
     {
-        LOG_INFO("Old cache data version for %s", cachePath.string().c_str());
+        LOG_INFO("Old cache data version for {}", cachePath.string().c_str());
         return ret;
     }
 
@@ -567,7 +567,7 @@ bool cacheValid(
 
     if (header->sourceWriteTime != sceneWriteTime)
     {
-        LOG_INFO("Stale cache for %s", cachePath.string().c_str());
+        LOG_INFO("Stale cache for {}", cachePath.string().c_str());
         return false;
     }
     return true;
@@ -594,7 +594,7 @@ void printImageColorSpaceReuseWarning(const cgltf_image *image)
     }
     if (debugName != nullptr)
         LOG_WARN(
-            "'%s' is used both as a linear and sRgb texture. Mip maps will be "
+            "'{}' is used both as a linear and sRgb texture. Mip maps will be "
             "generated with sRgb filtering",
             debugName);
     else
@@ -916,7 +916,7 @@ void loadNextMesh(DeferredLoadingContext &ctx)
 
     if (ctx.workerLoadedMeshCount == ctx.meshes.size())
     {
-        LOG_INFO("Mesh loading took %.2fs", ctx.meshTimer.getSeconds());
+        LOG_INFO("Mesh loading took {:.2f}s", ctx.meshTimer.getSeconds());
         ctx.textureTimer.reset();
     }
 }
@@ -926,7 +926,7 @@ void loadNextTexture(DeferredLoadingContext &ctx)
     const uint32_t imageIndex = ctx.workerLoadedImageCount;
     if (imageIndex == ctx.gltfData->images_count)
     {
-        LOG_INFO("Texture loading took %.2fs", ctx.textureTimer.getSeconds());
+        LOG_INFO("Texture loading took {:.2f}s", ctx.textureTimer.getSeconds());
         ctx.interruptLoading = true;
         return;
     }

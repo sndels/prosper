@@ -136,7 +136,7 @@ bool cacheValid(
     {
         if (!std::filesystem::exists(cacheFile))
         {
-            LOG_INFO("Missing cache file %s", cacheFile.string().c_str());
+            LOG_INFO("Missing cache file {}", cacheFile.string().c_str());
             return false;
         }
 
@@ -145,13 +145,13 @@ bool cacheValid(
         if (sTextureCacheVersion != storedTag.version)
         {
             LOG_INFO(
-                "Old cache data version for %s", cacheFile.string().c_str());
+                "Old cache data version for {}", cacheFile.string().c_str());
             return false;
         }
 
         if (storedTag.sourceWriteTime != sourceWriteTime)
         {
-            LOG_INFO("Stale cache for %s", cacheFile.string().c_str());
+            LOG_INFO("Stale cache for {}", cacheFile.string().c_str());
             return false;
         }
     }

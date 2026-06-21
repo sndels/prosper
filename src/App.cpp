@@ -269,7 +269,7 @@ void App::recompileShaders(ScopedScratch scopeAlloc)
 
                 if (checkTime.getSeconds() > 0.2f)
                     LOG_WARN(
-                        "Shader timestamp check is laggy: %.1fms",
+                        "Shader timestamp check is laggy: {:.1f}ms",
                         checkTime.getSeconds() * 1000.f);
 
                 return changedFiles;

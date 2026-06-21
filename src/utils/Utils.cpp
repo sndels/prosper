@@ -86,12 +86,12 @@ void setCurrentThreadName(const char *name)
     HANDLE thread = GetCurrentThread();
     const HRESULT hr = SetThreadDescription(thread, wName.data());
     if (FAILED(hr))
-        LOG_WARN("Failed to set thread name for '%s'", name);
+        LOG_WARN("Failed to set thread name for '{}'", name);
 
 #else // !_WIN32
 
     if (prctl(PR_SET_NAME, name) < 0)
-        LOG_WARN("Failed to set thread name for '%s'", name);
+        LOG_WARN("Failed to set thread name for '{}'", name);
 
 #endif // _WIN32
 

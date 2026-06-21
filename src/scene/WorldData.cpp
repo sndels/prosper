@@ -192,7 +192,7 @@ vk::Filter getVkFilterMode(cgltf_int glEnum)
     case s_gl_linear_mimpap_linear:
         return vk::Filter::eLinear;
     default:
-        LOG_ERR("Invalid gl filter %d", glEnum);
+        LOG_ERR("Invalid gl filter {}", glEnum);
     }
 
     return vk::Filter::eLinear;
@@ -209,7 +209,7 @@ vk::SamplerAddressMode getVkAddressMode(cgltf_int glEnum)
     case s_gl_repeat:
         return vk::SamplerAddressMode::eRepeat;
     default:
-        LOG_ERR("Invalid gl wrapping mode %d", glEnum);
+        LOG_ERR("Invalid gl wrapping mode {}", glEnum);
     }
 
     return vk::SamplerAddressMode::eClampToEdge;
@@ -431,7 +431,7 @@ void WorldData::init(
     utils::Timer t;
     cgltf_data *gltfData = loadGltf(fullScenePath);
     WHEELS_ASSERT(gltfData != nullptr);
-    LOG_INFO("glTF model loading took %.2fs", t.getSeconds());
+    LOG_INFO("glTF model loading took {:.2f}s", t.getSeconds());
 
     m_deferredLoadingContext.emplace();
     // Deferred context is responsible for freeing gltfData. Dispatch happens
@@ -443,7 +443,7 @@ void WorldData::init(
     {
         t.reset();
         fn();
-        LOG_INFO("%s took %.2fs", stage, t.getSeconds());
+        LOG_INFO("{} took {:.2f}s", stage, t.getSeconds());
     };
 
     Array<shader_structs::Texture2DSampler> texture2DSamplers{
@@ -600,7 +600,7 @@ bool WorldData::handleDeferredLoading(vk::CommandBuffer cb)
         if (ctx.framesSinceFinish++ > MAX_FRAMES_IN_FLIGHT)
         {
             LOG_INFO(
-                "Material streaming took %.2fs",
+                "Material streaming took {:.2f}s",
                 m_materialStreamingTimer.getSeconds());
 
             m_deferredLoadingContext.reset();
@@ -760,7 +760,7 @@ void WorldData::loadMaterials(
         if (material.has_pbr_metallic_roughness == 0)
         {
             LOG_WARN(
-                "'%s' doesn't have pbr metallic roughness components",
+                "'{}' doesn't have pbr metallic roughness components",
                 material.name);
             continue;
         }
@@ -773,13 +773,13 @@ void WorldData::loadMaterials(
             {
                 if (tv.has_transform == 1)
                     LOG_WARN(
-                        "%s: %s has a transform", material.name, channelName);
+                        "{}: {} has a transform", material.name, channelName);
                 if (tv.scale != 1.f)
                     LOG_WARN(
-                        "%s: %s Scale isn't 1", material.name, channelName);
+                        "{}: {} Scale isn't 1", material.name, channelName);
                 if (tv.texcoord != 0)
                     LOG_WARN(
-                        "%s: %s TexCoord isn't 0", material.name, channelName);
+                        "{}: {} TexCoord isn't 0", material.name, channelName);
 
                 const cgltf_size index =
                     cgltf_texture_index(&gltfData, tv.texture);
@@ -806,7 +806,7 @@ void WorldData::loadMaterials(
             mat.alphaMode = shader_structs::AlphaMode_Blend;
         else if (material.alpha_mode != cgltf_alpha_mode_opaque)
             LOG_ERR(
-                "%s: Unsupported alpha mode '%s'", material.name,
+                "%s: Unsupported alpha mode '{}'", material.name,
                 sCgltfAlphaModeStr[material.alpha_mode]);
         mat.alphaCutoff = material.alpha_cutoff;
 
@@ -1161,7 +1161,7 @@ void WorldData::loadScenes(
             }
             else
                 LOG_ERR(
-                    "Unsupported camera type '%s'",
+                    "Unsupported camera type '{}'",
                     sCgltfCameraTypeStr[cam.type]);
         }
         if (gltfNode.light != nullptr)
@@ -1517,7 +1517,7 @@ void WorldData::gatherScene(
                 }
                 else
                     LOG_ERR(
-                        "Unsupported light type '%s'",
+                        "Unsupported light type '{}'",
                         sCgltfLightTypeStr[light.type]);
             }
         }

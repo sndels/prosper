@@ -204,7 +204,7 @@ void Renderer::init(
     m_imageBasedLighting->init(scopeAlloc.child_scope());
     m_temporalAntiAliasing->init(scopeAlloc.child_scope(), camDsLayout);
     m_textureReadback->init(scopeAlloc.child_scope());
-    LOG_INFO("GPU pass init took %.2fs", gpuPassesInitTimer.getSeconds());
+    LOG_INFO("GPU pass init took {:.2f}s", gpuPassesInitTimer.getSeconds());
 }
 
 void Renderer::startFrame(bool drawUi)
@@ -275,7 +275,7 @@ void Renderer::recompileShaders(
     m_hierarchicalDepthDownsampler->recompileShaders(
         scopeAlloc.child_scope(), changedFiles);
 
-    LOG_INFO("Shaders recompiled in %.2fs", t.getSeconds());
+    LOG_INFO("Shaders recompiled in {:.2f}s", t.getSeconds());
 }
 
 void Renderer::recreateSwapchainAndRelated()

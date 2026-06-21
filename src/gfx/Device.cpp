@@ -205,7 +205,7 @@ bool checkDeviceExtensionSupport(
     {
         LOG_ERR("Missing support for extensions:");
         for (const auto &e : requiredExtensions)
-            LOG_ERR("  %s", e.c_str());
+            LOG_ERR("  {}", e.c_str());
     }
 
     return requiredExtensions.empty();
@@ -289,12 +289,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     }
 
     if (messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
-        LOG_ERR("VkDbg: %s", pCallbackData->pMessage);
+        LOG_ERR("VkDbg: {}", pCallbackData->pMessage);
     else if (
         messageSeverity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
-        LOG_WARN("VkDbg: %s", pCallbackData->pMessage);
+        LOG_WARN("VkDbg: {}", pCallbackData->pMessage);
     else
-        LOG_INFO("VkDbg: %s", pCallbackData->pMessage);
+        LOG_INFO("VkDbg: {}", pCallbackData->pMessage);
 
     if ((breakOnError &&
          messageSeverity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) ||
@@ -595,10 +595,10 @@ void Device::init(wheels::ScopedScratch scopeAlloc, Settings const &settings)
             const auto major = VK_API_VERSION_MAJOR(apiPacked);
             const auto minor = VK_API_VERSION_MINOR(apiPacked);
             const auto patch = VK_API_VERSION_PATCH(apiPacked);
-            LOG_INFO("Vulkan %u.%u.%u", major, minor, patch);
+            LOG_INFO("Vulkan {}.{}.{}", major, minor, patch);
         }
 
-        LOG_INFO("%s", m_properties.device.deviceName.data());
+        LOG_INFO("{}", m_properties.device.deviceName.data());
     }
 
     m_initialized = true;
@@ -756,7 +756,7 @@ wheels::Optional<ShaderReflection> Device::reflectShader(
 {
     WHEELS_ASSERT(m_initialized);
 
-    LOG_INFO("Reflecting %s", info.relPath.string().c_str());
+    LOG_INFO("Reflecting {}", info.relPath.string().c_str());
 
     WHEELS_ASSERT(info.relPath.string().starts_with("shader/"));
     const auto shaderPath = resPath(info.relPath);
@@ -1333,7 +1333,7 @@ bool Device::isDeviceSuitable(
 #define CHECK_REQUIRED_FEATURES(container, feature)                            \
     if (features.get<container>().feature == VK_FALSE)                         \
     {                                                                          \
-        LOG_ERR("Missing %s", #feature);                                       \
+        LOG_ERR("Missing {}", #feature);                                       \
         return false;                                                          \
     }
 
@@ -1382,6 +1382,8 @@ bool Device::isDeviceSuitable(
         if (deviceProps.properties.apiVersion < VK_VERSION_1_3)
         {
             LOG_ERR("Missing Vulkan 1.3 support");
+            utils::detail::log(
+                utils::detail::LogLevel::Info, "Missing Vulkan 1.3 support");
             return false;
         }
     }
@@ -1477,7 +1479,7 @@ void Device::selectPhysicalDevice(ScopedScratch scopeAlloc)
 
     for (const auto &device : devices)
     {
-        LOG_INFO("Considering '%s'", device.getProperties().deviceName.data());
+        LOG_INFO("Considering '{}'", device.getProperties().deviceName.data());
         if (isDeviceSuitable(scopeAlloc.child_scope(), device))
         {
             m_physical = device;
@@ -1713,7 +1715,7 @@ std::filesystem::path Device::updateShaderCache(
     catch (const std::exception &e)
     {
         // Just log so that the calling code can skip without error on recompile
-        LOG_ERR("%s", e.what());
+        LOG_ERR("{}", e.what());
         return {};
     }
 
@@ -1731,7 +1733,7 @@ std::filesystem::path Device::updateShaderCache(
     const bool cacheValid = readCache(alloc, cachePath);
     if (!cacheValid || m_settings.dumpShaderDisassembly)
     {
-        LOG_INFO("Compiling %s", relPath.string().c_str());
+        LOG_INFO("Compiling {}", relPath.string().c_str());
 
         const shaderc::SpvCompilationResult result =
             m_compiler->CompileGlslToSpv(
@@ -1744,11 +1746,11 @@ std::filesystem::path Device::updateShaderCache(
             const auto err = result.GetErrorMessage();
             if (err.empty())
                 LOG_ERR(
-                    "Compilation of '%s' failed\n%s",
+                    "Compilation of '{}' failed\n{}",
                     sourcePath.string().c_str(), statusString(status));
             else
                 LOG_ERR(
-                    "Compilation of '%s' failed\n%s\n%s",
+                    "Compilation of '{}' failed\n{}\n{}",
                     sourcePath.string().c_str(), statusString(status),
                     err.c_str());
             return {};
@@ -1766,17 +1768,17 @@ std::filesystem::path Device::updateShaderCache(
             if (const shaderc_compilation_status status =
                     result.GetCompilationStatus();
                 status == shaderc_compilation_status_success)
-                LOG_INFO("%s", resultAsm.begin());
+                LOG_INFO("{}", resultAsm.begin());
             else
             {
                 const std::string err = result.GetErrorMessage();
                 if (err.empty())
                     LOG_ERR(
-                        "Compilation of '%s' failed\n%s",
+                        "Compilation of '{}' failed\n{}",
                         sourcePath.string().c_str(), statusString(status));
                 else
                     LOG_ERR(
-                        "Compilation of '%s' failed\n%s\n%s",
+                        "Compilation of '{}' failed\n{}\n{}",
                         sourcePath.string().c_str(), statusString(status),
                         err.c_str());
                 return {};
@@ -1784,7 +1786,7 @@ std::filesystem::path Device::updateShaderCache(
         }
     }
     else
-        LOG_INFO("Loading '%s' from cache", relPath.string().c_str());
+        LOG_INFO("Loading '{}' from cache", relPath.string().c_str());
 
     return cachePath;
 }

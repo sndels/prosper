@@ -163,7 +163,7 @@ void Window::pollCursorPosition() const
 
 void Window::errorCallback(int error, const char *description)
 {
-    LOG_ERR("GLFW error %d: %s", error, description);
+    LOG_ERR("GLFW error {}: {}", error, description);
 }
 
 void Window::keyCallback(

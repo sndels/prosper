@@ -542,7 +542,7 @@ bool World::Impl::buildAccelerationStructures(
         // not worry about getting a tight time since this will only be off by
         // frametime at most.
         LOG_INFO(
-            "Streamed BLAS builds took %.2fs", m_blasBuildTimer.getSeconds());
+            "Streamed BLAS builds took {:.2f}s", m_blasBuildTimer.getSeconds());
         m_framesSinceFinalBlasBuilds = 0;
     }
     else if (m_framesSinceFinalBlasBuilds > 0)

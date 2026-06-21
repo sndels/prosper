@@ -71,7 +71,7 @@ App::Settings parseCli(int argc, char *argv[])
         const toml::Result result = toml::parseFile(configPath.string());
         if (result.table == nullptr)
             LOG_ERR(
-                "Couldn't parse config from '%s': %s",
+                "Couldn't parse config from '{}': {}",
                 configPath.string().c_str(), result.errmsg.c_str());
         else
         {
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
         {
             const utils::Timer t;
             fn();
-            LOG_INFO("%s took %.2fs", stage, t.getSeconds());
+            LOG_INFO("{} took {:.2f}s", stage, t.getSeconds());
         };
 
         // Globals
@@ -205,12 +205,12 @@ int main(int argc, char *argv[])
         // We don't need this memory anymore so let's drop it.
         scratchBacking.destroy();
 
-        LOG_INFO("run() called after %.2fs", t.getSeconds());
+        LOG_INFO("run() called after {:.2f}s", t.getSeconds());
         app.run();
     }
     catch (std::exception &e)
     {
-        LOG_ERR("Exception thrown: %s", e.what());
+        LOG_ERR("Exception thrown: {}", e.what());
     }
 
 #ifdef LIVEPP_PATH

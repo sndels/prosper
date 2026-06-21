@@ -359,7 +359,7 @@ void ComputePass::init(
         sets.resize(options.storageSetInstanceCount);
 
     const Shader shader = shaderDefinitionCallback(scopeAlloc);
-    LOG_INFO("Creating %s", shader.debugName.c_str());
+    LOG_INFO("Creating {}", shader.debugName.c_str());
     if (!compileShader(scopeAlloc.child_scope(), shader))
         throw std::runtime_error("Shader compilation failed");
 
