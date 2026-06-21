@@ -1,18 +1,23 @@
 #ifndef PROSPER_UTILS_LOGGER_HPP
 #define PROSPER_UTILS_LOGGER_HPP
 
-namespace utils
+#include <cstdint>
+
+namespace utils::detail
 {
+
+enum class LogLevel : uint8_t
+{
+    Info,
+    Warning,
+    Error
+};
 
 // This wraps fprintf and isolates <windows.h> in the cpp
 // NOLINTNEXTLINE(cert-dcl50-cpp)
-void zzInternalLogInfo(const char *format...);
-// This wraps fprintf and isolates <windows.h> in the cpp
-// NOLINTNEXTLINE(cert-dcl50-cpp)
-void zzInternalLogWarning(const char *format...);
-// This wraps fprintf and isolates <windows.h> in the cpp
-// NOLINTNEXTLINE(cert-dcl50-cpp)
-void zzInternalLogError(const char *format...);
+void log(LogLevel level, const char *format...);
+
+} // namespace utils::detail
 
 // Macros in case logger implementation changes at some point
 // TODO:
@@ -23,10 +28,11 @@ void zzInternalLogError(const char *format...);
 // allow it to be quarantined in Logger.cpp. I didn't look much into the linux
 // build, but total compile time increased by ~30% in debug builds at least.
 
-} // namespace utils
-
-#define LOG_INFO(...) utils::zzInternalLogInfo(__VA_ARGS__)
-#define LOG_WARN(...) utils::zzInternalLogWarning(__VA_ARGS__)
-#define LOG_ERR(...) utils::zzInternalLogError(__VA_ARGS__)
+#define LOG_INFO(...)                                                          \
+    utils::detail::log(utils::detail::LogLevel::Info, __VA_ARGS__)
+#define LOG_WARN(...)                                                          \
+    utils::detail::log(utils::detail::LogLevel::Warning, __VA_ARGS__)
+#define LOG_ERR(...)                                                           \
+    utils::detail::log(utils::detail::LogLevel::Error, __VA_ARGS__)
 
 #endif // PROSPER_UTILS_LOGGER_HPP

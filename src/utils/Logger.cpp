@@ -175,13 +175,26 @@ struct TmpStr
 
 } // namespace
 
+namespace detail
+{
 // This wraps fprintf and isolates <windows.h> in the cpp
 // NOLINTNEXTLINE(cert-dcl50-cpp)
-void zzInternalLogInfo(const char *format...)
+void log(LogLevel level, const char *format...)
 {
     TmpStr tmpStr;
     tmpStr.appendTimestamp();
-    tmpStr.appendWithoutNewline("[INFO]  ");
+    switch (level)
+    {
+    case LogLevel::Info:
+        tmpStr.appendWithoutNewline("[INFO]  ");
+        break;
+    case LogLevel::Warning:
+        tmpStr.appendWithoutNewline("[WARN]  ");
+        break;
+    case LogLevel::Error:
+        tmpStr.appendWithoutNewline("[ERROR]  ");
+        break;
+    }
 
     va_list args = {};
     va_start(args, format);
@@ -193,51 +206,10 @@ void zzInternalLogInfo(const char *format...)
     // PERFNOTE:
     // fprintf dominates this on windows at least.
 
-    fprintf(stdout, "%s", tmpStr.str.data());
-#ifdef _WIN32
-    // Also output to debug output for convenience
-    OutputDebugStringA(tmpStr.str.data());
-#endif //_WIN32
-}
-
-// This wraps fprintf and isolates <windows.h> in the cpp
-// NOLINTNEXTLINE(cert-dcl50-cpp)
-void zzInternalLogWarning(const char *format...)
-{
-    TmpStr tmpStr;
-    tmpStr.appendTimestamp();
-    tmpStr.appendWithoutNewline("[WARN]  ");
-
-    va_list args = {};
-    va_start(args, format);
-    tmpStr.appendWithNewline(format, args);
-    va_end(args);
-
-    tmpStr.checkAndHandleOverflow();
-
-    fprintf(stdout, "%s", tmpStr.str.data());
-#ifdef _WIN32
-    // Also output to debug output for convenience
-    OutputDebugStringA(tmpStr.str.data());
-#endif //_WIN32
-}
-
-// This wraps fprintf and isolates <windows.h> in the cpp
-// NOLINTNEXTLINE(cert-dcl50-cpp)
-void zzInternalLogError(const char *format...)
-{
-    TmpStr tmpStr;
-    tmpStr.appendTimestamp();
-    tmpStr.appendWithoutNewline("[ERROR] ");
-
-    va_list args = {};
-    va_start(args, format);
-    tmpStr.appendWithNewline(format, args);
-    va_end(args);
-
-    tmpStr.checkAndHandleOverflow();
-
-    fprintf(stderr, "%s", tmpStr.str.data());
+    if (level == LogLevel::Error)
+        fprintf(stderr, "%s", tmpStr.str.data());
+    else
+        fprintf(stdout, "%s", tmpStr.str.data());
 #ifdef _WIN32
     // Also output to debug output for convenience
     OutputDebugStringA(tmpStr.str.data());
@@ -246,4 +218,5 @@ void zzInternalLogError(const char *format...)
 
 // NOLINTEND(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
 
+} // namespace detail
 } // namespace utils
