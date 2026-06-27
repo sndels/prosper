@@ -732,17 +732,19 @@ wheels::Optional<Device::ShaderCompileResult> Device::compileShaderModule(
     ShaderReflection reflection;
     reflection.init(scopeAlloc.child_scope(), spvWords, uniqueIncludes);
 
-    const auto sm = m_logical.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = spvWords.size() * sizeof(uint32_t),
-        .pCode = spvWords.data(),
-    });
+    const auto sm = m_logical.createShaderModule(
+        vk::ShaderModuleCreateInfo{
+            .codeSize = spvWords.size() * sizeof(uint32_t),
+            .pCode = spvWords.data(),
+        });
 
-    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType = vk::ObjectType::eShaderModule,
-        .objectHandle =
-            reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
-        .pObjectName = info.debugName,
-    });
+    m_logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eShaderModule,
+            .objectHandle =
+                reinterpret_cast<uint64_t>(static_cast<VkShaderModule>(sm)),
+            .pObjectName = info.debugName,
+        });
 
     return ShaderCompileResult{
         .module = sm,
@@ -874,17 +876,18 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
     }
 
     if (info.cacheDeviceAddress)
-        buffer.deviceAddress =
-            m_logical.getBufferAddress(vk::BufferDeviceAddressInfo{
+        buffer.deviceAddress = m_logical.getBufferAddress(
+            vk::BufferDeviceAddressInfo{
                 .buffer = buffer.handle,
             });
 
-    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType = vk::ObjectType::eBuffer,
-        .objectHandle =
-            reinterpret_cast<uint64_t>(static_cast<VkBuffer>(buffer.handle)),
-        .pObjectName = info.debugName,
-    });
+    m_logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eBuffer,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkBuffer>(buffer.handle)),
+            .pObjectName = info.debugName,
+        });
 
     if (info.initialData != nullptr)
     {
@@ -894,16 +897,17 @@ Buffer Device::createBuffer(const BufferCreateInfo &info)
         stagingDebugName.extend(info.debugName);
         stagingDebugName.extend(postfix.data());
 
-        Buffer stagingBuffer = createBuffer(BufferCreateInfo{
-            .desc =
-                BufferDescription{
-                    .byteSize = desc.byteSize,
-                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
-                },
-            .debugName = stagingDebugName.c_str(),
-        });
+        Buffer stagingBuffer = createBuffer(
+            BufferCreateInfo{
+                .desc =
+                    BufferDescription{
+                        .byteSize = desc.byteSize,
+                        .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                      vk::MemoryPropertyFlagBits::eHostCoherent,
+                    },
+                .debugName = stagingDebugName.c_str(),
+            });
         defer { destroy(stagingBuffer); };
 
         WHEELS_ASSERT(stagingBuffer.mapped != nullptr);
@@ -987,19 +991,21 @@ TexelBuffer Device::createTexelBuffer(const TexelBufferCreateInfo &info)
             "Format doesn't support atomics");
     }
 
-    const auto buffer = createBuffer(BufferCreateInfo{
-        .desc = bufferDesc,
-        .debugName = info.debugName,
-    });
+    const auto buffer = createBuffer(
+        BufferCreateInfo{
+            .desc = bufferDesc,
+            .debugName = info.debugName,
+        });
     // This will be tracked as a texel buffer
     untrackBuffer(buffer);
 
-    const auto view = m_logical.createBufferView(vk::BufferViewCreateInfo{
-        .buffer = buffer.handle,
-        .format = desc.format,
-        .offset = 0,
-        .range = bufferDesc.byteSize,
-    });
+    const auto view = m_logical.createBufferView(
+        vk::BufferViewCreateInfo{
+            .buffer = buffer.handle,
+            .format = desc.format,
+            .offset = 0,
+            .range = bufferDesc.byteSize,
+        });
 
     TexelBuffer ret;
     ret.handle = buffer.handle;
@@ -1080,12 +1086,13 @@ Image Device::createImage(const ImageCreateInfo &info)
             nullptr);
     }
 
-    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType = vk::ObjectType::eImage,
-        .objectHandle =
-            reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
-        .pObjectName = info.debugName,
-    });
+    m_logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImage,
+            .objectHandle =
+                reinterpret_cast<uint64_t>(static_cast<VkImage>(image.handle)),
+            .pObjectName = info.debugName,
+        });
 
     const vk::ImageSubresourceRange range{
         .aspectMask = aspectMask(desc.format),
@@ -1128,19 +1135,21 @@ Image Device::createImage(const ImageCreateInfo &info)
         }
     }();
 
-    image.view = m_logical.createImageView(vk::ImageViewCreateInfo{
-        .image = image.handle,
-        .viewType = viewType,
-        .format = desc.format,
-        .subresourceRange = range,
-    });
+    image.view = m_logical.createImageView(
+        vk::ImageViewCreateInfo{
+            .image = image.handle,
+            .viewType = viewType,
+            .format = desc.format,
+            .subresourceRange = range,
+        });
 
-    m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType = vk::ObjectType::eImageView,
-        .objectHandle =
-            reinterpret_cast<uint64_t>(static_cast<VkImageView>(image.view)),
-        .pObjectName = info.debugName,
-    });
+    m_logical.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::eImageView,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkImageView>(image.view)),
+            .pObjectName = info.debugName,
+        });
 
     image.extent = extent;
     image.mipCount = desc.mipCount;
@@ -1218,36 +1227,41 @@ void Device::createSubresourcesViews(
     tmp.extend(debugNamePrefix);
     for (uint32_t i = 0; i < image.subresourceRange.levelCount; ++i)
     {
-        outViews[i] = m_logical.createImageView(vk::ImageViewCreateInfo{
-            .image = image.handle,
-            .viewType = viewType,
-            .format = image.format,
-            .subresourceRange =
-                vk::ImageSubresourceRange{
-                    .aspectMask = aspect,
-                    .baseMipLevel = i,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1,
-                },
-        });
+        outViews[i] = m_logical.createImageView(
+            vk::ImageViewCreateInfo{
+                .image = image.handle,
+                .viewType = viewType,
+                .format = image.format,
+                .subresourceRange =
+                    vk::ImageSubresourceRange{
+                        .aspectMask = aspect,
+                        .baseMipLevel = i,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+            });
 
         // We won't have three digits for mip level as each mip halves the size
         // Do math in int32_t to account for implementation defined signedness
         // for char
         if (i >= 10)
-            tmp.push_back(asserted_cast<char>(
+            tmp.push_back(
+                asserted_cast<char>(
+                    asserted_cast<int32_t>('0') +
+                    (asserted_cast<int32_t>(i) / 10)));
+        tmp.push_back(
+            asserted_cast<char>(
                 asserted_cast<int32_t>('0') +
-                (asserted_cast<int32_t>(i) / 10)));
-        tmp.push_back(asserted_cast<char>(
-            asserted_cast<int32_t>('0') + (asserted_cast<int32_t>(i) % 10)));
+                (asserted_cast<int32_t>(i) % 10)));
 
-        m_logical.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-            .objectType = vk::ObjectType::eImageView,
-            .objectHandle = reinterpret_cast<uint64_t>(
-                static_cast<VkImageView>(image.view)),
-            .pObjectName = tmp.c_str(),
-        });
+        m_logical.setDebugUtilsObjectNameEXT(
+            vk::DebugUtilsObjectNameInfoEXT{
+                .objectType = vk::ObjectType::eImageView,
+                .objectHandle = reinterpret_cast<uint64_t>(
+                    static_cast<VkImageView>(image.view)),
+                .pObjectName = tmp.c_str(),
+            });
 
         if (i >= 10)
             tmp.pop_back();
@@ -1267,8 +1281,8 @@ vk::CommandBuffer Device::beginGraphicsCommands() const
 {
     WHEELS_ASSERT(m_initialized);
 
-    const auto buffer =
-        m_logical.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+    const auto buffer = m_logical.allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo{
             .commandPool = m_graphicsPool,
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1})[0];
@@ -1429,18 +1443,20 @@ void Device::createInstance(ScopedScratch scopeAlloc)
     for (const String &ext : extensions)
         extension_cstrs.push_back(ext.c_str());
 
-    m_instance = vk::createInstance(vk::InstanceCreateInfo{
-        .pApplicationInfo = &appInfo,
-        .enabledLayerCount =
-            m_settings.enableDebugLayers
-                ? asserted_cast<uint32_t>(validationLayers.size())
-                : 0,
-        .ppEnabledLayerNames =
-            m_settings.enableDebugLayers ? validationLayers.data() : nullptr,
-        .enabledExtensionCount =
-            asserted_cast<uint32_t>(extension_cstrs.size()),
-        .ppEnabledExtensionNames = extension_cstrs.data(),
-    });
+    m_instance = vk::createInstance(
+        vk::InstanceCreateInfo{
+            .pApplicationInfo = &appInfo,
+            .enabledLayerCount =
+                m_settings.enableDebugLayers
+                    ? asserted_cast<uint32_t>(validationLayers.size())
+                    : 0,
+            .ppEnabledLayerNames = m_settings.enableDebugLayers
+                                       ? validationLayers.data()
+                                       : nullptr,
+            .enabledExtensionCount =
+                asserted_cast<uint32_t>(extension_cstrs.size()),
+            .ppEnabledExtensionNames = extension_cstrs.data(),
+        });
 }
 
 void Device::createDebugMessenger()
@@ -1508,24 +1524,27 @@ void Device::createLogicalDevice(ScopedScratch scopeAlloc)
         if (graphicsFamily == transferFamily)
         {
             WHEELS_ASSERT(queuePriorities.size() >= 2);
-            cis.push_back(vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = graphicsFamily,
-                .queueCount = std::min(2u, graphicsFamilyQueueCount),
-                .pQueuePriorities = queuePriorities.data(),
-            });
+            cis.push_back(
+                vk::DeviceQueueCreateInfo{
+                    .queueFamilyIndex = graphicsFamily,
+                    .queueCount = std::min(2u, graphicsFamilyQueueCount),
+                    .pQueuePriorities = queuePriorities.data(),
+                });
         }
         else
         {
-            cis.push_back(vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = graphicsFamily,
-                .queueCount = 1,
-                .pQueuePriorities = queuePriorities.data(),
-            });
-            cis.push_back(vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = transferFamily,
-                .queueCount = 1,
-                .pQueuePriorities = queuePriorities.data(),
-            });
+            cis.push_back(
+                vk::DeviceQueueCreateInfo{
+                    .queueFamilyIndex = graphicsFamily,
+                    .queueCount = 1,
+                    .pQueuePriorities = queuePriorities.data(),
+                });
+            cis.push_back(
+                vk::DeviceQueueCreateInfo{
+                    .queueFamilyIndex = transferFamily,
+                    .queueCount = 1,
+                    .pQueuePriorities = queuePriorities.data(),
+                });
         }
 
         return cis;

@@ -29,8 +29,8 @@ void RenderResources::init()
     this->texelBuffers =
         OwningPtr<RenderTexelBufferCollection>(gAllocators.general);
 
-    this->nearestBorderBlackFloatSampler =
-        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
+    this->nearestBorderBlackFloatSampler = gfx::gDevice.logical().createSampler(
+        vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
             .minFilter = vk::Filter::eNearest,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -43,8 +43,8 @@ void RenderResources::init()
             .maxLod = VK_LOD_CLAMP_NONE,
             .borderColor = vk::BorderColor::eFloatOpaqueBlack,
         });
-    this->nearestSampler =
-        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
+    this->nearestSampler = gfx::gDevice.logical().createSampler(
+        vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eNearest,
             .minFilter = vk::Filter::eNearest,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -56,8 +56,8 @@ void RenderResources::init()
             .minLod = 0,
             .maxLod = VK_LOD_CLAMP_NONE,
         });
-    this->bilinearSampler =
-        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
+    this->bilinearSampler = gfx::gDevice.logical().createSampler(
+        vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eNearest,
@@ -70,21 +70,22 @@ void RenderResources::init()
             .maxLod = VK_LOD_CLAMP_NONE,
         });
     this->bilinearBorderTransparentBlackSampler =
-        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
-            .magFilter = vk::Filter::eLinear,
-            .minFilter = vk::Filter::eLinear,
-            .mipmapMode = vk::SamplerMipmapMode::eNearest,
-            .addressModeU = vk::SamplerAddressMode::eClampToBorder,
-            .addressModeV = vk::SamplerAddressMode::eClampToBorder,
-            .addressModeW = vk::SamplerAddressMode::eClampToBorder,
-            .anisotropyEnable = VK_FALSE,
-            .maxAnisotropy = 1,
-            .minLod = 0,
-            .maxLod = VK_LOD_CLAMP_NONE,
-            .borderColor = vk::BorderColor::eFloatTransparentBlack,
-        });
-    this->trilinearSampler =
-        gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
+        gfx::gDevice.logical().createSampler(
+            vk::SamplerCreateInfo{
+                .magFilter = vk::Filter::eLinear,
+                .minFilter = vk::Filter::eLinear,
+                .mipmapMode = vk::SamplerMipmapMode::eNearest,
+                .addressModeU = vk::SamplerAddressMode::eClampToBorder,
+                .addressModeV = vk::SamplerAddressMode::eClampToBorder,
+                .addressModeW = vk::SamplerAddressMode::eClampToBorder,
+                .anisotropyEnable = VK_FALSE,
+                .maxAnisotropy = 1,
+                .minLod = 0,
+                .maxLod = VK_LOD_CLAMP_NONE,
+                .borderColor = vk::BorderColor::eFloatTransparentBlack,
+            });
+    this->trilinearSampler = gfx::gDevice.logical().createSampler(
+        vk::SamplerCreateInfo{
             .magFilter = vk::Filter::eLinear,
             .minFilter = vk::Filter::eLinear,
             .mipmapMode = vk::SamplerMipmapMode::eLinear,
@@ -172,14 +173,15 @@ void transition(
             bufferBarriers.push_back(*barrier);
     }
 
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount =
-            asserted_cast<uint32_t>(bufferBarriers.size()),
-        .pBufferMemoryBarriers = bufferBarriers.data(),
-        .imageMemoryBarrierCount =
-            asserted_cast<uint32_t>(imageBarriers.size()),
-        .pImageMemoryBarriers = imageBarriers.data(),
-    });
+    cb.pipelineBarrier2(
+        vk::DependencyInfo{
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(bufferBarriers.size()),
+            .pBufferMemoryBarriers = bufferBarriers.data(),
+            .imageMemoryBarrierCount =
+                asserted_cast<uint32_t>(imageBarriers.size()),
+            .pImageMemoryBarriers = imageBarriers.data(),
+        });
 }
 
 } // namespace render

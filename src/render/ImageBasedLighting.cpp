@@ -133,8 +133,10 @@ void ImageBasedLighting::recordGeneration(
 
         PROFILER_GPU_SCOPE(cb, "SampleIrradiance");
 
-        const uvec3 groupCount = m_sampleIrradiance.groupCount(uvec3{
-            uvec2{scene::SkyboxResources::sSkyboxIrradianceResolution}, 6u});
+        const uvec3 groupCount = m_sampleIrradiance.groupCount(
+            uvec3{
+                uvec2{scene::SkyboxResources::sSkyboxIrradianceResolution},
+                6u});
 
         m_sampleIrradiance.record(cb, groupCount, Span{&storageSet, 1});
 
@@ -164,8 +166,9 @@ void ImageBasedLighting::recordGeneration(
 
         PROFILER_GPU_SCOPE(cb, "IntegrateSpecularBrdf");
 
-        const uvec3 groupCount = m_integrateSpecularBrdf.groupCount(uvec3{
-            uvec2{scene::SkyboxResources::sSpecularBrdfLutResolution}, 1u});
+        const uvec3 groupCount = m_integrateSpecularBrdf.groupCount(
+            uvec3{
+                uvec2{scene::SkyboxResources::sSpecularBrdfLutResolution}, 1u});
 
         m_integrateSpecularBrdf.record(cb, groupCount, Span{&storageSet, 1});
 
@@ -213,9 +216,10 @@ void ImageBasedLighting::recordGeneration(
         // previous one. Most groups will early out.
         // Multiple tighter dispatches or a more complex group assignment in
         // shader?
-        const uvec3 groupCount = m_prefilterRadiance.groupCount(uvec3{
-            uvec2{scene::SkyboxResources::sSkyboxRadianceResolution},
-            6 * skyboxResources.radiance.mipCount});
+        const uvec3 groupCount = m_prefilterRadiance.groupCount(
+            uvec3{
+                uvec2{scene::SkyboxResources::sSkyboxRadianceResolution},
+                6 * skyboxResources.radiance.mipCount});
 
         m_prefilterRadiance.record(
             cb,

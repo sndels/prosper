@@ -214,10 +214,11 @@ void bufferTransition(
     const wheels::Optional<vk::BufferMemoryBarrier2> barrier =
         bufferTransitionBarrier(buffer, currentState, size, newState);
     if (barrier.has_value())
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &*barrier,
-        });
+        cb.pipelineBarrier2(
+            vk::DependencyInfo{
+                .bufferMemoryBarrierCount = 1,
+                .pBufferMemoryBarriers = &*barrier,
+            });
 }
 
 } // namespace
@@ -312,10 +313,11 @@ void Image::transition(const vk::CommandBuffer buffer, ImageState newState)
     const wheels::Optional<vk::ImageMemoryBarrier2> barrier =
         transitionBarrier(newState);
     if (barrier.has_value())
-        buffer.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &*barrier,
-        });
+        buffer.pipelineBarrier2(
+            vk::DependencyInfo{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &*barrier,
+            });
 }
 
 } // namespace gfx

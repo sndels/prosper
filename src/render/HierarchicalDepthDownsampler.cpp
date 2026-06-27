@@ -70,15 +70,16 @@ void HierarchicalDepthDownsampler::init(ScopedScratch scopeAlloc)
         });
     // Don't use a shared resource as this is tiny and the clear can be skipped
     // after the first frame if we know nothing else uses it.
-    m_atomicCounter = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sizeof(uint32_t),
-                .usage = vk::BufferUsageFlagBits::eTransferDst |
-                         vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-        .debugName = "HizDownsamplerCounter"});
+    m_atomicCounter = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sizeof(uint32_t),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .debugName = "HizDownsamplerCounter"});
 
     m_initialized = true;
 }

@@ -172,10 +172,11 @@ ImageHandle RenderImageCollection::create(
     WHEELS_ASSERT(!resourceInUse(index));
     WHEELS_ASSERT(m_resources[index].handle == vk::Image{});
 
-    m_resources[index] = gfx::gDevice.create(gfx::ImageCreateInfo{
-        .desc = desc,
-        .debugName = debugName,
-    });
+    m_resources[index] = gfx::gDevice.create(
+        gfx::ImageCreateInfo{
+            .desc = desc,
+            .debugName = debugName,
+        });
     m_descriptions[index] = desc;
     m_aliasedDebugNames[index].extend(debugName);
     uint64_t &generation = m_generations[index];

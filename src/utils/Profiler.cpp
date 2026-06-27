@@ -36,9 +36,10 @@ GpuFrameProfiler::Scope::Scope(
 , m_queryIndex{queryIndex}
 , m_hasStatistics{includeStatistics}
 {
-    cb.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{
-        .pLabelName = name,
-    });
+    cb.beginDebugUtilsLabelEXT(
+        vk::DebugUtilsLabelEXT{
+            .pLabelName = name,
+        });
     cb.writeTimestamp2(
         vk::PipelineStageFlagBits2::eAllCommands, m_pools.timestamps,
         m_queryIndex * 2);
@@ -110,30 +111,33 @@ void GpuFrameProfiler::init()
 {
     WHEELS_ASSERT(!m_initialized);
 
-    m_timestampBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
-                .usage = vk::BufferUsageFlagBits::eTransferDst,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "GpuProfilerTimestampReadback"});
-    m_statisticsBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
-                .usage = vk::BufferUsageFlagBits::eTransferDst,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "GpuProfilerStatisticsReadback"});
-    m_pools.timestamps =
-        gfx::gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
+    m_timestampBuffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sizeof(uint64_t) * sMaxTimestampCount,
+                    .usage = vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "GpuProfilerTimestampReadback"});
+    m_statisticsBuffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize =
+                        sizeof(uint32_t) * sStatTypeCount * sMaxScopeCount,
+                    .usage = vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "GpuProfilerStatisticsReadback"});
+    m_pools.timestamps = gfx::gDevice.logical().createQueryPool(
+        vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::eTimestamp,
             .queryCount = sMaxTimestampCount});
-    m_pools.statistics =
-        gfx::gDevice.logical().createQueryPool(vk::QueryPoolCreateInfo{
+    m_pools.statistics = gfx::gDevice.logical().createQueryPool(
+        vk::QueryPoolCreateInfo{
             .queryType = vk::QueryType::ePipelineStatistics,
             .queryCount = sMaxScopeCount,
             .pipelineStatistics = sPipelineStatisticsFlags,
@@ -178,10 +182,11 @@ void GpuFrameProfiler::endFrame(vk::CommandBuffer cb)
         .dstAccessMask = vk::AccessFlagBits2::eMemoryRead |
                          vk::AccessFlagBits2::eMemoryWrite,
     };
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .memoryBarrierCount = 1,
-        .pMemoryBarriers = &memoryBarrier,
-    });
+    cb.pipelineBarrier2(
+        vk::DependencyInfo{
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memoryBarrier,
+        });
 
     cb.copyQueryPoolResults(
         m_pools.timestamps, 0,
@@ -238,11 +243,12 @@ Array<GpuFrameProfiler::ScopeData> GpuFrameProfiler::getData(Allocator &alloc)
                     stats[(static_cast<size_t>(i) * sStatTypeCount) + 1],
             };
 
-        ret.push_back(ScopeData{
-            .index = m_queryScopeIndices[i],
-            .millis = millis,
-            .stats = scopeStats,
-        });
+        ret.push_back(
+            ScopeData{
+                .index = m_queryScopeIndices[i],
+                .millis = millis,
+                .stats = scopeStats,
+            });
     };
 
     return ret;
@@ -492,9 +498,10 @@ Array<Profiler::ScopeData> Profiler::getPreviousData(Allocator &alloc)
 
     Array<ScopeData> ret{alloc, scopeNames.size()};
     for (const auto &n : scopeNames)
-        ret.push_back(ScopeData{
-            .name = n,
-        });
+        ret.push_back(
+            ScopeData{
+                .name = n,
+            });
 
     for (const auto &data : m_previousGpuScopeData)
     {

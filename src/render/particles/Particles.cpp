@@ -31,17 +31,19 @@ void Particles::init(
         ScopedScratch tmpScope = scopeAlloc.child_scope();
         Array<::particles::shader_structs::Particle> particlesInit(tmpScope);
         particlesInit.resize(sMaxParticleCount);
-        m_particles = gfx::gDevice.create(gfx::BufferCreateInfo{
-            .desc =
-                gfx::BufferDescription{
-                    .byteSize = sizeof(::particles::shader_structs::Particle) *
-                                sMaxParticleCount,
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .initialData = particlesInit.data(),
-            .debugName = "Particles"});
+        m_particles = gfx::gDevice.create(
+            gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize =
+                            sizeof(::particles::shader_structs::Particle) *
+                            sMaxParticleCount,
+                        .usage = vk::BufferUsageFlagBits::eTransferDst |
+                                 vk::BufferUsageFlagBits::eStorageBuffer,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                .initialData = particlesInit.data(),
+                .debugName = "Particles"});
     }
 
     {
@@ -51,16 +53,17 @@ void Particles::init(
         freelistInit.emplace_back(indexCount);
         for (int32_t i = 0; i < indexCount; ++i)
             freelistInit.emplace_back(i);
-        m_particlesFreelist = gfx::gDevice.create(gfx::BufferCreateInfo{
-            .desc =
-                gfx::BufferDescription{
-                    .byteSize = freelistInit.size() * sizeof(int32_t),
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .initialData = freelistInit.data(),
-            .debugName = "ParticlesFreelist"});
+        m_particlesFreelist = gfx::gDevice.create(
+            gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize = freelistInit.size() * sizeof(int32_t),
+                        .usage = vk::BufferUsageFlagBits::eTransferDst |
+                                 vk::BufferUsageFlagBits::eStorageBuffer,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                .initialData = freelistInit.data(),
+                .debugName = "ParticlesFreelist"});
     }
 
     m_decayPass.init(scopeAlloc.child_scope());

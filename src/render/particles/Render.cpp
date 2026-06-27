@@ -133,13 +133,14 @@ void Render::record(
             .storeOp = vk::AttachmentStoreOp::eStore,
         };
 
-        cb.beginRendering(vk::RenderingInfo{
-            .renderArea = renderArea,
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachment,
-            .pDepthAttachment = &depthAttachment,
-        });
+        cb.beginRendering(
+            vk::RenderingInfo{
+                .renderArea = renderArea,
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &colorAttachment,
+                .pDepthAttachment = &depthAttachment,
+            });
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 

@@ -174,12 +174,13 @@ void ImGuiRenderer::endFrame(
             .storeOp = vk::AttachmentStoreOp::eStore,
         };
 
-        cb.beginRendering(vk::RenderingInfo{
-            .renderArea = renderArea,
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &attachment,
-        });
+        cb.beginRendering(
+            vk::RenderingInfo{
+                .renderArea = renderArea,
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &attachment,
+            });
 
         ImGui_ImplVulkan_RenderDrawData(drawData, cb);
 

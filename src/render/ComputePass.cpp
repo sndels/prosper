@@ -306,8 +306,9 @@ void ComputePass::createPipelines(
             .layout = m_pipelineLayout,
         };
 
-        m_pipelines.push_back(gfx::createComputePipeline(
-            gfx::gDevice.logical(), createInfo, debugName.data()));
+        m_pipelines.push_back(
+            gfx::createComputePipeline(
+                gfx::gDevice.logical(), createInfo, debugName.data()));
 
         return;
     }
@@ -337,8 +338,9 @@ void ComputePass::createPipelines(
         snprintf(
             fullDebugName.c_str() + debugName.size(), maxCountLen + 1, "_%d",
             i);
-        m_pipelines.push_back(gfx::createComputePipeline(
-            gfx::gDevice.logical(), createInfo, fullDebugName.data()));
+        m_pipelines.push_back(
+            gfx::createComputePipeline(
+                gfx::gDevice.logical(), createInfo, fullDebugName.data()));
     }
 }
 
@@ -388,12 +390,13 @@ void ComputePass::init(
                        m_specializationConstants.size();
              ptr += specializationConstantsByteSize)
         {
-            m_specializationInfos.push_back(vk::SpecializationInfo{
-                .mapEntryCount = specializationMapEntriesCount,
-                .pMapEntries = specializationMapEntries.data(),
-                .dataSize = specializationConstantsByteSize,
-                .pData = ptr,
-            });
+            m_specializationInfos.push_back(
+                vk::SpecializationInfo{
+                    .mapEntryCount = specializationMapEntriesCount,
+                    .pMapEntries = specializationMapEntries.data(),
+                    .dataSize = specializationConstantsByteSize,
+                    .pData = ptr,
+                });
         }
     }
 

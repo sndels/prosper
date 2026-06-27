@@ -10,8 +10,8 @@ ARGS="-G Ninja\
  -DPROSPER_ALLOCATOR_DEBUG=0\
  -DLIVEPP_PATH=0"
 
-export CC=clang-19
-export CXX=clang++-19
+export CC=clang-20
+export CXX=clang++-20
 
 cmake\
  -B build_debug\

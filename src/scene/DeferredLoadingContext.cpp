@@ -419,22 +419,23 @@ void generateMeshlets(MeshData &meshData)
             &meshData.meshletTriangles[meshlet.triangle_offset],
             meshlet.triangle_count, &meshData.positions[0].x,
             meshData.positions.size(), sizeof(vec3));
-        meshData.meshletBounds.push_back(MeshletBounds{
-            .center =
-                vec3{
-                    bounds.center[0],
-                    bounds.center[1],
-                    bounds.center[2],
-                },
-            .radius = bounds.radius,
-            .coneAxisS8 =
-                i8vec3{
-                    bounds.cone_axis_s8[0],
-                    bounds.cone_axis_s8[1],
-                    bounds.cone_axis_s8[2],
-                },
-            .coneCutoffS8 = bounds.cone_cutoff_s8,
-        });
+        meshData.meshletBounds.push_back(
+            MeshletBounds{
+                .center =
+                    vec3{
+                        bounds.center[0],
+                        bounds.center[1],
+                        bounds.center[2],
+                    },
+                .radius = bounds.radius,
+                .coneAxisS8 =
+                    i8vec3{
+                        bounds.cone_axis_s8[0],
+                        bounds.cone_axis_s8[1],
+                        bounds.cone_axis_s8[2],
+                    },
+                .coneCutoffS8 = bounds.cone_cutoff_s8,
+            });
     }
 }
 
@@ -600,8 +601,9 @@ void printImageColorSpaceReuseWarning(const cgltf_image *image)
     else
         // We shouldn't really get here with decent files, but let's still log
         // that there is an issue
-        LOG_WARN("An unnamed image is used both as a linear and sRgb texture. "
-                 "Mip maps will be generated with sRgb filtering");
+        LOG_WARN(
+            "An unnamed image is used both as a linear and sRgb texture. "
+            "Mip maps will be generated with sRgb filtering");
 }
 
 void writeCache(
@@ -782,7 +784,8 @@ void writeCache(
     writeRawSpan(cacheFile, meshData.meshletTriangles.span());
     const std::streampos blobEnd = cacheFile.tellp();
     const std::streamoff blobLen = blobEnd - blobStart;
-    WHEELS_ASSERT(blobLen == header.blobByteCount);
+    WHEELS_ASSERT(
+        blobLen == asserted_cast<std::streamoff>(header.blobByteCount));
 
     cacheFile.close();
 
@@ -814,9 +817,10 @@ void loadNextMesh(DeferredLoadingContext &ctx)
 
     // Ctx member functions will use the command buffer
     ctx.cb.reset();
-    ctx.cb.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
+    ctx.cb.begin(
+        vk::CommandBufferBeginInfo{
+            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+        });
 
     const gfx::QueueFamilies &families = gfx::gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());
@@ -887,10 +891,11 @@ void loadNextMesh(DeferredLoadingContext &ctx)
             .offset = uploadData.byteOffset,
             .size = uploadData.byteCount,
         };
-        ctx.cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &releaseBarrier,
-        });
+        ctx.cb.pipelineBarrier2(
+            vk::DependencyInfo{
+                .bufferMemoryBarrierCount = 1,
+                .pBufferMemoryBarriers = &releaseBarrier,
+            });
     }
 
     ctx.cb.end();
@@ -934,13 +939,15 @@ void loadNextTexture(DeferredLoadingContext &ctx)
     WHEELS_ASSERT(ctx.gltfData->images_count > imageIndex);
     const cgltf_image &image = ctx.gltfData->images[imageIndex];
     if (image.uri == nullptr)
-        throw std::runtime_error("Embedded glTF textures aren't supported. "
-                                 "Scene should be glTF + bin + textures.");
+        throw std::runtime_error(
+            "Embedded glTF textures aren't supported. "
+            "Scene should be glTF + bin + textures.");
 
     ctx.cb.reset();
-    ctx.cb.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
+    ctx.cb.begin(
+        vk::CommandBufferBeginInfo{
+            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+        });
 
     LinearAllocator scopeBacking{
         gAllocators.loadingWorker, Allocators::sLoadingScratchSize};
@@ -992,10 +999,11 @@ void loadNextTexture(DeferredLoadingContext &ctx)
                     .layerCount = VK_REMAINING_ARRAY_LAYERS,
                 },
         };
-        ctx.cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &releaseBarrier,
-        });
+        ctx.cb.pipelineBarrier2(
+            vk::DependencyInfo{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &releaseBarrier,
+            });
     }
 
     ctx.cb.end();
@@ -1053,16 +1061,17 @@ gfx::Buffer createTextureStaging()
     const vk::DeviceSize stagingSize = static_cast<size_t>(4096) *
                                        static_cast<size_t>(4096) *
                                        sizeof(uint32_t);
-    return gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = stagingSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "Texture2DStaging",
-    });
+    return gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = stagingSize,
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "Texture2DStaging",
+        });
 }
 DeferredLoadingContext::~DeferredLoadingContext()
 {
@@ -1100,16 +1109,17 @@ void DeferredLoadingContext::init(
 
     stagingBuffer = createTextureStaging();
 
-    geometryUploadBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sGeometryBufferSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "GeometryUploadBuffer",
-    });
+    geometryUploadBuffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sGeometryBufferSize,
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "GeometryUploadBuffer",
+        });
 
     initialized = true;
 }
@@ -1280,20 +1290,22 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
 
     if (dstBufferI >= geometryBuffers.size())
     {
-        gfx::Buffer buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-            .desc =
-                gfx::BufferDescription{
-                    .byteSize = sGeometryBufferSize,
-                    .usage = vk::BufferUsageFlagBits::
-                                 eAccelerationStructureBuildInputReadOnlyKHR |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer |
-                             vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .cacheDeviceAddress = true,
-            .debugName = "GeometryBuffer",
-        });
+        gfx::Buffer buffer = gfx::gDevice.createBuffer(
+            gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize = sGeometryBufferSize,
+                        .usage =
+                            vk::BufferUsageFlagBits::
+                                eAccelerationStructureBuildInputReadOnlyKHR |
+                            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                            vk::BufferUsageFlagBits::eStorageBuffer |
+                            vk::BufferUsageFlagBits::eTransferDst,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                .cacheDeviceAddress = true,
+                .debugName = "GeometryBuffer",
+            });
         {
             // The managing thread should only read the buffer array. A lock
             // is only be needed for the append op on the worker side to

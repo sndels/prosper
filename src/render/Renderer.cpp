@@ -67,10 +67,11 @@ void blitFinalComposite(
         },
     }};
 
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pImageMemoryBarriers = barriers.data(),
-    });
+    cb.pipelineBarrier2(
+        vk::DependencyInfo{
+            .imageMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
+            .pImageMemoryBarriers = barriers.data(),
+        });
 
     {
         PROFILER_CPU_GPU_SCOPE(cb, "BlitFinalComposite");
@@ -121,10 +122,11 @@ void blitFinalComposite(
             .subresourceRange = swapImage.subresourceRange,
         };
 
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .imageMemoryBarrierCount = 1,
-            .pImageMemoryBarriers = &barrier,
-        });
+        cb.pipelineBarrier2(
+            vk::DependencyInfo{
+                .imageMemoryBarrierCount = 1,
+                .pImageMemoryBarriers = &barrier,
+            });
     }
 }
 
@@ -870,10 +872,12 @@ void Renderer::readbackDrawStats(
             dstBuffer, gfx::BufferState::TransferDst, true),
     }};
 
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pBufferMemoryBarriers = barriers.data(),
-    });
+    cb.pipelineBarrier2(
+        vk::DependencyInfo{
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(barriers.size()),
+            .pBufferMemoryBarriers = barriers.data(),
+        });
 
     const vk::BufferCopy region{
         .srcOffset = 0,

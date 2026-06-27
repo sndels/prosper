@@ -576,23 +576,25 @@ void ForwardRenderer::recordDraw(
             ? vk::AttachmentLoadOp::eLoad
             : vk::AttachmentLoadOp::eClear;
     Attachments attachments;
-    attachments.color.push_back(vk::RenderingAttachmentInfo{
-        .imageView =
-            gRenderResources.images->resource(inputsOutputs.inOutIllumination)
-                .view,
-        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
-        .loadOp = loadOp,
-        .storeOp = vk::AttachmentStoreOp::eStore,
-    });
-    if (!options.transparents)
-        attachments.color.push_back(vk::RenderingAttachmentInfo{
-            .imageView =
-                gRenderResources.images->resource(inputsOutputs.inOutVelocity)
-                    .view,
+    attachments.color.push_back(
+        vk::RenderingAttachmentInfo{
+            .imageView = gRenderResources.images
+                             ->resource(inputsOutputs.inOutIllumination)
+                             .view,
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = loadOp,
             .storeOp = vk::AttachmentStoreOp::eStore,
         });
+    if (!options.transparents)
+        attachments.color.push_back(
+            vk::RenderingAttachmentInfo{
+                .imageView = gRenderResources.images
+                                 ->resource(inputsOutputs.inOutVelocity)
+                                 .view,
+                .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+                .loadOp = loadOp,
+                .storeOp = vk::AttachmentStoreOp::eStore,
+            });
     attachments.depth = vk::RenderingAttachmentInfo{
         .imageView =
             gRenderResources.images->resource(inputsOutputs.inOutDepth).view,
@@ -603,14 +605,15 @@ void ForwardRenderer::recordDraw(
 
     PROFILER_GPU_SCOPE_WITH_STATS(cb, debugName);
 
-    cb.beginRendering(vk::RenderingInfo{
-        .renderArea = renderArea,
-        .layerCount = 1,
-        .colorAttachmentCount =
-            asserted_cast<uint32_t>(attachments.color.size()),
-        .pColorAttachments = attachments.color.data(),
-        .pDepthAttachment = &attachments.depth,
-    });
+    cb.beginRendering(
+        vk::RenderingInfo{
+            .renderArea = renderArea,
+            .layerCount = 1,
+            .colorAttachmentCount =
+                asserted_cast<uint32_t>(attachments.color.size()),
+            .pColorAttachments = attachments.color.data(),
+            .pDepthAttachment = &attachments.depth,
+        });
 
     cb.bindPipeline(
         vk::PipelineBindPoint::eGraphics, m_pipelines[pipelineIndex]);

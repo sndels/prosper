@@ -44,18 +44,19 @@ gfx::AccelerationStructure createTlas(
     vk::AccelerationStructureBuildGeometryInfoKHR buildInfo)
 {
     gfx::AccelerationStructure tlas;
-    tlas.buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sizeInfo.accelerationStructureSize,
-                .usage =
-                    vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
-                    vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                    vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-        .debugName = "TLASBuffer",
-    });
+    tlas.buffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sizeInfo.accelerationStructureSize,
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureStorageKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .debugName = "TLASBuffer",
+        });
 
     const vk::AccelerationStructureCreateInfoKHR createInfo{
         .buffer = tlas.buffer.handle,
@@ -377,7 +378,7 @@ void World::Impl::updateScene(
         while (!nodeStack.empty())
         {
             const uint32_t nodeIndex = nodeStack.back();
-            if (visited.find(nodeIndex) != visited.end())
+            if (visited.contains(nodeIndex))
             {
                 nodeStack.pop_back();
                 parentTransforms.pop_back();
@@ -503,11 +504,12 @@ void World::Impl::updateBuffers(ScopedScratch scopeAlloc)
             for (const auto &model :
                  m_data.m_models[instance.modelIndex].subModels)
             {
-                scene.drawInstances.push_back(shader_structs::DrawInstance{
-                    .modelInstanceIndex = mi,
-                    .meshIndex = model.meshIndex,
-                    .materialIndex = model.materialIndex,
-                });
+                scene.drawInstances.push_back(
+                    shader_structs::DrawInstance{
+                        .modelInstanceIndex = mi,
+                        .meshIndex = model.meshIndex,
+                        .materialIndex = model.materialIndex,
+                    });
             }
         }
 
@@ -647,17 +649,19 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
             material.alphaMode == shader_structs::AlphaMode_Opaque
                 ? vk::GeometryFlagBitsKHR::eOpaque
                 : vk::GeometryFlagsKHR{};
-        geometries.push_back(vk::AccelerationStructureGeometryKHR{
-            .geometryType = vk::GeometryTypeKHR::eTriangles,
-            .geometry = triangles,
-            .flags = geomFlags,
-        });
-        rangeInfos.push_back(vk::AccelerationStructureBuildRangeInfoKHR{
-            .primitiveCount = info.indexCount / 3,
-            .primitiveOffset = 0,
-            .firstVertex = 0,
-            .transformOffset = 0,
-        });
+        geometries.push_back(
+            vk::AccelerationStructureGeometryKHR{
+                .geometryType = vk::GeometryTypeKHR::eTriangles,
+                .geometry = triangles,
+                .flags = geomFlags,
+            });
+        rangeInfos.push_back(
+            vk::AccelerationStructureBuildRangeInfoKHR{
+                .primitiveCount = info.indexCount / 3,
+                .primitiveOffset = 0,
+                .firstVertex = 0,
+                .transformOffset = 0,
+            });
         maxPrimitiveCounts.push_back(rangeInfos.back().primitiveCount);
     }
 
@@ -679,18 +683,19 @@ bool World::Impl::buildNextBlas(ScopedScratch scopeAlloc, vk::CommandBuffer cb)
     m_data.m_blases.push_back(gfx::AccelerationStructure{});
     gfx::AccelerationStructure &blas = m_data.m_blases.back();
 
-    blas.buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sizeInfo.accelerationStructureSize,
-                .usage =
-                    vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR |
-                    vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                    vk::BufferUsageFlagBits::eStorageBuffer,
-                .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-            },
-        .debugName = "BLASBuffer",
-    });
+    blas.buffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sizeInfo.accelerationStructureSize,
+                    .usage = vk::BufferUsageFlagBits::
+                                 eAccelerationStructureStorageKHR |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eStorageBuffer,
+                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                },
+            .debugName = "BLASBuffer",
+        });
 
     const vk::AccelerationStructureCreateInfoKHR createInfo{
         .buffer = blas.buffer.handle,
@@ -782,10 +787,12 @@ void World::Impl::buildCurrentTlas(vk::CommandBuffer cb)
             gfx::BufferState::AccelerationStructureBuild, true),
     }};
 
-    cb.pipelineBarrier2(vk::DependencyInfo{
-        .bufferMemoryBarrierCount = asserted_cast<uint32_t>(barriers.size()),
-        .pBufferMemoryBarriers = barriers.data(),
-    });
+    cb.pipelineBarrier2(
+        vk::DependencyInfo{
+            .bufferMemoryBarrierCount =
+                asserted_cast<uint32_t>(barriers.size()),
+            .pBufferMemoryBarriers = barriers.data(),
+        });
 
     const vk::AccelerationStructureBuildRangeInfoKHR *pRangeInfo = &rangeInfo;
     cb.buildAccelerationStructuresKHR(1, &buildInfo, &pRangeInfo);
@@ -807,19 +814,23 @@ gfx::Buffer &World::Impl::reserveScratch(vk::DeviceSize byteSize)
         }
     }
 
-    m_scratchBuffers.push_back(ScratchBuffer{
-        .buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-            .desc =
-                gfx::BufferDescription{
-                    .byteSize = byteSize,
-                    .usage = vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::eStorageBuffer,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .cacheDeviceAddress = true,
-            .debugName = "ScratchBuffer",
-        }),
-    });
+    m_scratchBuffers.push_back(
+        ScratchBuffer{
+            .buffer = gfx::gDevice.createBuffer(
+                gfx::BufferCreateInfo{
+                    .desc =
+                        gfx::BufferDescription{
+                            .byteSize = byteSize,
+                            .usage =
+                                vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                                vk::BufferUsageFlagBits::eStorageBuffer,
+                            .properties =
+                                vk::MemoryPropertyFlagBits::eDeviceLocal,
+                        },
+                    .cacheDeviceAddress = true,
+                    .debugName = "ScratchBuffer",
+                }),
+        });
 
     return m_scratchBuffers.back().buffer;
 }
@@ -837,19 +848,21 @@ void World::Impl::reserveTlasInstances(uint32_t instanceCount)
         // finished
         m_tlasInstancesUploadRing.reset();
 
-        m_tlasInstancesBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-            .desc =
-                gfx::BufferDescription{
-                    .byteSize = byteSize,
-                    .usage = vk::BufferUsageFlagBits::eTransferDst |
-                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                             vk::BufferUsageFlagBits::
-                                 eAccelerationStructureBuildInputReadOnlyKHR,
-                    .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                },
-            .cacheDeviceAddress = true,
-            .debugName = "InstancesBuffer",
-        });
+        m_tlasInstancesBuffer = gfx::gDevice.createBuffer(
+            gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize = byteSize,
+                        .usage =
+                            vk::BufferUsageFlagBits::eTransferDst |
+                            vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                            vk::BufferUsageFlagBits::
+                                eAccelerationStructureBuildInputReadOnlyKHR,
+                        .properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    },
+                .cacheDeviceAddress = true,
+                .debugName = "InstancesBuffer",
+            });
 
         const uint32_t ringByteSize = asserted_cast<uint32_t>(
             (byteSize + gfx::RingBuffer::sAlignment) * MAX_FRAMES_IN_FLIGHT);
@@ -893,12 +906,13 @@ void World::Impl::updateTlasInstances(
             asReference = blas.address;
         }
 
-        instances.push_back(vk::AccelerationStructureInstanceKHR{
-            .transform = *trfn_cast,
-            .instanceCustomIndex = rti,
-            .mask = 0xFF,
-            .accelerationStructureReference = asReference,
-        });
+        instances.push_back(
+            vk::AccelerationStructureInstanceKHR{
+                .transform = *trfn_cast,
+                .instanceCustomIndex = rti,
+                .mask = 0xFF,
+                .accelerationStructureReference = asReference,
+            });
         // Draw instances pack all submodels of a model instance tightly so
         // let's use the index of the first one as the TLAS instance index. RT
         // shaders can then access each submodel from that using the geometry

@@ -82,11 +82,12 @@ void Simulate::record(
             *inOut.particlesFreelist.transitionBarrier(
                 gfx::BufferState::ComputeShaderReadWrite),
         }};
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount =
-                asserted_cast<uint32_t>(bufferBarriers.size()),
-            .pBufferMemoryBarriers = bufferBarriers.data(),
-        });
+        cb.pipelineBarrier2(
+            vk::DependencyInfo{
+                .bufferMemoryBarrierCount =
+                    asserted_cast<uint32_t>(bufferBarriers.size()),
+                .pBufferMemoryBarriers = bufferBarriers.data(),
+            });
 
         PROFILER_GPU_SCOPE(cb, "  Simulate::Particles");
 

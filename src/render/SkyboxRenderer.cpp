@@ -140,14 +140,15 @@ void SkyboxRenderer::record(
 
         PROFILER_GPU_SCOPE_WITH_STATS(cb, "Skybox");
 
-        cb.beginRendering(vk::RenderingInfo{
-            .renderArea = renderArea,
-            .layerCount = 1,
-            .colorAttachmentCount =
-                asserted_cast<uint32_t>(attachments.color.size()),
-            .pColorAttachments = attachments.color.data(),
-            .pDepthAttachment = &attachments.depth,
-        });
+        cb.beginRendering(
+            vk::RenderingInfo{
+                .renderArea = renderArea,
+                .layerCount = 1,
+                .colorAttachmentCount =
+                    asserted_cast<uint32_t>(attachments.color.size()),
+                .pColorAttachments = attachments.color.data(),
+                .pDepthAttachment = &attachments.depth,
+            });
 
         // Skybox doesn't need to be drawn under opaque geometry but should be
         // before transparents

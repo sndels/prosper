@@ -200,10 +200,11 @@ void firstPass(
             const uint32_t signedness = args[2];
             WHEELS_ASSERT(signedness == 0 || signedness == 1);
 
-            results[result].type.emplace(SpvInt{
-                .width = width,
-                .isSigned = signedness == 1,
-            });
+            results[result].type.emplace(
+                SpvInt{
+                    .width = width,
+                    .isSigned = signedness == 1,
+                });
         }
         break;
         case spv::OpTypeFloat:
@@ -211,9 +212,10 @@ void firstPass(
             const uint32_t result = args[0];
             const uint32_t width = args[1];
 
-            results[result].type.emplace(SpvFloat{
-                .width = width,
-            });
+            results[result].type.emplace(
+                SpvFloat{
+                    .width = width,
+                });
         }
         break;
         case spv::OpTypeVector:
@@ -222,10 +224,11 @@ void firstPass(
             const uint32_t componentType = args[1];
             const uint32_t componentCount = args[2];
 
-            results[result].type.emplace(SpvVector{
-                .componentId = componentType,
-                .componentCount = componentCount,
-            });
+            results[result].type.emplace(
+                SpvVector{
+                    .componentId = componentType,
+                    .componentCount = componentCount,
+                });
         }
         break;
         case spv::OpTypeMatrix:
@@ -234,10 +237,11 @@ void firstPass(
             const uint32_t columnType = args[1];
             const uint32_t columnCount = args[2];
 
-            results[result].type.emplace(SpvMatrix{
-                .columnId = columnType,
-                .columnCount = columnCount,
-            });
+            results[result].type.emplace(
+                SpvMatrix{
+                    .columnId = columnType,
+                    .columnCount = columnCount,
+                });
         }
         break;
         case spv::OpTypeImage:
@@ -252,10 +256,11 @@ void firstPass(
             // const spv::ImageFormat format =
             //     static_cast<spv::ImageFormat>(args[7]);
 
-            results[result].type.emplace(SpvImage{
-                .dimensionality = dimensionality,
-                .sampled = sampled,
-            });
+            results[result].type.emplace(
+                SpvImage{
+                    .dimensionality = dimensionality,
+                    .sampled = sampled,
+                });
         }
         break;
         case spv::OpTypeSampler:
@@ -306,10 +311,11 @@ void firstPass(
             WHEELS_ASSERT(length != nullptr);
             WHEELS_ASSERT(length->value != sUninitialized);
 
-            results[result].type.emplace(SpvArray{
-                .elementTypeId = elementType,
-                .length = length->value,
-            });
+            results[result].type.emplace(
+                SpvArray{
+                    .elementTypeId = elementType,
+                    .length = length->value,
+                });
         }
         break;
         case spv::OpTypeRuntimeArray:
@@ -317,9 +323,10 @@ void firstPass(
             const uint32_t result = args[0];
             const uint32_t elementTypeId = args[1];
 
-            results[result].type.emplace(SpvRuntimeArray{
-                .elementTypeId = elementTypeId,
-            });
+            results[result].type.emplace(
+                SpvRuntimeArray{
+                    .elementTypeId = elementTypeId,
+                });
         }
         break;
         case spv::OpTypePointer:
@@ -346,10 +353,11 @@ void firstPass(
                 }
             }
 
-            results[result].type.emplace(SpvPointer{
-                .typeId = typeId,
-                .storageClass = storageClass,
-            });
+            results[result].type.emplace(
+                SpvPointer{
+                    .typeId = typeId,
+                    .storageClass = storageClass,
+                });
         }
         break;
         case spv::OpConstant:
@@ -364,9 +372,10 @@ void firstPass(
                 spvInt != nullptr)
             {
                 if (!spvInt->isSigned && spvInt->width == 32)
-                    results[result].type.emplace(SpvConstantU32{
-                        .value = args[2],
-                    });
+                    results[result].type.emplace(
+                        SpvConstantU32{
+                            .value = args[2],
+                        });
             }
         }
         break;
@@ -380,9 +389,10 @@ void firstPass(
             WHEELS_ASSERT(type.type.has_value());
             WHEELS_ASSERT(std::get_if<SpvBool>(&*type.type) != nullptr);
 
-            results[result].type.emplace(SpvSpecializationConstant{
-                .size = sizeof(VkBool32),
-            });
+            results[result].type.emplace(
+                SpvSpecializationConstant{
+                    .size = sizeof(VkBool32),
+                });
         }
         break;
         case spv::OpSpecConstant:
@@ -413,8 +423,9 @@ void firstPass(
                      floatPtr != nullptr)
             {
                 if (floatPtr->width != 32)
-                    throw std::runtime_error("Only 32bit floats are supported "
-                                             "in specialization constants");
+                    throw std::runtime_error(
+                        "Only 32bit floats are supported "
+                        "in specialization constants");
                 constant.size = floatPtr->width / 8;
             }
 
@@ -444,10 +455,11 @@ void firstPass(
             const spv::StorageClass storageClass =
                 static_cast<spv::StorageClass>(args[2]);
 
-            results[result].type.emplace(SpvVariable{
-                .typeId = typeId,
-                .storageClass = storageClass,
-            });
+            results[result].type.emplace(
+                SpvVariable{
+                    .typeId = typeId,
+                    .storageClass = storageClass,
+                });
         }
         break;
         case spv::OpTypeAccelerationStructureKHR:
@@ -782,12 +794,13 @@ void fillMetadata(
         Array<DescriptorSetMetadata> &setMetadatas =
             getSetMetadatas(decorations, metadatas);
 
-        setMetadatas.push_back(DescriptorSetMetadata{
-            .name = WHEELS_MOV(name),
-            .binding = decorations.binding,
-            .descriptorType = descriptorType,
-            .descriptorCount = descriptorCount,
-        });
+        setMetadatas.push_back(
+            DescriptorSetMetadata{
+                .name = WHEELS_MOV(name),
+                .binding = decorations.binding,
+                .descriptorType = descriptorType,
+                .descriptorCount = descriptorCount,
+            });
     }
 }
 
@@ -1086,12 +1099,13 @@ vk::DescriptorSetLayout ShaderReflection::createDescriptorSetLayout(
                 ? metadata.descriptorCount
                 : dynamicCounts[currentDynamicCount++];
 
-        layoutBindings.push_back(vk::DescriptorSetLayoutBinding{
-            .binding = metadata.binding,
-            .descriptorType = metadata.descriptorType,
-            .descriptorCount = descriptorCount,
-            .stageFlags = stageFlags,
-        });
+        layoutBindings.push_back(
+            vk::DescriptorSetLayoutBinding{
+                .binding = metadata.binding,
+                .descriptorType = metadata.descriptorType,
+                .descriptorCount = descriptorCount,
+                .stageFlags = stageFlags,
+            });
     }
     WHEELS_ASSERT(
         currentDynamicCount == dynamicCounts.size() &&
@@ -1182,15 +1196,16 @@ wheels::Array<vk::WriteDescriptorSet> ShaderReflection::
         if (descriptorCount > 0)
         {
             const DescriptorSetMetadata &metadata = (*metadatas)[i];
-            descriptorWrites.push_back(vk::WriteDescriptorSet{
-                .dstSet = descriptorSetHandle,
-                .dstBinding = metadata.binding,
-                .descriptorCount = descriptorCount,
-                .descriptorType = metadata.descriptorType,
-                .pImageInfo = pImageInfo,
-                .pBufferInfo = pBufferInfo,
-                .pTexelBufferView = pTexelBufferView,
-            });
+            descriptorWrites.push_back(
+                vk::WriteDescriptorSet{
+                    .dstSet = descriptorSetHandle,
+                    .dstBinding = metadata.binding,
+                    .descriptorCount = descriptorCount,
+                    .descriptorType = metadata.descriptorType,
+                    .pImageInfo = pImageInfo,
+                    .pBufferInfo = pBufferInfo,
+                    .pTexelBufferView = pTexelBufferView,
+                });
         }
     }
 

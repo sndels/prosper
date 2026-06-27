@@ -18,8 +18,8 @@
       "*.rgen",
       "*.rchit",
       "*.rahit",
-      "*.rmiss"
-    ]
+      "*.rmiss",
+    ],
   },
   "file_scan_exclusions": [
     "**/ext",
@@ -31,34 +31,34 @@
     "**/.DS_Store",
     "**/Thumbs.db",
     "**/.classpath",
-    "**/.settings"
+    "**/.settings",
   ],
   "languages": {
     "C++": {
       "format_on_save": "on",
       "formatter": {
         "external": {
-          // To make this work on windows, LLVM/bin needs to be in PATH and clang-format.exe should be duplicated as clang-format-19.exe
-          "command": "clang-format-19",
-          "arguments": ["--assume-filename", "{buffer_path}"]
-        }
-      }
+          // To make this work on windows, LLVM/bin needs to be in PATH and clang-format.exe should be duplicated as clang-format-20.exe
+          "command": "clang-format-20",
+          "arguments": ["--assume-filename", "{buffer_path}"],
+        },
+      },
     },
     "GLSL": {
       "format_on_save": "on",
       "formatter": {
         "external": {
-          // To make this work on windows, LLVM/bin needs to be in PATH and clang-format.exe should be duplicated as clang-format-19.exe
-          "command": "clang-format-19",
-          "arguments": ["--assume-filename", "{buffer_path}"]
-        }
-      }
-    }
+          // To make this work on windows, LLVM/bin needs to be in PATH and clang-format.exe should be duplicated as clang-format-20.exe
+          "command": "clang-format-20",
+          "arguments": ["--assume-filename", "{buffer_path}"],
+        },
+      },
+    },
   },
   "lsp": {
-    // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clangd-19.exe
-    "clangd": { "binary": { "path": "clangd-19" } }
+    // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clangd-20.exe
+    "clangd": { "binary": { "path": "clangd-20" } },
   },
   "remove_trailing_whitespace_on_save": true,
-  "ensure_final_newline_on_save": true
+  "ensure_final_newline_on_save": true,
 }

@@ -295,20 +295,23 @@ void Fft::doIteration(
         .n = outputDim,
         .ns = iterData.ns,
     };
-    const uvec3 groupCount = m_computePass.groupCount(uvec3{
-        iterData.radixPower == 4 ? (outputDim / (1 << iterData.radixPower)) * 4
-                                 : outputDim / (1 << iterData.radixPower),
-        outputDim,
-        1,
-    });
+    const uvec3 groupCount = m_computePass.groupCount(
+        uvec3{
+            iterData.radixPower == 4
+                ? (outputDim / (1 << iterData.radixPower)) * 4
+                : outputDim / (1 << iterData.radixPower),
+            outputDim,
+            1,
+        });
     m_computePass.record(
         cb, pcBlock, groupCount, Span{&iterData.descriptorSet, 1},
         ComputePassOptionalRecordArgs{
-            .specializationIndex = specializationIndex(FftConstants{
-                .transpose = iterData.transpose ? VK_TRUE : VK_FALSE,
-                .inverse = iterData.inverse ? VK_TRUE : VK_FALSE,
-                .radixPower = iterData.radixPower,
-            }),
+            .specializationIndex = specializationIndex(
+                FftConstants{
+                    .transpose = iterData.transpose ? VK_TRUE : VK_FALSE,
+                    .inverse = iterData.inverse ? VK_TRUE : VK_FALSE,
+                    .radixPower = iterData.radixPower,
+                }),
         });
 }
 

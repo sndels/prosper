@@ -33,12 +33,13 @@ vk::Pipeline createComputePipeline(
         throw std::runtime_error(
             std::string{"Failed to create pipeline '"} + debugName + "'");
 
-    device.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType = vk::ObjectType::ePipeline,
-        .objectHandle =
-            reinterpret_cast<uint64_t>(static_cast<VkPipeline>(pipeline.value)),
-        .pObjectName = debugName,
-    });
+    device.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::ePipeline,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkPipeline>(pipeline.value)),
+            .pObjectName = debugName,
+        });
 
     return pipeline.value;
 }
@@ -120,12 +121,13 @@ vk::Pipeline createGraphicsPipeline(
     if (pipeline.result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to create pbr pipeline");
 
-    device.setDebugUtilsObjectNameEXT(vk::DebugUtilsObjectNameInfoEXT{
-        .objectType = vk::ObjectType::ePipeline,
-        .objectHandle =
-            reinterpret_cast<uint64_t>(static_cast<VkPipeline>(pipeline.value)),
-        .pObjectName = info.debugName,
-    });
+    device.setDebugUtilsObjectNameEXT(
+        vk::DebugUtilsObjectNameInfoEXT{
+            .objectType = vk::ObjectType::ePipeline,
+            .objectHandle = reinterpret_cast<uint64_t>(
+                static_cast<VkPipeline>(pipeline.value)),
+            .pObjectName = info.debugName,
+        });
 
     return pipeline.value;
 }

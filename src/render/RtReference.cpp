@@ -280,14 +280,15 @@ RtReference::Output RtReference::record(
 
         const ReferencePC pcBlock{
             .drawType = static_cast<uint32_t>(options.drawType),
-            .flags = pcFlags(ReferencePCFlags{
-                .skipHistory = cam.changedThisFrame() || options.colorDirty ||
-                               m_accumulationDirty,
-                .accumulate = m_accumulate,
-                .ibl = options.ibl,
-                .depthOfField = options.depthOfField,
-                .clampIndirect = m_clampIndirect,
-            }),
+            .flags = pcFlags(
+                ReferencePCFlags{
+                    .skipHistory = cam.changedThisFrame() ||
+                                   options.colorDirty || m_accumulationDirty,
+                    .accumulate = m_accumulate,
+                    .ibl = options.ibl,
+                    .depthOfField = options.depthOfField,
+                    .clampIndirect = m_clampIndirect,
+                }),
             .frameIndex = m_frameIndex,
             .apertureDiameter = camParams.apertureDiameter,
             .focusDistance = camParams.focusDistance,
@@ -683,19 +684,20 @@ void RtReference::createShaderBindingTable(ScopedScratch scopeAlloc)
             m_pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()),
         "getRayTracingShaderGroupHandlesKHR");
 
-    m_shaderBindingTable = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sbtSize,
-                .usage = vk::BufferUsageFlagBits::eTransferSrc |
-                         vk::BufferUsageFlagBits::eShaderDeviceAddress |
-                         vk::BufferUsageFlagBits::eShaderBindingTableKHR,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .cacheDeviceAddress = true,
-        .debugName = "RtReferenceSBT",
-    });
+    m_shaderBindingTable = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sbtSize,
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc |
+                             vk::BufferUsageFlagBits::eShaderDeviceAddress |
+                             vk::BufferUsageFlagBits::eShaderBindingTableKHR,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .cacheDeviceAddress = true,
+            .debugName = "RtReferenceSBT",
+        });
 
     auto *pData = static_cast<uint8_t *>(m_shaderBindingTable.mapped);
     for (size_t i = 0; i < groupCount; ++i)

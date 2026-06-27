@@ -292,8 +292,8 @@ void Swapchain::destroy()
 
 void Swapchain::createSwapchain()
 {
-    m_swapchain =
-        gDevice.logical().createSwapchainKHR(vk::SwapchainCreateInfoKHR{
+    m_swapchain = gDevice.logical().createSwapchainKHR(
+        vk::SwapchainCreateInfoKHR{
             .surface = gDevice.surface(),
             .minImageCount = m_config.imageCount,
             .imageFormat = m_config.surfaceFormat.format,
@@ -313,18 +313,19 @@ void Swapchain::createImages()
     auto images = gDevice.logical().getSwapchainImagesKHR(m_swapchain);
     for (auto &image : images)
     {
-        m_images.push_back(SwapchainImage{
-            .handle = image,
-            .extent = m_config.extent,
-            .subresourceRange =
-                vk::ImageSubresourceRange{
-                    .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .baseMipLevel = 0,
-                    .levelCount = 1,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1,
-                },
-        });
+        m_images.push_back(
+            SwapchainImage{
+                .handle = image,
+                .extent = m_config.extent,
+                .subresourceRange =
+                    vk::ImageSubresourceRange{
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .baseMipLevel = 0,
+                        .levelCount = 1,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+            });
     }
     // We might get more images than we asked for and acquire will use them all
     m_config.imageCount = asserted_cast<uint32_t>(m_images.size());

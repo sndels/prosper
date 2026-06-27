@@ -30,16 +30,17 @@ void RingBuffer::init(
     WHEELS_ASSERT(byteSize > RingBuffer::sAlignment);
     WHEELS_ASSERT(byteSize <= sMaxAllocation);
 
-    m_buffer = gDevice.createBuffer(BufferCreateInfo{
-        .desc =
-            BufferDescription{
-                .byteSize = byteSize,
-                .usage = usage,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = debugName,
-    });
+    m_buffer = gDevice.createBuffer(
+        BufferCreateInfo{
+            .desc =
+                BufferDescription{
+                    .byteSize = byteSize,
+                    .usage = usage,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = debugName,
+        });
     WHEELS_ASSERT(m_buffer.mapped != nullptr);
 
     m_initialized = true;

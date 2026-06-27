@@ -64,18 +64,19 @@ void DebugRenderer::init(
 
     for (auto i = 0u; i < MAX_FRAMES_IN_FLIGHT; ++i)
         gRenderResources.debugLines[i] = scene::DebugLines{
-            .buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-                .desc =
-                    gfx::BufferDescription{
-                        .byteSize = scene::DebugLines::sMaxLineCount *
-                                    scene::DebugLines::sLineBytes,
-                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                        .properties =
-                            vk::MemoryPropertyFlagBits::eHostCoherent |
-                            vk::MemoryPropertyFlagBits::eHostVisible,
-                    },
-                .debugName = "DebugLines",
-            }),
+            .buffer = gfx::gDevice.createBuffer(
+                gfx::BufferCreateInfo{
+                    .desc =
+                        gfx::BufferDescription{
+                            .byteSize = scene::DebugLines::sMaxLineCount *
+                                        scene::DebugLines::sLineBytes,
+                            .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                            .properties =
+                                vk::MemoryPropertyFlagBits::eHostCoherent |
+                                vk::MemoryPropertyFlagBits::eHostVisible,
+                        },
+                    .debugName = "DebugLines",
+                }),
         };
 
     createDescriptorSets(scopeAlloc.child_scope());
@@ -146,13 +147,14 @@ void DebugRenderer::record(
 
         PROFILER_GPU_SCOPE_WITH_STATS(cb, "Debug");
 
-        cb.beginRendering(vk::RenderingInfo{
-            .renderArea = renderArea,
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &attachments.color,
-            .pDepthAttachment = &attachments.depth,
-        });
+        cb.beginRendering(
+            vk::RenderingInfo{
+                .renderArea = renderArea,
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &attachments.color,
+                .pDepthAttachment = &attachments.depth,
+            });
 
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 

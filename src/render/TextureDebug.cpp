@@ -75,16 +75,17 @@ void TextureDebug::init(ScopedScratch scopeAlloc)
 
     for (gfx::Buffer &b : m_readbackBuffers)
     {
-        b = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-            .desc =
-                gfx::BufferDescription{
-                    .byteSize = sizeof(vec4),
-                    .usage = vk::BufferUsageFlagBits::eTransferDst,
-                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                  vk::MemoryPropertyFlagBits::eHostCoherent,
-                },
-            .debugName = "TextureDebugReadback",
-        });
+        b = gfx::gDevice.createBuffer(
+            gfx::BufferCreateInfo{
+                .desc =
+                    gfx::BufferDescription{
+                        .byteSize = sizeof(vec4),
+                        .usage = vk::BufferUsageFlagBits::eTransferDst,
+                        .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                      vk::MemoryPropertyFlagBits::eHostCoherent,
+                    },
+                .debugName = "TextureDebugReadback",
+            });
         memset(b.mapped, 0, b.byteSize);
     }
 
@@ -361,12 +362,13 @@ ImageHandle TextureDebug::record(
                     },
                 .range = settings.range,
                 .lod = asserted_cast<uint32_t>(settings.lod),
-                .flags = pcFlags(TextureDebugPCFlags{
-                    .channelType = settings.channelType,
-                    .absBeforeRange = settings.absBeforeRange,
-                    .zoom = m_zoom,
-                    .magnifier = cursorCoord.has_value(),
-                }),
+                .flags = pcFlags(
+                    TextureDebugPCFlags{
+                        .channelType = settings.channelType,
+                        .absBeforeRange = settings.absBeforeRange,
+                        .zoom = m_zoom,
+                        .magnifier = cursorCoord.has_value(),
+                    }),
                 .cursorUv = cursorUv,
             };
 

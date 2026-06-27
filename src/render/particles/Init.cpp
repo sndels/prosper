@@ -121,11 +121,12 @@ bool Init::record(
             *inOut.particlesFreelist.transitionBarrier(
                 gfx::BufferState::ComputeShaderReadWrite),
         }};
-        cb.pipelineBarrier2(vk::DependencyInfo{
-            .bufferMemoryBarrierCount =
-                asserted_cast<uint32_t>(bufferBarriers.size()),
-            .pBufferMemoryBarriers = bufferBarriers.data(),
-        });
+        cb.pipelineBarrier2(
+            vk::DependencyInfo{
+                .bufferMemoryBarrierCount =
+                    asserted_cast<uint32_t>(bufferBarriers.size()),
+                .pBufferMemoryBarriers = bufferBarriers.data(),
+            });
 
         const scene::Scene &currentScene = world.currentScene();
         const scene::WorldByteOffsets &worldByteOffsets = world.byteOffsets();

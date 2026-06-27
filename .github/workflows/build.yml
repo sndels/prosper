@@ -24,12 +24,12 @@ jobs:
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
-          vulkan-query-version: 1.4.328.1
+          vulkan-query-version: 1.4.350.0
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
       - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022"
+        run: cmake -B build -G "Visual Studio 18 2026"
 
       - name: Build (Debug)
         run: cmake --build build --parallel --config Debug --target prosper
@@ -54,7 +54,7 @@ jobs:
       - name: Get Clang
         uses: KyleMayes/install-llvm-action@v2.0.7
         with:
-          version: "19.1.0"
+          version: "20.1.0"
           env: true # Sets CC/CXX
 
       - name: Get Cmake
@@ -63,7 +63,7 @@ jobs:
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
-          vulkan-query-version: 1.4.328.1
+          vulkan-query-version: 1.4.350.0
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
@@ -102,7 +102,7 @@ jobs:
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
-          vulkan-query-version: 1.4.328.1
+          vulkan-query-version: 1.4.350.0
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
@@ -136,23 +136,23 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Get dependencies
-        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-19
+        run: sudo apt update && sudo apt install xorg-dev libxkbcommon-dev clang-20
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
-          vulkan-query-version: 1.4.328.1
+          vulkan-query-version: 1.4.350.0
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
       - name: Configure (Debug)
-        run: CC=clang-19 CXX=clang++-19 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+        run: CC=clang-20 CXX=clang++-20 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build (Debug)
         run: cmake --build build --target prosper
 
       - name: Configure (Release)
-        run: CC=clang-19 CXX=clang++-19 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+        run: CC=clang-20 CXX=clang++-20 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (Release)
         run: cmake --build build --target prosper

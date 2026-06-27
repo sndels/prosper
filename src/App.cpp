@@ -476,10 +476,11 @@ void App::handleKeyboardInput(float deltaS)
             const vec3 movement =
                 right * speed.x + fwd * speed.z + up * speed.y;
 
-            m_cam->applyOffset(scene::CameraOffset{
-                .eye = movement,
-                .target = movement,
-            });
+            m_cam->applyOffset(
+                scene::CameraOffset{
+                    .eye = movement,
+                    .target = movement,
+                });
         }
     }
 }
@@ -564,9 +565,10 @@ void App::drawFrame(
     const auto cb = m_commandBuffers[nextFrame];
     cb.reset();
 
-    cb.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
+    cb.begin(
+        vk::CommandBufferBeginInfo{
+            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+        });
 
     if (m_renderer->rtInUse() || m_world->unbuiltBlases())
     {

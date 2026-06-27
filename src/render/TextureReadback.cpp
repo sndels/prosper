@@ -37,16 +37,17 @@ void TextureReadback::init(ScopedScratch scopeAlloc)
     WHEELS_ASSERT(!m_initialized);
 
     m_computePass.init(WHEELS_MOV(scopeAlloc), shaderDefinitionCallback);
-    m_buffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = sizeof(vec4),
-                .usage = vk::BufferUsageFlagBits::eTransferDst,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "TextureReadbackHostBuffer",
-    });
+    m_buffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = sizeof(vec4),
+                    .usage = vk::BufferUsageFlagBits::eTransferDst,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "TextureReadbackHostBuffer",
+        });
 
     m_initialized = true;
 }

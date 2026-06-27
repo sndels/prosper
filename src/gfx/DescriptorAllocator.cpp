@@ -153,8 +153,8 @@ void DescriptorAllocator::nextPool()
     // initially -1 so this makes it 0 and allocates the first pool
     m_activePool++;
     if (asserted_cast<size_t>(m_activePool) >= m_pools.size())
-        m_pools.push_back(
-            gDevice.logical().createDescriptorPool(vk::DescriptorPoolCreateInfo{
+        m_pools.push_back(gDevice.logical().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo{
                 .flags = m_flags,
                 .maxSets = sDefaultDescriptorSetCount,
                 .poolSizeCount =

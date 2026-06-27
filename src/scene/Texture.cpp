@@ -433,20 +433,21 @@ void Texture2D::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    m_image = gfx::gDevice.createImage(gfx::ImageCreateInfo{
-        .desc =
-            gfx::ImageDescription{
-                .format = asVkFormat(dds.format),
-                .width = extent.width,
-                .height = extent.height,
-                .mipCount = dds.mipLevelCount,
-                .layerCount = 1,
-                .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
-                              vk::ImageUsageFlagBits::eTransferDst |
-                              vk::ImageUsageFlagBits::eSampled,
-            },
-        .debugName = relPath.generic_string().c_str(),
-    });
+    m_image = gfx::gDevice.createImage(
+        gfx::ImageCreateInfo{
+            .desc =
+                gfx::ImageDescription{
+                    .format = asVkFormat(dds.format),
+                    .width = extent.width,
+                    .height = extent.height,
+                    .mipCount = dds.mipLevelCount,
+                    .layerCount = 1,
+                    .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
+                                  vk::ImageUsageFlagBits::eTransferDst |
+                                  vk::ImageUsageFlagBits::eSampled,
+                },
+            .debugName = relPath.generic_string().c_str(),
+        });
 
     m_image.transition(cb, gfx::ImageState::TransferDst);
 
@@ -455,26 +456,27 @@ void Texture2D::init(
     WHEELS_ASSERT(dds.levelByteOffsets.size() == dds.mipLevelCount);
     for (uint32_t i = 0; i < dds.mipLevelCount; ++i)
     {
-        regions.push_back(vk::BufferImageCopy{
-            .bufferOffset =
-                asserted_cast<vk::DeviceSize>(dds.levelByteOffsets[i]),
-            .bufferRowLength = 0,
-            .bufferImageHeight = 0,
-            .imageSubresource =
-                vk::ImageSubresourceLayers{
-                    .aspectMask = vk::ImageAspectFlagBits::eColor,
-                    .mipLevel = i,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1,
-                },
-            .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
-            .imageExtent =
-                vk::Extent3D{
-                    .width = std::max(extent.width >> i, 1u),
-                    .height = std::max(extent.height >> i, 1u),
-                    .depth = 1u,
-                },
-        });
+        regions.push_back(
+            vk::BufferImageCopy{
+                .bufferOffset =
+                    asserted_cast<vk::DeviceSize>(dds.levelByteOffsets[i]),
+                .bufferRowLength = 0,
+                .bufferImageHeight = 0,
+                .imageSubresource =
+                    vk::ImageSubresourceLayers{
+                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+                        .mipLevel = i,
+                        .baseArrayLayer = 0,
+                        .layerCount = 1,
+                    },
+                .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
+                .imageExtent =
+                    vk::Extent3D{
+                        .width = std::max(extent.width >> i, 1u),
+                        .height = std::max(extent.height >> i, 1u),
+                        .depth = 1u,
+                    },
+            });
     }
 
     cb.copyBufferToImage(
@@ -509,16 +511,17 @@ void Texture3D::init(
 
     // Just create the staging here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
-    gfx::Buffer stagingBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = dds.data.size(),
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "Texture3DStaging",
-    });
+    gfx::Buffer stagingBuffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = dds.data.size(),
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "Texture3DStaging",
+        });
     defer { gfx::gDevice.destroy(stagingBuffer); };
 
     WHEELS_ASSERT(dds.data.size() <= stagingBuffer.byteSize);
@@ -527,21 +530,22 @@ void Texture3D::init(
     const std::filesystem::path relPath = relativePath(path);
 
     WHEELS_ASSERT(dds.mipLevelCount == 1);
-    m_image = gfx::gDevice.createImage(gfx::ImageCreateInfo{
-        .desc =
-            gfx::ImageDescription{
-                .imageType = vk::ImageType::e3D,
-                .format = asVkFormat(dds.format),
-                .width = extent.width,
-                .height = extent.height,
-                .depth = extent.depth,
-                .layerCount = 1,
-                .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
-                              vk::ImageUsageFlagBits::eTransferDst |
-                              vk::ImageUsageFlagBits::eSampled,
-            },
-        .debugName = relPath.generic_string().c_str(),
-    });
+    m_image = gfx::gDevice.createImage(
+        gfx::ImageCreateInfo{
+            .desc =
+                gfx::ImageDescription{
+                    .imageType = vk::ImageType::e3D,
+                    .format = asVkFormat(dds.format),
+                    .width = extent.width,
+                    .height = extent.height,
+                    .depth = extent.depth,
+                    .layerCount = 1,
+                    .usageFlags = vk::ImageUsageFlagBits::eTransferSrc |
+                                  vk::ImageUsageFlagBits::eTransferDst |
+                                  vk::ImageUsageFlagBits::eSampled,
+                },
+            .debugName = relPath.generic_string().c_str(),
+        });
 
     // Just create an ad hoc cb here as Texture3D are only loaded in during load
     // time so we can wait for upload to complete
@@ -598,35 +602,37 @@ void TextureCubemap::init(
 
     const std::filesystem::path relPath = relativePath(path);
 
-    m_image = gfx::gDevice.createImage(gfx::ImageCreateInfo{
-        .desc =
-            gfx::ImageDescription{
-                .format = cube.format,
-                .width = cube.width,
-                .height = cube.height,
-                .mipCount = cube.mipLevelCount,
-                .layerCount = cube.faceCount,
-                .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
-                .usageFlags = vk::ImageUsageFlagBits::eTransferDst |
-                              vk::ImageUsageFlagBits::eSampled,
-            },
-        .debugName = relPath.generic_string().c_str(),
-    });
+    m_image = gfx::gDevice.createImage(
+        gfx::ImageCreateInfo{
+            .desc =
+                gfx::ImageDescription{
+                    .format = cube.format,
+                    .width = cube.width,
+                    .height = cube.height,
+                    .mipCount = cube.mipLevelCount,
+                    .layerCount = cube.faceCount,
+                    .createFlags = vk::ImageCreateFlagBits::eCubeCompatible,
+                    .usageFlags = vk::ImageUsageFlagBits::eTransferDst |
+                                  vk::ImageUsageFlagBits::eSampled,
+                },
+            .debugName = relPath.generic_string().c_str(),
+        });
 
     copyPixels(scopeAlloc.child_scope(), cube, m_image.subresourceRange);
 
-    m_sampler = gfx::gDevice.logical().createSampler(vk::SamplerCreateInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
-        .anisotropyEnable = VK_TRUE,
-        .maxAnisotropy = 16,
-        .minLod = 0,
-        .maxLod = static_cast<float>(cube.mipLevelCount),
-    });
+    m_sampler = gfx::gDevice.logical().createSampler(
+        vk::SamplerCreateInfo{
+            .magFilter = vk::Filter::eLinear,
+            .minFilter = vk::Filter::eLinear,
+            .mipmapMode = vk::SamplerMipmapMode::eLinear,
+            .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+            .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+            .anisotropyEnable = VK_TRUE,
+            .maxAnisotropy = 16,
+            .minLod = 0,
+            .maxLod = static_cast<float>(cube.mipLevelCount),
+        });
 }
 
 TextureCubemap::~TextureCubemap() { gfx::gDevice.logical().destroy(m_sampler); }
@@ -665,16 +671,17 @@ void TextureCubemap::copyPixels(
     ScopedScratch scopeAlloc, const utils::Ktx &cube,
     const vk::ImageSubresourceRange &subresourceRange) const
 {
-    gfx::Buffer stagingBuffer = gfx::gDevice.createBuffer(gfx::BufferCreateInfo{
-        .desc =
-            gfx::BufferDescription{
-                .byteSize = cube.data.size(),
-                .usage = vk::BufferUsageFlagBits::eTransferSrc,
-                .properties = vk::MemoryPropertyFlagBits::eHostVisible |
-                              vk::MemoryPropertyFlagBits::eHostCoherent,
-            },
-        .debugName = "TextureCubemapStaging",
-    });
+    gfx::Buffer stagingBuffer = gfx::gDevice.createBuffer(
+        gfx::BufferCreateInfo{
+            .desc =
+                gfx::BufferDescription{
+                    .byteSize = cube.data.size(),
+                    .usage = vk::BufferUsageFlagBits::eTransferSrc,
+                    .properties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                  vk::MemoryPropertyFlagBits::eHostCoherent,
+                },
+            .debugName = "TextureCubemapStaging",
+        });
     defer { gfx::gDevice.destroy(stagingBuffer); };
 
     memcpy(stagingBuffer.mapped, cube.data.data(), cube.data.size());
@@ -697,25 +704,26 @@ void TextureCubemap::copyPixels(
                 const uint32_t sourceOffset =
                     cube.levelByteOffsets[(iMip * cube.faceCount) + iFace];
 
-                regions.push_back(vk::BufferImageCopy{
-                    .bufferOffset = sourceOffset,
-                    .bufferRowLength = 0,
-                    .bufferImageHeight = 0,
-                    .imageSubresource =
-                        vk::ImageSubresourceLayers{
-                            .aspectMask = vk::ImageAspectFlagBits::eColor,
-                            .mipLevel = iMip,
-                            .baseArrayLayer = iFace,
-                            .layerCount = 1,
-                        },
-                    .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
-                    .imageExtent =
-                        vk::Extent3D{
-                            .width = width,
-                            .height = height,
-                            .depth = 1,
-                        },
-                });
+                regions.push_back(
+                    vk::BufferImageCopy{
+                        .bufferOffset = sourceOffset,
+                        .bufferRowLength = 0,
+                        .bufferImageHeight = 0,
+                        .imageSubresource =
+                            vk::ImageSubresourceLayers{
+                                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                                .mipLevel = iMip,
+                                .baseArrayLayer = iFace,
+                                .layerCount = 1,
+                            },
+                        .imageOffset = vk::Offset3D{.x = 0, .y = 0, .z = 0},
+                        .imageExtent =
+                            vk::Extent3D{
+                                .width = width,
+                                .height = height,
+                                .depth = 1,
+                            },
+                    });
             }
         }
         return regions;
