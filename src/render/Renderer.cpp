@@ -313,7 +313,7 @@ bool Renderer::drawUi(scene::Camera &cam, const scene::Scene &scene)
     ImGui::Checkbox("Bloom", &m_applyBloom);
     if (m_applyBloom)
         m_bloom->drawUi();
-    ImGui::Checkbox("Temporal Anti-Aliasing", &m_applyTaa);
+    ImGui::Checkbox("Temporal Anti-Aliasing##Checkbox", &m_applyTaa);
 
     if (!m_referenceRt)
     {

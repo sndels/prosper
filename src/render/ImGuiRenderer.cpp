@@ -102,21 +102,22 @@ void ImGuiRenderer::init(const gfx::SwapchainConfig &swapConfig)
         .DescriptorPool = m_descriptorPool,
         .MinImageCount = swapConfig.imageCount,
         .ImageCount = swapConfig.imageCount,
-        .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
         .PipelineCache = vk::PipelineCache{},
+        .PipelineInfoMain =
+            ImGui_ImplVulkan_PipelineInfo{
+                .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+                .PipelineRenderingCreateInfo =
+                    vk::PipelineRenderingCreateInfo{
+                        .colorAttachmentCount = 1,
+                        .pColorAttachmentFormats = &sFinalCompositeFormat,
+                    }, // TODO: Pass in VMA callbacks?
+            },
         .UseDynamicRendering = true,
-        .PipelineRenderingCreateInfo =
-            vk::PipelineRenderingCreateInfo{
-                .colorAttachmentCount = 1,
-                .pColorAttachmentFormats = &sFinalCompositeFormat,
-            }, // TODO: Pass in VMA callbacks?
         .CheckVkResultFn = checkSuccessImGui,
         .MinAllocationSize =
             static_cast<VkDeviceSize>(1024) * static_cast<VkDeviceSize>(1024),
     };
     ImGui_ImplVulkan_Init(&init_info);
-
-    ImGui_ImplVulkan_CreateFontsTexture();
 
     // ImGui glfw toggles cursor visibility in its handling so let's turn that
     // off to have our own.
@@ -144,7 +145,7 @@ void ImGuiRenderer::startFrame()
     const ImGuiDockNodeFlags dockFlags =
         ImGuiDockNodeFlags_NoDockingInCentralNode |
         ImGuiDockNodeFlags_PassthruCentralNode;
-    m_dockAreaID = ImGui::DockSpaceOverViewport(nullptr, dockFlags);
+    m_dockAreaID = ImGui::DockSpaceOverViewport(0, nullptr, dockFlags);
 }
 
 void ImGuiRenderer::endFrame(
@@ -210,18 +211,26 @@ ImVec2 ImGuiRenderer::centerAreaSize() const
 
 void ImGuiRenderer::createDescriptorPool()
 {
-    // One descriptor for the font. More are needed if things like textures are
-    // loaded into imgui itselfe
-    const vk::DescriptorPoolSize poolSize{
-        .type = vk::DescriptorType::eCombinedImageSampler,
-        .descriptorCount = 1,
-    };
+    const StaticArray poolSizes{{
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eSampledImage,
+            .descriptorCount =
+                IMGUI_IMPL_VULKAN_MINIMUM_SAMPLED_IMAGE_POOL_SIZE,
+        },
+        {
+            .type = vk::DescriptorType::eSampler,
+            .descriptorCount = IMGUI_IMPL_VULKAN_MINIMUM_SAMPLER_POOL_SIZE,
+        },
+    }};
+    uint32_t maxSets = 0;
+    for (const vk::DescriptorPoolSize &size : poolSizes)
+        maxSets += size.descriptorCount;
     m_descriptorPool = gfx::gDevice.logical().createDescriptorPool(
         vk::DescriptorPoolCreateInfo{
             .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-            .maxSets = 1,
-            .poolSizeCount = 1,
-            .pPoolSizes = &poolSize,
+            .maxSets = maxSets,
+            .poolSizeCount = poolSizes.size(),
+            .pPoolSizes = poolSizes.data(),
         });
 }
 
