@@ -29,46 +29,41 @@
 
 using namespace wheels;
 
-#define ALL_FEATURE_STRUCTS_LIST                                               \
-    vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features,           \
-        vk::PhysicalDeviceVulkan12Features,                                    \
-        vk::PhysicalDeviceVulkan13Features,                                    \
-        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,                       \
-        vk::PhysicalDeviceMeshShaderFeaturesEXT
+// clang-format off
+#define ALL_FEATURE_STRUCTS_LIST                        \
+    vk::PhysicalDeviceFeatures2,                        \
+    vk::PhysicalDeviceVulkan11Features,                 \
+    vk::PhysicalDeviceVulkan12Features,                 \
+    vk::PhysicalDeviceVulkan13Features,                 \
+    vk::PhysicalDeviceAccelerationStructureFeaturesKHR, \
+    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,    \
+    vk::PhysicalDeviceMeshShaderFeaturesEXT
 
-#define REQUIRED_FEATURES                                                      \
-    vk::PhysicalDeviceFeatures2, features.geometryShader,                      \
-        vk::PhysicalDeviceFeatures2, features.samplerAnisotropy,               \
-        vk::PhysicalDeviceFeatures2,                                           \
-        features.shaderStorageImageReadWithoutFormat,                          \
-        vk::PhysicalDeviceFeatures2,                                           \
-        features.shaderStorageImageWriteWithoutFormat,                         \
-        vk::PhysicalDeviceFeatures2,                                           \
-        features.shaderSampledImageArrayDynamicIndexing,                       \
-        vk::PhysicalDeviceFeatures2, features.pipelineStatisticsQuery,         \
-        vk::PhysicalDeviceVulkan11Features, storageBuffer16BitAccess,          \
-        vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                \
-        vk::PhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound,   \
-        vk::PhysicalDeviceVulkan12Features,                                    \
-        shaderSampledImageArrayNonUniformIndexing,                             \
-        vk::PhysicalDeviceVulkan12Features,                                    \
-        shaderStorageBufferArrayNonUniformIndexing,                            \
-        vk::PhysicalDeviceVulkan12Features,                                    \
-        descriptorBindingUpdateUnusedWhilePending,                             \
-        vk::PhysicalDeviceVulkan12Features,                                    \
-        descriptorBindingVariableDescriptorCount,                              \
-        vk::PhysicalDeviceVulkan12Features, runtimeDescriptorArray,            \
-        vk::PhysicalDeviceVulkan12Features, hostQueryReset,                    \
-        vk::PhysicalDeviceVulkan12Features, bufferDeviceAddress,               \
-        vk::PhysicalDeviceVulkan12Features, storageBuffer8BitAccess,           \
-        vk::PhysicalDeviceVulkan13Features, synchronization2,                  \
-        vk::PhysicalDeviceVulkan13Features, dynamicRendering,                  \
-        vk::PhysicalDeviceVulkan13Features, maintenance4,                      \
-        vk::PhysicalDeviceAccelerationStructureFeaturesKHR,                    \
-        accelerationStructure,                                                 \
-        vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,   \
-        vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader
+#define REQUIRED_FEATURES                                                           \
+    vk::PhysicalDeviceFeatures2, features.geometryShader,                           \
+    vk::PhysicalDeviceFeatures2, features.samplerAnisotropy,                        \
+    vk::PhysicalDeviceFeatures2, features.shaderStorageImageReadWithoutFormat,      \
+    vk::PhysicalDeviceFeatures2, features.shaderStorageImageWriteWithoutFormat,     \
+    vk::PhysicalDeviceFeatures2, features.shaderSampledImageArrayDynamicIndexing,   \
+    vk::PhysicalDeviceFeatures2, features.pipelineStatisticsQuery,                  \
+    vk::PhysicalDeviceVulkan11Features, storageBuffer16BitAccess,                   \
+    vk::PhysicalDeviceVulkan12Features, descriptorIndexing,                         \
+    vk::PhysicalDeviceVulkan12Features, descriptorBindingPartiallyBound,            \
+    vk::PhysicalDeviceVulkan12Features, shaderSampledImageArrayNonUniformIndexing,  \
+    vk::PhysicalDeviceVulkan12Features, shaderStorageBufferArrayNonUniformIndexing, \
+    vk::PhysicalDeviceVulkan12Features, descriptorBindingUpdateUnusedWhilePending,  \
+    vk::PhysicalDeviceVulkan12Features, descriptorBindingVariableDescriptorCount,   \
+    vk::PhysicalDeviceVulkan12Features, runtimeDescriptorArray,                     \
+    vk::PhysicalDeviceVulkan12Features, hostQueryReset,                             \
+    vk::PhysicalDeviceVulkan12Features, bufferDeviceAddress,                        \
+    vk::PhysicalDeviceVulkan12Features, storageBuffer8BitAccess,                    \
+    vk::PhysicalDeviceVulkan13Features, synchronization2,                           \
+    vk::PhysicalDeviceVulkan13Features, dynamicRendering,                           \
+    vk::PhysicalDeviceVulkan13Features, maintenance4,                               \
+    vk::PhysicalDeviceAccelerationStructureFeaturesKHR, accelerationStructure,      \
+    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, rayTracingPipeline,            \
+    vk::PhysicalDeviceMeshShaderFeaturesEXT, meshShader
+// clang-format on
 
 namespace gfx
 {
