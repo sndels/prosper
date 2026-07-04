@@ -156,9 +156,6 @@ void RtReference::drawUi()
         "Roulette Start", &m_rouletteStartBounce, 0u, m_maxBounces);
     m_accumulationDirty |=
         utils::sliderU32("Max bounces", &m_maxBounces, 1u, sMaxBounces);
-
-    m_maxBounces = std::min(m_maxBounces, sMaxBounces);
-    m_rouletteStartBounce = std::min(m_rouletteStartBounce, m_maxBounces);
 }
 
 RtReference::Output RtReference::record(

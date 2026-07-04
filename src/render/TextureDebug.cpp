@@ -184,8 +184,9 @@ void TextureDebug::drawUi(uint32_t nextFrame)
                          gRenderResources.images->resource(activeHandle)
                              .subresourceRange.levelCount) -
                      1;
-        ImGui::DragInt("LoD##TextureDebug", &settings->lod, 0.02f, 0, maxLod);
-        settings->lod = std::clamp(settings->lod, 0, maxLod);
+        ImGui::DragInt(
+            "LoD##TextureDebug", &settings->lod, 0.02f, 0, maxLod, "%d",
+            ImGuiSliderFlags_AlwaysClamp);
     }
 
     utils::enumDropdown("Channel", settings->channelType, sChannelTypeNames);
@@ -199,12 +200,9 @@ void TextureDebug::drawUi(uint32_t nextFrame)
         // Adapt formatting to range, this also controls actual precicion of the
         // values we get
         const char *format = rangeLen < 0.01 ? "%.6f" : "%.3f";
-        ImGui::DragFloat2(
-            "Range##TextureDebug", &settings->range[0], rangeSpeed, -1e6f, 1e6f,
-            format);
-        // Don't allow the limits swapping places
-        settings->range[0] = std::min(settings->range[0], settings->range[1]);
-        settings->range[1] = std::max(settings->range[0], settings->range[1]);
+        ImGui::DragFloatRange2(
+            "Range##TextureDebug", &settings->range[0], &settings->range[1],
+            rangeSpeed, -1e6f, 1e6f, format);
     }
 
     {

@@ -756,9 +756,9 @@ void App::drawOptions()
     ImGui::Checkbox("Limit FPS", &m_useFpsLimit);
     if (m_useFpsLimit)
     {
-        ImGui::DragInt("##FPS limit value", &m_fpsLimit, 5.f, 30, 250);
-        // Drag doesn't clamp values that are input as text
-        m_fpsLimit = std::max(m_fpsLimit, 30);
+        ImGui::DragInt(
+            "##FPS limit value", &m_fpsLimit, 5.f, 30, 250, "%d",
+            ImGuiSliderFlags_AlwaysClamp);
     }
 
     ImGui::Checkbox("Recompile shaders", &m_recompileShaders);
