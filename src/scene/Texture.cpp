@@ -72,7 +72,7 @@ CacheTag readCacheTag(const std::filesystem::path &cacheFile)
     // NOTE:
     // Caches aren't supposed to be portable so we don't pay attention to
     // endianness.
-    std::ifstream tagFile{tagPath};
+    std::ifstream tagFile{tagPath, std::ios::binary};
 
     readRaw(tagFile, tag.version);
     if (sTextureCacheVersion != tag.version)
