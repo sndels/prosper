@@ -803,15 +803,6 @@ void writeCache(
 
 void loadNextMesh(DeferredLoadingContext &ctx)
 {
-    // Set up a custom allocator for meshopt, let's keep track of allocations
-    // there too
-    sMeshoptAllocator = &gAllocators.loadingWorker;
-    auto meshoptAllocate = [](size_t byteCount) -> void *
-    { return sMeshoptAllocator->allocate(byteCount); };
-    auto meshoptDeallocate = [](void *ptr)
-    { sMeshoptAllocator->deallocate(ptr); };
-    meshopt_setAllocator(meshoptAllocate, meshoptDeallocate);
-
     const uint32_t meshIndex = ctx.workerLoadedMeshCount;
     WHEELS_ASSERT(meshIndex < ctx.meshes.size());
 
@@ -1034,6 +1025,15 @@ void loadingWorker(DeferredLoadingContext *ctx)
     WHEELS_ASSERT(gfx::gDevice.graphicsQueue() != gfx::gDevice.transferQueue());
 
     setCurrentThreadName("prosper loading");
+
+    // Set up a custom allocator for meshopt, let's keep track of allocations
+    // there too
+    sMeshoptAllocator = &gAllocators.loadingWorker;
+    auto meshoptAllocate = [](size_t byteCount) -> void *
+    { return sMeshoptAllocator->allocate(byteCount); };
+    auto meshoptDeallocate = [](void *ptr)
+    { sMeshoptAllocator->deallocate(ptr); };
+    meshopt_setAllocator(meshoptAllocate, meshoptDeallocate);
 
     ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
