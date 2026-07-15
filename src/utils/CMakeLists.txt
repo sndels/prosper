@@ -8,6 +8,7 @@ set(PROSPER_UTILS_INCLUDES
     ${CMAKE_CURRENT_LIST_DIR}/Logger.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Profiler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/SceneStats.hpp
+    ${CMAKE_CURRENT_LIST_DIR}/TaskScheduler.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Ui.hpp
     ${CMAKE_CURRENT_LIST_DIR}/Utils.hpp
@@ -20,6 +21,7 @@ set(PROSPER_UTILS_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/Ktx.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Logger.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Profiler.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/TaskScheduler.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Timer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/Utils.cpp
     PARENT_SCOPE

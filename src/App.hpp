@@ -9,6 +9,7 @@
 #include "scene/Fwd.hpp"
 #include "utils/Profiler.hpp"
 #include "utils/SceneStats.hpp"
+#include "utils/TaskScheduler.hpp"
 #include "utils/Timer.hpp"
 
 #include <filesystem>
@@ -146,7 +147,9 @@ class App
     wheels::StaticArray<vk::Semaphore, MAX_SWAPCHAIN_IMAGES>
         m_imageSubmitSemaphores;
 
-    std::future<wheels::HashSet<std::filesystem::path>> m_fileChanges;
+    enki::TaskSet m_fileChangesPollTask;
+    wheels::HashSet<std::filesystem::path> m_fileChanges{
+        m_fileChangePollingAlloc};
 };
 
 #endif // PROSPER_APP_HPP

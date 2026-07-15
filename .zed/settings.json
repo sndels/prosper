@@ -57,7 +57,12 @@
   },
   "lsp": {
     // To make this work on windows, LLVM/bin needs to be in PATH and clangd.exe should be duplicated as clangd-20.exe
-    "clangd": { "binary": { "path": "clangd-20" } },
+    "clangd": {
+      "binary": {
+        "path": "clangd-20",
+        "arguments": ["-header-insertion=never"],
+      },
+    },
   },
   "remove_trailing_whitespace_on_save": true,
   "ensure_final_newline_on_save": true,

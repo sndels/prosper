@@ -6,6 +6,7 @@
 #include "render/RenderResources.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Profiler.hpp"
+#include "utils/TaskScheduler.hpp"
 #include "utils/Utils.hpp"
 
 #include <cstdlib>
@@ -177,6 +178,9 @@ int main(int argc, char *argv[])
         // to them in classes adds needless noise. This style of global avoids
         // many issues in initialization order. More in Game Engine Architecture
         // 3rd ed. section 6.1.2
+        utils::initTaskScheduler();
+        defer { utils::destroyTaskScheduler(); };
+
         tl("Allocators init", []() { gAllocators.init(); });
         defer { gAllocators.destroy(); };
 
