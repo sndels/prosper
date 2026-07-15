@@ -40,3 +40,6 @@
 [submodule "ext/fmt"]
 	path = ext/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "ext/enkiTS"]
+	path = ext/enkiTS
+	url = https://github.com/dougbinks/enkiTS.git

@@ -112,6 +112,7 @@ target_link_libraries(prosper
     cxxopts
     cgltf
     fmt::fmt
+    enkiTS
     glfw
     glm
     imgui

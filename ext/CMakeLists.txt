@@ -124,5 +124,26 @@ target_include_directories(tomlcpp
 set(FMT_SYSTEM_HEADERS ON CACHE BOOL "Expose headers with marking them as system.")
 add_subdirectory(fmt)
 
+add_library(enkiTS)
+target_sources(enkiTS
+    PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/enkiTS/src/TaskScheduler.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/enkiTS/src/LockLessMultiReadPipe.h
+    ${CMAKE_CURRENT_LIST_DIR}/enkiTS/src/TaskScheduler.h
+)
+target_include_directories(enkiTS
+    SYSTEM
+    PUBLIC
+    ${CMAKE_CURRENT_LIST_DIR}/enkiTS/src
+)
+if(UNIX)
+    set( CMAKE_THREAD_PREFER_PTHREAD TRUE )
+    find_package( Threads REQUIRED )
+    if( CMAKE_USE_PTHREADS_INIT )
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread" )
+    endif()
+    target_link_libraries( enkiTS ${CMAKE_THREAD_LIBS_INIT} )
+endif()
+
 # TODO: Why does compilation fail for any modules that are added after this ispc "include"?
 include(ispc_texcomp_CMakeLists.txt)
