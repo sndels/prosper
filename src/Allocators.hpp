@@ -12,6 +12,7 @@ struct Allocators
 
     static const size_t sGeneralAllocatorSize = wheels::megabytes(512);
     static const size_t sWorldAllocatorSize = wheels::megabytes(128);
+    static const size_t sThreadAllocatorSize = wheels::megabytes(64);
 
     // Enough for 4K textures, it seems. Should also be plenty for meshes as we
     // have a hard limit of 64MB for a single mesh from the default geometry
@@ -29,6 +30,7 @@ struct Allocators
     wheels::TlsfAllocator loadingWorker;
     std::atomic<size_t> loadingWorkerHighWatermark{0};
     wheels::LinearAllocator world;
+    wheels::LinearAllocator &threadAllocator() const;
 
     void init();
     void destroy();
