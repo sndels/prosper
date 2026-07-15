@@ -117,14 +117,14 @@ class DeferredLoadingContext
     cgltf_data *gltfData{nullptr};
     vk::CommandBuffer cb;
     uint32_t workerLoadedImageCount{0};
-    wheels::HashSet<uint32_t> sRgbColorImages{gAllocators.loadingWorker};
-    wheels::HashSet<uint32_t> linearColorImages{gAllocators.loadingWorker};
+    wheels::HashSet<uint32_t> sRgbColorImages{gAllocators.general};
+    wheels::HashSet<uint32_t> linearColorImages{gAllocators.general};
     wheels::Array<wheels::Pair<InputGeometryMetadata, MeshInfo>> meshes{
-        gAllocators.loadingWorker};
-    wheels::Array<wheels::String> meshNames{gAllocators.loadingWorker};
+        gAllocators.general};
+    wheels::Array<wheels::String> meshNames{gAllocators.general};
     gfx::Buffer geometryUploadBuffer;
     wheels::Array<uint32_t> geometryBufferRemainingByteCounts{
-        gAllocators.loadingWorker};
+        gAllocators.general};
     uint32_t workerLoadedMeshCount{0};
     utils::Timer meshTimer;
     utils::Timer textureTimer;
@@ -135,13 +135,13 @@ class DeferredLoadingContext
     // them. The managing thread is assumed to copy the buffers from here and is
     // responsible for their destruction. This array should only be read from
     // outside this class, write ops are not allowed.
-    wheels::Array<gfx::Buffer> geometryBuffers{gAllocators.loadingWorker};
+    wheels::Array<gfx::Buffer> geometryBuffers{gAllocators.general};
     std::mutex loadedMeshesMutex;
     wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes{
-        gAllocators.loadingWorker};
+        gAllocators.general};
 
     std::mutex loadedTexturesMutex;
-    wheels::Array<Texture2D> loadedTextures{gAllocators.loadingWorker};
+    wheels::Array<Texture2D> loadedTextures{gAllocators.general};
 
     std::atomic<bool> interruptLoading{false};
 
@@ -153,8 +153,7 @@ class DeferredLoadingContext
     uint32_t loadedMeshCount{0};
     uint32_t loadedImageCount{0};
     uint32_t loadedMaterialCount{0};
-    wheels::Array<shader_structs::MaterialData> materials{
-        gAllocators.loadingWorker};
+    wheels::Array<shader_structs::MaterialData> materials{gAllocators.general};
     gfx::Buffer stagingBuffer;
 
   private:

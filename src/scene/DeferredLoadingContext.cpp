@@ -29,16 +29,12 @@ const uint32_t sMeshCacheVersion = 4;
 // Balance between cluster size and cone culling efficiency
 const float sConeWeight = 0.5f;
 
-// Need to pass the allocator with function pointers that don't have userdata
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-Allocator *sMeshoptAllocator = nullptr;
-
 template <typename T>
 void remapVertexAttribute(
     Array<T> &src, const Array<uint32_t> &remapIndices,
     size_t uniqueVertexCount)
 {
-    Array<T> remapped{gAllocators.loadingWorker};
+    Array<T> remapped{gAllocators.threadAllocator()};
     remapped.resize(uniqueVertexCount);
     meshopt_remapVertexBuffer(
         remapped.data(), src.data(), src.size(), sizeof(T),
@@ -81,24 +77,24 @@ struct MeshData
 
 struct PackedMeshData
 {
-    wheels::Array<uint32_t> indices{gAllocators.loadingWorker};
+    wheels::Array<uint32_t> indices{gAllocators.threadAllocator()};
     // Packed as r16g16b16a16_sfloat
     // TODO:
     // Pack as r16g16b16a16_snorm relative to object space AABB to have uniform
     // (and potentially better) precision. Unpacking would then be pos *
     // aabbHalfAxisOS + aabbCenterOS and it can be concatenated into the
     // objectToWorld transform (careful to not include it in parent transforms)
-    wheels::Array<uint64_t> positions{gAllocators.loadingWorker};
+    wheels::Array<uint64_t> positions{gAllocators.threadAllocator()};
     // Packed as r10g10b10(a2)_snorm
-    wheels::Array<uint32_t> normals{gAllocators.loadingWorker};
+    wheels::Array<uint32_t> normals{gAllocators.threadAllocator()};
     // Packed as r10g10b10a2_snorm, sign in a2
-    wheels::Array<uint32_t> tangents{gAllocators.loadingWorker};
+    wheels::Array<uint32_t> tangents{gAllocators.threadAllocator()};
     // Packed as r16g16_sfloat
-    wheels::Array<uint32_t> texCoord0s{gAllocators.loadingWorker};
-    wheels::Array<meshopt_Meshlet> meshlets{gAllocators.loadingWorker};
-    wheels::Array<MeshletBounds> meshletBounds{gAllocators.loadingWorker};
-    wheels::Array<uint32_t> meshletVertices{gAllocators.loadingWorker};
-    wheels::Array<uint8_t> meshletTriangles{gAllocators.loadingWorker};
+    wheels::Array<uint32_t> texCoord0s{gAllocators.threadAllocator()};
+    wheels::Array<meshopt_Meshlet> meshlets{gAllocators.threadAllocator()};
+    wheels::Array<MeshletBounds> meshletBounds{gAllocators.threadAllocator()};
+    wheels::Array<uint32_t> meshletVertices{gAllocators.threadAllocator()};
+    wheels::Array<uint8_t> meshletTriangles{gAllocators.threadAllocator()};
 };
 static_assert(
     sizeof(meshopt_Meshlet) == 4 * sizeof(uint32_t),
@@ -124,15 +120,15 @@ MeshData getMeshData(
     const InputGeometryMetadata &metadata, const MeshInfo &meshInfo)
 {
     MeshData ret{
-        .indices = Array<uint32_t>{gAllocators.loadingWorker},
-        .positions = Array<vec3>{gAllocators.loadingWorker},
-        .normals = Array<vec3>{gAllocators.loadingWorker},
-        .tangents = Array<vec4>{gAllocators.loadingWorker},
-        .texCoord0s = Array<vec2>{gAllocators.loadingWorker},
-        .meshlets = Array<meshopt_Meshlet>{gAllocators.loadingWorker},
-        .meshletBounds = Array<MeshletBounds>{gAllocators.loadingWorker},
-        .meshletVertices = Array<uint32_t>{gAllocators.loadingWorker},
-        .meshletTriangles = Array<uint8_t>{gAllocators.loadingWorker},
+        .indices = Array<uint32_t>{gAllocators.threadAllocator()},
+        .positions = Array<vec3>{gAllocators.threadAllocator()},
+        .normals = Array<vec3>{gAllocators.threadAllocator()},
+        .tangents = Array<vec4>{gAllocators.threadAllocator()},
+        .texCoord0s = Array<vec2>{gAllocators.threadAllocator()},
+        .meshlets = Array<meshopt_Meshlet>{gAllocators.threadAllocator()},
+        .meshletBounds = Array<MeshletBounds>{gAllocators.threadAllocator()},
+        .meshletVertices = Array<uint32_t>{gAllocators.threadAllocator()},
+        .meshletTriangles = Array<uint8_t>{gAllocators.threadAllocator()},
     };
 
     {
@@ -256,7 +252,7 @@ void mikkTSetTSpaceBasic(
 template <typename T>
 void flattenAttribute(Array<T> &attribute, const Array<uint32_t> &indices)
 {
-    Array<T> flattened{gAllocators.loadingWorker, indices.size()};
+    Array<T> flattened{gAllocators.threadAllocator(), indices.size()};
     for (const uint32_t i : indices)
         flattened.push_back(attribute[i]);
 
@@ -320,7 +316,7 @@ void generateTangents(MeshData &meshData)
         },
     }};
 
-    Array<uint32_t> remapTable{gAllocators.loadingWorker};
+    Array<uint32_t> remapTable{gAllocators.threadAllocator()};
     remapTable.resize(flattenedVertexCount);
     const size_t uniqueVertexCount = meshopt_generateVertexRemapMulti(
         remapTable.data(), nullptr, flattenedVertexCount, flattenedVertexCount,
@@ -343,7 +339,7 @@ void optimizeMeshData(
     const size_t indexCount = meshData.indices.size();
     const size_t vertexCount = meshData.positions.size();
 
-    Array<uint32_t> tmpIndices{gAllocators.loadingWorker};
+    Array<uint32_t> tmpIndices{gAllocators.threadAllocator()};
     tmpIndices.resize(meshData.indices.size());
     meshopt_optimizeVertexCache(
         tmpIndices.data(), meshData.indices.data(), indexCount, vertexCount);
@@ -354,7 +350,7 @@ void optimizeMeshData(
         &meshData.positions.data()[0].x, vertexCount, sizeof(vec3),
         vertexCacheDegradationThreshod);
 
-    Array<uint32_t> remapIndices{gAllocators.loadingWorker};
+    Array<uint32_t> remapIndices{gAllocators.threadAllocator()};
     remapIndices.resize(vertexCount);
     const size_t uniqueVertexCount = meshopt_optimizeVertexFetchRemap(
         remapIndices.data(), meshData.indices.data(), indexCount, vertexCount);
@@ -625,8 +621,8 @@ void writeCache(
     const bool hasTexCoord0s = !meshData.texCoord0s.empty();
 
     const bool usesShortIndices = meshInfo.vertexCount <= 0xFFFF;
-    Array<uint8_t> packedIndices{gAllocators.loadingWorker};
-    Array<uint8_t> packedMeshletVertices{gAllocators.loadingWorker};
+    Array<uint8_t> packedIndices{gAllocators.threadAllocator()};
+    Array<uint8_t> packedMeshletVertices{gAllocators.threadAllocator()};
     if (usesShortIndices)
     {
         {
@@ -822,9 +818,6 @@ void loadNextMesh(DeferredLoadingContext &ctx)
     const InputGeometryMetadata &metadata = nextMesh.first;
     MeshInfo info = nextMesh.second;
 
-    const char *meshName = ctx.gltfData->meshes[metadata.sourceMeshIndex].name;
-    ctx.meshNames.emplace_back(gAllocators.loadingWorker, meshName);
-
     const std::filesystem::path cachePath =
         getCachePath(ctx.sceneDir, meshIndex);
     if (!cacheValid(cachePath, ctx.sceneWriteTime))
@@ -838,7 +831,7 @@ void loadNextMesh(DeferredLoadingContext &ctx)
                 asserted_cast<uint32_t>(meshData.positions.size());
         }
 
-        optimizeMeshData(meshData, info, meshName);
+        optimizeMeshData(meshData, info, ctx.meshNames[meshIndex].c_str());
 
         generateMeshlets(meshData);
 
@@ -850,7 +843,7 @@ void loadNextMesh(DeferredLoadingContext &ctx)
     }
 
     // Always read from the cache to make caching issues always visible
-    Array<uint8_t> dataBlob{gAllocators.loadingWorker};
+    Array<uint8_t> dataBlob{gAllocators.threadAllocator()};
     const Optional<MeshCacheHeader> cacheHeader =
         readCache(cachePath, &dataBlob);
     WHEELS_ASSERT(cacheHeader.has_value());
@@ -941,7 +934,7 @@ void loadNextTexture(DeferredLoadingContext &ctx)
         });
 
     LinearAllocator scopeBacking{
-        gAllocators.loadingWorker, Allocators::sLoadingScratchSize};
+        gAllocators.threadAllocator(), Allocators::sLoadingScratchSize};
 
     TextureColorSpace colorSpace = TextureColorSpace::sRgb;
     if (ctx.linearColorImages.contains(imageIndex))
@@ -1027,30 +1020,21 @@ void loadingWorker(DeferredLoadingContext *ctx)
     WHEELS_ASSERT(ctx != nullptr);
     WHEELS_ASSERT(gfx::gDevice.graphicsQueue() != gfx::gDevice.transferQueue());
 
-    // Set up a custom allocator for meshopt, let's keep track of allocations
-    // there too
-    sMeshoptAllocator = &gAllocators.loadingWorker;
     auto meshoptAllocate = [](size_t byteCount) -> void *
-    { return sMeshoptAllocator->allocate(byteCount); };
+    { return gAllocators.threadAllocator().allocate(byteCount); };
     auto meshoptDeallocate = [](void *ptr)
-    { sMeshoptAllocator->deallocate(ptr); };
+    { gAllocators.threadAllocator().deallocate(ptr); };
     meshopt_setAllocator(meshoptAllocate, meshoptDeallocate);
 
     ctx->meshTimer.reset();
     while (!ctx->interruptLoading)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
-        {
             loadNextMesh(*ctx);
-
-            // Only update for meshes as textures will always allocate a big
-            // worst case tmp chunk for linear allocation
-            gAllocators.loadingWorkerHighWatermark =
-                gAllocators.loadingWorker.stats()
-                    .allocated_byte_count_high_watermark;
-        }
         else
             loadNextTexture(*ctx);
+
+        gAllocators.threadAllocator().reset();
     }
 }
 
@@ -1104,6 +1088,11 @@ void DeferredLoadingContext::init(
             .commandPool = gfx::gDevice.transferPool(),
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = 1})[0];
+    meshes.reserve(gltfData->meshes_count);
+    meshNames.reserve(gltfData->meshes_count);
+    // 6.4GB should be plenty for mesh data
+    geometryBufferRemainingByteCounts.reserve(100);
+    geometryBuffers.reserve(100);
     loadedMeshes.reserve(gltfData->meshes_count);
     loadedTextures.reserve(gltfData->images_count);
     materials.reserve(gltfData->materials_count);
@@ -1129,6 +1118,12 @@ void DeferredLoadingContext::launch()
 {
     WHEELS_ASSERT(initialized);
     WHEELS_ASSERT(!launched && "Tried to launch deferred loading worker twice");
+
+    for (const auto &[metadata, _] : meshes)
+    {
+        const char *meshName = gltfData->meshes[metadata.sourceMeshIndex].name;
+        meshNames.emplace_back(gAllocators.general, meshName);
+    }
 
     for (const cgltf_material &material :
          Span{gltfData->materials, gltfData->materials_count})
@@ -1310,12 +1305,20 @@ uint32_t DeferredLoadingContext::getGeometryBuffer(uint32_t byteCount)
                 .debugName = "GeometryBuffer",
             });
         {
+            WHEELS_ASSERT(
+                geometryBuffers.size() < geometryBuffers.capacity() &&
+                "Ran out of reserved array space. Allocator isn't thread safe");
+
             // The managing thread should only read the buffer array. A lock
             // is only be needed for the append op on the worker side to
             // sync those reads.
             const std::lock_guard lock{geometryBuffersMutex};
             geometryBuffers.push_back(WHEELS_MOV(buffer));
         }
+        WHEELS_ASSERT(
+            geometryBufferRemainingByteCounts.size() <
+                geometryBufferRemainingByteCounts.capacity() &&
+            "Ran out of reserved array space. Allocator isn't thread safe");
         geometryBufferRemainingByteCounts.push_back(sGeometryBufferSize);
     }
 

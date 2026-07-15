@@ -883,10 +883,6 @@ void App::drawMemory(uint32_t scopeHighWatermark) const
     ImGui::Text("High watermarks:\n");
     ImGui::Text("  ctors : %uKB\n", m_ctorScratchHighWatermark / 1024);
     ImGui::Text(
-        "  deferred general: %uMB\n",
-        asserted_cast<uint32_t>(
-            gAllocators.loadingWorkerHighWatermark / 1024 / 1024));
-    ImGui::Text(
         "  world: %uKB\n",
         asserted_cast<uint32_t>(
             gAllocators.world.allocated_byte_count_high_watermark() / 1024));

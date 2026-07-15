@@ -25,7 +25,6 @@ wheels::LinearAllocator &Allocators::threadAllocator() const
 void Allocators::init()
 {
     this->general.init(sGeneralAllocatorSize);
-    this->loadingWorker.init(sLoadingAllocatorSize);
     this->world.init(sWorldAllocatorSize);
 
     enki::LambdaPinnedTask initThreadAllocator(
@@ -42,7 +41,6 @@ void Allocators::init()
 void Allocators::destroy()
 {
     this->general.destroy();
-    this->loadingWorker.destroy();
     this->world.destroy();
 
     enki::LambdaPinnedTask destroyThreadAllocator(
