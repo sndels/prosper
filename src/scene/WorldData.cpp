@@ -1,6 +1,7 @@
 #include "WorldData.hpp"
 
 #include "gfx/Device.hpp"
+#include "scene/Texture.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Profiler.hpp"
 
@@ -725,13 +726,17 @@ void WorldData::loadTextures(
     {
         const vk::CommandBuffer cb = gfx::gDevice.beginGraphicsCommands();
         m_texture2Ds.emplace_back();
+
+        const std::filesystem::path emptyPath = resPath("texture/empty.png");
+        const Texture2DOptions emptyOptions{
+            .initialState = gfx::ImageState::FragmentShaderRead |
+                            gfx::ImageState::RayTracingRead,
+        };
+        Texture2D::refreshCache(
+            scopeAlloc.child_scope(), emptyPath, emptyOptions);
         m_texture2Ds.back().init(
-            scopeAlloc.child_scope(), resPath("texture/empty.png"), cb,
-            stagingBuffer,
-            Texture2DOptions{
-                .initialState = gfx::ImageState::FragmentShaderRead |
-                                gfx::ImageState::RayTracingRead,
-            });
+            scopeAlloc.child_scope(), emptyPath, cb, stagingBuffer,
+            emptyOptions);
         gfx::gDevice.endGraphicsCommands(cb);
 
         texture2DSamplers.emplace_back();

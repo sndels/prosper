@@ -956,14 +956,17 @@ void loadNextTexture(DeferredLoadingContext &ctx)
             ctx.sRgbColorImages.contains(imageIndex) &&
             "Image should belong to exactly one colorspace set");
 
+    const std::filesystem::path imagePath = ctx.sceneDir / image.uri;
+    const Texture2DOptions options{
+        .generateMipMaps = true,
+        .colorSpace = colorSpace,
+    };
+
+    Texture2D::refreshCache(ScopedScratch{scopeBacking}, imagePath, options);
     Texture2D tex;
     tex.init(
-        ScopedScratch{scopeBacking}, ctx.sceneDir / image.uri, ctx.cb,
-        ctx.stagingBuffer,
-        Texture2DOptions{
-            .generateMipMaps = true,
-            .colorSpace = colorSpace,
-        });
+        ScopedScratch{scopeBacking}, imagePath, ctx.cb, ctx.stagingBuffer,
+        options);
 
     const gfx::QueueFamilies &families = gfx::gDevice.queueFamilies();
     WHEELS_ASSERT(families.graphicsFamily.has_value());

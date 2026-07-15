@@ -47,6 +47,10 @@ struct Texture2DOptions
 class Texture2D : public Texture
 {
   public:
+    static void refreshCache(
+        wheels::ScopedScratch scopeAlloc, const std::filesystem::path &path,
+        const Texture2DOptions &options = Texture2DOptions{});
+
     // The image is ready and stagingBuffer can be freed once cb is submitted
     // and has finished executing.
     void init(

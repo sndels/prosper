@@ -26,7 +26,7 @@ namespace
 
 const uint64_t sTextureCacheMagic = 0x5845'5452'5053'5250; // PRSPRTEX
 // This should be incremented when changes are made to what's cached
-const uint32_t sTextureCacheVersion = 5;
+const uint32_t sTextureCacheVersion = 6;
 
 struct UncompressedPixelData
 {
@@ -59,6 +59,8 @@ struct CacheTag
     // Use write time instead of a hash because hashing a 4k texture is _slow_
     // in debug.
     std::filesystem::file_time_type sourceWriteTime;
+    bool generateMipMaps{false};
+    TextureColorSpace colorSpace{TextureColorSpace::sRgb};
 };
 
 CacheTag readCacheTag(const std::filesystem::path &cacheFile)
@@ -90,13 +92,16 @@ CacheTag readCacheTag(const std::filesystem::path &cacheFile)
             "'");
 
     readRaw(tagFile, tag.sourceWriteTime);
+    readRaw(tagFile, tag.generateMipMaps);
+    readRaw(tagFile, tag.colorSpace);
 
     return tag;
 }
 
 void writeCacheTag(
     const std::filesystem::path &cacheFile,
-    const std::filesystem::file_time_type &sourceWriteTime)
+    const std::filesystem::file_time_type &sourceWriteTime,
+    const Texture2DOptions &options)
 {
     const std::filesystem::path tagPath = cacheTagPath(cacheFile);
 
@@ -114,6 +119,8 @@ void writeCacheTag(
     writeRaw(tagFile, sTextureCacheVersion);
     writeRaw(tagFile, sTextureCacheMagic);
     writeRaw(tagFile, sourceWriteTime);
+    writeRaw(tagFile, options.generateMipMaps);
+    writeRaw(tagFile, options.colorSpace);
     tagFile.close();
 
     // Make sure we have rw permissions for the user to be nice
@@ -130,7 +137,8 @@ void writeCacheTag(
 
 bool cacheValid(
     const std::filesystem::path &cacheFile,
-    const std::filesystem::file_time_type &sourceWriteTime)
+    const std::filesystem::file_time_type &sourceWriteTime,
+    const Texture2DOptions &options)
 {
     try
     {
@@ -149,7 +157,9 @@ bool cacheValid(
             return false;
         }
 
-        if (storedTag.sourceWriteTime != sourceWriteTime)
+        if (storedTag.sourceWriteTime != sourceWriteTime ||
+            storedTag.generateMipMaps != options.generateMipMaps ||
+            storedTag.colorSpace != options.colorSpace)
         {
             LOG_INFO("Stale cache for {}", cacheFile.string().c_str());
             return false;
@@ -366,6 +376,49 @@ vk::Image Texture::nativeHandle() const
 
 void Texture::destroy() { gfx::gDevice.destroy(m_image); }
 
+void Texture2D::refreshCache(
+    ScopedScratch scopeAlloc, const std::filesystem::path &path,
+    const Texture2DOptions &options)
+{
+    const std::filesystem::file_time_type sourceWriteTime =
+        std::filesystem::last_write_time(path);
+
+    const auto cached = cachePath(path);
+    if (cacheValid(cached, sourceWriteTime, options))
+        return;
+
+    const auto pathString = path.string();
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    const int desiredChannels = 4;
+    stbi_uc *stb_pixels = stbi_load(
+        pathString.c_str(), &width, &height, &channels, desiredChannels);
+    if (stb_pixels == nullptr)
+        throw std::runtime_error("Failed to load texture '" + pathString + "'");
+    channels = desiredChannels;
+
+    defer { stbi_image_free(stb_pixels); };
+
+    const UncompressedPixelData pixels{
+        .data =
+            Span{
+                stb_pixels, asserted_cast<size_t>(width) *
+                                asserted_cast<size_t>(height) *
+                                asserted_cast<size_t>(channels)},
+        .extent =
+            vk::Extent2D{
+                .width = asserted_cast<uint32_t>(width),
+                .height = asserted_cast<uint32_t>(height),
+            },
+        .channels = asserted_cast<uint32_t>(channels),
+    };
+
+    compress(scopeAlloc.child_scope(), cached, pixels, options);
+
+    writeCacheTag(cached, sourceWriteTime, options);
+}
+
 void Texture2D::init(
     ScopedScratch scopeAlloc, const std::filesystem::path &path,
     vk::CommandBuffer cb, const gfx::Buffer &stagingBuffer,
@@ -375,40 +428,7 @@ void Texture2D::init(
         std::filesystem::last_write_time(path);
 
     const auto cached = cachePath(path);
-    if (!cacheValid(cached, sourceWriteTime))
-    {
-        const auto pathString = path.string();
-        int width = 0;
-        int height = 0;
-        int channels = 0;
-        const int desiredChannels = 4;
-        stbi_uc *stb_pixels = stbi_load(
-            pathString.c_str(), &width, &height, &channels, desiredChannels);
-        if (stb_pixels == nullptr)
-            throw std::runtime_error(
-                "Failed to load texture '" + pathString + "'");
-        channels = desiredChannels;
-
-        defer { stbi_image_free(stb_pixels); };
-
-        const UncompressedPixelData pixels{
-            .data =
-                Span{
-                    stb_pixels, asserted_cast<size_t>(width) *
-                                    asserted_cast<size_t>(height) *
-                                    asserted_cast<size_t>(channels)},
-            .extent =
-                vk::Extent2D{
-                    .width = asserted_cast<uint32_t>(width),
-                    .height = asserted_cast<uint32_t>(height),
-                },
-            .channels = asserted_cast<uint32_t>(channels),
-        };
-
-        compress(scopeAlloc.child_scope(), cached, pixels, options);
-
-        writeCacheTag(cached, sourceWriteTime);
-    }
+    WHEELS_ASSERT(cacheValid(cached, sourceWriteTime, options));
 
     // TODO:
     // If cache was invalid, the newly cached one directly from memory
