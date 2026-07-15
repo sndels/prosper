@@ -8,6 +8,7 @@
 #include "gfx/Resources.hpp"
 #include "scene/Fwd.hpp"
 #include "scene/Material.hpp"
+#include "utils/TaskScheduler.hpp"
 #include "utils/Timer.hpp"
 
 #include <atomic>
@@ -106,10 +107,11 @@ class DeferredLoadingContext
     // Make shared context private and access through methods that handle
     // mutexes?
     bool initialized{false};
+    bool launched{false};
     std::filesystem::path sceneDir;
     std::filesystem::file_time_type sceneWriteTime;
     // If there's no worker, main thread handles loading
-    wheels::Optional<std::thread> worker;
+    enki::TaskSet worker;
 
     // Worker context
     cgltf_data *gltfData{nullptr};

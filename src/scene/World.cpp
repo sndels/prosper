@@ -227,8 +227,10 @@ void World::Impl::startFrame()
     // Launch on the first frame instead of the WorldData ctor to avoid the
     // deferred loading timer bloating from renderer setup etc.
     if (m_data.m_deferredLoadingContext.has_value() &&
-        !m_data.m_deferredLoadingContext->worker.has_value())
+        !m_data.m_deferredLoadingContext->launched)
+    {
         m_data.m_deferredLoadingContext->launch();
+    }
 
     if (m_nextScene.has_value())
     {

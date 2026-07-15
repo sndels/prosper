@@ -1027,8 +1027,6 @@ void loadingWorker(DeferredLoadingContext *ctx)
     WHEELS_ASSERT(ctx != nullptr);
     WHEELS_ASSERT(gfx::gDevice.graphicsQueue() != gfx::gDevice.transferQueue());
 
-    setCurrentThreadName("prosper loading");
-
     // Set up a custom allocator for meshopt, let's keep track of allocations
     // there too
     sMeshoptAllocator = &gAllocators.loadingWorker;
@@ -1080,10 +1078,10 @@ DeferredLoadingContext::~DeferredLoadingContext()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    if (worker.has_value())
+    if (launched && !worker.GetIsComplete())
     {
         interruptLoading = true;
-        worker->join();
+        utils::gTaskScheduler.WaitforTask(&worker);
     }
 
     gfx::gDevice.destroy(stagingBuffer);
@@ -1130,8 +1128,7 @@ void DeferredLoadingContext::init(
 void DeferredLoadingContext::launch()
 {
     WHEELS_ASSERT(initialized);
-    WHEELS_ASSERT(
-        !worker.has_value() && "Tried to launch deferred loading worker twice");
+    WHEELS_ASSERT(!launched && "Tried to launch deferred loading worker twice");
 
     for (const cgltf_material &material :
          Span{gltfData->materials, gltfData->materials_count})
@@ -1178,17 +1175,20 @@ void DeferredLoadingContext::launch()
         }
     }
 
-    worker = std::thread{&loadingWorker, this};
+    worker.m_Function =
+        [this](enki::TaskSetPartition /*range*/, uint32_t /*threadnum*/)
+    { loadingWorker(this); };
+    utils::gTaskScheduler.AddTaskSetToPipe(&worker);
+    launched = true;
 }
 
 void DeferredLoadingContext::kill()
 {
     // This is ok to call unconditionally even if init() hasn't been called
-    if (worker.has_value())
+    if (launched && !worker.GetIsComplete())
     {
         interruptLoading = true;
-        worker->join();
-        worker.reset();
+        utils::gTaskScheduler.WaitforTask(&worker);
     }
 }
 

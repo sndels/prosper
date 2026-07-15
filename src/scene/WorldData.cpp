@@ -906,7 +906,7 @@ void WorldData::loadModels(ScopedScratch scopeAlloc, const cgltf_data &gltfData)
 
             WHEELS_ASSERT(
                 m_deferredLoadingContext.has_value() &&
-                !m_deferredLoadingContext->worker.has_value() &&
+                !m_deferredLoadingContext->launched &&
                 "Loading worker is running while input data is being set "
                 "up");
             m_deferredLoadingContext->meshes.emplace_back(
