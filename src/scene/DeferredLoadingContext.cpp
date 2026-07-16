@@ -1039,7 +1039,13 @@ void loadingWorker(DeferredLoadingContext *ctx)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
         {
-            refreshMeshCache(*ctx, ctx->workerLoadedMeshCount);
+            while (!std::atomic_ref{
+                ctx->meshCacheValid[ctx->workerLoadedMeshCount]}
+                        .load(std::memory_order_acquire))
+            {
+                std::atomic_ref{ctx->meshCacheValid[ctx->workerLoadedMeshCount]}
+                    .wait(false, std::memory_order_acquire);
+            }
             loadNextMesh(*ctx);
         }
         else
@@ -1073,10 +1079,12 @@ DeferredLoadingContext::~DeferredLoadingContext()
 {
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
-    if (launched && !worker.GetIsComplete())
+    if (launched &&
+        (!worker.GetIsComplete() || !meshCacheRefreshTaskSet.GetIsComplete()))
     {
         interruptLoading = true;
         utils::gTaskScheduler.WaitforTask(&worker);
+        utils::gTaskScheduler.WaitforTask(&meshCacheRefreshTaskSet);
     }
 
     gfx::gDevice.destroy(stagingBuffer);
@@ -1136,6 +1144,24 @@ void DeferredLoadingContext::launch()
         meshNames.emplace_back(gAllocators.general, meshName);
     }
 
+    meshCacheValid.resize(meshes.size(), false);
+    meshCacheRefreshTaskSet.m_Function =
+        [this](enki::TaskSetPartition range, uint32_t /*threadnum*/)
+    {
+        for (uint32_t i = range.start; i < range.end; ++i)
+        {
+            if (interruptLoading)
+                return;
+
+            refreshMeshCache(*this, i);
+            std::atomic_ref{meshCacheValid[i]}.store(
+                true, std::memory_order_release);
+            std::atomic_ref{meshCacheValid[i]}.notify_one();
+            gAllocators.threadAllocator().reset();
+        }
+    };
+    meshCacheRefreshTaskSet.m_SetSize = meshes.size();
+
     for (const cgltf_material &material :
          Span{gltfData->materials, gltfData->materials_count})
     {
@@ -1185,6 +1211,8 @@ void DeferredLoadingContext::launch()
         [this](enki::TaskSetPartition /*range*/, uint32_t /*threadnum*/)
     { loadingWorker(this); };
     utils::gTaskScheduler.AddTaskSetToPipe(&worker);
+    utils::gTaskScheduler.AddTaskSetToPipe(&meshCacheRefreshTaskSet);
+
     launched = true;
 }
 

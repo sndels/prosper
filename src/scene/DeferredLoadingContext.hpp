@@ -24,6 +24,7 @@
 #include <wheels/containers/pair.hpp>
 #include <wheels/containers/static_array.hpp>
 #include <wheels/containers/string.hpp>
+#include <wheels/owning_ptr.hpp>
 
 namespace scene
 {
@@ -136,6 +137,8 @@ class DeferredLoadingContext
     // responsible for their destruction. This array should only be read from
     // outside this class, write ops are not allowed.
     wheels::Array<gfx::Buffer> geometryBuffers{gAllocators.general};
+    wheels::Array<bool> meshCacheValid{gAllocators.general};
+    enki::TaskSet meshCacheRefreshTaskSet;
     std::mutex loadedMeshesMutex;
     wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes{
         gAllocators.general};
