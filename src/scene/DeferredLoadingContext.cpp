@@ -797,6 +797,37 @@ void writeCache(
     std::filesystem::rename(cacheTmpPath, cachePath);
 }
 
+void refreshMeshCache(DeferredLoadingContext &ctx, uint32_t meshIndex)
+{
+    const std::filesystem::path cachePath =
+        getCachePath(ctx.sceneDir, meshIndex);
+    if (cacheValid(cachePath, ctx.sceneWriteTime))
+        return;
+
+    const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
+        ctx.meshes[meshIndex];
+    const InputGeometryMetadata &metadata = nextMesh.first;
+    MeshInfo info = nextMesh.second;
+
+    MeshData meshData = getMeshData(metadata, info);
+
+    if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
+    {
+        generateTangents(meshData);
+        info.vertexCount = asserted_cast<uint32_t>(meshData.positions.size());
+    }
+
+    optimizeMeshData(meshData, info, ctx.meshNames[meshIndex].c_str());
+
+    generateMeshlets(meshData);
+
+    PackedMeshData packedMeshData = packMeshData(WHEELS_MOV(meshData));
+
+    writeCache(
+        ctx.sceneDir, ctx.sceneWriteTime, meshIndex, WHEELS_MOV(packedMeshData),
+        info);
+}
+
 void loadNextMesh(DeferredLoadingContext &ctx)
 {
     const uint32_t meshIndex = ctx.workerLoadedMeshCount;
@@ -813,34 +844,11 @@ void loadNextMesh(DeferredLoadingContext &ctx)
     WHEELS_ASSERT(families.graphicsFamily.has_value());
     WHEELS_ASSERT(families.transferFamily.has_value());
 
-    const Pair<InputGeometryMetadata, MeshInfo> &nextMesh =
-        ctx.meshes[meshIndex];
-    const InputGeometryMetadata &metadata = nextMesh.first;
-    MeshInfo info = nextMesh.second;
+    MeshInfo info = ctx.meshes[meshIndex].second;
 
     const std::filesystem::path cachePath =
         getCachePath(ctx.sceneDir, meshIndex);
-    if (!cacheValid(cachePath, ctx.sceneWriteTime))
-    {
-        MeshData meshData = getMeshData(metadata, info);
-
-        if (meshData.tangents.empty() && !meshData.texCoord0s.empty())
-        {
-            generateTangents(meshData);
-            info.vertexCount =
-                asserted_cast<uint32_t>(meshData.positions.size());
-        }
-
-        optimizeMeshData(meshData, info, ctx.meshNames[meshIndex].c_str());
-
-        generateMeshlets(meshData);
-
-        PackedMeshData packedMeshData = packMeshData(WHEELS_MOV(meshData));
-
-        writeCache(
-            ctx.sceneDir, ctx.sceneWriteTime, meshIndex,
-            WHEELS_MOV(packedMeshData), info);
-    }
+    WHEELS_ASSERT(cacheValid(cachePath, ctx.sceneWriteTime));
 
     // Always read from the cache to make caching issues always visible
     Array<uint8_t> dataBlob{gAllocators.threadAllocator()};
@@ -1030,7 +1038,10 @@ void loadingWorker(DeferredLoadingContext *ctx)
     while (!ctx->interruptLoading)
     {
         if (ctx->workerLoadedMeshCount < ctx->meshes.size())
+        {
+            refreshMeshCache(*ctx, ctx->workerLoadedMeshCount);
             loadNextMesh(*ctx);
+        }
         else
             loadNextTexture(*ctx);
 
