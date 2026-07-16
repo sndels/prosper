@@ -143,6 +143,8 @@ class DeferredLoadingContext
     wheels::Array<wheels::Pair<UploadedGeometryData, MeshInfo>> loadedMeshes{
         gAllocators.general};
 
+    wheels::Array<bool> textureCacheValid{gAllocators.general};
+    enki::TaskSet textureCacheRefreshTaskSet;
     std::mutex loadedTexturesMutex;
     wheels::Array<Texture2D> loadedTextures{gAllocators.general};
 

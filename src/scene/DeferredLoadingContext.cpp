@@ -1082,8 +1082,16 @@ void loadingWorker(DeferredLoadingContext *ctx)
                 ctx->interruptLoading = true;
                 return;
             }
-            refreshTextureCache(*ctx, ctx->workerLoadedImageCount);
-            gAllocators.threadAllocator().reset();
+            while (!std::atomic_ref{
+                ctx->textureCacheValid[ctx->workerLoadedImageCount]}
+                        .load(std::memory_order_acquire))
+            {
+                utils::gTaskScheduler.WaitforTask(
+                    nullptr); // Try to run a single task
+                std::atomic_ref{
+                    ctx->textureCacheValid[ctx->workerLoadedImageCount]}
+                    .wait(false, std::memory_order_acquire);
+            }
             loadNextTexture(*ctx);
         }
 
@@ -1116,11 +1124,13 @@ DeferredLoadingContext::~DeferredLoadingContext()
     // Don't check for m_initialized as we might be cleaning up after a failed
     // init.
     if (launched &&
-        (!worker.GetIsComplete() || !meshCacheRefreshTaskSet.GetIsComplete()))
+        (!worker.GetIsComplete() || !meshCacheRefreshTaskSet.GetIsComplete() ||
+         !textureCacheRefreshTaskSet.GetIsComplete()))
     {
         interruptLoading = true;
         utils::gTaskScheduler.WaitforTask(&worker);
         utils::gTaskScheduler.WaitforTask(&meshCacheRefreshTaskSet);
+        utils::gTaskScheduler.WaitforTask(&textureCacheRefreshTaskSet);
     }
 
     gfx::gDevice.destroy(stagingBuffer);
@@ -1198,6 +1208,24 @@ void DeferredLoadingContext::launch()
     };
     meshCacheRefreshTaskSet.m_SetSize = meshes.size();
 
+    textureCacheValid.resize(gltfData->images_count, false);
+    textureCacheRefreshTaskSet.m_Function =
+        [this](enki::TaskSetPartition range, uint32_t /*threadnum*/)
+    {
+        for (uint32_t i = range.start; i < range.end; ++i)
+        {
+            if (interruptLoading)
+                return;
+
+            refreshTextureCache(*this, i);
+            std::atomic_ref{textureCacheValid[i]}.store(
+                true, std::memory_order_release);
+            std::atomic_ref{textureCacheValid[i]}.notify_one();
+            gAllocators.threadAllocator().reset();
+        }
+    };
+    textureCacheRefreshTaskSet.m_SetSize = gltfData->images_count;
+
     for (const cgltf_material &material :
          Span{gltfData->materials, gltfData->materials_count})
     {
@@ -1248,6 +1276,7 @@ void DeferredLoadingContext::launch()
     { loadingWorker(this); };
     utils::gTaskScheduler.AddTaskSetToPipe(&worker);
     utils::gTaskScheduler.AddTaskSetToPipe(&meshCacheRefreshTaskSet);
+    utils::gTaskScheduler.AddTaskSetToPipe(&textureCacheRefreshTaskSet);
 
     launched = true;
 }
