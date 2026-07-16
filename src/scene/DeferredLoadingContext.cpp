@@ -918,22 +918,47 @@ void loadNextMesh(DeferredLoadingContext &ctx)
     }
 }
 
-void loadNextTexture(DeferredLoadingContext &ctx)
+void refreshTextureCache(DeferredLoadingContext &ctx, uint32_t imageIndex)
 {
-    const uint32_t imageIndex = ctx.workerLoadedImageCount;
-    if (imageIndex == ctx.gltfData->images_count)
-    {
-        LOG_INFO("Texture loading took {:.2f}s", ctx.textureTimer.getSeconds());
-        ctx.interruptLoading = true;
-        return;
-    }
-
     WHEELS_ASSERT(ctx.gltfData->images_count > imageIndex);
+
     const cgltf_image &image = ctx.gltfData->images[imageIndex];
     if (image.uri == nullptr)
         throw std::runtime_error(
             "Embedded glTF textures aren't supported. "
             "Scene should be glTF + bin + textures.");
+
+    LinearAllocator scopeBacking{
+        gAllocators.threadAllocator(), Allocators::sLoadingScratchSize};
+
+    TextureColorSpace colorSpace = TextureColorSpace::sRgb;
+    if (ctx.linearColorImages.contains(imageIndex))
+    {
+        WHEELS_ASSERT(
+            !ctx.sRgbColorImages.contains(imageIndex) &&
+            "Image should belong to exactly one colorspace set");
+        colorSpace = TextureColorSpace::Linear;
+    }
+    else
+        WHEELS_ASSERT(
+            ctx.sRgbColorImages.contains(imageIndex) &&
+            "Image should belong to exactly one colorspace set");
+
+    const std::filesystem::path imagePath = ctx.sceneDir / image.uri;
+    const Texture2DOptions options{
+        .generateMipMaps = true,
+        .colorSpace = colorSpace,
+    };
+
+    Texture2D::refreshCache(ScopedScratch{scopeBacking}, imagePath, options);
+}
+
+void loadNextTexture(DeferredLoadingContext &ctx)
+{
+    const uint32_t imageIndex = ctx.workerLoadedImageCount;
+
+    WHEELS_ASSERT(ctx.gltfData->images_count > imageIndex);
+    const cgltf_image &image = ctx.gltfData->images[imageIndex];
 
     ctx.cb.reset();
     ctx.cb.begin(
@@ -963,7 +988,6 @@ void loadNextTexture(DeferredLoadingContext &ctx)
         .colorSpace = colorSpace,
     };
 
-    Texture2D::refreshCache(ScopedScratch{scopeBacking}, imagePath, options);
     Texture2D tex;
     tex.init(
         ScopedScratch{scopeBacking}, imagePath, ctx.cb, ctx.stagingBuffer,
@@ -1049,7 +1073,19 @@ void loadingWorker(DeferredLoadingContext *ctx)
             loadNextMesh(*ctx);
         }
         else
+        {
+            if (ctx->workerLoadedImageCount == ctx->gltfData->images_count)
+            {
+                LOG_INFO(
+                    "Texture loading took {:.2f}s",
+                    ctx->textureTimer.getSeconds());
+                ctx->interruptLoading = true;
+                return;
+            }
+            refreshTextureCache(*ctx, ctx->workerLoadedImageCount);
+            gAllocators.threadAllocator().reset();
             loadNextTexture(*ctx);
+        }
 
         gAllocators.threadAllocator().reset();
     }
