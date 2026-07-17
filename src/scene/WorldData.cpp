@@ -673,7 +673,7 @@ void WorldData::drawDeferredLoadingUi() const
                 "Images loaded: %u/%u",
                 m_deferredLoadingContext->loadedImageCount,
                 asserted_cast<uint32_t>(
-                    m_deferredLoadingContext->gltfData->textures_count));
+                    m_deferredLoadingContext->gltfData->images_count));
         }
         ImGui::End();
     }
