@@ -475,7 +475,6 @@ void WorldData::init(
     reflectBindings(scopeAlloc.child_scope());
     createDescriptorSets(scopeAlloc.child_scope(), ringBuffers);
 
-    m_deferredLoadingContext->launch();
     m_initialized = true;
 }
 
